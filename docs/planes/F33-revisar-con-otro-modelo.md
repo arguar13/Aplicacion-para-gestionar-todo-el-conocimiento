@@ -483,3 +483,42 @@ Partes, un commit cada una:
   mezclados.
 - **Mutación: 13 de 13 muertas.** «la nota sin introducción» sobrevivía porque la nota de la
   prueba tenía un solo título; ahora tiene dos secciones.
+
+### Paso 5 (hecho): el aviso al cambiar a un modelo más capaz
+
+- **No escucha el cambio, sino lo que queda** (`AiReviewSwitchOfferListener`, montado en
+  `app.dart` junto a los otros avisos de toda la app). Avisa cuando se cumplen todas estas
+  condiciones:
+  - el modelo elegido **ya puede contestar** (`languageModelStatusProvider`);
+  - no hay una revisión a la vista;
+  - tiene algo para revisar de un modelo **menos capaz** (`aiReviewOfferProvider`);
+  - todavía no se le ofreció.
+
+  Así también sale cuando el modelo nuevo recién queda listo (se bajó Gemma 4 12B, se cargó la
+  clave), y no mientras la persona lo está preparando. Mientras la cuenta se vuelve a hacer para el
+  modelo nuevo, no mira lo que se contó para el anterior.
+- **Más capaz** (`isMoreCapableModel`, en `ai_models/domain/services/model_capability.dart`):
+  - uno en la nube es más capaz que Gemma en el teléfono, y una pasada sin el modelo anotado era de
+    Gemma;
+  - dentro de un proveedor, el más grande:
+    - Gemma: 12B sobre los E4B;
+    - Gemini: Pro, después Flash, después Flash Lite;
+    - Claude: Opus o Fable, después Sonnet, después Haiku;
+    - OpenAI: el entero, después mini, después nano.
+
+  La versión no cuenta, solo el tamaño. Entre proveedores distintos, o con un modelo que no se
+  conoce, no se sabe: no avisa, y no lo da por ofrecido.
+- **Una vez por modelo** (`AiReviewSwitchOffers`, la lista `ai_review_switch_offered` en las
+  preferencias), se acepte o no. Queda anotado antes de mostrar la hoja.
+- **La hoja** dice: «Cambiaste a Gemini 3.8 Flash. ¿Querés que revise lo que hizo Gemma 4 E4B?
+  Son 312 cosas en 85 elementos…», con «No, gracias» y «Revisar con …». Cuando hay más de un
+  modelo menos capaz, nombra al de más cosas. «Revisar con …» llama a `startAiReview` con
+  `madeBy`, así que primero muestra el costo. La hoja se desplaza: con letra grande no se corta.
+- **De paso, de raíz:** las pasadas de Gemma guardan `ChatModelOption.name` («gemma4E4b»), y
+  `modelLabel` lo mostraba tal cual: el botón decía «Revisar con gemma4E4b». Ahora dice «Gemma 4
+  E4B», como la pantalla del modelo. Una prueba exige que toda variante nueva tenga su nombre.
+- **Pruebas:** la regla (6), el nombre (3), el aviso (9: ofrece, «No, gracias» no vuelve, revisar
+  va al costo con lo del anterior, espera a que esté listo, una vez por modelo, otro proveedor no,
+  nada que revisar no, revisión en curso no, sin la cuenta vieja).
+- **Mutación: 20 de 20 muertas.**
+

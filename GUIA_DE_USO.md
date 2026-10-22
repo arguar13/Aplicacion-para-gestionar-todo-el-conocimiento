@@ -807,6 +807,19 @@ IA".
 - **Un elemento**: en la línea "La IA organizó esto" de su panel, **"Revisar
   con …"**. Ahí revisa todo lo de la IA en ese elemento, aunque lo haya hecho o
   revisado el mismo modelo.
+- **Al cambiar a un modelo más capaz**, un aviso **una sola vez por modelo**:
+  *"Cambiaste a Gemini 3.8 Flash. ¿Querés que revise lo que hizo Gemma 4
+  E4B?"*, con cuántas cosas son. **"Revisar con …"** revisa solo lo de ese
+  modelo (primero te dice cuánto cuesta); **"No, gracias"** lo cierra, y para
+  ese modelo no vuelve a salir: queda la tarjeta de "Lo que hizo la IA".
+  - "Más capaz" es un modelo en la nube después de Gemma en el teléfono, o uno
+    más grande del mismo proveedor: Gemma 4 12B después de los E4B; en Gemini,
+    Pro sobre Flash y Flash sobre Flash Lite; en Claude, Opus o Fable sobre
+    Sonnet y Sonnet sobre Haiku; en OpenAI, el entero sobre mini y mini sobre
+    nano. Entre proveedores distintos no se sabe cuál es mejor, y no avisa.
+  - Sale cuando el modelo nuevo **ya puede contestar** (bajado, o con su
+    clave), no mientras lo estás preparando, y no si ya hay una revisión en
+    curso.
 
 **Antes de empezar te dice cuánto cuesta**: cuántas cosas, en cuántos
 elementos y unos cuántos pedidos al modelo (las tarjetas y lo demás van en

@@ -14,6 +14,7 @@ import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_notice_listener.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_review_switch_offer.dart';
 import 'package:sinapsis/features/chat/presentation/providers/model_memory_providers.dart';
 import 'package:sinapsis/features/keep_working/presentation/widgets/keep_working_offer_listener.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
@@ -107,8 +108,13 @@ class _AppState extends ConsumerState<App> {
             child: AiNoticeListener(
               onOpenAccounts: () =>
                   unawaited(router.push(RoutePaths.languageModel)),
-              child: GlobalErrorListener(
-                child: child ?? const SizedBox.shrink(),
+              // Al cambiar a un modelo más capaz, una vez, que revise lo
+              // que hizo el anterior (F33).
+              child: AiReviewSwitchOfferListener(
+                navigatorKey: router.routerDelegate.navigatorKey,
+                child: GlobalErrorListener(
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
             ),
           ),

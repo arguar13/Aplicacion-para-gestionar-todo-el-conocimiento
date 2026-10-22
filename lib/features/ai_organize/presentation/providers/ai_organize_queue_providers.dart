@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
@@ -263,3 +264,23 @@ final aiReviewOfferProvider = FutureProvider.autoDispose<List<AiModelWork>>((
           .aiWorkByModel(reviewer: reviewer))
       .getOrElse((_) => const []);
 });
+
+/// A qué modelos ya se les ofreció revisar lo de uno anterior al elegirlos
+/// (F33, decisión D): el aviso sale una vez por modelo, se acepte o no.
+class AiReviewSwitchOffers {
+  const AiReviewSwitchOffers(this._prefs);
+
+  static const _key = 'ai_review_switch_offered';
+
+  final SharedPreferences _prefs;
+
+  bool wasOffered(String model) =>
+      (_prefs.getStringList(_key) ?? const []).contains(model);
+
+  Future<void> markOffered(String model) =>
+      _prefs.setStringList(_key, [...?_prefs.getStringList(_key), model]);
+}
+
+final aiReviewSwitchOffersProvider = Provider<AiReviewSwitchOffers>(
+  (ref) => AiReviewSwitchOffers(ref.watch(sharedPreferencesProvider)),
+);

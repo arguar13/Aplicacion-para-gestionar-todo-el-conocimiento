@@ -10134,5 +10134,11 @@
   "aiCorrectionFixMapIntro": "Fix the introduction",
   "@aiCorrectionFixMapIntro": {"description": "Revisar con otro modelo (F33): una corrección de la introducción de una nota mapa."},
   "aiCorrectionMapIntro": "Introduction",
-  "@aiCorrectionMapIntro": {"description": "Revisar con otro modelo (F33): rótulo del texto de la introducción de una nota mapa."}
+  "@aiCorrectionMapIntro": {"description": "Revisar con otro modelo (F33): rótulo del texto de la introducción de una nota mapa."},
+  "aiRecheckSwitchTitle": "You switched to {model}",
+  "@aiRecheckSwitchTitle": {"description": "Revisar con otro modelo (F33): título del aviso, una vez, al elegir un modelo más capaz.", "placeholders": {"model": {"type": "String"}}},
+  "aiRecheckSwitchBody": "Want it to check what {madeBy} did? That’s {things} in {items}. It only fixes or removes, never adds, and it tells you the cost before starting.",
+  "@aiRecheckSwitchBody": {"description": "Revisar con otro modelo (F33): el aviso al elegir un modelo más capaz; madeBy es el modelo anterior, things y items lo que hizo.", "placeholders": {"madeBy": {"type": "String"}, "things": {"type": "String"}, "items": {"type": "String"}}},
+  "aiRecheckSwitchLater": "No, thanks",
+  "@aiRecheckSwitchLater": {"description": "Revisar con otro modelo (F33): no aceptar el aviso; no vuelve a salir para ese modelo."}
 }

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_label.dart';
+import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
 
 /// Cómo se le muestra a la persona el modelo que hizo algo (F33).
 void main() {
@@ -20,8 +21,24 @@ void main() {
     expect(modelLabel('o4-mini'), 'o4-mini');
   });
 
-  test('Gemma y lo que no se conoce, como viene', () {
+  test('Gemma en el teléfono, como la nombra la pantalla del modelo', () {
+    expect(modelLabel('gemma4E4b'), 'Gemma 4 E4B');
+    expect(modelLabel('gemma3nE4b'), 'Gemma 3n E4B');
+    expect(modelLabel('gemma412b'), 'Gemma 4 12B');
+    expect(isLocalGemma('gemma412b'), isTrue);
+    expect(isLocalGemma('gemma-3-27b-it'), isFalse);
+  });
+
+  test('toda variante de Gemma tiene su nombre para leer', () {
+    for (final option in ChatModelOption.values) {
+      expect(isLocalGemma(option.name), isTrue, reason: option.name);
+      expect(modelLabel(option.name), startsWith('Gemma '));
+    }
+  });
+
+  test('lo que no se conoce, como viene', () {
     expect(modelLabel('Gemma 4 E4B'), 'Gemma 4 E4B');
     expect(modelLabel('  otro-modelo '), 'otro-modelo');
+    expect(isLocalGemma('otro-modelo'), isFalse);
   });
 }
