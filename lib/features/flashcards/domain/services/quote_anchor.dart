@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:sinapsis/core/util/word_folding.dart';
 import 'package:sinapsis/features/flashcards/domain/services/source_quote_locator.dart';
 
 /// Dónde está, en el texto, el pasaje del que una tarjeta de la IA dice salir
@@ -208,8 +209,7 @@ class _Token {
   /// conjunción, que están en cualquier pasaje.
   /// Una letra sola —la «a» de «a. C.»— tampoco.
   bool get meaningful =>
-      (folded.length > 1 || _digits.hasMatch(folded)) &&
-      !_stopWords.contains(folded);
+      (folded.length > 1 || _digits.hasMatch(folded)) && !isCommonWord(folded);
 
   /// Su raíz, para que una cita en otro tiempo verbal o con la palabra
   /// derivada cuente: las primeras cinco letras. Los números, enteros.
@@ -228,7 +228,7 @@ List<_Token> _tokensOf(String text) {
   final buffer = StringBuffer();
   var start = -1;
   for (var i = 0; i < text.length; i++) {
-    final folded = _fold(text.codeUnitAt(i));
+    final folded = foldWordChar(text.codeUnitAt(i));
     if (folded != null) {
       if (start < 0) start = i;
       buffer.write(folded);
@@ -262,61 +262,3 @@ List<_Token> _tokensOf(String text) {
 /// Lo que hay entre dos palabras cuando termina una oración: un salto de
 /// línea, o un signo de cierre seguido de un espacio o del final. «1.5» no.
 final _sentenceEnd = RegExp(r'\n|[.!?…](\s|$)');
-
-/// La letra o el número [unit] en minúscula y sin acento, o `null` si no es
-/// ni una cosa ni la otra.
-String? _fold(int unit) {
-  final char = String.fromCharCode(unit).toLowerCase();
-  final plain = _accents[char];
-  if (plain != null) return plain;
-  final code = char.codeUnitAt(0);
-  final isLetterOrDigit =
-      (code >= 0x30 && code <= 0x39) ||
-      (code >= 0x61 && code <= 0x7a) ||
-      // El resto de las letras —griego, cirílico…— cuentan tal cual.
-      (code >= 0xc0 && char != char.toUpperCase());
-  return isLetterOrDigit ? char : null;
-}
-
-const _accents = {
-  'á': 'a',
-  'à': 'a',
-  'â': 'a',
-  'ä': 'a',
-  'ã': 'a',
-  'é': 'e',
-  'è': 'e',
-  'ê': 'e',
-  'ë': 'e',
-  'í': 'i',
-  'ì': 'i',
-  'î': 'i',
-  'ï': 'i',
-  'ó': 'o',
-  'ò': 'o',
-  'ô': 'o',
-  'ö': 'o',
-  'õ': 'o',
-  'ú': 'u',
-  'ù': 'u',
-  'û': 'u',
-  'ü': 'u',
-  'ñ': 'n',
-  'ç': 'c',
-};
-
-/// Lo que está en cualquier pasaje, en castellano y en inglés —las dos
-/// lenguas de la app—: no dice de cuál es una cita. Ya plegadas.
-const _stopWords = {
-  // Castellano.
-  'a', 'al', 'ante', 'con', 'como', 'cual', 'cuando', 'de', 'del', 'desde',
-  'donde', 'durante', 'e', 'el', 'en', 'entre', 'era', 'eran', 'es', 'esa',
-  'ese', 'eso', 'esta', 'este', 'esto', 'fue', 'fueron', 'ha', 'han', 'hasta',
-  'la', 'las', 'le', 'les', 'lo', 'los', 'mas', 'muy', 'ni', 'no', 'o', 'para',
-  'pero', 'por', 'que', 'se', 'ser', 'si', 'sin', 'sobre', 'son', 'su', 'sus',
-  'tambien', 'u', 'un', 'una', 'unas', 'uno', 'unos', 'y', 'ya',
-  // Inglés.
-  'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'had', 'has',
-  'have', 'in', 'is', 'it', 'its', 'of', 'on', 'or', 'that', 'the', 'their',
-  'this', 'to', 'was', 'were', 'which', 'with',
-};

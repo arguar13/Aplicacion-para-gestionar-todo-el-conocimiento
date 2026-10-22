@@ -1,6 +1,8 @@
 # F36 — Resumen, síntesis y palabras clave resaltados en el documento
 
-> **Estado: propuesto** (2026-10-22). Falta la aprobación en el chat.
+> **Estado: en construcción** (2026-10-22).
+>
+> **Aprobado** (2026-10-22), en el chat: *"aprobado"* —con las decisiones A–D tal como están—.
 >
 > Pedido: *"cuando se trate de un documento de texto (en el formato que sea) que tenga una opción
 > elegante resumir y otra de síntesis (usando el modelo de IA que habíamos elegido en las
@@ -153,4 +155,19 @@ Va en el detalle, entre el original y lo demás, solo en documentos. Tiene tres 
 
 ## Avance
 
-*(se completa a medida que se construye)*
+### Paso 1 (hecho)
+
+- `lib/features/study/domain/services/`:
+  - `study_sentences.dart`: `splitStudySentences` parte en bloques —renglón en blanco, separador de
+    páginas, título, ítem, viñeta— y cada bloque en oraciones. Un salto de línea solo no corta, y
+    tampoco cortan una abreviatura, una inicial ni lo que sigue en minúscula. Una oración de más de
+    600 caracteres se parte en sus renglones.
+  - `study_words.dart`: las palabras con su lugar, `pickKeywords` (solo palabras de la oración, sin
+    las vacías, hasta 4) y `studyWordAt`.
+  - `study_reply.dart`: `studyPartEnd` (las partes, hasta 120 oraciones), `buildStudyPrompt` (las
+    oraciones numeradas y sin marcado), `parseStudyReply` (tolerante a acentos, viñetas, negritas,
+    rangos y «ninguna»; `null` si no contestó en el formato) y `studyReplyTokens`.
+- El plegado de acentos y las palabras vacías salen de `quote_anchor.dart` a
+  `lib/core/util/word_folding.dart`, compartido: no quedan dos copias.
+- Pruebas: 46. Mutación 25/25. Una condición que sobraba (el rango al revés, que el ciclo ya no
+  recorre) se sacó.
