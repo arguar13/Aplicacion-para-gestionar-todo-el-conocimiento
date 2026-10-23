@@ -51,7 +51,12 @@ void main() {
   const content =
       'La revolución industrial cambió todo. Nada más.\n\n'
       'Las fábricas usaban vapor.';
-  const text = (renditionId: 'r1', content: content, markdown: true);
+  const text = (
+    itemId: 'i1',
+    renditionId: 'r1',
+    content: content,
+    markdown: true,
+  );
   const summarySentence = 'La revolución industrial cambió todo.';
 
   StudyMark mark(String id, StudyMarkKind kind, String part) {
