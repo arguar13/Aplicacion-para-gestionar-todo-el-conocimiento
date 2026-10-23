@@ -87,6 +87,33 @@ void main() {
     expect(drawn.every((d) => d.$2.blendMode == BlendMode.multiply), isTrue);
   });
 
+  test(
+    'la primera página fija, sin visor ni controlador, pinta lo mismo y '
+    'avisa cuando la página recién leída pide dibujarse otra vez (F39)',
+    () async {
+      var repaints = 0;
+      overlay = PdfStudyOverlay.fixed(onRepaint: () => repaints++);
+      final page = addPage('Hola mundo');
+      overlay.update(
+        content: 'Hola mundo',
+        paints: const [PaintedRange(0, 4, background: green)],
+        scannedNotice: '',
+      );
+      final before = repaints;
+
+      expect(paint(page).rects, isEmpty);
+      await pumpEventQueue();
+
+      expect(repaints, greaterThan(before));
+      expect(
+        [for (final (rect, _) in paint(page).rects) rect],
+        const [Rect.fromLTRB(0, 100, 40, 110)],
+      );
+      // Sin controlador no hay a qué toque responder.
+      expect(overlay.offsetAt(const Offset(5, 105)), isNull);
+    },
+  );
+
   test('sin nada prendido no lee ni pinta', () async {
     final page = addPage('Hola');
     overlay.update(content: 'Hola', paints: const [], scannedNotice: '');

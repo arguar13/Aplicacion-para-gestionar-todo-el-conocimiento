@@ -5,11 +5,11 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/document_first_page_preview.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/image_viewer_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/pdf_viewer_view.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/pdf_first_page_preview.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/web_page_viewer_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/youtube_embed_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -20,23 +20,22 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Cada `SourceKind` con algo que mostrar se ve en su forma natural: una
 /// foto o un video se ven como tales, un PDF con su maquetación de verdad,
 /// la página web archivada con sus imágenes en su lugar, y un DOCX o un
-/// EPUB con el mismo formato paginado y con tipografía de libro que ya
-/// tenía el viejo "Modo lectura" —ver `DocumentReaderView`—, en vez del
-/// texto corrido sin forma que se ve más abajo con `HighlightableText`.
-/// Ese texto corrido sigue estando —es lo que permite subrayar y buscar—,
-/// pero ya no es la única manera de leerlo: arriba se ve como el documento
-/// que es. Un video de YouTube es la única excepción real: lo que se ve es
-/// su miniatura, no un reproductor propio, porque lo que hay para mostrar
-/// no es un archivo de este elemento sino el video original — ver
-/// `YoutubeEmbedView`.
+/// EPUB con la tipografía de libro que ya tenía el viejo "Modo lectura"
+/// —ver `DocumentReaderView`—. Un documento para leer —un PDF, un DOCX, un
+/// EPUB, un texto— se ve como su **primera página, fija** (F39): no se
+/// desplaza ni se hace zoom, y arrastrar encima mueve el detalle, no el
+/// documento; se lee entero con «Leer como libro» o tocándola — ver
+/// `PdfFirstPagePreview` y `DocumentFirstPagePreview`. Un video de YouTube
+/// es la única excepción real: lo que se ve es su miniatura, no un
+/// reproductor propio, porque lo que hay para mostrar no es un archivo de
+/// este elemento sino el video original — ver `YoutubeEmbedView`.
 ///
 /// Ocupa un marco de alto acotado, no lo que le haga falta: un PDF o un
 /// video no tienen por qué apoderarse de la pantalla del detalle, y cada
-/// visor —`PdfViewerView`, `MediaPlayerView`, `DocumentReaderView`— ya sabe
-/// manejarse dentro de cualquier alto que se le dé, con su propio scroll o
-/// paginado por dentro. Quien quiera más lugar toca el botón de expandir,
-/// que lleva a la misma pantalla completa que abriría el viejo botón "Ver"
-/// — ver `openDocumentViewer`.
+/// visor —`MediaPlayerView`, `WebPageViewerView`— ya sabe manejarse dentro de
+/// cualquier alto que se le dé. Quien quiera más lugar toca el botón de
+/// expandir, que lleva a la misma pantalla completa que abriría el viejo
+/// botón "Ver" — ver `openDocumentViewer`.
 ///
 /// En un documento para leer —un PDF, un DOCX o un EPUB, un texto— ese
 /// botón va grande, semitransparente y en el centro, con «Leer como libro»
@@ -117,11 +116,11 @@ class EmbeddedFileViewer extends ConsumerWidget {
           tall: true,
           onExpand: expand,
           bigButtonLabel: l10n.detailReadAsBook,
-          child: DocumentReaderView(
-            title: item.title,
+          child: DocumentFirstPagePreview(
             content: content,
             markdown: markdown,
             study: study,
+            onTap: expand,
           ),
         ),
       ImageResolvedViewer(:final path) => _EmbeddedViewerFrame(
@@ -140,7 +139,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
         tall: true,
         onExpand: expand,
         bigButtonLabel: l10n.detailReadAsBook,
-        child: PdfViewerView(path: path, text: text),
+        child: PdfFirstPagePreview(path: path, text: text, onTap: expand),
       ),
       WebPageResolvedViewer(:final path, :final url, :final text) =>
         _EmbeddedViewerFrame(

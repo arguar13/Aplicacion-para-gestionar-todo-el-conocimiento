@@ -630,17 +630,22 @@ nada. Un PDF que no deja copiar su texto no ofrece Copiar.
 Si un elemento tiene un archivo asociado (una foto, un PDF, un video, una
 página web guardada, un documento), se ve automáticamente incrustado dentro
 de su pantalla de detalle, sin que tengas que tocar nada — cada tipo se
-muestra en su forma natural: una foto se ve como foto, un PDF se puede pasar
-de página y hacer zoom, un audio o video trae su propio reproductor.
+muestra en su forma natural: una foto se ve como foto, un audio o video trae
+su propio reproductor. Un documento para leer (PDF, Word, EPUB, texto) se ve
+como su **primera página, fija**: no se desplaza ni se agranda, así que
+podés bajar por el detalle —a las tarjetas, las referencias o las normas—
+arrastrando desde encima de ella sin que la página se mueva.
 
 Para verlo a pantalla completa:
 
 - **En un documento para leer** (un PDF, un Word, un EPUB o un texto), en el
   centro del recuadro hay un botón grande y semitransparente, con unas flechas
   y la leyenda **«Leer como libro»**. Tocalo y el documento se abre a pantalla
-  completa, para leerlo como un libro. Como es semitransparente, el documento
-  se sigue viendo debajo. Fuera del botón podés desplazarte por el documento
-  como siempre.
+  completa, para leerlo como un libro (el zoom, pasar de página y resaltar
+  se hacen ahí). Como es semitransparente, la primera página se sigue viendo
+  debajo; tocarla, en cualquier parte, hace lo mismo que el botón. Arrastrar
+  el dedo hacia arriba o hacia abajo sobre ella mueve la pantalla, no el
+  documento.
 - **En una página web guardada**, el mismo botón grande dice **«Ver la
   página»**: la abre a pantalla completa, tal como era, con sus fotos en su
   lugar.

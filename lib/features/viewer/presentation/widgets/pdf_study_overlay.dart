@@ -36,10 +36,20 @@ import 'package:sinapsis/features/viewer/presentation/widgets/document_hand_mark
 /// Además de pintar, sabe el camino de vuelta: de una selección sobre el PDF
 /// al tramo del texto extraído ([locateSelection]) y de un toque al
 /// resaltado de ahí ([highlightAt]).
+///
+/// Sirve a un visor con controlador ([PdfStudyOverlay.new]) y a la primera
+/// página fija de la vista previa ([PdfStudyOverlay.fixed]), que no tiene
+/// controlador: ahí solo pinta, y avisa con `onRepaint` cuando una página
+/// recién leída pide volver a dibujarse.
 class PdfStudyOverlay {
-  PdfStudyOverlay(this._controller);
+  PdfStudyOverlay(PdfViewerController this._controller) : _onRepaint = null;
 
-  final PdfViewerController _controller;
+  PdfStudyOverlay.fixed({required VoidCallback onRepaint})
+    : _controller = null,
+      _onRepaint = onRepaint;
+
+  final PdfViewerController? _controller;
+  final VoidCallback? _onRepaint;
 
   String? _content;
   List<PaintedRange> _paints = const [];
@@ -181,15 +191,16 @@ class PdfStudyOverlay {
   /// coordenadas del documento, las de un toque de `pdfrx`—, o `null` si ahí
   /// no hay una letra de una página ya leída.
   int? offsetAt(Offset documentPosition) {
-    if (!_controller.isReady) return null;
-    final layouts = _controller.layout.pageLayouts;
+    final controller = _controller;
+    if (controller == null || !controller.isReady) return null;
+    final layouts = controller.layout.pageLayouts;
     final index = layouts.indexWhere((r) => r.contains(documentPosition));
     if (index < 0) return null;
     final studied = _pages[index + 1];
     if (studied == null) return null;
     final pageRect = layouts[index];
     final point = (documentPosition - pageRect.topLeft).toPdfPoint(
-      page: _controller.pages[index],
+      page: controller.pages[index],
       scaledPageSize: pageRect.size,
     );
     return studied.offsetAt(point);
@@ -395,7 +406,9 @@ class PdfStudyOverlay {
   }
 
   void _repaintSoon() {
-    if (_controller.isReady) _controller.invalidate();
+    final controller = _controller;
+    if (controller != null && controller.isReady) controller.invalidate();
+    _onRepaint?.call();
   }
 
   void _paintNotice(Canvas canvas, Rect pageRect) {

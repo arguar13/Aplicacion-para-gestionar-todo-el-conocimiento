@@ -370,3 +370,18 @@
   - **Progreso**: la franja muestra la parte, el porcentaje y, desde la primera parte hecha, cuánto
     falta aproximado (`StudyEta`, con reloj inyectable).
   - Pruebas con adaptadores de dio grabados, sin llamadas reales; 61 mutaciones, todas muertas.
+- **La vista previa de un documento, fija en la primera página — hecho.**
+  - **Causa**: el detalle embebía el visor completo —`PdfViewer` en un PDF; `PageView`, un
+    desplazamiento por página y texto seleccionable en los demás—, que toma el arrastre vertical y
+    mueve el documento en vez del detalle.
+  - Ahora la vista previa es una vista quieta de la página 1, sin más gesto que el toque: el PDF
+    como imagen de la página (`PdfFirstPagePreview`, el mismo PDFium, renderizada una vez) y Word,
+    EPUB, TXT y Markdown como la primera hoja del lector (`DocumentFirstPagePreview`, con
+    `readerPageRanges`). Bajar por el detalle hacia las tarjetas, las referencias o las normas no
+    mueve la página.
+  - Tocar la página o «Leer como libro» abre el lector a pantalla completa. Lo estudiado y lo
+    resaltado a mano de la página 1 se siguen viendo (`PdfStudyOverlay.fixed` en el PDF). El zoom,
+    pasar de página, seleccionar, resaltar y lo que se lee en voz alta quedan en el lector; el
+    lector flotante de voz alta lee el detalle.
+  - 13 pruebas en el detalle real (el arrastre mueve el detalle y la página sigue en la 1, en cada
+    formato) y 6 de pintado; 13 mutaciones, todas muertas.
