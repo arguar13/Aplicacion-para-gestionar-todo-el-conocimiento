@@ -44,4 +44,17 @@ class HighlightPalette {
       null => theme.colorScheme.tertiaryContainer,
     };
   }
+
+  /// El color de la línea de un subrayado de [color] (F38). Un tono de
+  /// resaltador es clarísimo y, como línea fina sobre el papel claro, casi
+  /// no se ve: en el tema claro se oscurece hasta que la línea se distinga;
+  /// en el oscuro el tono ya contrasta con el fondo y se deja como está.
+  static Color line(BuildContext context, HighlightColor? color) {
+    final base = resolve(context, color);
+    if (Theme.of(context).brightness == Brightness.dark) return base;
+    final hsl = HSLColor.fromColor(base);
+    return hsl.withLightness(hsl.lightness * _lineDarkening).toColor();
+  }
+
+  static const _lineDarkening = 0.55;
 }

@@ -140,6 +140,36 @@
 - El tono de cada color, en los dos temas y en lo que se descarga, está en `HighlightPalette`
   (`lib/core/design/`). Sin color, el de siempre.
 
+
+### Paso 3 (hecho): la barrita y la ficha, en «Texto extraído» y en el lector
+
+- **La barrita** (`HighlightToolbar`, `lib/core/design/`): sobre la selección, una fila con los
+  cuatro colores (resaltan de fondo, sin preguntar nada), **Subrayar** (línea del último color
+  elegido, o el primero) y debajo Copiar, Escuchar, Nota, Extraer como nota y Hacer tarjeta.
+  Compartir, Seleccionar todo y Buscar en la Web quedan detrás de «Más opciones», para no perder
+  lo de siempre. No depende de un texto seleccionable: recibe dónde está la selección en la
+  pantalla (`TextSelectionToolbarAnchors`) y un callback por botón —el que no tiene, no se
+  dibuja—, para que la usen también el PDF real y la página web (paso 4).
+- **La ficha** (`showHighlightCard`): al tocar algo ya resaltado, desde abajo: cambiarle el color,
+  pasarlo de fondo a subrayado o al revés (se ve al instante), escribirle la nota o quitarlo.
+- **Un lugar para lo que comparten** (`organize/presentation/hand_highlighting.dart`): resaltar,
+  resaltar con nota, extraer como nota, hacer tarjeta y abrir la ficha, que antes vivían dentro de
+  `HighlightableText`, ahora los usan también el lector de Word, EPUB y texto (en «Leer como
+  libro» y embebido).
+- **Los mismos resaltados en los dos lados.** El lector ya sabía de qué texto es lo que muestra
+  (`StudyText`, de F36), pero no de qué elemento: ahora lo lleva (`itemId`), y con eso guarda los
+  resaltados, extrae notas y hace tarjetas **en posiciones del texto extraído**, aunque cada página
+  sea un tramo de él. Sin ese texto —un adjunto— no hay dónde guardar nada, y queda el menú de
+  siempre.
+- **Pintado**: cada resaltado con su color y su estilo; los de antes, con el color de siempre. De
+  abajo hacia arriba: las oraciones de lo estudiado, lo que subrayó la persona, las palabras clave y
+  lo que suena en voz alta. La línea de un subrayado se oscurece en el tema claro
+  (`HighlightPalette.line`): con el tono de resaltador, clarísimo, casi no se veía.
+- Eligiendo palabras clave, un toque es para elegirlas y no abre la ficha.
+- Pruebas: la barrita sola (10), la ficha sola (8), el pintado (7 en `buildSpans`, 3 de la línea),
+  `HighlightableText` (31, de las que 24 son nuevas) y el lector (15), más una de punta a punta en el
+  detalle. Mutación: 26/26.
+
 ### Paso 5 (hecho): descargar el documento marcado, en su formato
 
 - **Botón «Descargar»** en la tarjeta «Estudiar el documento». Abre una hoja con cuatro opciones

@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 
 void main() {
@@ -622,6 +623,156 @@ void main() {
       expect(display[rendered.rawToRender(dos)], 'd');
       expect(rendered.rawToRender(0), 0);
       expect(rendered.rawToRender(raw.indexOf('**')), display.indexOf('dos'));
+    });
+  });
+
+  group('subrayados a mano, con su color y su estilo (F38)', () {
+    const orange = Color(0xFFFFCC8A);
+    const violet = Color(0xFFDCC8FF);
+    const green = Color(0xFFC8F2C2);
+    const pink = Color(0xFFFFB3D9);
+    final theme = ThemeData.light();
+
+    /// Cada tramo con su texto, su fondo, el color de su línea y la letra.
+    List<(String, Color?, Color?, bool)> pieces(TextSpan span) => [
+      for (final s in span.children!.cast<TextSpan>())
+        (
+          s.text!,
+          s.style?.backgroundColor,
+          s.style?.decoration == TextDecoration.underline
+              ? s.style?.decorationColor
+              : null,
+          s.style?.fontWeight == FontWeight.bold,
+        ),
+    ];
+
+    test('de fondo se pinta el fondo, y sin línea', () {
+      final rendered = RenderedMarkdown.plain('uno dos tres');
+
+      final span = rendered.buildSpans(
+        theme,
+        const [],
+        marks: const [HandMark(4, 7, color: orange)],
+      );
+
+      expect(pieces(span), [
+        ('uno ', null, null, false),
+        ('dos', orange, null, false),
+        (' tres', null, null, false),
+      ]);
+    });
+
+    test('subrayado se pinta una línea gruesa del color, y sin fondo', () {
+      final rendered = RenderedMarkdown.plain('uno dos tres');
+
+      final span = rendered.buildSpans(
+        theme,
+        const [],
+        marks: const [
+          HandMark(4, 7, color: violet, style: HighlightStyle.underline),
+        ],
+      );
+
+      expect(pieces(span), [
+        ('uno ', null, null, false),
+        ('dos', null, violet, false),
+        (' tres', null, null, false),
+      ]);
+      final line = span.children!.cast<TextSpan>()[1].style!;
+      expect(line.decorationThickness, greaterThanOrEqualTo(2));
+    });
+
+    test('de abajo hacia arriba: la oración, lo que subrayó la persona, la '
+        'palabra clave', () {
+      final rendered = RenderedMarkdown.plain('uno dos tres cuatro');
+
+      final span = rendered.buildSpans(
+        theme,
+        const [],
+        paints: const [
+          PaintedRange(0, 19, background: green),
+          PaintedRange(8, 12, background: pink, aboveHighlights: true),
+        ],
+        marks: const [HandMark(4, 14, color: orange)],
+      );
+
+      expect(pieces(span).map((p) => (p.$1, p.$2)), [
+        ('uno ', green),
+        ('dos ', orange),
+        ('tres', pink),
+        (' c', orange),
+        ('uatro', green),
+      ]);
+    });
+
+    test('la oración no tapa el subrayado, ni el subrayado a la oración: '
+        'el fondo de arriba gana y la línea se suma', () {
+      final rendered = RenderedMarkdown.plain('uno dos tres');
+
+      final span = rendered.buildSpans(
+        theme,
+        const [],
+        paints: const [PaintedRange(0, 12, background: green)],
+        marks: const [
+          HandMark(4, 7, color: violet, style: HighlightStyle.underline),
+        ],
+      );
+
+      expect(pieces(span), [
+        ('uno ', green, null, false),
+        ('dos', green, violet, false),
+        (' tres', green, null, false),
+      ]);
+    });
+
+    test('lo que suena en voz alta va por encima de todo', () {
+      final rendered = RenderedMarkdown.plain('uno dos tres');
+
+      final span = rendered.buildSpans(
+        theme,
+        const [],
+        marks: const [HandMark(0, 12, color: orange)],
+        activeRange: (4, 7),
+      );
+
+      expect(pieces(span).map((p) => (p.$1, p.$2)), [
+        ('uno ', orange),
+        ('dos', RenderedMarkdown.playingColor),
+        (' tres', orange),
+      ]);
+    });
+
+    test('lo marcado un momento al saltar a un fragmento va encima de los '
+        'subrayados', () {
+      final rendered = RenderedMarkdown.plain('uno dos tres');
+
+      final span = rendered.buildSpans(
+        theme,
+        const [(4, 7)],
+        marks: const [HandMark(0, 12, color: orange)],
+      );
+
+      expect(pieces(span).map((p) => (p.$1, p.$2)), [
+        ('uno ', orange),
+        ('dos', theme.colorScheme.tertiaryContainer),
+        (' tres', orange),
+      ]);
+    });
+
+    test('sobre Markdown cae en lo que se ve, y no pisa la negrita', () {
+      final rendered = RenderedMarkdown.parse('Hola **mundo** feliz.');
+
+      final span = rendered.buildSpans(
+        theme,
+        const [],
+        marks: const [HandMark(7, 12, color: orange)],
+      );
+
+      expect(pieces(span), [
+        ('Hola ', null, null, false),
+        ('mundo', orange, null, true),
+        (' feliz.', null, null, false),
+      ]);
     });
   });
 }

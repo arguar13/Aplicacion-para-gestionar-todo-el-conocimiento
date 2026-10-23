@@ -28,7 +28,12 @@ void main() {
             path: '/no/existe/pagina.html',
             title: 'Una nota',
             text: withText
-                ? (renditionId: 'r1', content: 'El artículo.', markdown: true)
+                ? (
+                    itemId: 'i1',
+                    renditionId: 'r1',
+                    content: 'El artículo.',
+                    markdown: true,
+                  )
                 : null,
           ),
         ),

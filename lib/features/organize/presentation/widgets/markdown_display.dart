@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 
 /// Convierte el Markdown crudo de una rendition en algo que se ve con
 /// formato de verdad —títulos, **negrita**, *cursiva*, viñetas— sin perder
@@ -174,9 +175,16 @@ class RenderedMarkdown {
   /// un título o una cita —ver `BlockView`— necesita partir del suyo propio
   /// en vez de perderlo.
   ///
+  /// [marks] son los subrayados a mano de la persona, cada uno con su color
+  /// y su estilo —fondo o línea— (F38); [highlightRanges], tramos que se
+  /// pintan con el color de siempre y de fondo, como el fragmento que se
+  /// marca un momento al saltar a él: van encima de [marks].
+  ///
   /// [paints] son las capas de color de lo que se marcó para estudiar (F36):
   /// las de [PaintedRange.aboveHighlights] van encima de los resaltados de
-  /// la persona y las otras debajo, como un resaltador sobre otro.
+  /// la persona y las otras debajo, como un resaltador sobre otro. De abajo
+  /// hacia arriba: las oraciones, lo que subrayó la persona, las palabras
+  /// clave y lo que suena en voz alta.
   ///
   /// [activeRange] es lo que se está diciendo mientras suena el audio (F23):
   /// se pinta en amarillo, por encima de todo.
@@ -187,6 +195,7 @@ class RenderedMarkdown {
     ValueChanged<String>? onLinkTap,
     (int startOffset, int endOffset)? activeRange,
     List<PaintedRange> paints = const [],
+    List<HandMark> marks = const [],
   }) {
     final resolvedBaseStyle =
         baseStyle ??
@@ -205,6 +214,13 @@ class RenderedMarkdown {
     final layers = <_Layer>[
       for (final paint in paints)
         if (!paint.aboveHighlights) layerOf(paint),
+      for (final mark in marks)
+        _Layer(
+          rawToRender(mark.start),
+          rawToRender(mark.end),
+          background: mark.style == HighlightStyle.fill ? mark.color : null,
+          underline: mark.style == HighlightStyle.underline ? mark.color : null,
+        ),
       for (final r in highlightRanges)
         _Layer(
           rawToRender(r.$1),
@@ -243,6 +259,9 @@ class RenderedMarkdown {
           backgroundColor: layer.background,
           color: layer.foreground,
           fontWeight: layer.bold ? FontWeight.bold : null,
+          decoration: layer.underline == null ? null : TextDecoration.underline,
+          decorationColor: layer.underline,
+          decorationThickness: layer.underline == null ? null : 2.5,
         );
       }
       if (segment.style.link) {
@@ -831,19 +850,51 @@ class PaintedRange {
       Object.hash(start, end, background, foreground, bold, aboveHighlights);
 }
 
-/// Una capa ya traducida al texto renderizado.
+/// Un subrayado a mano de la persona (F38), en posiciones del contenido
+/// crudo: [color] ya resuelto, pintado de fondo o como una línea debajo del
+/// tramo según [style].
+@immutable
+class HandMark {
+  const HandMark(
+    this.start,
+    this.end, {
+    required this.color,
+    this.style = HighlightStyle.fill,
+  });
+
+  final int start;
+  final int end;
+  final Color color;
+  final HighlightStyle style;
+
+  @override
+  bool operator ==(Object other) =>
+      other is HandMark &&
+      other.start == start &&
+      other.end == end &&
+      other.color == color &&
+      other.style == style;
+
+  @override
+  int get hashCode => Object.hash(start, end, color, style);
+}
+
+/// Una capa ya traducida al texto renderizado: de fondo, o una línea debajo
+/// si trae [underline].
 class _Layer {
   const _Layer(
     this.start,
     this.end, {
-    required this.background,
+    this.background,
+    this.underline,
     this.foreground,
     this.bold = false,
   });
 
   final int start;
   final int end;
-  final Color background;
+  final Color? background;
+  final Color? underline;
   final Color? foreground;
   final bool bold;
 }

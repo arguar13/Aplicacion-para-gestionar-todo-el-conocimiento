@@ -178,6 +178,7 @@ void main() {
               title: 'Un libro',
               content: content,
               study: (
+                itemId: 'i1',
                 renditionId: renditionId ?? 'r1',
                 content: content,
                 markdown: true,

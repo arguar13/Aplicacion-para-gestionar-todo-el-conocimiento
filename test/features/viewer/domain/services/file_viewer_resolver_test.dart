@@ -151,6 +151,7 @@ void main() {
 
     expect(resolved.url, 'https://ejemplo.org/nota');
     expect(resolved.text, (
+      itemId: 'item-1',
       renditionId: 'rend-1',
       content: 'El artículo.',
       markdown: true,
@@ -352,6 +353,7 @@ void main() {
       );
 
       expect((withText as PdfResolvedViewer).text, (
+        itemId: 'item-1',
         renditionId: 'rend-1',
         content: 'Página uno.',
         markdown: false,

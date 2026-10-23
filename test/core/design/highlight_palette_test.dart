@@ -43,4 +43,59 @@ void main() {
       HighlightPalette.light[HighlightColor.violet],
     );
   });
+
+  group('la línea de un subrayado (F38)', () {
+    Future<BuildContext> pumpWith(WidgetTester tester, ThemeData theme) async {
+      late BuildContext context;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Builder(
+            builder: (c) {
+              context = c;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      return context;
+    }
+
+    testWidgets('en el tema claro es más oscura que el tono, para que se '
+        'vea sobre el papel', (tester) async {
+      final context = await pumpWith(tester, ThemeData.light());
+
+      for (final color in HighlightColor.values) {
+        final tone = HighlightPalette.resolve(context, color);
+        final line = HighlightPalette.line(context, color);
+        expect(
+          HSLColor.fromColor(line).lightness,
+          lessThan(HSLColor.fromColor(tone).lightness - 0.2),
+        );
+        expect(line, isNot(HighlightPalette.line(context, null)));
+      }
+    });
+
+    testWidgets('en el tema oscuro es el tono mismo', (tester) async {
+      final context = await pumpWith(tester, ThemeData.dark());
+
+      for (final color in HighlightColor.values) {
+        expect(
+          HighlightPalette.line(context, color),
+          HighlightPalette.resolve(context, color),
+        );
+      }
+    });
+
+    testWidgets('sin color elegido parte del color de siempre', (tester) async {
+      final context = await pumpWith(tester, ThemeData.light());
+
+      expect(
+        HSLColor.fromColor(HighlightPalette.line(context, null)).lightness,
+        lessThan(
+          HSLColor.fromColor(HighlightPalette.resolve(context, null)).lightness,
+        ),
+      );
+    });
+  });
 }

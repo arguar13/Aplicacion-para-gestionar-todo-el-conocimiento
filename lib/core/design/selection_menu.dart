@@ -6,10 +6,12 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El menú que aparece al seleccionar texto en la app: siempre las mismas
 /// opciones y en el mismo orden —Copiar, Compartir, Seleccionar todo, Leer
-/// en voz alta, Resaltar, Extraer como nota, Crear tarjeta y Buscar en la
-/// Web— (pedido del usuario). Las que no tienen sentido en un texto —no
-/// hay nada seleccionado, o ese texto no se resalta— no aparecen; las demás
-/// no cambian de lugar.
+/// en voz alta y Buscar en la Web— (pedido del usuario). Las que no tienen
+/// sentido en un texto —no hay nada seleccionado— no aparecen; las demás no
+/// cambian de lugar.
+///
+/// Los textos que se pueden resaltar a mano no usan este menú sino la barrita
+/// de resaltado (F38): ver `HighlightToolbar`.
 ///
 /// Por qué no el menú que arma Flutter: en Android le suma una opción por
 /// cada app instalada que acepta texto —"Preguntar a ChatGPT", "Preguntar a
@@ -19,14 +21,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// comportamiento de siempre. "Buscar en la Web" Flutter lo ofrece solo en
 /// iOS; acá lo hace la app, igual en todas.
 ///
-/// Cada opción propia cierra el menú antes de actuar, como las de Flutter.
+/// La opción propia cierra el menú antes de actuar, como las de Flutter.
 List<ContextMenuButtonItem> selectionMenuItems(
   BuildContext context,
   EditableTextState editable, {
   VoidCallback? onReadAloud,
-  VoidCallback? onHighlight,
-  VoidCallback? onExtract,
-  VoidCallback? onCreateFlashcard,
 }) {
   final l10n = AppLocalizations.of(context)!;
   final value = editable.textEditingValue;
@@ -58,9 +57,6 @@ List<ContextMenuButtonItem> selectionMenuItems(
     fromFlutter(ContextMenuButtonType.share),
     fromFlutter(ContextMenuButtonType.selectAll),
     own(l10n.readAloudTooltip, onReadAloud),
-    own(l10n.detailHighlightSelection, onHighlight),
-    own(l10n.detailExtractSelection, onExtract),
-    own(l10n.flashcardsFromSelection, onCreateFlashcard),
     if (hasSelection)
       ContextMenuButtonItem(
         // Con el tipo, el texto lo pone Flutter, traducido: "Buscar en la

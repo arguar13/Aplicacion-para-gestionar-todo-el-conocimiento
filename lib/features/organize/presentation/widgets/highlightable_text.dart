@@ -4,23 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/highlight_palette.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
-import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/core/error/failure_messages.dart';
-import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
-import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/citations/presentation/fragment_citation.dart';
-import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_edit_dialog.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_selection_aloud.dart';
+import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/highlight_note_dialog.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Lo que la vista de lectura necesita de un [HighlightableText] desde afuera:
@@ -85,12 +83,14 @@ class HighlightableTextController extends ChangeNotifier {
 
 /// El texto de una forma de contenido, subrayable.
 ///
-/// Seleccionar una parte del texto agrega "Resaltar" al propio menú de
-/// selección —junto a Copiar y Compartir—, en el lugar exacto donde ya
-/// aparecen esas opciones. El resultado se ve incrustado en el propio texto
-/// —con un fondo distinto— y además se lista abajo con su nota, para poder
-/// repasar sin tener que encontrar cada fragmento en medio de un artículo
-/// largo.
+/// Seleccionar una parte del texto abre la barrita de resaltado (F38) junto a
+/// la selección: los colores para resaltar de fondo, Subrayar, Copiar,
+/// Escuchar, Nota, Extraer como nota y Hacer tarjeta. El resultado se ve
+/// incrustado en el propio texto —con el color y el estilo elegidos— y además
+/// se lista abajo con su nota, para poder repasar sin tener que encontrar
+/// cada fragmento en medio de un artículo largo. Tocar algo ya resaltado
+/// abre su ficha: cambiarle el color o el estilo, escribirle la nota o
+/// quitarlo.
 ///
 /// Antes había un botón aparte que aparecía debajo de todo el texto en vez
 /// de junto a la selección: en cualquier forma de contenido más larga que
@@ -101,6 +101,9 @@ class HighlightableTextController extends ChangeNotifier {
 /// widget de Flutter, normal y corriente —se prueba con `tester.tap` como
 /// cualquier otro—, solo que Flutter lo posiciona junto a la selección en
 /// vez de en un lugar fijo.
+///
+/// Las capas, de abajo hacia arriba: las oraciones de lo estudiado (F36), lo
+/// que subrayó la persona, las palabras clave y lo que suena en voz alta.
 class HighlightableText extends ConsumerStatefulWidget {
   const HighlightableText({
     required this.itemId,
@@ -117,7 +120,7 @@ class HighlightableText extends ConsumerStatefulWidget {
 
   /// El elemento al que pertenece esta forma de contenido. Hace falta para
   /// "Extraer como nota": la nota nueva queda vinculada a este con
-  /// [RelationKind.extractedFrom].
+  /// `RelationKind.extractedFrom`.
   final String itemId;
   final String renditionId;
   final String content;
@@ -268,97 +271,81 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
     );
   }
 
-  Future<void> _highlightSelection(TextSelection selection) async {
-    // La selección llega en posiciones del texto **renderizado** —lo que
-    // el usuario ve y tocó—, así que hay que traducirla al contenido crudo
-    // antes de guardar: es ahí donde vive el resto del sistema de
-    // resaltados, y donde tiene que seguir viviendo para que exportar,
-    // buscar o abrir el mismo elemento en otra pantalla encuentre el mismo
-    // fragmento.
-    final startOffset = _rendered.renderToRaw(selection.start);
-    final endOffset = _rendered.renderToRaw(selection.end, isEnd: true);
-    final excerpt = widget.content.substring(startOffset, endOffset);
+  /// La selección, que llega en posiciones del texto **renderizado** —lo que
+  /// el usuario ve y tocó—, traducida al contenido crudo antes de guardar:
+  /// es ahí donde vive el resto del sistema de resaltados, y donde tiene que
+  /// seguir viviendo para que exportar, buscar o abrir el mismo elemento en
+  /// otra pantalla encuentre el mismo fragmento.
+  (int, int) _rawRange(TextSelection selection) => (
+    _rendered.renderToRaw(selection.start),
+    _rendered.renderToRaw(selection.end, isEnd: true),
+  );
 
-    // `null` es "se canceló". Una nota vacía sigue siendo una confirmación
-    // válida —resaltar sin explicar por qué es perfectamente legítimo— y se
-    // guarda como ausente, igual que hace el repositorio con cualquier nota
-    // en blanco.
-    final note = await showDialog<String>(
-      context: context,
-      builder: (context) => _NoteDialog(initialNote: null, excerpt: excerpt),
+  /// Resalta la selección con el color y el estilo elegidos, sin nota.
+  Future<void> _highlightRange(
+    TextSelection selection,
+    HighlightColor color,
+    HighlightStyle style,
+  ) {
+    final (start, end) = _rawRange(selection);
+    return saveHandHighlight(
+      context,
+      ref,
+      renditionId: widget.renditionId,
+      content: widget.content,
+      start: start,
+      end: end,
+      color: color,
+      style: style,
     );
-    if (note == null || !mounted) return;
+  }
 
-    await ref
-        .read(organizeRepositoryProvider)
-        .createHighlight(
-          renditionId: widget.renditionId,
-          startOffset: startOffset,
-          endOffset: endOffset,
-          excerpt: excerpt,
-          note: note.isEmpty ? null : note,
-        );
+  /// Resalta la selección pidiendo antes su nota.
+  Future<void> _highlightSelection(TextSelection selection) {
+    final (start, end) = _rawRange(selection);
+    return saveHandHighlightWithNote(
+      context,
+      ref,
+      renditionId: widget.renditionId,
+      content: widget.content,
+      start: start,
+      end: end,
+    );
   }
 
   /// Crea una tarjeta de repaso con el fragmento seleccionado como respuesta
   /// (F11): la pregunta la escribe la persona, y la tarjeta guarda el rango del
   /// que salió, para poder volver a él desde el repaso.
-  Future<void> _createFlashcardFromSelection(TextSelection selection) async {
-    // Mismo cuidado que al resaltar: la selección llega en posiciones del
-    // texto renderizado y se guarda contra el contenido crudo.
-    final startOffset = _rendered.renderToRaw(selection.start);
-    final endOffset = _rendered.renderToRaw(selection.end, isEnd: true);
-    if (endOffset <= startOffset) return;
-    final excerpt = widget.content.substring(startOffset, endOffset);
-
-    final answer = await showFlashcardEditDialog(context, initialBack: excerpt);
-    if (answer == null || !mounted) return;
-    final (front, back) = answer;
-
-    final result = await ref
-        .read(flashcardRepositoryProvider)
-        .create(
-          itemId: widget.itemId,
-          front: front,
-          back: back,
-          sourceCharStart: startOffset,
-          sourceCharEnd: endOffset,
-        );
-    if (!mounted) return;
-    final l10n = AppLocalizations.of(context)!;
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            result.match(
-              (failure) => failure.localizedMessage(l10n),
-              (_) => l10n.flashcardsCreatedFromSelection,
-            ),
-          ),
-        ),
-      );
+  Future<void> _createFlashcardFromSelection(TextSelection selection) {
+    final (start, end) = _rawRange(selection);
+    return createFlashcardFromRange(
+      context,
+      ref,
+      itemId: widget.itemId,
+      content: widget.content,
+      start: start,
+      end: end,
+    );
   }
 
-  /// El menú de selección de la app —ver [selectionMenuItems]—, con lo que
-  /// este texto agrega: leer lo seleccionado en voz alta, resaltarlo,
-  /// extraerlo como nota o hacer una tarjeta. Flutter lo posiciona solo
-  /// junto a la selección activa, sea cual sea el punto de un texto largo
-  /// donde el usuario esté parado.
+  /// La barrita de resaltado —ver [buildHighlightMenu]—, con lo que este
+  /// texto agrega: leer lo seleccionado en voz alta, ponerle una nota,
+  /// extraerlo como nota o hacer una tarjeta. Flutter la posiciona sola junto
+  /// a la selección activa, sea cual sea el punto de un texto largo donde el
+  /// usuario esté parado.
   Widget _buildContextMenu(BuildContext context, EditableTextState editable) {
     final selection = editable.textEditingValue.selection;
-    return AdaptiveTextSelectionToolbar.buttonItems(
-      anchors: editable.contextMenuAnchors,
-      buttonItems: selectionMenuItems(
-        context,
-        editable,
-        onReadAloud: () => unawaited(_readSelectionAloud(selection)),
-        onHighlight: () => unawaited(_highlightSelection(selection)),
-        onExtract: () => unawaited(_extractSelection(selection)),
-        onCreateFlashcard: () =>
-            unawaited(_createFlashcardFromSelection(selection)),
-      ),
+    return buildHighlightMenu(
+      context,
+      ref,
+      editable,
+      onHighlight: (color, style) =>
+          unawaited(_highlightRange(selection, color, style)),
+      onReadAloud: () => unawaited(_readSelectionAloud(selection)),
+      onNote: () => unawaited(_highlightSelection(selection)),
+      onExtract: () => unawaited(_extractSelection(selection)),
+      onCreateFlashcard: () =>
+          unawaited(_createFlashcardFromSelection(selection)),
     );
   }
 
@@ -378,58 +365,16 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
 
   /// Crea una nota atómica nueva con el fragmento seleccionado, vinculada
   /// al elemento actual como su fuente.
-  ///
-  /// Pasa por [captureItemUseCaseProvider] —el mismo camino de entrada que
-  /// cualquier captura manual— en vez de armar el `KnowledgeItem` a mano:
-  /// así la nota nueva recibe el mismo tratamiento (id, timestamps,
-  /// guardado atómico) que cualquier otra, sin duplicar esa lógica acá.
-  Future<void> _extractSelection(TextSelection selection) async {
-    final startOffset = _rendered.renderToRaw(selection.start);
-    final endOffset = _rendered.renderToRaw(selection.end, isEnd: true);
-    final excerpt = widget.content.substring(startOffset, endOffset);
-
-    final result = await ref.read(captureItemUseCaseProvider)(
-      CaptureRequest.text(rawInput: excerpt),
+  Future<void> _extractSelection(TextSelection selection) {
+    final (start, end) = _rawRange(selection);
+    return extractRangeAsNote(
+      context,
+      ref,
+      itemId: widget.itemId,
+      content: widget.content,
+      start: start,
+      end: end,
     );
-    if (!mounted) return;
-    final l10n = AppLocalizations.of(context)!;
-
-    final failure = result.getLeft().toNullable();
-    if (failure != null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
-      return;
-    }
-    final newItem = result.getRight().toNullable()!;
-
-    await ref
-        .read(organizeRepositoryProvider)
-        .createRelation(
-          fromItemId: newItem.id,
-          toItemId: widget.itemId,
-          kind: RelationKind.extractedFrom,
-          // De dónde salió: con esto la nota lleva de vuelta al lugar exacto.
-          sourceCharStart: startOffset,
-          sourceCharEnd: endOffset,
-        );
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(l10n.detailExtractedNoteCreated(newItem.title)),
-          action: SnackBarAction(
-            label: l10n.detailExtractedNoteView,
-            onPressed: () {
-              if (context.mounted) {
-                context.push(RoutePaths.itemDetail(newItem.id));
-              }
-            },
-          ),
-        ),
-      );
   }
 
   @override
@@ -446,9 +391,10 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
     // mejor— sus índices pueden apuntar más allá de donde ahora termina el
     // texto, y usarlos tal cual pintaría un resaltado corrido hasta el
     // final en vez de mostrar el texto igual, sin ese resaltado.
-    final validHighlights = highlights.where(
-      (h) => h.endOffset <= widget.content.length,
-    );
+    final validHighlights = [
+      for (final h in highlights)
+        if (h.endOffset <= widget.content.length) h,
+    ];
     final kind = ref
         .watch(libraryItemProvider(widget.itemId))
         .valueOrNull
@@ -466,10 +412,12 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
           key: _textKey,
           _rendered.buildSpans(
             theme,
-            [
-              for (final h in validHighlights) (h.startOffset, h.endOffset),
-              ?_flash,
-            ],
+            [?_flash],
+            marks: handMarks(
+              context,
+              validHighlights,
+              to: widget.content.length,
+            ),
             activeRange:
                 readAloud ??
                 switch (widget.playing) {
@@ -481,12 +429,18 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
           contextMenuBuilder: _buildContextMenu,
           onSelectionChanged: (selection, cause) {
             widget.controller?._setSelection(selection);
-            final onTap = widget.onTapOffset;
-            if (onTap != null &&
+            final tapped =
                 cause == SelectionChangedCause.tap &&
                 selection.isCollapsed &&
-                selection.baseOffset >= 0) {
-              onTap(_rendered.renderToRaw(selection.baseOffset));
+                selection.baseOffset >= 0;
+            if (!tapped) return;
+            final offset = _rendered.renderToRaw(selection.baseOffset);
+            widget.onTapOffset?.call(offset);
+            // Eligiendo palabras clave, un toque es para elegirlas, no para
+            // abrir la ficha de lo que haya debajo.
+            if (ref.read(studyViewProvider(widget.renditionId)).picking) return;
+            if (highlightAt(validHighlights, offset) case final highlight?) {
+              unawaited(openHighlightCard(context, ref, highlight));
             }
           },
         ),
@@ -501,7 +455,12 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
           for (final highlight in highlights)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.highlight),
+              leading: Icon(
+                highlight.style == HighlightStyle.underline
+                    ? Icons.format_underlined
+                    : Icons.highlight,
+                color: HighlightPalette.line(context, highlight.color),
+              ),
               title: Text(
                 highlight.excerpt,
                 maxLines: 2,
@@ -557,8 +516,10 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
   Future<void> _editNote(WidgetRef ref, Highlight highlight) async {
     final result = await showDialog<String>(
       context: context,
-      builder: (context) =>
-          _NoteDialog(initialNote: highlight.note, excerpt: highlight.excerpt),
+      builder: (context) => HighlightNoteDialog(
+        initialNote: highlight.note,
+        excerpt: highlight.excerpt,
+      ),
     );
     if (result == null || !mounted) return;
 
@@ -647,73 +608,5 @@ class ReadAloudText extends ConsumerWidget {
             contextMenuBuilder: menu,
           )
         : Text.rich(spans, textAlign: textAlign);
-  }
-}
-
-/// Ver o poner la nota de un resaltado: en blanco al crear uno, con lo que
-/// ya tenía al editarlo.
-class _NoteDialog extends StatefulWidget {
-  const _NoteDialog({required this.initialNote, required this.excerpt});
-
-  final String? initialNote;
-  final String excerpt;
-
-  @override
-  State<_NoteDialog> createState() => _NoteDialogState();
-}
-
-class _NoteDialogState extends State<_NoteDialog> {
-  late final _controller = TextEditingController(text: widget.initialNote);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return AlertDialog(
-      title: Text(l10n.detailHighlightNoteDialogTitle),
-      content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.excerpt,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _controller,
-              autofocus: true,
-              minLines: 2,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: l10n.detailHighlightNoteHint,
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.commonCancel),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
-          child: Text(l10n.detailSave),
-        ),
-      ],
-    );
   }
 }

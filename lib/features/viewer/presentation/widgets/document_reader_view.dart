@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/reading_scroll_physics.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
+import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
@@ -11,6 +12,8 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_c
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_selection_aloud.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
+import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
@@ -60,6 +63,14 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// la saca. Cada página es un tramo tal cual de [content] —ver
 /// [readerPageRanges]—, así que lo marcado cae en su lugar sin traducir nada.
 /// Abajo van los botones de estudiar, en vez de «Resumir con IA».
+///
+/// **Se resalta a mano (F38).** Con [study], [content] es el texto extraído
+/// del elemento, así que lo que se resalta acá son los mismos resaltados de
+/// «Texto extraído»: seleccionar abre la barrita con los colores, Subrayar,
+/// Copiar, Escuchar, Nota, Extraer como nota y Hacer tarjeta, y tocar algo
+/// ya resaltado abre su ficha. Entre las capas, lo que subrayó la persona va
+/// encima de las oraciones y debajo de las palabras clave. Sin [study] —un
+/// adjunto, que no es el texto de ningún elemento—, el menú de siempre.
 class DocumentReaderView extends ConsumerStatefulWidget {
   const DocumentReaderView({
     required this.title,
@@ -261,6 +272,7 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
               sourceKey: _pageKey(index),
               study: switch (widget.study) {
                 final study? => (
+                  itemId: study.itemId,
                   renditionId: study.renditionId,
                   content: widget.content,
                   start: _ranges[index].start,
@@ -333,8 +345,8 @@ class _ReaderPage extends ConsumerWidget {
   final String sourceKey;
 
   /// El texto entero que se estudia y dónde empieza esta página en él: lo
-  /// estudiado guarda posiciones del texto entero.
-  final ({String renditionId, String content, int start})? study;
+  /// estudiado y lo resaltado a mano guardan posiciones del texto entero.
+  final ({String itemId, String renditionId, String content, int start})? study;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -347,6 +359,26 @@ class _ReaderPage extends ConsumerWidget {
             watchStudyPaints(ref, context, study.renditionId),
             study.start,
             study.start + content.length,
+          );
+    // Lo subrayado a mano de esta página, en posiciones de la página. Los que
+    // ya no entran en el texto —la forma se regeneró— no se pintan.
+    final highlights = study == null
+        ? const <Highlight>[]
+        : [
+            for (final highlight
+                in ref
+                        .watch(renditionHighlightsProvider(study.renditionId))
+                        .valueOrNull ??
+                    const <Highlight>[])
+              if (highlight.endOffset <= study.content.length) highlight,
+          ];
+    final marks = study == null
+        ? const <HandMark>[]
+        : handMarks(
+            context,
+            highlights,
+            from: study.start,
+            to: study.start + content.length,
           );
     final rendered = markdown
         ? RenderedMarkdown.parse(content)
@@ -382,8 +414,10 @@ class _ReaderPage extends ConsumerWidget {
                 ),
                 activeRange: reading,
                 paints: paints,
+                marks: marks,
               ),
-              // Eligiendo palabras clave, tocar una la agrega o la saca.
+              // Eligiendo palabras clave, tocar una la agrega o la saca; si
+              // no, tocar algo ya resaltado abre su ficha.
               onSelectionChanged: study == null
                   ? null
                   : (selection, cause) {
@@ -392,28 +426,43 @@ class _ReaderPage extends ConsumerWidget {
                           selection.baseOffset < 0) {
                         return;
                       }
-                      unawaited(
-                        toggleStudyKeywordAt(
-                          ref,
-                          context,
-                          renditionId: study.renditionId,
-                          content: study.content,
-                          offset:
-                              study.start +
-                              rendered.renderToRaw(selection.baseOffset),
-                        ),
-                      );
+                      final offset =
+                          study.start +
+                          rendered.renderToRaw(selection.baseOffset);
+                      if (ref
+                          .read(studyViewProvider(study.renditionId))
+                          .picking) {
+                        unawaited(
+                          toggleStudyKeywordAt(
+                            ref,
+                            context,
+                            renditionId: study.renditionId,
+                            content: study.content,
+                            offset: offset,
+                          ),
+                        );
+                      } else if (highlightAt(highlights, offset)
+                          case final highlight?) {
+                        unawaited(openHighlightCard(context, ref, highlight));
+                      }
                     },
-              // El menú de selección de la app; "Leer en voz alta" lee las
-              // líneas que toca la selección, en las posiciones de
-              // [content].
-              contextMenuBuilder: (context, editable) => buildSelectionMenu(
-                context,
-                editable,
-                onReadAloud: () {
-                  final selection = editable.textEditingValue.selection;
-                  final start = rendered.renderToRaw(selection.start);
-                  final end = rendered.renderToRaw(selection.end, isEnd: true);
+              contextMenuBuilder: (menuContext, editable) {
+                final selection = editable.textEditingValue.selection;
+                // La selección, en posiciones de [content] —la página— y en
+                // las del texto entero, que es donde se guarda todo.
+                (int, int) pageRange() => (
+                  rendered.renderToRaw(selection.start),
+                  rendered.renderToRaw(selection.end, isEnd: true),
+                );
+                (int, int) textRange() {
+                  final (start, end) = pageRange();
+                  return (study!.start + start, study.start + end);
+                }
+
+                // "Leer en voz alta" lee las líneas que toca la selección, en
+                // las posiciones de [content].
+                void readAloud() {
+                  final (start, end) = pageRange();
                   unawaited(
                     readSelectionAloud(
                       ref,
@@ -423,8 +472,80 @@ class _ReaderPage extends ConsumerWidget {
                       end: end,
                     ),
                   );
-                },
-              ),
+                }
+
+                // Sin el texto de un elemento al que atar un resaltado, el
+                // menú de la app de siempre.
+                if (study == null) {
+                  return buildSelectionMenu(
+                    menuContext,
+                    editable,
+                    onReadAloud: readAloud,
+                  );
+                }
+                // Las acciones usan el contexto de la página: el del menú ya
+                // no existe cuando termina un diálogo.
+                return buildHighlightMenu(
+                  menuContext,
+                  ref,
+                  editable,
+                  onHighlight: (color, style) {
+                    final (start, end) = textRange();
+                    unawaited(
+                      saveHandHighlight(
+                        context,
+                        ref,
+                        renditionId: study.renditionId,
+                        content: study.content,
+                        start: start,
+                        end: end,
+                        color: color,
+                        style: style,
+                      ),
+                    );
+                  },
+                  onReadAloud: readAloud,
+                  onNote: () {
+                    final (start, end) = textRange();
+                    unawaited(
+                      saveHandHighlightWithNote(
+                        context,
+                        ref,
+                        renditionId: study.renditionId,
+                        content: study.content,
+                        start: start,
+                        end: end,
+                      ),
+                    );
+                  },
+                  onExtract: () {
+                    final (start, end) = textRange();
+                    unawaited(
+                      extractRangeAsNote(
+                        context,
+                        ref,
+                        itemId: study.itemId,
+                        content: study.content,
+                        start: start,
+                        end: end,
+                      ),
+                    );
+                  },
+                  onCreateFlashcard: () {
+                    final (start, end) = textRange();
+                    unawaited(
+                      createFlashcardFromRange(
+                        context,
+                        ref,
+                        itemId: study.itemId,
+                        content: study.content,
+                        start: start,
+                        end: end,
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           ),
         ),

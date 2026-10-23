@@ -8,7 +8,10 @@ import 'package:intl/intl.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
+import 'package:sinapsis/core/design/highlight_palette.dart';
+import 'package:sinapsis/core/design/highlight_toolbar.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
@@ -49,7 +52,6 @@ import 'package:sinapsis/features/transform/presentation/providers/transform_pro
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
-import '../../../../support/selection_menu_test_support.dart';
 
 void main() {
   final es = AppLocalizationsEs();
@@ -2273,7 +2275,15 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('seleccionar una palabra ofrece resaltarla', (tester) async {
+    /// «Nota» de la barrita de resaltado (F38): resalta pidiendo la nota.
+    Future<void> tapNote(WidgetTester tester) async {
+      await tester.tap(find.byTooltip(es.highlightAddNote));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('seleccionar una palabra ofrece la barrita de resaltado', (
+      tester,
+    ) async {
       final id = await captureAndGetId(
         'Un texto con varias palabras para '
         'seleccionar.',
@@ -2282,10 +2292,8 @@ void main() {
       await pumpDetail(tester, id);
       await selectFirstWord(tester);
 
-      expect(
-        selectionMenuLabels(tester),
-        contains(es.detailHighlightSelection),
-      );
+      expect(find.byType(HighlightToolbar), findsOneWidget);
+      expect(find.byTooltip(es.highlightAddNote), findsOneWidget);
     });
 
     testWidgets('sin nada seleccionado, no se ofrece', (tester) async {
@@ -2293,7 +2301,33 @@ void main() {
 
       await pumpDetail(tester, id);
 
-      expect(find.text(es.detailHighlightSelection), findsNothing);
+      expect(find.byType(HighlightToolbar), findsNothing);
+    });
+
+    testWidgets('elegir un color resalta la palabra con ese color, sin '
+        'pedir nota', (tester) async {
+      final id = await captureAndGetId('Palabra clave del artículo entero.');
+
+      await pumpDetail(tester, id);
+      await selectFirstWord(tester);
+      await tester.tap(find.byKey(const Key('highlight-color-orange')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HighlightToolbar), findsNothing);
+      expect(find.text(es.detailHighlightsTitle), findsOneWidget);
+      // Se ve en el propio texto con el tono naranja del resaltador, de fondo.
+      final span = tester
+          .widget<SelectableText>(find.byType(SelectableText).first)
+          .textSpan!
+          .children!
+          .cast<TextSpan>()
+          .first;
+      expect(span.text, 'Palabra');
+      expect(
+        span.style?.backgroundColor,
+        HighlightPalette.light[HighlightColor.orange],
+      );
+      expect(span.style?.decoration, isNot(TextDecoration.underline));
     });
 
     testWidgets('resaltar deja el fragmento marcado y en la lista', (
@@ -2303,7 +2337,7 @@ void main() {
 
       await pumpDetail(tester, id);
       await selectFirstWord(tester);
-      await tapSelectionMenuItem(tester, es.detailHighlightSelection);
+      await tapNote(tester);
 
       await tester.enterText(find.byType(TextField), 'me interesa esto');
       await tester.tap(find.text(es.detailSave));
@@ -2311,9 +2345,9 @@ void main() {
 
       expect(find.text(es.detailHighlightsTitle), findsOneWidget);
       expect(find.text('me interesa esto'), findsOneWidget);
-      // El botón desaparece: la selección se limpia al confirmar, para no
+      // La barrita desaparece: la selección se limpia al confirmar, para no
       // dejar picando un botón que apunta a un resaltado que ya se hizo.
-      expect(find.text(es.detailHighlightSelection), findsNothing);
+      expect(find.byType(HighlightToolbar), findsNothing);
     });
 
     testWidgets('resaltar sin escribir nada también funciona', (tester) async {
@@ -2323,7 +2357,7 @@ void main() {
 
       await pumpDetail(tester, id);
       await selectFirstWord(tester);
-      await tapSelectionMenuItem(tester, es.detailHighlightSelection);
+      await tapNote(tester);
 
       await tester.tap(find.text(es.detailSave));
       await tester.pumpAndSettle();
@@ -2338,7 +2372,7 @@ void main() {
 
       await pumpDetail(tester, id);
       await selectFirstWord(tester);
-      await tapSelectionMenuItem(tester, es.detailHighlightSelection);
+      await tapNote(tester);
 
       await tester.tap(find.text(es.commonCancel));
       await tester.pumpAndSettle();

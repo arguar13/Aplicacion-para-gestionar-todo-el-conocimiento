@@ -33,14 +33,7 @@ void main() {
                     item.label,
                 ];
                 captured = withOwnActions
-                    ? selectionMenuItems(
-                        context,
-                        editable,
-                        onReadAloud: () {},
-                        onHighlight: () {},
-                        onExtract: () {},
-                        onCreateFlashcard: () {},
-                      )
+                    ? selectionMenuItems(context, editable, onReadAloud: () {})
                     : selectionMenuItems(context, editable);
                 return AdaptiveTextSelectionToolbar.buttonItems(
                   anchors: editable.contextMenuAnchors,
@@ -87,7 +80,7 @@ void main() {
         .setMockMethodCallHandler(SystemChannels.processText, null);
   });
 
-  testWidgets('las ocho opciones, en el orden pedido y sin las de otras '
+  testWidgets('las cinco opciones, en el orden pedido y sin las de otras '
       'apps', (tester) async {
     final items = await openMenu(tester, withOwnActions: true);
 
@@ -98,9 +91,6 @@ void main() {
       'Compartir',
       'Seleccionar todo',
       es.readAloudTooltip,
-      es.detailHighlightSelection,
-      es.detailExtractSelection,
-      es.flashcardsFromSelection,
       'Buscar en la Web',
     ]);
   });

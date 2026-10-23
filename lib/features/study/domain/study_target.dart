@@ -17,10 +17,16 @@ TextRendition? studyRendition(KnowledgeItem item) {
 
 const _studied = {SourceKind.document, SourceKind.webPage};
 
-/// El texto que se estudia, para quien lo muestra o lo analiza (F36): la
-/// forma de texto —lo estudiado se guarda contado en ella—, su contenido y
-/// si es Markdown.
-typedef StudyText = ({String renditionId, String content, bool markdown});
+/// El texto que se estudia, para quien lo muestra o lo analiza (F36): el
+/// elemento al que pertenece, la forma de texto —lo estudiado y lo que se
+/// resalta a mano (F38) se guardan contados en ella—, su contenido y si es
+/// Markdown.
+typedef StudyText = ({
+  String itemId,
+  String renditionId,
+  String content,
+  bool markdown,
+});
 
 /// El texto que se estudia de [item], o `null` si no se estudia: ver
 /// [studyRendition].
@@ -28,6 +34,7 @@ StudyText? studyTextOf(KnowledgeItem item) {
   final rendition = studyRendition(item);
   if (rendition == null) return null;
   return (
+    itemId: item.id,
     renditionId: rendition.id,
     content: rendition.content,
     markdown: extractedTextIsMarkdown(item.source),

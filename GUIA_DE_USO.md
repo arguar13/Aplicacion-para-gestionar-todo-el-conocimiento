@@ -547,8 +547,10 @@ Biblioteca.
 3. Al seleccionar un fragmento, aparece una barra abajo con tres acciones:
    **"Extraer como nota"** (crea una nota nueva con ese fragmento, ya
    vinculada a la fuente original), **"Resaltar"** (lo marca sin crear una
-   nota aparte) y un botón para crear una tarjeta de repaso directo de la
-   selección.
+   nota aparte; te pide la nota) y un botón para crear una tarjeta de
+   repaso directo de la selección. Junto a la selección aparece además la
+   barrita para resaltar con colores (ver
+   [Resaltar a mano](#resaltar-a-mano-la-barrita)).
 4. Debajo del texto se listan las notas que ya extrajiste, cada una con un
    botón **"Ir al fragmento"** para saltar de vuelta a ese lugar del texto.
 
@@ -570,15 +572,36 @@ orden:
 4. **Leer en voz alta**: lee las líneas que seleccionaste, resaltándolas en
    amarillo, y se detiene ahí (ver
    [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)).
-5. **Resaltar**: lo marca en el texto, con una nota si querés.
-6. **Extraer como nota**: crea una nota nueva con ese fragmento, vinculada
-   a su fuente.
-7. **Crear tarjeta**: arma una tarjeta de repaso con la selección.
-8. **Buscar en la Web**: lo busca en el navegador del teléfono.
+5. **Buscar en la Web**: lo busca en el navegador del teléfono.
 
-Las que no tienen sentido en un texto (por ejemplo, Resaltar en un texto que
-no se resalta) no aparecen. En el teléfono, las primeras se ven en la barra y
-el resto queda detrás de los tres puntos.
+En el teléfono, las primeras se ven en la barra y el resto queda detrás de
+los tres puntos.
+
+### Resaltar a mano: la barrita
+
+En el **texto extraído** de un documento o una página web, en el **lector de
+Word, EPUB y texto** («Leer como libro») y en el modo lectura, al seleccionar
+aparece en cambio una barrita sobre la selección:
+
+- **Cuatro colores** (amarillo, naranja, violeta y turquesa): tocás uno y el
+  fragmento queda resaltado de fondo, sin preguntarte nada.
+- **Subrayar**: lo marca con una línea del último color que elegiste (el
+  amarillo, si todavía no elegiste ninguno).
+- **Copiar**, **Escuchar** (lee en voz alta lo seleccionado), **Nota** (resalta
+  y te deja escribir por qué), **Extraer como nota** y **Crear tarjeta**.
+- Detrás de **Más opciones** quedan Compartir, Seleccionar todo y Buscar en la
+  Web.
+
+**Tocá algo ya resaltado** y se abre su ficha: podés cambiarle el color,
+pasarlo de fondo a subrayado (o al revés), escribirle o corregirle la nota, o
+quitarlo. Los resaltados que ya tenías siguen como estaban, con el color de
+siempre.
+
+Son los mismos resaltados en el texto extraído y en el lector: lo que marcás
+en uno lo ves en el otro. Si estás eligiendo palabras clave del resumen, tocar
+una palabra sirve para eso y no abre la ficha. Lo que subrayás a mano se ve
+encima de las oraciones del resumen y la síntesis, y debajo de las palabras
+clave; lo que se está leyendo en voz alta, por encima de todo.
 
 En un PDF, el menú trae **Copiar** y **Seleccionar todo**; para elegir más
 texto, mantené apretado y arrastrá: la selección sigue al dedo.
