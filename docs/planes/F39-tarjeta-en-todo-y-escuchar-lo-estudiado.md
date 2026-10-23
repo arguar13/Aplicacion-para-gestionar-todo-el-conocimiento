@@ -329,3 +329,21 @@
   - Pruebas: unitarias del peso y del corte, de repositorio con las columnas reales, y de widget
     del selector y de la vista. 38 mutaciones, todas muertas (dos sobrevivían en la primera
     pasada —el desempate por `toId` y las aristas sin cortar— y se sumaron pruebas).
+- **La vista previa del mapa, prolija — hecho.**
+  - **Causa**: el panel del detalle corría una simulación de fuerzas sobre 360×240 con hasta 30
+    nodos de 148×56 y la achicaba a 200 px de alto: las tarjetas se encimaban, las etiquetas de
+    los vínculos quedaban cortadas y todo se apretaba en el centro.
+  - Ahora la vista previa tiene su propia disposición, geométrica y sin simulación
+    (`preview_graph_layout.dart`): una tarjeta «Mapa» con el elemento en el medio y hasta 10
+    vecinos en tres columnas que usan todo el ancho. Se prueba cada alto hasta que ningún nodo se
+    toca (10 px de aire) y ningún vínculo pasa por detrás de otro vecino; en un lienzo muy angosto
+    cae a una grilla que tampoco encima nada.
+  - Los nombres van en píldoras de dos líneas con elipsis, sin etiquetas de vínculo y sin los
+    vínculos entre vecinos —quedan para el mapa completo—, con líneas finas del tema.
+  - Los vecinos se eligen por cuántos vínculos tienen con el elemento, después con los otros
+    vecinos, y por recencia; el resto se resume en «+N más», que cuenta también los que el
+    vecindario dejó afuera.
+  - Tocar la tarjeta, el «+N» o el botón de ampliar abre el mapa completo; tocar un vecino abre su
+    detalle.
+  - Pruebas unitarias de la disposición (de 280 a 800 px, de 0 a 10 vecinos) y de widget; 22
+    mutaciones, todas muertas tras ajustar una prueba y borrar dos chequeos redundantes.

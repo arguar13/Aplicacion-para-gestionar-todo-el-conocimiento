@@ -34,7 +34,6 @@ import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
-import 'package:sinapsis/features/graph/presentation/widgets/compact_graph_node.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/local_graph_panel.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -642,7 +641,7 @@ void main() {
       await pumpDetail(tester, id);
 
       expect(find.text(es.graphEmpty), findsOneWidget);
-      expect(find.byType(CompactGraphNode), findsNothing);
+      expect(find.byType(LocalGraphPreviewNode), findsNothing);
     });
 
     testWidgets('con un vínculo, el panel muestra dos nodos', (tester) async {
@@ -659,7 +658,7 @@ void main() {
       await pumpDetail(tester, id);
 
       expect(find.text(es.graphEmpty), findsNothing);
-      expect(find.byType(CompactGraphNode), findsNWidgets(2));
+      expect(find.byType(LocalGraphPreviewNode), findsNWidgets(2));
     });
 
     testWidgets(
@@ -668,7 +667,8 @@ void main() {
       (tester) async {
         final id = await captureAndGetId('el elemento muy conectado');
         final organize = harness.container.read(organizeRepositoryProvider);
-        // Treinta y dos vecinos: el panel dibuja treinta contando el central.
+        // Treinta y dos vecinos: el vecindario trae veintinueve (y deja tres
+        // afuera) y la vista previa dibuja diez más el central.
         for (var i = 0; i < 32; i++) {
           final neighbor = await captureAndGetId('vecino número $i');
           await organize.createRelation(
@@ -680,8 +680,8 @@ void main() {
 
         await pumpDetail(tester, id);
 
-        expect(find.byType(CompactGraphNode), findsNWidgets(30));
-        expect(find.text(es.localGraphOmitted(3)), findsOneWidget);
+        expect(find.byType(LocalGraphPreviewNode), findsNWidgets(11));
+        expect(find.text(es.localGraphPreviewMore(22)), findsOneWidget);
       },
     );
 
@@ -700,7 +700,10 @@ void main() {
 
       await pumpDetail(tester, id);
 
-      expect(find.textContaining('más sin mostrar'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('local-graph-preview-more')),
+        findsNothing,
+      );
     });
 
     testWidgets('tocar el botón de ver grafo completo navega al grafo local', (

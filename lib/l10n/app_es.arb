@@ -2569,6 +2569,19 @@
   "@localGraphPanelOpenFull": {
     "description": "Texto/tooltip del botón que abre LocalGraphScreen desde el panel embebido en el detalle."
   },
+  "localGraphPreviewTitle": "Mapa",
+  "@localGraphPreviewTitle": {
+    "description": "Título de la vista previa del mapa del elemento, en su detalle: el mapa de sus vínculos directos."
+  },
+  "localGraphPreviewMore": "+{count} más",
+  "@localGraphPreviewMore": {
+    "description": "Marca de la vista previa del mapa del elemento cuando tiene más vecinos de los que se dibujan: cuántos faltan. Tocarla abre el mapa completo.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "searchCitationPage": "p. {page}",
   "@searchCitationPage": {
     "description": "En qué página está lo que se encontró, en un resultado de búsqueda.",

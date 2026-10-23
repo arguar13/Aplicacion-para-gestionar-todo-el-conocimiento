@@ -1562,6 +1562,23 @@ detalle de cualquier elemento, justo debajo de su panel; tocarla o tocar el bot�
 pantalla completa, con un selector de "Grado" (cuántos saltos de distancia
 mostrar).
 
+### La vista previa del detalle
+
+Es una tarjeta titulada **«Mapa»** con el elemento en el medio y sus vecinos
+alrededor, repartidos a todo lo ancho de la tarjeta: cada uno es una píldora
+con su nombre en hasta dos líneas (si es más largo, se corta con «…»), nunca
+una encima de otra. No lleva etiquetas de vínculo ni los vínculos entre
+vecinos —eso está en el mapa completo—, así que se lee igual con pocos o con
+muchos.
+
+- Muestra hasta **10 vecinos**: primero los más atados al elemento (los que
+  tienen más vínculos con él) y, a igual fuerza, los vinculados más
+  recientemente. Si tiene más, arriba a la derecha aparece **«+N más»** con
+  cuántos faltan: tocarlo abre el mapa completo, donde están todos.
+- **Tocar un vecino** abre su detalle (o su mapa, si es una nota mapa).
+  **Tocar cualquier otro lugar de la tarjeta**, o el botón de ampliar, abre
+  el mapa completo del elemento.
+
 ---
 
 ## Tensión: contradicciones entre notas
