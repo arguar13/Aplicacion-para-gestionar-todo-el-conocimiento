@@ -679,7 +679,26 @@ mismos botones arriba o abajo), y en el texto extraído. En una página
 escaneada de un PDF no hay letras donde pintar: la página lo dice, y lo
 resaltado se ve en el texto extraído.
 
-**El primer toque analiza el documento** con el modelo elegido en Ajustes
+**Si todavía no hay nada**, tocar **Resumir**, **Sintetizar** o **Palabras
+clave** te ofrece dos caminos, en una hoja:
+
+- **«Resumir con Gemini 2.5 Flash»** (o «Sintetizar con…», «Proponer
+  con…»), con el nombre del modelo elegido en Ajustes: lo arma la IA.
+- **«Elegir a mano»**: lo prendés y lo armás vos, tocando el texto, que se
+  despliega solo. En el resumen o la síntesis, **tocar una oración la pone
+  entera**, y tocarla de nuevo la saca (sea tuya o de la IA). En las palabras
+  clave, tocar una palabra de cualquier oración la elige, hasta 4 por
+  oración. Mientras elegís, un botón dice qué estás eligiendo —*«Eligiendo el
+  resumen · Listo»*— y **Listo** termina.
+- Si la IA ya analizó todo y no encontró nada de eso, queda solo «Elegir a
+  mano»: pedírselo de nuevo daría lo mismo.
+- Cerrar la hoja sin elegir no prende nada.
+
+Con lo que ya hay —de la IA o tuyo— el botón lo prende directamente; si un
+análisis quedó a mitad, sigue desde ahí. Lo que armaste a mano no arranca
+la IA sola.
+
+**Con la IA**, se analiza el documento con el modelo elegido en Ajustes
 (Gemma en el teléfono, o el de la nube). Si el modelo no está listo, la app
 te avisa con el botón para resolverlo y no baja nada sola. Una sola pasada
 da las tres cosas, así que pasar del resumen a la síntesis es instantáneo.
@@ -707,8 +726,10 @@ quedó.
   texto corrido, con cuántas oraciones y palabras son.
 - **Extraer palabras clave**: las palabras como etiquetas, cada una una
   vez, en el orden en que aparecen.
-- Cada fila trae **Copiar**. Antes de analizar dicen *«Tocá Resumir o
-  Sintetizar para empezar»*.
+- Cada fila trae **Copiar**. Vacía, dice *«Todavía no hay: desplegá para
+  armarlo con la IA o a mano»*, y al desplegarla ofrece los mismos dos
+  caminos de la hoja. Mientras la IA analiza, avisa que va a aparecer ahí a
+  medida que avanza.
 
 **«Descargar»**, en la tarjeta, baja **el mismo documento con lo marcado**,
 en el formato del original. Elegís qué lleva, y se combina:

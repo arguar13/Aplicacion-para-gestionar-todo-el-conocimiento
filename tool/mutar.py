@@ -22,8 +22,25 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))).replace(os.sep, '/')
+
+
+def write(path, text):
+    """Escribe [text] en [path]. En Windows, otro programa —el analizador del
+    editor, un indexador— puede tener el archivo abierto un instante y la
+    escritura falla con «Invalid argument» o «Permission denied»: se reintenta
+    un rato antes de rendirse, porque rendirse a mitad deja el código mutado."""
+    for attempt in range(40):
+        try:
+            with io.open(path, 'w', encoding='utf-8', newline='') as f:
+                f.write(text)
+            return
+        except OSError:
+            if attempt == 39:
+                raise
+            time.sleep(0.25)
 
 
 def kill_tree(proc):
@@ -64,7 +81,7 @@ for m in mutations:
         print(f'{"MAL ARMADA: aparece " + str(count) + " veces":40}  {m["nombre"]}', flush=True)
         continue
     try:
-        io.open(path, 'w', encoding='utf-8', newline='').write(original.replace(old, new))
+        write(path, original.replace(old, new))
         applied = io.open(path, encoding='utf-8', newline='').read()
         assert applied != original and new in applied, 'no se aplicó'
         out, code, hung = run_tests(m['pruebas'], m.get('minutos', 10))
@@ -79,6 +96,6 @@ for m in mutations:
         else:
             verdict = f'muerta ({failed} pruebas fallan)'
     finally:
-        io.open(path, 'w', encoding='utf-8', newline='').write(original)
+        write(path, original)
         assert io.open(path, encoding='utf-8', newline='').read() == original
     print(f'{verdict:40}  {m["nombre"]}', flush=True)

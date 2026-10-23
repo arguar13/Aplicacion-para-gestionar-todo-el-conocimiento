@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_label.dart';
 import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/study/domain/services/study_words.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
@@ -11,17 +14,241 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Prende [layer] —el resumen o la síntesis— en [text], o lo apaga si ya
 /// estaba (F36): es un interruptor de dos posiciones, nunca los dos encima.
-/// Prenderlo analiza lo que falte.
+///
+/// Si todavía no hay nada de [layer] y nadie lo está armando, en vez de
+/// prenderlo ofrece armarlo con la IA o a mano (F39): ver
+/// [showStudySuggestion]. Si hay, se prende, y un análisis que quedó a mitad
+/// sigue; uno que nunca empezó —lo elegido a mano— no arranca solo.
+///
+/// Cambiar de resaltado deja de elegir el otro a mano: se elige lo que se ve.
 Future<void> toggleStudyLayer(
   WidgetRef ref,
   BuildContext context,
   StudyText text,
-  StudyLayer layer,
-) async {
+  StudyLayer layer, {
+  VoidCallback? onManual,
+}) async {
   final view = ref.read(studyViewProvider(text.renditionId).notifier);
   final on = view.state.layer != layer;
-  view.state = view.state.copyWith(layer: () => on ? layer : null);
-  if (on) await analyzeForStudyIfNeeded(ref, context, text);
+  if (on) {
+    final suggest = await studyNeedsSuggestion(ref, text, layer.kind);
+    if (!context.mounted) return;
+    if (suggest) {
+      await showStudySuggestion(
+        context,
+        ref,
+        text,
+        layer.kind,
+        onManual: onManual,
+      );
+      return;
+    }
+  }
+  final shown = on ? layer : null;
+  view.state = view.state.copyWith(
+    layer: () => shown,
+    pick: () => _pickWith(view.state.pick, shown),
+  );
+  if (on) await _continueAnalysis(ref, context, text);
+}
+
+/// Lo que se sigue eligiendo a mano con [layer] a la vista: las palabras
+/// clave siguen; el resumen o la síntesis, solo si es el que se ve.
+StudyMarkKind? _pickWith(StudyMarkKind? pick, StudyLayer? layer) =>
+    pick == null || pick == StudyMarkKind.keyword || pick == layer?.kind
+    ? pick
+    : null;
+
+/// Sigue un análisis que quedó a mitad; no arranca uno nuevo.
+Future<void> _continueAnalysis(
+  WidgetRef ref,
+  BuildContext context,
+  StudyText text,
+) async {
+  final study = await ref
+      .read(studyRepositoryProvider)
+      .watch(text.renditionId)
+      .first;
+  if (!study.started || !context.mounted) return;
+  await analyzeForStudyIfNeeded(ref, context, text);
+}
+
+/// Si a lo de [kind] le falta todo y nadie lo está armando (F39): ni la IA
+/// lo marcó ni se eligió a mano, y no hay un análisis a mitad que lo vaya a
+/// traer.
+///
+/// Lee lo guardado, no lo que ya cargó la pantalla: el lector a pantalla
+/// completa puede no estar mirándolo todavía, y no hay que ofrecer armar un
+/// resumen que existe.
+Future<bool> studyNeedsSuggestion(
+  WidgetRef ref,
+  StudyText text,
+  StudyMarkKind kind,
+) async {
+  if (ref.read(studyAnalysisProvider(text.renditionId))
+      is StudyAnalysisRunning) {
+    return false;
+  }
+  final study = await ref
+      .read(studyRepositoryProvider)
+      .watch(text.renditionId)
+      .first;
+  if (study.of(kind).isNotEmpty) return false;
+  return !study.started || study.complete;
+}
+
+/// Cómo se arma lo que falta (F39): con el modelo elegido o a mano.
+enum StudySuggestionChoice { ai, manual }
+
+/// Arma lo de [kind] en [text] como se eligió (F39).
+///
+/// - **Con la IA**: lo prende y analiza lo que falte.
+/// - **A mano**: lo prende y pasa a elegirlo —tocar una oración o una
+///   palabra—; con [onManual], además, quien muestra la tarjeta despliega el
+///   texto donde se toca. Al terminar de elegir sigue prendido: se ve lo que
+///   se eligió.
+Future<void> applyStudySuggestion(
+  WidgetRef ref,
+  BuildContext context,
+  StudyText text,
+  StudyMarkKind kind,
+  StudySuggestionChoice choice, {
+  VoidCallback? onManual,
+}) async {
+  final view = ref.read(studyViewProvider(text.renditionId).notifier);
+  final layer = StudyLayer.values.where((l) => l.kind == kind).firstOrNull;
+  final manual = choice == StudySuggestionChoice.manual;
+  view.state = view.state.copyWith(
+    layer: layer == null ? null : () => layer,
+    keywords: view.state.keywords || kind == StudyMarkKind.keyword,
+    pick: manual
+        ? () => kind
+        : () => _pickWith(view.state.pick, layer ?? view.state.layer),
+  );
+  if (manual) {
+    onManual?.call();
+    return;
+  }
+  await analyzeForStudyIfNeeded(ref, context, text);
+}
+
+/// Ofrece armar lo de [kind] con la IA o a mano, en una hoja (F39): lo que
+/// pasa al tocar «Resumir», «Sintetizar» o «Palabras clave» sin nada todavía.
+Future<void> showStudySuggestion(
+  BuildContext context,
+  WidgetRef ref,
+  StudyText text,
+  StudyMarkKind kind, {
+  VoidCallback? onManual,
+}) async {
+  final choice = await showModalBottomSheet<StudySuggestionChoice>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        child: StudySuggestion(
+          text: text,
+          kind: kind,
+          onChosen: (choice) => Navigator.of(sheetContext).pop(choice),
+        ),
+      ),
+    ),
+  );
+  if (choice == null || !context.mounted) return;
+  await applyStudySuggestion(
+    ref,
+    context,
+    text,
+    kind,
+    choice,
+    onManual: onManual,
+  );
+}
+
+/// Qué falta y los dos caminos para armarlo (F39): **«Resumir con …»**, con el
+/// modelo elegido por su nombre, y **«Elegir a mano»**. En la hoja de los
+/// botones de estudiar y en la fila vacía de «Extraer».
+///
+/// Si la IA ya analizó todo y no encontró nada, queda solo «Elegir a mano»:
+/// pedírselo de nuevo daría lo mismo.
+class StudySuggestion extends ConsumerWidget {
+  const StudySuggestion({
+    required this.text,
+    required this.kind,
+    required this.onChosen,
+    super.key,
+  });
+
+  final StudyText text;
+  final StudyMarkKind kind;
+  final ValueChanged<StudySuggestionChoice> onChosen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final model = modelLabel(ref.watch(chosenLanguageModelNameProvider));
+    final analyzed =
+        ref
+            .watch(documentStudyProvider(text.renditionId))
+            .valueOrNull
+            ?.complete ??
+        false;
+    final (title, body, withAi) = switch (kind) {
+      StudyMarkKind.summary => (
+        l10n.studySuggestTitleSummary,
+        l10n.studySuggestBodySummary,
+        l10n.studySuggestSummarizeWith(model),
+      ),
+      StudyMarkKind.synthesis => (
+        l10n.studySuggestTitleSynthesis,
+        l10n.studySuggestBodySynthesis,
+        l10n.studySuggestSynthesizeWith(model),
+      ),
+      StudyMarkKind.keyword => (
+        l10n.studySuggestTitleKeywords,
+        l10n.studySuggestBodyKeywords(kMaxKeywordsPerSentence),
+        l10n.studySuggestKeywordsWith(model),
+      ),
+    };
+
+    return Column(
+      key: Key('study-suggestion-${kind.name}'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(title, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 6),
+        Text(
+          body,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (!analyzed)
+              FilledButton.icon(
+                key: const Key('study-suggest-ai'),
+                icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                label: Text(withAi),
+                onPressed: () => onChosen(StudySuggestionChoice.ai),
+              ),
+            OutlinedButton.icon(
+              key: const Key('study-suggest-manual'),
+              icon: const Icon(Icons.touch_app_outlined, size: 18),
+              label: Text(l10n.studySuggestManual),
+              onPressed: () => onChosen(StudySuggestionChoice.manual),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 /// Prende [layer] en [text] —si ya estaba, queda— y analiza lo que falte
@@ -37,17 +264,37 @@ Future<void> showStudyLayer(
   await analyzeForStudyIfNeeded(ref, context, text);
 }
 
-/// Muestra u oculta las palabras clave de [text] (F36). Mostrarlas analiza lo
-/// que falte: las propone la IA en la misma pasada.
+/// Muestra u oculta las palabras clave de [text] (F36). Sin ninguna
+/// todavía, ofrece armarlas con la IA o a mano (F39); con alguna, mostrarlas
+/// sigue un análisis que quedó a mitad.
 Future<void> toggleStudyKeywords(
   WidgetRef ref,
   BuildContext context,
-  StudyText text,
-) async {
+  StudyText text, {
+  VoidCallback? onManual,
+}) async {
   final view = ref.read(studyViewProvider(text.renditionId).notifier);
   final on = !view.state.keywords;
+  if (on) {
+    final suggest = await studyNeedsSuggestion(
+      ref,
+      text,
+      StudyMarkKind.keyword,
+    );
+    if (!context.mounted) return;
+    if (suggest) {
+      await showStudySuggestion(
+        context,
+        ref,
+        text,
+        StudyMarkKind.keyword,
+        onManual: onManual,
+      );
+      return;
+    }
+  }
   view.state = view.state.copyWith(keywords: on);
-  if (on) await analyzeForStudyIfNeeded(ref, context, text);
+  if (on) await _continueAnalysis(ref, context, text);
 }
 
 /// Prende o apaga elegir palabras clave a mano en [text] (F36).
@@ -103,9 +350,13 @@ Future<bool> ensureStudyModelReady(BuildContext context, WidgetRef ref) {
 /// completa: lo que se prende en uno se ve en el otro —ver
 /// [studyViewProvider]—.
 class StudyToggles extends ConsumerWidget {
-  const StudyToggles({required this.text, super.key});
+  const StudyToggles({required this.text, this.onManual, super.key});
 
   final StudyText text;
+
+  /// Al pasar a elegir a mano desde la sugerencia: la tarjeta despliega el
+  /// texto donde se toca.
+  final VoidCallback? onManual;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -125,7 +376,13 @@ class StudyToggles extends ConsumerWidget {
           color: palette.summary,
           selected: view.layer == StudyLayer.summary,
           onTap: () => unawaited(
-            toggleStudyLayer(ref, context, text, StudyLayer.summary),
+            toggleStudyLayer(
+              ref,
+              context,
+              text,
+              StudyLayer.summary,
+              onManual: onManual,
+            ),
           ),
         ),
         _StudyChip(
@@ -135,7 +392,13 @@ class StudyToggles extends ConsumerWidget {
           color: palette.synthesis,
           selected: view.layer == StudyLayer.synthesis,
           onTap: () => unawaited(
-            toggleStudyLayer(ref, context, text, StudyLayer.synthesis),
+            toggleStudyLayer(
+              ref,
+              context,
+              text,
+              StudyLayer.synthesis,
+              onManual: onManual,
+            ),
           ),
         ),
         _StudyChip(
@@ -144,7 +407,9 @@ class StudyToggles extends ConsumerWidget {
           label: l10n.studyKeywords,
           color: palette.keyword,
           selected: view.showsKeywords,
-          onTap: () => unawaited(toggleStudyKeywords(ref, context, text)),
+          onTap: () => unawaited(
+            toggleStudyKeywords(ref, context, text, onManual: onManual),
+          ),
         ),
         IconButton(
           key: const Key('study-toggle-pick'),
@@ -162,6 +427,25 @@ class StudyToggles extends ConsumerWidget {
           ),
           onPressed: () => toggleStudyPicking(ref, text),
         ),
+        // Eligiendo a mano, qué se elige y cómo terminar.
+        if (view.pick case final pick?)
+          FilledButton.tonalIcon(
+            key: const Key('study-pick-done'),
+            icon: const Icon(Icons.check, size: 18),
+            label: Text(
+              '${switch (pick) {
+                StudyMarkKind.summary => l10n.studyPickingSummary,
+                StudyMarkKind.synthesis => l10n.studyPickingSynthesis,
+                StudyMarkKind.keyword => l10n.studyPickingKeywords,
+              }} · ${l10n.studyPickingDone}',
+            ),
+            onPressed: () {
+              final notifier = ref.read(
+                studyViewProvider(text.renditionId).notifier,
+              );
+              notifier.state = notifier.state.copyWith(pick: () => null);
+            },
+          ),
       ],
     );
   }

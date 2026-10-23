@@ -34,7 +34,6 @@ import 'package:sinapsis/features/ai_organize/domain/services/map_note_language.
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_atlas_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
-import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -242,13 +241,9 @@ final aiReviewQueueProvider = Provider<AiReviewQueue>((ref) {
 /// El modelo que revisaría ahora en «Revisar con otro modelo» (F33), como lo
 /// guardan las pasadas: al día con el proveedor, el modelo y la opción de
 /// Gemma elegidos, para que el botón diga siempre con cuál.
-final aiReviewerNameProvider = Provider.autoDispose<String>((ref) {
-  ref
-    ..watch(aiModelSettingsProvider)
-    ..watch(chatModelOptionNotifierProvider)
-    ..watch(cloudCatalogRevisionProvider);
-  return ref.read(languageModelNameProvider)();
-});
+final aiReviewerNameProvider = Provider.autoDispose<String>(
+  (ref) => ref.watch(chosenLanguageModelNameProvider),
+);
 
 /// Lo que el modelo elegido todavía tiene para revisar (F33), por el modelo
 /// que lo hizo: lo que ofrece la tarjeta de «Lo que hizo la IA». Se vuelve a

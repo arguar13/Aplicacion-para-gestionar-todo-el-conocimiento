@@ -128,7 +128,10 @@ class StudyDocumentCard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 4),
-                  StudyToggles(text: text),
+                  StudyToggles(
+                    text: text,
+                    onManual: extractedTextController?.expand,
+                  ),
                   const SizedBox(height: 8),
                   const _StudyLegend(),
                   AnimatedSize(
@@ -176,19 +179,25 @@ class StudyDocumentCard extends ConsumerWidget {
               key: const Key('study-extract-summary'),
               title: l10n.studyExtractSummary,
               color: StudyPalette.of(theme.brightness).summary,
-              content: text.content,
+              text: text,
               study: study,
               kind: StudyMarkKind.summary,
+              onManual: extractedTextController?.expand,
             ),
             _SentencesRow(
               key: const Key('study-extract-synthesis'),
               title: l10n.studyExtractSynthesis,
               color: StudyPalette.of(theme.brightness).synthesis,
-              content: text.content,
+              text: text,
               study: study,
               kind: StudyMarkKind.synthesis,
+              onManual: extractedTextController?.expand,
             ),
-            _KeywordsRow(content: text.content, study: study),
+            _KeywordsRow(
+              text: text,
+              study: study,
+              onManual: extractedTextController?.expand,
+            ),
           ],
         ),
       ),
@@ -432,7 +441,6 @@ class _ExtractRow extends StatelessWidget {
     required this.child,
     this.subtitle,
     this.iconColor,
-    this.enabled = true,
     this.controller,
     super.key,
   });
@@ -441,7 +449,6 @@ class _ExtractRow extends StatelessWidget {
   final Color? iconColor;
   final String title;
   final String? subtitle;
-  final bool enabled;
   final ExpansibleController? controller;
   final Widget child;
 
@@ -450,7 +457,6 @@ class _ExtractRow extends StatelessWidget {
     final theme = Theme.of(context);
     return ExpansionTile(
       controller: controller,
-      enabled: enabled,
       tilePadding: const EdgeInsets.only(right: 12),
       childrenPadding: const EdgeInsets.only(right: 12, bottom: 12),
       expandedCrossAxisAlignment: CrossAxisAlignment.start,
@@ -470,27 +476,30 @@ class _ExtractRow extends StatelessWidget {
 }
 
 /// «Extraer resumen» o «Extraer síntesis»: sus oraciones en orden, como
-/// texto corrido, con cuántas oraciones y palabras son.
+/// texto corrido, con cuántas oraciones y palabras son. Vacía, al
+/// desplegarla ofrece armarlo con la IA o a mano (F39).
 class _SentencesRow extends StatelessWidget {
   const _SentencesRow({
     required this.title,
     required this.color,
-    required this.content,
+    required this.text,
     required this.study,
     required this.kind,
+    this.onManual,
     super.key,
   });
 
   final String title;
   final Color color;
-  final String content;
+  final StudyText text;
   final DocumentStudy study;
   final StudyMarkKind kind;
+  final VoidCallback? onManual;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final extract = studySentencesExtract(content, study, kind);
+    final extract = studySentencesExtract(text.content, study, kind);
     final has = extract.sentences > 0;
 
     return _ExtractRow(
@@ -501,37 +510,50 @@ class _SentencesRow extends StatelessWidget {
           ? '${l10n.studySentenceCount(extract.sentences)} · '
                 '${l10n.studyWordCount(extract.words)}'
           : _emptyHint(l10n, study),
-      enabled: has,
-      child: _Extracted(
-        copyText: extract.text,
-        child: SelectableText(extract.text),
-      ),
+      child: has
+          ? _Extracted(
+              copyText: extract.text,
+              child: SelectableText(extract.text),
+            )
+          : _EmptyExtract(text: text, kind: kind, onManual: onManual),
     );
   }
 }
 
 /// «Extraer palabras clave»: como etiquetas, en el orden en que aparecen.
 class _KeywordsRow extends StatelessWidget {
-  const _KeywordsRow({required this.content, required this.study});
+  const _KeywordsRow({required this.text, required this.study, this.onManual});
 
-  final String content;
+  final StudyText text;
   final DocumentStudy study;
+  final VoidCallback? onManual;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final palette = StudyPalette.of(Theme.of(context).brightness);
-    final words = studyKeywordsExtract(content, study);
+    final words = studyKeywordsExtract(text.content, study);
+    if (words.isEmpty) {
+      return _ExtractRow(
+        key: const Key('study-extract-keywords'),
+        icon: Icons.key_outlined,
+        iconColor: palette.keyword,
+        title: l10n.studyExtractKeywords,
+        subtitle: _emptyHint(l10n, study),
+        child: _EmptyExtract(
+          text: text,
+          kind: StudyMarkKind.keyword,
+          onManual: onManual,
+        ),
+      );
+    }
 
     return _ExtractRow(
       key: const Key('study-extract-keywords'),
       icon: Icons.key_outlined,
       iconColor: palette.keyword,
       title: l10n.studyExtractKeywords,
-      subtitle: words.isNotEmpty
-          ? l10n.studyKeywordCount(words.length)
-          : _emptyHint(l10n, study),
-      enabled: words.isNotEmpty,
+      subtitle: l10n.studyKeywordCount(words.length),
       child: _Extracted(
         copyText: words.join(', '),
         child: Wrap(
@@ -556,6 +578,40 @@ class _KeywordsRow extends StatelessWidget {
 /// Antes de analizar, cómo empezar; después, que no hay nada.
 String _emptyHint(AppLocalizations l10n, DocumentStudy study) =>
     study.started ? l10n.studyExtractEmpty : l10n.studyExtractStart;
+
+/// Una fila de «Extraer» vacía, desplegada (F39): mientras la IA analiza, que
+/// va a aparecer acá; si no, los dos caminos para armarlo.
+class _EmptyExtract extends ConsumerWidget {
+  const _EmptyExtract({required this.text, required this.kind, this.onManual});
+
+  final StudyText text;
+  final StudyMarkKind kind;
+  final VoidCallback? onManual;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final running =
+        ref.watch(studyAnalysisProvider(text.renditionId))
+            is StudyAnalysisRunning;
+    if (running) {
+      return Text(AppLocalizations.of(context)!.studyExtractRunning);
+    }
+    return StudySuggestion(
+      text: text,
+      kind: kind,
+      onChosen: (choice) => unawaited(
+        applyStudySuggestion(
+          ref,
+          context,
+          text,
+          kind,
+          choice,
+          onManual: onManual,
+        ),
+      ),
+    );
+  }
+}
 
 /// Lo extraído y su «Copiar».
 class _Extracted extends StatelessWidget {

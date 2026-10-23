@@ -186,6 +186,18 @@ final languageModelNameProvider = Provider<String Function()>(
   },
 );
 
+/// El modelo que escribe ahora, al día (F33, F39): cambia con el proveedor, el
+/// modelo y la opción de Gemma elegidos, para que un botón diga siempre con
+/// cuál —«Revisar con…», «Resumir con…»—. Como lo guardan las pasadas: para
+/// mostrarlo, `modelLabel`.
+final chosenLanguageModelNameProvider = Provider.autoDispose<String>((ref) {
+  ref
+    ..watch(aiModelSettingsProvider)
+    ..watch(chatModelOptionNotifierProvider)
+    ..watch(cloudCatalogRevisionProvider);
+  return ref.read(languageModelNameProvider)();
+});
+
 /// Cuánto texto lee por pedido el modelo que escribe ahora (F32): con Gemma,
 /// partes de 3000 caracteres; con uno en la nube, un capítulo
 /// (`textBudgetFor`, según su ventana). Se lee al usarlo, como

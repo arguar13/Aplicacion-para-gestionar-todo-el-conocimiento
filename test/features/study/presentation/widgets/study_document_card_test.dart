@@ -67,6 +67,7 @@ void main() {
       provider: AiProvider.gemma,
     ),
     WidgetBuilder? extractedText,
+    ExpansibleController? extractedTextController,
   }) async {
     repository = MemoryStudyRepository(study);
     analysis = FakeStudyAnalysis();
@@ -74,6 +75,7 @@ void main() {
       overrides: [
         studyRepositoryProvider.overrideWithValue(repository),
         studyAnalysisProvider.overrideWith((ref, id) => analysis),
+        chosenLanguageModelNameProvider.overrideWithValue('gemini-2.5-flash'),
         languageModelStatusCheckProvider.overrideWithValue(
           ({bool background = false}) async => status,
         ),
@@ -96,6 +98,7 @@ void main() {
               child: StudyDocumentCard(
                 text: text,
                 extractedText: extractedText,
+                extractedTextController: extractedTextController,
                 extractedTextSubtitle: 'Para buscar',
               ),
             ),
@@ -114,16 +117,115 @@ void main() {
   }
 
   group('los tres botones', () {
-    testWidgets('Resumir prende el resumen y analiza lo que falta, con el '
-        'texto y su forma; tocarlo de nuevo lo apaga', (tester) async {
+    testWidgets('sin nada todavía, Resumir ofrece armarlo con el modelo '
+        'elegido —por su nombre— o a mano; con la IA, lo prende y analiza el '
+        'texto con su forma', (tester) async {
       await pump(tester);
 
       await tap(tester, 'study-toggle-summary');
+      expect(find.byKey(const Key('study-suggestion-summary')), findsOneWidget);
+      expect(find.text(es.studySuggestTitleSummary), findsOneWidget);
+      expect(
+        find.text(es.studySuggestSummarizeWith('Gemini 2.5 Flash')),
+        findsOneWidget,
+      );
+      // Todavía no se prendió nada: se eligió el camino recién.
+      expect(view().layer, isNull);
+      expect(analysis.starts, isEmpty);
+
+      await tap(tester, 'study-suggest-ai');
+      expect(find.byKey(const Key('study-suggestion-summary')), findsNothing);
       expect(view().layer, StudyLayer.summary);
+      expect(view().picking, isFalse);
       expect(analysis.starts, [(content: content, markdown: true)]);
+    });
+
+    testWidgets('a mano, lo prende y pasa a elegirlo, avisa qué se elige y '
+        'Listo lo termina; no analiza nada', (tester) async {
+      await pump(tester);
+
+      await tap(tester, 'study-toggle-synthesis');
+      await tap(tester, 'study-suggest-manual');
+
+      expect(view().layer, StudyLayer.synthesis);
+      expect(view().pick, StudyMarkKind.synthesis);
+      expect(analysis.starts, isEmpty);
+      expect(
+        find.text('${es.studyPickingSynthesis} · ${es.studyPickingDone}'),
+        findsOneWidget,
+      );
+
+      await tap(tester, 'study-pick-done');
+      expect(view().pick, isNull);
+      expect(view().layer, StudyLayer.synthesis);
+      expect(find.byKey(const Key('study-pick-done')), findsNothing);
+    });
+
+    testWidgets('cerrar la sugerencia sin elegir no prende nada', (
+      tester,
+    ) async {
+      await pump(tester);
+
+      await tap(tester, 'study-toggle-summary');
+      await tester.tapAt(const Offset(400, 20));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('study-suggestion-summary')), findsNothing);
+      expect(view(), const StudyView());
+      expect(analysis.starts, isEmpty);
+    });
+
+    testWidgets('con lo elegido a mano y el análisis sin empezar, prenderlo '
+        'no arranca la IA sola', (tester) async {
+      await pump(
+        tester,
+        study: const DocumentStudy(
+          marks: [
+            StudyMark(
+              id: 'u1',
+              kind: StudyMarkKind.summary,
+              origin: ContentOrigin.user,
+              start: 0,
+              end: 37,
+            ),
+          ],
+          analyzedUntil: 0,
+          complete: false,
+        ),
+      );
+
+      await tap(tester, 'study-toggle-summary');
+
+      expect(find.byKey(const Key('study-suggestion-summary')), findsNothing);
+      expect(view().layer, StudyLayer.summary);
+      expect(analysis.starts, isEmpty);
 
       await tap(tester, 'study-toggle-summary');
       expect(view().layer, isNull);
+    });
+
+    testWidgets('con un análisis a mitad, prenderlo lo sigue', (tester) async {
+      await pump(
+        tester,
+        study: DocumentStudy(
+          marks: [
+            mark(
+              's1',
+              StudyMarkKind.summary,
+              'La revolución industrial cambió todo.',
+            ),
+          ],
+          analyzedUntil: 40,
+          complete: false,
+        ),
+      );
+
+      // Le falta síntesis, pero un análisis a mitad la va a traer: no se
+      // ofrece nada, sigue.
+      await tap(tester, 'study-toggle-synthesis');
+
+      expect(find.byKey(const Key('study-suggestion-synthesis')), findsNothing);
+      expect(view().layer, StudyLayer.synthesis);
       expect(analysis.starts, hasLength(1));
     });
 
@@ -138,6 +240,22 @@ void main() {
       expect(view().layer, StudyLayer.synthesis);
     });
 
+    testWidgets('cambiar de resaltado deja de elegir el otro a mano; las '
+        'palabras clave se siguen eligiendo', (tester) async {
+      await pump(tester, study: analyzed);
+      container.read(studyViewProvider('r1').notifier).state = const StudyView(
+        layer: StudyLayer.summary,
+        pick: StudyMarkKind.summary,
+      );
+
+      await tap(tester, 'study-toggle-synthesis');
+      expect(view().pick, isNull);
+
+      await tap(tester, 'study-toggle-pick');
+      await tap(tester, 'study-toggle-summary');
+      expect(view().pick, StudyMarkKind.keyword);
+    });
+
     testWidgets('con todo analizado no se vuelve a pedir', (tester) async {
       await pump(tester, study: analyzed);
 
@@ -147,40 +265,71 @@ void main() {
       expect(analysis.starts, isEmpty);
     });
 
-    testWidgets('mientras analiza, otro toque no pide otra pasada', (
-      tester,
-    ) async {
+    testWidgets('analizado todo y sin nada de una clase, solo queda elegirlo '
+        'a mano: pedírselo a la IA daría lo mismo', (tester) async {
+      await pump(
+        tester,
+        study: DocumentStudy(
+          marks: [
+            mark(
+              's1',
+              StudyMarkKind.summary,
+              'La revolución industrial cambió todo.',
+            ),
+          ],
+          analyzedUntil: content.length,
+          complete: true,
+        ),
+      );
+
+      await tap(tester, 'study-toggle-keywords');
+
+      expect(find.byKey(const Key('study-suggestion-keyword')), findsOneWidget);
+      expect(find.byKey(const Key('study-suggest-ai')), findsNothing);
+      await tap(tester, 'study-suggest-manual');
+      expect(view().pick, StudyMarkKind.keyword);
+      expect(view().showsKeywords, isTrue);
+    });
+
+    testWidgets('mientras analiza, otro toque no pide otra pasada ni ofrece '
+        'nada', (tester) async {
       await pump(tester);
       analysis.shown = const StudyAnalysisRunning(null);
 
       await tester.tap(find.byKey(const Key('study-toggle-summary')));
       await tester.pump();
 
+      expect(find.byKey(const Key('study-suggestion-summary')), findsNothing);
       expect(analysis.starts, isEmpty);
     });
 
-    testWidgets('sin el modelo listo, lo avisa y no analiza nada', (
-      tester,
-    ) async {
+    testWidgets('sin el modelo listo, elegir la IA lo avisa y no analiza '
+        'nada', (tester) async {
       await pump(tester, status: const LanguageModelNeedsDownload());
 
       await tap(tester, 'study-toggle-summary');
+      await tap(tester, 'study-suggest-ai');
 
       expect(find.text(es.studyModelRequired), findsOneWidget);
       expect(analysis.starts, isEmpty);
     });
 
-    testWidgets('Palabras clave las muestra y analiza; el lápiz las elige', (
-      tester,
-    ) async {
+    testWidgets('Palabras clave: con la IA las muestra y analiza; el lápiz '
+        'las elige', (tester) async {
       await pump(tester);
 
       await tap(tester, 'study-toggle-keywords');
+      expect(find.text(es.studySuggestBodyKeywords(4)), findsOneWidget);
+      await tap(tester, 'study-suggest-ai');
       expect(view().keywords, isTrue);
       expect(analysis.starts, hasLength(1));
 
       await tap(tester, 'study-toggle-pick');
-      expect(view().picking, isTrue);
+      expect(view().pick, StudyMarkKind.keyword);
+      expect(
+        find.text('${es.studyPickingKeywords} · ${es.studyPickingDone}'),
+        findsOneWidget,
+      );
       await tap(tester, 'study-toggle-pick');
       expect(view().picking, isFalse);
 
@@ -259,7 +408,8 @@ void main() {
       expect(find.text(es.studyExtractStart), findsNWidgets(3));
     });
 
-    testWidgets('analizado pero sin nada de una clase, lo dice', (
+    testWidgets('analizado pero sin nada de una clase, lo dice; '
+        'desplegada, mientras sigue el análisis avisa que va a aparecer ahí', (
       tester,
     ) async {
       await pump(
@@ -272,16 +422,61 @@ void main() {
       );
 
       expect(find.text(es.studyExtractEmpty), findsNWidgets(3));
-      for (final title in [
-        es.studyExtractSummary,
-        es.studyExtractSynthesis,
-        es.studyExtractKeywords,
-      ]) {
-        await tester.tap(find.text(title));
-        await tester.pumpAndSettle();
-      }
-      // Ninguna se abre: no hay nada que copiar.
+      analysis.shown = const StudyAnalysisRunning(null);
+      await tester.tap(find.text(es.studyExtractSummary));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text(es.studyExtractRunning), findsOneWidget);
+      // No hay nada que copiar.
       expect(find.text(es.studyCopy), findsNothing);
+    });
+
+    testWidgets('vacía y desplegada, ofrece armarlo: a mano, lo prende, pasa '
+        'a elegirlo y despliega el texto donde se toca', (tester) async {
+      final controller = ExpansibleController();
+      addTearDown(controller.dispose);
+      await pump(
+        tester,
+        extractedText: (_) => const Text('el texto entero'),
+        extractedTextController: controller,
+      );
+
+      await tester.tap(find.text(es.studyExtractKeywords));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('study-extract-keywords')),
+          matching: find.byKey(const Key('study-suggestion-keyword')),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('el texto entero'), findsNothing);
+
+      await tester.ensureVisible(find.byKey(const Key('study-suggest-manual')));
+      await tap(tester, 'study-suggest-manual');
+
+      expect(view().pick, StudyMarkKind.keyword);
+      expect(view().showsKeywords, isTrue);
+      expect(analysis.starts, isEmpty);
+      expect(find.text('el texto entero'), findsOneWidget);
+
+      // Terminado, lo elegido se sigue viendo.
+      await tester.ensureVisible(find.byKey(const Key('study-pick-done')));
+      await tap(tester, 'study-pick-done');
+      expect(view().pick, isNull);
+      expect(view().keywords, isTrue);
+    });
+
+    testWidgets('vacía y desplegada, con la IA analiza', (tester) async {
+      await pump(tester);
+
+      await tester.tap(find.text(es.studyExtractSummary));
+      await tester.pumpAndSettle();
+      await tap(tester, 'study-suggest-ai');
+
+      expect(view().layer, StudyLayer.summary);
+      expect(analysis.starts, hasLength(1));
     });
 
     testWidgets('el resumen, con cuántas oraciones y palabras, como texto '

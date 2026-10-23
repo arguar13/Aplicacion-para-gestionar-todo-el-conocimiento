@@ -133,6 +133,35 @@
 - **Decisión E**: cuántos y cuáles. Propongo los seis de arriba más Claro y Oscuro, y que el
   lector («Leer como libro») siga el tema elegido.
 
+### Pedidos sumados durante el encargo
+
+- **Palabras clave en todas las oraciones**, de punta a punta del documento. Hoy la IA las propone
+  solo en las oraciones del resumen o de la síntesis. Se pide una línea de palabras clave por
+  **cada** oración, y se ven todas cuando están prendidas. Un documento ya analizado necesita
+  «Volver a analizar» para traerlas, y eso deja lo elegido a mano. Va justo después de 3b.
+- **Resumen, síntesis y palabras clave se superponen**: se prende una, dos, las tres o ninguna, en
+  vez del interruptor de hoy, donde se ve el resumen o la síntesis y nunca los dos. Con los dos
+  prendidos, la síntesis se pinta encima del resumen, porque es lo más esencial. Vale en todas las
+  superficies y en lo que se descarga. Va con el arreglo de las palabras clave, porque tocan lo
+  mismo.
+- **Más colores para resaltar a mano** (F38): una paleta de 8 a 10 colores, legibles en claro y en
+  oscuro y distintos de los de estudiar y del amarillo de lo que se lee. Lo hace un agente en su
+  propia rama, en paralelo.
+- **Los dos menús encimados al seleccionar en una página**: el de colores de la app y el del
+  sistema («Copiar · Seleccionar todo») se tapan. Queda uno solo, el de la app, que suma Copiar y
+  Seleccionar todo; si el sistema no deja ocultar el suyo, van uno encima del otro sin taparse. Va
+  con 3c, porque es el mismo código de la página.
+- **La página web igual al original**, letra por letra y foto por foto. En la Wikipedia guardada
+  aparece desplegado arriba el índice que el original oculta, y queda una franja vacía a la
+  derecha. Se buscan las causas (estilos que el original carga al abrirse, el ancho, lo que la app
+  le agrega para estudiar) y se arreglan. Lo hace un agente en paralelo.
+- **La vista previa del mapa del elemento, prolija**: con muchos vecinos hoy se enciman las
+  tarjetas y las etiquetas. Se rediseña para que nada se tape y use todo el ancho, con los más
+  importantes y un «+N». Lo hace un agente en paralelo.
+- **La vista previa de un documento, fija en la primera página**: hoy, al bajar por el detalle, el
+  gesto mueve el libro en vez de la pantalla. Queda la primera página quieta, y tocarla abre «Leer
+  como libro». Lo hace un agente en paralelo.
+
 ## Decisiones para que confirmes
 
 - **A.** «Volver a analizar» rehace lo de la IA y **deja lo que elegiste a mano**. Hoy borra
@@ -203,3 +232,21 @@
   - El repositorio queda con `addUserMark` y `removeMark` para cualquier tipo, en lugar de
     `addKeyword` y `removeKeyword`.
   - Falta la manera de entrar a elegir el resumen o la síntesis: es la sugerencia de 3b.
+- **Paso 3, segunda parte (3b) — hecho.** La sugerencia: sin nada todavía, tocar Resumir,
+  Sintetizar o Palabras clave abre una hoja con **«Resumir con <modelo>»** —el nombre del modelo
+  elegido, como en «Revisar con…»— y **«Elegir a mano»**.
+  - **A mano**: prende la capa, pasa a elegirla y despliega el texto donde se toca. Un botón dice
+    qué se elige y **Listo** termina; lo elegido queda prendido, también las palabras clave.
+  - Si la IA ya analizó todo y no encontró nada de esa clase, queda solo «Elegir a mano».
+  - Con algo ya hecho, el botón prende directo. Un análisis a mitad sigue; uno que nunca empezó
+    —todo a mano— no arranca solo.
+  - Las filas vacías de «Extraer» se despliegan y ofrecen lo mismo; mientras la IA analiza, avisan
+    que va a aparecer ahí.
+  - `chosenLanguageModelNameProvider`: el nombre del modelo elegido, al día. «Revisar con…» de F33
+    pasa a usarlo.
+  - **Causa de fondo encontrada**: en «Leer como libro» nadie miraba todavía lo estudiado al tocar
+    Resumir, así que se leía «sin cargar» y se ofrecía armar un resumen que existía. Ahora la
+    decisión lee lo guardado en el repositorio, no lo que la pantalla ya cargó.
+  - `tool/mutar.py` reintenta la escritura si Windows tiene el archivo tomado un instante: antes
+    se cortaba a mitad y dejaba el código mutado.
+  - Las 19 mutaciones mueren.
