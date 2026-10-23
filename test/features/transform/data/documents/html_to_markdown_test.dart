@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/transform/data/documents/html_to_markdown.dart';
+import 'package:xml/xml.dart';
 
 /// El conversor que comparten el lector de EPUB y el de páginas web (F22).
 ///
@@ -646,6 +647,21 @@ void main() {
         ),
         'Por Cervantes & otros\u00A0más.',
       );
+    });
+  });
+
+  group('parseXhtml (F38)', () {
+    test('lee un capítulo con entidades de HTML y las del doctype', () {
+      final document = parseXhtml(
+        '<!DOCTYPE html [<!ENTITY yo "Armando">]> '
+        '<html><body><p>Caf&eacute;&nbsp;de &yo;</p></body></html>',
+      );
+
+      expect(document!.rootElement.innerText, 'Café de Armando');
+    });
+
+    test('devuelve null si no es XML válido', () {
+      expect(parseXhtml('<html><body><p>Sin cerrar<br></body></html>'), isNull);
     });
   });
 }

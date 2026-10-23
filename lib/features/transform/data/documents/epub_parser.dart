@@ -12,6 +12,15 @@ import 'package:sinapsis/features/transform/data/documents/html_to_markdown.dart
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 import 'package:xml/xml.dart';
 
+/// Un archivo de capítulo del libro: cómo lo nombra el manifiesto, su ruta
+/// dentro del ZIP, sus bytes y si va en el hilo de lectura.
+typedef EpubSpineFile = ({
+  String href,
+  String path,
+  List<int> bytes,
+  bool linear,
+});
+
 /// Lee un libro en EPUB.
 ///
 /// Un EPUB es un ZIP con XHTML adentro y un archivo que dice en qué orden se
@@ -156,15 +165,6 @@ class EpubParser implements DocumentParser {
 
   static ({List<String> chapters, List<String> missing, List<String> empty})
   _readSpine(Archive archive, XmlElement opf, String base) {
-    // El manifiesto asocia cada identificador con su archivo; el spine dice
-    // en qué orden van esos identificadores.
-    final hrefById = <String, String>{};
-    for (final item in opf.findAllElements('item')) {
-      final id = item.getAttribute('id');
-      final href = item.getAttribute('href');
-      if (id != null && href != null) hrefById[id] = href;
-    }
-
     final chapters = <String>[];
     // Un capítulo marcado como no lineal —notas al final, apéndices, un
     // glosario— no va en el hilo de lectura, pero es texto del libro: los
@@ -173,32 +173,19 @@ class EpubParser implements DocumentParser {
     // lineal, en el orden en que el spine los nombra: así no interrumpe la
     // lectura y tampoco se pierde.
     final auxiliary = <String>[];
-    final missing = <String>[];
     final empty = <String>[];
-    for (final reference in opf.findAllElements('itemref')) {
-      final idref = reference.getAttribute('idref');
-      final href = hrefById[idref];
-      if (href == null) {
-        missing.add(idref ?? '(sin identificador)');
-        continue;
-      }
-
-      final entry = _entryBytes(archive, _resolve(base, href));
-      if (entry == null) {
-        missing.add(href);
-        continue;
-      }
-
-      final text = _decodeText(entry);
+    final (:files, :missing) = _spineFiles(archive, opf, base);
+    for (final file in files) {
+      final text = _decodeText(file.bytes);
       final markdown = xhtmlToMarkdown(text);
       if (markdown.trim().isEmpty) {
-        if (text.trim().isNotEmpty) empty.add(href);
+        if (text.trim().isNotEmpty) empty.add(file.href);
         continue;
       }
-      if (reference.getAttribute('linear') == 'no') {
-        auxiliary.add(markdown);
-      } else {
+      if (file.linear) {
         chapters.add(markdown);
+      } else {
+        auxiliary.add(markdown);
       }
     }
 
@@ -208,6 +195,71 @@ class EpubParser implements DocumentParser {
       empty: empty,
     );
   }
+
+  /// Los archivos de los capítulos que el libro nombra y trae, en el orden
+  /// del spine, y los que nombra y no trae.
+  static ({List<EpubSpineFile> files, List<String> missing}) _spineFiles(
+    Archive archive,
+    XmlElement opf,
+    String base,
+  ) {
+    // El manifiesto asocia cada identificador con su archivo; el spine dice
+    // en qué orden van esos identificadores.
+    final hrefById = <String, String>{};
+    for (final item in opf.findAllElements('item')) {
+      final id = item.getAttribute('id');
+      final href = item.getAttribute('href');
+      if (id != null && href != null) hrefById[id] = href;
+    }
+
+    final files = <EpubSpineFile>[];
+    final missing = <String>[];
+    for (final reference in opf.findAllElements('itemref')) {
+      final idref = reference.getAttribute('idref');
+      final href = hrefById[idref];
+      if (href == null) {
+        missing.add(idref ?? '(sin identificador)');
+        continue;
+      }
+
+      final path = _resolve(base, href);
+      final entry = _entryBytes(archive, path);
+      if (entry == null) {
+        missing.add(href);
+        continue;
+      }
+      files.add((
+        href: href,
+        path: path,
+        bytes: entry,
+        linear: reference.getAttribute('linear') != 'no',
+      ));
+    }
+    return (files: files, missing: missing);
+  }
+
+  /// Los capítulos de [archive] que el libro trae, en el mismo orden en que
+  /// el extractor los une: primero los del hilo de lectura y después los no
+  /// lineales (F38).
+  ///
+  /// Quien ubica texto extraído dentro del libro —para resaltarlo— tiene que
+  /// recorrer los capítulos igual que `parse`, y por eso lo pide acá en vez
+  /// de rearmar el recorrido. Incluye los que no dieron texto: es quien llama
+  /// el que decide qué hacer con ellos.
+  static List<EpubSpineFile> chapterFiles(Archive archive) {
+    final opfPath = _findOpfPath(archive);
+    final opf = _parseXml(_requireEntry(archive, opfPath), opfPath).rootElement;
+    final (:files, missing: _) = _spineFiles(
+      archive,
+      opf,
+      p.url.dirname(opfPath),
+    );
+    return [...files.where((f) => f.linear), ...files.where((f) => !f.linear)];
+  }
+
+  /// El texto de un archivo del libro, en la codificación en que esté
+  /// guardado (F38): lo mismo que se lee al extraerlo.
+  static String decodeChapter(List<int> bytes) => _decodeText(bytes);
 
   /// Resuelve una ruta del manifiesto contra la carpeta del OPF.
   ///

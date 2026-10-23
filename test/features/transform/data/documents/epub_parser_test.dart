@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/logging/console_app_logger.dart';
 import 'package:sinapsis/core/storage/file_format.dart';
@@ -361,6 +362,43 @@ void main() {
     test('un libro sin un solo capitulo legible lanza', () {
       expect(
         () => parser.parseBytes(buildEpub(chapters: const [])),
+        throwsA(isA<UnreadableDocumentException>()),
+      );
+    });
+  });
+
+  group('los archivos de los capítulos (F38)', () {
+    // Quien resalta texto en el libro tiene que recorrer los capítulos igual
+    // que el extractor: de ahí que el parser los ofrezca.
+    test('primero los del hilo de lectura y después los no lineales, '
+        'saltando los que el libro nombra y no trae', () {
+      final epub = buildEpub(
+        chapters: const [
+          (name: 'a.xhtml', html: '<p>A</p>'),
+          (name: 'notas.xhtml', html: '<p>Notas</p>'),
+          (name: 'b.xhtml', html: '<p>B</p>'),
+          (name: 'falta.xhtml', html: '<p>F</p>'),
+        ],
+        nonLinear: {'notas.xhtml'},
+        missingFiles: {'falta.xhtml'},
+      );
+
+      final files = EpubParser.chapterFiles(ZipDecoder().decodeBytes(epub));
+
+      expect(files.map((f) => f.path), [
+        'OEBPS/a.xhtml',
+        'OEBPS/b.xhtml',
+        'OEBPS/notas.xhtml',
+      ]);
+      expect(files.map((f) => f.linear), [true, true, false]);
+      expect(EpubParser.decodeChapter(files.first.bytes), contains('<p>A</p>'));
+    });
+
+    test('un libro sin contenedor lanza', () {
+      final empty = Archive()..add(ArchiveFile.bytes('x.txt', [1]));
+
+      expect(
+        () => EpubParser.chapterFiles(empty),
         throwsA(isA<UnreadableDocumentException>()),
       );
     });

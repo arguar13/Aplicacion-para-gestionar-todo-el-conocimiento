@@ -114,13 +114,8 @@ String htmlToMarkdown(String html) {
 /// crudo) (F22).
 String xhtmlToMarkdown(String xhtml) {
   final source = xhtml.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-  final XmlDocument document;
-  try {
-    document = XmlDocument.parse(
-      source,
-      entityMapping: _DeclaredEntityMapping(_declaredEntities(source)),
-    );
-  } on XmlException {
+  final document = parseXhtml(source);
+  if (document == null) {
     return htmlToMarkdown(_openSelfClosingTags(source));
   }
 
@@ -139,6 +134,23 @@ String xhtmlToMarkdown(String xhtml) {
 // ---------------------------------------------------------------------
 // Lo que el XHTML necesita antes de leerlo
 // ---------------------------------------------------------------------
+
+/// El XHTML [source] leído como XML, con las entidades de HTML y las que
+/// declara el capítulo; `null` si no es XML válido.
+///
+/// Lo comparten el que extrae el texto de un capítulo y el que le escribe
+/// resaltados (F38): los dos tienen que ver el mismo árbol para ubicar el
+/// mismo texto. Los saltos de línea los normaliza quien llama.
+XmlDocument? parseXhtml(String source) {
+  try {
+    return XmlDocument.parse(
+      source,
+      entityMapping: _DeclaredEntityMapping(_declaredEntities(source)),
+    );
+  } on XmlException {
+    return null;
+  }
+}
 
 /// Las entidades que declara el `<!DOCTYPE>` del capítulo, con su texto.
 ///

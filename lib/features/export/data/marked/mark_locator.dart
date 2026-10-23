@@ -40,6 +40,13 @@ typedef MarkSpan = ({int start, int end});
 /// que los encabezados o las notas que el texto extraído suma no corran la
 /// cuenta.
 ///
+/// Con [markdownUrls], el texto extraído y los tramos son Markdown con sus
+/// enlaces e imágenes —`[texto](dirección)`, `![alt](dirección)`—, y la
+/// dirección no está en [haystack] (la página o el capítulo la tiene en un
+/// atributo): las direcciones, y el texto alternativo de las imágenes, no
+/// cuentan como letras (F38: la página web y el EPUB). Sin esto, un tramo que
+/// cruza un enlace nunca se encontraría.
+///
 /// Cuando [haystack] es **igual** a [extracted] —un Markdown, que se
 /// extrae tal cual—, un tramo cuyo texto está donde dice se toma sin buscar.
 ///
@@ -49,15 +56,24 @@ List<MarkSpan?> locateMarks({
   required String haystack,
   required String extracted,
   required List<DocumentMark> marks,
+  bool markdownUrls = false,
 }) {
   if (marks.isEmpty) return const [];
   final sameText = haystack == extracted;
   final hay = _Folded.of(haystack, withBefore: sameText);
-  final ext = sameText ? hay : _Folded.of(extracted, withBefore: true);
+  final ext = sameText
+      ? hay
+      : _Folded.of(extracted, withBefore: true, markdownUrls: markdownUrls);
 
   return [
     for (final mark in marks)
-      _locate(mark, hay: hay, ext: ext, sameText: sameText),
+      _locate(
+        mark,
+        hay: hay,
+        ext: ext,
+        sameText: sameText,
+        markdownUrls: markdownUrls,
+      ),
   ];
 }
 
@@ -69,8 +85,9 @@ MarkSpan? _locate(
   required _Folded hay,
   required _Folded ext,
   required bool sameText,
+  required bool markdownUrls,
 }) {
-  final needle = _Folded.of(mark.excerpt).text;
+  final needle = _Folded.of(mark.excerpt, markdownUrls: markdownUrls).text;
   if (needle.isEmpty) return null;
 
   // En qué letra del texto extraído empieza el tramo.
@@ -125,12 +142,22 @@ MarkSpan _spanOf(_Folded hay, int foldedStart, int length) => (
 class _Folded {
   _Folded._(this.text, this.origin, this.before);
 
-  factory _Folded.of(String source, {bool withBefore = false}) {
+  factory _Folded.of(
+    String source, {
+    bool withBefore = false,
+    bool markdownUrls = false,
+  }) {
     final units = <int>[];
     final origin = <int>[];
     final before = withBefore ? Int32List(source.length + 1) : null;
+    final skip = markdownUrls ? _urlRanges(source).iterator : null;
+    var hasSkip = skip?.moveNext() ?? false;
     for (var i = 0; i < source.length; i++) {
       before?[i] = units.length;
+      while (hasSkip && skip!.current.end <= i) {
+        hasSkip = skip.moveNext();
+      }
+      if (hasSkip && i >= skip!.current.start) continue;
       final folded = foldWordChar(source.codeUnitAt(i));
       if (folded == null) continue;
       // Una mayúscula rara puede dar dos letras al pasar a minúscula; con la
@@ -156,3 +183,12 @@ class _Folded {
   /// Vacío si no se pidió.
   final Int32List before;
 }
+
+/// Un enlace de Markdown: la dirección no está en la página, solo el texto.
+/// Una imagen entera tampoco —su texto alternativo es un atributo—.
+final _markdownUrls = RegExp(r'!\[[^\]]*\]\([^)]*\)|\]\([^)]*\)');
+
+/// Lo que de un Markdown no es texto que se lea: las imágenes enteras y las
+/// direcciones de los enlaces, en orden.
+Iterable<MarkSpan> _urlRanges(String source) =>
+    _markdownUrls.allMatches(source).map((m) => (start: m.start, end: m.end));
