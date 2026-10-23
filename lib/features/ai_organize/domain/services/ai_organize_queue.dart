@@ -47,10 +47,13 @@ AiModelWait? aiModelWaitFor(Object error) {
     CloudModelFailure.forbidden ||
     CloudModelFailure.noAccount => AiModelWait.keysRejected,
     CloudModelFailure.network => AiModelWait.offline,
+    CloudModelFailure.timeout ||
+    CloudModelFailure.cutOff => AiModelWait.interrupted,
     CloudModelFailure.unavailable ||
     CloudModelFailure.rateLimited => AiModelWait.busy,
     CloudModelFailure.modelNotFound => AiModelWait.modelGone,
     CloudModelFailure.blocked ||
+    CloudModelFailure.badRequest ||
     CloudModelFailure.tooLong ||
     CloudModelFailure.unknown => null,
   };

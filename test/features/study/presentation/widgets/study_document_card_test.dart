@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
@@ -367,7 +368,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(es.studyAnalyzing(3, 12)), findsOneWidget);
+      expect(find.text(es.studyAnalyzingPercent(3, 12, 16)), findsOneWidget);
       final bar = tester.widget<LinearProgressIndicator>(
         find.byType(LinearProgressIndicator),
       );
@@ -375,6 +376,56 @@ void main() {
 
       await tester.tap(find.text(es.studyStop));
       expect(analysis.stops, 1);
+    });
+
+    testWidgets('con una parte hecha, dice el porcentaje y cuánto falta', (
+      tester,
+    ) async {
+      await pump(tester);
+      analysis.shown = const StudyAnalysisRunning(
+        StudyProgress(partsDone: 3, partsTotal: 12),
+        remaining: Duration(minutes: 4, seconds: 10),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(es.studyAnalyzingEta(4, 12, 25, es.studyEtaMinutes(5))),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('si la IA se está reintentando, lo dice con el intento', (
+      tester,
+    ) async {
+      await pump(tester);
+      analysis.shown = const StudyAnalysisRunning(
+        StudyProgress(partsDone: 3, partsTotal: 12),
+        retry: StudyRetry(
+          attempt: 2,
+          maxAttempts: 4,
+          failure: CloudModelFailure.cutOff,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(es.aiRetrying(2, 4, es.lmFailureCutOff)),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Reintentando (2 de 4)'), findsOneWidget);
+    });
+
+    testWidgets('si se corta por la IA en la nube, dice qué pasó de verdad', (
+      tester,
+    ) async {
+      await pump(tester);
+      analysis.shown = const StudyAnalysisFailed(
+        CloudModelException(CloudModelFailure.timeout),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.studyFailed), findsNothing);
+      expect(find.text(es.studyFailedWhy(es.lmHelpTimeout)), findsOneWidget);
     });
 
     testWidgets('si se corta, lo dice, y Reintentar sigue desde ahí', (

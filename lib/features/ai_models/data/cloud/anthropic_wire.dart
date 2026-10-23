@@ -25,11 +25,14 @@ const kAnthropicFallbackBeta = 'server-side-fallback-2026-07-01';
 /// Por HTTP directo: Dart no tiene un SDK oficial de Anthropic. La API no
 /// guarda lo conversado: cada pedido lo lleva entero.
 class AnthropicWire implements CloudWire {
-  AnthropicWire({required Dio dio}) : _dio = dio;
+  AnthropicWire({required Dio dio, Duration idleTimeout = kCloudIdleTimeout})
+    : _dio = dio,
+      _idleTimeout = idleTimeout;
 
   static const _base = 'https://api.anthropic.com/v1';
 
   final Dio _dio;
+  final Duration _idleTimeout;
 
   @override
   AiProvider get provider => AiProvider.anthropic;
@@ -173,67 +176,79 @@ class AnthropicWire implements CloudWire {
           beta: fallbackModels.contains(request.model)
               ? kAnthropicFallbackBeta
               : null,
+          receiveTimeout: kCloudFirstByteTimeout,
         ),
       ),
     );
     final body = response.data;
     if (body == null) return;
 
-    try {
-      await for (final event in sseEvents(body.stream)) {
-        final Object? json;
-        try {
-          json = jsonDecode(event.data);
-        } on FormatException {
-          continue;
-        }
-        if (json is! Map) continue;
-        switch (json['type']) {
-          case 'message_start':
-            final usage = (json['message'] as Map?)?['usage'];
-            final input = usage is Map ? usage['input_tokens'] : null;
-            if (input is int) yield CloudDelta(inputTokens: input);
-          case 'content_block_delta':
-            // Solo el texto: el pensamiento y su firma no son la respuesta.
-            final delta = json['delta'];
-            if (delta is Map && delta['type'] == 'text_delta') {
-              final text = delta['text'];
-              if (text is String && text.isNotEmpty) {
-                yield CloudDelta(text: text);
-              }
-            }
-          case 'message_delta':
-            final stop = (json['delta'] as Map?)?['stop_reason'];
-            if (stop == 'refusal') {
-              // Rechazado por sus reglas (con respaldo: rechazado por todos).
-              // Lo escrito hasta ahí no vale como respuesta.
-              throw const CloudModelException(
-                CloudModelFailure.blocked,
-                detail: 'refusal',
-              );
-            }
-            final usage = json['usage'];
-            final output = usage is Map ? usage['output_tokens'] : null;
-            yield CloudDelta(
-              outputTokens: output is int ? output : null,
-              truncated: stop == 'max_tokens',
-            );
-          case 'error':
-            throw failureFrom(0, json, Headers());
-        }
+    // Cierra con `message_stop`: sin él, la respuesta se cortó.
+    var finished = false;
+    await for (final event in sseEvents(
+      guardedCloudBody(body.stream, idle: _idleTimeout, cancel: cancel),
+    )) {
+      final Object? json;
+      try {
+        json = jsonDecode(event.data);
+      } on FormatException {
+        continue;
       }
-    } on DioException catch (error) {
-      if (CancelToken.isCancel(error)) return;
-      throw const CloudModelException(CloudModelFailure.network);
+      if (json is! Map) continue;
+      switch (json['type']) {
+        case 'message_start':
+          final usage = (json['message'] as Map?)?['usage'];
+          final input = usage is Map ? usage['input_tokens'] : null;
+          if (input is int) yield CloudDelta(inputTokens: input);
+        case 'content_block_delta':
+          // Solo el texto: el pensamiento y su firma no son la respuesta.
+          final delta = json['delta'];
+          if (delta is Map && delta['type'] == 'text_delta') {
+            final text = delta['text'];
+            if (text is String && text.isNotEmpty) {
+              yield CloudDelta(text: text);
+            }
+          }
+        case 'message_delta':
+          final stop = (json['delta'] as Map?)?['stop_reason'];
+          if (stop == 'refusal') {
+            // Rechazado por sus reglas (con respaldo: rechazado por todos).
+            // Lo escrito hasta ahí no vale como respuesta.
+            throw const CloudModelException(
+              CloudModelFailure.blocked,
+              detail: 'refusal',
+            );
+          }
+          if (stop != null) finished = true;
+          final usage = json['usage'];
+          final output = usage is Map ? usage['output_tokens'] : null;
+          yield CloudDelta(
+            outputTokens: output is int ? output : null,
+            truncated: stop == 'max_tokens',
+          );
+        case 'message_stop':
+          finished = true;
+        case 'error':
+          throw failureFrom(0, json, Headers());
+      }
     }
+    if (!finished && !(cancel?.isCancelled ?? false)) throw cloudStreamCutOff;
   }
 
-  Options _options(String key, ResponseType type, {String? beta}) =>
-      cloudOptions({
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': ?beta,
-      }, type);
+  Options _options(
+    String key,
+    ResponseType type, {
+    String? beta,
+    Duration? receiveTimeout,
+  }) => cloudOptions(
+    {
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': ?beta,
+    },
+    type,
+    receiveTimeout: receiveTimeout,
+  );
 
   Future<Response<T>> _send<T>(Future<Response<T>> Function() request) =>
       sendCloudRequest(request, failureFrom: failureFrom);
@@ -260,7 +275,8 @@ class AnthropicWire implements CloudWire {
 
     if (status == 402 ||
         type == 'billing_error' ||
-        lower.contains('credit balance')) {
+        lower.contains('credit balance') ||
+        lower.contains('usage limit')) {
       return fail(CloudModelFailure.quotaExhausted);
     }
     if (status == 429 || type == 'rate_limit_error') {
@@ -280,8 +296,13 @@ class AnthropicWire implements CloudWire {
         lower.contains('prompt is too long')) {
       return fail(CloudModelFailure.tooLong);
     }
+    if (status == 408) return fail(CloudModelFailure.timeout);
+    // 500, 502, 503, 504 y el 529 de Anthropic (`overloaded_error`).
     if (status >= 500 || type == 'overloaded_error' || type == 'api_error') {
       return fail(CloudModelFailure.unavailable, after: retryAfterOf(headers));
+    }
+    if (status == 400 || status == 422 || type == 'invalid_request_error') {
+      return fail(CloudModelFailure.badRequest);
     }
     return fail(CloudModelFailure.unknown);
   }

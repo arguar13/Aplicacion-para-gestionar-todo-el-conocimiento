@@ -153,7 +153,9 @@ final class AiQueueWaitingView extends AiQueueView {
   /// Si hay algo que ver en las cuentas: la cuota, el tope, las claves, el
   /// modelo. Sin conexión o con el proveedor saturado, no.
   bool get showsAccounts =>
-      reason != AiModelWait.offline && reason != AiModelWait.busy;
+      reason != AiModelWait.offline &&
+      reason != AiModelWait.busy &&
+      reason != AiModelWait.interrupted;
 
   /// Por qué espera y hasta cuándo, sin cuántos esperan.
   String reasonText(BuildContext context) {
@@ -171,6 +173,7 @@ final class AiQueueWaitingView extends AiQueueView {
       AiModelWait.keysRejected => l10n.aiStatusWaitingKeys,
       AiModelWait.offline => l10n.aiStatusWaitingOffline,
       AiModelWait.busy => l10n.aiStatusWaitingBusy,
+      AiModelWait.interrupted => l10n.aiStatusWaitingInterrupted,
       AiModelWait.modelGone => l10n.aiStatusWaitingModelGone,
     };
   }

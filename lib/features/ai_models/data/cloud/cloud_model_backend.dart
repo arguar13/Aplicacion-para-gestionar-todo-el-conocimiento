@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -28,8 +29,35 @@ const kCloudDefaultContextTokens = 128000;
 /// cuenta como agotada: más que eso, conviene probar con otra.
 const kMaxRateLimitWait = Duration(seconds: 60);
 
-/// Cuántas veces se espera el tope por minuto en un mismo pedido.
-const kRateLimitRetries = 3;
+/// Cuántos intentos se hacen por pedido y por cuenta (F39), contando el
+/// primero: ante algo pasajero —la red que se cae un momento, el servicio
+/// ocupado, la respuesta que se corta, el tope por minuto— se repite hasta
+/// tres veces más antes de contárselo a la persona. Pasar a otra cuenta
+/// empieza de nuevo.
+const kCloudMaxAttempts = 4;
+
+/// La espera antes del segundo intento; después se duplica (3, 6, 12 s…).
+/// Alcanza para que el teléfono cambie de wifi a datos o el servicio respire,
+/// sin hacer esperar de más.
+const kCloudRetryBase = Duration(seconds: 3);
+
+/// Lo máximo que dura una espera entre intentos.
+const kCloudRetryCap = Duration(seconds: 30);
+
+/// La espera antes de volver a intentar tras fallar el intento [attempt]
+/// (1 es el primero): [kCloudRetryBase] duplicada cada vez, con un jitter de
+/// ±25 % según [jitter] (de 0 a 1) para que varios pedidos que fallaron
+/// juntos no vuelvan a la vez.
+Duration cloudRetryDelay(
+  int attempt, {
+  double jitter = 0.5,
+  Duration base = kCloudRetryBase,
+  Duration cap = kCloudRetryCap,
+}) {
+  final raw = base.inMilliseconds * pow(2, attempt - 1) * (0.75 + 0.5 * jitter);
+  final millis = min(raw, cap.inMilliseconds.toDouble());
+  return Duration(milliseconds: millis.round());
+}
 
 /// Cuánto se deja de lado una cuenta cuya clave no anda, antes de volver a
 /// probarla (por si se arregló del lado del proveedor).
@@ -37,9 +65,6 @@ const kRejectedKeyCooldown = Duration(minutes: 10);
 
 /// Cuánto se deja de lado una cuenta paga sin saldo antes de volver a probar.
 const kPaidQuotaCooldown = Duration(hours: 1);
-
-/// Lo que espera la app antes de reintentar cuando el proveedor está saturado.
-const kUnavailableRetryWait = Duration(seconds: 2);
 
 /// Espera [duration] o hasta que se corte [cancel]: `false` si se cortó.
 typedef CloudWait =
@@ -72,11 +97,18 @@ Future<bool> waitOrCancel(Duration duration, CancelToken? cancel) async {
 ///   elegida y avisa ([AccountSwitchedNotice]). Lo mismo si la clave no anda.
 /// - Si se pasó el tope por minuto, espera lo que pide el proveedor (hasta
 ///   [kMaxRateLimitWait]) avisando cuánto ([RateLimitWaitNotice]).
+/// - Si falla algo pasajero (sin conexión, la espera vencida, la respuesta
+///   cortada, el servicio ocupado), repite con la misma cuenta, hasta
+///   [kCloudMaxAttempts] intentos, con espera creciente y jitter
+///   ([cloudRetryDelay]) o la que pida el proveedor, y avisa cada vez
+///   ([AiRetryNotice]). Una respuesta cortada a mitad se pide entera de nuevo
+///   y avisa con `CloudDelta.restart` que lo escrito se descarta. Lo que no
+///   pasa esperando (la clave, el pedido, la cuota del día) no se repite.
 /// - Si no queda ninguna con cuota, lo dice ([AllAccountsExhaustedNotice]) y
 ///   el pedido falla con la hora de la renovación más cercana. Nunca cambia de
 ///   proveedor ni de modelo por su cuenta.
 /// - Nunca cambia de cuenta a mitad de una respuesta: si algo falla después de
-///   escribir, se informa el error y lo escrito queda.
+///   escribir y no es pasajero, se informa el error y lo escrito queda.
 ///
 /// Cuenta lo gastado de cada cuenta ([AiUsageLedger]) y, la de la IA de fondo
 /// ([forBackground]), lo topea por día.
@@ -93,6 +125,7 @@ class CloudModelBackend implements ModelBackend {
     required LanguageModelMeter meter,
     required Clock clock,
     CloudWait wait = waitOrCancel,
+    double Function()? jitter,
   }) : this._(
          wire,
          catalog,
@@ -105,6 +138,7 @@ class CloudModelBackend implements ModelBackend {
          meter,
          clock,
          wait,
+         jitter ?? Random().nextDouble,
          background: false,
        );
 
@@ -119,7 +153,8 @@ class CloudModelBackend implements ModelBackend {
     this._gate,
     this._meter,
     this._clock,
-    this._wait, {
+    this._wait,
+    this._jitter, {
     required bool background,
   }) : _background = background;
 
@@ -134,6 +169,9 @@ class CloudModelBackend implements ModelBackend {
   final LanguageModelMeter _meter;
   final Clock _clock;
   final CloudWait _wait;
+
+  /// De 0 a 1: el azar de la espera entre intentos (inyectable en pruebas).
+  final double Function() _jitter;
   final bool _background;
 
   AiProvider get provider => _wire.provider;
@@ -153,6 +191,7 @@ class CloudModelBackend implements ModelBackend {
           _meter,
           _clock,
           _wait,
+          _jitter,
           background: true,
         );
 
@@ -192,8 +231,9 @@ class CloudModelBackend implements ModelBackend {
     CancelToken? cancel,
   }) async* {
     final tried = <String>{};
-    var rateWaits = 0;
-    var unavailableRetries = 0;
+    // El intento de ahora con esta cuenta (1 es el primero).
+    var attempt = 1;
+    var retrying = false;
     while (true) {
       if (cancel?.isCancelled ?? false) return;
       final pick = await _pick(tried);
@@ -221,6 +261,13 @@ class CloudModelBackend implements ModelBackend {
           key: pick.key,
           cancel: cancel,
         )) {
+          if (retrying) {
+            // El reintento anduvo: ya llega la respuesta.
+            retrying = false;
+            if (!_background) {
+              _notify(AiRetryEndedNotice(at: _clock(), provider: provider));
+            }
+          }
           if (delta.text.isNotEmpty) {
             wrote = true;
             firstToken ??= watch.elapsed;
@@ -232,6 +279,35 @@ class CloudModelBackend implements ModelBackend {
         }
       } on CloudModelException catch (error) {
         final now = _clock();
+        // Lo pasajero se repite con la misma cuenta, también si se cortó
+        // después de escribir: la respuesta vuelve a empezar.
+        final pause = attempt < kCloudMaxAttempts
+            ? _retryPause(error, attempt)
+            : null;
+        if (pause != null && !(cancel?.isCancelled ?? false)) {
+          if (!_background) {
+            _notify(
+              AiRetryNotice(
+                at: now,
+                provider: provider,
+                failure: error.failure,
+                attempt: attempt + 1,
+                maxAttempts: kCloudMaxAttempts,
+                wait: pause,
+              ),
+            );
+          }
+          if (error.failure == CloudModelFailure.rateLimited) {
+            _notify(
+              RateLimitWaitNotice(at: now, account: pick.account, wait: pause),
+            );
+          }
+          retrying = true;
+          if (!await _wait(pause, cancel)) return;
+          if (wrote) yield const CloudDelta(restart: true);
+          attempt++;
+          continue;
+        }
         if (wrote) {
           // Lo escrito queda y no se sigue con otra cuenta; si fue la cuota,
           // la cuenta queda marcada para el pedido siguiente.
@@ -248,17 +324,9 @@ class CloudModelBackend implements ModelBackend {
         }
         switch (error.failure) {
           case CloudModelFailure.rateLimited:
-            final wait = error.retryAfter ?? const Duration(seconds: 5);
-            if (wait <= kMaxRateLimitWait && rateWaits < kRateLimitRetries) {
-              rateWaits++;
-              _notify(
-                RateLimitWaitNotice(at: now, account: pick.account, wait: wait),
-              );
-              if (!await _wait(wait, cancel)) return;
-              continue;
-            }
-            // Pide esperar demasiado: para esta respuesta, la cuenta está
-            // agotada.
+            // Pide esperar demasiado, o ya se esperó todo lo que se podía:
+            // para esta respuesta, la cuenta está agotada.
+            final wait = error.retryAfter ?? kMaxRateLimitWait;
             await _exhaust(pick.account, now.add(wait), error.failure, tried);
             if (!_settings().autoSwitchAccounts) {
               _notify(
@@ -271,6 +339,7 @@ class CloudModelBackend implements ModelBackend {
               );
               rethrow;
             }
+            attempt = 1;
             continue;
           case CloudModelFailure.quotaExhausted:
             final until = now.add(error.retryAfter ?? _defaultQuotaWait(now));
@@ -286,6 +355,7 @@ class CloudModelBackend implements ModelBackend {
               );
               rethrow;
             }
+            attempt = 1;
             continue;
           case CloudModelFailure.invalidKey || CloudModelFailure.forbidden:
             _notify(
@@ -302,22 +372,21 @@ class CloudModelBackend implements ModelBackend {
               tried,
             );
             if (!_settings().autoSwitchAccounts) rethrow;
+            attempt = 1;
             continue;
-          case CloudModelFailure.unavailable:
-            if (unavailableRetries < 1) {
-              unavailableRetries++;
-              if (!await _wait(kUnavailableRetryWait, cancel)) return;
-              continue;
-            }
-            _failed(error);
-            rethrow;
-          // Lo demás (el modelo no existe, el pedido no entra, sin red, lo
-          // bloqueado) no lo arregla otra cuenta: va a quien pidió.
+          // Lo demás (el modelo no existe, el pedido no entra, lo bloqueado,
+          // lo pasajero que ya se reintentó) no lo arregla otra cuenta: va a
+          // quien pidió.
           // ignore: no_default_cases
           default:
             _failed(error);
             rethrow;
         }
+      } on DioException catch (error) {
+        // Cortar mientras espera las cabeceras sale de Dio como cancelación:
+        // es lo pedido, no una falla.
+        if (CancelToken.isCancel(error)) return;
+        rethrow;
       }
 
       // Salió bien.
@@ -342,6 +411,23 @@ class CloudModelBackend implements ModelBackend {
       );
       return;
     }
+  }
+
+  /// Cuánto esperar antes de repetir el pedido que falló con [error] en el
+  /// intento [attempt], o `null` si repetir no tiene sentido (F39): la clave,
+  /// el pedido y la cuota del día no cambian por esperar, y un proveedor que
+  /// pide esperar más de [kMaxRateLimitWait] se resuelve con otra cuenta.
+  ///
+  /// El tope por minuto espera lo que pide el proveedor, ni más ni menos; lo
+  /// demás, el [cloudRetryDelay] o lo que pida el proveedor si es más.
+  Duration? _retryPause(CloudModelException error, int attempt) {
+    final limited = error.failure == CloudModelFailure.rateLimited;
+    if (!limited && !error.isTransient) return null;
+    final asked = error.retryAfter;
+    if (asked != null && asked > kMaxRateLimitWait) return null;
+    final backoff = cloudRetryDelay(attempt, jitter: _jitter());
+    if (limited) return asked ?? backoff;
+    return asked != null && asked > backoff ? asked : backoff;
   }
 
   /// Cuenta por qué falló un pedido de la persona; la IA de fondo no avisa:
@@ -496,6 +582,8 @@ class _CloudExchange implements ModelExchange {
       kind: kind,
       cancel: cancel,
     )) {
+      // Se cortó y se pidió de nuevo entera: lo escrito no vale.
+      if (delta.restart) out.clear();
       out.write(delta.text);
     }
     return out.toString().trim();
@@ -571,6 +659,7 @@ class _CloudConversation implements ModelConversation {
             kind: LanguageModelReplyKind.chat,
             cancel: cancel,
           )) {
+            if (delta.restart) text.clear();
             if (delta.text.isEmpty) continue;
             text.write(delta.text);
             give(text.toString().trimLeft());

@@ -224,6 +224,10 @@ enum AiModelWait {
   /// El proveedor está saturado o pide esperar: vuelve a probar sola.
   busy,
 
+  /// La espera venció o la respuesta se cortó, y no se arregló reintentando
+  /// (F39): vuelve a probar sola.
+  interrupted,
+
   /// El modelo elegido ya no existe: hasta que la persona elija otro.
   modelGone,
 }

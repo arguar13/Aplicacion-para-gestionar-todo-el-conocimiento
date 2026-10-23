@@ -23,8 +23,22 @@ enum CloudModelFailure {
   /// El proveedor no quiso contestar por sus reglas de contenido.
   blocked,
 
-  /// No hay internet, o se cortó a mitad.
+  /// No hay internet: no se pudo ni llegar al proveedor (sin señal, sin datos,
+  /// el nombre del servidor que no se resuelve).
   network,
+
+  /// La espera venció: el proveedor no contestó a tiempo (o dejó de mandar
+  /// datos) con la conexión andando. Pasa con textos largos o con el servicio
+  /// lento; no es falta de internet.
+  timeout,
+
+  /// La respuesta se cortó a mitad: la conexión se cayó o el proveedor la
+  /// cerró antes de terminarla. Se había llegado al proveedor.
+  cutOff,
+
+  /// El proveedor rechazó el pedido por mal armado (error 400) y no es la
+  /// clave, el largo ni el modelo.
+  badRequest,
 
   /// El pedido no entra en lo que el modelo lee de una vez.
   tooLong,
@@ -59,6 +73,19 @@ class CloudModelException implements Exception {
   final Duration? retryAfter;
 
   final int? statusCode;
+
+  /// Si es de los que pasan solos: probar de nuevo con la misma cuenta, un
+  /// rato después, suele andar (F39). Lo demás —la clave, el pedido, la cuota
+  /// del día— no cambia por esperar. El tope por minuto ([CloudModelFailure
+  /// .rateLimited]) también pasa esperando, pero con la espera que pide el
+  /// proveedor, así que lo trata aparte quien reintenta.
+  bool get isTransient => switch (failure) {
+    CloudModelFailure.network ||
+    CloudModelFailure.timeout ||
+    CloudModelFailure.cutOff ||
+    CloudModelFailure.unavailable => true,
+    _ => false,
+  };
 
   /// Si conviene probar con otra cuenta del mismo proveedor.
   bool get otherAccountMayWork =>

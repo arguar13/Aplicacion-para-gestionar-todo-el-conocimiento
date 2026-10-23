@@ -30,9 +30,11 @@ import 'package:sinapsis/features/ai_models/domain/services/ai_notice_bus.dart';
 /// - **Sin `GlobalErrorInterceptor`**: un 429 de cuota es lo esperado y lo
 ///   resuelve el motor (cambia de cuenta, espera); el aviso global de error
 ///   lo mostraría como una falla de la app.
-/// - Sin `receiveTimeout` sobre el cuerpo: una respuesta larga llega de a
-///   poco durante minutos. El tope de 60 s cubre solo la espera de las
-///   cabeceras (dio 5.11), que el proveedor manda enseguida.
+/// - Los 60 s de `receiveTimeout` valen en lo corto, como listar los modelos.
+///   En dio 5.11 ese tiempo vigila también el silencio entre pedazos de una
+///   respuesta en vivo, y a los 60 s cortaba los análisis largos como si
+///   faltara la conexión (F39): los pedidos de respuesta larga lo pisan con
+///   `kCloudFirstByteTimeout` y vigilan el silencio con `kCloudIdleTimeout`.
 final aiDioProvider = Provider<Dio>(
   (ref) => Dio(
     BaseOptions(

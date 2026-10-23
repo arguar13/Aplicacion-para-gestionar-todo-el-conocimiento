@@ -26,14 +26,19 @@ const kGeminiThinkingHeadroomTokens = 2048;
 /// La clave va en la cabecera `x-goog-api-key`, nunca en la dirección: las
 /// direcciones se registran.
 class GeminiWire implements CloudWire {
-  GeminiWire({required Dio dio, DateTime Function()? clock})
-    : _dio = dio,
-      _clock = clock ?? DateTime.now;
+  GeminiWire({
+    required Dio dio,
+    DateTime Function()? clock,
+    Duration idleTimeout = kCloudIdleTimeout,
+  }) : _dio = dio,
+       _clock = clock ?? DateTime.now,
+       _idleTimeout = idleTimeout;
 
   static const _base = 'https://generativelanguage.googleapis.com/v1beta';
 
   final Dio _dio;
   final DateTime Function() _clock;
+  final Duration _idleTimeout;
 
   @override
   AiProvider get provider => AiProvider.gemini;
@@ -198,84 +203,89 @@ class GeminiWire implements CloudWire {
         queryParameters: const {'alt': 'sse'},
         data: bodyOf(request),
         cancelToken: cancel,
-        options: _options(key, ResponseType.stream),
+        options: _options(
+          key,
+          ResponseType.stream,
+          receiveTimeout: kCloudFirstByteTimeout,
+        ),
       ),
     );
     final body = response.data;
     if (body == null) return;
 
     var wroteSomething = false;
-    try {
-      await for (final event in sseEvents(body.stream)) {
-        final Object? json;
-        try {
-          json = jsonDecode(event.data);
-        } on FormatException {
-          continue;
-        }
-        if (json is! Map) continue;
-        if (json['error'] is Map) {
-          throw failureFrom(
-            (json['error'] as Map)['code'] as int? ?? 500,
-            json,
-            now: _clock(),
-          );
-        }
-        final feedback = json['promptFeedback'];
-        if (feedback is Map && feedback['blockReason'] != null) {
-          throw CloudModelException(
-            CloudModelFailure.blocked,
-            detail: '${feedback['blockReason']}',
-          );
-        }
-        final text = StringBuffer();
-        var truncated = false;
-        String? finish;
-        final candidates = json['candidates'];
-        if (candidates is List && candidates.isNotEmpty) {
-          final candidate = candidates.first;
-          if (candidate is Map) {
-            final parts = (candidate['content'] as Map?)?['parts'];
-            if (parts is List) {
-              for (final part in parts) {
-                if (part is! Map || part['thought'] == true) continue;
-                final piece = part['text'];
-                if (piece is String) text.write(piece);
-              }
-            }
-            finish = candidate['finishReason'] as String?;
-            truncated = finish == 'MAX_TOKENS';
-          }
-        }
-        final usage = json['usageMetadata'];
-        int? input;
-        int? output;
-        if (usage is Map) {
-          input = usage['promptTokenCount'] as int?;
-          final candidatesTokens = usage['candidatesTokenCount'] as int?;
-          final thoughts = usage['thoughtsTokenCount'] as int?;
-          if (candidatesTokens != null || thoughts != null) {
-            output = (candidatesTokens ?? 0) + (thoughts ?? 0);
-          }
-        }
-        if (text.isNotEmpty) wroteSomething = true;
-        if (!wroteSomething && finish != null && _blockedFinish(finish)) {
-          throw CloudModelException(CloudModelFailure.blocked, detail: finish);
-        }
-        if (text.isEmpty && input == null && output == null && !truncated) {
-          continue;
-        }
-        yield CloudDelta(
-          text: text.toString(),
-          inputTokens: input,
-          outputTokens: output,
-          truncated: truncated,
+    // Gemini cierra con un `finishReason`: sin él, la respuesta se cortó.
+    var finished = false;
+    await for (final event in sseEvents(
+      guardedCloudBody(body.stream, idle: _idleTimeout, cancel: cancel),
+    )) {
+      final Object? json;
+      try {
+        json = jsonDecode(event.data);
+      } on FormatException {
+        continue;
+      }
+      if (json is! Map) continue;
+      if (json['error'] is Map) {
+        throw failureFrom(
+          (json['error'] as Map)['code'] as int? ?? 500,
+          json,
+          now: _clock(),
         );
       }
-    } on DioException catch (error) {
-      if (CancelToken.isCancel(error)) return;
-      throw const CloudModelException(CloudModelFailure.network);
+      final feedback = json['promptFeedback'];
+      if (feedback is Map && feedback['blockReason'] != null) {
+        throw CloudModelException(
+          CloudModelFailure.blocked,
+          detail: '${feedback['blockReason']}',
+        );
+      }
+      final text = StringBuffer();
+      var truncated = false;
+      String? finish;
+      final candidates = json['candidates'];
+      if (candidates is List && candidates.isNotEmpty) {
+        final candidate = candidates.first;
+        if (candidate is Map) {
+          final parts = (candidate['content'] as Map?)?['parts'];
+          if (parts is List) {
+            for (final part in parts) {
+              if (part is! Map || part['thought'] == true) continue;
+              final piece = part['text'];
+              if (piece is String) text.write(piece);
+            }
+          }
+          finish = candidate['finishReason'] as String?;
+          if (finish != null) finished = true;
+          truncated = finish == 'MAX_TOKENS';
+        }
+      }
+      final usage = json['usageMetadata'];
+      int? input;
+      int? output;
+      if (usage is Map) {
+        input = usage['promptTokenCount'] as int?;
+        final candidatesTokens = usage['candidatesTokenCount'] as int?;
+        final thoughts = usage['thoughtsTokenCount'] as int?;
+        if (candidatesTokens != null || thoughts != null) {
+          output = (candidatesTokens ?? 0) + (thoughts ?? 0);
+        }
+      }
+      if (text.isNotEmpty) wroteSomething = true;
+      if (!wroteSomething && finish != null && _blockedFinish(finish)) {
+        throw CloudModelException(CloudModelFailure.blocked, detail: finish);
+      }
+      if (text.isEmpty && input == null && output == null && !truncated) {
+        continue;
+      }
+      yield CloudDelta(
+        text: text.toString(),
+        inputTokens: input,
+        outputTokens: output,
+        truncated: truncated,
+      );
     }
+    if (!finished && !(cancel?.isCancelled ?? false)) throw cloudStreamCutOff;
   }
 
   static bool _blockedFinish(String finish) => const {
@@ -286,15 +296,19 @@ class GeminiWire implements CloudWire {
     'SPII',
   }.contains(finish);
 
-  Options _options(String key, ResponseType type) =>
-      cloudOptions({'x-goog-api-key': key}, type);
+  Options _options(String key, ResponseType type, {Duration? receiveTimeout}) =>
+      cloudOptions(
+        {'x-goog-api-key': key},
+        type,
+        receiveTimeout: receiveTimeout,
+      );
 
   /// Manda el pedido y, si el proveedor contestó con un error, lo traduce.
   Future<Response<T>> _send<T>(Future<Response<T>> Function() request) =>
       sendCloudRequest(
         request,
-        failureFrom: (status, body, _) =>
-            failureFrom(status, body, now: _clock()),
+        failureFrom: (status, body, headers) =>
+            failureFrom(status, body, now: _clock(), headers: headers),
       );
 
   /// Traduce un error de Gemini (`{"error": {code, message, status,
@@ -308,6 +322,7 @@ class GeminiWire implements CloudWire {
     int status,
     Object? body, {
     required DateTime now,
+    Headers? headers,
   }) {
     final error = body is Map ? body['error'] : null;
     final message = error is Map ? '${error['message'] ?? ''}' : '';
@@ -358,14 +373,19 @@ class GeminiWire implements CloudWire {
           statusCode: status,
         );
 
+    // Lo que pide esperar: lo que dice el cuerpo, o la cabecera.
+    Duration? waitAsked() =>
+        retryDelay() ?? (headers == null ? null : retryAfterOf(headers));
+
     if (status == 429 || code == 'RESOURCE_EXHAUSTED') {
-      if (perDay()) {
+      // Por día, lo dice el tope que se pasó o, sin detalle, el mensaje.
+      if (perDay() || lower.contains('per day') || lower.contains('perday')) {
         return fail(
           CloudModelFailure.quotaExhausted,
           after: nextQuotaReset(now).difference(now.toUtc()),
         );
       }
-      return fail(CloudModelFailure.rateLimited, after: retryDelay());
+      return fail(CloudModelFailure.rateLimited, after: waitAsked());
     }
     if (reasonOf() == 'API_KEY_INVALID' ||
         lower.contains('api key not valid') ||
@@ -388,8 +408,14 @@ class GeminiWire implements CloudWire {
             (lower.contains('exceed') || lower.contains('maximum')))) {
       return fail(CloudModelFailure.tooLong);
     }
+    if (status == 408) return fail(CloudModelFailure.timeout);
+    // 500, 502, 503, 504: caído o saturado de su lado (`UNAVAILABLE`,
+    // `INTERNAL`, `DEADLINE_EXCEEDED`).
     if (status >= 500) {
-      return fail(CloudModelFailure.unavailable, after: retryDelay());
+      return fail(CloudModelFailure.unavailable, after: waitAsked());
+    }
+    if (status == 400 || code == 'INVALID_ARGUMENT') {
+      return fail(CloudModelFailure.badRequest);
     }
     return fail(CloudModelFailure.unknown);
   }

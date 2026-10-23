@@ -347,3 +347,26 @@
     detalle.
   - Pruebas unitarias de la disposición (de 280 a 800 px, de 0 a 10 vecinos) y de widget; 22
     mutaciones, todas muertas tras ajustar una prueba y borrar dos chequeos redundantes.
+- **Paso 5 — hecho.** La IA sin cortes falsos y diciendo qué pasa.
+  - **La causa del falso «error de conexión»**: el `receiveTimeout` de 60 s de dio 5.11 vigila
+    también el silencio entre pedazos del cuerpo, no solo las cabeceras (el relevamiento decía lo
+    contrario). Un análisis largo o un modelo que razona callaba más de un minuto, dio cortaba, y
+    los tres formatos tomaban todo `DioException` por «sin red». Los cortes del cuerpo
+    (`HttpException`/`SocketException`) ni se clasificaban, y una respuesta sin su evento final se
+    aceptaba en silencio.
+  - **Fallas con clase**: `CloudModelFailure` suma `timeout`, `cutOff` y `badRequest`. Cada
+    formato distingue sin red, espera vencida, respuesta cortada (también sin su evento final),
+    cuota o tope por minuto (con Retry-After en cabecera y en el mensaje), servicio caído u ocupado
+    (500/502/503/504/529), clave y pedido inválido.
+  - **Esperas**: 3 min hasta que el proveedor empieza a contestar y 3 min de silencio máximo en el
+    cuerpo, con un vigilante propio que no depende de la versión de dio.
+  - **Reintento automático**: solo de lo pasajero, hasta 4 intentos por cuenta, espera creciente
+    con jitter (3, 6, 12 s) o la que pida el proveedor. Una respuesta cortada se pide entera y se
+    descarta lo escrito (`CloudDelta.restart`). Es cancelable. Clave, pedido y cuota del día no se
+    reintentan, y pasar a otra cuenta reinicia el conteo.
+  - **Avisos**: la franja de estudiar dice «Reintentando (2 de 4): …» con el motivo. El error final
+    dice qué pasó de verdad y qué hacer (`lmHelp*`). La cola de organizar suma el estado «tardó o
+    se cortó».
+  - **Progreso**: la franja muestra la parte, el porcentaje y, desde la primera parte hecha, cuánto
+    falta aproximado (`StudyEta`, con reloj inyectable).
+  - Pruebas con adaptadores de dio grabados, sin llamadas reales; 61 mutaciones, todas muertas.

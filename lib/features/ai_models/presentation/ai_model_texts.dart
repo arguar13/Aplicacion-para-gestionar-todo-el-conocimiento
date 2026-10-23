@@ -42,11 +42,44 @@ String aiFailureReason(AppLocalizations l10n, CloudModelFailure failure) =>
       CloudModelFailure.unavailable => l10n.lmFailureUnavailable,
       CloudModelFailure.blocked => l10n.lmFailureBlocked,
       CloudModelFailure.network => l10n.lmFailureNetwork,
+      CloudModelFailure.timeout => l10n.lmFailureTimeout,
+      CloudModelFailure.cutOff => l10n.lmFailureCutOff,
+      CloudModelFailure.badRequest => l10n.lmFailureBadRequest,
       CloudModelFailure.tooLong => l10n.lmFailureTooLong,
       CloudModelFailure.noAccount => l10n.lmFailureNoAccount,
       CloudModelFailure.backgroundCap => l10n.lmFailureBackgroundCap,
       CloudModelFailure.unknown => l10n.lmFailureUnknown,
     };
+
+/// Qué pasó de verdad y qué hacer, en una o dos frases completas (F39): para
+/// el error final de lo que la persona pidió, donde un motivo suelto no
+/// alcanza.
+String aiFailureHelp(AppLocalizations l10n, CloudModelFailure failure) =>
+    switch (failure) {
+      CloudModelFailure.invalidKey => l10n.lmHelpInvalidKey,
+      CloudModelFailure.forbidden => l10n.lmHelpForbidden,
+      CloudModelFailure.rateLimited => l10n.lmHelpRateLimited,
+      CloudModelFailure.quotaExhausted => l10n.lmHelpQuotaExhausted,
+      CloudModelFailure.modelNotFound => l10n.lmHelpModelNotFound,
+      CloudModelFailure.unavailable => l10n.lmHelpUnavailable,
+      CloudModelFailure.blocked => l10n.lmHelpBlocked,
+      CloudModelFailure.network => l10n.lmHelpNetwork,
+      CloudModelFailure.timeout => l10n.lmHelpTimeout,
+      CloudModelFailure.cutOff => l10n.lmHelpCutOff,
+      CloudModelFailure.badRequest => l10n.lmHelpBadRequest,
+      CloudModelFailure.tooLong => l10n.lmHelpTooLong,
+      CloudModelFailure.noAccount => l10n.lmHelpNoAccount,
+      CloudModelFailure.backgroundCap => l10n.lmHelpBackgroundCap,
+      CloudModelFailure.unknown => l10n.lmHelpUnknown,
+    };
+
+/// «Reintentando (2 de 4): …» con el motivo del fallo (F39).
+String aiRetryingText(
+  AppLocalizations l10n, {
+  required int attempt,
+  required int maxAttempts,
+  required CloudModelFailure failure,
+}) => l10n.aiRetrying(attempt, maxAttempts, aiFailureReason(l10n, failure));
 
 /// [text] con la primera letra en mayúscula: los motivos van en minúscula
 /// para ir en medio de una frase, y solos empiezan una.

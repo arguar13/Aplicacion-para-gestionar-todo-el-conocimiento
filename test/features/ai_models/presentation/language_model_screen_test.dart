@@ -364,6 +364,47 @@ void main() {
       expect(opened, [1]);
     });
 
+    testWidgets('un pedido que falló dice qué pasó de verdad y qué hacer', (
+      tester,
+    ) async {
+      await pumpListener(tester, []);
+
+      container
+          .read(aiNoticeBusProvider)
+          .notify(
+            AiRequestFailedNotice(
+              at: now,
+              provider: AiProvider.gemini,
+              failure: CloudModelFailure.timeout,
+            ),
+          );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text(l10n.lmHelpTimeout), findsOneWidget);
+    });
+
+    testWidgets('los reintentos no abren un aviso arriba de todo: los muestra '
+        'quien espera', (tester) async {
+      await pumpListener(tester, []);
+      container.read(aiNoticeBusProvider)
+        ..notify(
+          AiRetryNotice(
+            at: now,
+            provider: AiProvider.gemini,
+            failure: CloudModelFailure.network,
+            attempt: 2,
+            maxAttempts: 4,
+            wait: const Duration(seconds: 3),
+          ),
+        )
+        ..notify(AiRetryEndedNotice(at: now, provider: AiProvider.gemini));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
     testWidgets('el mismo aviso seguido no se repite', (tester) async {
       await pumpListener(tester, []);
       final bus = container.read(aiNoticeBusProvider);

@@ -23,11 +23,14 @@ const kOpenAiReasoningHeadroomTokens = 2048;
 /// Completions no guarda nada si no se le pide (`store` es falso por
 /// defecto): cada pedido lleva lo conversado.
 class OpenAiWire implements CloudWire {
-  OpenAiWire({required Dio dio}) : _dio = dio;
+  OpenAiWire({required Dio dio, Duration idleTimeout = kCloudIdleTimeout})
+    : _dio = dio,
+      _idleTimeout = idleTimeout;
 
   static const _base = 'https://api.openai.com/v1';
 
   final Dio _dio;
+  final Duration _idleTimeout;
 
   @override
   AiProvider get provider => AiProvider.openAi;
@@ -165,66 +168,76 @@ class OpenAiWire implements CloudWire {
         '$_base/chat/completions',
         data: bodyOf(request),
         cancelToken: cancel,
-        options: _options(key, ResponseType.stream),
+        options: _options(
+          key,
+          ResponseType.stream,
+          receiveTimeout: kCloudFirstByteTimeout,
+        ),
       ),
     );
     final body = response.data;
     if (body == null) return;
 
     var wroteSomething = false;
-    try {
-      await for (final event in sseEvents(body.stream)) {
-        if (event.data.trim() == '[DONE]') break;
-        final Object? json;
-        try {
-          json = jsonDecode(event.data);
-        } on FormatException {
-          continue;
-        }
-        if (json is! Map) continue;
-        if (json['error'] is Map) throw failureFrom(0, json, Headers());
-
-        final usage = json['usage'];
-        if (usage is Map) {
-          final input = usage['prompt_tokens'];
-          final output = usage['completion_tokens'];
-          yield CloudDelta(
-            inputTokens: input is int ? input : null,
-            outputTokens: output is int ? output : null,
-          );
-        }
-        final choices = json['choices'];
-        if (choices is! List || choices.isEmpty) continue;
-        final choice = choices.first;
-        if (choice is! Map) continue;
-        final delta = choice['delta'];
-        final text = delta is Map ? delta['content'] : null;
-        final refusal = delta is Map ? delta['refusal'] : null;
-        final finish = choice['finish_reason'];
-        if (text is String && text.isNotEmpty) wroteSomething = true;
-        if (!wroteSomething &&
-            ((refusal is String && refusal.isNotEmpty) ||
-                finish == 'content_filter')) {
-          throw CloudModelException(
-            CloudModelFailure.blocked,
-            detail: refusal is String && refusal.isNotEmpty
-                ? refusal
-                : '$finish',
-          );
-        }
-        final piece = text is String ? text : '';
-        final truncated = finish == 'length';
-        if (piece.isEmpty && !truncated) continue;
-        yield CloudDelta(text: piece, truncated: truncated);
+    // Cierra con `[DONE]` o con un `finish_reason`: sin ninguno, se cortó.
+    var finished = false;
+    await for (final event in sseEvents(
+      guardedCloudBody(body.stream, idle: _idleTimeout, cancel: cancel),
+    )) {
+      if (event.data.trim() == '[DONE]') {
+        finished = true;
+        break;
       }
-    } on DioException catch (error) {
-      if (CancelToken.isCancel(error)) return;
-      throw const CloudModelException(CloudModelFailure.network);
+      final Object? json;
+      try {
+        json = jsonDecode(event.data);
+      } on FormatException {
+        continue;
+      }
+      if (json is! Map) continue;
+      if (json['error'] is Map) throw failureFrom(0, json, Headers());
+
+      final usage = json['usage'];
+      if (usage is Map) {
+        final input = usage['prompt_tokens'];
+        final output = usage['completion_tokens'];
+        yield CloudDelta(
+          inputTokens: input is int ? input : null,
+          outputTokens: output is int ? output : null,
+        );
+      }
+      final choices = json['choices'];
+      if (choices is! List || choices.isEmpty) continue;
+      final choice = choices.first;
+      if (choice is! Map) continue;
+      final delta = choice['delta'];
+      final text = delta is Map ? delta['content'] : null;
+      final refusal = delta is Map ? delta['refusal'] : null;
+      final finish = choice['finish_reason'];
+      if (finish != null) finished = true;
+      if (text is String && text.isNotEmpty) wroteSomething = true;
+      if (!wroteSomething &&
+          ((refusal is String && refusal.isNotEmpty) ||
+              finish == 'content_filter')) {
+        throw CloudModelException(
+          CloudModelFailure.blocked,
+          detail: refusal is String && refusal.isNotEmpty ? refusal : '$finish',
+        );
+      }
+      final piece = text is String ? text : '';
+      final truncated = finish == 'length';
+      if (piece.isEmpty && !truncated) continue;
+      yield CloudDelta(text: piece, truncated: truncated);
     }
+    if (!finished && !(cancel?.isCancelled ?? false)) throw cloudStreamCutOff;
   }
 
-  Options _options(String key, ResponseType type) =>
-      cloudOptions({'authorization': 'Bearer $key'}, type);
+  Options _options(String key, ResponseType type, {Duration? receiveTimeout}) =>
+      cloudOptions(
+        {'authorization': 'Bearer $key'},
+        type,
+        receiveTimeout: receiveTimeout,
+      );
 
   Future<Response<T>> _send<T>(Future<Response<T>> Function() request) =>
       sendCloudRequest(request, failureFrom: failureFrom);
@@ -262,7 +275,11 @@ class OpenAiWire implements CloudWire {
       return fail(CloudModelFailure.quotaExhausted);
     }
     if (status == 429 || code == 'rate_limit_exceeded') {
-      return fail(CloudModelFailure.rateLimited, after: retryAfterOf(headers));
+      // Sin cabecera, OpenAI dice cuánto en el mensaje («try again in 6m0s»).
+      return fail(
+        CloudModelFailure.rateLimited,
+        after: retryAfterOf(headers) ?? retryDelayInMessage(message),
+      );
     }
     if (status == 401 || code == 'invalid_api_key') {
       return fail(CloudModelFailure.invalidKey);
@@ -276,8 +293,13 @@ class OpenAiWire implements CloudWire {
     if (code == 'context_length_exceeded') {
       return fail(CloudModelFailure.tooLong);
     }
+    if (status == 408) return fail(CloudModelFailure.timeout);
+    // 500, 502, 503, 504: saturado o caído de su lado.
     if (status >= 500 || type == 'server_error') {
       return fail(CloudModelFailure.unavailable, after: retryAfterOf(headers));
+    }
+    if (status == 400 || status == 422 || type == 'invalid_request_error') {
+      return fail(CloudModelFailure.badRequest);
     }
     return fail(CloudModelFailure.unknown);
   }

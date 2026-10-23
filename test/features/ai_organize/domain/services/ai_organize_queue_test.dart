@@ -1336,6 +1336,10 @@ void main() {
       expect(of(CloudModelFailure.unavailable), AiModelWait.busy);
       expect(of(CloudModelFailure.rateLimited), AiModelWait.busy);
       expect(of(CloudModelFailure.modelNotFound), AiModelWait.modelGone);
+      // La espera que venció o el corte, tras reintentar: vuelve a probar.
+      expect(of(CloudModelFailure.timeout), AiModelWait.interrupted);
+      expect(of(CloudModelFailure.cutOff), AiModelWait.interrupted);
+      expect(of(CloudModelFailure.badRequest), isNull);
       expect(of(CloudModelFailure.blocked), isNull);
       expect(of(CloudModelFailure.tooLong), isNull);
       expect(of(CloudModelFailure.unknown), isNull);

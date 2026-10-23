@@ -106,3 +106,39 @@ final class AiRequestFailedNotice extends AiNotice {
   final AiProvider provider;
   final CloudModelFailure failure;
 }
+
+/// Un pedido de la persona falló por algo pasajero —sin conexión un momento,
+/// la espera que venció, la respuesta cortada, el servicio ocupado o el tope
+/// por minuto— y la app lo vuelve a intentar sola, con la misma cuenta, en
+/// [wait] (F39). No es un aviso para mostrar arriba de todo: lo muestra en
+/// el lugar quien está esperando la respuesta, como «Reintentando (2 de 4)…».
+final class AiRetryNotice extends AiNotice {
+  const AiRetryNotice({
+    required super.at,
+    required this.provider,
+    required this.failure,
+    required this.attempt,
+    required this.maxAttempts,
+    required this.wait,
+  });
+
+  final AiProvider provider;
+
+  /// Qué falló, para decirlo en la franja.
+  final CloudModelFailure failure;
+
+  /// El intento que viene, de 2 a [maxAttempts] (el primero ya falló).
+  final int attempt;
+  final int maxAttempts;
+
+  /// Cuánto espera antes de volver a pedir.
+  final Duration wait;
+}
+
+/// El reintento anduvo: la respuesta ya está llegando (F39). Borra el
+/// «Reintentando…» de donde se mostraba.
+final class AiRetryEndedNotice extends AiNotice {
+  const AiRetryEndedNotice({required super.at, required this.provider});
+
+  final AiProvider provider;
+}

@@ -715,11 +715,15 @@ la IA sola.
 te avisa con el botón para resolverlo y no baja nada sola. Una sola pasada
 da las tres cosas, así que pasar del resumen a la síntesis es instantáneo.
 Un documento largo se analiza **por partes**: la franja dice *«Analizando
-el documento… parte 3 de 12»*, con su barra y **«Parar»**, y lo resaltado
-va apareciendo a medida que avanza. Cada parte se guarda al terminar: si
-cerrás la app o lo parás, sigue desde ahí la próxima vez. Si se corta (sin
-conexión, sin cuota), la franja lo dice y **«Reintentar»** sigue desde donde
-quedó.
+el documento… parte 3 de 12 · 25 %»*, con su barra y **«Parar»**, y lo
+resaltado va apareciendo a medida que avanza. Desde la primera parte hecha
+suma **cuánto falta, aproximado** (*«faltan unos 4 min»*), calculado con lo
+que tardaron las partes anteriores. Cada parte se guarda al terminar: si
+cerrás la app o lo parás, sigue desde ahí la próxima vez. Si la IA falla por
+algo pasajero, la franja dice *«Reintentando (2 de 4): …»* y lo vuelve a
+pedir sola. Si al final se corta, la franja dice **qué pasó de verdad** (sin
+conexión, la espera que venció, la cuota de la cuenta, el servicio caído…) y
+qué hacer, y **«Reintentar»** sigue desde donde quedó.
 
 **«Extraer»**, abajo en la tarjeta, tiene filas que se despliegan:
 
@@ -2263,6 +2267,32 @@ minuto), si una clave dejó de andar o por qué falló un pedido (sin
 conexión, el proveedor saturado…). Si no querés que cambie sola, apagá
 **"Pasar sola a otra cuenta"** en la sección de cuota (Google no permite
 usar varias cuentas para pasar su tope: usarlo es tu riesgo).
+
+**Cuando la IA falla, la app distingue qué pasó** (antes todo salía como
+«error de conexión», aunque la conexión anduviera):
+
+- **Sin conexión**: no se pudo llegar al proveedor. Revisá el wifi o los datos.
+- **La espera venció**: el proveedor tardó demasiado con la conexión andando
+  (pasa con textos largos o con el servicio lento). La app aguanta hasta tres
+  minutos de silencio —antes cortaba al minuto, y por eso un análisis largo
+  podía fallar con buena conexión—; una respuesta larga que va llegando puede
+  durar lo que dure.
+- **La respuesta se cortó a mitad**: la conexión se cayó o el proveedor la
+  cerró. La app la vuelve a pedir entera y descarta lo que había llegado.
+- **El servicio está ocupado o caído** (errores 500, 502, 503, 504 o
+  «sobrecargado»): no es tu conexión.
+- **La cuota o el tope de pedidos por minuto de la cuenta**, **la clave
+  inválida** y **el pedido rechazado** (error 400).
+
+Lo que es pasajero —la conexión que se cae un momento, la espera que venció,
+la respuesta cortada, el servicio ocupado y el tope por minuto— se reintenta
+solo, con la misma cuenta, hasta **4 intentos** con espera creciente (unos 3,
+6 y 12 segundos, con un poco de azar) o la que pida el proveedor, y la franja
+de quien espera dice *«Reintentando (2 de 4)»*. Se puede cortar en cualquier
+momento. Lo que no cambia por esperar —la clave, el pedido, la cuota del
+día— no se reintenta: con varias cuentas pasa a la siguiente, y si no, te
+dice qué pasó y qué hacer. La IA de fondo reintenta igual y, si no se
+arregla, espera unos minutos y vuelve sola.
 
 **El tope de la IA de fondo.** La IA que organiza sola gasta de la misma
 cuota. Para que no te deje sin nada para lo que pedís vos, tiene un tope de

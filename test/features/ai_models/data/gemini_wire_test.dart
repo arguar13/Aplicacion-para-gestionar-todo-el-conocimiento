@@ -56,8 +56,16 @@ class _FakeGoogle implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-String _sse(List<Map<String, Object?>> events) =>
-    events.map((e) => 'data: ${jsonEncode(e)}\r\n\r\n').join();
+/// Los eventos de una respuesta que termina bien: Gemini cierra con un
+/// `finishReason`; sin él, la respuesta se cortó (F39).
+String _sse(List<Map<String, Object?>> events) => [
+  ...events,
+  {
+    'candidates': [
+      {'finishReason': 'STOP'},
+    ],
+  },
+].map((e) => 'data: ${jsonEncode(e)}\r\n\r\n').join();
 
 Map<String, Object?> _textChunk(String text, {String? finish}) => {
   'candidates': [

@@ -12,6 +12,7 @@ import 'package:sinapsis/features/study/domain/services/study_extracts.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/study/presentation/study_progress_texts.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_download_sheet.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -295,18 +296,13 @@ class _StudyProgressStrip extends ConsumerWidget {
     return switch (state) {
       StudyAnalysisIdle() || StudyAnalysisDone(unreadParts: 0) =>
         const SizedBox(width: double.infinity),
-      StudyAnalysisRunning(:final progress) => _Strip(
+      final StudyAnalysisRunning running => _Strip(
         key: const Key('study-progress'),
-        message: progress == null
-            ? l10n.studyPreparing
-            : l10n.studyAnalyzing(
-                (progress.partsDone + 1).clamp(1, progress.partsTotal),
-                progress.partsTotal,
-              ),
+        message: studyRunningMessage(l10n, running),
         running: true,
-        progress: progress == null || progress.partsTotal == 0
+        progress: running.progress == null || running.progress!.partsTotal == 0
             ? null
-            : progress.partsDone / progress.partsTotal,
+            : running.progress!.partsDone / running.progress!.partsTotal,
         action: l10n.studyStop,
         onAction: notifier.stop,
       ),
@@ -316,9 +312,9 @@ class _StudyProgressStrip extends ConsumerWidget {
         action: l10n.studyUnreadAcknowledge,
         onAction: notifier.acknowledge,
       ),
-      StudyAnalysisFailed() => _Strip(
+      final StudyAnalysisFailed failed => _Strip(
         key: const Key('study-failed'),
-        message: l10n.studyFailed,
+        message: studyFailedMessage(l10n, failed),
         action: l10n.studyRetry,
         onAction: () {
           notifier.acknowledge();

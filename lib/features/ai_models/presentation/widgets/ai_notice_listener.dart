@@ -62,10 +62,14 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
     AccountKeyRejectedNotice(:final account) => 'key:${account.id}',
     BackgroundCapReachedNotice() => 'cap',
     AiRequestFailedNotice(:final failure) => 'failed:${failure.name}',
+    AiRetryNotice() || AiRetryEndedNotice() => 'retry',
   };
 
   void _show(AiNotice notice) {
     if (!mounted) return;
+    // Los reintentos no son un aviso de arriba de todo: los muestra, en el
+    // lugar, quien está esperando la respuesta («Reintentando (2 de 4)…»).
+    if (notice is AiRetryNotice || notice is AiRetryEndedNotice) return;
     final key = _keyOf(notice);
     final now = widget.now();
     final last = _lastAt;
@@ -147,9 +151,13 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
         Icons.cloud_off_outlined,
         scheme.error,
         l10n.noticeRequestFailedTitle,
-        capitalized(aiFailureReason(l10n, failure)),
-        const Duration(seconds: 6),
+        aiFailureHelp(l10n, failure),
+        const Duration(seconds: 9),
         false,
+      ),
+      // Ya se descartaron arriba: no llegan a mostrarse.
+      AiRetryNotice() || AiRetryEndedNotice() => throw StateError(
+        'Un reintento se muestra en el lugar, no arriba de todo.',
       ),
     };
 

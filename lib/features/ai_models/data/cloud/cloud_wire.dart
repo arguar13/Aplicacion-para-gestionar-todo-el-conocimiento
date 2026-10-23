@@ -78,6 +78,7 @@ class CloudDelta {
     this.inputTokens,
     this.outputTokens,
     this.truncated = false,
+    this.restart = false,
   });
 
   /// El texto nuevo (vacío en el evento que solo trae la cuenta).
@@ -91,6 +92,11 @@ class CloudDelta {
 
   /// La respuesta se cortó por el tope de largo.
   final bool truncated;
+
+  /// Lo escrito hasta acá se descarta y la respuesta vuelve a empezar (F39):
+  /// se cortó a mitad y se reintentó entera con la misma cuenta. Quien junta
+  /// el texto lo vacía; el evento no trae texto.
+  final bool restart;
 }
 
 /// El tipo de una foto, por sus primeros bytes. JPEG si no se reconoce: es lo

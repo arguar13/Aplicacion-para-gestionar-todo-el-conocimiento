@@ -8,6 +8,9 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_notice.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/study/data/repositories/study_repository_impl.dart';
 import 'package:sinapsis/features/study/domain/services/study_marker.dart';
 import 'package:sinapsis/features/study/domain/services/study_reply.dart';
@@ -29,6 +32,10 @@ class _RecordedMarker implements StudyMarker {
   int calls = 0;
   Completer<void>? gate;
   Error? fail;
+  Exception? failWith;
+
+  /// Qué pasa cada vez que se marca una parte (p. ej. correr el reloj).
+  void Function()? onPart;
 
   @override
   Future<StudyPartOutcome> markPart({
@@ -37,7 +44,9 @@ class _RecordedMarker implements StudyMarker {
   }) async {
     calls++;
     await gate?.future;
+    onPart?.call();
     if (fail case final error?) throw error;
+    if (failWith case final error?) throw error;
     return StudyPartOutcome(
       analyzed: part.length,
       marks: parseStudyReply('RESUMEN: 1', content: content, part: part),
@@ -178,5 +187,142 @@ void main() {
 
     notifier.acknowledge();
     expect(notifier.state, isA<StudyAnalysisIdle>());
+  });
+
+  group('F39: lo que pasa mientras analiza', () {
+    late StreamController<AiNotice> notices;
+    late DateTime clockNow;
+    late StudyAnalysisNotifier timed;
+
+    setUp(() {
+      notices = StreamController<AiNotice>.broadcast();
+      clockNow = DateTime(2026, 10, 23, 10);
+      timed = StudyAnalysisNotifier(
+        renditionId: 'texto',
+        analyze: () => AnalyzeForStudy(repository: repository, marker: marker),
+        notices: notices.stream,
+        clock: () => clockNow,
+      );
+    });
+
+    tearDown(() async {
+      timed.dispose();
+      await notices.close();
+    });
+
+    AiRetryNotice retry(int attempt) => AiRetryNotice(
+      at: clockNow,
+      provider: AiProvider.gemini,
+      failure: CloudModelFailure.network,
+      attempt: attempt,
+      maxAttempts: 4,
+      wait: const Duration(seconds: 3),
+    );
+
+    test('cuánto falta sale del ritmo de las partes ya hechas', () async {
+      marker.onPart = () =>
+          clockNow = clockNow.add(const Duration(seconds: 20));
+      final states = <StudyAnalysisState>[];
+      timed.addListener(states.add, fireImmediately: false);
+
+      await timed.start(content: content, markdown: false);
+
+      expect(
+        [for (final s in states.whereType<StudyAnalysisRunning>()) s.remaining],
+        [
+          // Preparando, y las tres partes por hacer: todavía no hay ritmo.
+          null,
+          null,
+          // Una parte en 20 s, faltan dos.
+          const Duration(seconds: 40),
+          const Duration(seconds: 20),
+          // Terminó: no falta nada.
+          null,
+        ],
+      );
+    });
+
+    test(
+      'un reintento de la IA se muestra hasta que la respuesta vuelve',
+      () async {
+        marker.gate = Completer<void>();
+        final run = timed.start(content: content, markdown: false);
+        await pumpEventQueue();
+
+        notices.add(retry(2));
+        await pumpEventQueue();
+        final running = timed.state as StudyAnalysisRunning;
+        expect(
+          running.retry,
+          const StudyRetry(
+            attempt: 2,
+            maxAttempts: 4,
+            failure: CloudModelFailure.network,
+          ),
+        );
+        // El avance no se pierde.
+        expect(running.progress?.partsTotal, 3);
+
+        notices.add(retry(3));
+        await pumpEventQueue();
+        expect((timed.state as StudyAnalysisRunning).retry?.attempt, 3);
+
+        notices.add(
+          AiRetryEndedNotice(at: clockNow, provider: AiProvider.gemini),
+        );
+        await pumpEventQueue();
+        expect((timed.state as StudyAnalysisRunning).retry, isNull);
+
+        marker.gate!.complete();
+        await run;
+      },
+    );
+
+    test('terminar una parte borra el reintento', () async {
+      marker.gate = Completer<void>();
+      final run = timed.start(content: content, markdown: false);
+      await pumpEventQueue();
+      notices.add(retry(2));
+      await pumpEventQueue();
+
+      marker.gate!.complete();
+      await run;
+
+      expect(timed.state, isA<StudyAnalysisDone>());
+    });
+
+    test(
+      'los reintentos de antes o de después de analizar no cuentan',
+      () async {
+        notices.add(retry(2));
+        await pumpEventQueue();
+        expect(timed.state, isA<StudyAnalysisIdle>());
+
+        await timed.start(content: content, markdown: false);
+        notices.add(retry(2));
+        await pumpEventQueue();
+        expect(timed.state, isA<StudyAnalysisDone>());
+      },
+    );
+
+    test(
+      'si la IA en la nube se cortó, el estado trae la clase de falla',
+      () async {
+        marker.failWith = const CloudModelException(CloudModelFailure.timeout);
+
+        await timed.start(content: content, markdown: false);
+
+        final failed = timed.state as StudyAnalysisFailed;
+        expect(failed.failure, CloudModelFailure.timeout);
+      },
+    );
+
+    test('un error que no es de la nube no tiene clase de falla', () async {
+      marker.fail = StateError('otro');
+
+      await timed.start(content: content, markdown: false);
+
+      expect((timed.state as StudyAnalysisFailed).failure, isNull);
+    });
   });
 }

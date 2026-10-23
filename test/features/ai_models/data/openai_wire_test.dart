@@ -327,7 +327,7 @@ void main() {
       );
       expect(
         await failureOf(400, error('invalid_value')),
-        CloudModelFailure.unknown,
+        CloudModelFailure.badRequest,
       );
       expect(await failureOf(418, 'no es JSON'), CloudModelFailure.unknown);
     });

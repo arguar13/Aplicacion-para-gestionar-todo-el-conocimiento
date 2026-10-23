@@ -27,6 +27,11 @@ class StudyProgress {
 
   bool get finished => partsDone >= partsTotal;
 
+  /// Cuánto va, de 0 a 100 (F39): las partes hechas sobre el total de ahora.
+  /// Sin saber todavía cuántas son, 0.
+  int get percent =>
+      partsTotal <= 0 ? 0 : (partsDone * 100 ~/ partsTotal).clamp(0, 100);
+
   @override
   bool operator ==(Object other) =>
       other is StudyProgress &&

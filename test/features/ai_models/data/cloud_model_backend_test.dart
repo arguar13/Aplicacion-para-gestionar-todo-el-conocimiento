@@ -80,6 +80,7 @@ class _FakeWire implements CloudWire {
     }
     final outcome = queue.removeAt(0);
     if (outcome is CloudModelException) throw outcome;
+    if (outcome is DioException) throw outcome;
     if (outcome is _Partial) {
       for (final chunk in outcome.chunks) {
         yield CloudDelta(text: chunk);
@@ -142,6 +143,8 @@ void main() {
         waits.add(duration);
         return !(cancel?.isCancelled ?? false);
       },
+      // Sin azar: la espera es la del medio, 3, 6, 12 s.
+      jitter: () => 0.5,
     );
     first = await accounts.add(
       provider: AiProvider.gemini,
@@ -398,7 +401,7 @@ void main() {
       expect(await ask(backend), 'ya está');
       expect(waits, [const Duration(seconds: 7)]);
       expect(wire.calls.map((c) => c.key), ['clave-1', 'clave-1']);
-      final notice = notices.single as RateLimitWaitNotice;
+      final notice = notices.whereType<RateLimitWaitNotice>().single;
       expect(notice.account, first);
       expect(notice.wait, const Duration(seconds: 7));
     });
@@ -432,7 +435,8 @@ void main() {
         ];
 
       expect(await ask(backend), 'al fin');
-      expect(waits, hasLength(kRateLimitRetries));
+      // Cuatro intentos son tres esperas.
+      expect(waits, hasLength(kCloudMaxAttempts - 1));
     });
   });
 
@@ -483,32 +487,322 @@ void main() {
     expect(usage.usageOf(first.id, now: now).isExhaustedAt(now), isTrue);
   });
 
-  test('si el proveedor está saturado, reintenta una vez', () async {
+  group('lo pasajero se reintenta solo (F39)', () {
     const busy = CloudModelException(CloudModelFailure.unavailable);
-    wire.scripts['clave-1'] = [
-      busy,
-      ['ahora sí'],
-    ];
-    expect(await ask(backend), 'ahora sí');
-    expect(waits, [kUnavailableRetryWait]);
+    const offline = CloudModelException(CloudModelFailure.network);
+    const slow = CloudModelException(CloudModelFailure.timeout);
+    const cut = CloudModelException(CloudModelFailure.cutOff);
 
-    wire.scripts['clave-1'] = [busy, busy];
-    await expectLater(ask(backend), throwsA(isA<CloudModelException>()));
+    for (final transient in [busy, offline, slow, cut]) {
+      test('${transient.failure.name}: espera creciente y sigue', () async {
+        wire.scripts['clave-1'] = [
+          transient,
+          transient,
+          ['ahora sí'],
+        ];
+
+        expect(await ask(backend), 'ahora sí');
+
+        // 3 s y 6 s: se duplica.
+        expect(waits, [const Duration(seconds: 3), const Duration(seconds: 6)]);
+        // Siempre con la misma cuenta.
+        expect(wire.calls.map((c) => c.key), ['clave-1', 'clave-1', 'clave-1']);
+        // La cuenta anda: no se la deja de lado.
+        expect(usage.usageOf(first.id, now: now).isExhaustedAt(now), isFalse);
+      });
+    }
+
+    test('dice «Reintentando (2 de 4)», y que ya anduvo', () async {
+      wire.scripts['clave-1'] = [
+        busy,
+        busy,
+        ['ahora sí'],
+      ];
+
+      await ask(backend);
+
+      final retries = notices.whereType<AiRetryNotice>().toList();
+      expect(retries.map((n) => (n.attempt, n.maxAttempts, n.failure)), [
+        (2, 4, CloudModelFailure.unavailable),
+        (3, 4, CloudModelFailure.unavailable),
+      ]);
+      expect(retries.map((n) => n.wait), [
+        const Duration(seconds: 3),
+        const Duration(seconds: 6),
+      ]);
+      expect(retries.every((n) => n.provider == AiProvider.gemini), isTrue);
+      // Y avisa cuando el reintento anduvo, una sola vez, y sin error final.
+      expect(notices.whereType<AiRetryEndedNotice>(), hasLength(1));
+      expect(notices.last, isA<AiRetryEndedNotice>());
+      expect(notices.whereType<AiRequestFailedNotice>(), isEmpty);
+    });
+
+    test('se rinde a los cuatro intentos y cuenta la clase de falla', () async {
+      wire.scripts['clave-1'] = [offline, offline, offline, offline];
+
+      await expectLater(
+        ask(backend),
+        throwsA(
+          isA<CloudModelException>().having(
+            (e) => e.failure,
+            'failure',
+            CloudModelFailure.network,
+          ),
+        ),
+      );
+
+      expect(wire.calls, hasLength(kCloudMaxAttempts));
+      expect(waits, [
+        const Duration(seconds: 3),
+        const Duration(seconds: 6),
+        const Duration(seconds: 12),
+      ]);
+      expect(
+        notices.last,
+        isA<AiRequestFailedNotice>().having(
+          (n) => n.failure,
+          'failure',
+          CloudModelFailure.network,
+        ),
+      );
+      // Sin red no se cambia de cuenta.
+      expect(wire.calls.map((c) => c.key).toSet(), {'clave-1'});
+    });
+
+    test('el jitter mueve la espera un cuarto para cada lado', () async {
+      final seen = <Duration>[];
+      for (final jitter in [0.0, 1.0]) {
+        final jittered = CloudModelBackend(
+          wire: wire,
+          catalog: catalog,
+          accounts: accounts,
+          usage: usage,
+          settings: () => settings,
+          saveSettings: (next) async => settings = next,
+          notify: (_) {},
+          gate: LanguageModelGate(),
+          meter: LanguageModelMeter(),
+          clock: () => now,
+          wait: (duration, cancel) async {
+            seen.add(duration);
+            return true;
+          },
+          jitter: () => jitter,
+        );
+        wire.scripts['clave-1'] = [
+          busy,
+          ['ok'],
+        ];
+        await ask(jittered);
+      }
+      expect(seen, [
+        const Duration(milliseconds: 2250),
+        const Duration(milliseconds: 3750),
+      ]);
+    });
+
+    test('respeta lo que pide el proveedor si es más que la espera', () async {
+      wire.scripts['clave-1'] = [
+        const CloudModelException(
+          CloudModelFailure.unavailable,
+          retryAfter: Duration(seconds: 20),
+        ),
+        ['ok'],
+      ];
+
+      await ask(backend);
+      expect(waits, [const Duration(seconds: 20)]);
+    });
+
+    test('si pide esperar más de un minuto, no se queda esperando', () async {
+      wire.scripts['clave-1'] = [
+        const CloudModelException(
+          CloudModelFailure.unavailable,
+          retryAfter: Duration(minutes: 10),
+        ),
+      ];
+
+      await expectLater(ask(backend), throwsA(isA<CloudModelException>()));
+      expect(waits, isEmpty);
+      expect(wire.calls, hasLength(1));
+    });
+
+    test('una respuesta cortada a mitad vuelve a empezar entera y lo escrito '
+        'antes se descarta', () async {
+      wire.scripts['clave-1'] = [
+        const _Partial(['Roma fue un ', 'impe'], cut),
+        ['Roma fue un imperio.'],
+      ];
+
+      expect(await ask(backend), 'Roma fue un imperio.');
+      expect(waits, [const Duration(seconds: 3)]);
+      expect(wire.calls, hasLength(2));
+    });
+
+    test(
+      'en una charla, el corte reemplaza lo escrito y no lo repite',
+      () async {
+        wire.scripts['clave-1'] = [
+          const _Partial(['Roma fue '], cut),
+          ['Roma fue un imperio.'],
+        ];
+        final chat = await backend.openConversation(
+          instruction: 'x',
+          maxOutputTokens: 64,
+        );
+
+        final seen = await chat.send(prompt: 'Hola', said: 'Hola').toList();
+
+        expect(seen.last, 'Roma fue un imperio.');
+        expect(seen.where((text) => text.contains('Roma fue Roma')), isEmpty);
+        await chat.close();
+      },
+    );
+
+    test('cortar mientras espera las cabeceras no es una falla', () async {
+      wire.scripts['clave-1'] = [
+        DioException.requestCancelled(
+          requestOptions: RequestOptions(path: '/x'),
+          reason: 'cortado',
+        ),
+      ];
+
+      expect(await ask(backend), '');
+      expect(notices, isEmpty);
+    });
+
+    test('se puede cancelar mientras espera', () async {
+      var waiting = 0;
+      final cancelling = CloudModelBackend(
+        wire: wire,
+        catalog: catalog,
+        accounts: accounts,
+        usage: usage,
+        settings: () => settings,
+        saveSettings: (next) async => settings = next,
+        notify: notices.add,
+        gate: LanguageModelGate(),
+        meter: LanguageModelMeter(),
+        clock: () => now,
+        wait: (duration, cancel) async {
+          waiting++;
+          return false;
+        },
+        jitter: () => 0.5,
+      );
+      wire.scripts['clave-1'] = [
+        busy,
+        ['no debería llegar'],
+      ];
+
+      expect(await ask(cancelling), '');
+      expect(waiting, 1);
+      expect(wire.calls, hasLength(1));
+    });
+
+    test('con varias cuentas, pasar a la otra empieza de nuevo la cuenta de '
+        'intentos', () async {
+      wire
+        ..scripts['clave-1'] = [busy, busy, busy, _quota()]
+        ..scripts['clave-2'] = [
+          busy,
+          busy,
+          busy,
+          ['con la otra'],
+        ];
+
+      expect(await ask(backend), 'con la otra');
+
+      expect(wire.calls.map((c) => c.key), [
+        'clave-1',
+        'clave-1',
+        'clave-1',
+        'clave-1',
+        'clave-2',
+        'clave-2',
+        'clave-2',
+        'clave-2',
+      ]);
+    });
+
+    test(
+      'la IA de fondo reintenta igual pero no muestra «Reintentando»',
+      () async {
+        wire.scripts['clave-1'] = [
+          busy,
+          ['ok'],
+        ];
+
+        expect(await ask(backend.forBackground), 'ok');
+        expect(waits, [const Duration(seconds: 3)]);
+        expect(notices.whereType<AiRetryNotice>(), isEmpty);
+        expect(notices.whereType<AiRetryEndedNotice>(), isEmpty);
+      },
+    );
+  });
+
+  group('lo que no pasa esperando no se reintenta (F39)', () {
+    for (final failure in [
+      CloudModelFailure.invalidKey,
+      CloudModelFailure.forbidden,
+      CloudModelFailure.badRequest,
+      CloudModelFailure.modelNotFound,
+      CloudModelFailure.blocked,
+      CloudModelFailure.tooLong,
+      CloudModelFailure.unknown,
+    ]) {
+      test(failure.name, () async {
+        // Una sola cuenta, para ver solo lo que pasa con ella.
+        settings = settings.copyWith(autoSwitchAccounts: false);
+        wire.scripts['clave-1'] = [CloudModelException(failure)];
+
+        await expectLater(ask(backend), throwsA(isA<CloudModelException>()));
+
+        expect(wire.calls, hasLength(1));
+        expect(waits, isEmpty);
+        expect(notices.whereType<AiRetryNotice>(), isEmpty);
+      });
+    }
+
+    test('la cuota agotada pasa a la otra cuenta sin esperar', () async {
+      wire
+        ..scripts['clave-1'] = [_quota()]
+        ..scripts['clave-2'] = [
+          ['con la otra'],
+        ];
+
+      expect(await ask(backend), 'con la otra');
+      expect(waits, isEmpty);
+      expect(notices.whereType<AiRetryNotice>(), isEmpty);
+    });
+
+    test('una cuota agotada a mitad de la respuesta no se reintenta ni '
+        'cambia de cuenta', () async {
+      wire.scripts['clave-1'] = [
+        const _Partial([
+          'Empecé ',
+        ], CloudModelException(CloudModelFailure.quotaExhausted)),
+      ];
+
+      await expectLater(ask(backend), throwsA(isA<CloudModelException>()));
+      expect(wire.calls, hasLength(1));
+      expect(waits, isEmpty);
+    });
   });
 
   test('lo que otra cuenta no arregla se le cuenta a la persona, con el '
       'motivo; a la IA de fondo no', () async {
-    const offline = CloudModelException(CloudModelFailure.network);
+    const offline = CloudModelException(CloudModelFailure.blocked);
     wire.scripts['clave-1'] = [offline, offline];
 
     await expectLater(ask(backend), throwsA(isA<CloudModelException>()));
     expect(
       notices.single,
       isA<AiRequestFailedNotice>()
-          .having((n) => n.failure, 'failure', CloudModelFailure.network)
+          .having((n) => n.failure, 'failure', CloudModelFailure.blocked)
           .having((n) => n.provider, 'provider', AiProvider.gemini),
     );
-    // Sin red no se cambia de cuenta.
+    // Otra cuenta no lo arregla: no se cambia.
     expect(wire.calls.map((c) => c.key), ['clave-1']);
 
     notices.clear();
@@ -519,9 +813,10 @@ void main() {
     expect(notices, isEmpty);
   });
 
-  test('si falla después de escribir, también se dice por qué', () async {
+  test('si falla después de escribir algo que no pasa esperando, también se '
+      'dice por qué', () async {
     wire.scripts['clave-1'] = [
-      const _Partial(['Roma '], CloudModelException(CloudModelFailure.network)),
+      const _Partial(['Roma '], CloudModelException(CloudModelFailure.blocked)),
     ];
     await expectLater(ask(backend), throwsA(isA<CloudModelException>()));
     expect(notices.single, isA<AiRequestFailedNotice>());
