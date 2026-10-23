@@ -1,8 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sinapsis/core/design/highlight_palette.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
-import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_hand_marks.dart';
@@ -19,38 +16,7 @@ void main() {
     createdAt: DateTime(2026, 10, 22, 10, minute),
   );
 
-  group('cómo se ven sobre el documento real', () {
-    test('cada color es el del tema claro, también en modo oscuro', () {
-      for (final color in HighlightColor.values) {
-        expect(handMarkColor(color), HighlightPalette.light[color]);
-      }
-    });
-
-    test('sin color elegido, el de siempre', () {
-      expect(
-        handMarkColor(null),
-        isNot(HighlightPalette.light[HighlightColor.orange]),
-      );
-      expect(handMarkColor(null).a, 1);
-    });
-
-    test('la línea de un subrayado es del mismo tono pero más firme', () {
-      for (final color in HighlightColor.values) {
-        final pastel = HSLColor.fromColor(HighlightPalette.light[color]);
-        final line = HSLColor.fromColor(
-          handMarkLine(HighlightPalette.light[color]),
-        );
-
-        expect(line.lightness, lessThan(pastel.lightness));
-        expect((line.hue - pastel.hue).abs(), lessThan(3));
-      }
-    });
-
-    test('el color para una página web es #rrggbb, sin la transparencia', () {
-      expect(cssHex(const Color(0xFFFFCC8A)), '#ffcc8a');
-      expect(cssHex(const Color(0x80000A0B)), '#000a0b');
-    });
-
+  group('en qué orden se pintan sobre el documento real', () {
     test('de abajo hacia arriba: por fecha y, a igual fecha, por id', () {
       final stacked = stackedHighlights([hl('b', 5), hl('z', 1), hl('a', 5)]);
 

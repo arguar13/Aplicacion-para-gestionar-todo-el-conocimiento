@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
+import 'package:sinapsis/core/design/highlight_palette.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
@@ -114,7 +115,7 @@ class PdfStudyOverlay {
           _Layer(
             highlight.startOffset,
             highlight.endOffset,
-            handMarkColor(highlight.color),
+            HighlightPalette.onPaper(highlight.color),
           ),
       for (final paint in _paints)
         if (paint.aboveHighlights)
@@ -126,7 +127,7 @@ class PdfStudyOverlay {
           _Layer(
             highlight.startOffset,
             highlight.endOffset,
-            handMarkLine(handMarkColor(highlight.color)),
+            HighlightPalette.lineOnPaper(highlight.color),
           ),
     ];
     _fill = fill;

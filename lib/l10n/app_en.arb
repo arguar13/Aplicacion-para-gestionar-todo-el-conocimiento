@@ -10290,8 +10290,6 @@
   "@highlightStyleFill": {"description": "Estilo de resaltado: el fondo del texto pintado (F38)."},
   "highlightStyleUnderline": "Underline",
   "@highlightStyleUnderline": {"description": "Estilo de resaltado: una línea debajo del texto (F38)."},
-  "documentUnderlineSelection": "Underline",
-  "@documentUnderlineSelection": {"description": "Visor de PDF (F38): botón del menú de la selección, que pone una línea debajo de lo seleccionado."},
   "documentHighlightScanned": "This page is a photo: it has no letters to highlight. Highlight it in “Extracted text”.",
   "@documentHighlightScanned": {"description": "Visor de PDF (F38): aviso al intentar resaltar sobre una página escaneada."},
   "documentHighlightNotLocated": "I couldn't find the selection in the document's text. Try highlighting it in “Extracted text”.",

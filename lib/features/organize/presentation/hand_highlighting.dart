@@ -84,13 +84,9 @@ Future<void> saveHandHighlightWithNote(
   required int end,
 }) async {
   if (end <= start || end > content.length) return;
-  // `null` es "se canceló".
-  final note = await showDialog<String>(
-    context: context,
-    builder: (context) => HighlightNoteDialog(
-      initialNote: null,
-      excerpt: content.substring(start, end),
-    ),
+  final note = await askHighlightNote(
+    context,
+    excerpt: content.substring(start, end),
   );
   if (note == null || !context.mounted) return;
   await saveHandHighlight(
@@ -101,8 +97,22 @@ Future<void> saveHandHighlightWithNote(
     start: start,
     end: end,
     color: ref.read(lastHighlightColorProvider),
-    note: note.isEmpty ? null : note,
+    note: note.text,
   );
+}
+
+/// Pide la nota de un resaltado nuevo de [excerpt]: `null` si se canceló;
+/// si no, la nota, que en blanco es ninguna.
+Future<({String? text})?> askHighlightNote(
+  BuildContext context, {
+  required String excerpt,
+}) async {
+  final note = await showDialog<String>(
+    context: context,
+    builder: (context) =>
+        HighlightNoteDialog(initialNote: null, excerpt: excerpt),
+  );
+  return note == null ? null : (text: note.isEmpty ? null : note);
 }
 
 /// Crea una nota atómica nueva con `[start, end)` de [content], vinculada al

@@ -21,6 +21,8 @@ void main() {
     keyword: 0xFF000003,
     highlights: {HighlightColor.violet: 0xFF00000A},
     defaultHighlight: 0xFF00000B,
+    underlines: {HighlightColor.violet: 0xFF00000C},
+    defaultUnderline: 0xFF00000D,
   );
 
   StudyMark mark(String id, StudyMarkKind kind, String part) {
@@ -140,8 +142,8 @@ void main() {
     ]);
   });
 
-  test('mis resaltados llevan su color, su estilo y su nota; sin color, el '
-      'de siempre', () {
+  test('mis resaltados llevan su color —la línea, si es subrayado—, su '
+      'estilo y su nota; sin color, el de siempre', () {
     final marks = buildDocumentMarks(
       content: content,
       options: const MarkedDocumentOptions(myHighlights: true),
@@ -161,7 +163,7 @@ void main() {
 
     expect(marks, hasLength(2));
     expect(marks[0].excerpt, 'Tercera libre.');
-    expect(marks[0].color, colors.highlights[HighlightColor.violet]);
+    expect(marks[0].color, colors.underlines[HighlightColor.violet]);
     expect(marks[0].style, HighlightStyle.underline);
     expect(marks[0].note, 'ojo');
     expect(marks[1].excerpt, 'Segunda');

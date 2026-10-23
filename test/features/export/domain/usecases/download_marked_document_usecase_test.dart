@@ -29,6 +29,8 @@ void main() {
     keyword: 0xFF000003,
     highlights: {},
     defaultHighlight: 0xFF00000B,
+    underlines: {},
+    defaultUnderline: 0xFF00000D,
   );
 
   const study = DocumentStudy(

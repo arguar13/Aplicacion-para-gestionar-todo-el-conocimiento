@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/design/highlight_palette.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/features/export/data/marked/marked_document_writers.dart';
@@ -24,16 +25,21 @@ void main() {
     expect(colors.summary, study.summary.toARGB32());
     expect(colors.synthesis, study.synthesis.toARGB32());
     expect(colors.keyword, study.keyword.toARGB32());
-    for (final color in HighlightColor.values) {
+    // Los del resaltador, como sobre el PDF y la página web: con el de
+    // siempre para los de antes de F38, y la línea más firme del subrayado.
+    for (final color in [...HighlightColor.values, null]) {
       expect(
         colors.highlightOf(color),
-        HighlightPalette.light[color].toARGB32(),
+        HighlightPalette.onPaper(color).toARGB32(),
+      );
+      expect(
+        colors.highlightOf(color, HighlightStyle.underline),
+        HighlightPalette.lineOnPaper(color).toARGB32(),
       );
     }
-    // Un subrayado de antes de F38, sin color: el amarillo claro.
     expect(
       colors.highlightOf(null),
-      HighlightPalette.light[HighlightColor.lightYellow].toARGB32(),
+      isNot(HighlightPalette.light[HighlightColor.lightYellow].toARGB32()),
     );
   });
 

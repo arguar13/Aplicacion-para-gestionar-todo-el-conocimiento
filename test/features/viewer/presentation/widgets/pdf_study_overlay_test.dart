@@ -337,7 +337,10 @@ void main() {
       final page = await shown('Hola mundo', highlights: [hand('a', 0, 4)]);
 
       expect(drawn(page), [
-        (const Rect.fromLTRB(0, 100, 40, 110), handMarkColor(null).toARGB32()),
+        (
+          const Rect.fromLTRB(0, 100, 40, 110),
+          HighlightPalette.onPaper(null).toARGB32(),
+        ),
       ]);
     });
 
@@ -357,8 +360,8 @@ void main() {
         ],
       );
 
-      final line = handMarkLine(
-        HighlightPalette.light[HighlightColor.orange],
+      final line = HighlightPalette.lineOnPaper(
+        HighlightColor.orange,
       ).toARGB32();
       expect(line, isNot(orange));
       expect(drawn(page), [

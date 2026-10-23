@@ -5,10 +5,12 @@ import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/highlight_palette.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
@@ -18,8 +20,8 @@ import 'package:sinapsis/features/viewer/domain/services/archived_page_alignment
 import 'package:sinapsis/features/viewer/domain/services/archived_page_study.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_hand_marks.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/document_highlight_toolbar.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_selection.dart';
-import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// La página tal como quedó archivada al guardarla: con sus imágenes y sus
@@ -69,24 +71,15 @@ import 'package:webview_flutter/webview_flutter.dart';
 /// página se ubica en el texto extraído y se puede resaltar (ver
 /// [DocumentSelection]); los resaltados guardados se pintan en la página, con
 /// su color y su estilo, encima de las oraciones y debajo de las palabras
-/// clave; y tocar uno avisa por [onHighlightTap]. La barra de la selección es
-/// [selectionBarBuilder]: junto a lo seleccionado, con la [DocumentSelection]
-/// para resaltar, copiar y ubicar lo elegido. Sin ninguna, una chica con
-/// «Resaltar» y «Subrayar» (el color de siempre): la barrita de selección la
-/// reemplaza.
+/// clave; y tocar uno abre su ficha. Junto a lo seleccionado aparece la
+/// barrita de resaltado, la de «Texto extraído» (ver
+/// `documentHighlightToolbar`).
 ///
 /// Sin `Scaffold` propio a propósito: `WebPageViewerScreen` lo envuelve para
 /// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
 /// dentro de un marco acotado en el detalle del elemento.
 class WebPageViewerView extends ConsumerStatefulWidget {
-  const WebPageViewerView({
-    required this.path,
-    this.url,
-    this.text,
-    this.onHighlightTap,
-    this.selectionBarBuilder,
-    super.key,
-  });
+  const WebPageViewerView({required this.path, this.url, this.text, super.key});
 
   final String path;
 
@@ -97,15 +90,6 @@ class WebPageViewerView extends ConsumerStatefulWidget {
   /// El artículo extraído de la página y su forma: de ahí sale lo estudiado y
   /// es donde se resalta.
   final StudyText? text;
-
-  /// Se tocó un resaltado de la persona (F38): la ficha para cambiarle el
-  /// color, escribirle una nota o borrarlo.
-  final void Function(Highlight highlight)? onHighlightTap;
-
-  /// La barra que aparece junto a lo seleccionado (F38), en lugar de la
-  /// provisoria. Se la pone debajo de la selección, dentro de la página.
-  final Widget Function(BuildContext context, DocumentSelection selection)?
-  selectionBarBuilder;
 
   @override
   ConsumerState<WebPageViewerView> createState() => _WebPageViewerViewState();
@@ -272,9 +256,10 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
       case ArchivedPageDeselected():
         _select(null);
       case ArchivedPageMarkTapped(:final id):
-        final onTap = widget.onHighlightTap;
         for (final highlight in _highlights) {
-          if (highlight.id == id) onTap?.call(highlight);
+          if (highlight.id == id) {
+            unawaited(openHighlightCard(context, ref, highlight));
+          }
         }
       case null:
         break;
@@ -312,12 +297,15 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
         highlight.endOffset,
       );
       if (ranges.isEmpty) continue;
-      final color = handMarkColor(highlight.color);
       final underline = highlight.style == HighlightStyle.underline;
       marks.add((
         id: highlight.id,
         ranges: ranges,
-        color: (underline ? handMarkLine(color) : color).toARGB32(),
+        color:
+            (underline
+                    ? HighlightPalette.lineOnPaper(highlight.color)
+                    : HighlightPalette.onPaper(highlight.color))
+                .toARGB32(),
         underline: underline,
       ));
     }
@@ -401,23 +389,34 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
         }
         final page = WebViewWidget(controller: webView);
         final selected = _selected;
+        final text = widget.text;
         // La página siempre en el mismo lugar del árbol: si cambiara de
         // lugar al aparecer la barra, el `WebView` se armaría de nuevo.
         return Stack(
           children: [
             Positioned.fill(child: page),
-            if (selected != null && widget.text != null)
+            if (selected != null && text != null)
               Positioned.fill(
                 child: LayoutBuilder(
-                  builder: (context, constraints) => CustomSingleChildLayout(
-                    delegate: _SelectionBarLayout(
-                      selected.bounds,
-                      constraints.maxWidth / selected.viewWidth,
-                    ),
-                    child:
-                        widget.selectionBarBuilder?.call(context, _selection) ??
-                        _SelectionBar(selection: _selection),
-                  ),
+                  builder: (_, constraints) {
+                    // La página cuenta en sus píxeles; la pantalla, en los
+                    // suyos.
+                    final scale = constraints.maxWidth / selected.viewWidth;
+                    final bounds = selected.bounds;
+                    final center = (bounds.left + bounds.right) / 2 * scale;
+                    return documentHighlightToolbar(
+                      // El de la pantalla: el de la barrita ya no existe
+                      // cuando termina un diálogo.
+                      this.context,
+                      ref,
+                      anchors: TextSelectionToolbarAnchors(
+                        primaryAnchor: Offset(center, bounds.top * scale),
+                        secondaryAnchor: Offset(center, bounds.bottom * scale),
+                      ),
+                      selection: _selection,
+                      text: text,
+                    );
+                  },
                 ),
               ),
           ],
@@ -491,80 +490,5 @@ class _WebSelection implements DocumentSelection {
       // Una página que se está cambiando por otra no tiene dónde correrlo.
       // ignore: avoid_catches_without_on_clauses
     } catch (_) {}
-  }
-}
-
-/// Dónde va la barra: centrada bajo la selección —[bounds], en píxeles de la
-/// página, que con [scale] pasan a los de la pantalla— y sin salirse de ella;
-/// si abajo no entra, arriba.
-class _SelectionBarLayout extends SingleChildLayoutDelegate {
-  _SelectionBarLayout(this.bounds, this.scale);
-
-  final ({double left, double top, double right, double bottom}) bounds;
-  final double scale;
-
-  static const _gap = 12.0;
-
-  @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
-      constraints.loosen();
-
-  @override
-  Offset getPositionForChild(Size size, Size childSize) {
-    final center = (bounds.left + bounds.right) / 2 * scale;
-    final left = (center - childSize.width / 2).clamp(
-      8.0,
-      (size.width - childSize.width - 8).clamp(8.0, double.infinity),
-    );
-    final below = bounds.bottom * scale + _gap;
-    final top = below + childSize.height <= size.height
-        ? below
-        : (bounds.top * scale - _gap - childSize.height).clamp(
-            0.0,
-            double.infinity,
-          );
-    return Offset(left, top);
-  }
-
-  @override
-  bool shouldRelayout(_SelectionBarLayout old) =>
-      old.bounds != bounds || old.scale != scale;
-}
-
-/// La barra provisoria de la selección (F38): «Resaltar» y «Subrayar», con
-/// el color de siempre. La barrita de selección de la app la reemplaza (ver
-/// [WebPageViewerView.selectionBarBuilder]).
-class _SelectionBar extends StatelessWidget {
-  const _SelectionBar({required this.selection});
-
-  final DocumentSelection selection;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Material(
-      elevation: 4,
-      borderRadius: BorderRadius.circular(24),
-      color: Theme.of(context).colorScheme.surfaceContainerHigh,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextButton(
-            onPressed: () => unawaited(highlightAndReport(context, selection)),
-            child: Text(l10n.detailHighlightSelection),
-          ),
-          TextButton(
-            onPressed: () => unawaited(
-              highlightAndReport(
-                context,
-                selection,
-                style: HighlightStyle.underline,
-              ),
-            ),
-            child: Text(l10n.documentUnderlineSelection),
-          ),
-        ],
-      ),
-    );
   }
 }

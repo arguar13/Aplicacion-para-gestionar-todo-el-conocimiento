@@ -4,14 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 import 'package:pdfrx/pdfrx.dart';
+import 'package:sinapsis/core/design/highlight_toolbar.dart';
 import 'package:sinapsis/core/design/reading_scroll_physics.dart';
-import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
+import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/document_highlight_toolbar.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_selection.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_drag_selection.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_study_overlay.dart';
@@ -38,46 +40,23 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// palabra la agrega o la saca.
 ///
 /// **Resaltar a mano (F38).** También con [text], los resaltados de la
-/// persona se pintan sobre las letras, con su color y su estilo, y se pueden
-/// crear desde lo que se selecciona: el menú de la selección suma «Resaltar»
-/// y «Subrayar» (con el color de siempre). Ese menú es provisorio: la barrita
-/// de selección lo reemplaza dándole a [selectionMenuBuilder] un
-/// [DocumentSelection], con el que resalta con el color que se elija. Tocar
-/// un resaltado avisa por [onHighlightTap]; con palabras clave en elección,
-/// el toque es de ellas.
+/// persona se pintan sobre las letras, con su color y su estilo, y lo que se
+/// selecciona muestra la barrita de resaltado —la de «Texto extraído», ver
+/// `documentHighlightToolbar`— en vez del menú de `pdfrx`. Tocar un
+/// resaltado abre su ficha; con palabras clave en elección, el toque es de
+/// ellas.
 ///
 /// Sin `Scaffold` propio a propósito: `PdfViewerScreen` lo envuelve para
 /// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
 /// dentro de un marco acotado en el detalle del elemento.
 class PdfViewerView extends ConsumerStatefulWidget {
-  const PdfViewerView({
-    required this.path,
-    this.text,
-    this.onHighlightTap,
-    this.selectionMenuBuilder,
-    super.key,
-  });
+  const PdfViewerView({required this.path, this.text, super.key});
 
   final String path;
 
   /// El texto extraído del PDF y su forma: de ahí sale lo estudiado y es
   /// donde se resalta.
   final StudyText? text;
-
-  /// Se tocó un resaltado de la persona (F38): la ficha para cambiarle el
-  /// color, escribirle una nota o borrarlo.
-  final void Function(Highlight highlight)? onHighlightTap;
-
-  /// El menú de la selección (F38), en lugar del de siempre —Copiar,
-  /// Seleccionar todo, Resaltar y Subrayar—. Recibe la [DocumentSelection]
-  /// para resaltar, copiar y ubicar lo elegido. No se llama mientras el dedo
-  /// arrastra la selección ni sin [text]; devolver `null` no muestra nada.
-  final Widget? Function(
-    BuildContext context,
-    PdfViewerContextMenuBuilderParams params,
-    DocumentSelection selection,
-  )?
-  selectionMenuBuilder;
 
   @override
   ConsumerState<PdfViewerView> createState() => _PdfViewerViewState();
@@ -119,60 +98,58 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
           );
           return true;
         }
-      } else {
-        final onTap = widget.onHighlightTap;
-        final highlight = onTap == null
-            ? null
-            : _study.highlightAt(details.documentPosition);
-        if (highlight != null) {
-          onTap!(highlight);
-          return true;
-        }
+      } else if (_study.highlightAt(details.documentPosition)
+          case final highlight?) {
+        unawaited(openHighlightCard(this.context, ref, highlight));
+        return true;
       }
     }
     return _dragSelection.onGeneralTap(context, controller, details);
   }
 
-  /// Para [PdfViewerParams.customizeContextMenuItems]: lo de siempre y, con
-  /// el texto de este documento, «Resaltar» y «Subrayar».
-  void _customizeMenu(
-    PdfViewerContextMenuBuilderParams params,
-    List<ContextMenuButtonItem> items,
-  ) {
-    _dragSelection.hideMenuWhileDragging(params, items);
-    if (_dragSelection.isDragging ||
-        widget.text == null ||
-        !params.textSelectionDelegate.hasSelectedText) {
-      return;
-    }
-    final l10n = AppLocalizations.of(context)!;
-    ContextMenuButtonItem item(String label, HighlightStyle style) =>
-        ContextMenuButtonItem(
-          label: label,
-          onPressed: () {
-            params.dismissContextMenu();
-            unawaited(highlightAndReport(context, _selection, style: style));
-          },
-        );
-    items
-      ..add(item(l10n.detailHighlightSelection, HighlightStyle.fill))
-      ..add(item(l10n.documentUnderlineSelection, HighlightStyle.underline));
-  }
-
-  /// Para [PdfViewerParams.buildContextMenu], cuando quien usa el visor trae
-  /// su propio menú.
+  /// La barrita de resaltado sobre lo seleccionado, con el texto de este
+  /// documento; nada mientras el dedo arrastra la selección.
   Widget? _buildMenu(
     BuildContext context,
     PdfViewerContextMenuBuilderParams params,
   ) {
-    final build = widget.selectionMenuBuilder;
-    if (build == null ||
-        widget.text == null ||
+    final text = widget.text;
+    final delegate = params.textSelectionDelegate;
+    if (text == null ||
         _dragSelection.isDragging ||
-        !params.textSelectionDelegate.hasSelectedText) {
+        !delegate.hasSelectedText) {
       return null;
     }
-    return build(context, params, _selection);
+    // Ocupa el visor entero y se para junto a la selección: `pdfrx` pone
+    // tal cual un widget que ya dice dónde va.
+    return Positioned.fill(
+      child: documentHighlightToolbar(
+        // Las acciones usan el contexto del visor: el de la barrita ya no
+        // existe cuando termina un diálogo.
+        this.context,
+        ref,
+        anchors: TextSelectionToolbarAnchors(
+          primaryAnchor: params.anchorA,
+          secondaryAnchor: params.anchorB,
+        ),
+        selection: _selection,
+        text: text,
+        canCopy: delegate.isCopyAllowed,
+        moreActions: [
+          if (!delegate.isSelectingAllText)
+            HighlightToolbarAction(
+              label: AdaptiveTextSelectionToolbar.getButtonLabel(
+                context,
+                const ContextMenuButtonItem(
+                  type: ContextMenuButtonType.selectAll,
+                  onPressed: null,
+                ),
+              ),
+              onPressed: () => unawaited(delegate.selectAllText()),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -221,10 +198,10 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
             ),
             onGeneralTap: _onGeneralTap,
             pagePaintCallbacks: _paintCallbacks,
-            buildContextMenu: widget.selectionMenuBuilder == null
-                ? null
-                : _buildMenu,
-            customizeContextMenuItems: _customizeMenu,
+            // Sin el texto del documento no hay dónde guardar un resaltado:
+            // el menú de `pdfrx`, Copiar y Seleccionar todo.
+            buildContextMenu: text == null ? null : _buildMenu,
+            customizeContextMenuItems: _dragSelection.hideMenuWhileDragging,
             textSelectionParams: const PdfTextSelectionParams(
               buildSelectionHandle: buildPdfSelectionHandle,
               // Sin la lupa que `pdfrx` pone sobre el renglón al arrastrar

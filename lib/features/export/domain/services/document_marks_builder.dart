@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
 import 'package:sinapsis/features/export/domain/entities/marked_document_options.dart';
@@ -21,23 +22,38 @@ class DocumentMarkColors {
     required this.keyword,
     required this.highlights,
     required this.defaultHighlight,
+    required this.underlines,
+    required this.defaultUnderline,
   });
 
   final int summary;
   final int synthesis;
   final int keyword;
 
-  /// El tono de cada color del resaltador a mano.
+  /// El tono de cada color del resaltador a mano, de fondo.
   final Map<HighlightColor, int> highlights;
 
-  /// El de un subrayado sin color elegido: todos los de antes de F38. El de
-  /// siempre en la pantalla es el del tema, que no se puede copiar a un
-  /// archivo; se usa el amarillo claro del resaltador, que es el que más se
-  /// le parece sobre papel.
+  /// El de un resaltado sin color elegido —todos los de antes de F38—: el de
+  /// siempre, el que tiene en la pantalla con el tema claro.
   final int defaultHighlight;
 
-  int highlightOf(HighlightColor? color) =>
-      color == null ? defaultHighlight : highlights[color] ?? defaultHighlight;
+  /// La línea de cada color, subrayado: más oscura que el tono, que como
+  /// línea fina sobre el papel casi no se vería.
+  final Map<HighlightColor, int> underlines;
+
+  /// La de un subrayado sin color elegido.
+  final int defaultUnderline;
+
+  /// El color de un resaltado de [color] con [style].
+  int highlightOf(
+    HighlightColor? color, [
+    HighlightStyle style = HighlightStyle.fill,
+  ]) => switch (style) {
+    HighlightStyle.fill =>
+      color == null ? defaultHighlight : highlights[color] ?? defaultHighlight,
+    HighlightStyle.underline =>
+      color == null ? defaultUnderline : underlines[color] ?? defaultUnderline,
+  };
 }
 
 /// Los tramos para marcar en el documento, en el orden de las capas (F38).
@@ -98,7 +114,7 @@ List<DocumentMark> buildDocumentMarks({
                 start: h.startOffset,
                 end: h.endOffset,
                 excerpt: h.excerpt,
-                color: colors.highlightOf(h.color),
+                color: colors.highlightOf(h.color, h.style),
                 style: h.style,
                 note: h.note,
               ),

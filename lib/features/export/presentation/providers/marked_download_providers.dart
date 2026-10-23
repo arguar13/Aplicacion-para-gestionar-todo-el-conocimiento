@@ -36,16 +36,20 @@ final markedDocumentWritersProvider =
 /// claro, porque el papel es blanco también con la app en modo oscuro.
 final documentMarkColorsProvider = Provider<DocumentMarkColors>((ref) {
   final study = StudyPalette.of(Brightness.light);
-  const highlights = HighlightPalette.light;
   return DocumentMarkColors(
     summary: study.summary.toARGB32(),
     synthesis: study.synthesis.toARGB32(),
     keyword: study.keyword.toARGB32(),
     highlights: {
       for (final color in HighlightColor.values)
-        color: highlights[color].toARGB32(),
+        color: HighlightPalette.onPaper(color).toARGB32(),
     },
-    defaultHighlight: highlights[HighlightColor.lightYellow].toARGB32(),
+    defaultHighlight: HighlightPalette.onPaper(null).toARGB32(),
+    underlines: {
+      for (final color in HighlightColor.values)
+        color: HighlightPalette.lineOnPaper(color).toARGB32(),
+    },
+    defaultUnderline: HighlightPalette.lineOnPaper(null).toARGB32(),
   );
 });
 

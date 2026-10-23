@@ -47,17 +47,21 @@ String? highlightIssueMessage(
 };
 
 /// Resalta lo seleccionado en [selection] y, si no se pudo, lo dice con un
-/// aviso (lo que hace el menú de siempre del visor). Quita la selección si
-/// salió bien.
+/// aviso. Quita la selección si salió bien.
 Future<void> highlightAndReport(
   BuildContext context,
   DocumentSelection selection, {
   HighlightColor? color,
   HighlightStyle style = HighlightStyle.fill,
+  String? note,
 }) async {
   final l10n = AppLocalizations.of(context)!;
   final messenger = ScaffoldMessenger.maybeOf(context);
-  final outcome = await selection.highlight(color: color, style: style);
+  final outcome = await selection.highlight(
+    color: color,
+    style: style,
+    note: note,
+  );
   if (outcome.created) {
     await selection.clear();
     return;
