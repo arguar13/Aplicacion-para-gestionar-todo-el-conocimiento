@@ -425,6 +425,7 @@ class _DetailBodyState extends State<_DetailBody> {
                   StudyDocumentCard(
                     key: _studyCardKey,
                     text: study,
+                    item: item,
                     webPage: item.source.kind == SourceKind.webPage,
                     extractedText: textInCard
                         ? (context) => _ExtractedTextBody(

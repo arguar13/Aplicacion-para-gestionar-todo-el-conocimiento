@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/features/export/presentation/providers/marked_download_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_extracts.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/study/presentation/widgets/study_download_sheet.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -23,11 +26,15 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// - **Abajo, «Extraer»**: el texto extraído —en un documento, si viene
 ///   [extractedText]—, el resumen, la síntesis y las palabras clave, cada uno
 ///   plegado, con cuánto tiene y «Copiar».
+/// - Con [item], **«Descargar»** (F38): el original en su mismo formato con
+///   el resumen, la síntesis, las palabras clave o los subrayados marcados.
+///   Solo aparece si el formato del original se puede marcar.
 /// - En su menú, **«Volver a analizar»**, que pregunta antes: reemplaza
 ///   también las palabras elegidas a mano.
 class StudyDocumentCard extends ConsumerWidget {
   const StudyDocumentCard({
     required this.text,
+    this.item,
     this.webPage = false,
     this.extractedText,
     this.extractedTextSubtitle,
@@ -35,6 +42,10 @@ class StudyDocumentCard extends ConsumerWidget {
   });
 
   final StudyText text;
+
+  /// El elemento, para descargar su original marcado. Sin él no hay botón
+  /// «Descargar».
+  final KnowledgeItem? item;
 
   /// Si es una página web: cambia solo el título.
   final bool webPage;
@@ -78,6 +89,8 @@ class StudyDocumentCard extends ConsumerWidget {
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
+                if (item case final item?)
+                  _DownloadButton(item: item, text: text),
                 _StudyMenu(text: text),
               ],
             ),
@@ -141,6 +154,38 @@ class StudyDocumentCard extends ConsumerWidget {
             _KeywordsRow(content: text.content, study: study),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// «Descargar» (F38): abre la hoja con lo que se puede marcar en el original.
+/// No aparece si el original no es de un formato que se sepa marcar.
+class _DownloadButton extends ConsumerWidget {
+  const _DownloadButton({required this.item, required this.text});
+
+  final KnowledgeItem item;
+  final StudyText text;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final format = ref
+        .watch(
+          markedDownloadFormatProvider((
+            kind: item.source.kind,
+            path: item.source.originalFilePath,
+          )),
+        )
+        .valueOrNull;
+    if (format == null) return const SizedBox.shrink();
+
+    return TextButton.icon(
+      key: const Key('study-download'),
+      icon: const Icon(Icons.download_outlined, size: 20),
+      label: Text(l10n.studyDownload),
+      onPressed: () => unawaited(
+        showStudyDownloadSheet(context, item: item, text: text, format: format),
       ),
     );
   }

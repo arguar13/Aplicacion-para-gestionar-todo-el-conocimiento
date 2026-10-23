@@ -5,6 +5,7 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_keyword_toggle.dart';
+import 'package:sinapsis/features/study/domain/services/study_layers.dart';
 import 'package:sinapsis/features/study/domain/services/study_words.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -121,10 +122,7 @@ List<PaintedRange> studyPaints(
   StudyPalette palette,
 ) {
   final layer = view.layer;
-  final sentences = [
-    for (final mark in study.marks)
-      if (view.sentenceKinds.contains(mark.kind)) mark,
-  ];
+  final sentences = studySentenceMarks(study, view.sentenceKinds);
   return [
     if (layer != null)
       for (final sentence in sentences)
@@ -135,16 +133,15 @@ List<PaintedRange> studyPaints(
           foreground: StudyPalette.ink,
         ),
     if (view.showsKeywords)
-      for (final keyword in study.of(StudyMarkKind.keyword))
-        if (sentences.any((s) => keyword.isWithin(s.start, s.end)))
-          PaintedRange(
-            keyword.start,
-            keyword.end,
-            background: palette.keyword,
-            foreground: StudyPalette.ink,
-            bold: true,
-            aboveHighlights: true,
-          ),
+      for (final keyword in studyKeywordMarksWithin(study, sentences))
+        PaintedRange(
+          keyword.start,
+          keyword.end,
+          background: palette.keyword,
+          foreground: StudyPalette.ink,
+          bold: true,
+          aboveHighlights: true,
+        ),
   ];
 }
 
