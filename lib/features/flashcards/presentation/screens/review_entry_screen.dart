@@ -17,7 +17,6 @@ import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_empty_state.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_grade_row.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/study_scope_picker.dart';
-import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -99,23 +98,19 @@ class _ReviewEntryScreenState extends ConsumerState<ReviewEntryScreen> {
     final l10n = AppLocalizations.of(context)!;
     final scope = ref.watch(reviewEntryScopeProvider);
     final counts = ref.watch(studyCountsProvider(scope));
-    final habitFeaturesEnabled = ref.watch(habitFeaturesEnabledProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.reviewTitle),
         actions: [
-          // F17, D9: el interruptor único de Ajustes apaga la racha y el
-          // historial de una vez, no montando estos widgets en absoluto —así
-          // ni siquiera consultan la base mientras está apagado—.
-          if (habitFeaturesEnabled) ...[
-            const _StreakIndicator(),
-            IconButton(
-              icon: const Icon(Icons.query_stats_outlined),
-              tooltip: l10n.reviewHistoryTooltip,
-              onPressed: () => context.push(RoutePaths.reviewHistory),
-            ),
-          ],
+          // La racha y el historial se ven siempre (F39, decisión D): ya no
+          // hay un interruptor en Ajustes que los apague.
+          const _StreakIndicator(),
+          IconButton(
+            icon: const Icon(Icons.query_stats_outlined),
+            tooltip: l10n.reviewHistoryTooltip,
+            onPressed: () => context.push(RoutePaths.reviewHistory),
+          ),
           // F30: que la IA haga las tarjetas, además de a mano.
           IconButton(
             key: const Key('review-ai-create'),

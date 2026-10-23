@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart'
+    show sharedPreferencesProvider;
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/citations/presentation/fragment_citation.dart';
@@ -18,7 +20,6 @@ import 'package:sinapsis/features/flashcards/presentation/providers/study_limits
 import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
-import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/habit/presentation/screens/review_history_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -181,17 +182,27 @@ void main() {
   });
 
   testWidgets(
-    'con el interruptor de hábito apagado (F17, D9), ni la racha ni el '
-    'historial aparecen —pero exportar a Anki (17.1) sigue—',
+    'aunque un valor viejo guardado diga «apagado» (el interruptor salió de '
+    'Ajustes, F39 decisión D), el historial y la racha se ven igual',
     (tester) async {
+      // El interruptor guardaba esta clave; hoy nadie la lee.
       await harness.container
-          .read(habitFeaturesEnabledProvider.notifier)
-          .setEnabled(enabled: false);
+          .read(sharedPreferencesProvider)
+          .setBool('habit_features_enabled', false);
+      await harness.database
+          .into(harness.database.habitEvents)
+          .insert(
+            HabitEventsCompanion.insert(
+              id: 'ev-viejo',
+              kind: HabitEventKind.triage,
+              occurredAt: harness.container.read(clockProvider)(),
+            ),
+          );
 
       await pumpEntry(tester);
 
-      expect(find.byKey(const Key('review-streak-indicator')), findsNothing);
-      expect(find.byTooltip(es.reviewHistoryTooltip), findsNothing);
+      expect(find.byKey(const Key('review-streak-indicator')), findsOneWidget);
+      expect(find.byTooltip(es.reviewHistoryTooltip), findsOneWidget);
       expect(find.byTooltip(es.reviewExportToAnkiTooltip), findsOneWidget);
     },
   );

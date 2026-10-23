@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart'
+    show sharedPreferencesProvider;
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_counts.dart';
@@ -12,7 +14,6 @@ import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_pr
 import 'package:sinapsis/features/flashcards/presentation/providers/study_limits_provider.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
-import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -242,8 +243,11 @@ void main() {
       expect(find.text('¿Dos?'), findsOneWidget);
     });
 
-    testWidgets('muestra la racha del hábito, y no la muestra si el hábito '
-        'está apagado', (tester) async {
+    testWidgets('muestra la racha del hábito, también con un valor viejo '
+        'guardado que diga «apagado» (F39, decisión D)', (tester) async {
+      await harness.container
+          .read(sharedPreferencesProvider)
+          .setBool('habit_features_enabled', false);
       await addCards(['¿Uno?']);
       await pumpSession(tester);
       await grade(tester, 'easy');
@@ -251,13 +255,6 @@ void main() {
       // Contestar una tarjeta es actividad de hoy: racha de 1 día.
       expect(find.byKey(const Key('review-stat-streak')), findsOneWidget);
       expect(find.text(es.reviewSessionStreakDays(1)), findsOneWidget);
-
-      await harness.container
-          .read(habitFeaturesEnabledProvider.notifier)
-          .setEnabled(enabled: false);
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('review-stat-streak')), findsNothing);
     });
 
     testWidgets('sin haber contestado nada, no hay resumen: está el vacío de '

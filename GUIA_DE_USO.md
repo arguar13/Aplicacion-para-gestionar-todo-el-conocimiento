@@ -2039,8 +2039,8 @@ para repasarla.
   recordás bien semana a semana), un calendario de constancia, y cuáles son
   tus tarjetas más difíciles.
 
-Si no te interesa esta parte, la podés apagar desde
-[Ajustes](#ajustes) sin perder ningún dato — solo deja de mostrarse.
+Las dos se ven siempre en Repasar: no hay un interruptor en
+[Ajustes](#ajustes) para apagarlas.
 
 ---
 
@@ -2332,8 +2332,6 @@ Hugging Face que el modelo de relaciones.
   y los accesos a Copia de seguridad, Espacio de la bóveda, Posibles
   duplicados, Vocabulario, Enlaces rotos, Papelera y Cambios para revisar —
   todos explicados en la siguiente sección.
-- **Hábito:** el interruptor **«Racha e historial»**, para mostrarlos u
-  ocultarlos (apagarlo no borra nada).
 - **Desarrollo** (solo en las versiones de prueba, *Sinapsis Dev* y
   *Sinapsis Staging*; en la versión normal no aparece):
   **"Cargar biblioteca de ejemplo"** llena la bóveda con unos 80 recursos

@@ -306,3 +306,11 @@
     en 19.
   - Al integrarlo con los nueve colores, su prueba de legibilidad encontró que el azul nuevo en
     oscuro daba 6,9 de contraste con la letra oscura; pasó a `0xFF879EFF` (7,2), el mismo tono.
+- **Paso 7 — hecho.** Sale de Ajustes el interruptor «Racha e historial» y la sección «Hábito», y
+  con ellos el provider y su clave guardada (`habit_features_enabled`), junto con las 3 cadenas de
+  los `.arb`.
+  - La racha y el historial se ven siempre en Repasar, en la entrada y en el resumen de la sesión,
+    como con el interruptor prendido; un valor viejo guardado en «apagado» queda sin leerse y no
+    rompe nada.
+  - Pruebas: Ajustes ya no lo muestra, y Repasar muestra racha e historial aunque el valor viejo
+    diga apagado. 4 mutaciones, todas muertas.

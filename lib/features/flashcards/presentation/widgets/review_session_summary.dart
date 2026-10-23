@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_next.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_session_controller.dart';
-import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -75,9 +74,7 @@ class ReviewSessionSummary extends ConsumerWidget {
       StudyNextDone(:final hitLimit) => hitLimit,
       _ => false,
     };
-    final streak = ref.watch(habitFeaturesEnabledProvider)
-        ? ref.watch(currentStreakProvider).valueOrNull
-        : null;
+    final streak = ref.watch(currentStreakProvider).valueOrNull;
     final accuracy = session.answered == 0
         ? 0
         : (session.correct * 100 / session.answered).round();

@@ -17,7 +17,6 @@ import 'package:sinapsis/features/citations/domain/entities/citation_source.dart
 import 'package:sinapsis/features/citations/domain/services/reference_styles.dart';
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
 import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_tile.dart';
-import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
 import 'package:sinapsis/features/keep_working/presentation/screens/keep_working_screen.dart';
 import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
@@ -78,14 +77,13 @@ void main() {
     await fitWholeSettings(tester);
   }
 
-  testWidgets('muestra las cinco secciones', (tester) async {
+  testWidgets('muestra las cuatro secciones', (tester) async {
     await pumpSettings(tester);
 
     expect(find.text(es.settingsAppearanceSection), findsOneWidget);
     expect(find.text(es.settingsCitationsSection), findsOneWidget);
     expect(find.text(es.settingsAiSection), findsOneWidget);
     expect(find.text(es.settingsVaultSection), findsOneWidget);
-    expect(find.text(es.settingsHabitSection), findsOneWidget);
   });
 
   group('desarrollo: la biblioteca de ejemplo', () {
@@ -109,7 +107,7 @@ void main() {
       expect(find.byType(SampleLibraryTile), findsNothing);
       expect(find.text(es.sampleLibraryTitle), findsNothing);
       // El resto de Ajustes, igual.
-      expect(find.text(es.settingsHabitSection), findsOneWidget);
+      expect(find.text(es.settingsVaultSection), findsOneWidget);
     });
   });
 
@@ -569,24 +567,17 @@ void main() {
     });
   });
 
-  group('hábito (F17, D9)', () {
-    testWidgets('arranca encendido', (tester) async {
+  group('hábito (F39, decisión D)', () {
+    testWidgets('Ajustes ya no tiene el interruptor de la racha y el '
+        'historial, ni su sección', (tester) async {
       await pumpSettings(tester);
 
-      final toggle = tester.widget<SwitchListTile>(
+      expect(
         find.byKey(const Key('settings-habit-features-toggle')),
+        findsNothing,
       );
-      expect(toggle.value, isTrue);
-      expect(harness.container.read(habitFeaturesEnabledProvider), isTrue);
-    });
-
-    testWidgets('tocarlo lo apaga y se recuerda', (tester) async {
-      await pumpSettings(tester);
-
-      await tester.tap(find.byKey(const Key('settings-habit-features-toggle')));
-      await tester.pumpAndSettle();
-
-      expect(harness.container.read(habitFeaturesEnabledProvider), isFalse);
+      expect(find.text('Racha e historial'), findsNothing);
+      expect(find.text('Hábito'), findsNothing);
     });
   });
 

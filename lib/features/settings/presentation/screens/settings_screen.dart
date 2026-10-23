@@ -16,7 +16,6 @@ import 'package:sinapsis/features/citations/presentation/citation_presentation.d
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
 import 'package:sinapsis/features/dev_seed/presentation/providers/sample_library_providers.dart';
 import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_tile.dart';
-import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/review_settings_section.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/theme_choice_picker.dart';
@@ -57,7 +56,6 @@ class SettingsScreen extends ConsumerWidget {
     );
     final citationStyle = ref.watch(defaultCitationStyleProvider);
     final citationLanguage = ref.watch(citationPreferencesProvider).language;
-    final habitFeaturesEnabled = ref.watch(habitFeaturesEnabledProvider);
     final sampleLibraryAvailable = ref.watch(sampleLibraryAvailableProvider);
     final backgroundSettingsAvailable =
         ref.watch(backgroundSettingsProvider) != null;
@@ -258,22 +256,6 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.conflicts),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _SettingsSection(
-            title: l10n.settingsHabitSection,
-            children: [
-              SwitchListTile(
-                key: const Key('settings-habit-features-toggle'),
-                secondary: const Icon(Icons.local_fire_department_outlined),
-                title: Text(l10n.settingsHabitFeaturesToggle),
-                subtitle: Text(l10n.settingsHabitFeaturesToggleSubtitle),
-                value: habitFeaturesEnabled,
-                onChanged: (value) => ref
-                    .read(habitFeaturesEnabledProvider.notifier)
-                    .setEnabled(enabled: value),
               ),
             ],
           ),
