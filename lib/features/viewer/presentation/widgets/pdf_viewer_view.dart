@@ -5,8 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 import 'package:pdfrx/pdfrx.dart';
 import 'package:sinapsis/core/design/reading_scroll_physics.dart';
+import 'package:sinapsis/core/domain/entities/highlight.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/document_selection.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_drag_selection.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_study_overlay.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -31,16 +37,47 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// cada página —ver [PdfStudyOverlay]—, y eligiendo palabras clave, tocar una
 /// palabra la agrega o la saca.
 ///
+/// **Resaltar a mano (F38).** También con [text], los resaltados de la
+/// persona se pintan sobre las letras, con su color y su estilo, y se pueden
+/// crear desde lo que se selecciona: el menú de la selección suma «Resaltar»
+/// y «Subrayar» (con el color de siempre). Ese menú es provisorio: la barrita
+/// de selección lo reemplaza dándole a [selectionMenuBuilder] un
+/// [DocumentSelection], con el que resalta con el color que se elija. Tocar
+/// un resaltado avisa por [onHighlightTap]; con palabras clave en elección,
+/// el toque es de ellas.
+///
 /// Sin `Scaffold` propio a propósito: `PdfViewerScreen` lo envuelve para
 /// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
 /// dentro de un marco acotado en el detalle del elemento.
 class PdfViewerView extends ConsumerStatefulWidget {
-  const PdfViewerView({required this.path, this.text, super.key});
+  const PdfViewerView({
+    required this.path,
+    this.text,
+    this.onHighlightTap,
+    this.selectionMenuBuilder,
+    super.key,
+  });
 
   final String path;
 
-  /// El texto extraído del PDF y su forma: de ahí sale lo estudiado.
+  /// El texto extraído del PDF y su forma: de ahí sale lo estudiado y es
+  /// donde se resalta.
   final StudyText? text;
+
+  /// Se tocó un resaltado de la persona (F38): la ficha para cambiarle el
+  /// color, escribirle una nota o borrarlo.
+  final void Function(Highlight highlight)? onHighlightTap;
+
+  /// El menú de la selección (F38), en lugar del de siempre —Copiar,
+  /// Seleccionar todo, Resaltar y Subrayar—. Recibe la [DocumentSelection]
+  /// para resaltar, copiar y ubicar lo elegido. No se llama mientras el dedo
+  /// arrastra la selección ni sin [text]; devolver `null` no muestra nada.
+  final Widget? Function(
+    BuildContext context,
+    PdfViewerContextMenuBuilderParams params,
+    DocumentSelection selection,
+  )?
+  selectionMenuBuilder;
 
   @override
   ConsumerState<PdfViewerView> createState() => _PdfViewerViewState();
@@ -55,6 +92,8 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
   /// lo pinta [PdfStudyOverlay] pidiendo que se redibuje.
   late final _paintCallbacks = [_study.paintPage];
 
+  late final DocumentSelection _selection = _PdfSelection(this);
+
   bool _picking = false;
 
   /// Eligiendo palabras clave, un toque sobre una letra la agrega o la saca;
@@ -65,24 +104,75 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
     PdfViewerGeneralTapHandlerDetails details,
   ) {
     final text = widget.text;
-    if (text != null &&
-        _picking &&
-        details.type == PdfViewerGeneralTapType.tap) {
-      final offset = _study.offsetAt(details.documentPosition);
-      if (offset != null) {
-        unawaited(
-          toggleStudyKeywordAt(
-            ref,
-            this.context,
-            renditionId: text.renditionId,
-            content: text.content,
-            offset: offset,
-          ),
-        );
-        return true;
+    if (text != null && details.type == PdfViewerGeneralTapType.tap) {
+      if (_picking) {
+        final offset = _study.offsetAt(details.documentPosition);
+        if (offset != null) {
+          unawaited(
+            toggleStudyKeywordAt(
+              ref,
+              this.context,
+              renditionId: text.renditionId,
+              content: text.content,
+              offset: offset,
+            ),
+          );
+          return true;
+        }
+      } else {
+        final onTap = widget.onHighlightTap;
+        final highlight = onTap == null
+            ? null
+            : _study.highlightAt(details.documentPosition);
+        if (highlight != null) {
+          onTap!(highlight);
+          return true;
+        }
       }
     }
     return _dragSelection.onGeneralTap(context, controller, details);
+  }
+
+  /// Para [PdfViewerParams.customizeContextMenuItems]: lo de siempre y, con
+  /// el texto de este documento, «Resaltar» y «Subrayar».
+  void _customizeMenu(
+    PdfViewerContextMenuBuilderParams params,
+    List<ContextMenuButtonItem> items,
+  ) {
+    _dragSelection.hideMenuWhileDragging(params, items);
+    if (_dragSelection.isDragging ||
+        widget.text == null ||
+        !params.textSelectionDelegate.hasSelectedText) {
+      return;
+    }
+    final l10n = AppLocalizations.of(context)!;
+    ContextMenuButtonItem item(String label, HighlightStyle style) =>
+        ContextMenuButtonItem(
+          label: label,
+          onPressed: () {
+            params.dismissContextMenu();
+            unawaited(highlightAndReport(context, _selection, style: style));
+          },
+        );
+    items
+      ..add(item(l10n.detailHighlightSelection, HighlightStyle.fill))
+      ..add(item(l10n.documentUnderlineSelection, HighlightStyle.underline));
+  }
+
+  /// Para [PdfViewerParams.buildContextMenu], cuando quien usa el visor trae
+  /// su propio menú.
+  Widget? _buildMenu(
+    BuildContext context,
+    PdfViewerContextMenuBuilderParams params,
+  ) {
+    final build = widget.selectionMenuBuilder;
+    if (build == null ||
+        widget.text == null ||
+        _dragSelection.isDragging ||
+        !params.textSelectionDelegate.hasSelectedText) {
+      return null;
+    }
+    return build(context, params, _selection);
   }
 
   @override
@@ -100,6 +190,11 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
           brightness: Brightness.light,
         ),
         scannedNotice: AppLocalizations.of(context)!.studyScannedPage,
+        highlights:
+            ref
+                .watch(renditionHighlightsProvider(text.renditionId))
+                .valueOrNull ??
+            const [],
       );
     }
     final drag = _dragSelection;
@@ -126,7 +221,10 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
             ),
             onGeneralTap: _onGeneralTap,
             pagePaintCallbacks: _paintCallbacks,
-            customizeContextMenuItems: drag.hideMenuWhileDragging,
+            buildContextMenu: widget.selectionMenuBuilder == null
+                ? null
+                : _buildMenu,
+            customizeContextMenuItems: _customizeMenu,
             textSelectionParams: const PdfTextSelectionParams(
               buildSelectionHandle: buildPdfSelectionHandle,
               // Sin la lupa que `pdfrx` pone sobre el renglón al arrastrar
@@ -138,6 +236,64 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
       ),
     );
   }
+}
+
+/// La selección del PDF como la ve quien arma el menú (F38): lo seleccionado
+/// en `pdfrx`, llevado al texto extraído con [PdfStudyOverlay].
+class _PdfSelection implements DocumentSelection {
+  _PdfSelection(this._state);
+
+  final _PdfViewerViewState _state;
+
+  PdfTextSelectionDelegate get _delegate =>
+      _state._controller.textSelectionDelegate;
+
+  @override
+  Future<String> text() => _delegate.getSelectedText();
+
+  @override
+  Future<SelectionLocation> locate() async {
+    final controller = _state._controller;
+    if (!controller.isReady || !_delegate.hasSelectedText) {
+      return const SelectionLocation.failed(HighlightIssue.nothingSelected);
+    }
+    final ranges = await _delegate.getSelectedTextRanges();
+    if (ranges.isEmpty) {
+      return const SelectionLocation.failed(HighlightIssue.nothingSelected);
+    }
+    return _state._study.locateSelection(ranges, controller.pages);
+  }
+
+  @override
+  Future<HighlightOutcome> highlight({
+    HighlightColor? color,
+    HighlightStyle style = HighlightStyle.fill,
+    String? note,
+  }) async {
+    final text = _state.widget.text;
+    if (text == null) {
+      return const HighlightOutcome.issue(HighlightIssue.nothingSelected);
+    }
+    final location = await locate();
+    final issue = location.issue;
+    if (issue != null) return HighlightOutcome.issue(issue);
+    // Pudo pasar tiempo —leyendo páginas— y el visor cerrarse.
+    if (!_state.mounted) {
+      return const HighlightOutcome.issue(HighlightIssue.nothingSelected);
+    }
+    return saveHighlights(
+      _state.ref.read(organizeRepositoryProvider),
+      renditionId: text.renditionId,
+      content: text.content,
+      slices: location.slices,
+      color: color,
+      style: style,
+      note: note,
+    );
+  }
+
+  @override
+  Future<void> clear() => _delegate.clearTextSelection();
 }
 
 /// El lado del área táctil de un tirador: más grande que lo que se ve, para

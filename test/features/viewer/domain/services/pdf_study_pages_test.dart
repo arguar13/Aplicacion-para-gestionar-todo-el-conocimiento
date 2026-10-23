@@ -212,6 +212,179 @@ void main() {
     });
   });
 
+  group('la selección del visor, en el texto extraído (F38)', () {
+    // Lo que el visor selecciona es el texto con estructura de `pdfrx`: un
+    // espacio donde PDFium no puso ninguno entre palabras, el renglón como un
+    // solo `\n`, y la altura de cada letra pasa a ser la del renglón.
+    const structured = 'Hola mundo.\nChau.';
+    final structuredRects = <PdfRect>[
+      for (var i = 0; i < 4; i++) PdfRect(i * 10.0, 102, i * 10.0 + 10, 88),
+      const PdfRect(40, 102, 45, 88),
+      for (var i = 5; i < 11; i++) PdfRect(i * 10.0, 102, i * 10.0 + 10, 88),
+      const PdfRect(110, 102, 110, 88),
+      for (var i = 0; i < 5; i++) PdfRect(i * 10.0, 82, i * 10.0 + 10, 68),
+    ];
+
+    TextSlice? select(int from, int to, {PdfStudyPage? on}) =>
+        (on ?? page()).sliceOfSelection(
+          text: structured,
+          charRects: structuredRects,
+          start: from,
+          end: to,
+        );
+
+    test('una palabra: el tramo de esas letras, aunque la altura de cada '
+        'letra no sea la del texto crudo', () {
+      expect(select(5, 10), (start: start + 5, end: start + 10));
+      expect(content.substring(start + 5, start + 10), 'mundo');
+    });
+
+    test('los espacios de las puntas no entran', () {
+      expect(select(4, 12), (start: start + 5, end: start + 11));
+      expect(select(3, 5), (start: start + 3, end: start + 4));
+    });
+
+    test('de un renglón al otro, con el salto adentro', () {
+      expect(select(5, 17), (start: start + 5, end: start + clean.length));
+    });
+
+    test('la última letra de un renglón con \r\n en el crudo', () {
+      expect(select(12, 14), (start: start + 12, end: start + 14));
+      expect(content.substring(start + 12, start + 14), 'Ch');
+    });
+
+    test('una letra repetida se distingue por el lugar donde está', () {
+      const text = 'aaa';
+      final studied = PdfStudyPage(
+        slice: (start: 0, end: 3),
+        rawText: text,
+        charRects: const [
+          PdfRect(0, 100, 10, 90),
+          PdfRect(10, 100, 20, 90),
+          PdfRect(20, 100, 30, 90),
+        ],
+        content: text,
+      );
+      final slice = studied.sliceOfSelection(
+        text: text,
+        charRects: const [
+          PdfRect(0, 105, 10, 85),
+          PdfRect(10, 105, 20, 85),
+          PdfRect(20, 105, 30, 85),
+        ],
+        start: 1,
+        end: 3,
+      );
+
+      expect(slice, (start: 1, end: 3));
+    });
+
+    test('una ligadura —dos letras en el mismo lugar— entra entera al final '
+        'de la selección', () {
+      const text = 'afib';
+      final studied = PdfStudyPage(
+        slice: (start: 0, end: 4),
+        rawText: text,
+        charRects: const [
+          PdfRect(0, 100, 10, 90),
+          PdfRect(10, 100, 20, 90),
+          PdfRect(10, 100, 20, 90),
+          PdfRect(20, 100, 30, 90),
+        ],
+        content: text,
+      );
+      const structuredRects = [
+        PdfRect(0, 102, 10, 88),
+        PdfRect(10, 102, 20, 88),
+        PdfRect(10, 102, 20, 88),
+        PdfRect(20, 102, 30, 88),
+      ];
+
+      expect(
+        studied.sliceOfSelection(
+          text: text,
+          charRects: structuredRects,
+          start: 0,
+          end: 3,
+        ),
+        (start: 0, end: 3),
+      );
+      expect(
+        studied.sliceOfSelection(
+          text: text,
+          charRects: structuredRects,
+          start: 1,
+          end: 4,
+        ),
+        (start: 1, end: 4),
+      );
+    });
+
+    test('si el visor ordena el texto distinto del crudo y la selección '
+        'queda al revés, no se adivina', () {
+      final slice = page().sliceOfSelection(
+        text: 'Chau. Hola',
+        charRects: [
+          for (var i = 0; i < 5; i++) PdfRect(i * 10.0, 82, i * 10.0 + 10, 68),
+          const PdfRect(50, 82, 55, 68),
+          for (var i = 0; i < 4; i++) PdfRect(i * 10.0, 102, i * 10.0 + 10, 88),
+        ],
+        start: 0,
+        end: 10,
+      );
+
+      expect(slice, isNull);
+    });
+
+    test('si las letras entre las dos puntas no son las del texto guardado, '
+        'tampoco: mejor no resaltar que resaltar otra cosa', () {
+      expect(select(0, 17), (start: start, end: start + clean.length));
+      expect(
+        page().sliceOfSelection(
+          text: 'Hxla mundo.\nChau.',
+          charRects: structuredRects,
+          start: 0,
+          end: 17,
+        ),
+        isNull,
+      );
+    });
+
+    test('solo espacios o nada: no hay qué ubicar', () {
+      expect(select(4, 5), isNull);
+      expect(select(7, 7), isNull);
+      expect(select(11, 12), isNull);
+    });
+
+    test('lo que se pasa del final se recorta', () {
+      expect(select(12, 99), (start: start + 12, end: start + clean.length));
+    });
+
+    test('una página escaneada o que no es su tramo no admite resaltar', () {
+      final stamped = PdfStudyPage(
+        slice: slice,
+        rawText: 'sello',
+        charRects: [
+          for (var i = 0; i < 5; i++) PdfRect(i * 10.0, 100, i * 10.0 + 10, 90),
+        ],
+        content: content,
+      );
+
+      expect(select(5, 10, on: stamped), isNull);
+      expect(stamped.hasOwnLetters, isTrue);
+      expect(page().hasOwnLetters, isTrue);
+      expect(
+        PdfStudyPage(
+          slice: slice,
+          rawText: '',
+          charRects: const [],
+          content: content,
+        ).hasOwnLetters,
+        isFalse,
+      );
+    });
+  });
+
   group('una página escaneada', () {
     final scanned = PdfStudyPage(
       slice: (start: 10, end: 26),

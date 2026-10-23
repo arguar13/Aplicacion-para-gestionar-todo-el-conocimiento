@@ -9268,5 +9268,13 @@
   "highlightStyleFill": "Fondo",
   "@highlightStyleFill": {"description": "Estilo de resaltado: el fondo del texto pintado (F38)."},
   "highlightStyleUnderline": "Subrayado",
-  "@highlightStyleUnderline": {"description": "Estilo de resaltado: una línea debajo del texto (F38)."}
+  "@highlightStyleUnderline": {"description": "Estilo de resaltado: una línea debajo del texto (F38)."},
+  "documentUnderlineSelection": "Subrayar",
+  "@documentUnderlineSelection": {"description": "Visor de PDF (F38): botón del menú de la selección, que pone una línea debajo de lo seleccionado."},
+  "documentHighlightScanned": "Esta página es una foto: no tiene letras donde resaltar. Se resalta en «Texto extraído».",
+  "@documentHighlightScanned": {"description": "Visor de PDF (F38): aviso al intentar resaltar sobre una página escaneada."},
+  "documentHighlightNotLocated": "No pude ubicar lo seleccionado en el texto del documento. Probá resaltarlo en «Texto extraído».",
+  "@documentHighlightNotLocated": {"description": "Visor de PDF y de página web (F38): aviso cuando la selección no se pudo llevar al texto extraído."},
+  "documentHighlightNotSaved": "No se pudo guardar el resaltado.",
+  "@documentHighlightNotSaved": {"description": "Visor de PDF y de página web (F38): aviso cuando el resaltado no se pudo guardar."}
 }

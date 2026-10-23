@@ -75,6 +75,7 @@ class PdfStudyPage {
     required String content,
   }) : _rawText = rawText,
        _charRects = charRects,
+       _content = content,
        _rawIndex = pdfCleanToRawIndices(rawText),
        onLetters =
            cleanPdfPageText(rawText) ==
@@ -88,9 +89,14 @@ class PdfStudyPage {
   /// reconoció el OCR sobre una foto, y la página no tiene esas letras.
   final bool onLetters;
 
+  /// Si la página tiene letras propias, coincidan o no con su tramo. Sin
+  /// ninguna es una página escaneada.
+  bool get hasOwnLetters => _rawIndex.isNotEmpty;
+
   final String _rawText;
   final List<PdfRect> _charRects;
   final List<int> _rawIndex;
+  final String _content;
 
   /// Si alguno de [ranges] —en posiciones del texto extraído— cae en esta
   /// página.
@@ -148,6 +154,88 @@ class PdfStudyPage {
     return boxes;
   }
 
+  /// El tramo del texto extraído que es la selección [start, end) de [text]
+  /// (F38), o `null` si no se puede ubicar.
+  ///
+  /// [text] y [charRects] son los de `PdfPageText` —el texto con estructura
+  /// que usa el visor para seleccionar—, no los del texto crudo con el que
+  /// se armó el texto extraído: `pdfrx` reordena, junta espacios y agrega
+  /// los que faltan entre palabras, así que las posiciones de uno no son las
+  /// del otro. Lo que sí queda igual son las letras de cada renglón y su
+  /// lugar de izquierda a derecha —cambia la altura, que pasa a ser la del
+  /// renglón—: con eso se busca la primera y la última letra de la selección
+  /// en el texto crudo, y de ahí sale el tramo.
+  ///
+  /// Se descartan los espacios de las puntas. Como el reordenamiento de
+  /// `pdfrx` puede cambiar qué letras caen entre las dos puntas —columnas,
+  /// renglones fuera de orden—, el tramo se da por bueno solo si tiene las
+  /// mismas letras que la selección; si no, mejor no resaltar que resaltar
+  /// otra cosa.
+  TextSlice? sliceOfSelection({
+    required String text,
+    required List<PdfRect> charRects,
+    required int start,
+    required int end,
+  }) {
+    if (!onLetters) return null;
+    var from = max(0, start);
+    var to = min(end, min(text.length, charRects.length));
+    bool blank(int i) => _isSpace(text.codeUnitAt(i)) || charRects[i].isEmpty;
+    while (from < to && blank(from)) {
+      from++;
+    }
+    while (to > from && blank(to - 1)) {
+      to--;
+    }
+    if (from >= to) return null;
+
+    final first = _cleanIndexOf(charRects[from], last: false);
+    final last = _cleanIndexOf(charRects[to - 1], last: true);
+    if (first == null || last == null || last < first) return null;
+
+    final slice = (
+      start: this.slice.start + first,
+      end: this.slice.start + last + 1,
+    );
+    final selected = text.substring(from, to).replaceAll(_whitespace, '');
+    final located = _content
+        .substring(slice.start, slice.end)
+        .replaceAll(_whitespace, '');
+    return selected == located ? slice : null;
+  }
+
+  /// La letra del texto crudo que está donde [rect], la de `pdfrx`: la
+  /// primera —o la última, con [last]— que coincide de lado a lado y cuyo
+  /// centro cae a la altura del renglón (o, en un texto vertical, al revés).
+  int? _cleanIndexOf(PdfRect rect, {required bool last}) {
+    const eps = 0.05;
+    bool near(double a, double b) => (a - b).abs() <= eps;
+    int? found;
+    for (var i = 0; i < _rawIndex.length; i++) {
+      final raw = _rawIndex[i];
+      if (raw >= _charRects.length || _isSpace(_rawText.codeUnitAt(raw))) {
+        continue;
+      }
+      final r = _charRects[raw];
+      if (r.isEmpty) continue;
+      final center = r.center;
+      final horizontal =
+          near(r.left, rect.left) &&
+          near(r.right, rect.right) &&
+          center.y >= rect.bottom - eps &&
+          center.y <= rect.top + eps;
+      final vertical =
+          near(r.top, rect.top) &&
+          near(r.bottom, rect.bottom) &&
+          center.x >= rect.left - eps &&
+          center.x <= rect.right + eps;
+      if (!horizontal && !vertical) continue;
+      if (!last) return i;
+      found = i;
+    }
+    return found;
+  }
+
   /// La posición del texto extraído de la letra en [point] —en coordenadas
   /// del PDF—, o `null` si ahí no hay ninguna.
   int? offsetAt(PdfPoint point) {
@@ -164,6 +252,12 @@ class PdfStudyPage {
 }
 
 bool _isLineBreak(int unit) => unit == 0x0A || unit == 0x0D;
+
+/// Un espacio, un salto de línea, un tabulador o un espacio duro.
+bool _isSpace(int unit) =>
+    unit == 0x20 || (unit >= 0x09 && unit <= 0x0D) || unit == 0xA0;
+
+final _whitespace = RegExp(r'\s+');
 
 /// Si [char] sigue el renglón de [line]: a su altura —se pisan al menos la
 /// mitad— y a continuación, sin volver al principio ni saltar a otra columna.
