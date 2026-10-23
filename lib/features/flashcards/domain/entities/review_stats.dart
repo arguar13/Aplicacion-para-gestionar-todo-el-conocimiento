@@ -183,9 +183,9 @@ class ButtonUsageByStage {
 }
 
 /// Las estadísticas de repaso que se calculan sobre las tarjetas y su historial
-/// (F31, ola 2, decisión 72). La racha, las insignias, el calendario de
-/// actividad, la retención semanal y las más difíciles ya existían (F17) y se
-/// leen de `ReviewHistory`; no se repiten acá.
+/// (F31, ola 2, decisión 72). La racha, el calendario de actividad, la
+/// retención semanal y las más difíciles ya existían (F17) y se leen de
+/// `ReviewHistory`; no se repiten acá.
 ///
 /// No hay «tiempo estudiado»: `review_log` no guarda cuánto se tardó en cada
 /// respuesta, y no se inventa.

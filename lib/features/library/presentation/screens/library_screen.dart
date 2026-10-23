@@ -239,18 +239,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     onApplyViewMode: (mode) => setState(() => _viewMode = mode),
                   ),
                 ),
-                // Seleccionar de a varios solo tiene sentido en la lista: en
-                // la tabla no hay casillas que ofrecer, y en el tablero
-                // arrastrar una tarjeta ya es la forma de actuar sobre ella.
-                if (_viewMode == LibraryViewMode.list)
-                  IconButton(
-                    icon: const Icon(Icons.checklist),
-                    tooltip: l10n.librarySelectTooltip,
-                    // Sin nada elegido todavía: entrar al modo alcanza, no
-                    // hace falta que el primer toque también elija algo.
-                    onPressed: () =>
-                        setState(() => _selectionModeActive = true),
-                  ),
               ],
               // La búsqueda —con el botón de filtros al lado, no una fila
               // propia— y, solo mientras se esté parado en un tema, el chip

@@ -177,14 +177,10 @@ abstract final class RoutePaths {
   /// Repasar las tarjetas que ya tocan.
   static const review = '/review';
 
-  /// Las insignias de F17, D7: qué premia la app y qué ya se ganó. Ruta
-  /// plana bajo `/review`, mismo criterio que [graphTension]: es una
-  /// lente sobre el hábito de repasar, no un destino de navegación propio.
-  static const reviewBadges = '$review/badges';
-
   /// El historial de repasos de F17, D8: curva de retención, calendario de
   /// constancia y tarjetas difíciles. Ruta plana bajo `/review`, mismo
-  /// criterio que [reviewBadges].
+  /// criterio que [graphTension]: es una lente sobre el hábito de repasar,
+  /// no un destino de navegación propio.
   static const reviewHistory = '$review/history';
 
   /// La sesión de repaso (F31, ola 2): estudiar de a una tarjeta. Pantalla
@@ -271,7 +267,6 @@ abstract final class RouteNames {
   static const graphLocal = 'graph-local';
   static const review = 'review';
   static const reviewSession = 'review-session';
-  static const reviewBadges = 'review-badges';
   static const reviewHistory = 'review-history';
   static const settings = 'settings';
   static const ankiImport = 'anki-import';

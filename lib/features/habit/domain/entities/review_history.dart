@@ -4,8 +4,8 @@ import 'package:sinapsis/features/habit/domain/entities/weekly_retention.dart';
 
 /// Las tres piezas del historial de repasos (F17, D8), juntas: la curva de
 /// retención, las tarjetas difíciles y el calendario de constancia.
-/// Agrupadas en una sola entidad —igual que `Streak` junta cuatro orígenes
-/// y `earned()` junta seis insignias— para que la pantalla dependa de una
+/// Agrupadas en una sola entidad —igual que `Streak` junta cuatro
+/// orígenes— para que la pantalla dependa de una
 /// sola lectura, no de tres.
 class ReviewHistory {
   const ReviewHistory({

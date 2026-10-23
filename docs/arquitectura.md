@@ -4183,7 +4183,8 @@ AnkiDroid y verificar a mano, o aceptar F17 sin el criterio 17.3 cumplido del to
 `calculateStreak` (puro, gracia deslizante de 2 días por semana por defecto): `review_log`
 (repasar), `field_versions` de una nota viva (editarla), `item.created_at` de una nota atómica
 (extraerla) y una tabla nueva, `habit_event` —triar la Bandeja y resolver Vocabulario no tenían
-ningún rastro con fecha donde leer eso, a diferencia de los otros tres—. Las insignias (D7): de
+ningún rastro con fecha donde leer eso, a diferencia de los otros tres—. Las insignias (D7, sacadas
+después: decisión 81): de
 las seis, «una contradicción resuelta» resultó tener solución YA EXISTENTE en la columna
 `reviewed_at` de `relations` (F9, la pantalla de Tensión) —no hizo falta inventar nada—, y «un
 tema completo de punta a punta» —la única cara— se resolvió con un recorrido bottom-up en Dart sobre
@@ -6432,6 +6433,29 @@ Plan, con el «Avance» de cada paso: `docs/planes/F37-todo-en-un-tema.md`.
   - Un tema principal más otros aparte: cada lectura tendría que saber cuál es cuál.
   - Meter lo viejo en un tema «General» al actualizar: mueve cosas sin que nadie lo pida.
 
+### 81. Sin insignias, y sin el botón para entrar a la selección múltiple
+
+**Contexto.** El dueño las vio en el teléfono (2026-10-22) y pidió sacarlas: *«no serán
+necesarias en la app»*. En el mismo pedido, sacar el botón de arriba de la Biblioteca que entraba
+al modo selección.
+
+**Decisión.**
+
+- **Las insignias de F17 (D7) salen enteras**: la pantalla, la ruta `/review/badges`, el botón de
+  Repasar y el de las estadísticas, `BadgeRepository`, `BadgeKind` y los dos cálculos que solo
+  ellas usaban (`complete_topic_branch.dart` y `month_of_weekly_consolidation.dart`), con sus
+  pruebas y sus textos.
+  - No había nada que migrar: se calculaban al vuelo, sin tabla propia.
+  - La racha y el historial de repasos quedan como estaban. Comparten los días de actividad
+    (`HabitActivityDays`), que siguen.
+  - El interruptor de Ajustes pasa a «Racha e historial», con la misma preferencia guardada.
+- **El botón de seleccionar de la Biblioteca sale.** Al modo selección se entra manteniendo
+  apretada una fila, que queda elegida. Desmarcar la última no saca del modo, así que «sin nada
+  elegido» se sigue pudiendo dar, y las acciones siguen apagadas ahí.
+
+**Se descartó:** dejar las insignias apagadas detrás del interruptor. El dueño dijo que no hacen
+falta, y un código que no se muestra igual se mantiene y se prueba.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -6877,6 +6901,8 @@ Plan, con el «Avance» de cada paso: `docs/planes/F37-todo-en-un-tema.md`.
   guarda va siempre a alguno: los de la última vez, o el primero creado ahí mismo. Una sola hoja
   elige varios en todos lados, y lo que ya estaba sin tema se ordena desde su tarjeta. Ver la
   decisión 80.
+- **Sin insignias.** Salieron a pedido del dueño, junto con el botón para entrar a la selección
+  múltiple de la Biblioteca (se entra manteniendo apretada una fila). Ver la decisión 81.
 
 ### Por construir
 

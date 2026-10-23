@@ -7,9 +7,7 @@ import 'package:sinapsis/core/domain/entities/card_phase.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/flashcard_repository_impl.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
-import 'package:sinapsis/features/habit/data/repositories/badge_repository_impl.dart';
 import 'package:sinapsis/features/habit/data/repositories/streak_repository_impl.dart';
-import 'package:sinapsis/features/habit/domain/entities/badge_kind.dart';
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/item_rows.dart';
@@ -252,8 +250,8 @@ void main() {
       expect((await repository.undoLastReview()).isLeft(), isTrue);
     });
 
-    test('el hábito se deshace con la respuesta: la racha y las insignias '
-        'salen del historial', () async {
+    test('el hábito se deshace con la respuesta: la racha sale del '
+        'historial', () async {
       final streaks = StreakRepositoryImpl(
         database: db,
         telemetry: _MockTelemetry(),
@@ -273,29 +271,6 @@ void main() {
       expect(withoutReview.days, 0);
       expect(withoutReview.activeToday, isFalse);
     });
-
-    test(
-      'la insignia de los cien repasos se va si el repaso 100 se deshace',
-      () async {
-        final badges = BadgeRepositoryImpl(
-          database: db,
-          telemetry: _MockTelemetry(),
-          clock: () => now,
-        );
-        final id = await newCard();
-        for (var i = 0; i < 100; i++) {
-          await repository.review(id: id, grade: ReviewGrade.good);
-        }
-        expect(await badges.earned(), contains(BadgeKind.hundredReviews));
-
-        await repository.undoLastReview();
-
-        expect(
-          await badges.earned(),
-          isNot(contains(BadgeKind.hundredReviews)),
-        );
-      },
-    );
   });
 
   group('pausar', () {

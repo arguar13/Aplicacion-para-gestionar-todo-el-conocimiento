@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_stats.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/review_stats_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/card_stats_buttons.dart';
@@ -12,7 +10,7 @@ import 'package:sinapsis/features/habit/presentation/screens/review_history_scre
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Las estadísticas de repaso (F31, ola 2, decisión 72): lo que ya había
-/// —racha, insignias, constancia, curva de retención y las más difíciles
+/// —racha, constancia, curva de retención y las más difíciles
 /// (F17), que se reutilizan tal cual— y lo nuevo: el pronóstico de los
 /// próximos 30 días, el reparto por etapa y los botones apretados.
 ///
@@ -108,8 +106,7 @@ class _Sections extends StatelessWidget {
   }
 }
 
-/// La racha y el camino a las insignias: lo de F17, que ya se leía de
-/// `currentStreakProvider`.
+/// La racha: lo de F17, que ya se leía de `currentStreakProvider`.
 class _StreakHeader extends ConsumerWidget {
   const _StreakHeader();
 
@@ -133,12 +130,6 @@ class _StreakHeader extends ConsumerWidget {
             key: const Key('card-stats-streak'),
             style: theme.textTheme.titleMedium,
           ),
-        ),
-        TextButton.icon(
-          key: const Key('card-stats-badges'),
-          icon: const Icon(Icons.military_tech_outlined),
-          label: Text(l10n.cardStatsBadgesAction),
-          onPressed: () => context.push(RoutePaths.reviewBadges),
         ),
       ],
     );

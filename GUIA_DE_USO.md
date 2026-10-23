@@ -71,7 +71,7 @@ En pocas palabras, con Sinapsis podés:
   de dónde sacó cada dato — no inventa fuentes.
 - **Repasarlo** con tarjetas de estudio y cuestionarios, con un sistema que te
   vuelve a preguntar justo antes de que se te olvide.
-- Llevar un **hábito** de repaso, con racha e insignias.
+- Llevar un **hábito** de repaso, con racha e historial.
 
 ---
 
@@ -390,8 +390,9 @@ y **"Listo"** lo guarda), **"Exportar como PDF"**, **"Exportar como Word"** y **
 
 ### Seleccionar varios elementos a la vez
 
-Mantené apretado un elemento (o tocá el ícono de casillero) para entrar al
-modo de selección múltiple. Ahí vas a poder:
+Mantené apretado un elemento para entrar al modo de selección múltiple: ese
+queda elegido, y tocás los demás para sumarlos. Arriba no hay un botón para
+entrar al modo. Ahí vas a poder:
 
 - **Elegir temas**: abre la hoja de temas con los que tienen **todos** los
   elegidos ya marcados. Marcar uno se lo suma a todos; desmarcar uno se lo
@@ -1697,8 +1698,8 @@ aclara ("2 nuevas más esperan: hoy no entran por el límite"). Desde acá:
   de arriba cambian al instante.
 - **Empezar** abre la sesión.
 - **Mis tarjetas** y **Estadísticas** llevan a esas pantallas.
-- Arriba: la racha, las insignias, el historial, **✨** para crear tarjetas
-  con IA y el botón de **exportar a Anki**.
+- Arriba: la racha, el historial, **✨** para crear tarjetas con IA y el
+  botón de **exportar a Anki**.
 
 #### La sesión
 
@@ -1865,8 +1866,7 @@ pocas y no las carga todas.
 
 **Cómo llegar:** pantalla "Repasar" → botón **"Estadísticas"**, abajo de todo.
 
-- **Racha e insignias:** tu racha de hoy y un botón que abre las
-  [insignias](#tu-hábito-de-repaso).
+- **Racha:** tu racha de hoy (ver [tu hábito de repaso](#tu-hábito-de-repaso)).
 - **Lo que viene:** cuántas tarjetas vencen **cada uno de los próximos 30
   días**, en columnas. "Hoy" incluye lo atrasado (y te dice cuántas son) y lo
   que se está aprendiendo. Un día arranca a las 4:00 de la mañana, como el día
@@ -1916,9 +1916,6 @@ para repasarla.
 - **Racha:** un número junto a un ícono de llama en la pantalla de Repasar,
   que cuenta los días seguidos en que hiciste algo (repasar, capturar,
   etc.).
-- **Insignias:** siempre se ven las 6, ganadas o no, cada una con lo que hay
-  que lograr para conseguirla (por ejemplo, "llevá una nota hasta que esté
-  madura" o "repasá cien veces").
 - **Historial de repasos:** muestra tu curva de retención (qué porcentaje
   recordás bien semana a semana), un calendario de constancia, y cuáles son
   tus tarjetas más difíciles.
@@ -2202,8 +2199,8 @@ Hugging Face que el modelo de relaciones.
   y los accesos a Copia de seguridad, Espacio de la bóveda, Posibles
   duplicados, Vocabulario, Enlaces rotos, Papelera y Cambios para revisar —
   todos explicados en la siguiente sección.
-- **Hábito:** un interruptor para mostrar u ocultar la racha, las insignias y
-  el historial (apagarlo no borra nada).
+- **Hábito:** el interruptor **«Racha e historial»**, para mostrarlos u
+  ocultarlos (apagarlo no borra nada).
 - **Desarrollo** (solo en las versiones de prueba, *Sinapsis Dev* y
   *Sinapsis Staging*; en la versión normal no aparece):
   **"Cargar biblioteca de ejemplo"** llena la bóveda con unos 80 recursos

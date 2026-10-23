@@ -3,8 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
 
-/// Si racha, insignias e historial de repasos se muestran (F17, D9): un
-/// solo interruptor para las tres, mismo almacén que el tema y el idioma
+/// Si la racha y el historial de repasos se muestran (F17, D9): un solo
+/// interruptor para los dos, mismo almacén que el tema y el idioma
 /// de la app.
 ///
 /// Apagarlo no borra ni pausa nada —`review_log`/`habit_event` siguen

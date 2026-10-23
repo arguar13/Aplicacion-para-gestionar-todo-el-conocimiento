@@ -47,6 +47,15 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
 
+/// Entra al modo selección sin nada elegido: mantener presionada «Uno» la
+/// elige, y tocarla de nuevo la suelta.
+Future<void> _selectNothing(WidgetTester tester) async {
+  await tester.longPress(find.text('Uno'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Uno'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -1263,16 +1272,12 @@ void main() {
   });
 
   group('selección múltiple', () {
-    testWidgets('el ícono de seleccionar activa el modo, sin elegir nada '
-        'todavía', (tester) async {
+    testWidgets('no hay botón para entrar al modo: se entra manteniendo '
+        'presionada una fila', (tester) async {
       await harness.capture('Uno');
       await pumpLibrary(tester);
 
-      await tester.tap(find.byIcon(Icons.checklist));
-      await tester.pumpAndSettle();
-
-      expect(find.text(es.librarySelectedCount(0)), findsOneWidget);
-      expect(find.byIcon(Icons.close), findsOneWidget);
+      expect(find.byIcon(Icons.checklist), findsNothing);
     });
 
     testWidgets('mantener presionada una fila entra al modo y la elige', (
@@ -1294,18 +1299,18 @@ void main() {
         await harness.capture('Uno');
         await pumpLibrary(tester);
 
-        await tester.tap(find.byIcon(Icons.checklist));
+        await tester.longPress(find.text('Uno'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Uno'));
         await tester.pumpAndSettle();
 
-        expect(find.text(es.librarySelectedCount(1)), findsOneWidget);
+        expect(find.text(es.librarySelectedCount(0)), findsOneWidget);
         expect(find.byType(LibraryScreen), findsOneWidget);
 
         await tester.tap(find.text('Uno'));
         await tester.pumpAndSettle();
 
-        expect(find.text(es.librarySelectedCount(0)), findsOneWidget);
+        expect(find.text(es.librarySelectedCount(1)), findsOneWidget);
       },
     );
 
@@ -1315,13 +1320,13 @@ void main() {
       await harness.capture('Uno');
       await pumpLibrary(tester);
 
-      await tester.tap(find.byIcon(Icons.checklist));
+      await tester.longPress(find.text('Uno'));
       await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
 
       expect(find.text(es.libraryTitle), findsOneWidget);
-      expect(find.byIcon(Icons.checklist), findsOneWidget);
+      expect(find.byIcon(Icons.close), findsNothing);
     });
 
     testWidgets('sin nada elegido, exportar está deshabilitado', (
@@ -1330,8 +1335,7 @@ void main() {
       await harness.capture('Uno');
       await pumpLibrary(tester);
 
-      await tester.tap(find.byIcon(Icons.checklist));
-      await tester.pumpAndSettle();
+      await _selectNothing(tester);
 
       final button = tester.widget<IconButton>(
         find.widgetWithIcon(IconButton, Icons.upload_file_outlined),
@@ -1361,7 +1365,7 @@ void main() {
         findsOneWidget,
       );
       // Terminado el paquete, no queda nada seleccionado.
-      expect(find.byIcon(Icons.checklist), findsOneWidget);
+      expect(find.text(es.libraryTitle), findsOneWidget);
     });
 
     // La lista no trae el texto de los elementos: la exportación lo pide
@@ -1415,8 +1419,7 @@ void main() {
       await harness.capture('Uno');
       await pumpLibrary(tester);
 
-      await tester.tap(find.byIcon(Icons.checklist));
-      await tester.pumpAndSettle();
+      await _selectNothing(tester);
 
       final move = tester.widget<IconButton>(
         find.widgetWithIcon(IconButton, Icons.drive_file_move_outline),
@@ -1434,8 +1437,7 @@ void main() {
       await harness.capture('Uno');
       await pumpLibrary(tester);
 
-      await tester.tap(find.byIcon(Icons.checklist));
-      await tester.pumpAndSettle();
+      await _selectNothing(tester);
 
       final button = tester.widget<IconButton>(
         find.widgetWithIcon(IconButton, Icons.format_quote_outlined),
@@ -1489,7 +1491,7 @@ void main() {
 
       expect(find.text(es.libraryBulkSpacesChanged(2)), findsOneWidget);
       // Terminado el movimiento, no queda nada seleccionado.
-      expect(find.byIcon(Icons.checklist), findsOneWidget);
+      expect(find.text(es.libraryTitle), findsOneWidget);
 
       final items =
           (await harness.container
@@ -2056,8 +2058,7 @@ void main() {
       await harness.capture('Uno');
       await pumpLibrary(tester);
 
-      await tester.tap(find.byIcon(Icons.checklist));
-      await tester.pumpAndSettle();
+      await _selectNothing(tester);
 
       final button = tester.widget<IconButton>(
         find.widgetWithIcon(IconButton, Icons.file_upload_outlined),

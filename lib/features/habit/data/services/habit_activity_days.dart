@@ -3,7 +3,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 
 /// Los días con alguna actividad que cuenta para el hábito (F17, D6): los
-/// cuatro orígenes que la racha y las insignias comparten —repasar
+/// cuatro orígenes de los que sale la racha —repasar
 /// (`review_log`), editar una nota viva (`field_version`), extraer una
 /// nota atómica (`item.created_at`) y triar la Bandeja o resolver algo en
 /// Vocabulario (`habit_event`)—.

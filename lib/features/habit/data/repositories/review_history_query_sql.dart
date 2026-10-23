@@ -17,9 +17,8 @@ const kHardestCardsLimit = 10;
 
 /// Por debajo de esto no cuenta: una tarjeta repasada una sola vez y
 /// calificada `again` tendría 100 % de "again" sin decir nada real.
-/// Decisión propia, mismo espíritu que `kMinSourcesForCompleteBranch` en
-/// `complete_topic_branch.dart` —un piso bajo para que un caso mínimo no
-/// trivialice el criterio—.
+/// Decisión propia: un piso bajo para que un caso mínimo no trivialice el
+/// criterio.
 const kHardestCardsMinReviews = 3;
 
 /// Las tarjetas con mayor proporción de `again` entre sus repasos (F17,

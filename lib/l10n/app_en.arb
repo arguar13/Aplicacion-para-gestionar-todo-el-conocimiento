@@ -103,10 +103,6 @@
   "@libraryLoadMore": {
     "description": "Button at the bottom of the list that fetches the next batch of items, in a library with more than what's shown initially."
   },
-  "librarySelectTooltip": "Select items",
-  "@librarySelectTooltip": {
-    "description": "Botón que activa el modo de selección múltiple en la biblioteca."
-  },
   "libraryTranscriptionModelTooltip": "Audio and video transcription",
   "@libraryTranscriptionModelTooltip": {
     "description": "Botón que lleva a la pantalla del modelo de transcripción."
@@ -4433,9 +4429,9 @@
   "@settingsHabitSection": {
     "description": "Encabezado de la sección de hábito en ajustes (F17, D9)."
   },
-  "settingsHabitFeaturesToggle": "Streak, badges and history",
+  "settingsHabitFeaturesToggle": "Streak and history",
   "@settingsHabitFeaturesToggle": {
-    "description": "Interruptor único que apaga o enciende racha, insignias e historial de repasos (F17, D9)."
+    "description": "Interruptor único que apaga o enciende la racha y el historial de repasos (F17, D9)."
   },
   "settingsHabitFeaturesToggleSubtitle": "Turning it off doesn't delete anything: it just stops showing.",
   "@settingsHabitFeaturesToggleSubtitle": {
@@ -4494,66 +4490,6 @@
     "placeholders": {
       "days": {"type": "int"}
     }
-  },
-  "reviewBadgesTooltip": "View badges",
-  "@reviewBadgesTooltip": {
-    "description": "Tooltip del botón en la barra de Repaso que abre la pantalla de insignias (F17, D7/commit 9b)."
-  },
-  "habitBadgesTitle": "Badges",
-  "@habitBadgesTitle": {
-    "description": "Título de la pantalla de insignias (F17, D7)."
-  },
-  "habitBadgeEarnedLabel": "Earned",
-  "@habitBadgeEarnedLabel": {
-    "description": "Etiqueta junto a una insignia ya ganada, en la pantalla de insignias."
-  },
-  "habitBadgeFirstMatureNoteLabel": "First mature note",
-  "@habitBadgeFirstMatureNoteLabel": {
-    "description": "Nombre de la insignia: la primera nota viva que llega a madura."
-  },
-  "habitBadgeFirstMatureNoteDescription": "Take a living note all the way to mature.",
-  "@habitBadgeFirstMatureNoteDescription": {
-    "description": "Descripción de la insignia: la primera nota viva que llega a madura."
-  },
-  "habitBadgeTenLivingNotesLabel": "Ten living notes",
-  "@habitBadgeTenLivingNotesLabel": {
-    "description": "Nombre de la insignia: diez notas vivas a la vez."
-  },
-  "habitBadgeTenLivingNotesDescription": "Have ten living notes at once, at any stage.",
-  "@habitBadgeTenLivingNotesDescription": {
-    "description": "Descripción de la insignia: diez notas vivas a la vez."
-  },
-  "habitBadgeHundredReviewsLabel": "A hundred reviews",
-  "@habitBadgeHundredReviewsLabel": {
-    "description": "Nombre de la insignia: cien repasos acumulados."
-  },
-  "habitBadgeHundredReviewsDescription": "Review a hundred times, counting every time you reviewed each card.",
-  "@habitBadgeHundredReviewsDescription": {
-    "description": "Descripción de la insignia: cien repasos acumulados."
-  },
-  "habitBadgeContradictionResolvedLabel": "A contradiction resolved",
-  "@habitBadgeContradictionResolvedLabel": {
-    "description": "Nombre de la insignia: una contradicción marcada como revisada."
-  },
-  "habitBadgeContradictionResolvedDescription": "Mark a contradiction between two notes as reviewed.",
-  "@habitBadgeContradictionResolvedDescription": {
-    "description": "Descripción de la insignia: una contradicción marcada como revisada."
-  },
-  "habitBadgeCompleteTopicBranchLabel": "A complete branch",
-  "@habitBadgeCompleteTopicBranchLabel": {
-    "description": "Nombre de la insignia: una rama del Atlas con todas sus fuentes citadas."
-  },
-  "habitBadgeCompleteTopicBranchDescription": "Get every source in an Atlas branch cited by some mature living note.",
-  "@habitBadgeCompleteTopicBranchDescription": {
-    "description": "Descripción de la insignia: una rama del Atlas con todas sus fuentes citadas."
-  },
-  "habitBadgeMonthOfWeeklyConsolidationLabel": "A month of consolidation",
-  "@habitBadgeMonthOfWeeklyConsolidationLabel": {
-    "description": "Nombre de la insignia: cada semana de un mes con actividad que cuenta para la racha."
-  },
-  "habitBadgeMonthOfWeeklyConsolidationDescription": "Have activity that counts toward your streak in every week of a month.",
-  "@habitBadgeMonthOfWeeklyConsolidationDescription": {
-    "description": "Descripción de la insignia: cada semana de un mes con actividad que cuenta para la racha."
   },
   "reviewHistoryTooltip": "View review history",
   "@reviewHistoryTooltip": {
@@ -8779,10 +8715,6 @@
         "type": "int"
       }
     }
-  },
-  "cardStatsBadgesAction": "Badges",
-  "@cardStatsBadgesAction": {
-    "description": "Estadísticas de repaso: botón que abre las insignias."
   },
   "cardStatsForecastTitle": "What's coming",
   "@cardStatsForecastTitle": {

@@ -8,7 +8,6 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/card_phase.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/my_cards_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_stats_screen.dart';
-import 'package:sinapsis/features/habit/presentation/screens/badges_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -381,20 +380,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Algo de Grecia'), findsOneWidget);
       expect(find.text('Algo de Roma'), findsNothing);
-    });
-
-    testWidgets('las insignias se abren desde las estadísticas', (
-      tester,
-    ) async {
-      await tester.pumpWidget(f.harness.wrapWithAppRouter());
-      await tester.pumpAndSettle();
-      f.harness.goTo(kRouteReviewStats);
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('card-stats-badges')));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(BadgesScreen), findsOneWidget);
     });
   });
 }

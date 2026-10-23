@@ -131,11 +131,11 @@ abstract interface class FlashcardRepository {
   /// cuándo tocaba y cuándo se había repasado— y borra el renglón de
   /// `review_log` de esa respuesta.
   ///
-  /// La racha y las insignias no necesitan un trato aparte: salen de
-  /// `review_log` (ver `HabitActivityDays`), así que al borrarse el renglón,
-  /// un día que solo tenía esa respuesta deja de contar, y «100 repasos»
-  /// vuelve a 99. Lo mismo la cola de estudio: el límite del día recupera la
-  /// tarjeta nueva o el repaso, y sus hermanas vuelven a aparecer hoy.
+  /// La racha no necesita un trato aparte: sale de `review_log` (ver
+  /// `HabitActivityDays`), así que al borrarse el renglón, un día que solo
+  /// tenía esa respuesta deja de contar. Lo mismo la cola de estudio: el
+  /// límite del día recupera la tarjeta nueva o el repaso, y sus hermanas
+  /// vuelven a aparecer hoy.
   ///
   /// «La última» es la más reciente de ESTE dispositivo. Con [since], solo si
   /// es de ese momento en adelante —la pantalla pasa cuándo empezó la

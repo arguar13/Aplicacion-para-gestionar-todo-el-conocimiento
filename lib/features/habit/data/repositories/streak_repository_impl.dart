@@ -8,10 +8,9 @@ import 'package:sinapsis/features/habit/domain/repositories/streak_repository.da
 import 'package:sinapsis/features/habit/domain/services/streak_calculator.dart';
 
 /// [StreakRepository] sobre la base (F17, D6): dedica el cálculo en sí a
-/// [calculateStreak], puro, sobre los días que da [HabitActivityDays]
-/// —compartidos con `BadgeRepositoryImpl` (F17, commit 9)—. [watch] es la
-/// misma lectura, reactiva a las cinco tablas de las que salen esos días
-/// (commit 8).
+/// [calculateStreak], puro, sobre los días que da [HabitActivityDays].
+/// [watch] es la misma lectura, reactiva a las cinco tablas de las que salen
+/// esos días (commit 8).
 class StreakRepositoryImpl implements StreakRepository {
   const StreakRepositoryImpl({
     required AppDatabase database,

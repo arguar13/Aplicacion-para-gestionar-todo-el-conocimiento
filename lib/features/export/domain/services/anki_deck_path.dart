@@ -16,9 +16,8 @@ const kAnkiNoTopicDeckName = 'Sin tema';
 /// [firstTopicValueId] es el PRIMER tema asignado al elemento, por orden de
 /// asignación (D1): un elemento con varios temas se exporta UNA sola vez, en
 /// el subdeck de ese primero, nunca duplicada en cada uno de los suyos —eso
-/// inflaría insignias como «cien tarjetas repasadas», contando la misma
-/// tarjeta varias veces—. `null` —sin ningún tema— va a un subdeck fijo,
-/// «Sinapsis::Sin tema».
+/// inflaría los repasos, contando la misma tarjeta varias veces—. `null`
+/// —sin ningún tema— va a un subdeck fijo, «Sinapsis::Sin tema».
 String ankiDeckPathOf({
   required String? firstTopicValueId,
   required VocabularyTree temaTree,

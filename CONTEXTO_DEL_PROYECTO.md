@@ -106,7 +106,7 @@ Módulos principales de `lib/features/`: `capture` (entrada), `library` (Bibliot
 central), `viewer`, `reading`, `notes`/`blocks` (notas de bloques), `transform` (transformadores:
 YouTube, web, PDF, audio…), `organize`/`vocabulary`/`atlas`/`map`/`graph`/`relations` (organización
 y exploración), `explorer`, `notebooks`, `inbox`, `suggestions`, `duplicates`, `timeline`,
-`chat`, `narration` (voz alta), `citations`, `flashcards` (repaso), `habit` (racha, insignias),
+`chat`, `narration` (voz alta), `citations`, `flashcards` (repaso), `habit` (racha, historial),
 `anki_import`, `export`, `study_reminder`, `ai_organize` (la IA que organiza sola), `ai_models`
 (el modelo de lenguaje elegido, las cuentas y la cuota en la nube), `keep_working`
 (trabajo con la app cerrada), `content_trash`, `trash`, `vault` (clave, copia, fusión),
@@ -123,7 +123,7 @@ desde F13):
   clasificación asistida, motor de relaciones con embeddings, grafo local, deduplicación, higiene,
   consolidación, unificación, **durabilidad** (papelera, versión por campo, restauración que fusiona).
 - **F12–F17** — cierre de deuda; jerarquía temática y **Atlas**; **Mapa** de conocimiento; biblioteca
-  académica (citas, BibTeX/RIS); **Cuadernos**; exportar completo a Anki y **hábito** (racha, insignias).
+  académica (citas, BibTeX/RIS); **Cuadernos**; exportar completo a Anki y **hábito** (racha, insignias; las insignias se sacaron después, decisión 81).
 - **F18–F20** — Mapa medido antes de rediseñar; **modo lote** transaccional; **quizzes** con
   distractores reales (nunca inventados).
 - **F21–F24** — procesamiento confiable (nada queda «Procesando» para siempre; lo largo va por partes
@@ -174,6 +174,8 @@ desde F13):
   marca varios temas, busca y crea uno nuevo sin cerrarse, en la captura, el detalle, el menú de
   la tarjeta y la selección múltiple. Lo que ya estaba sin tema no se mueve solo: la tarjeta
   «N elementos sin tema · Ordenarlos» lleva a la lista para elegirles temas de a varios.
+- **Sin insignias** (decisión 81, a pedido): salieron las insignias de F17 y el botón para entrar
+  a la selección múltiple de la Biblioteca, a la que se entra manteniendo apretada una fila.
 
 ## 5. Estado actual
 

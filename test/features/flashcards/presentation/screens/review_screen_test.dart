@@ -19,7 +19,6 @@ import 'package:sinapsis/features/flashcards/presentation/providers/study_provid
 import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
-import 'package:sinapsis/features/habit/presentation/screens/badges_screen.dart';
 import 'package:sinapsis/features/habit/presentation/screens/review_history_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -161,23 +160,6 @@ void main() {
     expect(harness.fileSaver.savedFileName, 'sinapsis.tsv');
   });
 
-  testWidgets('el botón de insignias abre esa pantalla (F17, D7/commit 9b)', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(800, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(harness.wrapWithAppRouter());
-    await tester.pumpAndSettle();
-    harness.pushTo(RoutePaths.review);
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byTooltip(es.reviewBadgesTooltip));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(BadgesScreen), findsOneWidget);
-  });
-
   testWidgets('el botón de historial abre esa pantalla (F17, D8/commit 10b)', (
     tester,
   ) async {
@@ -189,6 +171,9 @@ void main() {
     harness.pushTo(RoutePaths.review);
     await tester.pumpAndSettle();
 
+    // Las insignias salieron de la app: no hay botón que lleve a ellas.
+    expect(find.byIcon(Icons.military_tech_outlined), findsNothing);
+
     await tester.tap(find.byTooltip(es.reviewHistoryTooltip));
     await tester.pumpAndSettle();
 
@@ -196,8 +181,8 @@ void main() {
   });
 
   testWidgets(
-    'con el interruptor de hábito apagado (F17, D9), ninguno de los tres '
-    'aparece —pero exportar a Anki (17.1) sigue—',
+    'con el interruptor de hábito apagado (F17, D9), ni la racha ni el '
+    'historial aparecen —pero exportar a Anki (17.1) sigue—',
     (tester) async {
       await harness.container
           .read(habitFeaturesEnabledProvider.notifier)
@@ -206,7 +191,6 @@ void main() {
       await pumpEntry(tester);
 
       expect(find.byKey(const Key('review-streak-indicator')), findsNothing);
-      expect(find.byTooltip(es.reviewBadgesTooltip), findsNothing);
       expect(find.byTooltip(es.reviewHistoryTooltip), findsNothing);
       expect(find.byTooltip(es.reviewExportToAnkiTooltip), findsOneWidget);
     },

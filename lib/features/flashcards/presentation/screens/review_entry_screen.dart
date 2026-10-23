@@ -24,8 +24,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// La entrada a Repasar (F31, ola 2): cuánto hay para estudiar hoy —nuevas,
 /// aprendiendo, por repasar—, qué estudiar (todo, un tema, una etiqueta, un
 /// cuaderno o un elemento) y el botón «Empezar». Desde acá también se llega a
-/// «Mis tarjetas» y a las estadísticas, a las insignias, al historial, a crear
-/// tarjetas con IA y a exportar a Anki.
+/// «Mis tarjetas» y a las estadísticas, al historial, a crear tarjetas con IA
+/// y a exportar a Anki.
 class ReviewEntryScreen extends ConsumerStatefulWidget {
   const ReviewEntryScreen({super.key});
 
@@ -105,16 +105,11 @@ class _ReviewEntryScreenState extends ConsumerState<ReviewEntryScreen> {
       appBar: AppBar(
         title: Text(l10n.reviewTitle),
         actions: [
-          // F17, D9: el interruptor único de Ajustes apaga las tres de una
-          // vez, no montando estos widgets en absoluto —así ni siquiera
-          // consultan la base mientras está apagado—.
+          // F17, D9: el interruptor único de Ajustes apaga la racha y el
+          // historial de una vez, no montando estos widgets en absoluto —así
+          // ni siquiera consultan la base mientras está apagado—.
           if (habitFeaturesEnabled) ...[
             const _StreakIndicator(),
-            IconButton(
-              icon: const Icon(Icons.military_tech_outlined),
-              tooltip: l10n.reviewBadgesTooltip,
-              onPressed: () => context.push(RoutePaths.reviewBadges),
-            ),
             IconButton(
               icon: const Icon(Icons.query_stats_outlined),
               tooltip: l10n.reviewHistoryTooltip,
