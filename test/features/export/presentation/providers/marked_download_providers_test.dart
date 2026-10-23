@@ -37,14 +37,19 @@ void main() {
     );
   });
 
-  test('se descargan marcados el PDF, el Word, el texto y el Markdown, cada '
-      'uno con su escritor', () {
+  test('se descargan marcados el PDF, el Word, el EPUB, la página web, el '
+      'texto y el Markdown, cada uno con su escritor', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
     final writers = container.read(markedDocumentWritersProvider);
     expect(writers[MarkedDocumentFormat.pdf], isA<PdfMarkedDocumentWriter>());
     expect(writers[MarkedDocumentFormat.docx], isA<DocxMarkedDocumentWriter>());
+    expect(writers[MarkedDocumentFormat.epub], isA<EpubMarkedDocumentWriter>());
+    expect(
+      writers[MarkedDocumentFormat.webPage],
+      isA<WebPageMarkedDocumentWriter>(),
+    );
     expect(
       writers[MarkedDocumentFormat.plainText],
       isA<TextMarkedDocumentWriter>(),

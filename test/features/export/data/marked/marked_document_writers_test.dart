@@ -7,6 +7,8 @@ import 'package:pdfrx_engine/pdfrx_engine.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/features/export/data/marked/marked_document_writers.dart';
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
+import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
+import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 
 import '../../../../support/pdf_annotations.dart';
 import '../../../../support/sample_files.dart';
@@ -81,6 +83,46 @@ void main() {
     );
 
     expect(utf8.decode(out), '# Título\n\nUna frase con ==acentuación==.');
+  });
+
+  test('el EPUB sale con el tramo en un <mark> de su color, en su '
+      'capítulo', () async {
+    final epub = buildEpub();
+    final content = (await const EpubParser().parse(
+      DocumentSource.memory(epub, name: 'libro.epub'),
+    )).markdown;
+
+    final out = await const EpubMarkedDocumentWriter().write(
+      epub,
+      content: content,
+      marks: [markOf(content, 'segundo capítulo')],
+    );
+
+    final chapters = ZipDecoder()
+        .decodeBytes(out)
+        .files
+        .where((f) => f.name.endsWith('.xhtml'))
+        .map((f) => utf8.decode(f.readBytes()!))
+        .where((html) => html.contains('<mark'));
+    expect(chapters.single, contains('background-color:#4DD0E1'));
+    expect(chapters.single, contains('segundo capítulo</mark>'));
+  });
+
+  test('la página web se lee y sale en UTF-8, con sus acentos y su '
+      '<mark>', () async {
+    const content = 'Acentuación única';
+    final page = Uint8List.fromList(
+      utf8.encode('<html><body><p>Acentuación única</p></body></html>'),
+    );
+
+    final out = await const WebPageMarkedDocumentWriter().write(
+      page,
+      content: content,
+      marks: [markOf(content, 'única')],
+    );
+
+    expect(utf8.decode(out), contains('Acentuación <mark'));
+    expect(utf8.decode(out), contains('>única</mark>'));
   });
 
   group('el PDF', () {

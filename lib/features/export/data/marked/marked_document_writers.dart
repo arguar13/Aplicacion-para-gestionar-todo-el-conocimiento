@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:pdfrx/pdfrx.dart';
 import 'package:sinapsis/features/export/data/marked/docx_mark_writer.dart';
+import 'package:sinapsis/features/export/data/marked/epub_mark_writer.dart';
+import 'package:sinapsis/features/export/data/marked/html_mark_writer.dart';
 import 'package:sinapsis/features/export/data/marked/markdown_mark_writer.dart';
 import 'package:sinapsis/features/export/data/marked/pdf_document_marker.dart';
 import 'package:sinapsis/features/export/data/marked/text_docx_mark_writer.dart';
@@ -93,4 +96,47 @@ class MarkdownMarkedDocumentWriter implements MarkedDocumentWriter {
       marks: marks,
     ),
   );
+}
+
+/// El EPUB, con cada tramo en un `<mark>` de su color en su capítulo.
+///
+/// Descomprimir y recorrer un libro entero congelaría la pantalla: se hace en
+/// otro isolate, como al leerlo.
+class EpubMarkedDocumentWriter implements MarkedDocumentWriter {
+  const EpubMarkedDocumentWriter([this._writer = const EpubMarkWriter()]);
+
+  final EpubMarkWriter _writer;
+
+  @override
+  Future<Uint8List> write(
+    Uint8List original, {
+    required String content,
+    required List<DocumentMark> marks,
+  }) {
+    final writer = _writer;
+    return Isolate.run(() => writer.write(original, content, marks));
+  }
+}
+
+/// La página web archivada, con cada tramo en un `<mark>` de su color.
+///
+/// El archivador la guarda siempre en UTF-8 (`HtmlPageArchiver`), y en UTF-8
+/// sale. Una página archivada pesa megas —sus imágenes van adentro—: se
+/// marca en otro isolate, como al mostrarla.
+class WebPageMarkedDocumentWriter implements MarkedDocumentWriter {
+  const WebPageMarkedDocumentWriter([this._writer = const HtmlMarkWriter()]);
+
+  final HtmlMarkWriter _writer;
+
+  @override
+  Future<Uint8List> write(
+    Uint8List original, {
+    required String content,
+    required List<DocumentMark> marks,
+  }) {
+    final writer = _writer;
+    return Isolate.run(
+      () => utf8.encode(writer.write(utf8.decode(original), content, marks)),
+    );
+  }
 }

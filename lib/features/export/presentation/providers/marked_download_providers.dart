@@ -25,6 +25,8 @@ final markedDocumentWritersProvider =
       (ref) => const {
         MarkedDocumentFormat.pdf: PdfMarkedDocumentWriter(),
         MarkedDocumentFormat.docx: DocxMarkedDocumentWriter(),
+        MarkedDocumentFormat.epub: EpubMarkedDocumentWriter(),
+        MarkedDocumentFormat.webPage: WebPageMarkedDocumentWriter(),
         MarkedDocumentFormat.plainText: TextMarkedDocumentWriter(),
         MarkedDocumentFormat.markdown: MarkdownMarkedDocumentWriter(),
       },
