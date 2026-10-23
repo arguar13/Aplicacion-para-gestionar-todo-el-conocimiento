@@ -236,7 +236,7 @@ void main() {
         tester,
         sheet(),
         study: analyzed,
-        view: const StudyView(layer: StudyLayer.synthesis, keywords: true),
+        view: const StudyView(synthesis: true, keywords: true),
       );
 
       bool checked(String key) =>
@@ -251,11 +251,7 @@ void main() {
     testWidgets('lo que se ve resaltado pero no tiene datos no se prende', (
       tester,
     ) async {
-      await pump(
-        tester,
-        sheet(),
-        view: const StudyView(layer: StudyLayer.summary),
-      );
+      await pump(tester, sheet(), view: const StudyView(summary: true));
 
       expect(
         tester

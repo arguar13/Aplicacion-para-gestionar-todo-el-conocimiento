@@ -250,3 +250,25 @@
   - `tool/mutar.py` reintenta la escritura si Windows tiene el archivo tomado un instante: antes
     se cortaba a mitad y dejaba el código mutado.
   - Las 19 mutaciones mueren.
+- **Palabras clave en todas las oraciones, y los tres resaltados superpuestos — hecho.**
+  - **El pedido**: una línea `CLAVE` por **cada** oración de la parte, de la primera a la última,
+    estén o no en el resumen o en la síntesis. Se leen todas, en el orden del texto.
+  - **La ventana de Gemma**: cada oración trae ahora su respuesta, así que la parte reserva por
+    oración el lugar de su línea de palabras clave (`_perSentenceOverhead` = 62 caracteres) y la
+    respuesta crece con la cantidad de oraciones (`studyReplyTokens`, hasta 3072). Si la parte no
+    entra y se achica, el chat se cierra y se reabre con el tope de respuesta de lo que sí entra:
+    antes el lugar se calculaba con la parte entera y podía quedar negativo.
+  - **`StudyView` con tres interruptores** (`summary`, `synthesis`, `keywords`) en vez de una
+    capa: juntos, de a uno, de a dos o ninguno. Con el resumen y la síntesis prendidos, la síntesis
+    se pinta después —encima—. Vale en el detalle, la transcripción, «Leer como libro», el PDF, la
+    página guardada y lo que se descarga.
+  - Las palabras clave se ven **todas** cuando están prendidas; desaparece
+    `studyKeywordMarksWithin`.
+  - Apagar el resaltado que se está eligiendo a mano deja de elegirlo; prender otro, no.
+  - En la página guardada, las palabras se envuelven solo dentro de las oraciones resaltadas: que
+    cualquier palabra se pueda tocar es el paso 3c.
+  - Los documentos ya analizados necesitan «Volver a analizar» para traer las palabras clave de
+    todas las oraciones; lo elegido a mano queda.
+  - Las 27 mutaciones mueren. Dos sobrevivían en la primera pasada —prender un resaltado
+    prendía el otro, y la igualdad no miraba la síntesis— y se sumaron pruebas directas de
+    `StudyView`.

@@ -10,8 +10,8 @@ import 'package:sinapsis/features/study/domain/services/study_words.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Cuál de los dos resaltados de oraciones se ve (F36): uno o el otro, nunca
-/// los dos encima.
+/// Los dos resaltados de oraciones (F36). Se prenden por separado o juntos
+/// (F39): juntos, la síntesis va encima del resumen —es lo más esencial—.
 enum StudyLayer {
   summary(StudyMarkKind.summary),
   synthesis(StudyMarkKind.synthesis);
@@ -25,12 +25,20 @@ enum StudyLayer {
 /// «Leer como libro» y en «Texto extraído».
 @immutable
 class StudyView {
-  const StudyView({this.layer, this.keywords = false, this.pick});
+  const StudyView({
+    this.summary = false,
+    this.synthesis = false,
+    this.keywords = false,
+    this.pick,
+  });
 
-  /// El resumen o la síntesis; `null`, ninguno.
-  final StudyLayer? layer;
+  /// Si se ve el resumen.
+  final bool summary;
 
-  /// Si se ven las palabras clave.
+  /// Si se ve la síntesis.
+  final bool synthesis;
+
+  /// Si se ven las palabras clave: todas, de punta a punta (F39).
   final bool keywords;
 
   /// Qué se está eligiendo a mano (F36, F39): tocar una oración la pone en
@@ -45,12 +53,35 @@ class StudyView {
   /// Eligiéndolas, las palabras clave se ven estén o no prendidas.
   bool get showsKeywords => keywords || pick == StudyMarkKind.keyword;
 
+  /// Si se ve [layer].
+  bool shows(StudyLayer layer) => switch (layer) {
+    StudyLayer.summary => summary,
+    StudyLayer.synthesis => synthesis,
+  };
+
+  /// Los resaltados de oraciones que se ven, de abajo hacia arriba.
+  List<StudyLayer> get layers => [
+    if (summary) StudyLayer.summary,
+    if (synthesis) StudyLayer.synthesis,
+  ];
+
+  /// Si no se ve nada de lo estudiado.
+  bool get showsNothing => !summary && !synthesis && !showsKeywords;
+
+  /// Con [layer] prendido o apagado; lo demás, igual.
+  StudyView withLayer(StudyLayer layer, {required bool on}) => copyWith(
+    summary: layer == StudyLayer.summary ? on : null,
+    synthesis: layer == StudyLayer.synthesis ? on : null,
+  );
+
   StudyView copyWith({
-    StudyLayer? Function()? layer,
+    bool? summary,
+    bool? synthesis,
     bool? keywords,
     StudyMarkKind? Function()? pick,
   }) => StudyView(
-    layer: layer == null ? this.layer : layer(),
+    summary: summary ?? this.summary,
+    synthesis: synthesis ?? this.synthesis,
     keywords: keywords ?? this.keywords,
     pick: pick == null ? this.pick : pick(),
   );
@@ -58,12 +89,13 @@ class StudyView {
   @override
   bool operator ==(Object other) =>
       other is StudyView &&
-      other.layer == layer &&
+      other.summary == summary &&
+      other.synthesis == synthesis &&
       other.keywords == keywords &&
       other.pick == pick;
 
   @override
-  int get hashCode => Object.hash(layer, keywords, pick);
+  int get hashCode => Object.hash(summary, synthesis, keywords, pick);
 }
 
 /// Qué se ve de lo estudiado del texto de una forma (F36).
@@ -113,24 +145,20 @@ class StudyPalette {
 }
 
 /// Las capas de color de lo estudiado con lo que [view] deja ver, en
-/// posiciones del texto: las oraciones del resaltado prendido debajo de los
-/// subrayados de la persona y las palabras clave, en negrita, encima.
+/// posiciones del texto: las oraciones de los resaltados prendidos debajo de
+/// los subrayados de la persona —la síntesis encima del resumen— y las
+/// palabras clave, en negrita, encima de todo.
 ///
-/// Con el resumen o la síntesis prendido, las palabras clave que se ven son
-/// las de sus oraciones, que sostienen; sin ninguno, o eligiéndolas, todas:
-/// a mano se eligen en cualquier oración (F39).
+/// Las tres se prenden cada una por su lado (F39): las palabras clave que se
+/// ven son todas, estén o no en una oración resaltada.
 List<PaintedRange> studyPaints(
   DocumentStudy study,
   StudyView view,
   StudyPalette palette,
 ) {
-  final layer = view.layer;
-  final sentences = layer == null
-      ? const <StudyMark>[]
-      : studySentenceMarks(study, {layer.kind});
   return [
-    if (layer != null)
-      for (final sentence in sentences)
+    for (final layer in view.layers)
+      for (final sentence in studySentenceMarks(study, {layer.kind}))
         PaintedRange(
           sentence.start,
           sentence.end,
@@ -138,10 +166,7 @@ List<PaintedRange> studyPaints(
           foreground: StudyPalette.ink,
         ),
     if (view.showsKeywords)
-      for (final keyword
-          in layer == null || view.pick == StudyMarkKind.keyword
-              ? study.of(StudyMarkKind.keyword)
-              : studyKeywordMarksWithin(study, sentences))
+      for (final keyword in study.of(StudyMarkKind.keyword))
         PaintedRange(
           keyword.start,
           keyword.end,
@@ -184,7 +209,7 @@ List<PaintedRange> watchStudyPaints(
   Brightness? brightness,
 }) {
   final view = ref.watch(studyViewProvider(renditionId));
-  if (view.layer == null && !view.showsKeywords) return const [];
+  if (view.showsNothing) return const [];
   final study = ref.watch(documentStudyProvider(renditionId)).valueOrNull;
   if (study == null) return const [];
   return studyPaints(

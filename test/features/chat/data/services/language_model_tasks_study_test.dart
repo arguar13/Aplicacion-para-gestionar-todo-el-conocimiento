@@ -54,6 +54,10 @@ void main() {
     expect(opened.instruction, contains('SINTESIS: <números'));
     expect(opened.instruction, contains('CLAVE <número>:'));
     expect(opened.instruction, contains('TEXTUALMENTE'));
+    // Las palabras clave de todas las oraciones, no solo de las marcadas
+    // (F39).
+    expect(opened.instruction, contains('para CADA oración'));
+    expect(opened.instruction, contains('sin saltear ninguna'));
     expect(opened.maxOutputTokens, studyReplyTokens(part.length));
     expect(model.chats.single.received.single, buildStudyPrompt(content, part));
     expect(model.chats.single.closed, isTrue);
@@ -80,7 +84,8 @@ void main() {
   );
 
   test(
-    'si la parte no entra en la ventana, analiza las primeras que entran',
+    'si la parte no entra en la ventana, analiza las primeras que entran, '
+    'con el tope de respuesta de esas: cada oración trae su línea CLAVE',
     () async {
       final long = [
         for (var i = 0; i < 60; i++)
@@ -92,18 +97,28 @@ void main() {
       final outcome = await gemma.markPart(content: long, part: sentences);
 
       expect(outcome.analyzed, lessThan(sentences.length));
-      expect(outcome.analyzed, greaterThan(0));
-      final sent = model.chats.single.received.single;
+      expect(outcome.analyzed, greaterThan(1));
+      // Se midió con una sesión y se pidió con otra, con el tope de lo que
+      // entró; la primera se cerró antes de abrir la segunda.
+      expect(model.opened, hasLength(2));
+      expect(model.chats.first.received, isEmpty);
+      expect(model.chats.first.closed, isTrue);
+      expect(
+        model.opened.last.maxOutputTokens,
+        studyReplyTokens(outcome.analyzed),
+      );
+      final sent = model.chats.last.received.single;
       expect(
         sent,
         buildStudyPrompt(long, sentences.sublist(0, outcome.analyzed)),
       );
       final room =
           1024 -
-          studyReplyTokens(sentences.length) -
-          (model.opened.single.instruction!.length / 4).ceil() -
+          studyReplyTokens(outcome.analyzed) -
+          (model.opened.last.instruction!.length / 4).ceil() -
           kPromptMarginTokens;
       expect((sent.length / 4).ceil(), lessThanOrEqualTo(room));
+      expect(model.chats.last.closed, isTrue);
     },
   );
 

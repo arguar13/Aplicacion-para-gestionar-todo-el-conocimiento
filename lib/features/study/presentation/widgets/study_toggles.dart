@@ -13,14 +13,16 @@ import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Prende [layer] —el resumen o la síntesis— en [text], o lo apaga si ya
-/// estaba (F36): es un interruptor de dos posiciones, nunca los dos encima.
+/// estaba (F36). Cada uno por su lado: se ven los dos juntos, uno o ninguno
+/// (F39).
 ///
 /// Si todavía no hay nada de [layer] y nadie lo está armando, en vez de
 /// prenderlo ofrece armarlo con la IA o a mano (F39): ver
 /// [showStudySuggestion]. Si hay, se prende, y un análisis que quedó a mitad
 /// sigue; uno que nunca empezó —lo elegido a mano— no arranca solo.
 ///
-/// Cambiar de resaltado deja de elegir el otro a mano: se elige lo que se ve.
+/// Apagar el resaltado que se está eligiendo a mano deja de elegirlo: se
+/// elige lo que se ve.
 Future<void> toggleStudyLayer(
   WidgetRef ref,
   BuildContext context,
@@ -29,7 +31,7 @@ Future<void> toggleStudyLayer(
   VoidCallback? onManual,
 }) async {
   final view = ref.read(studyViewProvider(text.renditionId).notifier);
-  final on = view.state.layer != layer;
+  final on = !view.state.shows(layer);
   if (on) {
     final suggest = await studyNeedsSuggestion(ref, text, layer.kind);
     if (!context.mounted) return;
@@ -44,20 +46,21 @@ Future<void> toggleStudyLayer(
       return;
     }
   }
-  final shown = on ? layer : null;
-  view.state = view.state.copyWith(
-    layer: () => shown,
-    pick: () => _pickWith(view.state.pick, shown),
-  );
+  final next = view.state.withLayer(layer, on: on);
+  view.state = next.copyWith(pick: () => _stillPicking(next));
   if (on) await _continueAnalysis(ref, context, text);
 }
 
-/// Lo que se sigue eligiendo a mano con [layer] a la vista: las palabras
-/// clave siguen; el resumen o la síntesis, solo si es el que se ve.
-StudyMarkKind? _pickWith(StudyMarkKind? pick, StudyLayer? layer) =>
-    pick == null || pick == StudyMarkKind.keyword || pick == layer?.kind
-    ? pick
-    : null;
+/// Lo que se sigue eligiendo a mano en [view]: las palabras clave siguen; el
+/// resumen o la síntesis, solo si se ve.
+StudyMarkKind? _stillPicking(StudyView view) {
+  final pick = view.pick;
+  return pick == null ||
+          pick == StudyMarkKind.keyword ||
+          view.layers.any((layer) => layer.kind == pick)
+      ? pick
+      : null;
+}
 
 /// Sigue un análisis que quedó a mitad; no arranca uno nuevo.
 Future<void> _continueAnalysis(
@@ -118,12 +121,11 @@ Future<void> applyStudySuggestion(
   final view = ref.read(studyViewProvider(text.renditionId).notifier);
   final layer = StudyLayer.values.where((l) => l.kind == kind).firstOrNull;
   final manual = choice == StudySuggestionChoice.manual;
-  view.state = view.state.copyWith(
-    layer: layer == null ? null : () => layer,
-    keywords: view.state.keywords || kind == StudyMarkKind.keyword,
-    pick: manual
-        ? () => kind
-        : () => _pickWith(view.state.pick, layer ?? view.state.layer),
+  final shown = layer == null
+      ? view.state.copyWith(keywords: true)
+      : view.state.withLayer(layer, on: true);
+  view.state = shown.copyWith(
+    pick: manual ? () => kind : () => _stillPicking(shown),
   );
   if (manual) {
     onManual?.call();
@@ -260,7 +262,7 @@ Future<void> showStudyLayer(
   StudyLayer layer,
 ) async {
   final view = ref.read(studyViewProvider(text.renditionId).notifier);
-  view.state = view.state.copyWith(layer: () => layer);
+  view.state = view.state.withLayer(layer, on: true);
   await analyzeForStudyIfNeeded(ref, context, text);
 }
 
@@ -341,10 +343,10 @@ Future<bool> ensureStudyModelReady(BuildContext context, WidgetRef ref) {
   );
 }
 
-/// Los tres botones de estudiar un texto (F36): **Resumir** y
-/// **Sintetizar**, el interruptor de los dos resaltados, y **Palabras
-/// clave**, con su lápiz para elegirlas a mano. Cada uno con su color de
-/// resaltador.
+/// Los tres botones de estudiar un texto (F36): **Resumir**,
+/// **Sintetizar** y **Palabras clave**, con su lápiz para elegirlas a mano.
+/// Cada uno con su color de resaltador, y cada uno se prende por su lado: se
+/// ven juntos, de a uno, de a dos o ninguno (F39).
 ///
 /// Los mismos en la tarjeta del detalle y en la barra del lector a pantalla
 /// completa: lo que se prende en uno se ve en el otro —ver
@@ -374,7 +376,7 @@ class StudyToggles extends ConsumerWidget {
           icon: Icons.notes_outlined,
           label: l10n.studySummarize,
           color: palette.summary,
-          selected: view.layer == StudyLayer.summary,
+          selected: view.summary,
           onTap: () => unawaited(
             toggleStudyLayer(
               ref,
@@ -390,7 +392,7 @@ class StudyToggles extends ConsumerWidget {
           icon: Icons.filter_center_focus_outlined,
           label: l10n.studySynthesize,
           color: palette.synthesis,
-          selected: view.layer == StudyLayer.synthesis,
+          selected: view.synthesis,
           onTap: () => unawaited(
             toggleStudyLayer(
               ref,

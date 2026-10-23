@@ -13,13 +13,3 @@ List<StudyMark> studySentenceMarks(
   for (final mark in study.marks)
     if (kinds.contains(mark.kind)) mark,
 ];
-
-/// Las palabras clave de [study] que caen dentro de alguna de [sentences]: una
-/// palabra clave sostiene a su oración, así que sin ella no se ve.
-List<StudyMark> studyKeywordMarksWithin(
-  DocumentStudy study,
-  List<StudyMark> sentences,
-) => [
-  for (final keyword in study.of(StudyMarkKind.keyword))
-    if (sentences.any((s) => keyword.isWithin(s.start, s.end))) keyword,
-];

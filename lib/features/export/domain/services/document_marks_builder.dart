@@ -90,10 +90,6 @@ List<DocumentMark> buildDocumentMarks({
         )
       : null;
 
-  final sentenceKinds = {
-    if (options.summary) StudyMarkKind.summary,
-    if (options.synthesis) StudyMarkKind.synthesis,
-  };
   // Los resaltados de oraciones, una capa por tipo y no mezclados por
   // posición: la oración que está en el resumen y en la síntesis tiene las
   // dos marcas, y la de la síntesis tiene que quedar arriba.
@@ -122,17 +118,10 @@ List<DocumentMark> buildDocumentMarks({
             .toList()
       : const <DocumentMark>[];
 
-  // Como en la pantalla: con el resumen o la síntesis, las palabras clave de
-  // sus oraciones; solas, todas —a mano se eligen en cualquier oración (F39)—.
+  // Como en la pantalla: todas, estén o no en una oración resaltada (F39).
   final keywords = options.keywords
       ? [
-          for (final mark
-              in sentenceKinds.isEmpty
-                  ? study.of(StudyMarkKind.keyword)
-                  : studyKeywordMarksWithin(
-                      study,
-                      studySentenceMarks(study, sentenceKinds),
-                    ))
+          for (final mark in study.of(StudyMarkKind.keyword))
             ?fromStudy(mark, colors.keyword),
         ]
       : const <DocumentMark>[];

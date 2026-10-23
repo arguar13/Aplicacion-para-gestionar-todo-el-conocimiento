@@ -66,8 +66,8 @@ void main() {
   late StudyRepositoryImpl repository;
   final now = DateTime(2026, 10, 22, 10);
 
-  // Diez oraciones de 20 caracteres: con un presupuesto de 60 entran dos por
-  // parte (20 + 7 de número cada una).
+  // Diez oraciones de 20 caracteres: con un presupuesto de 164 entran dos por
+  // parte (20 + 62 de número y de su línea de palabras clave cada una).
   final content = [
     for (var i = 0; i < 10; i++) 'Oración número $i ok.',
   ].join(' ');
@@ -117,7 +117,7 @@ void main() {
   test(
     'analiza por partes, en orden, y avisa cómo va desde el principio',
     () async {
-      final marker = _RecordedMarker(partCharBudget: 60);
+      final marker = _RecordedMarker(partCharBudget: 164);
 
       final progress = await analyze(marker);
 
@@ -141,14 +141,14 @@ void main() {
   );
 
   test('si se para, queda lo hecho; al volver, sigue desde ahí', () async {
-    final marker = _RecordedMarker(partCharBudget: 60);
+    final marker = _RecordedMarker(partCharBudget: 164);
     await analyze(marker, shouldStop: () => marker.parts.length == 2);
 
     final halfway = await repository.read('texto');
     expect(halfway.complete, isFalse);
     expect(halfway.analyzedUntil, sentences[3].end);
 
-    final again = _RecordedMarker(partCharBudget: 60);
+    final again = _RecordedMarker(partCharBudget: 164);
     final progress = await analyze(again);
 
     expect(again.parts.first.first, sentences[4]);
@@ -164,7 +164,7 @@ void main() {
   test(
     'si el modelo falla a mitad, lo analizado queda y el error sale',
     () async {
-      final marker = _RecordedMarker(partCharBudget: 60);
+      final marker = _RecordedMarker(partCharBudget: 164);
       final run = AnalyzeForStudy(
         repository: repository,
         marker: marker,
@@ -186,7 +186,7 @@ void main() {
   );
 
   test('una parte que no entra se achica y el total crece', () async {
-    final marker = _RecordedMarker(partCharBudget: 120, fits: 3);
+    final marker = _RecordedMarker(partCharBudget: 328, fits: 3);
 
     final progress = await analyze(marker);
 
@@ -220,7 +220,7 @@ void main() {
   test('si tampoco al reintentar, la parte queda sin marcas y se cuenta: no '
       'se traba en ella', () async {
     final marker = _RecordedMarker(
-      partCharBudget: 60,
+      partCharBudget: 164,
       reply: (part) =>
           part.first == sentences.first ? 'No entendí.' : 'RESUMEN: 1',
     );
@@ -236,9 +236,9 @@ void main() {
   });
 
   test('ya terminado, no vuelve a gastar', () async {
-    await analyze(_RecordedMarker(partCharBudget: 60));
+    await analyze(_RecordedMarker(partCharBudget: 164));
 
-    final again = _RecordedMarker(partCharBudget: 60);
+    final again = _RecordedMarker(partCharBudget: 164);
     final progress = await analyze(again);
 
     expect(again.parts, isEmpty);
@@ -257,7 +257,7 @@ void main() {
               updatedAt: now,
             ),
           );
-      final marker = _RecordedMarker(partCharBudget: 60);
+      final marker = _RecordedMarker(partCharBudget: 164);
 
       final progress = await analyze(marker);
 

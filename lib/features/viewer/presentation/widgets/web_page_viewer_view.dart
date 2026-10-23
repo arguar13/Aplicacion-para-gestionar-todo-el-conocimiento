@@ -24,6 +24,22 @@ import 'package:sinapsis/features/viewer/presentation/widgets/document_highlight
 import 'package:sinapsis/features/viewer/presentation/widgets/document_selection.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+/// Lo que se le pide a la página guardada para mostrar lo que [view] deja ver
+/// de [marks] (F36): el resumen y la síntesis, cada uno por su lado (F39); las
+/// palabras clave que se ven —también eligiéndolas—, y si tocar elige.
+@visibleForTesting
+String webPageStudyState(StudyView view, List<StudyMark> marks) =>
+    archivedPageStateScript(
+      summary: view.summary,
+      synthesis: view.synthesis,
+      keywords: view.showsKeywords,
+      picking: view.picking,
+      keywordOffsets: [
+        for (final mark in marks)
+          if (mark.kind == StudyMarkKind.keyword) mark.start,
+      ],
+    );
+
 /// La página tal como quedó archivada al guardarla: con sus imágenes y sus
 /// estilos incrustados, no la versión en Markdown que ya se ve en el
 /// detalle.
@@ -343,15 +359,7 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
       if (_html != null) unawaited(_show());
     }
 
-    final state = archivedPageStateScript(
-      layer: view.layer?.kind,
-      keywords: view.showsKeywords,
-      picking: view.picking,
-      keywordOffsets: [
-        for (final mark in marks)
-          if (mark.kind == StudyMarkKind.keyword) mark.start,
-      ],
-    );
+    final state = webPageStudyState(view, marks);
     if (state != _state) {
       _state = state;
       unawaited(_apply());

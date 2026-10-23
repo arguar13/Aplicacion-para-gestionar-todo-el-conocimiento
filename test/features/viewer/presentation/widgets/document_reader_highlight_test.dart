@@ -436,7 +436,7 @@ void main() {
       );
       await nextPage(tester);
       container.read(studyViewProvider('r1').notifier).state = const StudyView(
-        layer: StudyLayer.summary,
+        summary: true,
         keywords: true,
       );
       await tester.pumpAndSettle();

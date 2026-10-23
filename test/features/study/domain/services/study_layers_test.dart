@@ -42,17 +42,4 @@ void main() {
     );
     expect(ids(studySentenceMarks(study, const {})), isEmpty);
   });
-
-  test('las palabras clave que caen dentro de esas oraciones', () {
-    final summary = studySentenceMarks(study, {StudyMarkKind.summary});
-    final both = studySentenceMarks(study, {
-      StudyMarkKind.summary,
-      StudyMarkKind.synthesis,
-    });
-
-    expect(ids(studyKeywordMarksWithin(study, summary)), ['k1']);
-    // La k3 no está en ninguna oración: no se ve.
-    expect(ids(studyKeywordMarksWithin(study, both)), ['k1', 'k2']);
-    expect(ids(studyKeywordMarksWithin(study, const [])), isEmpty);
-  });
 }

@@ -127,8 +127,8 @@ void main() {
     ]);
   });
 
-  test('las palabras clave solas son todas, también la suelta: a mano se '
-      'eligen en cualquier oración (F39)', () {
+  test('las palabras clave son todas, también la de una oración que no '
+      'está en el resumen ni en la síntesis (F39)', () {
     expect(spans(const MarkedDocumentOptions(keywords: true)), [
       (at('Primera'), at('Primera') + 'Primera'.length, colors.keyword),
       (at('síntesis'), at('síntesis') + 'síntesis'.length, colors.keyword),
@@ -136,10 +136,13 @@ void main() {
     ]);
   });
 
-  test('con el resumen, solo las palabras clave de sus oraciones', () {
+  test('con el resumen, también todas las palabras clave: se estudian de '
+      'punta a punta, como en la pantalla (F39)', () {
     expect(spans(const MarkedDocumentOptions(summary: true, keywords: true)), [
       (0, first.length, colors.summary),
       (at('Primera'), at('Primera') + 'Primera'.length, colors.keyword),
+      (at('síntesis'), at('síntesis') + 'síntesis'.length, colors.keyword),
+      (at('Tercera'), at('Tercera') + 'Tercera'.length, colors.keyword),
     ]);
   });
 
@@ -224,6 +227,7 @@ void main() {
       colors.synthesis,
       colors.synthesis,
       colors.defaultHighlight,
+      colors.keyword,
       colors.keyword,
       colors.keyword,
     ]);

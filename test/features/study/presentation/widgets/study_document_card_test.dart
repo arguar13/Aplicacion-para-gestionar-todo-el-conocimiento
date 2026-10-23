@@ -130,12 +130,12 @@ void main() {
         findsOneWidget,
       );
       // Todavía no se prendió nada: se eligió el camino recién.
-      expect(view().layer, isNull);
+      expect(view().summary, isFalse);
       expect(analysis.starts, isEmpty);
 
       await tap(tester, 'study-suggest-ai');
       expect(find.byKey(const Key('study-suggestion-summary')), findsNothing);
-      expect(view().layer, StudyLayer.summary);
+      expect(view().summary, isTrue);
       expect(view().picking, isFalse);
       expect(analysis.starts, [(content: content, markdown: true)]);
     });
@@ -147,7 +147,7 @@ void main() {
       await tap(tester, 'study-toggle-synthesis');
       await tap(tester, 'study-suggest-manual');
 
-      expect(view().layer, StudyLayer.synthesis);
+      expect(view().synthesis, isTrue);
       expect(view().pick, StudyMarkKind.synthesis);
       expect(analysis.starts, isEmpty);
       expect(
@@ -157,7 +157,7 @@ void main() {
 
       await tap(tester, 'study-pick-done');
       expect(view().pick, isNull);
-      expect(view().layer, StudyLayer.synthesis);
+      expect(view().synthesis, isTrue);
       expect(find.byKey(const Key('study-pick-done')), findsNothing);
     });
 
@@ -197,11 +197,11 @@ void main() {
       await tap(tester, 'study-toggle-summary');
 
       expect(find.byKey(const Key('study-suggestion-summary')), findsNothing);
-      expect(view().layer, StudyLayer.summary);
+      expect(view().summary, isTrue);
       expect(analysis.starts, isEmpty);
 
       await tap(tester, 'study-toggle-summary');
-      expect(view().layer, isNull);
+      expect(view().summary, isFalse);
     });
 
     testWidgets('con un análisis a mitad, prenderlo lo sigue', (tester) async {
@@ -225,34 +225,50 @@ void main() {
       await tap(tester, 'study-toggle-synthesis');
 
       expect(find.byKey(const Key('study-suggestion-synthesis')), findsNothing);
-      expect(view().layer, StudyLayer.synthesis);
+      expect(view().synthesis, isTrue);
       expect(analysis.starts, hasLength(1));
     });
 
-    testWidgets('Sintetizar reemplaza al resumen: nunca los dos encima', (
-      tester,
-    ) async {
+    testWidgets('los tres se prenden cada uno por su lado: juntos, de a uno, '
+        'de a dos o ninguno (F39)', (tester) async {
       await pump(tester, study: analyzed);
 
       await tap(tester, 'study-toggle-summary');
       await tap(tester, 'study-toggle-synthesis');
+      await tap(tester, 'study-toggle-keywords');
+      expect(
+        view(),
+        const StudyView(summary: true, synthesis: true, keywords: true),
+      );
 
-      expect(view().layer, StudyLayer.synthesis);
+      await tap(tester, 'study-toggle-summary');
+      expect(view(), const StudyView(synthesis: true, keywords: true));
+
+      await tap(tester, 'study-toggle-keywords');
+      expect(view(), const StudyView(synthesis: true));
+
+      await tap(tester, 'study-toggle-synthesis');
+      expect(view(), const StudyView());
     });
 
-    testWidgets('cambiar de resaltado deja de elegir el otro a mano; las '
-        'palabras clave se siguen eligiendo', (tester) async {
+    testWidgets('apagar el resaltado que se elige a mano deja de elegirlo; '
+        'prender otro, no; las palabras clave se siguen eligiendo', (
+      tester,
+    ) async {
       await pump(tester, study: analyzed);
       container.read(studyViewProvider('r1').notifier).state = const StudyView(
-        layer: StudyLayer.summary,
+        summary: true,
         pick: StudyMarkKind.summary,
       );
 
       await tap(tester, 'study-toggle-synthesis');
+      expect(view().pick, StudyMarkKind.summary);
+
+      await tap(tester, 'study-toggle-summary');
       expect(view().pick, isNull);
 
       await tap(tester, 'study-toggle-pick');
-      await tap(tester, 'study-toggle-summary');
+      await tap(tester, 'study-toggle-synthesis');
       expect(view().pick, StudyMarkKind.keyword);
     });
 
@@ -261,7 +277,7 @@ void main() {
 
       await tap(tester, 'study-toggle-summary');
 
-      expect(view().layer, StudyLayer.summary);
+      expect(view().summary, isTrue);
       expect(analysis.starts, isEmpty);
     });
 
@@ -475,7 +491,7 @@ void main() {
       await tester.pumpAndSettle();
       await tap(tester, 'study-suggest-ai');
 
-      expect(view().layer, StudyLayer.summary);
+      expect(view().summary, isTrue);
       expect(analysis.starts, hasLength(1));
     });
 

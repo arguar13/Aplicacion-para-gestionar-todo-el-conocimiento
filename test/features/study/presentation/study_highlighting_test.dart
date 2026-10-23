@@ -50,6 +50,56 @@ void main() {
   );
   final light = StudyPalette.of(Brightness.light);
 
+  group('StudyView: cada resaltado por su lado (F39)', () {
+    test('prender o apagar uno no toca el otro ni las palabras clave', () {
+      const none = StudyView(keywords: true);
+
+      expect(
+        none.withLayer(StudyLayer.synthesis, on: true),
+        const StudyView(synthesis: true, keywords: true),
+      );
+      expect(
+        none.withLayer(StudyLayer.summary, on: true),
+        const StudyView(summary: true, keywords: true),
+      );
+
+      const both = StudyView(summary: true, synthesis: true);
+      expect(
+        both.withLayer(StudyLayer.summary, on: false),
+        const StudyView(synthesis: true),
+      );
+      expect(
+        both.withLayer(StudyLayer.synthesis, on: false),
+        const StudyView(summary: true),
+      );
+    });
+
+    test('shows y layers dicen cuál se ve, el resumen abajo', () {
+      const synthesis = StudyView(synthesis: true);
+      expect(synthesis.shows(StudyLayer.synthesis), isTrue);
+      expect(synthesis.shows(StudyLayer.summary), isFalse);
+      expect(const StudyView(summary: true).shows(StudyLayer.summary), isTrue);
+      expect(const StudyView(summary: true, synthesis: true).layers, [
+        StudyLayer.summary,
+        StudyLayer.synthesis,
+      ]);
+    });
+
+    test('dos vistas son iguales solo si coinciden en todo', () {
+      const base = StudyView(summary: true);
+      expect(base, const StudyView(summary: true));
+      expect(base.hashCode, const StudyView(summary: true).hashCode);
+      for (final other in const [
+        StudyView(),
+        StudyView(summary: true, synthesis: true),
+        StudyView(summary: true, keywords: true),
+        StudyView(summary: true, pick: StudyMarkKind.summary),
+      ]) {
+        expect(base, isNot(other));
+      }
+    });
+  });
+
   group('studyPaints', () {
     test('sin nada prendido no se pinta nada', () {
       expect(studyPaints(study, const StudyView(), light), isEmpty);
@@ -57,11 +107,7 @@ void main() {
 
     test('el resumen pinta sus oraciones de verde, debajo, y la síntesis no '
         'aparece', () {
-      final paints = studyPaints(
-        study,
-        const StudyView(layer: StudyLayer.summary),
-        light,
-      );
+      final paints = studyPaints(study, const StudyView(summary: true), light);
 
       expect(paints, hasLength(1));
       final sentence = paints.single;
@@ -74,17 +120,17 @@ void main() {
       expect(sentence.aboveHighlights, isFalse);
     });
 
-    test('las palabras clave van encima y en negrita, solo las de las '
-        'oraciones que se ven', () {
+    test('las palabras clave van encima y en negrita, todas, también las '
+        'de oraciones que no se ven resaltadas (F39)', () {
       final paints = studyPaints(
         study,
-        const StudyView(layer: StudyLayer.synthesis, keywords: true),
+        const StudyView(synthesis: true, keywords: true),
         light,
       );
 
       expect(
         [for (final p in paints) content.substring(p.start, p.end)],
-        ['Las fábricas usaban vapor.', 'vapor'],
+        ['Las fábricas usaban vapor.', 'revolución', 'vapor'],
       );
       expect(paints.first.background, light.synthesis);
       final keyword = paints.last;
@@ -108,7 +154,7 @@ void main() {
         '(F39)', () {
       final paints = studyPaints(
         study,
-        const StudyView(layer: StudyLayer.summary, pick: StudyMarkKind.keyword),
+        const StudyView(summary: true, pick: StudyMarkKind.keyword),
         light,
       );
 
@@ -122,11 +168,11 @@ void main() {
       );
     });
 
-    test('con el resumen prendido y sin elegir, solo las palabras clave de '
-        'sus oraciones', () {
+    test('con el resumen prendido, también todas las palabras clave: se '
+        'estudian de punta a punta (F39)', () {
       final paints = studyPaints(
         study,
-        const StudyView(layer: StudyLayer.summary, keywords: true),
+        const StudyView(summary: true, keywords: true),
         light,
       );
 
@@ -135,9 +181,49 @@ void main() {
           for (final p in paints)
             if (p.bold) content.substring(p.start, p.end),
         ],
-        ['revolución'],
+        ['revolución', 'vapor'],
       );
     });
+
+    test(
+      'el resumen y la síntesis juntos: cada uno con su color, y la '
+      'síntesis después —encima— en la oración que está en los dos (F39)',
+      () {
+        final first = study.of(StudyMarkKind.summary).single;
+        final both = DocumentStudy(
+          marks: [
+            ...study.marks,
+            StudyMark(
+              id: 'y2',
+              kind: StudyMarkKind.synthesis,
+              origin: ContentOrigin.ai,
+              start: first.start,
+              end: first.end,
+            ),
+          ]..sort((a, b) => a.start.compareTo(b.start)),
+          analyzedUntil: content.length,
+          complete: true,
+        );
+
+        final paints = studyPaints(
+          both,
+          const StudyView(summary: true, synthesis: true),
+          light,
+        );
+
+        expect(
+          [
+            for (final p in paints)
+              (content.substring(p.start, p.end), p.background),
+          ],
+          [
+            ('La revolución industrial cambió todo.', light.summary),
+            ('La revolución industrial cambió todo.', light.synthesis),
+            ('Las fábricas usaban vapor.', light.synthesis),
+          ],
+        );
+      },
+    );
 
     test('los colores de modo oscuro son otros, pero no el amarillo de lo '
         'que suena', () {
@@ -249,7 +335,7 @@ void main() {
     testWidgets('el resumen se pinta en su página, en su lugar, aunque la '
         'página empiece más adelante en el texto', (tester) async {
       await pumpReader(tester);
-      view().state = const StudyView(layer: StudyLayer.summary, keywords: true);
+      view().state = const StudyView(summary: true, keywords: true);
       await tester.pumpAndSettle();
 
       expect(
@@ -260,25 +346,37 @@ void main() {
 
       await nextPage(tester);
 
+      // La palabra clave de una oración que no está en el resumen también se
+      // ve: se estudian de punta a punta (F39).
       expect(pieces(tester), [
         ('La ', light.summary),
         ('revolución', light.keyword),
         (' industrial cambió todo.', light.summary),
-        (' Las fábricas usaban vapor.', null),
+        (' Las fábricas usaban ', null),
+        ('vapor', light.keyword),
+        ('.', null),
       ]);
     });
 
-    testWidgets('pasar a la síntesis apaga el resumen: nunca los dos', (
-      tester,
-    ) async {
+    testWidgets('la síntesis sola, sin el resumen; y los dos juntos, cada uno '
+        'en lo suyo (F39)', (tester) async {
       await pumpReader(tester);
       await nextPage(tester);
 
-      view().state = const StudyView(layer: StudyLayer.synthesis);
+      view().state = const StudyView(synthesis: true);
       await tester.pumpAndSettle();
 
       expect(pieces(tester), [
         ('La revolución industrial cambió todo. ', null),
+        ('Las fábricas usaban vapor.', light.synthesis),
+      ]);
+
+      view().state = const StudyView(summary: true, synthesis: true);
+      await tester.pumpAndSettle();
+
+      expect(pieces(tester), [
+        ('La revolución industrial cambió todo.', light.summary),
+        (' ', null),
         ('Las fábricas usaban vapor.', light.synthesis),
       ]);
     });
@@ -288,7 +386,7 @@ void main() {
       await pumpReader(tester);
       await nextPage(tester);
       view().state = const StudyView(
-        layer: StudyLayer.summary,
+        summary: true,
         pick: StudyMarkKind.keyword,
       );
       await tester.pumpAndSettle();
@@ -325,7 +423,7 @@ void main() {
       await pumpReader(tester);
       await nextPage(tester);
       view().state = const StudyView(
-        layer: StudyLayer.summary,
+        summary: true,
         pick: StudyMarkKind.summary,
       );
       await tester.pumpAndSettle();
@@ -349,7 +447,7 @@ void main() {
     ) async {
       await pumpReader(tester);
       await nextPage(tester);
-      view().state = const StudyView(layer: StudyLayer.summary);
+      view().state = const StudyView(summary: true);
       await tester.pumpAndSettle();
 
       await tapAt(tester, pageTwo.indexOf('industrial') + 2);
@@ -391,7 +489,7 @@ void main() {
       await pumpReader(tester);
       await nextPage(tester);
       view().state = const StudyView(
-        layer: StudyLayer.summary,
+        summary: true,
         pick: StudyMarkKind.keyword,
       );
       await tester.pumpAndSettle();
@@ -417,7 +515,7 @@ void main() {
       await tester.tap(find.byKey(const Key('study-toggle-summary')));
       await tester.pumpAndSettle();
 
-      expect(view().state.layer, StudyLayer.summary);
+      expect(view().state.summary, isTrue);
       expect(pieces(tester).where((p) => p.$2 == light.summary), isNotEmpty);
     });
 
@@ -443,7 +541,7 @@ void main() {
     testWidgets('lo de un texto no se pinta en otro', (tester) async {
       await pumpReader(tester, renditionId: 'otro');
       await nextPage(tester);
-      view().state = const StudyView(layer: StudyLayer.summary);
+      view().state = const StudyView(summary: true);
       await tester.pumpAndSettle();
 
       expect(pieces(tester).where((p) => p.$2 != null), isEmpty);

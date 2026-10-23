@@ -503,6 +503,14 @@ void main() {
       final css = document.getElementById('sinapsis-study')!.text;
       expect(css, contains('.sn-hf{color:#000!important}'));
       expect(css, contains('mark.sn-k .sn-hf'));
+      // Las palabras clave, todas, estén o no en una oración resaltada; y
+      // con el resumen y la síntesis prendidos, la síntesis encima (F39).
+      expect(css, contains('html.sn-kw mark.sn-k{background:#ff0000'));
+      expect(css, isNot(contains('mark.sn-summary.sn-k')));
+      expect(
+        css.indexOf('html.sn-l-synthesis mark.sn-synthesis{'),
+        greaterThan(css.indexOf('html.sn-l-summary mark.sn-summary{')),
+      );
       expect(css, isNot(contains('.sn-hu{background')));
       final script = document.getElementById('sinapsis-study-script')!.text;
       expect(script, contains('marks: function (items)'));

@@ -141,13 +141,35 @@ void main() {
       expect(marks.synthesis, [part[0]]);
     });
 
-    test('las palabras de una oración que no se marcó no cuentan', () {
+    test('las palabras clave van en todas las oraciones, estén o no en el '
+        'resumen o la síntesis, en el orden del texto (F39)', () {
       final marks = parseStudyReply(
-        'RESUMEN: 1\nSINTESIS: 1\nCLAVE 4: escuela\nCLAVE 1: Inglaterra',
+        'RESUMEN: 1\nSINTESIS: 1\n'
+        'CLAVE 4: escuela\n'
+        'CLAVE 1: Inglaterra\n'
+        'CLAVE 2: vapor\n'
+        'CLAVE 3: trabajo',
         content: content,
         part: part,
       )!;
-      expect(marks.keywords.map(wordOf), ['Inglaterra']);
+      expect(marks.keywords.map(wordOf), [
+        'Inglaterra',
+        'vapor',
+        'trabajo',
+        'escuela',
+      ]);
+    });
+
+    test('las palabras de una oración que no es de la parte no cuentan', () {
+      final marks = parseStudyReply(
+        'RESUMEN: ninguna\nSINTESIS: ninguna\n'
+        'CLAVE 0: revolución\n'
+        'CLAVE 5: escuela\n'
+        'CLAVE 4: escuela',
+        content: content,
+        part: part,
+      )!;
+      expect(marks.keywords.map(wordOf), ['escuela']);
     });
 
     test('una palabra que no está en su oración no cuenta', () {
@@ -188,15 +210,19 @@ void main() {
       for (var i = 0; i < 10; i++) StudySentence(i * 20, i * 20 + 13),
     ];
 
-    test('entran las que caben en el presupuesto', () {
-      // Cada una ocupa 13 + 7 = 20.
-      expect(studyPartEnd(sentences, 0, charBudget: 60), 3);
-      expect(studyPartEnd(sentences, 3, charBudget: 60), 6);
-      expect(studyPartEnd(sentences, 9, charBudget: 60), 10);
+    test('entran las que caben en el presupuesto, cada una con lo que '
+        'contesta por ella', () {
+      // Cada una ocupa 13 + 7 de su número y su renglón + 55 de su línea
+      // CLAVE en la respuesta = 75.
+      expect(studyPartEnd(sentences, 0, charBudget: 225), 3);
+      expect(studyPartEnd(sentences, 0, charBudget: 224), 2);
+      expect(studyPartEnd(sentences, 3, charBudget: 225), 6);
+      expect(studyPartEnd(sentences, 9, charBudget: 225), 10);
     });
 
     test('al menos una, aunque no quepa', () {
       expect(studyPartEnd(sentences, 4, charBudget: 5), 5);
+      expect(studyPartEnd(sentences, 4, charBudget: 74), 5);
     });
 
     test('hasta el tope de oraciones por parte', () {
@@ -209,10 +235,12 @@ void main() {
       );
     });
 
-    test('lo que puede escribir crece con la parte, con piso y techo', () {
+    test('lo que puede escribir crece con la parte —una línea CLAVE por '
+        'oración—, con piso y techo', () {
       expect(studyReplyTokens(1), 192);
-      expect(studyReplyTokens(60), 576);
-      expect(studyReplyTokens(500), 1536);
+      expect(studyReplyTokens(60), 60 * 22 + 96);
+      expect(studyReplyTokens(kMaxStudyPartSentences), 2736);
+      expect(studyReplyTokens(500), 3072);
     });
   });
 }

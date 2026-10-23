@@ -70,8 +70,8 @@ class _StudyDownloadSheetState extends ConsumerState<StudyDownloadSheet> {
     // probable es que quiera llevarse eso.
     final view = ref.read(studyViewProvider(widget.text.renditionId));
     _chosen = MarkedDocumentOptions(
-      summary: view.layer == StudyLayer.summary,
-      synthesis: view.layer == StudyLayer.synthesis,
+      summary: view.summary,
+      synthesis: view.synthesis,
       keywords: view.keywords,
     );
   }

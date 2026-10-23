@@ -24,7 +24,7 @@ class _SilentTelemetry extends Mock implements TelemetryService {}
 /// a que la prueba la suelte.
 class _RecordedMarker implements StudyMarker {
   @override
-  int get partCharBudget => 60;
+  int get partCharBudget => 164;
 
   int calls = 0;
   Completer<void>? gate;
@@ -70,7 +70,7 @@ void main() {
   late StudyAnalysisNotifier notifier;
   final now = DateTime(2026, 10, 22, 10);
 
-  // Seis oraciones: con 60 caracteres por parte, tres partes de dos.
+  // Seis oraciones: con 164 caracteres por parte, tres partes de dos.
   final content = [
     for (var i = 0; i < 6; i++) 'Oración número $i ok.',
   ].join(' ');

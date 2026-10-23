@@ -188,22 +188,20 @@ ArchivedPageEvent? parseArchivedPageEvent(String message) {
   }
 }
 
-/// Lo que se le pide a la página para mostrar lo que se eligió: el resumen o
-/// la síntesis —[layer], `null` ninguno—, si se ven las palabras clave
-/// [keywords] —las que empiezan en [keywordOffsets]— y si tocar una palabra
-/// la elige ([picking]).
+/// Lo que se le pide a la página para mostrar lo que se eligió: si se ven
+/// el resumen ([summary]), la síntesis ([synthesis]) —juntos, la síntesis
+/// encima (F39)— y las palabras clave [keywords] —las que empiezan en
+/// [keywordOffsets]—, y si tocar una palabra la elige ([picking]).
 String archivedPageStateScript({
-  required StudyMarkKind? layer,
+  required bool summary,
+  required bool synthesis,
   required bool keywords,
   required bool picking,
   required Iterable<int> keywordOffsets,
 }) {
   final state = jsonEncode({
-    'layer': switch (layer) {
-      StudyMarkKind.summary => 'summary',
-      StudyMarkKind.synthesis => 'synthesis',
-      _ => null,
-    },
+    'summary': summary,
+    'synthesis': synthesis,
     'keywords': keywords,
     'picking': picking,
     'kw': keywordOffsets.toList(),
@@ -669,23 +667,20 @@ String _css(ArchivedPageColors colors) {
         '$weight}';
   }
 
-  const keywords = [
-    'html.sn-kw.sn-l-summary mark.sn-summary.sn-k',
-    'html.sn-kw.sn-l-synthesis mark.sn-synthesis.sn-k',
-    'html.sn-kw:not(.sn-l-summary):not(.sn-l-synthesis) mark.sn-k',
-  ];
-  final coveredByKeywords = keywords.map((k) => '$k .sn-hf').join(', ');
+  // Las palabras clave, todas, estén o no en una oración resaltada (F39).
+  const keywords = 'html.sn-kw mark.sn-k';
   return [
     'mark.sn-m{background:transparent;color:inherit;padding:0}',
+    // La síntesis después: con las dos prendidas, va encima del resumen.
     'html.sn-l-summary mark.sn-summary${paint(colors.summary)}',
     'html.sn-l-synthesis mark.sn-synthesis${paint(colors.synthesis)}',
-    '${keywords.join(', ')}${paint(colors.keyword, bold: true)}',
+    '$keywords${paint(colors.keyword, bold: true)}',
     'html.sn-pick mark.sn-w{cursor:pointer}',
     // Los resaltados a mano (F38) van adentro del texto, así que encima de
     // las oraciones; una palabra clave que se ve los tapa. Subrayados no: una
     // línea debajo de las letras no tapa nada.
     '.sn-hf{color:#000!important}',
-    '$coveredByKeywords{background:transparent!important}',
+    '$keywords .sn-hf{background:transparent!important}',
   ].join('\n');
 }
 
@@ -846,8 +841,8 @@ const _script = '''
       if (selection) selection.removeAllRanges();
     },
     set: function (state) {
-      root.classList.toggle('sn-l-summary', state.layer === 'summary');
-      root.classList.toggle('sn-l-synthesis', state.layer === 'synthesis');
+      root.classList.toggle('sn-l-summary', !!state.summary);
+      root.classList.toggle('sn-l-synthesis', !!state.synthesis);
       root.classList.toggle('sn-kw', !!state.keywords);
       root.classList.toggle('sn-pick', !!state.picking);
       picking = !!state.picking;

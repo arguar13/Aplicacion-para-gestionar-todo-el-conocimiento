@@ -257,8 +257,8 @@ const _summarizationSystemInstruction =
     'Markdown.';
 
 /// Estudiar un documento (F36): elegir oraciones **del texto**, por número
-/// —nunca escribirlas—, y palabras copiadas de ellas. Es lo que deja
-/// resaltarlas en el original: lo que contesta el modelo se lee con
+/// —nunca escribirlas—, y palabras copiadas de cada una, de todas (F39). Es
+/// lo que deja resaltarlas en el original: lo que contesta el modelo se lee con
 /// `parseStudyReply`, que descarta todo lo que el documento no dice.
 const _studySystemInstruction =
     'Respondé siempre en español. Te doy las oraciones de un documento, '
@@ -266,13 +266,14 @@ const _studySystemInstruction =
     'RESUMEN, las oraciones que llevan las ideas principales, cerca de una de '
     'cada cuatro; SINTESIS, las esenciales, el hilo del documento, cerca de '
     'una de cada diez, que leídas solas dejen entender de qué se trata; y, '
-    'para cada oración del resumen o de la síntesis, hasta cuatro palabras '
-    'clave copiadas TEXTUALMENTE de esa oración —las que la sostienen, no '
-    'artículos ni preposiciones—. Respondé con este formato exacto, sin '
-    'Markdown:\nRESUMEN: <números separados por comas>\nSINTESIS: <números '
-    'separados por comas>\nCLAVE <número>: <palabra>, <palabra>\nUna línea '
-    'CLAVE por cada oración elegida. Si no corresponde ninguna, escribí '
-    'ninguna. No respondas nada más.';
+    'para CADA oración —todas, estén o no en el resumen o en la síntesis—, '
+    'hasta cuatro palabras clave copiadas TEXTUALMENTE de esa oración —las '
+    'que la sostienen, no artículos ni preposiciones—. Respondé con este '
+    'formato exacto, sin Markdown:\nRESUMEN: <números separados por '
+    'comas>\nSINTESIS: <números separados por comas>\nCLAVE <número>: '
+    '<palabra>, <palabra>\nUna línea CLAVE por cada oración, de la primera a '
+    'la última, sin saltear ninguna. Si en RESUMEN o SINTESIS no corresponde '
+    'ninguna, escribí ninguna. No respondas nada más.';
 
 /// El formato de respuesta compartido por los cuatro derivados (D5): lo
 /// único que cambia entre `_studyGuideSystemInstruction` y las otras tres es
@@ -670,27 +671,43 @@ class LanguageModelTasks
   }) {
     assert(part.isNotEmpty, 'Una parte tiene al menos una oración.');
     return _withTurn(() async {
-      final replyTokens = studyReplyTokens(part.length);
-      final chat = await _backend.openExchange(
+      ModelExchange? chat = await _backend.openExchange(
         instruction: _studySystemInstruction,
-        maxOutputTokens: replyTokens,
+        maxOutputTokens: studyReplyTokens(part.length),
       );
 
       try {
         // Nunca más de lo que entra: con el tokenizador del modelo, lo que
         // queda de la ventana después de la instrucción y la respuesta. Quien
         // llama arma partes que suelen entrar (`partCharBudget`); esto lo
-        // garantiza aunque el texto cuente más tokens de lo común.
-        final room =
+        // garantiza aunque el texto cuente más tokens de lo común. Cada
+        // oración trae su línea `CLAVE` en la respuesta (F39): achicar la
+        // parte achica también lo que hay que dejarle a la respuesta.
+        final instructionTokens = await chat.countTokens(
+          _studySystemInstruction,
+        );
+        int room(int count) =>
             _backend.contextTokens -
-            replyTokens -
-            await chat.countTokens(_studySystemInstruction) -
+            studyReplyTokens(count) -
+            instructionTokens -
             kPromptMarginTokens;
         var fitted = part;
         var prompt = buildStudyPrompt(content, fitted);
-        while (fitted.length > 1 && await chat.countTokens(prompt) > room) {
+        while (fitted.length > 1 &&
+            await chat.countTokens(prompt) > room(fitted.length)) {
           fitted = fitted.sublist(0, fitted.length * 3 ~/ 4);
           prompt = buildStudyPrompt(content, fitted);
+        }
+        if (fitted.length < part.length) {
+          // El tope de la respuesta es el de la parte que entra: con el de la
+          // entera, la respuesta podría pasarse de la ventana. Una sesión a
+          // la vez: Gemma tiene una sola.
+          await chat.close();
+          chat = null;
+          chat = await _backend.openExchange(
+            instruction: _studySystemInstruction,
+            maxOutputTokens: studyReplyTokens(fitted.length),
+          );
         }
 
         final reply = await _generate(chat, prompt);
@@ -699,7 +716,7 @@ class LanguageModelTasks
           marks: parseStudyReply(reply, content: content, part: fitted),
         );
       } finally {
-        await chat.close();
+        await chat?.close();
       }
     });
   }

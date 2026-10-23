@@ -248,29 +248,47 @@ void main() {
     expect(page.querySelector('#sinapsis-study'), isNull);
   });
 
-  test('lo que se le pide a la página: qué se prende y qué palabras', () {
-    final script = archivedPageStateScript(
-      layer: StudyMarkKind.synthesis,
-      keywords: true,
-      picking: false,
-      keywordOffsets: [3, 14],
-    );
-    final json = RegExp(r'set\((.*)\);$').firstMatch(script)!.group(1)!;
+  test('lo que se le pide a la página: qué se prende —cada uno por su '
+      'lado (F39)— y qué palabras', () {
+    Map<String, Object?> state(String script) =>
+        jsonDecode(RegExp(r'set\((.*)\);$').firstMatch(script)!.group(1)!)
+            as Map<String, Object?>;
 
-    expect(jsonDecode(json), {
-      'layer': 'synthesis',
-      'keywords': true,
-      'picking': false,
-      'kw': [3, 14],
-    });
     expect(
-      archivedPageStateScript(
-        layer: null,
-        keywords: false,
-        picking: false,
-        keywordOffsets: const [],
+      state(
+        archivedPageStateScript(
+          summary: false,
+          synthesis: true,
+          keywords: true,
+          picking: false,
+          keywordOffsets: [3, 14],
+        ),
       ),
-      contains('"layer":null'),
+      {
+        'summary': false,
+        'synthesis': true,
+        'keywords': true,
+        'picking': false,
+        'kw': [3, 14],
+      },
+    );
+    expect(
+      state(
+        archivedPageStateScript(
+          summary: true,
+          synthesis: true,
+          keywords: false,
+          picking: true,
+          keywordOffsets: const [],
+        ),
+      ),
+      {
+        'summary': true,
+        'synthesis': true,
+        'keywords': false,
+        'picking': true,
+        'kw': <Object?>[],
+      },
     );
   });
 }

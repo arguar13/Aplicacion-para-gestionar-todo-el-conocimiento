@@ -117,10 +117,7 @@ void main() {
     await tester.tap(find.byKey(const Key('source-panel-summarize')));
     await tester.pumpAndSettle();
 
-    expect(
-      harness.container.read(studyViewProvider('r1')).layer,
-      StudyLayer.summary,
-    );
+    expect(harness.container.read(studyViewProvider('r1')).summary, isTrue);
     expect(analysis.starts, [
       (content: 'La primera frase del libro.', markdown: false),
     ]);
@@ -204,7 +201,7 @@ void main() {
     await tester.tap(find.text(es.studyExtractTranscript));
     await tester.pumpAndSettle();
     harness.container.read(studyViewProvider('r1').notifier).state =
-        const StudyView(layer: StudyLayer.summary, pick: StudyMarkKind.keyword);
+        const StudyView(summary: true, pick: StudyMarkKind.keyword);
     await tester.pumpAndSettle();
 
     final transcript = find.descendant(

@@ -662,11 +662,16 @@ resaltado está en el original, tal cual.
   cerca de una de cada cuatro.
 - **Sintetizar** (celeste) resalta lo esencial, el hilo del documento, en
   pocas oraciones.
-- Funcionan como un interruptor: se ve **el resumen o la síntesis**, nunca
-  los dos encima. Tocar el que está prendido lo apaga.
+- **Cada botón se prende y se apaga por su lado**: podés ver el resumen, la
+  síntesis y las palabras clave juntos, de a uno, de a dos o ninguno. Con el
+  resumen y la síntesis prendidos, una oración que está en los dos se ve
+  celeste: la síntesis, lo más esencial, va encima.
 - **Palabras clave** (rosa, en negrita) muestra hasta **4 palabras** por
-  oración que la sostienen. Con el resumen o la síntesis prendido se ven las
-  de sus oraciones; solas, todas. Las propone la IA y **las elegís vos**:
+  oración que la sostienen, en **todas** las oraciones del documento, de
+  punta a punta, estén o no en el resumen o en la síntesis. Un documento
+  analizado antes las tiene solo en las oraciones del resumen y de la
+  síntesis: **«Volver a analizar»** las trae para todas, y lo que elegiste a
+  mano se queda. Las propone la IA y **las elegís vos**:
   tocá el **lápiz** y después tocá una palabra de **cualquier** oración
   —haya o no resumen— para agregarla o sacarla. Si la oración ya tiene 4,
   te avisa.
