@@ -11,6 +11,7 @@ import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
+import 'package:sinapsis/features/map/domain/services/link_strength.dart';
 import 'package:sinapsis/features/map/domain/usecases/export_map_usecase.dart';
 
 /// Cascada de inyección del feature. La capa de presentación depende del
@@ -70,8 +71,13 @@ final mapDashboardProvider = FutureProvider.autoDispose
 final mapLinksFocusRequestProvider = StateProvider<String?>((ref) => null);
 
 /// Qué se pide a la vista «Vínculos»: sobre qué elementos —el filtro del
-/// mapa— y en cuál poner el foco, si en alguno.
-typedef MapLinksRequest = ({LibraryQuery filter, String? focusId});
+/// mapa—, en cuál poner el foco, si en alguno, y qué parte de los vínculos
+/// por cuánto pesan (F39, paso 8).
+typedef MapLinksRequest = ({
+  LibraryQuery filter,
+  String? focusId,
+  LinkStrengthFilter strength,
+});
 
 /// Los elementos vinculados y sus vínculos (F28), que se actualizan solos:
 /// vincular dos cosas se ve en el acto, sin la espera por lotes del grafo de
@@ -86,6 +92,7 @@ final mapLinksProvider = StreamProvider.autoDispose
         read: () => repository.readLinkGraph(
           filter: request.filter,
           focusId: request.focusId,
+          strength: request.strength,
         ),
         telemetry: ref.watch(telemetryServiceProvider),
         hint: 'mapLinksProvider',

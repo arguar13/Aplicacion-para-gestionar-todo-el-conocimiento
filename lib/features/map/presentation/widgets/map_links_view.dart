@@ -9,10 +9,12 @@ import 'package:sinapsis/features/graph/domain/services/graph_view_fit.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
 import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
+import 'package:sinapsis/features/map/domain/services/link_strength.dart';
 import 'package:sinapsis/features/map/domain/services/svg_writer.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
+import 'package:sinapsis/features/map/presentation/widgets/link_strength_selector.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_edges_painter.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_item_box.dart';
@@ -79,8 +81,13 @@ class _MapLinksViewState extends ConsumerState<MapLinksView> {
 
   ProviderSubscription<AsyncValue<LinkGraph>>? _subscription;
 
+  /// Qué parte de los vínculos se ve (F39, paso 8). Se recuerda mientras la
+  /// vista vive —con otro filtro o un vínculo nuevo sigue elegida—, como el
+  /// grado del grafo.
+  LinkStrengthFilter _strength = LinkStrengthFilter.all;
+
   MapLinksRequest get _request =>
-      (filter: widget.filter, focusId: widget.focusId);
+      (filter: widget.filter, focusId: widget.focusId, strength: _strength);
 
   @override
   void initState() {
@@ -328,6 +335,18 @@ class _MapLinksViewState extends ConsumerState<MapLinksView> {
             ],
           ),
         ),
+        LinkStrengthSelector(
+          key: const ValueKey('map-links-strength'),
+          strength: _strength,
+          onChanged: (strength) {
+            if (strength == _strength) return;
+            setState(() {
+              _strength = strength;
+              _needsFit = true;
+            });
+            _listen();
+          },
+        ),
         SizedBox(
           height: 3,
           child: _busy ? const LinearProgressIndicator() : null,
@@ -385,6 +404,15 @@ class _MapLinksViewState extends ConsumerState<MapLinksView> {
           _Footnote(
             key: const ValueKey('map-links-cut'),
             text: l10n.mapLinksCut(graph.items.length, graph.linkedCount),
+          ),
+        if (_strength != LinkStrengthFilter.all)
+          _Footnote(
+            key: const ValueKey('map-links-strength-cut'),
+            text: l10n.mapLinksStrengthCut(
+              graph.shownLinks,
+              graph.totalLinks,
+              _strength.name,
+            ),
           ),
         if (graph.unlinkedCount > 0)
           _Footnote(

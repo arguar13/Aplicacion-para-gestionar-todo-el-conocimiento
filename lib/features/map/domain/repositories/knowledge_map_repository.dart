@@ -4,6 +4,7 @@ import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
+import 'package:sinapsis/features/map/domain/services/link_strength.dart';
 
 /// De dónde sale el mapa de conocimiento (F14).
 ///
@@ -73,10 +74,15 @@ abstract interface class KnowledgeMapRepository {
   /// A lo sumo [limit] elementos, elegidos como dice `selectLinkGraph`:
   /// primero [focusId] y su vecindario, después lo vinculado más
   /// recientemente y al final lo más vinculado.
+  ///
+  /// Con [strength] distinto de `all` (F39, paso 8), antes de elegir se queda
+  /// solo con la mitad de los vínculos que más —o que menos— pesa
+  /// (`cutLinksByStrength`).
   Future<LinkGraph> readLinkGraph({
     LibraryQuery filter = const LibraryQuery(),
     String? focusId,
     int limit = kMaxGraphItems,
+    LinkStrengthFilter strength = LinkStrengthFilter.all,
   });
 
   /// Avisa cada vez que se escribe algo que puede cambiar lo que devuelve

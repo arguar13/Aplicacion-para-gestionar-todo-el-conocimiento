@@ -23,6 +23,7 @@ import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
+import 'package:sinapsis/features/map/domain/services/link_strength.dart';
 import 'package:sinapsis/features/map/domain/services/topic_graph_builder.dart';
 
 import '../../../../support/in_memory_file_store.dart';
@@ -81,6 +82,7 @@ class FakeMapRepository implements KnowledgeMapRepository {
     LibraryQuery filter = const LibraryQuery(),
     String? focusId,
     int limit = kMaxGraphItems,
+    LinkStrengthFilter strength = LinkStrengthFilter.all,
   }) async => const LinkGraph.empty();
 
   @override

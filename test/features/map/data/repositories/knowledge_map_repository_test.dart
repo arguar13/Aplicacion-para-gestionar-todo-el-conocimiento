@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
@@ -17,6 +18,7 @@ import 'package:sinapsis/features/map/data/repositories/knowledge_map_query_sql.
 import 'package:sinapsis/features/map/data/repositories/knowledge_map_repository_impl.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
+import 'package:sinapsis/features/map/domain/services/link_strength.dart';
 import 'package:sinapsis/features/map/domain/services/topic_graph_builder.dart';
 
 import '../../../../support/in_memory_file_store.dart';
@@ -105,6 +107,9 @@ void main() {
     String to, {
     RelationKind kind = RelationKind.relatedTo,
     DateTime? reviewedAt,
+    ContentOrigin origin = ContentOrigin.user,
+    double? confidence,
+    int? sourceCharStart,
   }) => db
       .into(db.relations)
       .insert(
@@ -115,6 +120,9 @@ void main() {
           kind: kind,
           createdAt: now,
           reviewedAt: Value(reviewedAt),
+          origin: Value(origin),
+          confidence: Value(confidence),
+          sourceCharStart: Value(sourceCharStart),
         ),
       );
 
@@ -795,6 +803,120 @@ void main() {
       final links = await repository.readLinkGraph(focusId: 'suelto');
 
       expect(links.focusId, isNull);
+    });
+
+    test('con «más fuertes» o «menos fuertes» queda la mitad de los vínculos '
+        'por lo que la base guarda de cada uno (F39, paso 8)', () async {
+      for (final id in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'suelto']) {
+        await source(id, const []);
+      }
+      // De más a menos: una contradicción de la persona (4), una cita con el
+      // fragmento de donde sale (3,5), una cita de la persona (3) y una
+      // relación que la IA dejó sola sin confianza (1).
+      await relate('a', 'b', kind: RelationKind.contradicts);
+      await relate('c', 'd', kind: RelationKind.cites, sourceCharStart: 10);
+      await relate('e', 'f', kind: RelationKind.cites);
+      await relate('g', 'h', origin: ContentOrigin.ai);
+
+      final strongest = await repository.readLinkGraph(
+        strength: LinkStrengthFilter.strongest,
+      );
+      final weakest = await repository.readLinkGraph(
+        strength: LinkStrengthFilter.weakest,
+      );
+      final all = await repository.readLinkGraph();
+
+      expect({for (final i in strongest.items) i.id}, {'a', 'b', 'c', 'd'});
+      expect(strongest.edges, hasLength(2));
+      expect(strongest.totalLinks, 4);
+      expect(strongest.shownLinks, 2);
+      expect({for (final i in weakest.items) i.id}, {'e', 'f', 'g', 'h'});
+      expect(weakest.shownLinks, 2);
+      expect(all.items, hasLength(8));
+      expect(all.shownLinks, 4);
+      expect(all.totalLinks, 4);
+      // Lo que queda afuera por el corte sigue vinculado: solo el suelto no.
+      expect(strongest.unlinkedCount, 1);
+      expect(weakest.unlinkedCount, 1);
+    });
+
+    test('un vínculo que el corte deja afuera no se dibuja aunque sus dos '
+        'extremos sí (F39, paso 8)', () async {
+      for (final id in ['a', 'b', 'c', 'd', 'e', 'f']) {
+        await source(id, const []);
+      }
+      await relate('a', 'b', kind: RelationKind.contradicts);
+      await relate('c', 'd', kind: RelationKind.contradicts);
+      await relate('a', 'c');
+      await relate('e', 'f');
+
+      final strongest = await repository.readLinkGraph(
+        strength: LinkStrengthFilter.strongest,
+      );
+
+      expect({for (final i in strongest.items) i.id}, {'a', 'b', 'c', 'd'});
+      expect(strongest.edges, hasLength(2));
+      expect(
+        strongest.edges.every((e) => e.kind == RelationKind.contradicts),
+        isTrue,
+      );
+    });
+
+    group('lo que la base guarda de cada vínculo cuenta para su peso '
+        '(F39, paso 8)', () {
+      Future<Set<String>> strongestIds() async {
+        final links = await repository.readLinkGraph(
+          strength: LinkStrengthFilter.strongest,
+        );
+        return {for (final i in links.items) i.id};
+      }
+
+      test('quién lo hizo y cuánta confianza tenía: lo de la persona pesa '
+          'más que lo de la IA, y entre lo de la IA, lo más seguro', () async {
+        for (final id in ['a', 'b', 'c', 'd', 'e', 'f']) {
+          await source(id, const []);
+        }
+        // Por los identificadores, la IA sin confianza ganaría los empates.
+        await relate('a', 'b', origin: ContentOrigin.ai);
+        await relate('c', 'd', origin: ContentOrigin.ai, confidence: 0.9);
+        await relate('e', 'f');
+
+        expect(await strongestIds(), {'e', 'f', 'c', 'd'});
+      });
+
+      test('lo de la IA que la persona revisó pesa como suyo', () async {
+        for (final id in ['a', 'b', 'c', 'd', 'e', 'f']) {
+          await source(id, const []);
+        }
+        await relate('a', 'b', origin: ContentOrigin.ai, reviewedAt: now);
+        await relate('c', 'd');
+        await relate('e', 'f');
+
+        expect(await strongestIds(), {'a', 'b', 'c', 'd'});
+      });
+
+      test('saber de qué fragmento sale suma', () async {
+        for (final id in ['a', 'b', 'c', 'd', 'e', 'f']) {
+          await source(id, const []);
+        }
+        await relate('a', 'b');
+        await relate('c', 'd');
+        await relate('e', 'f', sourceCharStart: 0);
+
+        expect(await strongestIds(), {'e', 'f', 'a', 'b'});
+      });
+
+      test('dos elementos vinculados varias veces pesan más', () async {
+        for (final id in ['a', 'b', 'c', 'd', 'e', 'f']) {
+          await source(id, const []);
+        }
+        await relate('a', 'b');
+        await relate('c', 'd');
+        await relate('e', 'f');
+        await relate('f', 'e');
+
+        expect(await strongestIds(), {'e', 'f'});
+      });
     });
 
     test('sin ningún vínculo, un grafo vacío que cuenta los sueltos', () async {

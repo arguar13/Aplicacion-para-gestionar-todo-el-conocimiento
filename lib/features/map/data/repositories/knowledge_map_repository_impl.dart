@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -18,6 +19,7 @@ import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/link_graph_builder.dart';
+import 'package:sinapsis/features/map/domain/services/link_strength.dart';
 import 'package:sinapsis/features/map/domain/services/map_dashboard_builder.dart';
 
 class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
@@ -292,6 +294,7 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
     LibraryQuery filter = const LibraryQuery(),
     String? focusId,
     int limit = kMaxGraphItems,
+    LinkStrengthFilter strength = LinkStrengthFilter.all,
   }) async {
     final allowed = await _allowedItemIds(filter);
     final rows = await _db
@@ -313,13 +316,24 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
           toId: to,
           kind: RelationKind.values.byName(row.data['kind'] as String),
           createdAt: row.read<DateTime>('created_at'),
+          origin: ContentOrigin.values.byName(row.data['origin'] as String),
+          confidence: (row.data['confidence'] as num?)?.toDouble(),
+          reviewedAt: row.readNullable<DateTime>('reviewed_at'),
+          anchored: (row.data['anchored'] as int) != 0,
         ),
       );
     }
 
     final total = allowed?.length ?? await _liveItemCount();
-    final selection = selectLinkGraph(links, focusId: focusId, limit: limit);
-    final unlinked = total - selection.linkedCount;
+    // «Sin vínculos» es lo que no tiene NINGUNO: lo que se queda afuera por
+    // ser de los menos (o de los más) fuertes sigue vinculado.
+    final linkedAtAll = {
+      for (final link in links)
+        if (link.fromId != link.toId) ...[link.fromId, link.toId],
+    }.length;
+    final shown = cutLinksByStrength(links, strength);
+    final selection = selectLinkGraph(shown, focusId: focusId, limit: limit);
+    final unlinked = total - linkedAtAll;
     if (selection.ids.isEmpty) {
       return LinkGraph.empty(unlinkedCount: unlinked);
     }
@@ -346,7 +360,7 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
     return LinkGraph(
       items: items,
       edges: [
-        for (final link in links)
+        for (final link in shown)
           if (positionOf[link.fromId] case final a?)
             if (positionOf[link.toId] case final b?)
               TopicItemEdge(a: a, b: b, kind: link.kind),
@@ -354,6 +368,8 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
       linkedCount: selection.linkedCount,
       unlinkedCount: unlinked,
       focusId: positionOf.containsKey(focusId) ? focusId : null,
+      totalLinks: links.length,
+      shownLinks: shown.length,
     );
   }
 

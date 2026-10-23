@@ -7,6 +7,7 @@ import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
+import 'package:sinapsis/features/map/domain/services/link_strength.dart';
 
 /// El repositorio del mapa de la bóveda sintética, con los temas con la forma
 /// de una bóveda de verdad (ver `structured_topics.dart`).
@@ -75,5 +76,11 @@ class StructuredMapRepository implements KnowledgeMapRepository {
     LibraryQuery filter = const LibraryQuery(),
     String? focusId,
     int limit = kMaxGraphItems,
-  }) => _real.readLinkGraph(filter: filter, focusId: focusId, limit: limit);
+    LinkStrengthFilter strength = LinkStrengthFilter.all,
+  }) => _real.readLinkGraph(
+    filter: filter,
+    focusId: focusId,
+    limit: limit,
+    strength: strength,
+  );
 }

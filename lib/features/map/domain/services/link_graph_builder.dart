@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 
@@ -9,18 +10,39 @@ import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 const kRecentLinkedItems = 40;
 
 /// Un vínculo entre dos elementos vivos, tal como lo entrega la base.
+///
+/// Además de los extremos y el tipo, trae lo que la base guarda de quién lo
+/// hizo y de cuánto respalda: es con lo que `linkStrength` dice cuánto pesa.
 class LinkRow {
   const LinkRow({
     required this.fromId,
     required this.toId,
     required this.kind,
     required this.createdAt,
+    this.origin = ContentOrigin.user,
+    this.confidence,
+    this.reviewedAt,
+    this.anchored = false,
   });
 
   final String fromId;
   final String toId;
   final RelationKind kind;
   final DateTime createdAt;
+
+  /// Quién lo hizo: la persona (o la IA y la persona lo adoptó al editarlo) o
+  /// la IA sola.
+  final ContentOrigin origin;
+
+  /// Qué tan segura estaba la IA, de 0 a 1; `null` en los de la persona.
+  final double? confidence;
+
+  /// Cuándo lo revisó la persona; `null` si no.
+  final DateTime? reviewedAt;
+
+  /// Si sabe DÓNDE del texto del destino sale (`source_char_start` guardado):
+  /// lo dejó una extracción desde una selección.
+  final bool anchored;
 }
 
 /// Qué elementos dibuja la vista «Vínculos» y cuántos vinculados hay en total.

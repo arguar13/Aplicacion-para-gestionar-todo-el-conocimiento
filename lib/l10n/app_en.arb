@@ -4274,6 +4274,37 @@
   "@mapLinksLoadError": {
     "description": "Error of the Map's Links view when reading the database (F28)."
   },
+  "mapLinksStrengthLabel": "Links",
+  "@mapLinksStrengthLabel": {
+    "description": "Encabezado de los chips de la vista «Vínculos» del Mapa que eligen qué vínculos mostrar según cuánto pesan (F39, paso 8)."
+  },
+  "mapLinksStrengthStrongest": "Strongest",
+  "@mapLinksStrengthStrongest": {
+    "description": "Opción del selector de la vista «Vínculos»: la mitad de los vínculos que más pesan (F39, paso 8)."
+  },
+  "mapLinksStrengthWeakest": "Weakest",
+  "@mapLinksStrengthWeakest": {
+    "description": "Opción del selector de la vista «Vínculos»: la mitad de los vínculos que menos pesan (F39, paso 8)."
+  },
+  "mapLinksStrengthAll": "All",
+  "@mapLinksStrengthAll": {
+    "description": "Opción del selector de la vista «Vínculos»: todos los vínculos, sin cortar por cuánto pesan (F39, paso 8)."
+  },
+  "mapLinksStrengthCut": "Showing {shown} of {total} links: {which, select, strongest{the strongest} other{the weakest}}. A link weighs its type, who backed it, whether its source is known and how many times the two items are linked.",
+  "@mapLinksStrengthCut": {
+    "description": "Aviso de la vista «Vínculos» cuando solo se muestran los más o los menos fuertes (F39, paso 8). which: strongest o weakest.",
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "which": {
+        "type": "String"
+      }
+    }
+  },
   "mapGraphCrumbOverview": "Communities",
   "@mapGraphCrumbOverview": {
     "description": "Primer paso del camino del grafo de conocimiento: el panorama con todas las comunidades de temas."

@@ -264,7 +264,11 @@ final mapLinksSql =
 SELECT r.from_item_id AS from_id,
        r.to_item_id AS to_id,
        r.kind AS kind,
-       r.created_at AS created_at
+       r.created_at AS created_at,
+       r.origin AS origin,
+       r.confidence AS confidence,
+       r.reviewed_at AS reviewed_at,
+       (r.source_char_start IS NOT NULL) AS anchored
 FROM relations r
 JOIN item a ON a.id = r.from_item_id
 JOIN item b ON b.id = r.to_item_id

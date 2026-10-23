@@ -287,6 +287,122 @@ void main() {
       expect(find.text(es.mapLinksSummary(3)), findsOneWidget);
     });
 
+    group('los más fuertes, los menos fuertes o todos (F39, paso 8)', () {
+      Future<void> seedFour() async {
+        for (final id in ['a', 'b', 'c', 'd', 'suelto']) {
+          await item(id, const []);
+        }
+        await relate('a', 'b'); // contradicts: el más fuerte
+        await relate('c', 'd', kind: RelationKind.relatedTo);
+      }
+
+      bool shows(String id) =>
+          find.byKey(ValueKey('map-links-node-$id')).evaluate().isNotEmpty;
+
+      testWidgets('arranca en «Todos» y no avisa nada de un corte', (
+        tester,
+      ) async {
+        await seedFour();
+        await pump(tester);
+
+        await openLinks(tester);
+
+        expect(
+          tester
+              .widget<ChoiceChip>(
+                find.widgetWithText(ChoiceChip, es.mapLinksStrengthAll),
+              )
+              .selected,
+          isTrue,
+        );
+        expect([
+          shows('a'),
+          shows('b'),
+          shows('c'),
+          shows('d'),
+        ], everyElement(isTrue));
+        expect(
+          find.byKey(const ValueKey('map-links-strength-cut')),
+          findsNothing,
+        );
+      });
+
+      testWidgets('«Más fuertes» deja la mitad que más pesa y lo avisa; '
+          '«Menos fuertes» la otra; «Todos» vuelve', (tester) async {
+        await seedFour();
+        await pump(tester);
+        await openLinks(tester);
+
+        await tester.tap(find.text(es.mapLinksStrengthStrongest));
+        await tester.pumpAndSettle();
+
+        expect(
+          [shows('a'), shows('b'), shows('c'), shows('d')],
+          [true, true, false, false],
+        );
+        expect(
+          find.text(es.mapLinksStrengthCut(1, 2, 'strongest')),
+          findsOneWidget,
+        );
+        // Lo que el corte deja afuera sigue vinculado: solo «suelto» no.
+        expect(find.text(es.mapLinksUnlinked(1)), findsOneWidget);
+
+        await tester.tap(find.text(es.mapLinksStrengthWeakest));
+        await tester.pumpAndSettle();
+
+        expect(
+          [shows('a'), shows('b'), shows('c'), shows('d')],
+          [false, false, true, true],
+        );
+        expect(
+          find.text(es.mapLinksStrengthCut(1, 2, 'weakest')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.text(es.mapLinksStrengthAll));
+        await tester.pumpAndSettle();
+
+        expect([
+          shows('a'),
+          shows('b'),
+          shows('c'),
+          shows('d'),
+        ], everyElement(isTrue));
+        expect(
+          find.byKey(const ValueKey('map-links-strength-cut')),
+          findsNothing,
+        );
+      });
+
+      testWidgets('la elección se recuerda cuando llega un vínculo nuevo', (
+        tester,
+      ) async {
+        await seedFour();
+        await pump(tester);
+        await openLinks(tester);
+        await tester.tap(find.text(es.mapLinksStrengthStrongest));
+        await tester.pumpAndSettle();
+
+        await tester.runAsync(() => item('e', const []));
+        await tester.runAsync(() => relate('c', 'e', kind: RelationKind.cites));
+        await tester.pumpAndSettle();
+
+        // Tres vínculos: arriba quedan los dos que más pesan (a-b y c-e).
+        expect(
+          [shows('a'), shows('c'), shows('e'), shows('d')],
+          [true, true, true, false],
+        );
+        expect(
+          tester
+              .widget<ChoiceChip>(
+                find.widgetWithText(ChoiceChip, es.mapLinksStrengthStrongest),
+              )
+              .selected,
+          isTrue,
+        );
+      });
+    });
+
     testWidgets('sin vínculos, lo dice y ofrece agregar uno', (tester) async {
       await item('a', const []);
       await pump(tester);

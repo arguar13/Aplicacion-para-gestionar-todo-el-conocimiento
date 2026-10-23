@@ -14,12 +14,16 @@ class LinkGraph {
     required this.linkedCount,
     required this.unlinkedCount,
     this.focusId,
+    this.totalLinks = 0,
+    this.shownLinks = 0,
   });
 
   const LinkGraph.empty({this.unlinkedCount = 0, this.focusId})
     : items = const [],
       edges = const [],
-      linkedCount = 0;
+      linkedCount = 0,
+      totalLinks = 0,
+      shownLinks = 0;
 
   /// Los elementos que se dibujan.
   final List<TopicItemNode> items;
@@ -35,6 +39,15 @@ class LinkGraph {
 
   /// El elemento en el que se pidió poner el foco, si está entre [items].
   final String? focusId;
+
+  /// Cuántos vínculos hay entre los elementos que pasan el filtro, antes de
+  /// quedarse con los más o los menos fuertes (F39, paso 8).
+  final int totalLinks;
+
+  /// Cuántos de [totalLinks] entran en lo que se pidió: todos, o la mitad más
+  /// o menos fuerte. Con el tope de elementos, se dibujan los que caen en
+  /// [items].
+  final int shownLinks;
 
   /// Cuántos vinculados quedaron sin dibujar por el tope.
   int get hidden => linkedCount - items.length;

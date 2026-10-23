@@ -314,3 +314,18 @@
     rompe nada.
   - Pruebas: Ajustes ya no lo muestra, y Repasar muestra racha e historial aunque el valor viejo
     diga apagado. 4 mutaciones, todas muertas.
+- **Paso 8 — hecho.** La vista «Vínculos» del Mapa tiene un selector «Más fuertes · Menos fuertes ·
+  Todos» con chips al estilo del grado del Grafo. Arranca en «Todos» y se recuerda mientras la
+  vista vive.
+  - El peso sale de lo que ya se guarda, sin cambiar la base:
+    - tipo: 1 si es `relatedTo`, 3 si es `contradicts`, 2 el resto;
+    - respaldo: 1 si es de la persona o revisado, o la confianza de la IA por 0,5;
+    - ancla: +0,5 si se sabe de qué fragmento sale;
+    - repetidos: +1 por cada vínculo de más entre los mismos dos elementos.
+  - `linkStrength` y `cutLinksByStrength` son puras. El corte es la mitad (redondeada hacia
+    arriba) de cada punta, con empates estables: fecha más reciente, luego identificadores y tipo.
+  - El repositorio corta antes de elegir qué dibujar. Lo cortado sigue contando como vinculado, y
+    un aviso dice «Se muestran N de M vínculos».
+  - Pruebas: unitarias del peso y del corte, de repositorio con las columnas reales, y de widget
+    del selector y de la vista. 38 mutaciones, todas muertas (dos sobrevivían en la primera
+    pasada —el desempate por `toId` y las aristas sin cortar— y se sumaron pruebas).

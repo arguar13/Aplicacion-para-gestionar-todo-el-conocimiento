@@ -1506,6 +1506,17 @@ Muestra tu bóveda como una red, con cuatro formas de mirarla:
   se acomoda aparte, sin que ninguna caja pise a otra, y los grupos van en
   filas, uno al lado del otro, del más grande al más chico: al abrir ves el
   mapa entero, y con dos dedos acercás para leer los títulos.
+  Arriba, **«Vínculos: Más fuertes · Menos fuertes · Todos»** (arranca en
+  «Todos»): **«Más fuertes»** deja la mitad de los vínculos que más pesan y
+  **«Menos fuertes»** la mitad que menos pesan (con un número impar, el del
+  medio está en las dos), y un aviso dice «Se muestran 3 de 6 vínculos». Un
+  vínculo pesa por **su tipo** (una contradicción más que uno con algo que
+  decir, y ese más que un «relacionado» sin precisar), por **quién lo
+  respaldó** (lo tuyo, o lo que la IA hizo y vos revisaste, más que lo que la
+  IA dejó sola, según su confianza), por **si se sabe de qué fragmento
+  sale**, y por **cuántas veces se vinculan los dos elementos**. Los
+  empates los gana el más reciente. La elección se queda mientras seguís en
+  la vista, aunque cambies los filtros o llegue un vínculo nuevo.
 - **Esquema**: un árbol que se despliega desde un tema elegido.
 - **Grafo**: una red interactiva con tres niveles de zoom — comunidades
   (círculos grandes) → temas → elementos individuales. Tocás un nodo para
