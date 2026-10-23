@@ -498,7 +498,7 @@ void _tests() {
       );
       // Y desde el principio del texto, la única aparición cercana es la
       // de más adelante.
-      final fromStart = DocumentMark(
+      const fromStart = DocumentMark(
         start: -5,
         end: 3,
         excerpt: 'Quinta',
