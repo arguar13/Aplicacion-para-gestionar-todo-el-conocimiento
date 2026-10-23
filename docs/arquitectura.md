@@ -6387,6 +6387,51 @@ oración)"*. Después, ampliado: *"que se aplique a todo tipo de documentos de t
     apagado.
   - Una tabla de marcas por formato: la posición en el texto extraído sirve para todos.
 
+### 80. F37: todo lo que se guarda va a uno o varios temas, en una tabla elemento–tema
+
+**Pedido** (2026-10-22): *"la primera vez que agrego un elemento … que me obligue a crear un tema
+así se guarde en ese tema creado y que los demás elementos que yo agregue se agreguen por defecto a
+ese tema … sino que me deje elegir el tema y a su vez me siga apareciendo la opción de crear un
+tema nuevo … (que también permita que se guarden en varios temas si yo selecciono varios temas)"*.
+Plan, con el «Avance» de cada paso: `docs/planes/F37-todo-en-un-tema.md`.
+
+- **Varios temas, en una tabla propia** (decisión A). `item_spaces (item_id, space_id)`, esquema v41,
+  con borrado en cascada desde el elemento y desde el tema. La columna `item.space_id` ya no existe:
+  la migración copió el tema de cada uno, y ningún lado sabe de un tema «principal».
+- **El conjunto es un solo campo** (decisión D). Para el historial por campo y la unión de bóvedas,
+  los temas de un elemento son `EntryField.spaces`: gana el último cambio, entero. Así, un tema que
+  se sacó en un dispositivo no vuelve desde el otro. La fusión de duplicados suma los temas de los
+  dos.
+- **Al guardar, nunca sin tema.**
+  - La captura exige al menos uno: el campo «Temas» no deja sacar el último, y sin ninguno
+    «Guardar» se apaga.
+  - Sin ningún tema todavía, la tarjeta de la primera vez crea uno ahí mismo.
+  - El campo arranca con el tema que se mira en la Biblioteca o, si no, con los de la última vez
+    (decisión B). Esos se guardan en el teléfono (`lastSpacesProvider`, SharedPreferences), no en
+    la bóveda, y de ellos quedan solo los que todavía existen.
+  - Una nota nueva arranca en los que le pasa la captura. Ella no pone otros, porque los de la
+    última vez pueden ser temas borrados.
+  - Una nota derivada de un elemento va a los temas de ese elemento.
+- **Una sola hoja para elegir.** `showSpacesPickerSheet`: marcar varios, buscar y «Crear tema
+  nuevo» sin cerrarla. La usan la captura, el editor de notas, el detalle, el menú de la tarjeta, la
+  selección múltiple y la lista de lo que no tiene tema. La hoja vieja de un solo tema se borró.
+- **Lo que ya estaba sin tema no se mueve solo** (decisión C). La tarjeta «N elementos sin tema ·
+  Ordenarlos» lleva a una lista para elegirles temas de a varios. La columna «Sin clasificar» del
+  tablero queda solo mientras haya algo así. Fuera de la captura, sacarle el último tema a algo se
+  puede: forzarlo obligaría a elegir otro para poder sacar uno.
+- **Varios a la vez, sin pisar.** En la selección múltiple, la hoja arranca con los temas que
+  tienen todos los elegidos. Marcar suma y desmarcar saca en todos, y lo que tiene solo alguno no
+  se toca (`changeSpaces`, un cambio por elemento).
+- **Compartir no cambió** (decisión E). El plan suponía que lo compartido se guardaba sin
+  preguntar. Desde la fase 2 abre la captura ya cargada, y ahora también con los temas de la
+  última vez. No se agregó guardar sin revisar ni el aviso «Guardado en X · Cambiar». Queda a
+  pedido.
+- **La IA** (decisión de F27, igual). «Elegir el tema» solo actúa sobre lo que no tiene ninguno, y
+  deshacer su pasada saca solo el tema que puso.
+- **Se descartó:**
+  - Un tema principal más otros aparte: cada lectura tendría que saber cuál es cuál.
+  - Meter lo viejo en un tema «General» al actualizar: mueve cosas sin que nadie lo pida.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -6827,6 +6872,11 @@ oración)"*. Después, ampliado: *"que se aplique a todo tipo de documentos de t
   la IA elige las oraciones del resumen o de la síntesis y las palabras clave de cada una. Se
   resaltan en el original —el lector, el PDF real, la página archivada— y se pueden extraer y
   copiar desde la tarjeta «Estudiar el documento». Ver la decisión 79.
+
+- **F37, todo en un tema.** Un elemento está en uno o varios temas (`item_spaces`, v41). Lo que se
+  guarda va siempre a alguno: los de la última vez, o el primero creado ahí mismo. Una sola hoja
+  elige varios en todos lados, y lo que ya estaba sin tema se ordena desde su tarjeta. Ver la
+  decisión 80.
 
 ### Por construir
 

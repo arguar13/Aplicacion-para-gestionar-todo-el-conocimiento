@@ -3,7 +3,7 @@
 Este documento es para quien empieza de cero, sin ningún recuerdo de sesiones anteriores
 (una persona o una sesión nueva de Claude Code). Leyéndolo entero entendés qué es la app, cómo
 está hecha, cómo se trabaja en este repositorio, qué reglas puso el dueño y en qué estado quedó
-todo. Fecha del estado descrito: **2026-10-22** (`origin/main` = el cierre de F36).
+todo. Fecha del estado descrito: **2026-10-22** (`origin/main` = el cierre de F37).
 
 Documentos hermanos, de más general a más fino:
 
@@ -116,7 +116,7 @@ y exploración), `explorer`, `notebooks`, `inbox`, `suggestions`, `duplicates`, 
 
 Las primeras ocho fases armaron la base (captura, transformaciones, documentos, organización,
 grafo, chat con RAG, flashcards SM-2, exportar, OCR/Whisper, web, Windows). Desde ahí el trabajo
-se numera **F1…F36**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
+se numera **F1…F37**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
 desde F13):
 
 - **F1–F11** — un solo modelo de datos Fuente/Nota, vocabulario controlado, Bandeja de entrada,
@@ -168,6 +168,12 @@ desde F13):
   Se analiza por partes, retomable, con el modelo elegido. La tarjeta «Estudiar el documento» trae
   los botones, el avance y «Extraer» (texto, resumen, síntesis y palabras, con «Copiar»). El visor
   de la página web vuelve a mostrar sus fotos.
+- **F37** — **todo en un tema** (decisión 80). Un elemento está en uno o varios temas, en una
+  tabla elemento–tema (`item_spaces`, esquema v41). Al capturar, el campo «Temas» exige al menos
+  uno: arranca con los de la última vez, y la primera vez se crea uno ahí mismo. Una sola hoja
+  marca varios temas, busca y crea uno nuevo sin cerrarse, en la captura, el detalle, el menú de
+  la tarjeta y la selección múltiple. Lo que ya estaba sin tema no se mueve solo: la tarjeta
+  «N elementos sin tema · Ordenarlos» lleva a la lista para elegirles temas de a varios.
 
 ## 5. Estado actual
 
@@ -183,11 +189,14 @@ desde F13):
 > `docs/planes/F34-barra-en-cinco-pasos.md`.
 >
 > **F36 (resumen, síntesis y palabras clave) está construida** (2026-10-22):
-> `docs/planes/F36-resumen-sintesis-y-palabras-clave.md`. Sigue **F37** (temas, aprobado) y después
-> **F38** (resaltar a mano y descargar), que espera su «aprobado».
+> `docs/planes/F36-resumen-sintesis-y-palabras-clave.md`.
+>
+> **F37 (todo en un tema) está construida** (2026-10-22): `docs/planes/F37-todo-en-un-tema.md`.
+> Sigue **F38** (resaltar a mano y descargar el resaltado), aprobada:
+> `docs/planes/F38-resaltar-a-mano-y-descargar-resaltado.md`.
 
 
-- `origin/main` = el commit «docs: cierre de F36», sobre `a89a28a`. **Suite: 8.516 pruebas pasan, 0 fallas, 78 omitidas** (las omitidas son de siempre, más una de un PDF que necesita pdfium).
+- `origin/main` = el commit «docs: cierre de F37», sobre `add229e`. **Suite: 8.586 pruebas pasan, 0 fallas, 78 omitidas** (las omitidas son de siempre, más una de un PDF que necesita pdfium).
   **Analizador: 19 avisos.** Es la línea base de `tool/verify_commit.ps1` y **no puede crecer**.
 - Hay cinco archivos con cambios de solo formato que no son de este trabajo y no se commitean:
   - `lib/core/database/tables/suggestions.dart`

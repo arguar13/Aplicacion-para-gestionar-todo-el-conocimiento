@@ -1,7 +1,7 @@
 # F37 — Todo lo que guardás, en un tema (y en varios, si querés)
 
-> **Estado: aprobado, por construir** (2026-10-22). Aprobado en el chat: *"apruebo todos los
-> planes"* —con las decisiones A–E tal como están—. Va después de terminar F36.
+> **Estado: CONSTRUIDO** (2026-10-22, pasos 1–6; decisión 80 en `docs/arquitectura.md`). Aprobado
+> en el chat: *"apruebo todos los planes"* —con las decisiones A–E tal como están—.
 >
 > Pedido: *"si es la primera vez que agrego un elemento que al elegir el elemento que quiero
 > agregar o guardar en la biblioteca que me obligue a crear un tema así se guarde en ese tema
@@ -239,3 +239,14 @@ que la leía: no hay un estado intermedio que compile.
     de la lista.
   - La prueba nueva lo hace volver a la lista, borrando su tema, y mata el mutante.
 - Suite entera 8.586 (78 omitidas).
+
+### Paso 6 (hecho, cierre)
+
+- La decisión 80 en `docs/arquitectura.md` y la entrada de F37 en «Construido».
+- CONTEXTO al día: la historia, el estado actual (sigue F38, aprobada) y la suite.
+- GUIA_DE_USO quedó al día en cada paso.
+- El paso es solo documentación: la suite entera es la del paso 5 (8.586, 78 omitidas), y
+  `verify_commit` pasa con los 19 avisos de la línea base.
+- La APK al teléfono no se armó: se hace solo si la pedís.
+- Queda abierto, a tu decisión: compartir desde otra app sigue abriendo el formulario con el tema
+  ya puesto, en vez de guardar solo con «Guardado en X · Cambiar».
