@@ -135,3 +135,7 @@
   no se pisa: entra solo el que falta.
 - Pruebas: la migración 41→42 (`migration_v42_test.dart`), el repositorio, la papelera (ida y
   vuelta, y lo soltado antes) y la unión.
+- Mutación: 13/13. La que sobrevivió al principio —cambiar uno que ya no existe daba un fallo
+  genérico en vez de decir que se borró— la mata ahora una prueba que mira el mensaje.
+- El tono de cada color, en los dos temas y en lo que se descarga, está en `HighlightPalette`
+  (`lib/core/design/`). Sin color, el de siempre.
