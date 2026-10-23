@@ -5,6 +5,7 @@ import 'package:sinapsis/core/design/highlight_palette.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/features/export/data/marked/marked_document_writers.dart';
 import 'package:sinapsis/features/export/domain/entities/marked_document_format.dart';
 import 'package:sinapsis/features/export/presentation/providers/marked_download_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
@@ -36,11 +37,22 @@ void main() {
     );
   });
 
-  test('mientras nadie registra escritores, no se puede descargar nada', () {
+  test('se descargan marcados el PDF, el Word, el texto y el Markdown, cada '
+      'uno con su escritor', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
-    expect(container.read(markedDocumentWritersProvider), isEmpty);
+    final writers = container.read(markedDocumentWritersProvider);
+    expect(writers[MarkedDocumentFormat.pdf], isA<PdfMarkedDocumentWriter>());
+    expect(writers[MarkedDocumentFormat.docx], isA<DocxMarkedDocumentWriter>());
+    expect(
+      writers[MarkedDocumentFormat.plainText],
+      isA<TextMarkedDocumentWriter>(),
+    );
+    expect(
+      writers[MarkedDocumentFormat.markdown],
+      isA<MarkdownMarkedDocumentWriter>(),
+    );
   });
 
   group('el formato que se ofrece', () {

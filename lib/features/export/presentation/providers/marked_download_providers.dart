@@ -5,6 +5,7 @@ import 'package:sinapsis/core/design/highlight_palette.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/features/export/data/marked/marked_document_writers.dart';
 import 'package:sinapsis/features/export/domain/entities/marked_document_format.dart';
 import 'package:sinapsis/features/export/domain/services/document_marks_builder.dart';
 import 'package:sinapsis/features/export/domain/services/marked_document_writer.dart';
@@ -12,19 +13,8 @@ import 'package:sinapsis/features/export/domain/usecases/download_marked_documen
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 
-/// Quién escribe los tramos marcados de cada formato (F38).
-///
-/// **El integrador completa este provider.** Cada escritor real tiene su
-/// propia firma —ver `MarkedDocumentWriter`— y se registra acá envuelto en un
-/// adaptador que lo lleva a esa interfaz, uno por formato:
-///
-/// ```dart
-/// final markedDocumentWritersProvider = Provider((ref) => {
-///   MarkedDocumentFormat.pdf: PdfWriterAdapter(const PdfDocumentMarker()),
-///   MarkedDocumentFormat.docx: DocxWriterAdapter(const DocxMarkWriter()),
-///   ...
-/// });
-/// ```
+/// Quién escribe los tramos marcados de cada formato (F38): cada escritor
+/// real, envuelto en su adaptador (`marked_document_writers.dart`).
 ///
 /// Mientras un formato no esté en el mapa, su original no se puede descargar
 /// marcado: la tarjeta de estudio no ofrece «Descargar» y el caso de uso
@@ -32,7 +22,12 @@ import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 /// escritores de mentira.
 final markedDocumentWritersProvider =
     Provider<Map<MarkedDocumentFormat, MarkedDocumentWriter>>(
-      (ref) => const {},
+      (ref) => const {
+        MarkedDocumentFormat.pdf: PdfMarkedDocumentWriter(),
+        MarkedDocumentFormat.docx: DocxMarkedDocumentWriter(),
+        MarkedDocumentFormat.plainText: TextMarkedDocumentWriter(),
+        MarkedDocumentFormat.markdown: MarkdownMarkedDocumentWriter(),
+      },
     );
 
 /// Los colores con que se marca el documento: los de la pantalla en su tema
