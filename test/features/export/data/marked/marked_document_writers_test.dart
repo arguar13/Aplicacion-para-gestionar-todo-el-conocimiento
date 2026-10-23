@@ -96,7 +96,7 @@ void main() {
           initialized = true;
         },
       );
-      final pdf = buildPdf(pageTexts: const ['Hola mundo']);
+      final pdf = buildPdf(); // una página: «Hola mundo»
 
       final out = await writer.write(
         pdf,
