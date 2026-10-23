@@ -139,3 +139,40 @@
   genérico en vez de decir que se borró— la mata ahora una prueba que mira el mensaje.
 - El tono de cada color, en los dos temas y en lo que se descarga, está en `HighlightPalette`
   (`lib/core/design/`). Sin color, el de siempre.
+
+### Paso 5 (hecho): descargar el documento marcado, en su formato
+
+- **Botón «Descargar»** en la tarjeta «Estudiar el documento». Abre una hoja con cuatro opciones
+  que se combinan:
+  - con el resumen;
+  - con la síntesis;
+  - con las palabras clave;
+  - con mis resaltados.
+- Las opciones sin datos aparecen deshabilitadas y dicen por qué. La hoja arranca con lo que ya se
+  ve resaltado.
+- El nombre sale como «Historia — resumen y mis resaltados.pdf».
+- Se guarda con el selector del sistema. **Compartir no está**: la app no tiene cómo pasarle un
+  archivo a otra app, y no se agregó una dependencia para eso. En Android, el selector ya deja
+  elegir Drive y otras apps.
+- El botón solo aparece si el original es de un formato que se sabe marcar. El formato se
+  reconoce por los bytes, no por el nombre.
+- **Las capas**, de abajo hacia arriba: el resumen, la síntesis, mis resaltados (el más reciente
+  arriba) y las palabras clave. Es la misma regla de F36, ahora en
+  `study_layers.dart`, que usan la pantalla y la descarga.
+- **Cada formato** (`lib/features/export/data/marked/`, con un adaptador por formato en
+  `marked_document_writers.dart`):
+  - **PDF**: anotaciones de verdad sobre las letras de cada página. En una página escaneada va
+    un recuadro en el lugar aproximado del renglón (decisión D).
+  - **Word**: el sombreado del color exacto en los runs, o el subrayado. La nota va como
+    comentario de Word. Lo demás del archivo queda byte por byte.
+  - **Texto suelto**: sale como Word con el mismo texto (decisión C).
+  - **Markdown**: `==así==` y `<u>así</u>`, sin romper su sintaxis.
+  - **EPUB**: un `<mark>` del color en su capítulo, recorriendo los capítulos igual que el
+    extractor. `mimetype` queda primero y sin comprimir.
+  - **Página web archivada**: un `<mark>` del color, y la nota en el `title`.
+- **Dónde cae cada tramo** (`mark_locator.dart`): se busca por las letras y los números, no por
+  la posición. El texto extraído de un Word, un EPUB o una página es Markdown armado a partir del
+  archivo y no coincide con él. Un tramo que no se encuentra se saltea.
+- Mutación: 36/38 (Word, texto y Markdown: uno equivalente y uno de código que nunca se
+  ejecutaba, que se borró), unos 54 en EPUB y página web con 3 equivalentes, 28/28 en la hoja y
+  el caso de uso, y 10/10 en los adaptadores.
