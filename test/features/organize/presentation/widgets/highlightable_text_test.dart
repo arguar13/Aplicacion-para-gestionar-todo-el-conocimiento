@@ -16,6 +16,7 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -597,7 +598,7 @@ void main() {
       ProviderScope.containerOf(
         tester.element(find.byType(HighlightableText)),
       ).read(studyViewProvider('rendition-1').notifier).state = const StudyView(
-        picking: true,
+        pick: StudyMarkKind.keyword,
       );
 
       await tapAt(tester, amor + 2);

@@ -88,11 +88,12 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
         final offset = _study.offsetAt(details.documentPosition);
         if (offset != null) {
           unawaited(
-            toggleStudyKeywordAt(
+            pickStudyAt(
               ref,
               this.context,
               renditionId: text.renditionId,
               content: text.content,
+              markdown: text.markdown,
               offset: offset,
             ),
           );

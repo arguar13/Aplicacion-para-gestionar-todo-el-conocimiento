@@ -113,18 +113,22 @@ class StudyRepositoryImpl implements StudyRepository {
             createdAt: now,
           );
 
-      final existingUserKeywords = {
-        for (final m in await _userKeywords(renditionId)) (m.start, m.end),
+      // Lo que la persona ya eligió no se repite: una oración o una palabra
+      // es una sola marca, venga de quien venga.
+      final chosen = {
+        for (final m in await _userMarks(renditionId)) (m.kind, m.start, m.end),
       };
       await _db.batch((batch) {
         batch.insertAll(_db.studyMarks, [
-          for (final StudySentence(:start, :end) in marks.summary)
-            row(StudyMarkKind.summary, start, end),
-          for (final StudySentence(:start, :end) in marks.synthesis)
-            row(StudyMarkKind.synthesis, start, end),
-          for (final StudyWord(:start, :end) in marks.keywords)
-            if (!existingUserKeywords.contains((start, end)))
-              row(StudyMarkKind.keyword, start, end),
+          for (final (kind, start, end) in [
+            for (final StudySentence(:start, :end) in marks.summary)
+              (StudyMarkKind.summary, start, end),
+            for (final StudySentence(:start, :end) in marks.synthesis)
+              (StudyMarkKind.synthesis, start, end),
+            for (final StudyWord(:start, :end) in marks.keywords)
+              (StudyMarkKind.keyword, start, end),
+          ])
+            if (!chosen.contains((kind, start, end))) row(kind, start, end),
         ]);
       });
 
@@ -142,23 +146,27 @@ class StudyRepositoryImpl implements StudyRepository {
     return right(unit);
   });
 
-  Future<List<StudyMark>> _userKeywords(String renditionId) async {
+  Future<List<StudyMark>> _userMarks(String renditionId) async {
     final study = await read(renditionId);
     return [
-      for (final mark in study.of(StudyMarkKind.keyword))
+      for (final mark in study.marks)
         if (mark.origin == ContentOrigin.user) mark,
     ];
   }
 
   @override
-  Future<Either<Failure, Unit>> addKeyword({
+  Future<Either<Failure, Unit>> addUserMark({
     required String renditionId,
     required String content,
-    required StudyWord word,
-  }) => _guard('addKeyword', () async {
-    if (word.start < 0 || word.end > content.length || word.end <= word.start) {
+    required StudyMarkKind kind,
+    required int start,
+    required int end,
+  }) => _guard('addUserMark', () async {
+    if (start < 0 || end > content.length || end <= start) {
       return left(
-        const Failure.validation(message: 'Palabra fuera del texto.'),
+        Failure.validation(
+          message: 'Marca fuera del texto: $start–$end de ${content.length}.',
+        ),
       );
     }
     await _db.transaction(() async {
@@ -166,9 +174,9 @@ class StudyRepositoryImpl implements StudyRepository {
           await (_db.select(_db.studyMarks)..where(
                 (m) =>
                     m.renditionId.equals(renditionId) &
-                    m.kind.equalsValue(StudyMarkKind.keyword) &
-                    m.startOffset.equals(word.start) &
-                    m.endOffset.equals(word.end),
+                    m.kind.equalsValue(kind) &
+                    m.startOffset.equals(start) &
+                    m.endOffset.equals(end),
               ))
               .get();
       if (same.isNotEmpty) return;
@@ -178,11 +186,11 @@ class StudyRepositoryImpl implements StudyRepository {
             StudyMarksCompanion.insert(
               id: _ids.next(),
               renditionId: renditionId,
-              kind: StudyMarkKind.keyword,
+              kind: kind,
               origin: ContentOrigin.user,
-              startOffset: word.start,
-              endOffset: word.end,
-              excerpt: content.substring(word.start, word.end),
+              startOffset: start,
+              endOffset: end,
+              excerpt: content.substring(start, end),
               createdAt: _clock(),
             ),
           );
@@ -191,25 +199,24 @@ class StudyRepositoryImpl implements StudyRepository {
   });
 
   @override
-  Future<Either<Failure, Unit>> removeKeyword(String markId) => _guard(
-    'removeKeyword',
-    () async {
-      await (_db.delete(_db.studyMarks)..where(
-            (m) =>
-                m.id.equals(markId) & m.kind.equalsValue(StudyMarkKind.keyword),
-          ))
-          .go();
-      return right(unit);
-    },
-  );
+  Future<Either<Failure, Unit>> removeMark(String markId) =>
+      _guard('removeMark', () async {
+        await (_db.delete(
+          _db.studyMarks,
+        )..where((m) => m.id.equals(markId))).go();
+        return right(unit);
+      });
 
   @override
-  Future<Either<Failure, Unit>> clear(String renditionId) =>
-      _guard('clear', () async {
+  Future<Either<Failure, Unit>> clearAi(String renditionId) =>
+      _guard('clearAi', () async {
         await _db.transaction(() async {
-          await (_db.delete(
-            _db.studyMarks,
-          )..where((m) => m.renditionId.equals(renditionId))).go();
+          await (_db.delete(_db.studyMarks)..where(
+                (m) =>
+                    m.renditionId.equals(renditionId) &
+                    m.origin.equalsValue(ContentOrigin.ai),
+              ))
+              .go();
           await (_db.delete(
             _db.studyAnalyses,
           )..where((a) => a.renditionId.equals(renditionId))).go();

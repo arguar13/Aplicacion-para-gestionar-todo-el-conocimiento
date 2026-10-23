@@ -870,11 +870,12 @@ class _TextRenditionView extends ConsumerWidget {
                   return false;
                 }
                 unawaited(
-                  toggleStudyKeywordAt(
+                  pickStudyAt(
                     ref,
                     context,
                     renditionId: rendition.id,
                     content: rendition.content,
+                    markdown: extractedTextIsMarkdown(item.source),
                     offset: offset,
                   ),
                 );
@@ -891,11 +892,12 @@ class _TextRenditionView extends ConsumerWidget {
       paints: studied ? watchStudyPaints(ref, context, rendition.id) : const [],
       onTapOffset: studied
           ? (offset) => unawaited(
-              toggleStudyKeywordAt(
+              pickStudyAt(
                 ref,
                 context,
                 renditionId: rendition.id,
                 content: rendition.content,
+                markdown: extractedTextIsMarkdown(item.source),
                 offset: offset,
               ),
             )

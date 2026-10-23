@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/study/data/repositories/study_repository_impl.dart';
@@ -42,6 +43,23 @@ void main() {
   StudyWord word(String text) {
     final start = content.indexOf(text);
     return StudyWord(start, start + text.length, text.toLowerCase());
+  }
+
+  /// Lo que elige la persona: una palabra o una oración.
+  Future<void> addMine(StudyMarkKind kind, Object range) async {
+    final (start, end) = switch (range) {
+      StudyWord(:final start, :final end) => (start, end),
+      StudySentence(:final start, :final end) => (start, end),
+      _ => throw ArgumentError(range),
+    };
+    final saved = await repository.addUserMark(
+      renditionId: 'texto',
+      content: content,
+      kind: kind,
+      start: start,
+      end: end,
+    );
+    expect(saved.isRight(), isTrue);
   }
 
   setUp(() async {
@@ -168,20 +186,25 @@ void main() {
     expect(study.of(StudyMarkKind.keyword), isEmpty);
   });
 
-  test('rehacer una parte no se lleva las palabras que eligió la persona, '
-      'ni las duplica', () async {
+  test('rehacer una parte no se lleva lo que eligió la persona, ni lo '
+      'duplica: ni sus palabras ni sus oraciones (F39)', () async {
     await save(from: 0, to: 1, summary: [0]);
-    await repository.addKeyword(
-      renditionId: 'texto',
-      content: content,
-      word: word('Inglaterra'),
-    );
+    await addMine(StudyMarkKind.keyword, word('Inglaterra'));
+    await addMine(StudyMarkKind.summary, sentences[1]);
 
-    await save(from: 0, to: 1, summary: [0], keywords: [word('Inglaterra')]);
+    await save(from: 0, to: 2, summary: [0, 1], keywords: [word('Inglaterra')]);
 
-    final keywords = (await repository.read('texto')).of(StudyMarkKind.keyword);
+    final study = await repository.read('texto');
+    final keywords = study.of(StudyMarkKind.keyword);
     expect(keywords, hasLength(1));
     expect(keywords.single.origin, ContentOrigin.user);
+    expect(
+      [for (final m in study.of(StudyMarkKind.summary)) (m.start, m.origin)],
+      [
+        (sentences[0].start, ContentOrigin.ai),
+        (sentences[1].start, ContentOrigin.user),
+      ],
+    );
   });
 
   test('una parte fuera del texto no se guarda', () async {
@@ -197,16 +220,12 @@ void main() {
     expect(await db.select(db.studyAnalyses).get(), isEmpty);
   });
 
-  group('las palabras clave a mano', () {
+  group('lo elegido a mano (F36, F39)', () {
     test(
-      'agregar una la marca como de la persona; dos veces, una sola',
+      'una palabra clave queda como de la persona; dos veces, una sola',
       () async {
         for (var i = 0; i < 2; i++) {
-          await repository.addKeyword(
-            renditionId: 'texto',
-            content: content,
-            word: word('fábricas'),
-          );
+          await addMine(StudyMarkKind.keyword, word('fábricas'));
         }
         final keywords = (await repository.read(
           'texto',
@@ -220,47 +239,101 @@ void main() {
       },
     );
 
-    test('una palabra fuera del texto no se agrega', () async {
-      final result = await repository.addKeyword(
+    test('una oración del resumen o de la síntesis, también, sin analizar '
+        'nada', () async {
+      await addMine(StudyMarkKind.summary, sentences[2]);
+      await addMine(StudyMarkKind.synthesis, sentences[2]);
+
+      final study = await repository.read('texto');
+      expect(textsOf(study, StudyMarkKind.summary), [
+        'El trabajo infantil era común.',
+      ]);
+      expect(textsOf(study, StudyMarkKind.synthesis), [
+        'El trabajo infantil era común.',
+      ]);
+      expect(study.marks.map((m) => m.origin).toSet(), {ContentOrigin.user});
+      expect(study.started, isFalse);
+    });
+
+    test('algo fuera del texto no se agrega', () async {
+      final result = await repository.addUserMark(
         renditionId: 'texto',
         content: content,
-        word: const StudyWord(content.length - 2, content.length + 3, 'x'),
+        kind: StudyMarkKind.keyword,
+        start: content.length - 2,
+        end: content.length + 3,
       );
       expect(result.isLeft(), isTrue);
+      expect((await repository.read('texto')).marks, isEmpty);
     });
 
-    test('sacar una saca solo esa palabra, nunca una oración', () async {
-      await save(
-        from: 0,
-        to: 1,
-        summary: [0],
-        keywords: [word('Inglaterra'), word('revolución')],
-      );
-      final study = await repository.read('texto');
-      final inglaterra = study
-          .of(StudyMarkKind.keyword)
-          .firstWhere((m) => content.substring(m.start, m.end) == 'Inglaterra');
-
-      await repository.removeKeyword(inglaterra.id);
-      await repository.removeKeyword(study.of(StudyMarkKind.summary).single.id);
-
-      final after = await repository.read('texto');
-      expect(textsOf(after, StudyMarkKind.keyword), ['revolución']);
-      expect(after.of(StudyMarkKind.summary), hasLength(1));
+    test('una marca vacía o al revés tampoco', () async {
+      for (final (start, end) in [(5, 5), (8, 3)]) {
+        final result = await repository.addUserMark(
+          renditionId: 'texto',
+          content: content,
+          kind: StudyMarkKind.summary,
+          start: start,
+          end: end,
+        );
+        // Un aviso de que no entra, no una falla de la base.
+        expect(
+          result.getLeft().toNullable(),
+          isA<ValidationFailure>(),
+          reason: '$start–$end',
+        );
+      }
+      expect((await repository.read('texto')).marks, isEmpty);
     });
+
+    test(
+      'sacar una marca saca solo esa, sea de la IA o de la persona',
+      () async {
+        await save(
+          from: 0,
+          to: 1,
+          summary: [0],
+          keywords: [word('Inglaterra'), word('revolución')],
+        );
+        await addMine(StudyMarkKind.summary, sentences[1]);
+        final study = await repository.read('texto');
+        final inglaterra = study
+            .of(StudyMarkKind.keyword)
+            .firstWhere(
+              (m) => content.substring(m.start, m.end) == 'Inglaterra',
+            );
+        final mine = study
+            .of(StudyMarkKind.summary)
+            .firstWhere((m) => m.origin == ContentOrigin.user);
+
+        await repository.removeMark(inglaterra.id);
+        await repository.removeMark(mine.id);
+
+        final after = await repository.read('texto');
+        expect(textsOf(after, StudyMarkKind.keyword), ['revolución']);
+        expect(textsOf(after, StudyMarkKind.summary), [
+          'La revolución industrial empezó en Inglaterra.',
+        ]);
+      },
+    );
   });
 
-  test('borrar todo deja el texto como sin analizar', () async {
+  test('borrar lo de la IA deja el texto sin analizar, con lo que eligió la '
+      'persona (F39, decisión A)', () async {
     await save(from: 0, to: 3, summary: [0], completes: true);
-    await repository.addKeyword(
-      renditionId: 'texto',
-      content: content,
-      word: word('vapor'),
-    );
+    await addMine(StudyMarkKind.keyword, word('vapor'));
+    await addMine(StudyMarkKind.synthesis, sentences[2]);
 
-    await repository.clear('texto');
+    await repository.clearAi('texto');
 
-    expect(await repository.read('texto'), DocumentStudy.notStarted);
+    final after = await repository.read('texto');
+    expect(after.started, isFalse);
+    expect(after.complete, isFalse);
+    expect(textsOf(after, StudyMarkKind.keyword), ['vapor']);
+    expect(textsOf(after, StudyMarkKind.synthesis), [
+      'El trabajo infantil era común.',
+    ]);
+    expect(after.of(StudyMarkKind.summary), isEmpty);
   });
 
   test('cada cambio se ve en lo que se escucha', () async {

@@ -27,6 +27,8 @@
 >   algo así como los grados en los grafos"*.
 > - *"en «Lo que hizo la IA» … que me deje ver qué hace la IA en este momento y cómo lo hace … qué
 >   porcentaje va, cuánto tiempo va y cuántos tokens va … muy organizado … y muy elegante"*.
+> - *"en Ajustes, en cambiar tema, que tenga más opciones porque solo tiene claro y oscuro … que
+>   tenga sepia y muchas más opciones, así sea más elegante y atractivo"*.
 
 ## Lo que hay hoy
 
@@ -117,6 +119,20 @@
   del Grafo. Cuánto pesa un vínculo sale de lo que ya se guarda: el tipo, si lo confirmaste vos y
   cuántas veces se citan. Al hacer este paso se releva qué se guarda exactamente.
 
+### 9. Más temas en Ajustes
+
+- En «Cambiar tema», además de Claro, Oscuro y «Como el sistema», **varios temas con nombre**:
+  - **Sepia**, papel cálido para leer largo;
+  - **Noche** (negro puro, que en una pantalla OLED gasta menos);
+  - otros de tono suave y elegante, por ejemplo **Bosque**, **Océano**, **Lavanda** y
+    **Grafito**.
+- Cada uno se muestra como una **muestra chica con sus colores**, para elegir viendo, y se aplica
+  al instante en toda la app.
+- Lo que tiene un color propio sigue legible en cada tema: los resaltadores de estudiar, los
+  subrayados, el amarillo de lo que se lee y el papel del PDF.
+- **Decisión E**: cuántos y cuáles. Propongo los seis de arriba más Claro y Oscuro, y que el
+  lector («Leer como libro») siga el tema elegido.
+
 ## Decisiones para que confirmes
 
 - **A.** «Volver a analizar» rehace lo de la IA y **deja lo que elegiste a mano**. Hoy borra
@@ -126,6 +142,10 @@
   puede sumar después.
 - **C.** En una foto, el texto es el que se leyó de la imagen (OCR). Lo resaltado se ve en ese
   texto, no pintado sobre la foto.
+- **D.** Sin «Racha e historial» en Ajustes: la racha y el historial se ven siempre en Repasar.
+- **E.** Los temas: Claro, Oscuro y «Como el sistema», más Sepia, Noche, Bosque, Océano, Lavanda y
+  Grafito, cada uno con su muestra. El lector a pantalla completa sigue el tema elegido. Se puede
+  cambiar la lista antes de llegar a ese paso.
 
 ## Pasos (cada uno, su commit y su push)
 
@@ -141,7 +161,8 @@
 6. «Lo que hizo la IA» en vivo: qué hace, cómo, porcentaje, tiempo y tokens.
 7. Sacar «Racha e historial» de Ajustes (decisión D).
 8. Vínculos: más fuertes, menos fuertes o todos.
-9. Cierre: GUIA_DE_USO, las decisiones en `docs/arquitectura.md`, CONTEXTO y el «Avance»; suite
+9. Más temas en Ajustes: Sepia, Noche y los demás, con su muestra.
+10. Cierre: GUIA_DE_USO, las decisiones en `docs/arquitectura.md`, CONTEXTO y el «Avance»; suite
    entera y `verify_commit`; la APK al teléfono si la pedís.
 
 ## Avance
@@ -168,4 +189,17 @@
     nota, una referencia), siguen ahí.
   - Va en todo lo que lleva tarjeta y trae fotos; en la práctica, páginas y publicaciones, que son
     las que bajan su «Contenido».
-  - Las 8 mutaciones mueren.
+  - Las 8 mutaciones mueren. Commit `3a53b4f5`, verificado.
+- **Paso 3, primera parte (3a) — hecho.** Elegir a mano en cualquier superficie: una sola regla,
+  `studyPickAt`, y una sola función, `pickStudyAt`, que ya usaban para las palabras clave el
+  detalle, la transcripción, «Leer como libro», el PDF y la página.
+  - **Resumen o síntesis**: tocar una oración la pone entera; tocarla de nuevo la saca, la haya
+    puesto la IA o la persona. Se parte igual que en el análisis, así que coincide con lo de la IA.
+  - **Palabras clave**: en **cualquier** oración, haya o no resumen, hasta 4 por oración. Se ven
+    todas sin capa prendida o mientras se eligen; con el resumen o la síntesis, las de sus
+    oraciones. Lo mismo vale en lo que se descarga.
+  - **Decisión A**: «Volver a analizar» borra solo lo de la IA (`clearAi`), y un análisis no
+    duplica lo que la persona ya eligió.
+  - El repositorio queda con `addUserMark` y `removeMark` para cualquier tipo, en lugar de
+    `addKeyword` y `removeKeyword`.
+  - Falta la manera de entrar a elegir el resumen o la síntesis: es la sugerencia de 3b.

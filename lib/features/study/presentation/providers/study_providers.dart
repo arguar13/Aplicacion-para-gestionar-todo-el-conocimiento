@@ -169,6 +169,6 @@ Future<void> reanalyzeForStudy(
 }) async {
   final notifier = ref.read(studyAnalysisProvider(renditionId).notifier);
   if (notifier.isRunning) return;
-  await ref.read(studyRepositoryProvider).clear(renditionId);
+  await ref.read(studyRepositoryProvider).clearAi(renditionId);
   unawaited(notifier.start(content: content, markdown: markdown));
 }

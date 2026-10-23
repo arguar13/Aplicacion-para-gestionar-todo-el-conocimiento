@@ -122,17 +122,17 @@ List<DocumentMark> buildDocumentMarks({
             .toList()
       : const <DocumentMark>[];
 
+  // Como en la pantalla: con el resumen o la síntesis, las palabras clave de
+  // sus oraciones; solas, todas —a mano se eligen en cualquier oración (F39)—.
   final keywords = options.keywords
       ? [
-          for (final mark in studyKeywordMarksWithin(
-            study,
-            studySentenceMarks(
-              study,
-              sentenceKinds.isEmpty
-                  ? const {StudyMarkKind.summary, StudyMarkKind.synthesis}
-                  : sentenceKinds,
-            ),
-          ))
+          for (final mark
+              in sentenceKinds.isEmpty
+                  ? study.of(StudyMarkKind.keyword)
+                  : studyKeywordMarksWithin(
+                      study,
+                      studySentenceMarks(study, sentenceKinds),
+                    ))
             ?fromStudy(mark, colors.keyword),
         ]
       : const <DocumentMark>[];

@@ -664,10 +664,12 @@ resaltado está en el original, tal cual.
   pocas oraciones.
 - Funcionan como un interruptor: se ve **el resumen o la síntesis**, nunca
   los dos encima. Tocar el que está prendido lo apaga.
-- **Palabras clave** (rosa, en negrita) muestra, en cada oración resaltada,
-  hasta **4 palabras** que la sostienen. Las propone la IA y **las elegís
-  vos**: tocá el **lápiz** y después tocá una palabra de una oración
-  resaltada para agregarla o sacarla. Si la oración ya tiene 4, te avisa.
+- **Palabras clave** (rosa, en negrita) muestra hasta **4 palabras** por
+  oración que la sostienen. Con el resumen o la síntesis prendido se ven las
+  de sus oraciones; solas, todas. Las propone la IA y **las elegís vos**:
+  tocá el **lápiz** y después tocá una palabra de **cualquier** oración
+  —haya o no resumen— para agregarla o sacarla. Si la oración ya tiene 4,
+  te avisa.
 - Una leyenda chica, debajo de los botones, recuerda qué es cada color.
 
 **Dónde se ve lo resaltado:** sobre las letras del PDF real, en el lector
@@ -745,9 +747,9 @@ El mosaico **«Resumir»** del panel, en un documento o una página web, prende
 el resumen y te lleva a la tarjeta. En un video, un audio o una nota sigue
 como siempre: un resumen escrito en un diálogo.
 
-**«Volver a analizar»**, en el menú **⋮** de la tarjeta, rehace todo desde
-cero. Antes pregunta, porque también borra las palabras clave que elegiste a
-mano. Lo estudiado se guarda en la bóveda: si volvés a extraer el texto, se
+**«Volver a analizar»**, en el menú **⋮** de la tarjeta, rehace desde cero
+lo que hizo la IA. Antes pregunta. **Lo que elegiste a mano se queda**: las
+oraciones y las palabras clave tuyas no se borran. Lo estudiado se guarda en la bóveda: si volvés a extraer el texto, se
 reubica igual que tus subrayados, y entra en el respaldo y en la unión de
 bóvedas.
 

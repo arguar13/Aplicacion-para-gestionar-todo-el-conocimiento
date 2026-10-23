@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
@@ -52,7 +53,10 @@ Future<void> toggleStudyKeywords(
 /// Prende o apaga elegir palabras clave a mano en [text] (F36).
 void toggleStudyPicking(WidgetRef ref, StudyText text) {
   final view = ref.read(studyViewProvider(text.renditionId).notifier);
-  view.state = view.state.copyWith(picking: !view.state.picking);
+  final on = view.state.pick != StudyMarkKind.keyword;
+  view.state = view.state.copyWith(
+    pick: () => on ? StudyMarkKind.keyword : null,
+  );
 }
 
 /// Analiza lo que falta de [text], si falta algo y no se está analizando ya
@@ -145,12 +149,16 @@ class StudyToggles extends ConsumerWidget {
         IconButton(
           key: const Key('study-toggle-pick'),
           tooltip: l10n.studyPickKeywords,
-          isSelected: view.picking,
+          isSelected: view.pick == StudyMarkKind.keyword,
           icon: const Icon(Icons.edit_outlined),
           selectedIcon: const Icon(Icons.edit),
           style: IconButton.styleFrom(
-            backgroundColor: view.picking ? palette.keyword : null,
-            foregroundColor: view.picking ? StudyPalette.ink : null,
+            backgroundColor: view.pick == StudyMarkKind.keyword
+                ? palette.keyword
+                : null,
+            foregroundColor: view.pick == StudyMarkKind.keyword
+                ? StudyPalette.ink
+                : null,
           ),
           onPressed: () => toggleStudyPicking(ref, text),
         ),

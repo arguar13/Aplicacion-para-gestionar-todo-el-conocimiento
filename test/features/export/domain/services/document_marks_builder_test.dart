@@ -127,11 +127,12 @@ void main() {
     ]);
   });
 
-  test('las palabras clave solas son las de las oraciones del resumen y de '
-      'la síntesis: la suelta no se marca', () {
+  test('las palabras clave solas son todas, también la suelta: a mano se '
+      'eligen en cualquier oración (F39)', () {
     expect(spans(const MarkedDocumentOptions(keywords: true)), [
       (at('Primera'), at('Primera') + 'Primera'.length, colors.keyword),
       (at('síntesis'), at('síntesis') + 'síntesis'.length, colors.keyword),
+      (at('Tercera'), at('Tercera') + 'Tercera'.length, colors.keyword),
     ]);
   });
 

@@ -2,9 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
-import 'package:sinapsis/features/study/domain/services/study_keyword_toggle.dart';
+import 'package:sinapsis/features/study/domain/services/study_pick.dart';
 
-/// Tocar una palabra eligiendo las palabras clave (F36).
+/// Tocar el texto eligiendo a mano el resumen, la síntesis o las palabras
+/// clave (F36, F39).
 void main() {
   const content =
       'La revolución industrial empezó en Inglaterra con vapor y carbón. '
@@ -31,126 +32,200 @@ void main() {
     complete: true,
   );
 
-  KeywordToggle tap(
+  StudyPickToggle tap(
     DocumentStudy study,
     int offset, {
-    Set<StudyMarkKind> kinds = const {StudyMarkKind.summary},
-  }) => keywordToggleAt(
+    StudyMarkKind kind = StudyMarkKind.keyword,
+  }) => studyPickAt(
     content: content,
+    markdown: false,
     study: study,
-    sentenceKinds: kinds,
+    kind: kind,
     offset: offset,
   );
+
+  String picked(StudyPickToggle toggle) {
+    final add = toggle as StudyPickAdd;
+    return content.substring(add.start, add.end);
+  }
 
   final summarized = study([
     mark('s1', StudyMarkKind.summary, first.$1, first.$2),
     keyword('k1', 'revolución'),
   ]);
 
-  test('una palabra de una oración resaltada se agrega', () {
-    final toggle = tap(summarized, content.indexOf('Inglaterra') + 3);
+  group('el resumen y la síntesis', () {
+    test('tocar una oración la pone, entera, con lo que se elige', () {
+      final toggle = tap(
+        DocumentStudy.notStarted,
+        content.indexOf('crecieron'),
+        kind: StudyMarkKind.summary,
+      );
 
-    expect(toggle, isA<KeywordToggleAdd>());
-    final word = (toggle as KeywordToggleAdd).word;
-    expect(content.substring(word.start, word.end), 'Inglaterra');
-  });
+      expect(toggle, isA<StudyPickAdd>());
+      expect((toggle as StudyPickAdd).kind, StudyMarkKind.summary);
+      expect(picked(toggle), 'Las fábricas crecieron rápido.');
+    });
 
-  test('tocar justo detrás de la última letra también es esa palabra', () {
-    final end = content.indexOf('Inglaterra') + 'Inglaterra'.length;
+    test('tocar una que ya está la saca, la haya puesto la IA o la persona, '
+        'también justo detrás de su última letra', () {
+      expect(
+        tap(summarized, content.indexOf('vapor'), kind: StudyMarkKind.summary),
+        const StudyPickRemove('s1'),
+      );
+      expect(
+        tap(summarized, first.$2, kind: StudyMarkKind.summary),
+        const StudyPickRemove('s1'),
+      );
 
-    final toggle = tap(summarized, end);
+      final mine = study([
+        mark(
+          'u1',
+          StudyMarkKind.synthesis,
+          second.$1,
+          second.$2,
+          origin: ContentOrigin.user,
+        ),
+      ]);
+      expect(
+        tap(mine, second.$1 + 2, kind: StudyMarkKind.synthesis),
+        const StudyPickRemove('u1'),
+      );
+    });
 
-    final word = (toggle as KeywordToggleAdd).word;
-    expect(content.substring(word.start, word.end), 'Inglaterra');
-  });
-
-  test('una que ya es clave se saca', () {
-    final toggle = tap(summarized, content.indexOf('revolución') + 1);
-
-    expect(toggle, isA<KeywordToggleRemove>());
-    expect((toggle as KeywordToggleRemove).markId, 'k1');
-  });
-
-  test('con cuatro en la oración, avisa en vez de agregar una quinta, pero '
-      'sacar sigue andando', () {
-    final full = study([
-      mark('s1', StudyMarkKind.summary, first.$1, first.$2),
-      keyword('k1', 'revolución'),
-      keyword('k2', 'industrial'),
-      keyword('k3', 'vapor'),
-      keyword('k4', 'carbón'),
-      // De otra oración: no cuenta para esta.
-      keyword('k5', 'fábricas'),
-    ]);
-
-    expect(tap(full, content.indexOf('Inglaterra')), isA<KeywordToggleFull>());
-    expect(tap(full, content.indexOf('vapor')), isA<KeywordToggleRemove>());
-  });
-
-  test('la última palabra de una oración sin punto final también se toca '
-      'desde detrás de su última letra', () {
-    final open = study([
-      mark('s2', StudyMarkKind.summary, second.$1, second.$2 - 1),
-    ]);
-
-    final toggle = tap(open, second.$2 - 1);
-
-    final word = (toggle as KeywordToggleAdd).word;
-    expect(content.substring(word.start, word.end), 'rápido');
-  });
-
-  test('las palabras clave de otra oración no cuentan para el tope', () {
-    final busy = study([
-      mark('s1', StudyMarkKind.summary, first.$1, first.$2),
-      keyword('k1', 'revolución'),
-      keyword('k2', 'industrial'),
-      keyword('k3', 'vapor'),
-      keyword('k4', 'fábricas'),
-    ]);
-
-    expect(tap(busy, content.indexOf('carbón')), isA<KeywordToggleAdd>());
-  });
-
-  test('fuera de una oración resaltada, entre palabras o en una que no dice '
-      'nada sola, no pasa nada', () {
-    expect(
-      tap(summarized, content.indexOf('fábricas')),
-      isA<KeywordToggleNone>(),
-    );
-    expect(
-      tap(summarized, content.indexOf(' y ') + 1),
-      isA<KeywordToggleNone>(),
-    );
-    expect(
-      tap(summarized, content.indexOf(' en ') + 1),
-      isA<KeywordToggleNone>(),
-    );
-    expect(
-      tap(summarized, content.indexOf('. Las') + 1),
-      isA<KeywordToggleNone>(),
-    );
-  });
-
-  test('cuentan las oraciones de lo que se ve: la síntesis no es el '
-      'resumen', () {
-    final both = study([
-      mark('s1', StudyMarkKind.summary, first.$1, first.$2),
-      mark('y2', StudyMarkKind.synthesis, second.$1, second.$2),
-    ]);
-    final fabricas = content.indexOf('fábricas');
-
-    expect(tap(both, fabricas), isA<KeywordToggleNone>());
-    expect(
-      tap(both, fabricas, kinds: {StudyMarkKind.synthesis}),
-      isA<KeywordToggleAdd>(),
-    );
-    expect(
-      tap(
-        both,
+    test('lo del resumen no cuenta para la síntesis', () {
+      final toggle = tap(
+        summarized,
         content.indexOf('vapor'),
-        kinds: {StudyMarkKind.summary, StudyMarkKind.synthesis},
+        kind: StudyMarkKind.synthesis,
+      );
+
+      expect((toggle as StudyPickAdd).kind, StudyMarkKind.synthesis);
+      expect(toggle.start, first.$1);
+    });
+
+    test('una marca de un análisis de antes, partida un poco distinto, '
+        'también sale', () {
+      final older = study([
+        mark('s1', StudyMarkKind.summary, first.$1 + 3, first.$2 - 1),
+      ]);
+
+      expect(
+        tap(older, content.indexOf('La'), kind: StudyMarkKind.summary),
+        const StudyPickRemove('s1'),
+      );
+    });
+
+    test('entre dos oraciones no hay qué elegir', () {
+      const spaced = 'Uno dos.     Tres cuatro.';
+      expect(
+        studyPickAt(
+          content: spaced,
+          markdown: false,
+          study: DocumentStudy.notStarted,
+          kind: StudyMarkKind.summary,
+          offset: spaced.indexOf('Tres') - 2,
+        ),
+        isA<StudyPickNone>(),
+      );
+    });
+  });
+
+  group('las palabras clave', () {
+    test('una palabra de una oración resaltada se agrega', () {
+      final toggle = tap(summarized, content.indexOf('Inglaterra') + 3);
+
+      expect((toggle as StudyPickAdd).kind, StudyMarkKind.keyword);
+      expect(picked(toggle), 'Inglaterra');
+    });
+
+    test('y también una de cualquier oración, sin resumen (F39)', () {
+      expect(
+        picked(tap(DocumentStudy.notStarted, content.indexOf('fábricas'))),
+        'fábricas',
+      );
+      expect(picked(tap(summarized, content.indexOf('fábricas'))), 'fábricas');
+    });
+
+    test('tocar justo detrás de la última letra también es esa palabra', () {
+      final end = content.indexOf('Inglaterra') + 'Inglaterra'.length;
+
+      expect(picked(tap(summarized, end)), 'Inglaterra');
+    });
+
+    test('la última palabra de una oración también se toca desde detrás de '
+        'su última letra', () {
+      final end = content.indexOf('rápido') + 'rápido'.length;
+
+      expect(picked(tap(DocumentStudy.notStarted, end)), 'rápido');
+    });
+
+    test('una que ya es clave se saca', () {
+      expect(
+        tap(summarized, content.indexOf('revolución') + 1),
+        const StudyPickRemove('k1'),
+      );
+    });
+
+    test('con cuatro en la oración, avisa en vez de agregar una quinta, pero '
+        'sacar sigue andando', () {
+      final full = study([
+        mark('s1', StudyMarkKind.summary, first.$1, first.$2),
+        keyword('k1', 'revolución'),
+        keyword('k2', 'industrial'),
+        keyword('k3', 'vapor'),
+        keyword('k4', 'carbón'),
+        // De otra oración: no cuenta para esta.
+        keyword('k5', 'fábricas'),
+      ]);
+
+      expect(tap(full, content.indexOf('Inglaterra')), isA<StudyPickFull>());
+      expect(tap(full, content.indexOf('vapor')), const StudyPickRemove('k3'));
+    });
+
+    test('el tope es por oración, aunque la oración no esté resaltada', () {
+      final busy = study([
+        keyword('k1', 'revolución'),
+        keyword('k2', 'industrial'),
+        keyword('k3', 'vapor'),
+        keyword('k4', 'carbón'),
+      ]);
+
+      expect(tap(busy, content.indexOf('Inglaterra')), isA<StudyPickFull>());
+      expect(tap(busy, content.indexOf('fábricas')), isA<StudyPickAdd>());
+    });
+
+    test('en una palabra que no dice nada sola, no pasa nada', () {
+      expect(tap(summarized, content.indexOf(' y ') + 1), isA<StudyPickNone>());
+      expect(
+        tap(summarized, content.indexOf(' en ') + 1),
+        isA<StudyPickNone>(),
+      );
+      expect(tap(summarized, second.$1), isA<StudyPickNone>());
+    });
+  });
+
+  test('otro texto se parte de nuevo: no queda pegado al anterior', () {
+    const other = 'Uno dos. Tres cuatro.';
+    final toggle = studyPickAt(
+      content: other,
+      markdown: false,
+      study: DocumentStudy.notStarted,
+      kind: StudyMarkKind.summary,
+      offset: other.indexOf('cuatro'),
+    );
+    final add = toggle as StudyPickAdd;
+
+    expect(other.substring(add.start, add.end), 'Tres cuatro.');
+    expect(
+      picked(
+        tap(
+          DocumentStudy.notStarted,
+          content.indexOf('vapor'),
+          kind: StudyMarkKind.summary,
+        ),
       ),
-      isA<KeywordToggleAdd>(),
+      content.substring(first.$1, first.$2),
     );
   });
 }

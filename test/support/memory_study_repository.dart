@@ -7,7 +7,6 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/repositories/study_repository.dart';
 import 'package:sinapsis/features/study/domain/services/study_reply.dart';
-import 'package:sinapsis/features/study/domain/services/study_words.dart';
 
 /// Lo que guarda el repositorio, en memoria, y lo que se le pidió.
 class MemoryStudyRepository implements StudyRepository {
@@ -19,7 +18,7 @@ class MemoryStudyRepository implements StudyRepository {
   final removed = <String>[];
   var _next = 0;
 
-  /// Lo que se borró con `clear`.
+  /// Los textos a los que se les borró lo de la IA con `clearAi`.
   final cleared = <String>[];
 
   /// Cambia lo guardado, como lo haría un análisis.
@@ -40,22 +39,24 @@ class MemoryStudyRepository implements StudyRepository {
   Future<DocumentStudy> read(String renditionId) async => _study;
 
   @override
-  Future<Either<Failure, Unit>> addKeyword({
+  Future<Either<Failure, Unit>> addUserMark({
     required String renditionId,
     required String content,
-    required StudyWord word,
+    required StudyMarkKind kind,
+    required int start,
+    required int end,
   }) async {
-    added.add(content.substring(word.start, word.end));
+    added.add(content.substring(start, end));
     _set(
       DocumentStudy(
         marks: [
           ..._study.marks,
           StudyMark(
             id: 'new${_next++}',
-            kind: StudyMarkKind.keyword,
+            kind: kind,
             origin: ContentOrigin.user,
-            start: word.start,
-            end: word.end,
+            start: start,
+            end: end,
           ),
         ]..sort((a, b) => a.start.compareTo(b.start)),
         analyzedUntil: _study.analyzedUntil,
@@ -66,7 +67,7 @@ class MemoryStudyRepository implements StudyRepository {
   }
 
   @override
-  Future<Either<Failure, Unit>> removeKeyword(String markId) async {
+  Future<Either<Failure, Unit>> removeMark(String markId) async {
     removed.add(markId);
     _set(
       DocumentStudy(
@@ -92,9 +93,18 @@ class MemoryStudyRepository implements StudyRepository {
   }) => throw UnimplementedError();
 
   @override
-  Future<Either<Failure, Unit>> clear(String renditionId) async {
+  Future<Either<Failure, Unit>> clearAi(String renditionId) async {
     cleared.add(renditionId);
-    _set(DocumentStudy.notStarted);
+    _set(
+      DocumentStudy(
+        marks: [
+          for (final mark in _study.marks)
+            if (mark.origin == ContentOrigin.user) mark,
+        ],
+        analyzedUntil: 0,
+        complete: false,
+      ),
+    );
     return right(unit);
   }
 }

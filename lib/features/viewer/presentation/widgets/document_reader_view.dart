@@ -275,6 +275,7 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
                   itemId: study.itemId,
                   renditionId: study.renditionId,
                   content: widget.content,
+                  markdown: study.markdown,
                   start: _ranges[index].start,
                 ),
                 null => null,
@@ -346,7 +347,14 @@ class _ReaderPage extends ConsumerWidget {
 
   /// El texto entero que se estudia y dónde empieza esta página en él: lo
   /// estudiado y lo resaltado a mano guardan posiciones del texto entero.
-  final ({String itemId, String renditionId, String content, int start})? study;
+  final ({
+    String itemId,
+    String renditionId,
+    String content,
+    bool markdown,
+    int start,
+  })?
+  study;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -433,11 +441,12 @@ class _ReaderPage extends ConsumerWidget {
                           .read(studyViewProvider(study.renditionId))
                           .picking) {
                         unawaited(
-                          toggleStudyKeywordAt(
+                          pickStudyAt(
                             ref,
                             context,
                             renditionId: study.renditionId,
                             content: study.content,
+                            markdown: study.markdown,
                             offset: offset,
                           ),
                         );

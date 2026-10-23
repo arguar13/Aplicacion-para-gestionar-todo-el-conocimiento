@@ -204,7 +204,7 @@ void main() {
     await tester.tap(find.text(es.studyExtractTranscript));
     await tester.pumpAndSettle();
     harness.container.read(studyViewProvider('r1').notifier).state =
-        const StudyView(layer: StudyLayer.summary, picking: true);
+        const StudyView(layer: StudyLayer.summary, pick: StudyMarkKind.keyword);
     await tester.pumpAndSettle();
 
     final transcript = find.descendant(

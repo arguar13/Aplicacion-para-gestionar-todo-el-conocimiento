@@ -4,8 +4,8 @@ import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
-import 'package:sinapsis/features/study/domain/services/study_keyword_toggle.dart';
 import 'package:sinapsis/features/study/domain/services/study_layers.dart';
+import 'package:sinapsis/features/study/domain/services/study_pick.dart';
 import 'package:sinapsis/features/study/domain/services/study_words.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -25,7 +25,7 @@ enum StudyLayer {
 /// «Leer como libro» y en «Texto extraído».
 @immutable
 class StudyView {
-  const StudyView({this.layer, this.keywords = false, this.picking = false});
+  const StudyView({this.layer, this.keywords = false, this.pick});
 
   /// El resumen o la síntesis; `null`, ninguno.
   final StudyLayer? layer;
@@ -33,27 +33,26 @@ class StudyView {
   /// Si se ven las palabras clave.
   final bool keywords;
 
-  /// Si tocar una palabra la agrega o la saca de las palabras clave. Mientras
-  /// tanto se ven, estén o no prendidas.
-  final bool picking;
+  /// Qué se está eligiendo a mano (F36, F39): tocar una oración la pone en
+  /// el resumen o en la síntesis —o la saca—, y tocar una palabra, en las
+  /// palabras clave. `null`, nada: un toque es un toque.
+  final StudyMarkKind? pick;
 
-  bool get showsKeywords => keywords || picking;
+  /// Si un toque es para elegir: quien muestra el texto se lo pasa a
+  /// [pickStudyAt] y no hace lo de siempre.
+  bool get picking => pick != null;
 
-  /// Las oraciones a las que pertenecen las palabras clave que se ven: las
-  /// del resaltado prendido o, sin ninguno, las de los dos.
-  Set<StudyMarkKind> get sentenceKinds => switch (layer) {
-    final layer? => {layer.kind},
-    null => const {StudyMarkKind.summary, StudyMarkKind.synthesis},
-  };
+  /// Eligiéndolas, las palabras clave se ven estén o no prendidas.
+  bool get showsKeywords => keywords || pick == StudyMarkKind.keyword;
 
   StudyView copyWith({
     StudyLayer? Function()? layer,
     bool? keywords,
-    bool? picking,
+    StudyMarkKind? Function()? pick,
   }) => StudyView(
     layer: layer == null ? this.layer : layer(),
     keywords: keywords ?? this.keywords,
-    picking: picking ?? this.picking,
+    pick: pick == null ? this.pick : pick(),
   );
 
   @override
@@ -61,10 +60,10 @@ class StudyView {
       other is StudyView &&
       other.layer == layer &&
       other.keywords == keywords &&
-      other.picking == picking;
+      other.pick == pick;
 
   @override
-  int get hashCode => Object.hash(layer, keywords, picking);
+  int get hashCode => Object.hash(layer, keywords, pick);
 }
 
 /// Qué se ve de lo estudiado del texto de una forma (F36).
@@ -116,13 +115,19 @@ class StudyPalette {
 /// Las capas de color de lo estudiado con lo que [view] deja ver, en
 /// posiciones del texto: las oraciones del resaltado prendido debajo de los
 /// subrayados de la persona y las palabras clave, en negrita, encima.
+///
+/// Con el resumen o la síntesis prendido, las palabras clave que se ven son
+/// las de sus oraciones, que sostienen; sin ninguno, o eligiéndolas, todas:
+/// a mano se eligen en cualquier oración (F39).
 List<PaintedRange> studyPaints(
   DocumentStudy study,
   StudyView view,
   StudyPalette palette,
 ) {
   final layer = view.layer;
-  final sentences = studySentenceMarks(study, view.sentenceKinds);
+  final sentences = layer == null
+      ? const <StudyMark>[]
+      : studySentenceMarks(study, {layer.kind});
   return [
     if (layer != null)
       for (final sentence in sentences)
@@ -133,7 +138,10 @@ List<PaintedRange> studyPaints(
           foreground: StudyPalette.ink,
         ),
     if (view.showsKeywords)
-      for (final keyword in studyKeywordMarksWithin(study, sentences))
+      for (final keyword
+          in layer == null || view.pick == StudyMarkKind.keyword
+              ? study.of(StudyMarkKind.keyword)
+              : studyKeywordMarksWithin(study, sentences))
         PaintedRange(
           keyword.start,
           keyword.end,
@@ -186,19 +194,24 @@ List<PaintedRange> watchStudyPaints(
   );
 }
 
-/// Eligiendo palabras clave, se tocó la posición [offset] de [content]: la
-/// palabra de ahí se agrega o se saca (F36). Si la oración ya tiene sus
-/// cuatro, lo avisa.
-Future<void> toggleStudyKeywordAt(
+/// Eligiendo a mano, se tocó la posición [offset] de [content] (F36, F39):
+/// la oración de ahí entra en el resumen o en la síntesis —o sale—, o la
+/// palabra de ahí, en las palabras clave. Si la oración ya tiene sus cuatro
+/// palabras clave, lo avisa.
+///
+/// [markdown] es el de [content] al estudiarlo: parte las oraciones igual que
+/// el análisis, así lo elegido a mano y lo de la IA coinciden.
+Future<void> pickStudyAt(
   WidgetRef ref,
   BuildContext context, {
   required String renditionId,
   required String content,
+  required bool markdown,
   required int offset,
 }) async {
-  final view = ref.read(studyViewProvider(renditionId));
+  final kind = ref.read(studyViewProvider(renditionId)).pick;
   final study = ref.read(documentStudyProvider(renditionId)).valueOrNull;
-  if (!view.picking || study == null) return;
+  if (kind == null || study == null) return;
 
   final repository = ref.read(studyRepositoryProvider);
   final l10n = AppLocalizations.of(context)!;
@@ -207,25 +220,27 @@ Future<void> toggleStudyKeywordAt(
     ?..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(message)));
 
-  final toggle = keywordToggleAt(
+  final toggle = studyPickAt(
     content: content,
+    markdown: markdown,
     study: study,
-    sentenceKinds: view.sentenceKinds,
+    kind: kind,
     offset: offset,
   );
   final saved = switch (toggle) {
-    KeywordToggleAdd(:final word) => await repository.addKeyword(
-      renditionId: renditionId,
-      content: content,
-      word: word,
-    ),
-    KeywordToggleRemove(:final markId) => await repository.removeKeyword(
-      markId,
-    ),
-    KeywordToggleFull() => null,
-    KeywordToggleNone() => null,
+    StudyPickAdd(:final kind, :final start, :final end) =>
+      await repository.addUserMark(
+        renditionId: renditionId,
+        content: content,
+        kind: kind,
+        start: start,
+        end: end,
+      ),
+    StudyPickRemove(:final markId) => await repository.removeMark(markId),
+    StudyPickFull() => null,
+    StudyPickNone() => null,
   };
-  if (toggle is KeywordToggleFull) {
+  if (toggle is StudyPickFull) {
     say(l10n.studyKeywordsSentenceFull(kMaxKeywordsPerSentence));
   }
   saved?.mapLeft((failure) => say(failure.localizedMessage(l10n)));

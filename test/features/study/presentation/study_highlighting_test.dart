@@ -103,14 +103,40 @@ void main() {
       );
     });
 
-    test('eligiendo palabras clave, se ven aunque no estén prendidas', () {
+    test('eligiendo palabras clave, se ven aunque no estén prendidas, y '
+        'todas, no solo las del resumen: se eligen en cualquier oración '
+        '(F39)', () {
       final paints = studyPaints(
         study,
-        const StudyView(layer: StudyLayer.summary, picking: true),
+        const StudyView(layer: StudyLayer.summary, pick: StudyMarkKind.keyword),
         light,
       );
 
-      expect(paints.map((p) => p.bold), [false, true]);
+      expect(
+        [for (final p in paints) (content.substring(p.start, p.end), p.bold)],
+        [
+          ('La revolución industrial cambió todo.', false),
+          ('revolución', true),
+          ('vapor', true),
+        ],
+      );
+    });
+
+    test('con el resumen prendido y sin elegir, solo las palabras clave de '
+        'sus oraciones', () {
+      final paints = studyPaints(
+        study,
+        const StudyView(layer: StudyLayer.summary, keywords: true),
+        light,
+      );
+
+      expect(
+        [
+          for (final p in paints)
+            if (p.bold) content.substring(p.start, p.end),
+        ],
+        ['revolución'],
+      );
     });
 
     test('los colores de modo oscuro son otros, pero no el amarillo de lo '
@@ -261,7 +287,10 @@ void main() {
         'en el texto entero, y tocarla de nuevo la saca', (tester) async {
       await pumpReader(tester);
       await nextPage(tester);
-      view().state = const StudyView(layer: StudyLayer.summary, picking: true);
+      view().state = const StudyView(
+        layer: StudyLayer.summary,
+        pick: StudyMarkKind.keyword,
+      );
       await tester.pumpAndSettle();
 
       await tapAt(tester, pageTwo.indexOf('industrial') + 2);
@@ -276,6 +305,43 @@ void main() {
 
       expect(repository.removed, ['new0']);
       expect(pieces(tester).where((p) => p.$1 == 'industrial'), isEmpty);
+    });
+
+    testWidgets('eligiendo el resumen a mano, tocar una oración la pone en '
+        'el resumen —se pinta— y tocarla de nuevo la saca (F39)', (
+      tester,
+    ) async {
+      repository = MemoryStudyRepository(DocumentStudy.notStarted);
+      container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(
+            await SharedPreferences.getInstance(),
+          ),
+          readAloudControllerProvider.overrideWith(FakeReadAloudController.new),
+          studyRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      await pumpReader(tester);
+      await nextPage(tester);
+      view().state = const StudyView(
+        layer: StudyLayer.summary,
+        pick: StudyMarkKind.summary,
+      );
+      await tester.pumpAndSettle();
+
+      await tapAt(tester, pageTwo.indexOf('fábricas'));
+
+      expect(repository.added, ['Las fábricas usaban vapor.']);
+      expect(pieces(tester), [
+        ('La revolución industrial cambió todo. ', null),
+        ('Las fábricas usaban vapor.', light.summary),
+      ]);
+
+      await tapAt(tester, pageTwo.indexOf('vapor'));
+
+      expect(repository.removed, ['new0']);
+      expect(pieces(tester).where((p) => p.$2 != null), isEmpty);
     });
 
     testWidgets('sin elegir palabras clave, tocar no cambia nada', (
@@ -324,7 +390,10 @@ void main() {
       );
       await pumpReader(tester);
       await nextPage(tester);
-      view().state = const StudyView(layer: StudyLayer.summary, picking: true);
+      view().state = const StudyView(
+        layer: StudyLayer.summary,
+        pick: StudyMarkKind.keyword,
+      );
       await tester.pumpAndSettle();
 
       await tapAt(tester, pageTwo.indexOf('industrial') + 2);

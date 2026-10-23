@@ -513,7 +513,7 @@ void main() {
       );
       await nextPage(tester);
       container.read(studyViewProvider('r1').notifier).state = const StudyView(
-        picking: true,
+        pick: StudyMarkKind.keyword,
       );
       await tester.pumpAndSettle();
 

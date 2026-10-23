@@ -232,11 +232,12 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     final offset = int.tryParse(message);
     if (text == null || offset == null || !mounted) return;
     unawaited(
-      toggleStudyKeywordAt(
+      pickStudyAt(
         ref,
         context,
         renditionId: text.renditionId,
         content: text.content,
+        markdown: text.markdown,
         offset: offset,
       ),
     );
