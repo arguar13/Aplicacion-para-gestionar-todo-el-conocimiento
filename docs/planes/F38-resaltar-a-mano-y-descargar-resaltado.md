@@ -250,3 +250,12 @@
 - Mutación: 36/38 (Word, texto y Markdown: uno equivalente y uno de código que nunca se
   ejecutaba, que se borró), unos 54 en EPUB y página web con 3 equivalentes, 28/28 en la hoja y
   el caso de uso, y 10/10 en los adaptadores.
+
+### Paso 6 (hecho): cierre
+
+- GUIA_DE_USO (la barrita en el PDF y la web, «Descargar» con cada formato), la decisión 82 en
+  `docs/arquitectura.md`, CONTEXTO y este «Avance».
+- Suite entera: 8.955 pruebas pasan, 0 fallas, 46 omitidas (con PDFium real). Analizador: 19, la
+  línea base.
+- APK al teléfono: no, hasta que la pidas. Es lo que falta para ver la barrita sobre el PDF y la
+  página web en Android.

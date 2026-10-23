@@ -3,7 +3,7 @@
 Este documento es para quien empieza de cero, sin ningún recuerdo de sesiones anteriores
 (una persona o una sesión nueva de Claude Code). Leyéndolo entero entendés qué es la app, cómo
 está hecha, cómo se trabaja en este repositorio, qué reglas puso el dueño y en qué estado quedó
-todo. Fecha del estado descrito: **2026-10-22** (`origin/main` = el cierre de F37).
+todo. Fecha del estado descrito: **2026-10-23** (`origin/main` = el cierre de F38).
 
 Documentos hermanos, de más general a más fino:
 
@@ -61,7 +61,7 @@ jerárquico. *Cuaderno* = un subconjunto con nombre, fijo o por consulta.
 - **Flutter / Dart** (SDK ≥ 3.8). **Android primero**; Windows y web también andan; iOS pospuesto a
   propósito.
 - **Riverpod** (estado), **go_router** (navegación), **freezed** (entidades), **drift** sobre
-  **SQLite con FTS5** (base local; **esquema v39**), **dio** (red), `l10n` con `.arb` en español e
+  **SQLite con FTS5** (base local; **esquema v42**), **dio** (red), `l10n` con `.arb` en español e
   inglés (`lib/l10n/app_es.arb`, `app_en.arb`).
 - **Modelo de lenguaje (F32, decisión 74):** **uno solo, el elegido** en Ajustes → «IA y modelos» →
   «Modelo de lenguaje»: **Gemini** en la nube (de fábrica, capa gratuita, varias cuentas con claves
@@ -116,7 +116,7 @@ y exploración), `explorer`, `notebooks`, `inbox`, `suggestions`, `duplicates`, 
 
 Las primeras ocho fases armaron la base (captura, transformaciones, documentos, organización,
 grafo, chat con RAG, flashcards SM-2, exportar, OCR/Whisper, web, Windows). Desde ahí el trabajo
-se numera **F1…F37**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
+se numera **F1…F38**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
 desde F13):
 
 - **F1–F11** — un solo modelo de datos Fuente/Nota, vocabulario controlado, Bandeja de entrada,
@@ -176,6 +176,13 @@ desde F13):
   «N elementos sin tema · Ordenarlos» lleva a la lista para elegirles temas de a varios.
 - **Sin insignias** (decisión 81, a pedido): salieron las insignias de F17 y el botón para entrar
   a la selección múltiple de la Biblioteca, a la que se entra manteniendo apretada una fila.
+- **F38** — **resaltar a mano con color, y descargar marcado** (decisión 82). Hay una barrita sobre
+  lo seleccionado: cuatro colores, Subrayar, Copiar, Escuchar, Nota, Extraer y Hacer tarjeta. Es la
+  misma en el texto extraído, el lector, el PDF real y la página web, y todo cae en posiciones del
+  texto extraído. Tocar un resaltado abre su ficha: color, fondo o subrayado, nota y quitar. Los
+  resaltados guardan color y estilo (esquema v42). «Descargar», en «Estudiar el documento», baja el
+  original con lo elegido marcado, en su formato: PDF con anotaciones de verdad, Word, EPUB,
+  página web, texto (como Word) y Markdown.
 
 ## 5. Estado actual
 
@@ -194,11 +201,14 @@ desde F13):
 > `docs/planes/F36-resumen-sintesis-y-palabras-clave.md`.
 >
 > **F37 (todo en un tema) está construida** (2026-10-22): `docs/planes/F37-todo-en-un-tema.md`.
-> Sigue **F38** (resaltar a mano y descargar el resaltado), aprobada:
-> `docs/planes/F38-resaltar-a-mano-y-descargar-resaltado.md`.
+>
+> **F38 (resaltar a mano y descargar el resaltado) está construida** (2026-10-23):
+> `docs/planes/F38-resaltar-a-mano-y-descargar-resaltado.md`. Falta mirarla en el teléfono, sobre
+> todo la barrita sobre el PDF y la página web, que no tienen prueba automática de punta a punta.
+> La APK se instala solo si el dueño la pide.
 
 
-- `origin/main` = el commit «docs: cierre de F37», sobre `add229e`. **Suite: 8.586 pruebas pasan, 0 fallas, 78 omitidas** (las omitidas son de siempre, más una de un PDF que necesita pdfium).
+- `origin/main` = el commit «docs: cierre de F38». **Suite: 8.955 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre).
   **Analizador: 19 avisos.** Es la línea base de `tool/verify_commit.ps1` y **no puede crecer**.
 - Hay cinco archivos con cambios de solo formato que no son de este trabajo y no se commitean:
   - `lib/core/database/tables/suggestions.dart`
