@@ -92,4 +92,29 @@
 
 ## Avance
 
-Todavía nada: empieza al cerrar F37.
+### Paso 1 (hecho): la prueba técnica del PDF salió bien
+
+- `PdfMarkWriter` (`lib/features/export/data/marked/`) le agrega a un PDF resaltados y subrayados
+  de verdad: las anotaciones `Highlight` y `Underline` del estándar.
+  - Cada una lleva su color, un cuadrilátero por renglón, la nota (si tiene) y la marca de
+    imprimir.
+  - Lleva también su **apariencia**, el dibujo ya armado. Desde PDF 2.0 es obligatoria, y sin ella
+    un lector que no sabe armarla no muestra el resaltado. La genera el propio PDFium, con el modo
+    de mezcla que deja ver las letras debajo.
+- Se guarda **agregando al final** del archivo: lo que había queda byte por byte, así que es el
+  mismo PDF, con su firma si tenía, más los resaltados. El texto se sigue extrayendo igual.
+- Lo que no era obvio:
+  - `pdfrx_engine` no envuelve las anotaciones, así que se llama a PDFium directo (`pdfium_dart`,
+    que ya venía con `pdfrx_engine` en la misma versión, ahora declarado).
+  - Tiene que ser **en el hilo de PDFium de `pdfrx`** (`PdfrxEntryFunctions.compute`). Ahí `pdfrx`
+    registró sus funciones para buscar fuentes, y PDFium las llama al armar la apariencia. Desde
+    el hilo principal, el proceso se cae.
+  - Una página que no existe se rechaza antes de mandar el trabajo a ese hilo, porque desde ahí los
+    errores vuelven envueltos.
+- Pruebas (`pdf_mark_writer_test.dart`, 9, sobre un PDF real chico):
+  - se lee de vuelta tipo, renglones, nota, apariencia y marca de imprimir;
+  - al pintar la página, el lugar resaltado toma el color exacto y el resto sigue blanco, y el
+    subrayado es una línea, no un fondo;
+  - varios renglones, varias páginas, el original byte por byte, el texto intacto y una página que
+    no existe.
+- Mutación: 11/11.

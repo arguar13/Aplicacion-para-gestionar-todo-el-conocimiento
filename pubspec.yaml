@@ -58,6 +58,12 @@ dependencies:
   # de `sqlite3` 3.x, que drift_flutter arrastra).
   drift: ^2.35.0
   drift_flutter: ^0.3.1
+  # Memoria nativa para hablarle a PDFium (los rectángulos y las cadenas de
+  # los resaltados, F38). También la usan las pruebas, para medir la memoria
+  # privada comprometida del proceso en Windows
+  # (`test/support/process_memory.dart`), que el sistema no recorta como la
+  # residente. Ya venía como dependencia transitiva; es del equipo de Dart.
+  ffi: ^2.2.0
   file_picker: ^11.0.3
   flutter:
     sdk: flutter
@@ -144,6 +150,11 @@ dependencies:
   pdf: ">=3.12.0 <3.13.0"
   # Port en Dart del algoritmo Readability de Mozilla. Se probó contra HTML
   # realista antes de confiarle la extracción (ver docs/arquitectura.md).
+  # Las funciones de PDFium que `pdfrx_engine` no envuelve: agregar
+  # resaltados de verdad (anotaciones) a un PDF para descargarlo (F38). Ya
+  # venía como dependencia de `pdfrx_engine`, en esta misma versión; se
+  # declara explícita porque la app la usa directo, en `PdfMarkWriter`.
+  pdfium_dart: ^0.3.0
   # PDFium de Chromium empaquetado para cada plataforma. Es el complemento
   # que trae el binario nativo, lo usan tanto `pdfrx_engine` (extraer texto)
   # como `pdfrx` (mostrar las páginas).
@@ -244,11 +255,6 @@ dev_dependencies:
   async: ^2.11.0
   build_runner: ^2.4.13
   drift_dev: ^2.35.0
-  # Para medir en las pruebas la memoria privada comprometida del proceso en
-  # Windows (`test/support/process_memory.dart`), que el sistema no recorta
-  # como la residente. Ya venía como dependencia transitiva; es del equipo
-  # de Dart.
-  ffi: ^2.2.0
   flutter_secure_storage_platform_interface: ^1.1.2
   flutter_test:
     sdk: flutter
