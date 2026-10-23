@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/design/highlight_toolbar.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
+import 'package:sinapsis/l10n/generated/app_localizations_en.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 /// La barrita de resaltado (F38) sola, sin ningún texto seleccionable: es
@@ -79,6 +80,58 @@ void main() {
       findsOneWidget,
     );
     expect(find.bySemanticsLabel(es.highlightToolbarLabel), findsOneWidget);
+  });
+
+  testWidgets('los nueve colores se llaman distinto, en español y en inglés', (
+    tester,
+  ) async {
+    await pump(tester);
+
+    final spanish = {
+      for (final color in HighlightColor.values) highlightColorName(es, color),
+    };
+    final english = {
+      for (final color in HighlightColor.values)
+        highlightColorName(AppLocalizationsEn(), color),
+    };
+    expect(spanish, hasLength(9));
+    expect(english, hasLength(9));
+    for (final color in HighlightColor.values) {
+      expect(
+        find.byTooltip(es.highlightWithColor(highlightColorName(es, color))),
+        findsOneWidget,
+        reason: color.name,
+      );
+    }
+  });
+
+  testWidgets('las muestras van en una grilla de cinco columnas, y Subrayar '
+      'cierra la segunda fila', (tester) async {
+    await pump(tester, size: const Size(360, 640), onCopy: () {});
+
+    Offset center(String key) => tester.getCenter(find.byKey(Key(key)));
+    final dots = [
+      for (final color in HighlightColor.values)
+        center('highlight-color-${color.name}'),
+    ];
+    final underline = center('highlight-underline');
+
+    // Cinco en la primera fila, cuatro en la segunda y «Subrayar» a
+    // continuación, en la quinta columna.
+    expect({for (final dot in dots.take(5)) dot.dy}, hasLength(1));
+    expect({
+      for (final dot in dots.skip(5)) dot.dy,
+      underline.dy,
+    }, hasLength(1));
+    expect(dots[5].dy, greaterThan(dots[0].dy + 40));
+    for (var column = 0; column < 4; column++) {
+      expect(dots[5 + column].dx, closeTo(dots[column].dx, 0.01));
+    }
+    expect(underline.dx, closeTo(dots[4].dx, 0.01));
+    final bar = tester.getRect(find.byKey(const Key('highlight-toolbar-card')));
+    expect(bar.left, greaterThanOrEqualTo(0));
+    expect(bar.right, lessThanOrEqualTo(360));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Subrayar usa el color que se le dio, y dice cuál es', (
@@ -198,6 +251,22 @@ void main() {
 
     final bar = tester.getRect(find.byKey(const Key('highlight-toolbar-card')));
     expect(bar.bottom, lessThanOrEqualTo(400));
+  });
+
+  testWidgets('la grilla de colores ocupa tres filas: con menos lugar que eso '
+      'arriba, se para debajo (F39)', (tester) async {
+    await pump(
+      tester,
+      onCopy: () {},
+      anchors: const TextSelectionToolbarAnchors(
+        primaryAnchor: Offset(200, 150),
+        secondaryAnchor: Offset(200, 170),
+      ),
+    );
+
+    final bar = tester.getRect(find.byKey(const Key('highlight-toolbar-card')));
+    expect(bar.top, greaterThanOrEqualTo(170));
+    expect(bar.height, greaterThan(140));
   });
 
   testWidgets('si arriba no entra, se para debajo de la selección', (

@@ -122,6 +122,61 @@ void main() {
   });
 
   test(
+    'los nueve colores van y vuelven por su nombre, y los guardados con '
+    'los cuatro de antes siguen leyéndose igual (F39: sin migración)',
+    () async {
+      final db = await migrateFrom41();
+
+      // Lo que dejó F38 en disco: el nombre del color, en texto.
+      var offset = 100;
+      for (final name in ['lightYellow', 'orange', 'violet', 'turquoise']) {
+        await db.customStatement(
+          'INSERT INTO highlights (id, rendition_id, start_offset, end_offset, '
+          "excerpt, created_at, color) VALUES ('viejo-$name', 'libro-texto', "
+          "$offset, ${offset + 3}, 'x', $seconds, '$name')",
+        );
+        offset += 10;
+      }
+      for (final color in HighlightColor.values) {
+        await db
+            .into(db.highlights)
+            .insert(
+              HighlightsCompanion.insert(
+                id: 'nuevo-${color.name}',
+                renditionId: 'libro-texto',
+                startOffset: offset,
+                endOffset: offset + 3,
+                excerpt: 'x',
+                createdAt: DateTime.fromMillisecondsSinceEpoch(seconds * 1000),
+                color: Value(color),
+              ),
+            );
+        offset += 10;
+      }
+
+      final rows = {
+        for (final r in await db.select(db.highlights).get()) r.id: r,
+      };
+      expect(rows['viejo-lightYellow']!.color, HighlightColor.lightYellow);
+      expect(rows['viejo-orange']!.color, HighlightColor.orange);
+      expect(rows['viejo-violet']!.color, HighlightColor.violet);
+      expect(rows['viejo-turquoise']!.color, HighlightColor.turquoise);
+      for (final color in HighlightColor.values) {
+        expect(rows['nuevo-${color.name}']!.color, color);
+      }
+      final stored = await db
+          .customSelect(
+            "SELECT color FROM highlights WHERE id LIKE 'nuevo-%' "
+            'ORDER BY start_offset',
+          )
+          .get();
+      expect(stored.map((r) => r.read<String>('color')), [
+        for (final color in HighlightColor.values) color.name,
+      ]);
+    },
+  );
+
+  test(
     'nada más cambia: los conteos de todo lo demás son los mismos',
     () async {
       final before = <String, int>{};

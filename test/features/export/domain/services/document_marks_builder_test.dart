@@ -146,6 +146,47 @@ void main() {
     ]);
   });
 
+  test('cada uno de los nueve colores marca con el suyo, de fondo y de línea '
+      '(F39)', () {
+    final every = DocumentMarkColors(
+      summary: 0xFF000001,
+      synthesis: 0xFF000002,
+      keyword: 0xFF000003,
+      highlights: {
+        for (final c in HighlightColor.values) c: 0xFF000100 + c.index,
+      },
+      defaultHighlight: 0xFF00000B,
+      underlines: {
+        for (final c in HighlightColor.values) c: 0xFF000200 + c.index,
+      },
+      defaultUnderline: 0xFF00000D,
+    );
+
+    for (final color in HighlightColor.values) {
+      final marks = buildDocumentMarks(
+        content: content,
+        options: const MarkedDocumentOptions(myHighlights: true),
+        study: study,
+        highlights: [
+          highlight('f', 'Segunda', color: color),
+          highlight(
+            'u',
+            'Tercera libre.',
+            color: color,
+            style: HighlightStyle.underline,
+            minute: 1,
+          ),
+        ],
+        colors: every,
+      );
+
+      expect(marks.map((m) => m.color), [
+        0xFF000100 + color.index,
+        0xFF000200 + color.index,
+      ], reason: color.name);
+    }
+  });
+
   test('mis resaltados llevan su color —la línea, si es subrayado—, su '
       'estilo y su nota; sin color, el de siempre', () {
     final marks = buildDocumentMarks(

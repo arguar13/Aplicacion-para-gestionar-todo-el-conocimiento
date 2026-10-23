@@ -103,6 +103,32 @@ void main() {
     expect(find.text(es.highlightCardTitle), findsOneWidget);
   });
 
+  testWidgets('ofrece los nueve colores, cada uno avisa con el suyo y entran '
+      'en un teléfono angosto', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await open(tester, highlight());
+
+    for (final color in HighlightColor.values) {
+      await tester.tap(find.byKey(Key('card-color-${color.name}')));
+      await tester.pumpAndSettle();
+      expect(selectedColors(tester), [color]);
+    }
+
+    expect(looks, [
+      for (final color in HighlightColor.values) (color, HighlightStyle.fill),
+    ]);
+    expect(HighlightColor.values, hasLength(9));
+    // Ninguna muestra se sale de la hoja (el resto de la ficha, en este
+    // tipo de letra de prueba, que es anchísimo, no es lo que se mide acá).
+    for (final color in HighlightColor.values) {
+      final rect = tester.getRect(find.byKey(Key('card-color-${color.name}')));
+      expect(rect.left, greaterThanOrEqualTo(0), reason: color.name);
+      expect(rect.right, lessThanOrEqualTo(360), reason: color.name);
+    }
+    tester.takeException();
+  });
+
   testWidgets('pasar a subrayado, y de vuelta a fondo, avisa con el color '
       'que ya tenía', (tester) async {
     await open(tester, highlight(color: HighlightColor.turquoise));

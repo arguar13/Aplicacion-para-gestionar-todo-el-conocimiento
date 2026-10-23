@@ -278,6 +278,32 @@ void main() {
       },
     );
 
+    // Un test por color: cada uno con su overlay, que se acuerda de las
+    // páginas que ya vio.
+    for (final color in HighlightColor.values) {
+      test('el color ${color.name} se pinta sobre el PDF con el tono del '
+          'papel, de fondo y de subrayado (F39)', () async {
+        final page = await shown(
+          'Hola mundo',
+          highlights: [
+            hand('fondo', 5, 10, color: color),
+            hand('linea', 0, 4, color: color, style: HighlightStyle.underline),
+          ],
+        );
+
+        expect(drawn(page), [
+          (
+            const Rect.fromLTRB(50, 100, 100, 110),
+            HighlightPalette.light[color].toARGB32(),
+          ),
+          (
+            const Rect.fromLTRB(0, 109, 40, 110),
+            HighlightPalette.lineOnPaper(color).toARGB32(),
+          ),
+        ]);
+      });
+    }
+
     test('va encima de las oraciones y debajo de las palabras clave: donde '
         'se pisan, queda la de más arriba', () async {
       final page = await shown(

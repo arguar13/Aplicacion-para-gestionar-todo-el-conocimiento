@@ -43,6 +43,27 @@ void main() {
     );
   });
 
+  test('los nueve colores salen en el documento, cada uno con su tono y su '
+      'línea (F39)', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final colors = container.read(documentMarkColorsProvider);
+
+    expect(HighlightColor.values, hasLength(9));
+    expect({
+      for (final color in HighlightColor.values) colors.highlightOf(color),
+    }, hasLength(9));
+    expect({
+      for (final color in HighlightColor.values)
+        colors.highlightOf(color, HighlightStyle.underline),
+    }, hasLength(9));
+    for (final color in HighlightColor.values) {
+      expect(colors.highlights.containsKey(color), isTrue, reason: color.name);
+      expect(colors.underlines.containsKey(color), isTrue, reason: color.name);
+      expect(colors.highlightOf(color), isNot(colors.highlightOf(null)));
+    }
+  });
+
   test('se descargan marcados el PDF, el Word, el EPUB, la página web, el '
       'texto y el Markdown, cada uno con su escritor', () {
     final container = ProviderContainer();

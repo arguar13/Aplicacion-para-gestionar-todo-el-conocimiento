@@ -4,10 +4,11 @@ import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La barrita que aparece sobre un texto seleccionado para resaltarlo a mano
-/// (F38): una fila de colores para resaltar de fondo, «Subrayar» con una línea
-/// del color elegido, y debajo Copiar, Escuchar, Nota, Extraer como nota y
-/// Hacer tarjeta. Lo que no entra —Compartir, Seleccionar todo, Buscar en la
-/// Web— queda detrás de «Más opciones».
+/// (F38): una grilla de colores para resaltar de fondo —nueve, en dos filas—,
+/// «Subrayar» con una línea del color elegido al final de la grilla, y debajo
+/// Copiar, Escuchar, Nota, Extraer como nota y Hacer tarjeta. Lo que no
+/// entra —Compartir, Seleccionar todo, Buscar en la Web— queda detrás de «Más
+/// opciones».
 ///
 /// **API, para quien la pone sobre cualquier documento**
 ///
@@ -64,9 +65,14 @@ class HighlightToolbar extends StatelessWidget {
   final VoidCallback? onCreateFlashcard;
   final List<HighlightToolbarAction> moreActions;
 
-  /// Lo que mide la barrita de alto: dos filas de botones con su borde. Sirve
-  /// para decidir si entra encima de la selección.
-  static const _height = 112.0;
+  /// Cuántas muestras de color hay por fila (F39: nueve colores en una grilla
+  /// de cinco columnas, que entra en un teléfono angosto sin deslizar nada).
+  static const _columns = 5;
+
+  /// Lo que mide la barrita de alto: tres filas de botones —dos de colores y
+  /// una de acciones— con su borde. Sirve para decidir si entra encima de la
+  /// selección.
+  static const _height = 160.0;
 
   /// El aire con el borde de la pantalla, y con la selección.
   static const _screenPadding = 8.0;
@@ -170,17 +176,17 @@ class HighlightToolbar extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Las muestras en una grilla de [_columns] columnas: la
+                    // primera fila, llena; la segunda, lo que sobra y
+                    // «Subrayar» en la última columna.
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: colorButtons.take(_columns).toList(),
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        ...colorButtons,
-                        SizedBox(
-                          height: 28,
-                          child: VerticalDivider(
-                            width: 8,
-                            color: theme.colorScheme.outlineVariant,
-                          ),
-                        ),
+                        ...colorButtons.skip(_columns),
                         IconButton(
                           key: const Key('highlight-underline'),
                           tooltip: l10n.highlightUnderlineWithColor(
@@ -197,11 +203,16 @@ class HighlightToolbar extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (actions.isNotEmpty)
+                    if (actions.isNotEmpty) ...[
+                      Divider(
+                        height: 1,
+                        color: theme.colorScheme.outlineVariant,
+                      ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: actions,
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -227,8 +238,13 @@ String highlightColorName(AppLocalizations l10n, HighlightColor color) =>
     switch (color) {
       HighlightColor.lightYellow => l10n.highlightColorLightYellow,
       HighlightColor.orange => l10n.highlightColorOrange,
-      HighlightColor.violet => l10n.highlightColorViolet,
+      HighlightColor.coral => l10n.highlightColorCoral,
+      HighlightColor.sand => l10n.highlightColorSand,
+      HighlightColor.lime => l10n.highlightColorLime,
       HighlightColor.turquoise => l10n.highlightColorTurquoise,
+      HighlightColor.blue => l10n.highlightColorBlue,
+      HighlightColor.violet => l10n.highlightColorViolet,
+      HighlightColor.gray => l10n.highlightColorGray,
     };
 
 /// Un botón redondo con el tono de [color], para elegirlo: el de la barrita y

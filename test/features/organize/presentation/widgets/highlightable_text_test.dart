@@ -728,6 +728,38 @@ void main() {
       ]);
     });
 
+    testWidgets('cada uno de los nueve colores se pinta con su tono, de fondo '
+        'y de subrayado, en los dos temas', (tester) async {
+      for (final theme in [ThemeData.light(), ThemeData.dark()]) {
+        final palette = HighlightPalette.of(theme.brightness);
+        for (final color in HighlightColor.values) {
+          await pumpText(
+            tester,
+            theme: theme,
+            highlights: [at(0, 9, color: color)],
+          );
+          expect(pieces(tester).first.$2, palette[color], reason: color.name);
+
+          await tester.pumpWidget(const SizedBox());
+          await pumpText(
+            tester,
+            theme: theme,
+            highlights: [
+              at(0, 9, color: color, style: HighlightStyle.underline),
+            ],
+          );
+          final context = tester.element(find.byType(HighlightableText));
+          expect(pieces(tester).first.$2, isNull);
+          expect(
+            pieces(tester).first.$3,
+            HighlightPalette.line(context, color),
+            reason: color.name,
+          );
+          await tester.pumpWidget(const SizedBox());
+        }
+      }
+    });
+
     testWidgets('un subrayado se pinta con una línea del color, sin fondo', (
       tester,
     ) async {

@@ -361,6 +361,32 @@ void main() {
       ));
     });
 
+    testWidgets('cada uno de los nueve colores se pinta en «Leer como libro» '
+        'con su tono, de fondo y de subrayado (F39)', (tester) async {
+      for (final color in HighlightColor.values) {
+        await pumpReader(tester, highlights: [at(0, 7, color: color)]);
+        var context = tester.element(find.byType(DocumentReaderScreen));
+        expect(pieces(tester).first, (
+          'Primera',
+          HighlightPalette.resolve(context, color),
+          null,
+        ), reason: color.name);
+
+        await tester.pumpWidget(const SizedBox());
+        await pumpReader(
+          tester,
+          highlights: [at(0, 7, color: color, style: HighlightStyle.underline)],
+        );
+        context = tester.element(find.byType(DocumentReaderScreen));
+        expect(pieces(tester).first, (
+          'Primera',
+          null,
+          HighlightPalette.line(context, color),
+        ), reason: color.name);
+        await tester.pumpWidget(const SizedBox());
+      }
+    });
+
     testWidgets('un subrayado que ya no entra en el texto —la forma se '
         'regeneró más corta— no se pinta', (tester) async {
       await pumpReader(

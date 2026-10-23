@@ -587,8 +587,13 @@ Word, EPUB y texto** («Leer como libro»), sobre el **PDF real**, sobre la
 **página web guardada** («Ver la página») y en el modo lectura, al
 seleccionar aparece en cambio una barrita sobre la selección:
 
-- **Cuatro colores** (amarillo, naranja, violeta y turquesa): tocás uno y el
-  fragmento queda resaltado de fondo, sin preguntarte nada.
+- **Nueve colores**, en una grilla de dos filas (amarillo, naranja, coral,
+  arena, lima, turquesa, azul, violeta y gris): tocás uno y el fragmento queda
+  resaltado de fondo, sin preguntarte nada. Son distintos a propósito del
+  verde, el celeste y el rosa de lo que estudiás con la IA, y del amarillo
+  fuerte de lo que se lee en voz alta, para que «lo marqué yo» no se confunda
+  con «lo marcó la IA». Si mantenés apretada una muestra ves su nombre (y un
+  lector de pantalla lo dice).
 - **Subrayar**: lo marca con una línea del último color que elegiste (el
   amarillo, si todavía no elegiste ninguno).
 - **Copiar**, **Escuchar** (lee en voz alta lo seleccionado), **Nota** (resalta
@@ -599,7 +604,9 @@ seleccionar aparece en cambio una barrita sobre la selección:
 **Tocá algo ya resaltado** y se abre su ficha: podés cambiarle el color,
 pasarlo de fondo a subrayado (o al revés), escribirle o corregirle la nota, o
 quitarlo. Los resaltados que ya tenías siguen como estaban, con el color de
-siempre.
+siempre; los de los cuatro colores de antes (amarillo, naranja, violeta y
+turquesa) tampoco cambian. Al **descargar el original marcado**, los nueve
+colores salen igual que en pantalla.
 
 Son los mismos resaltados en el texto extraído y en el lector: lo que marcás
 en uno lo ves en el otro. Si estás eligiendo palabras clave del resumen, tocar

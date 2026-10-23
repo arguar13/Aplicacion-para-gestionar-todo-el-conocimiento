@@ -126,7 +126,9 @@ class _HighlightCardState extends State<_HighlightCard> {
           Semantics(
             container: true,
             label: l10n.highlightCardColor,
-            child: Row(
+            // Nueve muestras de 48 no entran en una fila de un teléfono
+            // angosto: pasan a la línea de abajo.
+            child: Wrap(
               children: [
                 for (final color in HighlightColor.values)
                   HighlightColorDot(

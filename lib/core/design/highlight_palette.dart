@@ -21,15 +21,28 @@ class HighlightPalette {
   static const light = HighlightPalette._({
     HighlightColor.lightYellow: Color(0xFFFFF3A6),
     HighlightColor.orange: Color(0xFFFFCC8A),
-    HighlightColor.violet: Color(0xFFDCC8FF),
+    HighlightColor.coral: Color(0xFFFFB0A3),
+    HighlightColor.sand: Color(0xFFE3CBA3),
+    HighlightColor.lime: Color(0xFFD3EC7E),
     HighlightColor.turquoise: Color(0xFF9EEDE6),
+    HighlightColor.blue: Color(0xFF9DB2FF),
+    HighlightColor.violet: Color(0xFFDCC8FF),
+    HighlightColor.gray: Color(0xFFD0D0D6),
   });
 
+  /// En oscuro el amarillo claro se aclara un poco más que los otros: el
+  /// amarillo fuerte de lo que se lee en voz alta (`0xFFFFE066`) es muy
+  /// parecido al que había y se confundían.
   static const dark = HighlightPalette._({
-    HighlightColor.lightYellow: Color(0xFFFFEB7A),
+    HighlightColor.lightYellow: Color(0xFFFFF2A0),
     HighlightColor.orange: Color(0xFFFFB766),
-    HighlightColor.violet: Color(0xFFC9AEFF),
+    HighlightColor.coral: Color(0xFFFF9A8A),
+    HighlightColor.sand: Color(0xFFD4B484),
+    HighlightColor.lime: Color(0xFFBEDB5E),
     HighlightColor.turquoise: Color(0xFF7FE3DA),
+    HighlightColor.blue: Color(0xFF8199FF),
+    HighlightColor.violet: Color(0xFFC9AEFF),
+    HighlightColor.gray: Color(0xFFB8B8C0),
   });
 
   final Map<HighlightColor, Color> _colors;

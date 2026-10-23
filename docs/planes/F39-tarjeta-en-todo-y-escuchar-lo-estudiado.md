@@ -272,3 +272,13 @@
   - Las 27 mutaciones mueren. Dos sobrevivían en la primera pasada —prender un resaltado
     prendía el otro, y la igualdad no miraba la síntesis— y se sumaron pruebas directas de
     `StudyView`.
+- **Más colores para resaltar a mano — hecho.** Nueve, en una grilla de dos filas: amarillo,
+  naranja, coral, arena, lima, turquesa, azul, violeta y gris, de los cálidos a los fríos.
+  - Distintos a propósito de lo estudiado: el verde es un lima, el azul más violáceo que el
+    celeste de la síntesis y el rojo un coral. En oscuro el amarillo claro se aclara un poco más,
+    para no confundirse con el amarillo fuerte de lo que se lee en voz alta.
+  - Se guardan **por nombre** (`textEnum`): sumar colores no toca lo guardado y no hace falta
+    migrar. Lo resaltado con los cuatro de antes se ve igual; hay una prueba con la base v42.
+  - Mantener apretada una muestra dice su nombre, también al lector de pantalla. Lo que se
+    descarga marcado sale con los mismos nueve colores.
+  - Las 18 mutaciones mueren.
