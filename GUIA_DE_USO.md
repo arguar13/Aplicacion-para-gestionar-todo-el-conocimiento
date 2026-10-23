@@ -580,8 +580,9 @@ los tres puntos.
 ### Resaltar a mano: la barrita
 
 En el **texto extraído** de un documento o una página web, en el **lector de
-Word, EPUB y texto** («Leer como libro») y en el modo lectura, al seleccionar
-aparece en cambio una barrita sobre la selección:
+Word, EPUB y texto** («Leer como libro»), sobre el **PDF real**, sobre la
+**página web guardada** («Ver la página») y en el modo lectura, al
+seleccionar aparece en cambio una barrita sobre la selección:
 
 - **Cuatro colores** (amarillo, naranja, violeta y turquesa): tocás uno y el
   fragmento queda resaltado de fondo, sin preguntarte nada.
@@ -603,8 +604,14 @@ una palabra sirve para eso y no abre la ficha. Lo que subrayás a mano se ve
 encima de las oraciones del resumen y la síntesis, y debajo de las palabras
 clave; lo que se está leyendo en voz alta, por encima de todo.
 
-En un PDF, el menú trae **Copiar** y **Seleccionar todo**; para elegir más
-texto, mantené apretado y arrastrá: la selección sigue al dedo.
+**En el PDF y en la página web** se resalta sobre el documento mismo, y queda
+guardado en su texto extraído: lo ves igual en los dos lados. En el PDF, para
+elegir más texto, mantené apretado y arrastrá: la selección sigue al dedo, y
+**Seleccionar todo** está en Más opciones. Una selección que pasa de una página
+a la otra queda como un resaltado por página. Si no se puede ubicar lo que
+elegiste en el texto extraído —una página escaneada, que no tiene letras, o
+un texto que se volvió a extraer y cambió—, la app te lo dice y no resalta
+nada. Un PDF que no deja copiar su texto no ofrece Copiar.
 
 ---
 
@@ -684,6 +691,39 @@ quedó.
   vez, en el orden en que aparecen.
 - Cada fila trae **Copiar**. Antes de analizar dicen *«Tocá Resumir o
   Sintetizar para empezar»*.
+
+**«Descargar»**, en la tarjeta, baja **el mismo documento con lo marcado**,
+en el formato del original. Elegís qué lleva, y se combina:
+
+- **Con el resumen resaltado**, **con la síntesis resaltada**, **con las
+  palabras clave resaltadas** y **con mis resaltados** (los tuyos, con su
+  color, subrayados como los subrayaste y con su nota).
+- Lo que todavía no existe aparece apagado y dice por qué (*«Todavía no hay
+  resumen: analizá el documento»*). La hoja arranca con lo que estás viendo
+  resaltado.
+- Tocás **Guardar** y elegís dónde, con el selector del teléfono (en Android
+  también podés elegir Drive u otra app). El nombre sale como *«Historia —
+  resumen y mis resaltados.pdf»*.
+
+Cómo sale cada formato:
+
+- **PDF**: el mismo PDF, con resaltados de verdad, de los que cualquier lector
+  de PDF muestra y deja borrar. El texto se sigue pudiendo seleccionar. En una
+  página escaneada va un recuadro de color en el lugar aproximado del renglón.
+- **Word**: el mismo documento, con el sombreado de cada color o el
+  subrayado, y tus notas como comentarios de Word.
+- **EPUB**: el mismo libro, con esas partes coloreadas.
+- **Página web**: la página guardada (.html), con esas partes resaltadas. Se
+  abre en cualquier navegador, sin conexión. Tus notas aparecen al pasar el
+  mouse.
+- **Texto (.txt)**: un texto no puede guardar colores, así que sale como un
+  **Word con el mismo texto**.
+- **Markdown**: en Markdown, con `==así==` lo resaltado y `<u>así</u>` lo
+  subrayado.
+
+Los colores son los mismos que ves en la pantalla con el tema claro: la hoja
+es blanca. Lo que se pisa se apila igual que en la pantalla: el resumen, la
+síntesis, tus resaltados (el más nuevo arriba) y las palabras clave encima.
 
 El mosaico **«Resumir»** del panel, en un documento o una página web, prende
 el resumen y te lleva a la tarjeta. En un video, un audio o una nota sigue

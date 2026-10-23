@@ -6456,6 +6456,74 @@ al modo selección.
 **Se descartó:** dejar las insignias apagadas detrás del interruptor. El dueño dijo que no hacen
 falta, y un código que no se muestra igual se mantiene y se prueba.
 
+### 82. F38: resaltar a mano con color en cualquier documento, y descargarlo marcado en su formato
+
+**Pedido** (2026-10-22): *"opciones para pintar o subrayar manualmente lo que yo quiera en el
+documento original … que me deje elegir el color … copiar, escuchar dictado de voz … y que a su vez
+me deje descargar el documento … en el mismo formato que ya está el documento"*. Ampliado a todo
+formato de texto, el EPUB y las páginas web. Plan, con el «Avance» de cada paso:
+`docs/planes/F38-resaltar-a-mano-y-descargar-resaltado.md`.
+
+- **El color y el estilo son del resaltado**, no de la pantalla. Esquema v42: `highlights.color`
+  (vacío, el de siempre) y `highlights.style` (fondo o subrayado), con la papelera y la unión de
+  bóvedas. Los colores (decisión A del plan) son cuatro y distintos de los de F36, para no
+  confundir «lo marqué yo» con «lo marcó la IA».
+- **Un solo lugar para el tono: `HighlightPalette`.** La pantalla usa el de su tema. El papel —el
+  PDF, la página web, el archivo descargado— usa `onPaper` y `lineOnPaper`, que son los del tema
+  claro, porque la hoja es blanca. La línea de un subrayado es el tono oscurecido (`lineOf`): con
+  el pastel del resaltador, una línea fina casi no se veía. Lo hicieron por separado los pasos 3 y 4
+  y la descarga, con tres resultados distintos (la descarga ponía los de antes en amarillo y
+  subrayaba con el pastel). Se unificó al integrar.
+- **Una sola barrita, `HighlightToolbar`.** No sabe de dónde viene la selección: recibe dónde está
+  en la pantalla y un callback por botón.
+  - El texto seleccionable («Texto extraído», el lector, el modo lectura) la arma con
+    `buildHighlightMenu`.
+  - El PDF real y la página web, con `documentHighlightToolbar` sobre una `DocumentSelection`.
+- **Todo se guarda en posiciones del texto extraído.** Es la misma regla de los subrayados de
+  siempre, y por eso lo marcado se ve igual en los cuatro lugares.
+  - **El lector** necesitaba saber de qué elemento es su texto: `StudyText` ganó `itemId`.
+  - **El PDF** ubica la selección de `pdfrx` por la posición de la primera y la última letra en el
+    texto crudo de cada página, y comprueba que sean las mismas letras. Una selección entre páginas
+    da un resaltado por página, para que el separador no quede adentro.
+  - **La página web** cuenta su texto con un programa propio de la app y lo alinea con el extraído
+    renglón por renglón, comparando solo letras y números (`ArchivedPageAlignment`). Antes de
+    aceptar una selección, comprueba que el navegador y Dart cuenten lo mismo.
+  - Lo que no se puede ubicar no se resalta, y se avisa. Es el caso de una página escaneada o de un
+    texto que se volvió a extraer y cambió.
+- **Las capas, en un solo orden.** De abajo hacia arriba: las oraciones de F36, lo marcado a mano
+  (el más nuevo arriba), las palabras clave y lo que suena en voz alta. Vale en la pantalla, sobre
+  el PDF, sobre la página y en el archivo (`study_layers.dart`).
+- **Descargar es un puerto con un adaptador por formato** (`MarkedDocumentWriter`).
+  - El formato se reconoce por los bytes del original.
+  - Cada tramo se busca en el archivo por letras y números, no por posición (`locateMarks`): el
+    texto extraído de un Word, un EPUB o una página es Markdown armado a partir del archivo.
+  - **PDF**: anotaciones `Highlight` y `Underline` del estándar, con su apariencia, agregadas al
+    final del archivo, en el hilo de PDFium de `pdfrx` (fuera de él, el proceso se cae). Una página
+    escaneada lleva un recuadro en el renglón aproximado.
+  - **Word**: sombreado o subrayado en los runs, y la nota como comentario.
+  - **EPUB y página**: un `<mark>` del color exacto, en otro isolate.
+  - **Texto suelto**: un Word con el mismo texto (decisión C).
+  - **Markdown**: `==así==`.
+- **Compartir el archivo no está.** La app no tiene cómo pasarle un archivo a otra app, y no se
+  sumó una dependencia sin pedido. En Android, el selector del sistema ya ofrece Drive y otras.
+- **Se descartó:**
+  - Una copia dibujada de las páginas del PDF (decisión B): pierde el texto seleccionable.
+  - Dos barritas, la del texto y la del documento real.
+  - Que el PDF y la web guardaran resaltados con posiciones propias: no se verían en el texto
+    extraído ni en el lector.
+- **Lo que no quedó probado:**
+  - No hay prueba automática de punta a punta del `PdfViewer` real ni del `WebView`. La del PDF se
+    colgaba en `flutter test`, y el `WebView` no tiene implementación ahí.
+  - Están probados por separado:
+    - la ubicación, sobre un PDF real con PDFium;
+    - el programa de la página, en Edge sin ventana;
+    - el pintado;
+    - el guardado;
+    - la barrita, con una selección falsa.
+  - Falta mirarlo en el teléfono, en especial cómo conviven la barrita y la barra de selección del
+    sistema en el `WebView` de Android.
+  - En el PDF y la web no se pinta todavía lo que se lee en voz alta.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -6903,6 +6971,12 @@ falta, y un código que no se muestra igual se mantiene y se prueba.
   decisión 80.
 - **Sin insignias.** Salieron a pedido del dueño, junto con el botón para entrar a la selección
   múltiple de la Biblioteca (se entra manteniendo apretada una fila). Ver la decisión 81.
+- **F38, resaltar a mano y descargar marcado.** Una barrita con cuatro colores, subrayar, copiar,
+  escuchar, nota, extraer y tarjeta, igual en el texto extraído, el lector, el PDF real y la página
+  web, y una ficha para cambiar o quitar cada resaltado. «Descargar», en la tarjeta «Estudiar el
+  documento», baja el original con el resumen, la síntesis, las palabras clave o los resaltados
+  propios, en su formato: PDF, Word, EPUB, página web, texto (como Word) y Markdown. Ver la decisión
+  82.
 
 ### Por construir
 

@@ -170,6 +170,50 @@
   `HighlightableText` (31, de las que 24 son nuevas) y el lector (15), más una de punta a punta en el
   detalle. Mutación: 26/26.
 
+### Paso 4 (hecho): resaltar sobre el PDF real y la página web
+
+- **La misma barrita** del paso 3 aparece sobre lo seleccionado en el PDF y en la página web
+  archivada (`documentHighlightToolbar`), en lugar del menú de `pdfrx`. Tocar un resaltado abre su
+  ficha.
+- **Todo cae en el texto extraído**, igual que en «Texto extraído» y en el lector: es el mismo
+  resaltado en los cuatro lados.
+  - **PDF.** `pdfrx` da el texto de cada página con otras posiciones que el texto crudo del que
+    salió el extraído: reordena y une espacios. La selección se ubica por dónde están su primera y
+    su última letra, y se comprueba que sean las mismas letras. Si no lo son, no se resalta. Una
+    selección entre páginas da un resaltado por página, para no meter el separador adentro.
+  - **Página web.** Un programa de la app cuenta el texto de la página y avisa la selección y los
+    toques por un canal propio. Dart lo alinea con el extraído renglón por renglón, comparando solo
+    letras y números (`ArchivedPageAlignment`). Antes de aceptar una selección, comprueba que el
+    navegador y Dart cuenten la misma página.
+  - **Lo que no se ubica** —una página escaneada, un texto que se volvió a extraer y cambió— se
+    avisa y no se resalta. Extraer y Hacer tarjeta tampoco hacen nada ahí.
+- **Pintado**: sobre las letras del PDF y en la página, con las capas de siempre. El más nuevo de
+  los míos queda encima, y un subrayado es una línea que no tapa lo de abajo.
+- **Con la página web, cambia algo**: con su texto, la copia que se muestra es siempre la de la
+  app, aunque todavía no haya nada estudiado. Antes, sin estudio, se veía la original con
+  JavaScript apagado.
+- **Al integrar** se unificó el color:
+  - Los pasos 3 y 4 y la descarga calculaban cada uno el tono de la línea del subrayado, y la
+    descarga ponía los resaltados de antes en amarillo. Ahora todos usan `HighlightPalette`:
+    `onPaper` y `lineOnPaper` para el papel, que es el del tema claro.
+  - En el archivo descargado, un subrayado lleva la línea, no el pastel.
+- Pruebas:
+  - la ubicación: `pdf_study_pages_test`, y `pdf_selection_real_test` sobre un PDF real con PDFium
+    (entre páginas, escaneado, texto editado);
+  - la alineación de la página: `archived_page_alignment_test`;
+  - el pintado y el toque: `pdf_study_overlay_test`;
+  - el guardado: `document_highlighter_test`;
+  - la barrita sobre una selección falsa: `document_highlight_toolbar_test`, 12.
+- Mutación: 19/19 en la ubicación y el pintado, y 24/24 en el cableado de la barrita y los colores
+  unificados (pantalla, papel y descarga).
+- **No quedó probado**:
+  - el `PdfViewer` real de punta a punta: la prueba se colgaba en `flutter test`;
+  - el `WebView`, que no tiene implementación ahí. El programa de la página se probó en Edge sin
+    ventana.
+  - Falta mirarlo en el teléfono, sobre todo cómo conviven la barrita y la barra de selección del
+    sistema en Android.
+  - En el PDF y la web no se pinta todavía lo que se lee en voz alta.
+
 ### Paso 5 (hecho): descargar el documento marcado, en su formato
 
 - **Botón «Descargar»** en la tarjeta «Estudiar el documento». Abre una hoja con cuatro opciones
