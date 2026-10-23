@@ -236,8 +236,12 @@ class _DetailBodyState extends State<_DetailBody> {
   /// cuando sale de la pantalla (F23).
   final _playerKey = GlobalKey();
 
-  /// Para que "Volver al audio" lleve a la palabra que suena (F23).
-  final _follow = PlaybackFollowLink();
+  /// Para que "Volver al audio" lleve a la palabra que suena (F23), aunque
+  /// la transcripción esté plegada en la tarjeta (F39): la despliega.
+  late final _follow = PlaybackFollowLink()..unfold = _textFold.expand;
+
+  /// La fila del texto en la tarjeta de estudiar (F39).
+  final _textFold = ExpansibleController();
 
   /// La tarjeta de estudiar (F36): «Resumir» del panel de la fuente lleva
   /// hasta ella.
@@ -266,6 +270,7 @@ class _DetailBodyState extends State<_DetailBody> {
   @override
   void dispose() {
     _scroll.dispose();
+    _textFold.dispose();
     super.dispose();
   }
 
@@ -321,9 +326,11 @@ class _DetailBodyState extends State<_DetailBody> {
     // Lo que se estudia (F36); mientras se vuelve a extraer el texto, nada:
     // lo estudiado se reubica al terminar.
     final study = item.isBeingProcessed ? null : studyTextOf(item);
-    // Con la tarjeta de estudiar, el texto de un documento se lee en su
-    // «Extraer texto».
-    final textInCard = study != null && item.source.kind == SourceKind.document;
+    // Con la tarjeta de estudiar, el texto se lee en su «Extraer texto»
+    // —en un audio o un video, «Extraer transcripción»—, plegado: desplegado
+    // debajo de todo ocupaba la pantalla entera (F39).
+    final textInCard = study != null;
+    final transcript = isTranscriptSource(item.source);
 
     return Center(
       child: ConstrainedBox(
@@ -426,17 +433,20 @@ class _DetailBodyState extends State<_DetailBody> {
                     key: _studyCardKey,
                     text: study,
                     item: item,
-                    webPage: item.source.kind == SourceKind.webPage,
-                    extractedText: textInCard
-                        ? (context) => _ExtractedTextBody(
-                            item: item,
-                            texts: texts,
-                            readable: _readableUnfolded,
-                          )
+                    kind: item.source.kind,
+                    extractedText: (context) => _ExtractedTextBody(
+                      item: item,
+                      texts: texts,
+                      readable: _readableUnfolded,
+                      link: _follow,
+                    ),
+                    extractedTextTitle: transcript
+                        ? AppLocalizations.of(context)!.studyExtractTranscript
                         : null,
                     extractedTextSubtitle: AppLocalizations.of(
                       context,
                     )!.detailExtractedTextSubtitle,
+                    extractedTextController: _textFold,
                   ),
                 ],
 
@@ -524,16 +534,15 @@ class _DetailBodyState extends State<_DetailBody> {
 /// bloques, bloque por bloque—.
 ///
 /// Solo lo que se ve: sin el texto que se está volviendo a extraer —en su
-/// lugar, el panel de la fuente cuenta cómo va—, y sin el de un documento
-/// mientras está plegado
-/// —con [unfolded], con él—. El original de un Word o un EPUB, en su lector
-/// embebido, lo ofrece ese lector, que va por delante.
+/// lugar, el panel de la fuente cuenta cómo va—, y sin el que va plegado en
+/// la tarjeta de estudiar mientras está plegado —con [unfolded], con él—.
+/// El original de un Word o un EPUB, en su lector embebido, lo ofrece ese
+/// lector, que va por delante.
 ReadableDocument _readableOf(KnowledgeItem item, {bool unfolded = false}) {
   final markdown = extractedTextIsMarkdown(item.source);
   final transcript = isTranscriptSource(item.source);
   final textsShown =
-      !item.isBeingProcessed &&
-      (unfolded || item.source.kind != SourceKind.document);
+      !item.isBeingProcessed && (unfolded || studyRendition(item) == null);
 
   return documentFrom('item:${item.id}', item.title, [
     if (item.notes case final notes? when notes.isNotEmpty)
@@ -780,11 +789,15 @@ class _ExtractedTextBody extends StatelessWidget {
     required this.item,
     required this.texts,
     required this.readable,
+    this.link,
   });
 
   final KnowledgeItem item;
   final List<TextRendition> texts;
   final ReadableDocument Function() readable;
+
+  /// Con el mini reproductor, para "Volver al audio" (F23).
+  final PlaybackFollowLink? link;
 
   @override
   Widget build(BuildContext context) => ReadableRegion(
@@ -796,7 +809,7 @@ class _ExtractedTextBody extends StatelessWidget {
           if (rendition.kind == RenditionKind.blocks)
             _BlocksRendition(item: item, rendition: rendition)
           else
-            _TextRenditionView(item: item, rendition: rendition),
+            _TextRenditionView(item: item, rendition: rendition, link: link),
           const SizedBox(height: 16),
         ],
       ],
@@ -828,17 +841,40 @@ class _TextRenditionView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final studied = studyRendition(item)?.id == rendition.id;
     // La transcripción de un audio o un video sigue al audio mientras
-    // suena: la palabra que se dice, en amarillo (F23).
+    // suena: la palabra que se dice, en amarillo (F23), con lo estudiado
+    // debajo (F39).
     if (isTranscriptSource(item.source) && rendition.isPrimary) {
       return PlaybackSyncedText(
         item: item,
         rendition: rendition,
         markdown: extractedTextIsMarkdown(item.source),
         link: link,
+        paints: studied
+            ? watchStudyPaints(ref, context, rendition.id)
+            : const [],
+        // Eligiendo palabras clave, un toque es para elegirlas: el audio no
+        // se mueve.
+        onStudyTap: studied
+            ? (offset) {
+                if (!ref.read(studyViewProvider(rendition.id)).picking) {
+                  return false;
+                }
+                unawaited(
+                  toggleStudyKeywordAt(
+                    ref,
+                    context,
+                    renditionId: rendition.id,
+                    content: rendition.content,
+                    offset: offset,
+                  ),
+                );
+                return true;
+              }
+            : null,
       );
     }
-    final studied = studyRendition(item)?.id == rendition.id;
     return HighlightableText(
       itemId: item.id,
       renditionId: rendition.id,

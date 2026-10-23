@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/util/transcript_sync.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 
 /// Lo que une el texto que sigue al audio con el mini reproductor (F23):
@@ -13,6 +14,11 @@ class PlaybackFollowLink {
   /// Lleva la vista hasta lo que está sonando; `false` si no hay nada que
   /// mostrar —el texto no sigue al audio, o todavía no empezó—.
   bool Function()? revealPlaying;
+
+  /// Despliega el lugar donde está el texto, si está plegado (F39): la
+  /// transcripción va plegada en la tarjeta de estudiar, y plegada no está
+  /// en pantalla para mostrar nada.
+  VoidCallback? unfold;
 }
 
 /// La transcripción de un audio o un video que **sigue al audio** (F23):
@@ -31,6 +37,8 @@ class PlaybackSyncedText extends ConsumerStatefulWidget {
     required this.rendition,
     required this.markdown,
     this.link,
+    this.paints = const [],
+    this.onStudyTap,
     super.key,
   });
 
@@ -38,6 +46,13 @@ class PlaybackSyncedText extends ConsumerStatefulWidget {
   final TextRendition rendition;
   final bool markdown;
   final PlaybackFollowLink? link;
+
+  /// Lo estudiado de la transcripción, con sus colores (F39).
+  final List<PaintedRange> paints;
+
+  /// Un toque para lo estudiado —elegir una palabra clave—: si devuelve
+  /// `true`, lo atendió y el audio no se mueve.
+  final bool Function(int offset)? onStudyTap;
 
   @override
   ConsumerState<PlaybackSyncedText> createState() => _PlaybackSyncedTextState();
@@ -95,6 +110,10 @@ class _PlaybackSyncedTextState extends ConsumerState<PlaybackSyncedText> {
     _session?.controller.removeListener(_update);
     _session = session;
     session?.controller.addListener(_update);
+    // Armada con el audio ya sonando —desplegada en la tarjeta de estudiar
+    // (F39)—, lo que suena se sabe desde el primer cuadro, sin esperar al
+    // próximo aviso del reproductor. Sin setState: se está dibujando.
+    _playing = _current();
   }
 
   SyncSpan? _current() {
@@ -121,6 +140,7 @@ class _PlaybackSyncedTextState extends ConsumerState<PlaybackSyncedText> {
   /// YouTube—, solo si el audio ya está en marcha: con el audio quieto, un
   /// toque es solo un toque.
   void _seekTo(int offset) {
+    if (widget.onStudyTap?.call(offset) ?? false) return;
     final session = _session;
     if (session == null || !session.started) return;
     final span = _sync.atOffset(offset);
@@ -147,7 +167,10 @@ class _PlaybackSyncedTextState extends ConsumerState<PlaybackSyncedText> {
       playing: playing == null
           ? null
           : (start: playing.start, end: playing.end),
-      onTapOffset: _session == null ? null : _seekTo,
+      paints: widget.paints,
+      onTapOffset: _session == null && widget.onStudyTap == null
+          ? null
+          : _seekTo,
     );
   }
 }

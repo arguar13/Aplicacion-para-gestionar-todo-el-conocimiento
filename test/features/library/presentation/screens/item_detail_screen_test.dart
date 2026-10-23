@@ -110,6 +110,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Despliega el texto, que va plegado en la tarjeta de estudiar (F39).
+  Future<void> unfoldText(WidgetTester tester) async {
+    final row = find.byKey(const Key('study-extract-text'));
+    await tester.ensureVisible(row);
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+  }
+
   /// El mosaico [key] del panel de la fuente (F26).
   SourcePanelTile tile(WidgetTester tester, String key) =>
       tester.widget<SourcePanelTile>(find.byKey(Key(key)));
@@ -176,6 +184,8 @@ void main() {
       );
 
       await pumpDetail(tester, id);
+      expect(find.text(es.studyExtractTranscript), findsOneWidget);
+      await unfoldText(tester);
 
       expect(find.textContaining('var_uno_dos'), findsOneWidget);
       expect(find.textContaining('# 3 no es un título'), findsOneWidget);
@@ -240,6 +250,7 @@ void main() {
       );
 
       await pumpDetail(tester, id);
+      await unfoldText(tester);
 
       expect(find.textContaining('maquillaje'), findsOneWidget);
       expect(find.text(es.detailRetry), findsOneWidget);

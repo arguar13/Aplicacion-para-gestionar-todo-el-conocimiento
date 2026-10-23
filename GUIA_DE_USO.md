@@ -446,16 +446,18 @@ De arriba hacia abajo, vas a encontrar:
    ahí mismo (ver [Ver los archivos originales](#ver-los-archivos-originales)).
 9. **El panel del elemento**, justo debajo: una tarjeta con todo lo que se
    puede hacer con su contenido (ver [El panel del elemento](#el-panel-del-elemento)).
-   En un documento o una página web, debajo va **«Estudiar el documento»**
-   (ver [Estudiar el documento](#estudiar-el-documento-resumen-síntesis-y-palabras-clave)).
+   En todo lo que trae un texto —un documento, una página web, una
+   publicación, una imagen, un audio o un video—, debajo va la tarjeta de
+   estudiar (ver [Estudiar el documento](#estudiar-el-documento-resumen-síntesis-y-palabras-clave)).
 10. Un **grafo local** con sus vínculos más cercanos, a la vista: lo que
     vinculás se ve acá sin tener que bajar hasta el final.
 11. El **«Contenido»**, si es una página o una publicación que trae archivos:
     sus fotos, documentos, audios y videos, cada uno con su texto (ver
     [Todo lo que trae una página: el «Contenido»](#todo-lo-que-trae-una-página-el-contenido)).
-12. El **contenido/texto** extraído. En un PDF, un libro o un Word está
-    plegado en **«Extraer texto»**, dentro de la tarjeta de estudiar:
-    tocalo para verlo.
+12. El **contenido/texto** extraído. Con la tarjeta de estudiar va plegado
+    adentro, en **«Extraer texto»** —**«Extraer transcripción»** en un audio
+    o un video—: tocalo para verlo. Sin la tarjeta —una nota tuya, una
+    referencia—, se ve acá, entero.
 13. Sus **tarjetas de repaso**, si generaste alguna.
 14. **Relacionado**: la lista de vínculos con otros elementos (podés agregar
     uno nuevo con el botón de cadena, eligiendo qué tipo de relación es:
@@ -645,9 +647,13 @@ cargaba recién al bajar.
 
 ### Estudiar el documento: resumen, síntesis y palabras clave
 
-En un **documento** (PDF, Word, EPUB, texto) o una **página web guardada**,
-debajo del original aparece la tarjeta **«Estudiar el documento»** («Estudiar
-la página», en una página web). La IA marca en el documento **sus propias
+En un **documento** (PDF, Word, EPUB, texto), una **página web guardada**,
+una **publicación**, una **imagen** (el texto que se leyó de ella), un
+**audio** o un **video** (su transcripción), debajo del original aparece la
+tarjeta de estudiar. Su título dice qué es: «Estudiar el documento»,
+«Estudiar la página», «Estudiar la publicación», «Estudiar la imagen»,
+«Estudiar el audio» o «Estudiar el video». Una nota que escribiste vos o una
+referencia no la llevan: no hay qué resumir de ellas. La IA marca en el documento **sus propias
 oraciones**, como con un resaltador: no escribe nada nuevo, así que todo lo
 resaltado está en el original, tal cual.
 
@@ -683,8 +689,14 @@ quedó.
 
 **«Extraer»**, abajo en la tarjeta, tiene filas que se despliegan:
 
-- **Extraer texto** (en un documento): el texto extraído de siempre, con
-  todo lo de antes —leer en voz alta, subrayar, seleccionar—.
+- **Extraer texto**: el texto extraído de siempre, con todo lo de antes
+  —leer en voz alta, subrayar, seleccionar— y lo que prendas en la tarjeta
+  resaltado encima. Va plegado para no ocupar la pantalla entera.
+- **Extraer transcripción**, en un audio o un video: la transcripción, que
+  **sigue al audio** como siempre (ver [El texto sigue al audio](#el-texto-sigue-al-audio)),
+  con el resumen, la síntesis y las palabras clave pintados debajo de la
+  palabra que suena. Las marcas de tiempo, como `[3:15]`, no cuentan como
+  parte de una oración.
 - **Extraer resumen** y **Extraer síntesis**: sus oraciones en orden, como
   texto corrido, con cuántas oraciones y palabras son.
 - **Extraer palabras clave**: las palabras como etiquetas, cada una una
@@ -748,7 +760,9 @@ Mientras suena un audio o un video que tiene su texto transcripto, **la
 palabra que se está diciendo se ve resaltada en amarillo**. Tocar una
 palabra lleva el audio a ese momento. Si bajás leyendo y el reproductor
 queda fuera de la pantalla, aparece abajo un **mini reproductor** flotante
-para pausar, cambiar la velocidad o **"Volver al audio"**.
+para pausar, cambiar la velocidad o **"Volver al audio"**. Si la
+transcripción está plegada en la tarjeta de estudiar, "Volver al audio" la
+despliega sola y te lleva a la palabra que suena.
 
 Para que esto funcione con lo que ya tenías guardado de antes, bajá el
 modelo de transcripción nuevo (Ajustes → IA y modelos) y usá **Más → Volver

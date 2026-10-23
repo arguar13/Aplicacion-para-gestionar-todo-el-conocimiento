@@ -15,6 +15,18 @@
 >   síntesis y palabras claves"*.
 > - Elegido en el chat: imágenes, audios y videos llevan **la tarjeta completa**, con Resumir,
 >   Sintetizar y Palabras clave.
+>
+> Sumados el mismo día, mientras se trabajaba, en este orden (*"Todos los pedidos hazlos
+> secuencialmente, sin saltearte nada"*):
+>
+> - *"cuando use el modelo de IA, no tenga errores porque hay veces que se para de la nada y me dice
+>   error de conexión cuando en realidad siempre tengo buena conexión … y que sea más informativo
+>   porque yo no sé cuánto le queda o qué problema hubo"*.
+> - *"saca eso de la racha en ajustes, creo que no es necesario"*.
+> - *"en Vínculos que haya opciones para mostrar los vínculos más fuertes, menos fuertes y todos,
+>   algo así como los grados en los grafos"*.
+> - *"en «Lo que hizo la IA» … que me deje ver qué hace la IA en este momento y cómo lo hace … qué
+>   porcentaje va, cuánto tiempo va y cuántos tokens va … muy organizado … y muy elegante"*.
 
 ## Lo que hay hoy
 
@@ -74,6 +86,37 @@
   **«Leer: Todo · Resumen · Síntesis · Palabras clave»**. Las opciones sin datos aparecen
   apagadas.
 
+### 5. La IA sin cortes falsos, y diciendo qué pasa
+
+- Buscar **por qué** un análisis largo se corta con «error de conexión» teniendo buena conexión, y
+  arreglar eso: la causa, no reintentar a ciegas. Por ejemplo, una espera que vence, una respuesta
+  cortada o un límite de la cuenta tomado como falta de red.
+- Lo que sí es pasajero —la red que se cae un momento, el servicio ocupado— se reintenta solo, con
+  espera creciente, y la franja lo dice: «Reintentando (2 de 4)…».
+- Cada aviso dice **qué pasó de verdad**: sin conexión, la cuota de la cuenta, el servicio que
+  respondió mal o la espera que venció. Y qué hacer.
+- Mientras analiza: la parte que va, **el porcentaje y cuánto falta, aproximado**.
+
+### 6. «Lo que hizo la IA», en vivo
+
+- Arriba, si la IA está trabajando, **«Ahora»**: qué hace —«Resumiendo "Historia", parte 3 de
+  12»—, con qué modelo, el porcentaje, el tiempo que lleva y los tokens que lleva.
+- Plegado debajo, **«Cómo lo hace»**: los pasos de esa tarea (partir el texto, mandar cada parte,
+  juntar) con el que va marcado.
+- Lo que ya hizo sigue como hoy, en «Actividad». Cada tarea terminada suma su tiempo y sus tokens.
+- Ordenado y sin cargar la pantalla: una sola tarjeta para lo que pasa ahora, y el detalle plegado.
+
+### 7. Sin «Racha e historial» en Ajustes
+
+- Sale el interruptor y la sección «Hábito». **Decisión D**: la racha y el historial se siguen
+  viendo en Repasar, como con el interruptor prendido, que era lo de siempre.
+
+### 8. Vínculos: los más fuertes, los menos fuertes o todos
+
+- En el Mapa, en «Vínculos», un selector **«Más fuertes · Menos fuertes · Todos»**, como los grados
+  del Grafo. Cuánto pesa un vínculo sale de lo que ya se guarda: el tipo, si lo confirmaste vos y
+  cuántas veces se citan. Al hacer este paso se releva qué se guarda exactamente.
+
 ## Decisiones para que confirmes
 
 - **A.** «Volver a analizar» rehace lo de la IA y **deja lo que elegiste a mano**. Hoy borra
@@ -94,9 +137,26 @@
    mano, adentro y afuera del documento. Esto incluye la decisión A.
 4. «Escuchar» en las filas y «Leer: Todo · Resumen · Síntesis · Palabras clave» en el
    reproductor.
-5. Cierre: GUIA_DE_USO, la decisión en `docs/arquitectura.md`, CONTEXTO y el «Avance»; suite entera
-   y `verify_commit`; la APK al teléfono si la pedís.
+5. La IA sin cortes falsos, reintentos y avisos que dicen qué pasó y cuánto falta.
+6. «Lo que hizo la IA» en vivo: qué hace, cómo, porcentaje, tiempo y tokens.
+7. Sacar «Racha e historial» de Ajustes (decisión D).
+8. Vínculos: más fuertes, menos fuertes o todos.
+9. Cierre: GUIA_DE_USO, las decisiones en `docs/arquitectura.md`, CONTEXTO y el «Avance»; suite
+   entera y `verify_commit`; la APK al teléfono si la pedís.
 
 ## Avance
 
-(vacío hasta que arranque)
+- **Paso 1 — hecho.** La tarjeta va en todo lo que trae un texto propio: se estudia todo menos
+  una nota escrita a mano y una referencia. El título cambia según qué es. El texto va plegado en
+  «Extraer texto», o en «Extraer transcripción» en un audio o un video, y ya no queda desplegado
+  debajo de la tarjeta.
+  - En la transcripción plegada, lo estudiado se pinta debajo de la palabra que suena.
+  - Eligiendo palabras clave, un toque elige en vez de mover el audio.
+  - «Volver al audio» la despliega sola.
+  - Al armarse con el audio ya sonando, la transcripción sabe lo que suena desde el primer cuadro,
+    sin esperar al próximo aviso del reproductor. Es la causa de fondo: desplegada, no tenía nada
+    que mostrar.
+  - Las marcas de tiempo `[3:15]` quedan fuera de las oraciones.
+  - El lector en voz alta no lee el texto mientras está plegado.
+  - Pruebas nuevas: la tarjeta de cada tipo; el despliegue en el mini reproductor; lo pintado y el
+    toque en la transcripción; y una de punta a punta en el detalle de un audio.

@@ -335,4 +335,68 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
   });
+
+  group('con la transcripción plegada en la tarjeta de estudiar (F39)', () {
+    testWidgets('"Volver al audio" la despliega y, ya armada, muestra lo que '
+        'suena, sin subir hasta el reproductor', (tester) async {
+      var unfolded = 0;
+      var revealed = 0;
+      final link = PlaybackFollowLink();
+      link.unfold = () {
+        unfolded++;
+        // Desplegada, la transcripción se arma y se anota.
+        link.revealPlaying = () {
+          revealed++;
+          return true;
+        };
+      };
+      final (:scroll, container: _) = await pump(tester, link: link);
+      await startPlaying(tester);
+      await scrollAway(tester, scroll);
+
+      await tester.tap(find.byKey(const Key('mini-player-back')));
+      await tester.pumpAndSettle();
+
+      expect(unfolded, 1);
+      expect(revealed, 1);
+      expect(scroll.offset, 1500);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('si desplegada no tiene nada que mostrar, sube hasta el '
+        'reproductor', (tester) async {
+      final link = PlaybackFollowLink();
+      link.unfold = () => link.revealPlaying = () => false;
+      final (:scroll, container: _) = await pump(tester, link: link);
+      await startPlaying(tester);
+      await scrollAway(tester, scroll);
+
+      await tester.tap(find.byKey(const Key('mini-player-back')));
+      await tester.pumpAndSettle();
+
+      expect(scroll.offset, 0);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('ya desplegada y sin nada que mostrar, no la vuelve a '
+        'desplegar: sube hasta el reproductor', (tester) async {
+      var unfolded = 0;
+      final link = PlaybackFollowLink()
+        ..revealPlaying = (() => false)
+        ..unfold = () => unfolded++;
+      final (:scroll, container: _) = await pump(tester, link: link);
+      await startPlaying(tester);
+      await scrollAway(tester, scroll);
+
+      await tester.tap(find.byKey(const Key('mini-player-back')));
+      await tester.pumpAndSettle();
+
+      expect(unfolded, 0);
+      expect(scroll.offset, 0);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
 }

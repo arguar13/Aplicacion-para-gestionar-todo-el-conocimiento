@@ -28,18 +28,23 @@ void main() {
         ],
       );
 
-  test('se estudia un documento y una página web (decisión E)', () {
-    expect(studyRendition(item(SourceKind.document))?.id, 'rend-1');
-    expect(studyRendition(item(SourceKind.webPage))?.id, 'rend-1');
+  test('se estudia todo lo que trae un texto propio: un documento, una '
+      'página, una publicación, una imagen, un audio, un video (F39)', () {
+    for (final kind in [
+      SourceKind.document,
+      SourceKind.webPage,
+      SourceKind.socialPost,
+      SourceKind.image,
+      SourceKind.audio,
+      SourceKind.video,
+      SourceKind.youtube,
+    ]) {
+      expect(studyRendition(item(kind))?.id, 'rend-1', reason: '$kind');
+    }
   });
 
-  test('un video, un audio o una nota, no', () {
-    for (final kind in [
-      SourceKind.youtube,
-      SourceKind.audio,
-      SourceKind.manualNote,
-      SourceKind.socialPost,
-    ]) {
+  test('una nota o una referencia, no', () {
+    for (final kind in [SourceKind.manualNote, SourceKind.reference]) {
       expect(studyRendition(item(kind)), isNull, reason: '$kind');
     }
   });

@@ -156,4 +156,24 @@ void main() {
       content,
     );
   });
+
+  test('la marca de tiempo de una transcripción queda afuera, y cada '
+      'renglón es su bloque (F39)', () {
+    const content =
+        '[0:05] Hola a todos. Hoy hablamos del vapor.\n'
+        '[1:02:10] Las fábricas cambiaron todo.';
+
+    expect(sentencesOf(content), [
+      'Hola a todos.',
+      'Hoy hablamos del vapor.',
+      'Las fábricas cambiaron todo.',
+    ]);
+    expect(
+      splitStudySentences(
+        content,
+        markdown: true,
+      ).map((s) => content.substring(s.start, s.end)),
+      contains('Las fábricas cambiaron todo.'),
+    );
+  });
 }

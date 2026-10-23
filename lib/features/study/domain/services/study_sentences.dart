@@ -54,7 +54,8 @@ const kMaxStudySentenceChars = 600;
 ///
 /// Con [markdown], las marcas de bloque —`#`, `>`, `-`, `1.`— quedan afuera
 /// de la oración; sin él —un PDF, un `.txt`—, las viñetas de una lista
-/// (`•`, `-`, `–`).
+/// (`•`, `-`, `–`). La marca de tiempo de un renglón de una transcripción
+/// —`[3:15]`— queda afuera siempre (F39): no es algo que se dijo.
 List<StudySentence> splitStudySentences(
   String content, {
   required bool markdown,
@@ -94,9 +95,9 @@ List<(int, int)> _blocksOf(String content, {required bool markdown}) {
       // Una imagen sola en su renglón: no hay nada que leer.
       close();
     } else {
-      final marker = (markdown ? _markdownMarker : _plainMarker).firstMatch(
-        line,
-      );
+      final marker =
+          _timestampLabel.firstMatch(line) ??
+          (markdown ? _markdownMarker : _plainMarker).firstMatch(line);
       final heading = markdown && _heading.hasMatch(line);
       if (marker != null || heading) close();
       final textStart = lineStart + (marker?.end ?? _leadingSpaces(line));
@@ -124,6 +125,10 @@ final _markdownMarker = RegExp(
 );
 
 final _heading = RegExp(r'^\s*#{1,6}\s');
+
+/// La marca de tiempo con que empieza un renglón de una transcripción: cada
+/// renglón es su propio bloque, como un ítem de una lista.
+final _timestampLabel = RegExp(r'^\s*\[\d{1,2}(?::\d{2}){1,2}\]\s*');
 
 /// La viñeta de una lista en un texto sin Markdown.
 final _plainMarker = RegExp(r'^\s*([•·▪◦‣\-–—*]\s+|\d{1,3}[.)]\s+)');

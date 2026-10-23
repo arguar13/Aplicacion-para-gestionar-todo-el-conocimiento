@@ -18,6 +18,7 @@ import 'package:sinapsis/features/library/presentation/widgets/playback_synced_t
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
+import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -145,7 +146,12 @@ void main() {
     WidgetTester tester,
     TextRendition rendition, {
     PlaybackFollowLink? link,
+    List<PaintedRange> paints = const [],
+    bool Function(int offset)? onStudyTap,
+    ValueNotifier<bool>? shown,
   }) async {
+    shown ??= ValueNotifier(true);
+    addTearDown(shown.dispose);
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -178,11 +184,26 @@ void main() {
                     height: 300,
                     child: MediaPlayerView(path: _path, isVideo: false),
                   ),
-                  PlaybackSyncedText(
-                    item: _item,
-                    rendition: rendition,
-                    markdown: false,
-                    link: link,
+                  // Como en el detalle, que mira de dónde suena el audio
+                  // aunque la transcripción esté plegada.
+                  Consumer(
+                    builder: (context, ref, _) {
+                      ref.watch(itemPlaybackPathProvider(_item));
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: shown,
+                    builder: (context, isShown, _) => isShown
+                        ? PlaybackSyncedText(
+                            item: _item,
+                            rendition: rendition,
+                            markdown: false,
+                            link: link,
+                            paints: paints,
+                            onStudyTap: onStudyTap,
+                          )
+                        : const SizedBox.shrink(),
                   ),
                 ],
               ),
@@ -332,5 +353,91 @@ void main() {
     expect(yellow(tester), ['bienvenidos']);
 
     await tester.pumpWidget(const SizedBox());
+  });
+
+  group('lo estudiado en la transcripción (F39)', () {
+    const summaryColor = Color(0xFFB3E5FC);
+
+    List<String> painted(WidgetTester tester) {
+      final span = tester
+          .widget<SelectableText>(find.byType(SelectableText))
+          .textSpan!;
+      final found = <String>[];
+      span.visitChildren((child) {
+        if (child is TextSpan && child.style?.backgroundColor == summaryColor) {
+          found.add(child.text ?? '');
+        }
+        return true;
+      });
+      return found;
+    }
+
+    testWidgets('se pinta, y la palabra que suena va en amarillo encima', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        _timed,
+        paints: const [PaintedRange(0, 13, background: summaryColor)],
+      );
+      expect(painted(tester), ['Hola a todos,']);
+
+      await play(tester);
+      await advanceTo(tester, const Duration(milliseconds: 100));
+
+      expect(yellow(tester), ['Hola']);
+      expect(painted(tester), [' a todos,']);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('un toque que atiende lo estudiado no mueve el audio; si no '
+        'lo atiende, sí', (tester) async {
+      final asked = <int>[];
+      var attends = true;
+      await pump(
+        tester,
+        _timed,
+        onStudyTap: (offset) {
+          asked.add(offset);
+          return attends;
+        },
+      );
+
+      // Con el audio quieto también llega: elegir palabras clave no
+      // necesita que suene.
+      await tapAt(tester, 31);
+      expect(asked, [31]);
+
+      await play(tester);
+      await advanceTo(tester, const Duration(milliseconds: 100));
+      await tapAt(tester, 31);
+      expect(asked, [31, 31]);
+      expect(player.seeks, isEmpty);
+
+      attends = false;
+      await tapAt(tester, 13);
+      expect(asked, [31, 31, 13]);
+      expect(player.seeks, [const Duration(milliseconds: 1200)]);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('armada con el audio ya sonando —recién desplegada—, sabe lo '
+        'que suena desde el primer cuadro', (tester) async {
+      final link = PlaybackFollowLink();
+      final shown = ValueNotifier(false);
+      await pump(tester, _timed, link: link, shown: shown);
+      await play(tester);
+      await advanceTo(tester, const Duration(milliseconds: 1300));
+
+      shown.value = true;
+      await tester.pump();
+
+      expect(yellow(tester), ['bienvenidos']);
+      expect(link.revealPlaying!(), isTrue);
+
+      await tester.pumpWidget(const SizedBox());
+    });
   });
 }

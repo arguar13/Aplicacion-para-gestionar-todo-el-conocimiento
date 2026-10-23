@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/export/presentation/providers/marked_download_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
@@ -16,16 +17,18 @@ import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart'
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La tarjeta «Estudiar el documento» del detalle (F36): entre el original y
-/// lo demás, en un documento o una página web.
+/// lo demás, en todo lo que trae un texto propio —un documento, una página,
+/// una publicación, una imagen, un audio, un video (F39)—.
 ///
 /// - **Arriba, los tres botones** —ver [StudyToggles]— y una leyenda chica
 ///   con sus colores. Lo que prenden se resalta en el original, en «Leer como
 ///   libro» y en el texto extraído.
 /// - **Mientras analiza**, una franja con la parte que va, su barra y
 ///   «Parar». Si se corta o una parte no se pudo leer, lo dice ahí mismo.
-/// - **Abajo, «Extraer»**: el texto extraído —en un documento, si viene
-///   [extractedText]—, el resumen, la síntesis y las palabras clave, cada uno
-///   plegado, con cuánto tiene y «Copiar».
+/// - **Abajo, «Extraer»**: el texto extraído —si viene [extractedText]; la
+///   transcripción, en un audio o un video—, el resumen, la síntesis y las
+///   palabras clave, cada uno plegado, con cuánto tiene y «Copiar». El texto
+///   entero va plegado acá y no desplegado debajo de la tarjeta: ocupa mucho.
 /// - Con [item], **«Descargar»** (F38): el original en su mismo formato con
 ///   el resumen, la síntesis, las palabras clave o los subrayados marcados.
 ///   Solo aparece si el formato del original se puede marcar.
@@ -35,9 +38,11 @@ class StudyDocumentCard extends ConsumerWidget {
   const StudyDocumentCard({
     required this.text,
     this.item,
-    this.webPage = false,
+    this.kind = SourceKind.document,
     this.extractedText,
+    this.extractedTextTitle,
     this.extractedTextSubtitle,
+    this.extractedTextController,
     super.key,
   });
 
@@ -47,15 +52,22 @@ class StudyDocumentCard extends ConsumerWidget {
   /// «Descargar».
   final KnowledgeItem? item;
 
-  /// Si es una página web: cambia solo el título.
-  final bool webPage;
+  /// Qué es lo que se estudia: cambia solo el título.
+  final SourceKind kind;
 
   /// El texto extraído, armado recién al desplegar su fila: el de un libro
   /// entero no se arma si nadie lo abre. Sin él, no hay fila de texto.
   final WidgetBuilder? extractedText;
 
+  /// El nombre de la fila del texto; sin él, «Extraer texto».
+  final String? extractedTextTitle;
+
   /// Para qué está el texto extraído, debajo de su fila.
   final String? extractedTextSubtitle;
+
+  /// Para desplegar la fila del texto desde afuera: «Volver al audio», con
+  /// la transcripción plegada, la despliega para mostrar lo que suena.
+  final ExpansibleController? extractedTextController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -84,10 +96,15 @@ class StudyDocumentCard extends ConsumerWidget {
                 Icon(Icons.school_outlined, color: scheme.primary),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    webPage ? l10n.studyCardTitleWebPage : l10n.studyCardTitle,
-                    style: theme.textTheme.titleMedium,
-                  ),
+                  child: Text(switch (kind) {
+                    SourceKind.webPage => l10n.studyCardTitleWebPage,
+                    SourceKind.socialPost => l10n.studyCardTitlePost,
+                    SourceKind.image => l10n.studyCardTitleImage,
+                    SourceKind.audio => l10n.studyCardTitleAudio,
+                    SourceKind.video ||
+                    SourceKind.youtube => l10n.studyCardTitleVideo,
+                    _ => l10n.studyCardTitle,
+                  }, style: theme.textTheme.titleMedium),
                 ),
                 if (item case final item?)
                   _DownloadButton(item: item, text: text),
@@ -131,8 +148,9 @@ class StudyDocumentCard extends ConsumerWidget {
               _ExtractRow(
                 key: const Key('study-extract-text'),
                 icon: Icons.notes_outlined,
-                title: l10n.studyExtractText,
+                title: extractedTextTitle ?? l10n.studyExtractText,
                 subtitle: extractedTextSubtitle,
+                controller: extractedTextController,
                 child: Builder(builder: builder),
               ),
             _SentencesRow(
@@ -396,6 +414,7 @@ class _ExtractRow extends StatelessWidget {
     this.subtitle,
     this.iconColor,
     this.enabled = true,
+    this.controller,
     super.key,
   });
 
@@ -404,12 +423,14 @@ class _ExtractRow extends StatelessWidget {
   final String title;
   final String? subtitle;
   final bool enabled;
+  final ExpansibleController? controller;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return ExpansionTile(
+      controller: controller,
       enabled: enabled,
       tilePadding: const EdgeInsets.only(right: 12),
       childrenPadding: const EdgeInsets.only(right: 12, bottom: 12),

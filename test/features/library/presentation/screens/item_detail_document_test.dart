@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
+import 'package:sinapsis/features/library/presentation/widgets/playback_synced_text.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
@@ -31,6 +34,7 @@ void main() {
   Future<LibraryHarness> pumpItem(
     WidgetTester tester, {
     required SourceKind kind,
+    String content = 'La primera frase del libro.',
     List<Override> extraOverrides = const [],
   }) async {
     final harness = await LibraryHarness.create(extraOverrides: extraOverrides);
@@ -49,7 +53,7 @@ void main() {
                 id: 'r1',
                 itemId: 'item-1',
                 kind: RenditionKind.markdown,
-                content: 'La primera frase del libro.',
+                content: content,
                 isPrimary: true,
                 createdAt: now,
               ),
@@ -131,15 +135,103 @@ void main() {
     expect(summary.selected, isTrue);
   });
 
-  testWidgets('lo que no es un documento se sigue mostrando entero', (
-    tester,
-  ) async {
+  testWidgets('en una página web el texto también va plegado en la tarjeta, '
+      'y se lee al desplegarlo (F39)', (tester) async {
     await pumpItem(tester, kind: SourceKind.webPage);
 
-    expect(find.text(es.detailExtractedTextTitle), findsNothing);
-    expect(find.text(es.studyExtractText), findsNothing);
-    expect(find.textContaining('La primera frase'), findsOneWidget);
-    // Una página web también se estudia, con su propia tarjeta.
     expect(find.text(es.studyCardTitleWebPage), findsOneWidget);
+    expect(find.text(es.detailExtractedTextTitle), findsNothing);
+    expect(find.textContaining('La primera frase'), findsNothing);
+
+    await tester.ensureVisible(find.text(es.studyExtractText));
+    await tester.tap(find.text(es.studyExtractText));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('La primera frase'), findsOneWidget);
+  });
+
+  for (final (kind, title) in [
+    (SourceKind.socialPost, es.studyCardTitlePost),
+    (SourceKind.image, es.studyCardTitleImage),
+    (SourceKind.audio, es.studyCardTitleAudio),
+    (SourceKind.video, es.studyCardTitleVideo),
+    (SourceKind.youtube, es.studyCardTitleVideo),
+  ]) {
+    testWidgets('$kind tiene su tarjeta, «$title», con el texto plegado '
+        'adentro (F39)', (tester) async {
+      await pumpItem(tester, kind: kind);
+
+      expect(find.text(title), findsOneWidget);
+      expect(find.byKey(const Key('study-extract-text')), findsOneWidget);
+      expect(find.textContaining('La primera frase'), findsNothing);
+    });
+  }
+
+  testWidgets('en un audio, lo estudiado se pinta en la transcripción '
+      'desplegada, y eligiendo palabras clave un toque elige una (F39)', (
+    tester,
+  ) async {
+    const content =
+        'La revolución industrial cambió todo. Las fábricas usaban vapor.';
+    const sentence = 'La revolución industrial cambió todo.';
+    final repository = MemoryStudyRepository(
+      const DocumentStudy(
+        marks: [
+          StudyMark(
+            id: 's1',
+            kind: StudyMarkKind.summary,
+            origin: ContentOrigin.ai,
+            start: 0,
+            end: sentence.length,
+          ),
+        ],
+        analyzedUntil: content.length,
+        complete: true,
+      ),
+    );
+    final harness = await pumpItem(
+      tester,
+      kind: SourceKind.audio,
+      content: content,
+      extraOverrides: [studyRepositoryProvider.overrideWithValue(repository)],
+    );
+    final light = StudyPalette.of(Brightness.light);
+
+    await tester.ensureVisible(find.text(es.studyExtractTranscript));
+    await tester.tap(find.text(es.studyExtractTranscript));
+    await tester.pumpAndSettle();
+    harness.container.read(studyViewProvider('r1').notifier).state =
+        const StudyView(layer: StudyLayer.summary, picking: true);
+    await tester.pumpAndSettle();
+
+    final transcript = find.descendant(
+      of: find.byType(PlaybackSyncedText),
+      matching: find.byType(SelectableText),
+    );
+    List<(String, Color?)> pieces() => [
+      for (final span
+          in tester
+              .widget<SelectableText>(transcript)
+              .textSpan!
+              .children!
+              .cast<TextSpan>())
+        (span.text!, span.style?.backgroundColor),
+    ];
+    expect(pieces().first, (sentence, light.summary));
+
+    final state = tester.state<EditableTextState>(
+      find.descendant(of: transcript, matching: find.byType(EditableText)),
+    );
+    state.userUpdateTextEditingValue(
+      state.textEditingValue.copyWith(
+        selection: TextSelection.collapsed(
+          offset: content.indexOf('industrial') + 2,
+        ),
+      ),
+      SelectionChangedCause.tap,
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.added, ['industrial']);
   });
 }

@@ -81,7 +81,22 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
   }
 
   void _backToAudio() {
-    if (widget.link?.revealPlaying?.call() ?? false) return;
+    final link = widget.link;
+    if (link?.revealPlaying?.call() ?? false) return;
+    // La transcripción plegada no está en pantalla (F39): se despliega y,
+    // ya armada, muestra lo que suena.
+    if (link != null && link.revealPlaying == null && link.unfold != null) {
+      link.unfold!();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (!(link.revealPlaying?.call() ?? false)) _showPlayer();
+      });
+      return;
+    }
+    _showPlayer();
+  }
+
+  void _showPlayer() {
     final player = widget.playerKey.currentContext;
     if (player == null) return;
     Scrollable.ensureVisible(

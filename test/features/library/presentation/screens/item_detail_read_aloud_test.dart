@@ -89,6 +89,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Despliega el texto, plegado en la tarjeta de estudiar (F39): plegado no
+  /// se ve, y lo que no se ve no se ofrece para leer.
+  Future<void> unfoldText(WidgetTester tester) async {
+    final row = find.byKey(const Key('study-extract-text'));
+    await tester.ensureVisible(row);
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+  }
+
   group('con su propio audio no se ofrece: sería un segundo audio de lo '
       'mismo', () {
     /// Un elemento de [kind] con su archivo, que se resuelve como audio:
@@ -155,6 +164,7 @@ void main() {
         renditions: (id) => [text(id, '[0:00] hola a todos')],
       );
       await pumpDetail(tester, id);
+      await unfoldText(tester);
 
       expect(offered()?.id, 'item:$id');
     });
@@ -169,6 +179,7 @@ void main() {
     );
 
     await pumpDetail(tester, id);
+    await unfoldText(tester);
 
     final document = offered()!;
     expect(document.id, 'item:$id');
@@ -203,6 +214,7 @@ void main() {
       renditions: (id) => [text(id, 'Primera línea.\n\nSegunda línea.')],
     );
     await pumpDetail(tester, id);
+    await unfoldText(tester);
     expect(readAloudHighlights(tester), isEmpty);
 
     reader().readAt(offered()!, 0);
@@ -221,6 +233,7 @@ void main() {
       renditions: (id) => [text(id, '[0:00] hola a todos\n[0:05] y chau')],
     );
     await pumpDetail(tester, id);
+    await unfoldText(tester);
 
     final document = offered()!;
     expect(document.segments.map((s) => s.spoken), ['hola a todos', 'y chau']);
@@ -301,6 +314,7 @@ void main() {
       renditions: (id) => [text(id, 'Algo para leer.')],
     );
     await pumpDetail(tester, id);
+    await unfoldText(tester);
     expect(offered()?.id, 'item:$id');
 
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
