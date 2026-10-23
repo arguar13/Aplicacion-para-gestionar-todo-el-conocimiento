@@ -282,3 +282,27 @@
   - Mantener apretada una muestra dice su nombre, también al lector de pantalla. Lo que se
     descarga marcado sale con los mismos nueve colores.
   - Las 18 mutaciones mueren.
+- **Paso 9 — hecho.** «Cambiar tema» en Ajustes muestra el tema de ahora y, debajo, una muestra
+  chica con los colores de cada uno, para elegir viendo: Sistema (claro y oscuro lado a lado),
+  Claro, Oscuro y los seis con nombre —Sepia, Noche, Bosque, Océano, Lavanda y Grafito (decisión
+  E)—. Tocar una muestra lo aplica al instante en toda la app y lo guarda.
+  - Modelo: `AppThemeChoice` da el `ThemeData`, el modo y el brillo de cada tema
+    (`app_theme_choice.dart`), y `AppThemePalette` trae los once colores de cada uno con el resto
+    del esquema derivado (`app_theme_palette.dart`). Sepia y Lavanda son claros; Noche (negro
+    puro), Bosque, Océano y Grafito, oscuros, así que lo que elige color por `Theme.brightness`
+    acierta solo.
+  - Guardado: `ThemeChoiceNotifier` usa la misma clave y los mismos nombres que antes, y lo
+    guardado por la versión anterior se lee sin migrar nada; un valor desconocido vuelve a
+    «Sistema».
+  - Legibilidad: los resaltadores de estudiar, el amarillo de lo que se lee y el papel del PDF ya
+    se leían bien en cualquier tema. Se arregló que un subrayado a mano de fondo, sobre un tema
+    oscuro, tuviera letra clara (ahora oscura, y la coincidencia lleva su propia letra). En Sepia,
+    `HighlightPalette.forTheme` carga el amarillo claro para que se distinga del papel crema; con
+    el claro y el oscuro de siempre no cambia ningún tono.
+  - «Leer como libro» ya tomaba hoja, fondo y letra del tema, y queda fijado con pruebas.
+  - Pruebas: modelo (brillo, colores, contraste AA de texto, acentos y contenedores, letra sobre
+    los resaltadores), notifier (migración y guardado), selector (muestras, elegir aplica y
+    guarda), la `App` entera, el lector y los subrayados; 41 mutaciones, todas muertas; `analyze`
+    en 19.
+  - Al integrarlo con los nueve colores, su prueba de legibilidad encontró que el azul nuevo en
+    oscuro daba 6,9 de contraste con la letra oscura; pasó a `0xFF879EFF` (7,2), el mismo tono.

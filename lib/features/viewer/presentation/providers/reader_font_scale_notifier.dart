@@ -4,7 +4,7 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
 
 /// Cuánto se agranda o achica el texto del modo de lectura respecto del
-/// tamaño de base, entre reinicios — mismo criterio que `ThemeModeNotifier`.
+/// tamaño de base, entre reinicios — mismo criterio que `ThemeChoiceNotifier`.
 ///
 /// Quien lee un libro entero en la pantalla, y no solo un fragmento como en
 /// el detalle de un elemento, es quien más se beneficia de ajustar la letra

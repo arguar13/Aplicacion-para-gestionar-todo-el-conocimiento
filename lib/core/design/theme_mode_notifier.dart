@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/core/design/app_theme_choice.dart';
 
 /// `SharedPreferences.getInstance()` es async, así que esta instancia se
 /// resuelve una sola vez en `bootstrap()` (antes de `runApp`) y se
@@ -14,32 +14,29 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   );
 });
 
-/// Recuerda la preferencia de tema del usuario (claro/oscuro/sistema)
-/// entre reinicios de la app.
-class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier({required SharedPreferences prefs})
+/// Recuerda el tema que eligió el usuario (el del sistema, el claro, el
+/// oscuro o uno con nombre) entre reinicios de la app.
+///
+/// Se guarda con la misma clave y los mismos nombres que cuando solo había
+/// claro, oscuro y sistema: lo que una versión anterior dejó guardado se lee
+/// sin migrar nada (ver [AppThemeChoice.fromStorage]).
+class ThemeChoiceNotifier extends StateNotifier<AppThemeChoice> {
+  ThemeChoiceNotifier({required SharedPreferences prefs})
     : _prefs = prefs,
-      super(_readInitial(prefs));
+      super(AppThemeChoice.fromStorage(prefs.getString(_prefsKey)));
 
   static const _prefsKey = 'app_theme_mode';
 
   final SharedPreferences _prefs;
 
-  static ThemeMode _readInitial(SharedPreferences prefs) {
-    final stored = prefs.getString(_prefsKey);
-    return ThemeMode.values.firstWhere(
-      (mode) => mode.name == stored,
-      orElse: () => ThemeMode.system,
-    );
-  }
-
-  Future<void> setThemeMode(ThemeMode mode) async {
-    state = mode;
-    await _prefs.setString(_prefsKey, mode.name);
+  /// Aplica [choice] al instante y lo guarda.
+  Future<void> setChoice(AppThemeChoice choice) async {
+    state = choice;
+    await _prefs.setString(_prefsKey, choice.name);
   }
 }
 
-final themeModeNotifierProvider =
-    StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
-      return ThemeModeNotifier(prefs: ref.watch(sharedPreferencesProvider));
+final themeChoiceNotifierProvider =
+    StateNotifierProvider<ThemeChoiceNotifier, AppThemeChoice>((ref) {
+      return ThemeChoiceNotifier(prefs: ref.watch(sharedPreferencesProvider));
     });

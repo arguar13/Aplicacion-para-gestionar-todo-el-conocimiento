@@ -44,7 +44,7 @@ ChatModelOption get defaultChatModelOption => isDesktopChatPlatform
     : ChatModelOption.gemma4E4b;
 
 /// Recuerda qué modelo eligió la persona que usa la app entre reinicios,
-/// mismo criterio que `ThemeModeNotifier`.
+/// mismo criterio que `ThemeChoiceNotifier`.
 class ChatModelOptionNotifier extends StateNotifier<ChatModelOption> {
   ChatModelOptionNotifier({required SharedPreferences prefs})
     : _prefs = prefs,

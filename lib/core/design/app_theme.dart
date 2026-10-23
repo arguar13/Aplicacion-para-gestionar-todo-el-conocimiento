@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/design/app_colors.dart';
 import 'package:sinapsis/core/design/app_semantic_colors.dart';
+import 'package:sinapsis/core/design/app_theme_palette.dart';
 import 'package:sinapsis/core/design/app_typography.dart';
 
 /// Único punto de construcción de los `ThemeData` de la app. Todo widget
@@ -46,6 +47,15 @@ abstract final class AppTheme {
         ),
     semanticColors: AppSemanticColors.dark,
     scaffoldBackgroundColor: AppColors.backgroundDark,
+  );
+
+  /// El tema de un tema con nombre (F39): Sepia, Noche, Bosque, Océano,
+  /// Lavanda o Grafito. Se arma igual que el claro y el oscuro, solo cambian
+  /// los colores.
+  static ThemeData fromPalette(AppThemePalette palette) => _build(
+    colorScheme: palette.colorScheme,
+    semanticColors: palette.semanticColors,
+    scaffoldBackgroundColor: palette.background,
   );
 
   /// `ColorScheme.fromSeed` genera automáticamente los ~20 roles de

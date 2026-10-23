@@ -10,7 +10,6 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/app/study_reminder_binding.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
-import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_notice_listener.dart';
@@ -66,7 +65,7 @@ class _AppState extends ConsumerState<App> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(goRouterProvider);
-    final themeMode = ref.watch(themeModeNotifierProvider);
+    final themeChoice = ref.watch(themeChoiceNotifierProvider);
     // `null` = seguir el idioma del sistema; MaterialApp ya sabe resolver
     // eso solo contra `supportedLocales` cuando `locale` es null.
     final locale = ref.watch(localeNotifierProvider);
@@ -74,9 +73,9 @@ class _AppState extends ConsumerState<App> {
     return MaterialApp.router(
       title: EnvConfig.current.appName,
       debugShowCheckedModeBanner: EnvConfig.current.flavor != AppFlavor.prod,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: themeMode,
+      theme: themeChoice.theme,
+      darkTheme: themeChoice.darkTheme,
+      themeMode: themeChoice.mode,
       locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,

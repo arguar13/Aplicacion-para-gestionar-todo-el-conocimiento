@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
@@ -15,6 +17,19 @@ class HighlightPalette {
 
   factory HighlightPalette.of(Brightness brightness) =>
       brightness == Brightness.dark ? dark : light;
+
+  /// Los tonos para pintar sobre [theme] (F39): los de su brillo y, si alguno
+  /// casi no se distingue del fondo de ese tema —el amarillo claro sobre el
+  /// papel crema de Sepia—, el mismo tono más cargado, hasta que se vea. Con
+  /// el claro y el oscuro de siempre no cambia ninguno.
+  factory HighlightPalette.forTheme(ThemeData theme) {
+    final base = HighlightPalette.of(theme.brightness);
+    final grounds = [theme.scaffoldBackgroundColor, theme.colorScheme.surface];
+    return HighlightPalette._({
+      for (final entry in base._colors.entries)
+        entry.key: _visibleOn(entry.value, grounds),
+    });
+  }
 
   /// El del tema claro. Es también el del documento que se descarga: el
   /// papel es blanco.
@@ -40,7 +55,7 @@ class HighlightPalette {
     HighlightColor.sand: Color(0xFFD4B484),
     HighlightColor.lime: Color(0xFFBEDB5E),
     HighlightColor.turquoise: Color(0xFF7FE3DA),
-    HighlightColor.blue: Color(0xFF8199FF),
+    HighlightColor.blue: Color(0xFF879EFF),
     HighlightColor.violet: Color(0xFFC9AEFF),
     HighlightColor.gray: Color(0xFFB8B8C0),
   });
@@ -49,12 +64,38 @@ class HighlightPalette {
 
   Color operator [](HighlightColor color) => _colors[color]!;
 
+  /// [tone] más cargado, sin cambiarle el matiz, hasta que se distinga de
+  /// cada uno de [grounds] (la razón de contraste mínima es [_minContrast]).
+  static Color _visibleOn(Color tone, List<Color> grounds) {
+    bool seen(Color c) =>
+        grounds.every((ground) => _contrast(c, ground) >= _minContrast);
+    var hsl = HSLColor.fromColor(tone);
+    for (var step = 0; step < _maxDeepening && !seen(hsl.toColor()); step++) {
+      hsl = hsl
+          .withLightness((hsl.lightness - 0.03).clamp(0, 1))
+          .withSaturation((hsl.saturation + 0.04).clamp(0, 1));
+    }
+    return hsl.toColor();
+  }
+
+  /// La razón de contraste de WCAG entre [a] y [b], de 1 a 21.
+  static double _contrast(Color a, Color b) {
+    final x = a.computeLuminance();
+    final y = b.computeLuminance();
+    return (math.max(x, y) + 0.05) / (math.min(x, y) + 0.05);
+  }
+
+  /// Un resaltador tiene que distinguirse de la hoja: el amarillo claro sobre
+  /// el blanco del tema claro (~1.1) pasa; sobre el crema de Sepia (~1.04), no.
+  static const _minContrast = 1.06;
+  static const _maxDeepening = 12;
+
   /// El color de [color] o, sin ninguno, el de siempre: el
   /// `tertiaryContainer` del tema, con el que se pintaron siempre.
   static Color resolve(BuildContext context, HighlightColor? color) {
     final theme = Theme.of(context);
     return switch (color) {
-      final color? => HighlightPalette.of(theme.brightness)[color],
+      final color? => HighlightPalette.forTheme(theme)[color],
       null => theme.colorScheme.tertiaryContainer,
     };
   }

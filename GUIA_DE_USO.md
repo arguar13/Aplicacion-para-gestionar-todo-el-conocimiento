@@ -2298,8 +2298,22 @@ Hugging Face que el modelo de relaciones.
 
 **Cómo llegar:** ítem **"Ajustes"** en la navegación.
 
-- **Apariencia:** cambiar el idioma de la app, y el tema (Sistema / Claro /
-  Oscuro).
+- **Apariencia:** cambiar el idioma de la app y el **tema**. En **"Cambiar
+  tema"** ves una muestra chica con los colores de cada uno, para elegir
+  viendo: **Sistema** (sigue al teléfono), **Claro**, **Oscuro** y seis con
+  nombre, de tono suave:
+  - **Sepia**: papel cálido, claro, para leer largo.
+  - **Noche**: negro puro; en una pantalla OLED gasta menos batería.
+  - **Bosque**: verdes suaves, oscuro.
+  - **Océano**: azules profundos, oscuro.
+  - **Lavanda**: violetas suaves, claro.
+  - **Grafito**: grises neutros con un toque ámbar, oscuro.
+
+  Tocar una muestra aplica ese tema al instante en toda la app —también en
+  **"Leer como libro"**— y queda guardado para la próxima vez. Los
+  resaltadores de estudiar, tus subrayados, el amarillo de lo que se lee en
+  voz alta y la hoja del PDF se siguen leyendo bien en cada tema (en Sepia, el
+  amarillo claro se carga un poco para que se vea sobre el papel crema).
 - **Citas:** el estilo de cita por defecto (APA, MLA, etc.) y su idioma.
 - **IA y modelos:**
   - **"Lo que hizo la IA"**, con una línea que dice en qué anda y cuántas

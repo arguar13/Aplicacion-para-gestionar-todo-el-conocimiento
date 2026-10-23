@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
-import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
@@ -20,6 +19,7 @@ import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_t
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/review_settings_section.dart';
+import 'package:sinapsis/features/settings/presentation/widgets/theme_choice_picker.dart';
 import 'package:sinapsis/features/vault/domain/entities/compaction_assessment.dart';
 import 'package:sinapsis/features/vault/presentation/providers/merge_conflict_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_compaction_providers.dart';
@@ -39,11 +39,6 @@ class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   static const _localeCycle = <Locale?>[null, Locale('es'), Locale('en')];
-  static const _themeCycle = [
-    ThemeMode.system,
-    ThemeMode.light,
-    ThemeMode.dark,
-  ];
 
   /// «El de la app», español, inglés, y otra vez el de la app.
   static const _citationLanguageCycle = <CitationLanguage?>[
@@ -57,7 +52,6 @@ class SettingsScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final localePreference = ref.watch(localeNotifierProvider);
     final effectiveLocale = ref.watch(effectiveLocaleProvider);
-    final themeMode = ref.watch(themeModeNotifierProvider);
     final languageProvider = ref.watch(
       aiModelSettingsProvider.select((s) => s.provider),
     );
@@ -88,19 +82,8 @@ class SettingsScreen extends ConsumerWidget {
                   ref.read(localeNotifierProvider.notifier).setLocale(next);
                 },
               ),
-              ListTile(
-                leading: Icon(_themeIcon(themeMode)),
-                title: Text(l10n.themeModeTooltip),
-                subtitle: Text(_themeLabel(l10n, themeMode)),
-                onTap: () {
-                  final next =
-                      _themeCycle[(_themeCycle.indexOf(themeMode) + 1) %
-                          _themeCycle.length];
-                  ref
-                      .read(themeModeNotifierProvider.notifier)
-                      .setThemeMode(next);
-                },
-              ),
+              // El tema: el de ahora y una muestra de cada uno (F39).
+              const ThemeChoicePicker(),
             ],
           ),
           const SizedBox(height: 24),
@@ -325,18 +308,6 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
-
-  IconData _themeIcon(ThemeMode mode) => switch (mode) {
-    ThemeMode.system => Icons.brightness_auto,
-    ThemeMode.light => Icons.light_mode,
-    ThemeMode.dark => Icons.dark_mode,
-  };
-
-  String _themeLabel(AppLocalizations l10n, ThemeMode mode) => switch (mode) {
-    ThemeMode.system => l10n.themeModeSystem,
-    ThemeMode.light => l10n.themeModeLight,
-    ThemeMode.dark => l10n.themeModeDark,
-  };
 }
 
 /// Un grupo de ajustes relacionados, con un encabezado opcional — mismo

@@ -1425,6 +1425,30 @@
   "@themeModeTooltip": {
     "description": "Tooltip for the theme (light/dark/system) toggle button"
   },
+  "themeSepia": "Sepia",
+  "@themeSepia": {
+    "description": "Tema Sepia: papel cálido, claro, pensado para leer largo."
+  },
+  "themeNight": "Night",
+  "@themeNight": {
+    "description": "Tema Noche: negro puro, oscuro; en una pantalla OLED gasta menos batería."
+  },
+  "themeForest": "Forest",
+  "@themeForest": {
+    "description": "Tema Bosque: verdes suaves, oscuro."
+  },
+  "themeOcean": "Ocean",
+  "@themeOcean": {
+    "description": "Tema Océano: azules profundos, oscuro."
+  },
+  "themeLavender": "Lavender",
+  "@themeLavender": {
+    "description": "Tema Lavanda: violetas suaves, claro."
+  },
+  "themeGraphite": "Graphite",
+  "@themeGraphite": {
+    "description": "Tema Grafito: grises neutros con un toque ámbar, oscuro."
+  },
   "languageTooltip": "Change language",
   "@languageTooltip": {
     "description": "Tooltip for the language toggle button"

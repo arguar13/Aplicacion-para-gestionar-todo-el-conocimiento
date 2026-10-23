@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/config_providers.dart';
+import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/ai_models/presentation/screens/language_model_screen.dart';
@@ -215,23 +216,38 @@ void main() {
   });
 
   group('tema', () {
-    testWidgets('arranca en "sistema"', (tester) async {
+    testWidgets('arranca en "sistema", con una muestra de cada tema', (
+      tester,
+    ) async {
       await pumpSettings(tester);
 
-      expect(find.text(es.themeModeSystem), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(ListTile),
+          matching: find.text(es.themeModeSystem),
+        ),
+        findsOneWidget,
+      );
+      for (final choice in AppThemeChoice.values) {
+        expect(
+          find.byKey(Key('theme-swatch-${choice.name}')),
+          findsOneWidget,
+          reason: choice.name,
+        );
+      }
     });
 
-    testWidgets('tocarlo lo cambia al siguiente de la lista', (tester) async {
+    testWidgets('tocar una muestra lo aplica y lo guarda', (tester) async {
       await pumpSettings(tester);
 
-      await tester.tap(find.text(es.themeModeTooltip));
+      await tester.tap(find.byKey(const Key('theme-swatch-graphite')));
       await tester.pumpAndSettle();
 
-      expect(find.text(es.themeModeLight), findsOneWidget);
       expect(
-        harness.container.read(themeModeNotifierProvider),
-        ThemeMode.light,
+        harness.container.read(themeChoiceNotifierProvider),
+        AppThemeChoice.graphite,
       );
+      expect(find.text(es.themeGraphite), findsWidgets);
     });
   });
 

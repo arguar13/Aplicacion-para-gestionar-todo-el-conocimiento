@@ -69,7 +69,7 @@ Future<void> bootstrap() async {
       };
 
       // `SharedPreferences.getInstance()` es async: se resuelve acá, una
-      // sola vez, para que `ThemeModeNotifier` pueda leer/guardar la
+      // sola vez, para que `ThemeChoiceNotifier` pueda leer/guardar la
       // preferencia de tema de forma síncrona el resto del tiempo.
       final prefs = await SharedPreferences.getInstance();
       // Quién es esta instalación: lo que firma cada cambio que se guarda.

@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 
 /// Recuerda el token de acceso de Hugging Face entre reinicios de la app,
-/// igual que `ThemeModeNotifier` recuerda el tema.
+/// igual que `ThemeChoiceNotifier` recuerda el tema.
 ///
 /// Hace falta porque el modelo de Gemma vive en un repositorio protegido:
 /// sin un token válido, la descarga falla siempre con 401, para cualquiera

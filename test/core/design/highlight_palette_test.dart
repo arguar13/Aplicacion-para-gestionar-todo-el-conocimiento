@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
+import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/core/design/highlight_palette.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
@@ -126,6 +127,41 @@ void main() {
     expect(
       HighlightPalette.resolve(context, HighlightColor.violet),
       HighlightPalette.light[HighlightColor.violet],
+    );
+  });
+
+  testWidgets('sobre el papel crema de Sepia el amarillo claro se carga para '
+      'verse, y el de siempre no cambia (F39)', (tester) async {
+    late BuildContext context;
+    Future<void> pumpWith(ThemeData theme) => tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: Builder(
+          builder: (c) {
+            context = c;
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+
+    await pumpWith(AppTheme.lightTheme);
+    expect(
+      HighlightPalette.resolve(context, HighlightColor.lightYellow),
+      HighlightPalette.light[HighlightColor.lightYellow],
+    );
+
+    await pumpWith(AppThemeChoice.sepia.theme);
+    await tester.pumpAndSettle();
+    expect(
+      HighlightPalette.resolve(context, HighlightColor.lightYellow),
+      HighlightPalette.forTheme(
+        AppThemeChoice.sepia.theme,
+      )[HighlightColor.lightYellow],
+    );
+    expect(
+      HighlightPalette.resolve(context, HighlightColor.lightYellow),
+      isNot(HighlightPalette.light[HighlightColor.lightYellow]),
     );
   });
 

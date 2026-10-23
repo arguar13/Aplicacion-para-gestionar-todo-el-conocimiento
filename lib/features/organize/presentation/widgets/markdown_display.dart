@@ -219,6 +219,10 @@ class RenderedMarkdown {
           rawToRender(mark.start),
           rawToRender(mark.end),
           background: mark.style == HighlightStyle.fill ? mark.color : null,
+          // Como un resaltador sobre papel: la letra oscura se lee igual con
+          // el tema oscuro, donde el texto es claro y no se vería sobre un
+          // amarillo (F39: Noche, Bosque, Océano y Grafito son oscuros).
+          foreground: mark.style == HighlightStyle.fill ? Colors.black87 : null,
           underline: mark.style == HighlightStyle.underline ? mark.color : null,
         ),
       for (final r in highlightRanges)
@@ -226,6 +230,9 @@ class RenderedMarkdown {
           rawToRender(r.$1),
           rawToRender(r.$2),
           background: highlightColor,
+          // Con su propia letra: sobre un subrayado a mano de letra oscura,
+          // en un tema oscuro, la del texto no se vería.
+          foreground: theme.colorScheme.onTertiaryContainer,
         ),
       for (final paint in paints)
         if (paint.aboveHighlights) layerOf(paint),

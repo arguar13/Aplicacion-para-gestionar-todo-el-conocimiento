@@ -774,5 +774,47 @@ void main() {
         (' feliz.', null, null, false),
       ]);
     });
+
+    group('la letra se lee también con un tema oscuro (F39)', () {
+      final dark = ThemeData.dark();
+
+      Color? letter(TextSpan span, String text) => span.children!
+          .cast<TextSpan>()
+          .firstWhere((s) => s.text == text)
+          .style
+          ?.color;
+
+      test('un subrayado de fondo lleva letra oscura, como un resaltador '
+          'sobre papel; uno de línea y el texto de al lado, la del tema', () {
+        final rendered = RenderedMarkdown.plain('uno dos tres');
+
+        final span = rendered.buildSpans(
+          dark,
+          const [],
+          marks: const [
+            HandMark(0, 3, color: orange),
+            HandMark(4, 7, color: violet, style: HighlightStyle.underline),
+          ],
+        );
+
+        expect(letter(span, 'uno'), Colors.black87);
+        expect(letter(span, 'dos'), dark.colorScheme.onSurface);
+        expect(letter(span, ' tres'), dark.colorScheme.onSurface);
+      });
+
+      test('una coincidencia (el `tertiaryContainer` del tema) lleva la letra '
+          'que le va a ese fondo, también sobre un subrayado a mano', () {
+        final rendered = RenderedMarkdown.plain('uno dos tres');
+
+        final span = rendered.buildSpans(
+          dark,
+          [(0, 3), (4, 7)],
+          marks: const [HandMark(4, 7, color: orange)],
+        );
+
+        expect(letter(span, 'uno'), dark.colorScheme.onTertiaryContainer);
+        expect(letter(span, 'dos'), dark.colorScheme.onTertiaryContainer);
+      });
+    });
   });
 }

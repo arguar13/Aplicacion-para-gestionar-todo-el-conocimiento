@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/reader_font_scale_notifier.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
@@ -11,7 +12,11 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 void main() {
   final es = AppLocalizationsEs();
 
-  Future<void> pumpReader(WidgetTester tester, String content) async {
+  Future<void> pumpReader(
+    WidgetTester tester,
+    String content, {
+    AppThemeChoice? theme,
+  }) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
 
@@ -19,6 +24,9 @@ void main() {
       ProviderScope(
         overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
         child: MaterialApp(
+          theme: theme?.theme,
+          darkTheme: theme?.darkTheme,
+          themeMode: theme?.mode ?? ThemeMode.system,
           locale: const Locale('es'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
@@ -86,6 +94,48 @@ void main() {
       expect(buttonWithIcon(Icons.chevron_right).onPressed, isNull);
     },
   );
+
+  group('sigue el tema elegido (F39)', () {
+    /// El color de la hoja donde se lee, el del fondo y el de la letra.
+    (Color?, Color?, Color?) looks(WidgetTester tester) {
+      final sheet = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.byType(SelectableText),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final text = tester.widget<SelectableText>(find.byType(SelectableText));
+      return (
+        (sheet.decoration! as BoxDecoration).color,
+        tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor ??
+            Theme.of(
+              tester.element(find.byType(Scaffold)),
+            ).scaffoldBackgroundColor,
+        text.textSpan!.style?.color,
+      );
+    }
+
+    for (final choice in [
+      AppThemeChoice.sepia,
+      AppThemeChoice.night,
+      AppThemeChoice.lavender,
+      AppThemeChoice.graphite,
+    ]) {
+      testWidgets('con ${choice.name}, la hoja, el fondo y la letra son los '
+          'del tema', (tester) async {
+        await pumpReader(tester, 'Un texto para leer.', theme: choice);
+
+        final scheme = choice.theme.colorScheme;
+        expect(looks(tester), (
+          scheme.surfaceContainerLow,
+          choice.theme.scaffoldBackgroundColor,
+          scheme.onSurface,
+        ));
+      });
+    }
+  });
 
   group('tamaño de letra', () {
     testWidgets('agrandar la letra hace más grande el texto de la página', (

@@ -896,6 +896,30 @@
   "emptyLibraryTitle": "Tu bóveda está vacía",
   "emptyLibraryMessage": "Lo que guardes acá —un video, un hilo, un artículo, un PDF— se convierte en texto que podés buscar, sin perder de dónde salió.",
   "themeModeTooltip": "Cambiar tema",
+  "themeSepia": "Sepia",
+  "@themeSepia": {
+    "description": "Tema Sepia: papel cálido, claro, pensado para leer largo."
+  },
+  "themeNight": "Noche",
+  "@themeNight": {
+    "description": "Tema Noche: negro puro, oscuro; en una pantalla OLED gasta menos batería."
+  },
+  "themeForest": "Bosque",
+  "@themeForest": {
+    "description": "Tema Bosque: verdes suaves, oscuro."
+  },
+  "themeOcean": "Océano",
+  "@themeOcean": {
+    "description": "Tema Océano: azules profundos, oscuro."
+  },
+  "themeLavender": "Lavanda",
+  "@themeLavender": {
+    "description": "Tema Lavanda: violetas suaves, claro."
+  },
+  "themeGraphite": "Grafito",
+  "@themeGraphite": {
+    "description": "Tema Grafito: grises neutros con un toque ámbar, oscuro."
+  },
   "languageTooltip": "Cambiar idioma",
   "themeModeSystem": "Sistema",
   "@themeModeSystem": {
