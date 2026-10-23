@@ -267,8 +267,10 @@ Tocá el botón **"Guardar"**. Tené en cuenta:
 - **Compartir desde otra app:** si en tu celular tocás "Compartir" en
   cualquier otra app (un enlace, un texto, una imagen) y elegís Sinapsis, la
   app se abre directo en esta pantalla, con el contenido ya cargado y el tipo
-  ya adivinado (por ejemplo, un enlace de YouTube abre directo en "Video").
-  Solo tenés que revisar y tocar "Guardar".
+  ya adivinado (por ejemplo, un enlace de YouTube abre directo en "Video"),
+  y con los Temas de lo último que guardaste. Solo tenés que revisar y tocar
+  "Guardar". Si todavía no tenés ningún Tema, aparece la tarjeta para crear
+  el primero.
 - **Arrastrar y soltar (en computadora):** podés arrastrar un archivo desde
   tu explorador de archivos directo sobre la pantalla; el borde se resalta en
   azul mientras lo arrastrás encima. Solo admite un archivo por vez.
@@ -353,10 +355,12 @@ en **Filtros → "Tema"**. Mientras estás parado en un Tema, su nombre se ve
 como un chip debajo del buscador: tocarlo abre los filtros, y su "X" te saca
 del Tema.
 
-- **Crear un Tema:** al guardar algo, desde el campo **"Temas"** del
-  formulario (o la tarjeta de la primera vez); o desde **"Mover a tema"** (en el menú de tres puntos de una
-  tarjeta, en la selección múltiple o en el detalle), con la opción **"Nuevo
-  tema"**. El primero también se puede crear desde **Filtros → "Tema"**,
+- **Crear un Tema:** en la hoja de temas, con **"Nuevo tema"** (o
+  **"Crear el tema «…»"** si buscaste un nombre que no existe). Esa hoja se
+  abre desde el campo **"Temas"** del formulario, desde **"Elegir temas"** en
+  el menú de tres puntos de una tarjeta y desde los Temas del detalle. También
+  se crea desde **"Mover a tema"** en la selección múltiple, o con la tarjeta
+  de la primera vez al guardar. El primero también se puede crear desde **Filtros → "Tema"**,
   mientras no tengas ninguno.
 - **Renombrar o eliminar un Tema:** en Filtros, mantené apretado su chip (o
   tocá el ícono "⋯" del Tema elegido). Al eliminarlo, sus elementos NO se
@@ -364,8 +368,9 @@ del Tema.
 
 ### El menú de tres puntos de cada elemento
 
-Cada tarjeta tiene, a la derecha, un botón de tres puntos con: **"Mover a
-tema"**, **"Exportar como PDF"**, **"Exportar como Word"** y **"Eliminar"**
+Cada tarjeta tiene, a la derecha, un botón de tres puntos con: **"Elegir
+temas"** (abre la hoja de temas con los suyos ya marcados: marcás y desmarcás,
+y **"Listo"** lo guarda), **"Exportar como PDF"**, **"Exportar como Word"** y **"Eliminar"**
 (lo manda a la papelera).
 
 ### Seleccionar varios elementos a la vez
@@ -413,7 +418,8 @@ De arriba hacia abajo, vas a encontrar:
    desarrollo" / "Madura" — más sobre esto en
    [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios))
    y para marcarla como nota "Mapa".
-4. **Tema**: un chip tocable para cambiarlo o quitarlo.
+4. **Temas**: un chip por cada uno, con su "X" para sacarlo, y **"Otro
+   tema"** (o **"Elegir temas"** si no tiene ninguno) para sumar más.
 5. **Etiquetas**: las que ya tiene, más un botón **"+ Agregar etiqueta"**.
 6. **Propiedades**: datos estructurados tipo "Categoría: Valor" (por ejemplo,
    "Época: Siglo I a.C."), agrupados por categoría.
@@ -496,8 +502,10 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
   un formulario especial con año, qué tan precisa es, y si es aproximada —
   esto es también lo que hace que el elemento aparezca en la
   [Línea de tiempo](#línea-de-tiempo).
-- **Cambiar el Tema:** tocá el chip que dice el Tema actual (o "Sin
-  clasificar") y elegí uno nuevo.
+- **Cambiar los Temas:** tocá un chip de tema, o **"Otro tema"**, y en la
+  hoja marcá o desmarcá los que quieras; la "X" de un chip lo saca al
+  momento. Acá, a diferencia de cuando guardás algo nuevo, se puede dejar sin
+  ningún tema.
 - **Vincular con otro elemento:** tocá el ícono de cadena en "Relacionado",
   buscá el otro elemento, y elegí qué tipo de vínculo tienen. Un aviso
   **"Vinculado"** ofrece **"Ver en el Mapa"**: te lleva a la vista
@@ -756,9 +764,10 @@ elemento aparezca en la Línea de tiempo). Se agregan desde la sección
 Es como una carpeta, pero un elemento puede estar en varias a la vez: lo
 que trata de Roma y de arte va en los dos Temas, y aparece en cada uno. Es la
 forma principal de moverse por la Biblioteca. Al guardarlo se eligen uno o
-varios (campo **"Temas"** del formulario). Desde su detalle o desde el menú de
-tres puntos de su tarjeta (**"Mover a tema"**) se lo deja en un solo Tema; en
-cualquiera de esos lugares podés crear uno nuevo con **"Nuevo tema"**. Para ver solo los de un
+varios (campo **"Temas"** del formulario), y se cambian desde su detalle o
+con **"Elegir temas"** en el menú de tres puntos de su tarjeta; en cualquiera
+de esos lugares podés crear uno nuevo con **"Nuevo tema"**. **"Mover a tema"**,
+en la selección múltiple, todavía deja a los elegidos en un solo Tema. Para ver solo los de un
 Tema, usá **Filtros → "Tema"** en la Biblioteca.
 
 Tus Temas también arman el [Mapa](#el-mapa) y el [Atlas](#el-atlas): es lo
@@ -1564,6 +1573,9 @@ que además deja la nota adentro del cuaderno.
    **"Esquema"** o **"Cronología"**.
 3. Cuando termine, vas a poder tocar **"Ver"** para abrir la nota nueva
    directamente.
+
+La nota que sale de un elemento queda en los mismos Temas que ese elemento,
+al lado de lo que resume.
 
 De un cuaderno con muchos elementos, la IA lee **por partes** (hasta tres, de
 los más representativos) y junta todo en una sola nota: antes, con más de unos

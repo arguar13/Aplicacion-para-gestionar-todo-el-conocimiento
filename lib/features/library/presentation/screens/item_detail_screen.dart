@@ -50,10 +50,10 @@ import 'package:sinapsis/features/notes/presentation/widgets/cited_sources_secti
 import 'package:sinapsis/features/notes/presentation/widgets/derived_note_badge.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/generate_derived_note_button.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/item_spaces_editor.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/map_note_links_section.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/property_editor.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/relations_section.dart';
-import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/reference_section.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
@@ -380,7 +380,7 @@ class _DetailBodyState extends State<_DetailBody> {
                   ),
                 ],
                 const SizedBox(height: 16),
-                SpacePicker(item: item),
+                ItemSpacesEditor(item: item),
                 const SizedBox(height: 24),
                 TagEditor(item: item),
                 const SizedBox(height: 24),

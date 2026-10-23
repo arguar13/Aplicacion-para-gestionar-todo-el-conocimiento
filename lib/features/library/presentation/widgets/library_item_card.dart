@@ -18,7 +18,7 @@ import 'package:sinapsis/features/library/domain/entities/search_citation.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
-import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
+import 'package:sinapsis/features/library/presentation/widgets/spaces_picker_sheet.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/widgets/processing_status.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -272,7 +272,7 @@ class _ItemMenuButton extends ConsumerWidget {
           value: const _MoveAction(),
           child: ListTile(
             leading: const Icon(Icons.drive_file_move_outline),
-            title: Text(l10n.libraryItemMoveToSpace),
+            title: Text(l10n.spacesChoose),
             contentPadding: EdgeInsets.zero,
           ),
         ),
@@ -328,14 +328,15 @@ class _ItemMenuButton extends ConsumerWidget {
   Future<void> _move(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context)!;
 
-    final chosen = await showSpacePickerSheet(
+    // La misma hoja que la captura y el detalle (F37), con los suyos ya
+    // marcados: elegir es marcar y desmarcar, no mover de una carpeta a otra.
+    final chosen = await showSpacesPickerSheet(
       context,
-      selectedSpaceId: item.spaceIds.length == 1 ? item.spaceIds.first : null,
+      selected: item.spaceIds,
     );
     if (chosen == null || !context.mounted) return;
 
-    final (space,) = chosen;
-    final wanted = {?space?.id};
+    final wanted = {for (final space in chosen) space.id};
     if (setEquals(wanted, item.spaceIds)) return;
 
     final result = await ref
@@ -352,7 +353,11 @@ class _ItemMenuButton extends ConsumerWidget {
         ..showSnackBar(
           SnackBar(
             content: Text(
-              l10n.libraryItemMoved(space?.name ?? l10n.detailSpaceNone),
+              l10n.libraryItemMoved(
+                chosen.isEmpty
+                    ? l10n.detailSpaceNone
+                    : chosen.map((space) => space.name).join(' · '),
+              ),
             ),
           ),
         ),

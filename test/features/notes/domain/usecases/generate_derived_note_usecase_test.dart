@@ -262,6 +262,53 @@ void main() {
     expect(relations.single.sourceCharEnd, 10);
   });
 
+  test(
+    'el derivado de un elemento va a los temas de ese elemento (F37)',
+    () async {
+      await seedSource('a', 'contenido de un solo elemento');
+      final roma = (await organize.createSpace(
+        'Roma',
+      )).getRight().toNullable()!;
+      final arte = (await organize.createSpace(
+        'Arte',
+      )).getRight().toNullable()!;
+      await library.setSpaces(itemIds: ['a'], spaceIds: {roma.id, arte.id});
+
+      final result =
+          await useCase(
+            FakeDerivedNoteGenerator(
+              const DerivedNoteDraft(
+                type: DerivedNoteType.outline,
+                sections: [
+                  DerivedSection(
+                    claims: [
+                      DerivedClaim(
+                        text: 'punto principal',
+                        sourceItemId: 'a',
+                        sourceCharStart: 0,
+                        sourceCharEnd: 10,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          )(
+            GenerateDerivedNoteParams(
+              type: DerivedNoteType.outline,
+              title: 'Esquema',
+              model: 'gemma-3n',
+              itemId: 'a',
+            ),
+          );
+
+      final note = result.getRight().toNullable()!.note;
+      expect(note.spaceIds, {roma.id, arte.id});
+      final saved = (await library.findById(note.id)).getRight().toNullable()!;
+      expect(saved.spaceIds, {roma.id, arte.id});
+    },
+  );
+
   test('sin fuentes que resolver, no genera nada', () async {
     final generator = FakeDerivedNoteGenerator(
       const DerivedNoteDraft(type: DerivedNoteType.outline, sections: []),

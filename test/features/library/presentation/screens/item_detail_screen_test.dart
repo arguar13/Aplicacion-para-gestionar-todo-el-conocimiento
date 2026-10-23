@@ -1294,6 +1294,80 @@ void main() {
     });
   });
 
+  group('temas (F37)', () {
+    Future<String> createSpace(String name) async =>
+        (await harness.container
+                .read(organizeRepositoryProvider)
+                .createSpace(name))
+            .getRight()
+            .toNullable()!
+            .id;
+
+    Future<Set<String>> spacesOf(String id) async =>
+        (await harness.container.read(libraryRepositoryProvider).findById(id))
+            .getRight()
+            .toNullable()!
+            .spaceIds;
+
+    testWidgets('muestra todos los suyos, y el ✕ de uno conserva los otros', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('el Coliseo');
+      final roma = await createSpace('Roma');
+      final arte = await createSpace('Arte');
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .setSpaces(itemIds: [id], spaceIds: {roma, arte});
+      await pumpDetail(tester, id);
+
+      expect(find.widgetWithText(InputChip, 'Roma'), findsOneWidget);
+      expect(find.widgetWithText(InputChip, 'Arte'), findsOneWidget);
+
+      await tester.tap(find.byTooltip(es.spacesRemove('Arte')));
+      await tester.pumpAndSettle();
+
+      expect(await spacesOf(id), {roma});
+      expect(find.widgetWithText(InputChip, 'Arte'), findsNothing);
+    });
+
+    testWidgets('sin ninguno, «Elegir temas» abre la hoja y marca varios', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('el Coliseo');
+      final roma = await createSpace('Roma');
+      final arte = await createSpace('Arte');
+      await pumpDetail(tester, id);
+
+      await tester.tap(find.widgetWithText(ActionChip, es.spacesChoose));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Roma'));
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Arte'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.spacesPickerDone));
+      await tester.pumpAndSettle();
+
+      expect(await spacesOf(id), {roma, arte});
+      expect(find.widgetWithText(InputChip, 'Roma'), findsOneWidget);
+    });
+
+    testWidgets('a diferencia de la captura, se puede sacar el último', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('el Coliseo');
+      final roma = await createSpace('Roma');
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .setSpaces(itemIds: [id], spaceIds: {roma});
+      await pumpDetail(tester, id);
+
+      await tester.tap(find.byTooltip(es.spacesRemove('Roma')));
+      await tester.pumpAndSettle();
+
+      expect(await spacesOf(id), isEmpty);
+      expect(find.text(es.spacesKeepOne), findsNothing);
+    });
+  });
+
   group('etiquetas', () {
     testWidgets('un elemento recién guardado no tiene ninguna', (tester) async {
       final id = await captureAndGetId('una nota cualquiera');

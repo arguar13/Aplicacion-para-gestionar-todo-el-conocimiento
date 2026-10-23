@@ -177,3 +177,30 @@ que la leía: no hay un estado intermedio que compile.
     arriba.
   - Se corrigió, y la prueba nueva (una nota nueva no arranca en un tema borrado) mata los dos
     mutantes del editor.
+
+### Paso 4 (hecho)
+
+- **Compartir desde otra app**:
+  - El plan partía de que lo compartido se guardaba sin preguntar. No es así: lo
+    compartido abre el formulario de captura ya cargado, para revisar el tipo y los posibles
+    duplicados antes de guardar (`SharedContentController`).
+  - Con el paso 3, ese formulario ya trae los temas de la última vez, y sin ningún tema muestra la
+    tarjeta del primero. Eso cumple la decisión E: compartir no suma ninguna pregunta.
+  - No se pasó a guardar sin revisar ni se agregó el aviso «Guardado en X · Cambiar». Saltear la
+    revisión cambiaría una decisión anterior (el comentario de `SharedContentController`) que el plan no discutió. Queda dicho por si se quiere.
+- **Una nota derivada** de un elemento va a los temas de ese elemento
+  (`GenerateDerivedNoteUseCase`). La de un cuaderno sigue como antes: el tema de la consulta, si la
+  consulta es por tema.
+  - Las notas que crea un `[[vínculo]]` y las notas mapa del Atlas no salen de un elemento, y no se
+    tocaron.
+- **El detalle**: el chip «Tema» pasó a «Temas» (`ItemSpacesEditor`), con los mismos chips y la
+  misma hoja que el editor de notas.
+  - Cada cambio se escribe al momento, como las etiquetas.
+  - No exige ninguno: lo que ya estaba sin tema se ordena cuando la persona quiere (decisión C).
+  - Se borró el `SpacePicker` viejo.
+- **El menú de la tarjeta**: «Mover a tema» pasó a «Elegir temas». Abre la hoja con los suyos
+  marcados, y «Listo» los guarda; el aviso nombra todos.
+- Queda con la hoja vieja solo «Mover a tema» de la selección múltiple. Pasa al paso 5, junto con
+  la lista para ordenar lo que no tiene tema, y ahí se borra `space_picker_sheet.dart`.
+- Pruebas: las nuevas del detalle (grupo «temas (F37)»), las del menú y la de la derivada.
+- Suite entera 8.573 (78 omitidas). Mutación: 5/5.

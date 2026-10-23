@@ -204,11 +204,17 @@ class GenerateDerivedNoteUseCase
         ? notebook!.query
         : null;
     final joinsByTopic = joinQuery != null && _joinsByTopic(joinQuery);
+    // La de un elemento va a sus temas (F37): es material del mismo asunto, y
+    // así queda al lado de lo que resume en vez de suelta.
+    final itemId = params.itemId;
+    final fromItem = itemId == null
+        ? null
+        : (await _library.findById(itemId)).getOrElse((_) => null);
 
     final now = _clock();
-    final itemId = _ids.next();
+    final noteId = _ids.next();
     final item = KnowledgeItem(
-      id: itemId,
+      id: noteId,
       title: params.title,
       source: Source(
         id: _ids.next(),
@@ -218,12 +224,12 @@ class GenerateDerivedNoteUseCase
       processingState: ProcessingState.ready,
       createdAt: now,
       updatedAt: now,
-      spaceIds: {if (joinsByTopic) ?joinQuery.spaceId},
+      spaceIds: {if (joinsByTopic) ?joinQuery.spaceId, ...?fromItem?.spaceIds},
       tags: joinsByTopic ? await _tagsOf(joinQuery.tagIds) : const [],
       renditions: [
         Rendition.text(
           id: _ids.next(),
-          itemId: itemId,
+          itemId: noteId,
           kind: RenditionKind.blocks,
           content: encodeContentBlocks(_blocksOf(draft)),
           isPrimary: true,

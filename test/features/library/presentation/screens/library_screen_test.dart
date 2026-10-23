@@ -949,13 +949,13 @@ void main() {
     Future<void> createTag(String name) =>
         harness.container.read(organizeRepositoryProvider).getOrCreateTag(name);
 
-    /// Crea el tema desde "Mover a tema" de una fila: la biblioteca ya no
+    /// Crea el tema desde «Elegir temas» de una fila: la biblioteca ya no
     /// tiene un botón suelto para crear uno —se crea donde se elige—.
     Future<void> startCreating(WidgetTester tester, String name) async {
       await pumpLibrary(tester);
       await tester.tap(find.byIcon(Icons.more_vert));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(es.libraryItemMoveToSpace));
+      await tester.tap(find.text(es.spacesChoose));
       await tester.pumpAndSettle();
       await tester.tap(find.text(es.spacesNewAction));
       await tester.pumpAndSettle();
@@ -1559,7 +1559,9 @@ void main() {
       expect(find.text(es.trashMoved(1)), findsOneWidget);
     });
 
-    testWidgets('mover a un espacio lo deja asignado y avisa', (tester) async {
+    testWidgets('elegir un tema desde el menú lo deja asignado y avisa', (
+      tester,
+    ) async {
       await harness.capture('Por mover');
       final space =
           (await harness.container
@@ -1571,9 +1573,11 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.more_vert));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(es.libraryItemMoveToSpace));
+      await tester.tap(find.text(es.spacesChoose));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Destino'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.spacesPickerDone));
       await tester.pumpAndSettle();
 
       expect(find.text(es.libraryItemMoved('Destino')), findsOneWidget);
@@ -1587,6 +1591,43 @@ void main() {
       expect(items.firstWhere((i) => i.title == 'Por mover').spaceIds, {
         space.id,
       });
+    });
+
+    testWidgets('el menú abre la hoja con sus temas marcados: desmarcar uno '
+        'conserva los otros (F37)', (tester) async {
+      await harness.capture('En dos');
+      final organize = harness.container.read(organizeRepositoryProvider);
+      final roma = (await organize.createSpace(
+        'Roma',
+      )).getRight().toNullable()!;
+      final arte = (await organize.createSpace(
+        'Arte',
+      )).getRight().toNullable()!;
+      final library = harness.container.read(libraryRepositoryProvider);
+      final item = (await library.list(
+        const LibraryQuery(),
+      )).getRight().toNullable()!.single;
+      await library.setSpaces(itemIds: [item.id], spaceIds: {roma.id, arte.id});
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.spacesChoose));
+      await tester.pumpAndSettle();
+      bool ticked(String name) => tester
+          .widget<CheckboxListTile>(find.widgetWithText(CheckboxListTile, name))
+          .value!;
+      expect(ticked('Roma'), isTrue);
+      expect(ticked('Arte'), isTrue);
+
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Arte'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.spacesPickerDone));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.libraryItemMoved('Roma')), findsOneWidget);
+      final after = (await library.findById(item.id)).getRight().toNullable()!;
+      expect(after.spaceIds, {roma.id});
     });
 
     testWidgets('el menú ofrece exportar solo como PDF o Word', (tester) async {
