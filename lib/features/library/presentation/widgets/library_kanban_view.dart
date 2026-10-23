@@ -37,11 +37,16 @@ class LibraryKanbanView extends ConsumerWidget {
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.all(12),
       children: [
-        _KanbanColumn(
-          title: l10n.detailSpaceNone,
-          items: byUnclassified,
-          targetSpaceId: null,
-        ),
+        // Solo mientras quede algo sin tema (F37): todo lo nuevo entra con
+        // uno, y lo de antes se ordena desde la tarjeta de la Biblioteca;
+        // una columna vacía de «Sin clasificar» invitaría a sacarle el tema
+        // a algo arrastrándolo ahí.
+        if (byUnclassified.isNotEmpty)
+          _KanbanColumn(
+            title: l10n.detailSpaceNone,
+            items: byUnclassified,
+            targetSpaceId: null,
+          ),
         for (final space in spaces)
           _KanbanColumn(
             title: space.name,

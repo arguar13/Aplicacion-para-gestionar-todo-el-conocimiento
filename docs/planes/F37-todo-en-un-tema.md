@@ -204,3 +204,38 @@ que la leía: no hay un estado intermedio que compile.
   la lista para ordenar lo que no tiene tema, y ahí se borra `space_picker_sheet.dart`.
 - Pruebas: las nuevas del detalle (grupo «temas (F37)»), las del menú y la de la derivada.
 - Suite entera 8.573 (78 omitidas). Mutación: 5/5.
+
+### Paso 5 (hecho)
+
+- **El filtro «sin tema»**: `LibraryQuery.withoutSpaces`, con `NOT EXISTS` sobre `item_spaces`. Con
+  un tema puesto no deja pasar nada. Queda afuera de las vistas guardadas, como `ids`, porque es la
+  lista para ordenar y no un filtro de la Biblioteca.
+- **Un contador vivo**: `LibraryRepository.watchCount`, para la tarjeta, sin traer la lista.
+  - La lista y el contador de la Biblioteca ahora miran también `item_spaces`.
+  - Borrar un tema avisa, porque drift propaga el borrado en cascada.
+  - La prueba lo comprueba, y la mutación lo confirma.
+- **La tarjeta** `UnsortedItemsCard`: «N elementos sin tema · Ordenarlos».
+  - Solo aparece en la Biblioteca sin filtros y fuera del modo selección: con un filtro, el número
+    no sería de lo que se mira.
+  - Desaparece sola al ordenar lo último.
+- **La lista** `UnsortedItemsScreen` (ruta `/unsorted`):
+  - se marcan los que van juntos («Marcar todos»);
+  - «Elegir temas para N» abre la hoja de siempre, que exige al menos uno;
+  - los marcados reciben esos temas, salen de la lista, y un aviso los nombra.
+  - Vacía, dice «Todo tiene tema».
+  - Lo ordenado deja de estar marcado: si vuelve a la lista porque se borró su tema, vuelve sin
+    marcar.
+- **El tablero**: la columna «Sin clasificar» está solo mientras quede algo sin tema.
+- **La selección múltiple**: «Mover a tema» pasó a «Elegir temas» con la hoja nueva.
+  - La hoja arranca con los temas que tienen todos los elegidos.
+  - Marcar uno se lo suma a todos; desmarcar uno de esos se lo saca a todos.
+  - Los temas que tiene solo alguno no se tocan.
+  - Lo hace `LibraryRepository.changeSpaces` (sumar y sacar en un solo cambio por elemento), que
+    reemplaza al `addSpaces` del repositorio.
+- Se borró la hoja vieja de un solo tema (`space_picker_sheet.dart`), con sus textos
+  `detailSpaceChoose` y `libraryItemMoveToSpace`.
+- Mutación: 11/11, en dos vueltas.
+  - En la primera sobrevivió «lo ordenado sigue marcado»: el contador ya no lo contaba, porque sale
+    de la lista.
+  - La prueba nueva lo hace volver a la lista, borrando su tema, y mata el mutante.
+- Suite entera 8.586 (78 omitidas).

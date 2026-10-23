@@ -32,6 +32,7 @@ import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/keep_working/presentation/screens/keep_working_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/library/presentation/screens/unsorted_items_screen.dart';
 import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
 import 'package:sinapsis/features/notebooks/presentation/screens/notebook_detail_screen.dart';
@@ -205,6 +206,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           initialSpaceId: state.uri.queryParameters['space'],
           initialValueLabel: state.uri.queryParameters['label'],
         ),
+      ),
+      GoRoute(
+        path: RoutePaths.unsorted,
+        name: RouteNames.unsorted,
+        builder: (context, state) => const UnsortedItemsScreen(),
       ),
       GoRoute(
         path: RoutePaths.chatModel,

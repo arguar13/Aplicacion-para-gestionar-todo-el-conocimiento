@@ -63,6 +63,10 @@ sealed class LibraryQuery with _$LibraryQuery {
     /// la vez, como una carpeta.
     String? spaceId,
 
+    /// Solo lo que no está en ningún tema (F37): la lista para ordenarlo.
+    /// Con [spaceId] no deja pasar nada —nada está en un tema y en ninguno—.
+    @Default(false) bool withoutSpaces,
+
     /// Limitar la consulta a estos elementos y a ningún otro. `null` es "sin
     /// límite"; un conjunto vacío no deja pasar nada.
     ///
@@ -108,6 +112,7 @@ sealed class LibraryQuery with _$LibraryQuery {
       tagIds.isNotEmpty ||
       propertyValueIds.isNotEmpty ||
       spaceId != null ||
+      withoutSpaces ||
       ids != null ||
       processingStates.isNotEmpty ||
       inboxStatuses.isNotEmpty;

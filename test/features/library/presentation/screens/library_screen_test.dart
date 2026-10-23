@@ -1465,7 +1465,7 @@ void main() {
       );
     });
 
-    testWidgets('mueve lo elegido a un tema y confirma, de una vez', (
+    testWidgets('le pone un tema a lo elegido y confirma, de una vez', (
       tester,
     ) async {
       await harness.capture('Uno');
@@ -1484,8 +1484,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Filosofía'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text(es.spacesPickerDone));
+      await tester.pumpAndSettle();
 
-      expect(find.text(es.libraryBulkMoved(2, 'Filosofía')), findsOneWidget);
+      expect(find.text(es.libraryBulkSpacesChanged(2)), findsOneWidget);
       // Terminado el movimiento, no queda nada seleccionado.
       expect(find.byIcon(Icons.checklist), findsOneWidget);
 
@@ -1500,6 +1502,53 @@ void main() {
           .map((i) => i.title)
           .toSet();
       expect(movedTitles, {'Uno', 'Dos'});
+    });
+
+    testWidgets('la hoja arranca con los temas que tienen todos los elegidos: '
+        'desmarcar uno se lo saca a todos y los que tiene solo alguno quedan '
+        '(F37)', (tester) async {
+      await harness.capture('Uno');
+      await harness.capture('Dos');
+      final organize = harness.container.read(organizeRepositoryProvider);
+      Future<String> space(String name) async =>
+          (await organize.createSpace(name)).getRight().toNullable()!.id;
+      final roma = await space('Roma');
+      final arte = await space('Arte');
+      final cocina = await space('Cocina');
+      final library = harness.container.read(libraryRepositoryProvider);
+      Future<KnowledgeItem> item(String title) async => (await library.list(
+        const LibraryQuery(),
+      )).getRight().toNullable()!.firstWhere((i) => i.title == title);
+      await library.setSpaces(
+        itemIds: [(await item('Uno')).id],
+        spaceIds: {roma, arte},
+      );
+      await library.setSpaces(
+        itemIds: [(await item('Dos')).id],
+        spaceIds: {roma},
+      );
+      await pumpLibrary(tester);
+
+      await tester.longPress(find.text('Uno'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dos'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.drive_file_move_outline));
+      await tester.pumpAndSettle();
+      bool ticked(String name) => tester
+          .widget<CheckboxListTile>(find.widgetWithText(CheckboxListTile, name))
+          .value!;
+      expect(ticked('Roma'), isTrue);
+      expect(ticked('Arte'), isFalse);
+
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Roma'));
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Cocina'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.spacesPickerDone));
+      await tester.pumpAndSettle();
+
+      expect((await item('Uno')).spaceIds, {arte, cocina});
+      expect((await item('Dos')).spaceIds, {cocina});
     });
 
     testWidgets('manda lo elegido a la papelera de una vez, sin preguntar, y '

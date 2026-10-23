@@ -87,6 +87,10 @@ abstract interface class LibraryRepository {
   /// número.
   Future<Either<Failure, int>> count(LibraryQuery query);
 
+  /// [count], emitiendo de nuevo con cada cambio: para un contador que tiene
+  /// que seguir a la base —«12 elementos sin tema» (F37)— sin traer la lista.
+  Stream<int> watchCount(LibraryQuery query);
+
   /// Los resultados de [query] con DÓNDE está lo que se encontró en cada uno:
   /// el chunk que mejor coincide, con su fragmento y su posición —el minuto, la
   /// página, los caracteres—.
@@ -147,11 +151,14 @@ abstract interface class LibraryRepository {
     required Set<String> spaceIds,
   });
 
-  /// Suma los temas [spaceIds] a los que ya tienen [itemIds], sin sacarles
-  /// ninguno.
-  Future<Either<Failure, Unit>> addSpaces({
+  /// Saca los temas [remove] y suma [add] a cada uno de [itemIds], sin tocar
+  /// los otros temas que tenga cada uno: elegir temas para varios a la vez,
+  /// que pueden estar hoy en temas distintos (F37). Un solo cambio por
+  /// elemento.
+  Future<Either<Failure, Unit>> changeSpaces({
     required List<String> itemIds,
-    required Set<String> spaceIds,
+    Set<String> add = const {},
+    Set<String> remove = const {},
   });
 
   /// Corre [body] entero dentro de UNA sola transacción.

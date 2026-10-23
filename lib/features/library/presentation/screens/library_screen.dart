@@ -32,7 +32,8 @@ import 'package:sinapsis/features/library/presentation/widgets/library_table_vie
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/library/presentation/widgets/saved_views_sheet.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_filter_section.dart';
-import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
+import 'package:sinapsis/features/library/presentation/widgets/spaces_picker_sheet.dart';
+import 'package:sinapsis/features/library/presentation/widgets/unsorted_items_card.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/reference/presentation/export_references_action.dart';
 import 'package:sinapsis/features/reference/presentation/import_references_action.dart';
@@ -164,7 +165,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       for (final hit in hits?.valueOrNull ?? const <SearchHit>[])
         if (hit.citation != null) hit.item.id: hit.citation!,
     };
-    // Se mira acá y no solo en la hoja de "mover a tema", que también lo
+    // Se mira acá y no solo en la hoja de temas, que también lo
     // mira: `allSpacesProvider` es `autoDispose`, y en modo selección nada
     // más lo mantiene vivo —la barra pasa a ser `_SelectionAppBar`—. Sin
     // este `watch`, entrar al modo de selección lo descartaría, y la hoja
@@ -193,7 +194,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               onExport: () => _exportSelection(context, loadedItems),
               onExportBibliography: _exportBibliographySelection,
               onExportReferences: _exportReferencesSelection,
-              onMove: () => _moveSelection(context),
+              onMove: () => _moveSelection(context, loadedItems),
               onDelete: () => _deleteSelection(context),
             )
           : AppBar(
@@ -311,6 +312,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         // inicio. Solo con elementos: en una bóveda vacía no hay nada que
         // mantener, y con una búsqueda sin resultados el panel sería ruido.
         const HealthPanel(),
+        // Lo que quedó sin tema, para ordenarlo (F37). Solo en la Biblioteca
+        // sin filtros: con un filtro puesto, el número no sería de lo que se
+        // está mirando.
+        if (!query.isFiltered && !_selectionModeActive)
+          const UnsortedItemsCard(),
         Expanded(
           child: switch (_viewMode) {
             LibraryViewMode.list => _ItemList(
@@ -426,21 +432,42 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     await exportReferences(context, ref, itemIds: _selectedIds.toList());
   }
 
-  Future<void> _moveSelection(BuildContext context) async {
+  /// Los temas de los elegidos, con la misma hoja de siempre (F37).
+  ///
+  /// Pueden estar hoy en temas distintos, así que la hoja arranca con los que
+  /// tienen todos —los que de verdad son «de los elegidos»—: marcar uno se lo
+  /// suma a todos, y desmarcar uno de esos se lo saca a todos. Los temas que
+  /// tiene solo alguno no se tocan: no estaban en la hoja, así que nadie los
+  /// eligió ni los sacó.
+  Future<void> _moveSelection(
+    BuildContext context,
+    List<KnowledgeItem> loaded,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
-    final count = _selectedIds.length;
+    final ids = _selectedIds.toList();
+    final count = ids.length;
     if (count == 0) return;
 
-    // Sin `selectedSpaceId`: los elementos elegidos pueden estar hoy en
-    // temas distintos —o algunos sin clasificar—, así que no hay una sola
-    // fila que tenga sentido resaltar como "la actual".
-    final chosen = await showSpacePickerSheet(context);
+    final chosenItems = [
+      for (final item in loaded)
+        if (_selectedIds.contains(item.id)) item,
+    ];
+    final common = chosenItems.isEmpty
+        ? const <String>{}
+        : chosenItems
+              .map((item) => item.spaceIds)
+              .reduce((a, b) => a.intersection(b));
+    final chosen = await showSpacesPickerSheet(context, selected: common);
     if (chosen == null || !context.mounted) return;
 
-    final (space,) = chosen;
+    final wanted = {for (final space in chosen) space.id};
     final result = await ref
         .read(libraryRepositoryProvider)
-        .setSpaces(itemIds: _selectedIds.toList(), spaceIds: {?space?.id});
+        .changeSpaces(
+          itemIds: ids,
+          add: wanted.difference(common),
+          remove: common.difference(wanted),
+        );
     if (!context.mounted) return;
 
     result.match(
@@ -452,11 +479,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           _selectionModeActive = false;
           _selectedIds.clear();
         });
-        final spaceName = space?.name ?? l10n.detailSpaceNone;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
-            SnackBar(content: Text(l10n.libraryBulkMoved(count, spaceName))),
+            SnackBar(content: Text(l10n.libraryBulkSpacesChanged(count))),
           );
       },
     );
@@ -595,7 +621,8 @@ class _SearchAndFilters extends ConsumerWidget {
         // número que dice cuántos hay activos; después también los temas, a
         // pedido del usuario, arriba de todo en ese mismo panel. Crear un
         // tema ya no vive acá: se crea donde se elige uno —al guardar algo o
-        // al moverlo—, ver `showSpacePickerSheet`, salvo el primero, que la
+        // al cambiarle los temas—, ver `showSpacesPickerSheet`, salvo el
+        // primero, que la
         // sección de temas del panel ofrece mientras no haya ninguno.
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),

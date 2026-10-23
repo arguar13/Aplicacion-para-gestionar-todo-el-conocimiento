@@ -166,6 +166,7 @@ class LibraryQuerySql {
           query.processingStates.isEmpty &&
           query.inboxStatuses.isEmpty &&
           query.spaceId == null &&
+          !query.withoutSpaces &&
           query.ids == null &&
           query.tagIds.isEmpty &&
           query.propertyValueIds.isEmpty;
@@ -241,6 +242,11 @@ class LibraryQuerySql {
         'WHERE s.item_id = item.id AND s.space_id = ?)',
       );
       _args.add(Variable.withString(query.spaceId!));
+    }
+    if (query.withoutSpaces) {
+      _where.add(
+        'NOT EXISTS (SELECT 1 FROM item_spaces s WHERE s.item_id = item.id)',
+      );
     }
     final ids = query.ids;
     if (ids != null) {

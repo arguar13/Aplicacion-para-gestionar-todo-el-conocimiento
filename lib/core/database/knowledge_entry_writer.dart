@@ -560,6 +560,18 @@ class KnowledgeEntryWriter {
   Future<void> removeSpaces(Iterable<String> itemIds, Set<String> spaceIds) =>
       _changeSpaces(itemIds, (current) => current.difference(spaceIds));
 
+  /// Saca [remove] y suma [add] a cada uno de [itemIds], en un solo cambio
+  /// —una versión— por elemento; los demás temas de cada uno quedan. Lo que
+  /// está en los dos, queda.
+  Future<void> changeSpaces(
+    Iterable<String> itemIds, {
+    Set<String> add = const {},
+    Set<String> remove = const {},
+  }) => _changeSpaces(
+    itemIds,
+    (current) => {...current.difference(remove), ...add},
+  );
+
   /// Los temas de cada uno de [itemIds] que tiene alguno.
   Future<Map<String, Set<String>>> spacesOf(Iterable<String> itemIds) =>
       _spacesOf(itemIds.toSet().toList());
@@ -612,17 +624,14 @@ class KnowledgeEntryWriter {
   ) async {
     final gone = before.difference(after);
     if (gone.isNotEmpty) {
-      await (_db.delete(_db.itemSpaces)..where(
-            (s) => s.itemId.equals(itemId) & s.spaceId.isIn(gone),
-          ))
-          .go();
+      await (_db.delete(
+        _db.itemSpaces,
+      )..where((s) => s.itemId.equals(itemId) & s.spaceId.isIn(gone))).go();
     }
     for (final spaceId in after.difference(before)) {
       await _db
           .into(_db.itemSpaces)
-          .insert(
-            ItemSpacesCompanion.insert(itemId: itemId, spaceId: spaceId),
-          );
+          .insert(ItemSpacesCompanion.insert(itemId: itemId, spaceId: spaceId));
     }
   }
 

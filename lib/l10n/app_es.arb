@@ -92,7 +92,7 @@
       }
     }
   },
-  "libraryBulkMoveTooltip": "Mover a tema",
+  "libraryBulkMoveTooltip": "Elegir temas",
   "@libraryBulkMoveTooltip": {
     "description": "Botón que mueve los elementos seleccionados a un tema, en el modo de selección múltiple."
   },
@@ -2063,10 +2063,6 @@
   "@detailSpaceNone": {
     "description": "Texto cuando el elemento no pertenece a ningún tema."
   },
-  "detailSpaceChoose": "Elegir tema",
-  "@detailSpaceChoose": {
-    "description": "Título del selector de tema en el detalle de un elemento."
-  },
   "detailLinkNotFound": "No se encontró ningún elemento llamado \"{title}\".",
   "@detailLinkNotFound": {
     "description": "Aviso al tocar un enlace [[ ]] de una nota de bloques que ya no coincide con el título de ningún elemento.",
@@ -2322,10 +2318,6 @@
   "libraryItemMenuTooltip": "Más opciones",
   "@libraryItemMenuTooltip": {
     "description": "Tooltip del botón de tres puntos sobre cada fila de la biblioteca."
-  },
-  "libraryItemMoveToSpace": "Mover a tema",
-  "@libraryItemMoveToSpace": {
-    "description": "Acción del menú de una fila de la biblioteca para cambiarle el tema."
   },
   "libraryItemExportAs": "Exportar como {format}",
   "@libraryItemExportAs": {
@@ -9246,5 +9238,29 @@
   "captureFirstSpaceHint": "Por ejemplo: Historia",
   "@captureFirstSpaceHint": {"description": "Temas (F37): ayuda del campo del nombre del primer tema."},
   "captureFirstSpaceCreate": "Crear tema",
-  "@captureFirstSpaceCreate": {"description": "Temas (F37): botón de la tarjeta del primer tema."}
+  "@captureFirstSpaceCreate": {"description": "Temas (F37): botón de la tarjeta del primer tema."},
+  "libraryUnsortedTitle": "{count, plural, =1{1 elemento sin tema} other{{count} elementos sin tema}}",
+  "@libraryUnsortedTitle": {"description": "Temas (F37): tarjeta de la Biblioteca que cuenta lo que no está en ningún tema.", "placeholders": {"count": {"type": "int"}}},
+  "libraryUnsortedBody": "Elegiles uno o varios temas: así se encuentran, y aparecen en el Mapa y el Atlas.",
+  "@libraryUnsortedBody": {"description": "Temas (F37): texto de la tarjeta de lo que no tiene tema."},
+  "libraryUnsortedAction": "Ordenarlos",
+  "@libraryUnsortedAction": {"description": "Temas (F37): botón de la tarjeta de lo que no tiene tema."},
+  "unsortedTitle": "Lo que no tiene tema",
+  "@unsortedTitle": {"description": "Temas (F37): título de la lista para ordenar lo que no tiene tema."},
+  "unsortedHint": "Marcá los que van juntos y elegí sus temas.",
+  "@unsortedHint": {"description": "Temas (F37): ayuda arriba de la lista para ordenar lo que no tiene tema."},
+  "unsortedSelectAll": "Marcar todos",
+  "@unsortedSelectAll": {"description": "Temas (F37): marca todos los de la lista para ordenar."},
+  "unsortedSelectNone": "Desmarcar todos",
+  "@unsortedSelectNone": {"description": "Temas (F37): desmarca todos los de la lista para ordenar."},
+  "unsortedChoose": "{count, plural, =0{Elegir temas} =1{Elegir temas para 1} other{Elegir temas para {count}}}",
+  "@unsortedChoose": {"description": "Temas (F37): botón que abre la hoja de temas para los marcados en la lista para ordenar.", "placeholders": {"count": {"type": "int"}}},
+  "unsortedDone": "{count, plural, =1{1 elemento, en {spaces}} other{{count} elementos, en {spaces}}}",
+  "@unsortedDone": {"description": "Temas (F37): aviso al elegirles temas a los marcados en la lista para ordenar.", "placeholders": {"count": {"type": "int"}, "spaces": {"type": "String"}}},
+  "unsortedEmptyTitle": "Todo tiene tema",
+  "@unsortedEmptyTitle": {"description": "Temas (F37): la lista para ordenar, cuando ya no queda nada."},
+  "unsortedEmptyBody": "No queda nada por ordenar.",
+  "@unsortedEmptyBody": {"description": "Temas (F37): texto de la lista para ordenar vacía."},
+  "libraryBulkSpacesChanged": "{count, plural, =1{Temas cambiados en 1 elemento} other{Temas cambiados en {count} elementos}}",
+  "@libraryBulkSpacesChanged": {"description": "Temas (F37): aviso al elegir temas para varios en el modo selección.", "placeholders": {"count": {"type": "int"}}}
 }

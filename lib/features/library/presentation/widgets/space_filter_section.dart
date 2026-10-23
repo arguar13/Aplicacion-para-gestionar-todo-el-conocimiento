@@ -120,11 +120,11 @@ class CurrentSpaceChip extends StatelessWidget {
 
 /// La sección sin ningún tema creado: qué es un tema y cómo crear el primero.
 ///
-/// Crear un tema vive, en general, donde se elige uno —al guardar algo o al
-/// moverlo, ver `showSpacePickerSheet`—, porque casi siempre se crea para
-/// poner algo adentro. Esta es la excepción: sin ningún tema, la sección no
-/// tendría nada que tocar, y un callejón sin salida no enseña que filtrar por
-/// tema existe.
+/// Crear un tema vive, en general, donde se eligen —al guardar algo o al
+/// cambiarle los temas, ver `showSpacesPickerSheet`—, porque casi siempre se
+/// crea para poner algo adentro. Esta es la excepción: sin ningún tema, la
+/// sección no tendría nada que tocar, y un callejón sin salida no enseña que
+/// filtrar por tema existe.
 ///
 /// El tema recién creado NO queda elegido como filtro: está vacío, y elegirlo
 /// dejaría la lista de atrás vacía de golpe, como si se hubiera borrado todo.

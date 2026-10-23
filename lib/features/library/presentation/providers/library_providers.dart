@@ -43,6 +43,16 @@ final libraryItemsProvider = StreamProvider.autoDispose
       return ref.watch(libraryRepositoryProvider).watch(query);
     });
 
+/// Lo que no está en ningún tema (F37), lo más nuevo primero: la lista para
+/// ordenarlo.
+const unsortedItemsQuery = LibraryQuery(withoutSpaces: true);
+
+/// Cuántos elementos no están en ningún tema, actualizándose solo: la tarjeta
+/// «12 elementos sin tema · Ordenarlos» de la Biblioteca, sin traer la lista.
+final unsortedCountProvider = StreamProvider.autoDispose<int>((ref) {
+  return ref.watch(libraryRepositoryProvider).watchCount(unsortedItemsQuery);
+});
+
 /// Los resultados de una búsqueda de texto, cada uno con DÓNDE está lo que se
 /// encontró —el minuto, la página—, actualizándose solos.
 ///

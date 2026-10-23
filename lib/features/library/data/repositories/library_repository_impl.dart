@@ -310,6 +310,12 @@ class LibraryRepositoryImpl implements LibraryRepository {
   }
 
   @override
+  Stream<int> watchCount(LibraryQuery query) => _watching(
+    () => _countMatching(query),
+    hint: 'LibraryRepositoryImpl.watchCount',
+  );
+
+  @override
   Future<Either<Failure, List<String>>> matchingIds(LibraryQuery query) async {
     try {
       return right(await _matchingIds(query));
@@ -394,6 +400,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
         _db.renditions,
         _db.propertyValues,
         _db.itemPropertyValues,
+        // Los temas de cada uno y el filtro por tema (F37). Borrar un tema
+        // avisa acá también: drift propaga el borrado en cascada.
+        _db.itemSpaces,
       ],
       read: read,
       telemetry: _telemetry,
@@ -801,18 +810,19 @@ class LibraryRepositoryImpl implements LibraryRepository {
   }
 
   @override
-  Future<Either<Failure, Unit>> addSpaces({
+  Future<Either<Failure, Unit>> changeSpaces({
     required List<String> itemIds,
-    required Set<String> spaceIds,
+    Set<String> add = const {},
+    Set<String> remove = const {},
   }) async {
     try {
-      await _writer.addSpaces(itemIds, spaceIds);
+      await _writer.changeSpaces(itemIds, add: add, remove: remove);
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
       return left(
-        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.addSpaces'),
+        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.changeSpaces'),
       );
     }
   }

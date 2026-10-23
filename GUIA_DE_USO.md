@@ -310,7 +310,7 @@ Arriba a la derecha hay un botón para cambiar la vista, con cuatro opciones:
   Etiquetas, Estado y fecha de captura. Se puede ordenar tocando el
   encabezado de una columna.
 - **Tablero**: estilo "kanban", una columna por cada Tema (más una de "Sin
-  clasificar"). Un elemento que está en varios Temas aparece en la columna de
+  clasificar", mientras quede algo sin tema). Un elemento que está en varios Temas aparece en la columna de
   cada uno. Arrastrás una tarjeta de una columna a otra para pasarla de un
   Tema al otro: sale del Tema de donde la sacaste y conserva los demás.
 - **Calendario**: los elementos ubicados en un calendario mensual, con
@@ -357,14 +357,29 @@ del Tema.
 
 - **Crear un Tema:** en la hoja de temas, con **"Nuevo tema"** (o
   **"Crear el tema «…»"** si buscaste un nombre que no existe). Esa hoja se
-  abre desde el campo **"Temas"** del formulario, desde **"Elegir temas"** en
-  el menú de tres puntos de una tarjeta y desde los Temas del detalle. También
-  se crea desde **"Mover a tema"** en la selección múltiple, o con la tarjeta
-  de la primera vez al guardar. El primero también se puede crear desde **Filtros → "Tema"**,
-  mientras no tengas ninguno.
+  abre desde el campo **"Temas"** del formulario, desde **"Elegir temas"** (en
+  el menú de tres puntos de una tarjeta, en la selección múltiple y en la
+  lista de lo que no tiene tema) y desde los Temas del detalle. El primero
+  también se puede crear con la tarjeta de la primera vez al guardar, o desde
+  **Filtros → "Tema"**, mientras no tengas ninguno.
 - **Renombrar o eliminar un Tema:** en Filtros, mantené apretado su chip (o
   tocá el ícono "⋯" del Tema elegido). Al eliminarlo, sus elementos NO se
   borran: solo quedan sin clasificar.
+
+### Lo que no tiene tema
+
+Lo nuevo siempre entra con un Tema, pero lo que guardaste antes puede no
+tener ninguno, y la app no lo mueve sola. Mientras quede algo así, arriba de
+la Biblioteca (sin filtros puestos) aparece la tarjeta **"12 elementos sin
+tema"** con el botón **"Ordenarlos"**. Te lleva a **"Lo que no tiene tema"**:
+
+- marcá los que van juntos (o **"Marcar todos"**);
+- tocá **"Elegir temas para N"**, marcá uno o varios en la hoja y **"Listo"**;
+- los ordenados salen de la lista, y un aviso dice dónde quedaron.
+
+Cuando no queda nada, la lista dice **"Todo tiene tema"**, y la tarjeta
+desaparece de la Biblioteca. También desaparece la columna "Sin clasificar"
+del tablero.
 
 ### El menú de tres puntos de cada elemento
 
@@ -378,7 +393,9 @@ y **"Listo"** lo guarda), **"Exportar como PDF"**, **"Exportar como Word"** y **
 Mantené apretado un elemento (o tocá el ícono de casillero) para entrar al
 modo de selección múltiple. Ahí vas a poder:
 
-- **Mover a tema**: cambiar el Tema de todos los elegidos de una sola vez.
+- **Elegir temas**: abre la hoja de temas con los que tienen **todos** los
+  elegidos ya marcados. Marcar uno se lo suma a todos; desmarcar uno se lo
+  saca a todos. Los temas que tiene solo alguno de los elegidos no se tocan.
 - **Eliminar**: mandarlos a la papelera (se puede deshacer).
 - **Exportar para NotebookLM**: armar un paquete de archivos listo para subir
   a esa herramienta.
@@ -766,9 +783,10 @@ que trata de Roma y de arte va en los dos Temas, y aparece en cada uno. Es la
 forma principal de moverse por la Biblioteca. Al guardarlo se eligen uno o
 varios (campo **"Temas"** del formulario), y se cambian desde su detalle o
 con **"Elegir temas"** en el menú de tres puntos de su tarjeta; en cualquiera
-de esos lugares podés crear uno nuevo con **"Nuevo tema"**. **"Mover a tema"**,
-en la selección múltiple, todavía deja a los elegidos en un solo Tema. Para ver solo los de un
-Tema, usá **Filtros → "Tema"** en la Biblioteca.
+de esos lugares podés crear uno nuevo con **"Nuevo tema"**. A varios a la vez,
+desde la selección múltiple o la lista de [lo que no tiene
+tema](#lo-que-no-tiene-tema). Para ver solo los de un Tema, usá **Filtros →
+"Tema"** en la Biblioteca.
 
 Tus Temas también arman el [Mapa](#el-mapa) y el [Atlas](#el-atlas): es lo
 primero que muestran si tenés alguno, así que ponerle un Tema a algo al

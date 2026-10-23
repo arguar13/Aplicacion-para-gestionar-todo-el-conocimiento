@@ -8,8 +8,9 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 /// Solo lo que tiene sentido reusar entre sesiones —el filtro y el orden—.
 /// [LibraryQuery.ids] queda afuera a propósito: es para quien ya sabe qué
 /// elementos le interesan —los vecinos de un elemento en el grafo local—, no
-/// algo que alguien nombre y guarde; y `limit`/`offset` son de la página que
-/// se está mirando, no del filtro en sí.
+/// algo que alguien nombre y guarde; `withoutSpaces` tampoco: es la lista para
+/// ordenar lo que no tiene tema (F37), no un filtro de la Biblioteca; y
+/// `limit`/`offset` son de la página que se está mirando, no del filtro en sí.
 Map<String, Object?> libraryQueryToJson(LibraryQuery query) => {
   if (query.searchText != null) 'searchText': query.searchText,
   'sourceKinds': [for (final kind in query.sourceKinds) kind.name],

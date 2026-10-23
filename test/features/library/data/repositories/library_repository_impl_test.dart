@@ -876,6 +876,58 @@ void main() {
       );
     });
 
+    test('«sin tema» deja pasar solo lo que no está en ninguno, y con un '
+        'tema no deja pasar nada', () async {
+      await createSpaces();
+      await repository.save(
+        buildItem(id: 'item-hist').copyWith(spaceIds: {'hist'}),
+      );
+      await repository.save(buildItem(id: 'item-ninguno'));
+
+      expect(await idsOf(const LibraryQuery(withoutSpaces: true)), [
+        'item-ninguno',
+      ]);
+      expect(
+        await idsOf(const LibraryQuery(withoutSpaces: true, spaceId: 'hist')),
+        isEmpty,
+      );
+      expect(
+        (await repository.count(
+          const LibraryQuery(withoutSpaces: true),
+        )).getRight().toNullable(),
+        1,
+      );
+    });
+
+    test('el contador de lo que no tiene tema sigue a la base: sube al '
+        'borrar un tema y baja al ponerle uno', () async {
+      await createSpaces();
+      await repository.save(
+        buildItem(id: 'item-hist').copyWith(spaceIds: {'hist'}),
+      );
+      await repository.save(buildItem(id: 'item-ninguno'));
+      final counts = <int>[];
+      final subscription = repository
+          .watchCount(const LibraryQuery(withoutSpaces: true))
+          .listen(counts.add);
+      addTearDown(subscription.cancel);
+      Future<void> settle() => pumpEventQueue(times: 50);
+
+      await settle();
+      expect(counts.last, 1);
+
+      await (db.delete(db.spaces)..where((s) => s.id.equals('hist'))).go();
+      await settle();
+      expect(counts.last, 2);
+
+      await repository.setSpaces(
+        itemIds: ['item-hist', 'item-ninguno'],
+        spaceIds: {'filo'},
+      );
+      await settle();
+      expect(counts.last, 0);
+    });
+
     test('sumar temas a varios les deja los que ya tenían', () async {
       await createSpaces();
       await repository.save(
@@ -883,14 +935,40 @@ void main() {
       );
       await repository.save(buildItem(id: 'item-b'));
 
-      final result = await repository.addSpaces(
+      final result = await repository.changeSpaces(
         itemIds: ['item-a', 'item-b'],
-        spaceIds: {'hist'},
+        add: {'hist'},
       );
 
       expect(result.isRight(), isTrue);
       expect(await spacesOf('item-a'), {'filo', 'hist'});
       expect(await spacesOf('item-b'), {'hist'});
+    });
+
+    test('elegir temas para varios saca y suma sin tocar los otros de cada '
+        'uno', () async {
+      await createSpaces();
+      await db
+          .into(db.spaces)
+          .insert(
+            SpacesCompanion.insert(id: 'arte', name: 'Arte', createdAt: now),
+          );
+      await repository.save(
+        buildItem(id: 'item-a').copyWith(spaceIds: {'arte', 'hist'}),
+      );
+      await repository.save(
+        buildItem(id: 'item-b').copyWith(spaceIds: {'hist'}),
+      );
+
+      final result = await repository.changeSpaces(
+        itemIds: ['item-a', 'item-b'],
+        add: {'filo'},
+        remove: {'hist'},
+      );
+
+      expect(result.isRight(), isTrue);
+      expect(await spacesOf('item-a'), {'arte', 'filo'});
+      expect(await spacesOf('item-b'), {'filo'});
     });
   });
 

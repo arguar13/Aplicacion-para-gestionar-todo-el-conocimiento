@@ -102,6 +102,10 @@ abstract final class RoutePaths {
   /// destino de navegación.
   static const timeline = '/timeline';
 
+  /// Lo que no está en ningún tema, para ordenarlo de a varios (F37). Ruta
+  /// plana, mismo criterio que [timeline].
+  static const unsorted = '/unsorted';
+
   /// La línea de tiempo ya filtrada por el valor [valueId] de una propiedad,
   /// con su nombre [label] para rotular el filtro (F13): lo que el Atlas abre
   /// desde el eje temporal de una rama.
@@ -254,6 +258,7 @@ abstract final class RouteNames {
   static const suggestionReview = 'suggestion-review';
   static const grownNotes = 'grown-notes';
   static const timeline = 'timeline';
+  static const unsorted = 'unsorted';
   static const reading = 'reading';
   static const graph = 'graph';
   static const chat = 'chat';

@@ -109,7 +109,7 @@ void main() {
     await step.organize(item, runId: run);
     await vault.runs.finishRun(run);
 
-    await vault.library.addSpaces(itemIds: ['a'], spaceIds: {cocina});
+    await vault.library.changeSpaces(itemIds: ['a'], add: {cocina});
     final listed = (await vault.runs.listRuns(
       itemId: 'a',
     )).getOrElse((f) => fail('$f')).single;

@@ -140,7 +140,7 @@
       }
     }
   },
-  "libraryBulkMoveTooltip": "Move to topic",
+  "libraryBulkMoveTooltip": "Choose topics",
   "@libraryBulkMoveTooltip": {
     "description": "Botón que mueve los elementos seleccionados a un tema, en el modo de selección múltiple."
   },
@@ -2747,10 +2747,6 @@
   "@detailSpaceNone": {
     "description": "Texto cuando el elemento no pertenece a ningún tema."
   },
-  "detailSpaceChoose": "Choose topic",
-  "@detailSpaceChoose": {
-    "description": "Título del selector de tema en el detalle de un elemento."
-  },
   "detailLinkNotFound": "Couldn't find any item titled \"{title}\".",
   "@detailLinkNotFound": {
     "description": "Aviso al tocar un enlace [[ ]] de una nota de bloques que ya no coincide con el título de ningún elemento.",
@@ -2965,7 +2961,6 @@
   "citationCopyAction": "Copy citation",
   "citationCopied": "Citation copied",
   "libraryItemMenuTooltip": "More options",
-  "libraryItemMoveToSpace": "Move to topic",
   "libraryItemExportAs": "Export as {format}",
   "@libraryItemExportAs": {
     "placeholders": {
@@ -10264,5 +10259,29 @@
   "captureFirstSpaceHint": "For example: History",
   "@captureFirstSpaceHint": {"description": "Temas (F37): ayuda del campo del nombre del primer tema."},
   "captureFirstSpaceCreate": "Create topic",
-  "@captureFirstSpaceCreate": {"description": "Temas (F37): botón de la tarjeta del primer tema."}
+  "@captureFirstSpaceCreate": {"description": "Temas (F37): botón de la tarjeta del primer tema."},
+  "libraryUnsortedTitle": "{count, plural, =1{1 item without a topic} other{{count} items without a topic}}",
+  "@libraryUnsortedTitle": {"description": "Temas (F37): tarjeta de la Biblioteca que cuenta lo que no está en ningún tema.", "placeholders": {"count": {"type": "int"}}},
+  "libraryUnsortedBody": "Choose one or more topics for them: that way they are easy to find, and they show up in the Map and the Atlas.",
+  "@libraryUnsortedBody": {"description": "Temas (F37): texto de la tarjeta de lo que no tiene tema."},
+  "libraryUnsortedAction": "Sort them",
+  "@libraryUnsortedAction": {"description": "Temas (F37): botón de la tarjeta de lo que no tiene tema."},
+  "unsortedTitle": "Items without a topic",
+  "@unsortedTitle": {"description": "Temas (F37): título de la lista para ordenar lo que no tiene tema."},
+  "unsortedHint": "Tick the ones that go together and choose their topics.",
+  "@unsortedHint": {"description": "Temas (F37): ayuda arriba de la lista para ordenar lo que no tiene tema."},
+  "unsortedSelectAll": "Tick all",
+  "@unsortedSelectAll": {"description": "Temas (F37): marca todos los de la lista para ordenar."},
+  "unsortedSelectNone": "Untick all",
+  "@unsortedSelectNone": {"description": "Temas (F37): desmarca todos los de la lista para ordenar."},
+  "unsortedChoose": "{count, plural, =0{Choose topics} =1{Choose topics for 1} other{Choose topics for {count}}}",
+  "@unsortedChoose": {"description": "Temas (F37): botón que abre la hoja de temas para los marcados en la lista para ordenar.", "placeholders": {"count": {"type": "int"}}},
+  "unsortedDone": "{count, plural, =1{1 item, in {spaces}} other{{count} items, in {spaces}}}",
+  "@unsortedDone": {"description": "Temas (F37): aviso al elegirles temas a los marcados en la lista para ordenar.", "placeholders": {"count": {"type": "int"}, "spaces": {"type": "String"}}},
+  "unsortedEmptyTitle": "Everything has a topic",
+  "@unsortedEmptyTitle": {"description": "Temas (F37): la lista para ordenar, cuando ya no queda nada."},
+  "unsortedEmptyBody": "There is nothing left to sort.",
+  "@unsortedEmptyBody": {"description": "Temas (F37): texto de la lista para ordenar vacía."},
+  "libraryBulkSpacesChanged": "{count, plural, =1{Topics changed for 1 item} other{Topics changed for {count} items}}",
+  "@libraryBulkSpacesChanged": {"description": "Temas (F37): aviso al elegir temas para varios en el modo selección.", "placeholders": {"count": {"type": "int"}}}
 }

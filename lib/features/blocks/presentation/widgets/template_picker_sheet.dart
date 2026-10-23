@@ -8,8 +8,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// o una de las plantillas guardadas.
 ///
 /// Devuelve la plantilla elegida —`(null,)` para «nota en blanco»—, o
-/// `null` a secas si se cerró sin elegir nada: mismo criterio que
-/// `showSpacePickerSheet`, porque acá también hace falta distinguir «elegí
+/// `null` a secas si se cerró sin elegir nada: hace falta distinguir «elegí
 /// que no hay plantilla» de «me arrepentí de elegir»; lo segundo no debe
 /// abrir el editor.
 Future<(NoteTemplate?,)?> showTemplatePickerSheet(
