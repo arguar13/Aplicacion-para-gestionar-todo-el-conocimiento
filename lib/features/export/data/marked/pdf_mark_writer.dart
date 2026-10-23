@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'package:pdfium_dart/pdfium_dart.dart' as pdfium_bindings;
 import 'package:pdfrx_engine/pdfrx_engine.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/features/export/domain/entities/pdf_mark.dart';
 
 /// Escribe resaltados de verdad en un PDF (F38): las anotaciones del estándar
@@ -111,8 +112,8 @@ void _generateAppearances(pdfium_bindings.FPDF_PAGE page) {
 
 void _addMark(pdfium_bindings.FPDF_PAGE page, PdfMark mark) {
   final annot = _pdfium.FPDFPage_CreateAnnot(page, switch (mark.style) {
-    MarkStyle.highlight => pdfium_bindings.FPDF_ANNOT_HIGHLIGHT,
-    MarkStyle.underline => pdfium_bindings.FPDF_ANNOT_UNDERLINE,
+    HighlightStyle.fill => pdfium_bindings.FPDF_ANNOT_HIGHLIGHT,
+    HighlightStyle.underline => pdfium_bindings.FPDF_ANNOT_UNDERLINE,
   });
   if (annot == nullptr) {
     throw StateError('PDFium no pudo crear el resaltado');

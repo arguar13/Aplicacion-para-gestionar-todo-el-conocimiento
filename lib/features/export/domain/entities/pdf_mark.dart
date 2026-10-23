@@ -1,13 +1,5 @@
 import 'package:pdfrx_engine/pdfrx_engine.dart';
-
-/// Cómo queda marcado un tramo en el documento que se descarga (F38).
-enum MarkStyle {
-  /// El fondo del tramo, pintado del color.
-  highlight,
-
-  /// Una línea del color debajo del tramo.
-  underline,
-}
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 
 /// Un resaltado para escribir en un PDF (F38): los renglones que cubre en
 /// una página, con su color y su estilo.
@@ -20,7 +12,7 @@ class PdfMark {
     required this.pageNumber,
     required this.lines,
     required this.color,
-    this.style = MarkStyle.highlight,
+    this.style = HighlightStyle.fill,
     this.note,
   });
 
@@ -33,7 +25,7 @@ class PdfMark {
   /// El color, en ARGB (`0xAARRGGBB`).
   final int color;
 
-  final MarkStyle style;
+  final HighlightStyle style;
 
   /// Lo que la persona le escribió al resaltado, si algo.
   final String? note;

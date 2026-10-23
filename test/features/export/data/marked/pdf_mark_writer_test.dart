@@ -6,6 +6,7 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pdfium_dart/pdfium_dart.dart' as pdfium_bindings;
 import 'package:pdfrx_engine/pdfrx_engine.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/features/export/data/marked/pdf_mark_writer.dart';
 import 'package:sinapsis/features/export/domain/entities/pdf_mark.dart';
 
@@ -237,7 +238,7 @@ void _tests() {
           pageNumber: 1,
           lines: [hola],
           color: _turquoise,
-          style: MarkStyle.underline,
+          style: HighlightStyle.underline,
         ),
       ]);
 
@@ -319,7 +320,7 @@ void _tests() {
         pageNumber: 3,
         lines: [line],
         color: _turquoise,
-        style: MarkStyle.underline,
+        style: HighlightStyle.underline,
       ),
     ]);
 
