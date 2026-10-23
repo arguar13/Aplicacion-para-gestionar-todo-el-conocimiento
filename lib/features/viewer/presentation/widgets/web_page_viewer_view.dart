@@ -23,6 +23,7 @@ import 'package:sinapsis/features/viewer/presentation/widgets/document_hand_mark
 import 'package:sinapsis/features/viewer/presentation/widgets/document_highlight_toolbar.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_selection.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 /// Lo que se le pide a la página guardada para mostrar lo que [view] deja ver
 /// de [marks] (F36): el resumen y la síntesis, cada uno por su lado (F39); las
@@ -118,9 +119,22 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
 
   static WebViewController? _createWebView() {
     try {
-      return WebViewController()
+      final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.disabled)
         ..setBackgroundColor(Colors.white);
+      // Como un navegador del teléfono (F39): con el «viewport ancho» apagado
+      // —lo que trae el `WebView` de Android— se ignora el `<meta
+      // name="viewport">` y la página se arma siempre con el ancho de la
+      // pantalla. Una página de escritorio que declara `width=1120`
+      // (Wikipedia) se armaba en 412 px, se pasaba de ancho con su cuadro de
+      // datos y el `WebView` se achicaba para mostrarla entera, dejando una
+      // franja vacía a la derecha. Con el viewport ancho, la página se arma
+      // con el ancho que dice y se ve entera, como en Chrome.
+      final platform = controller.platform;
+      if (platform is AndroidWebViewController) {
+        unawaited(platform.setUseWideViewPort(true));
+      }
+      return controller;
       // Sin implementación nativa falla una aserción o un null: ninguna de
       // las dos cosas tiene un tipo que atrapar.
       // ignore: avoid_catches_without_on_clauses

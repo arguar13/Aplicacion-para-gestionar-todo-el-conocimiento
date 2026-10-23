@@ -242,6 +242,11 @@ dependencies:
   # plataforma (`WebView` en Android), así que no hay un tercero de quien
   # depender para que siga funcionando.
   webview_flutter: ^4.10.0
+  # Ya venía como dependencia transitiva; se declara explícita porque el
+  # visor de páginas archivadas le pide al `WebView` de Android que respete el
+  # `<meta name="viewport">` de la página, como un navegador del teléfono
+  # (F39), y eso solo lo expone esta parte.
+  webview_flutter_android: ^4.10.0
   # Ya venía como dependencia transitiva; se declara explícita porque ahora
   # el código del proyecto la usa directamente para leer el OPF de un EPUB y
   # el document.xml de un DOCX.

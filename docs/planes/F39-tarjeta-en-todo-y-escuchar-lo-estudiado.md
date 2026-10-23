@@ -385,3 +385,23 @@
     lector flotante de voz alta lee el detalle.
   - 13 pruebas en el detalle real (el arrastre mueve el detalle y la página sigue en la 1, en cada
     formato) y 6 de pintado; 13 mutaciones, todas muertas.
+- **La página web igual al original — hecho.** Causas medidas con la Wikipedia real:
+  - **El índice abierto arriba**: el servidor entrega `client-nojs` y un programa del `<head>` lo
+    pasa a `client-js`; de eso dependen sus hojas. Sin el cambio, el índice sale abierto en una caja
+    de 200 px; cambiando solo la clase, sin correr nada, la página queda igual a la original hasta
+    el píxel. El visor restaura `client-js` solo cuando la propia página lo hace
+    (`archived_page_fidelity.dart`), y saca los `<noscript>` que con JavaScript no se dibujan.
+  - **Hojas que no se guardaban**: el archivador gastaba el tope de 60 pedidos en las fotos y
+    dejaba sin guardar `site.styles` y los íconos. Ahora guarda las hojas primero y con pedidos
+    aparte, con su `media`, sus `@import`, las tipografías que la página usa (una por regla, con
+    tope), los íconos y fondos que se ven, los `style=""`, SVG y `<base href>`, y saca la política
+    CSP.
+  - **La franja vacía a la derecha**: el `WebView` de Android ignoraba el `<meta viewport
+    width=1120>` y se achicaba por el desborde; ahora pide el viewport ancho, como un navegador
+    (`setUseWideViewPort(true)`; `webview_flutter_android` pasa a dependencia directa, la misma
+    versión que ya estaba). Deducido de la documentación y del plugin: falta verlo en el teléfono.
+  - Lo que se inyecta para estudiar no mueve ni una letra: `mark` va en `all:unset`.
+  - Las páginas ya guardadas mejoran solas en el índice y el ancho; los estilos que antes no
+    entraron necesitan guardar el enlace de nuevo. No se guarda lo que arma un programa al abrir
+    (el aviso CentralNotice de Wikipedia).
+  - Pruebas con una Wikipedia grabada y recortada, sin red; 23 mutaciones, todas muertas.

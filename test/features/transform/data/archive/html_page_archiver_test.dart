@@ -309,7 +309,7 @@ void main() {
         archiver,
         '<html><head><style> '
         "a{background:url('fondo.png')} b{background:url('fondo.png')} "
-        '</style></head><body></body></html>',
+        '</style></head><body><a></a><b></b></body></html>',
       );
 
       expect(
@@ -320,10 +320,12 @@ void main() {
   });
 
   group('liviano (F21)', () {
-    test('sin tipografías: las @font-face se quitan y sus fuentes no se '
-        'piden', () async {
+    test('una tipografía que no se pudo guardar se quita: la página no sale '
+        'a buscarla a internet cada vez que se abre', () async {
       // vaticannews pedía decenas de tipografías —armenio, canarés,
-      // malayalam, en .eot y .ttf cada una— para un artículo de 1,5 KB.
+      // malayalam, en .eot y .ttf cada una— para un artículo de 1,5 KB. Ahora
+      // se guardan las que la página usa (ver la prueba de fidelidad), y la
+      // que no llega o no entra se quita, en vez de dejarla apuntando afuera.
       final fetcher = FakeResourceFetcher(
         byUrl: {
           'https://ejemplo.org/tema.css': utf8.encode(
@@ -339,14 +341,12 @@ void main() {
         archiver,
         '<html><head><link rel="stylesheet" href="tema.css"> '
         '<style>@font-face{font-family:Y;src:url(y.ttf)}</style> '
-        '</head><body></body></html>',
+        '</head><body><p>Hola</p></body></html>',
       );
 
       expect(result, isNot(contains('@font-face')));
-      expect(
-        fetcher.requested.map((u) => u.path),
-        isNot(anyOf(contains('/x.woff2'), contains('/y.ttf'))),
-      );
+      expect(result, isNot(contains('x.woff2')));
+      expect(result, isNot(contains('y.ttf')));
       expect(result, contains("url('data:image/png;base64,"));
     });
 
@@ -364,7 +364,7 @@ void main() {
       await archiveToString(
         archiver,
         '<html><head><link rel="stylesheet" href="a.css"> '
-        '<link rel="stylesheet" href="b.css"></head><body></body></html>',
+        '<link rel="stylesheet" href="b.css"></head><body><a></a></body></html>',
       );
 
       expect(

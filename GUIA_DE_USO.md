@@ -658,6 +658,22 @@ demasiado), se carga de internet cuando hay conexión. Las páginas que
 guardaste antes también muestran sus fotos, incluso las que la página
 cargaba recién al bajar.
 
+**La página se ve como la original.** «Ver la página» muestra la página
+como la verías en el navegador del teléfono, con el mismo ancho que ella
+declara (una página de escritorio como Wikipedia se ve entera, achicada, y
+no con una franja vacía al costado) y con las partes plegadas como en el
+original: el índice lateral de Wikipedia, por ejemplo, ya no aparece abierto
+arriba de todo. Al guardarla, Sinapsis guarda ahora **todas sus hojas de
+estilo** —con las que importan otras—, las tipografías que usa y los
+íconos y fondos que se ven, además de las fotos; antes, una página con muchas
+fotos podía quedar sin parte de sus estilos. Lo que armaba un programa de la
+página al abrirse (un aviso que aparece solo, un menú que se despliega) no
+se guarda. Resumir, resaltar o elegir palabras no mueven nada de lugar. Las
+páginas que ya guardaste mejoran solas en el índice y el ancho; para que
+también queden guardados los estilos que antes no entraron, guardá el
+enlace de nuevo (en una página ya guardada, «Volver a extraer el texto» no
+vuelve a bajar la página).
+
 ### Estudiar el documento: resumen, síntesis y palabras clave
 
 En un **documento** (PDF, Word, EPUB, texto), una **página web guardada**,

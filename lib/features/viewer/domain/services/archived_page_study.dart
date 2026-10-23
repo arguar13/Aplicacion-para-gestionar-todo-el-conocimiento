@@ -9,6 +9,7 @@ import 'package:sinapsis/core/util/word_folding.dart';
 import 'package:sinapsis/features/study/domain/services/study_words.dart';
 import 'package:sinapsis/features/transform/domain/archive/page_images.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_alignment.dart';
+import 'package:sinapsis/features/viewer/domain/services/archived_page_fidelity.dart';
 
 /// Una oración marcada para estudiar (F36): su tramo del texto extraído y si
 /// es del resumen o de la síntesis.
@@ -59,6 +60,7 @@ String showableArchivedPage(String html, {ArchivedPageStudy? study}) =>
 }) {
   final document = html_parser.parse(html);
   showArchivedImages(document);
+  restoreScriptState(document);
   ArchivedPageAlignment? alignment;
   if (study != null) {
     _neutralize(document);
@@ -670,7 +672,9 @@ String _css(ArchivedPageColors colors) {
   // Las palabras clave, todas, estén o no en una oración resaltada (F39).
   const keywords = 'html.sn-kw mark.sn-k';
   return [
-    'mark.sn-m{background:transparent;color:inherit;padding:0}',
+    // Sin nada de lo que la página le ponga a `mark` —margen, borde, peso,
+    // `display`—: envolver una palabra no puede mover ni una letra (F39).
+    'mark.sn-m{all:unset}',
     // La síntesis después: con las dos prendidas, va encima del resumen.
     'html.sn-l-summary mark.sn-summary${paint(colors.summary)}',
     'html.sn-l-synthesis mark.sn-synthesis${paint(colors.synthesis)}',
