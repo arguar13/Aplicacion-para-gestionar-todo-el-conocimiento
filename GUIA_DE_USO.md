@@ -452,7 +452,8 @@ De arriba hacia abajo, vas a encontrar:
 10. Un **grafo local** con sus vínculos más cercanos, a la vista: lo que
     vinculás se ve acá sin tener que bajar hasta el final.
 11. El **«Contenido»**, si es una página o una publicación que trae archivos:
-    sus fotos, documentos, audios y videos, cada uno con su texto (ver
+    sus documentos, audios y videos, cada uno con su texto —las fotos van en
+    la tarjeta de estudiar, en «Fotos»— (ver
     [Todo lo que trae una página: el «Contenido»](#todo-lo-que-trae-una-página-el-contenido)).
 12. El **contenido/texto** extraído. Con la tarjeta de estudiar va plegado
     adentro, en **«Extraer texto»** —**«Extraer transcripción»** en un audio
@@ -692,6 +693,9 @@ quedó.
 - **Extraer texto**: el texto extraído de siempre, con todo lo de antes
   —leer en voz alta, subrayar, seleccionar— y lo que prendas en la tarjeta
   resaltado encima. Va plegado para no ocupar la pantalla entera.
+- **Fotos**, en una página o una publicación que trae fotos: plegada, con
+  cuántas son. Al desplegarla se ven en grilla, y tocar una ofrece verla,
+  abrirla o leer lo que dice, como en «Contenido».
 - **Extraer transcripción**, en un audio o un video: la transcripción, que
   **sigue al audio** como siempre (ver [El texto sigue al audio](#el-texto-sigue-al-audio)),
   con el resumen, la síntesis y las palabras clave pintados debajo de la
@@ -791,7 +795,10 @@ formato original**, y lo guarda adentro del mismo elemento.
 
 En el detalle del elemento aparece la sección **«Contenido»**, arriba del
 texto, con los archivos **agrupados: documentos, audios, videos e
-imágenes** (las fotos, en miniatura). Cada archivo dice su tipo, cuánto
+imágenes** (las fotos, en miniatura). Cuando el elemento tiene la tarjeta de
+estudiar, **las fotos no van en «Contenido» sino en la tarjeta**, en la fila
+**«Fotos»**, plegada, debajo de «Extraer texto»: dice cuántas hay y, al
+desplegarla, se ven en grilla. Cada archivo dice su tipo, cuánto
 pesa, de qué sitio salió y si ya tiene **su propio texto**: lo que dice un
 libro o un documento, la transcripción de un audio o un video, o lo que se
 lee en una foto. Tocá un archivo para **verlo** (una foto), **abrirlo** con

@@ -160,3 +160,12 @@
   - El lector en voz alta no lee el texto mientras está plegado.
   - Pruebas nuevas: la tarjeta de cada tipo; el despliegue en el mini reproductor; lo pintado y el
     toque en la transcripción; y una de punta a punta en el detalle de un audio.
+  - Commit `083b55bd`, verificado solo con `verify_commit`. Las 20 mutaciones mueren.
+- **Paso 2 — hecho.** «Fotos», plegada, con cuántas son, debajo de «Extraer texto» en la tarjeta.
+  - La grilla es la de «Contenido», ahora pública (`AttachmentImageGrid`). Tocar una foto ofrece lo
+    mismo que antes.
+  - Con la tarjeta, «Contenido» deja afuera las fotos, también de su cuenta. Sin la tarjeta (una
+    nota, una referencia), siguen ahí.
+  - Va en todo lo que lleva tarjeta y trae fotos; en la práctica, páginas y publicaciones, que son
+    las que bajan su «Contenido».
+  - Las 8 mutaciones mueren.

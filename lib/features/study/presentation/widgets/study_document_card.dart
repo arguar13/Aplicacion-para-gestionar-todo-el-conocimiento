@@ -26,9 +26,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// - **Mientras analiza**, una franja con la parte que va, su barra y
 ///   «Parar». Si se corta o una parte no se pudo leer, lo dice ahí mismo.
 /// - **Abajo, «Extraer»**: el texto extraído —si viene [extractedText]; la
-///   transcripción, en un audio o un video—, el resumen, la síntesis y las
-///   palabras clave, cada uno plegado, con cuánto tiene y «Copiar». El texto
-///   entero va plegado acá y no desplegado debajo de la tarjeta: ocupa mucho.
+///   transcripción, en un audio o un video—, las fotos de una página o una
+///   publicación —con [photos]—, el resumen, la síntesis y las palabras
+///   clave, cada uno plegado, con cuánto tiene y «Copiar». El texto entero y
+///   las fotos van plegados acá y no desplegados debajo de la tarjeta:
+///   ocupan mucho.
 /// - Con [item], **«Descargar»** (F38): el original en su mismo formato con
 ///   el resumen, la síntesis, las palabras clave o los subrayados marcados.
 ///   Solo aparece si el formato del original se puede marcar.
@@ -43,6 +45,8 @@ class StudyDocumentCard extends ConsumerWidget {
     this.extractedTextTitle,
     this.extractedTextSubtitle,
     this.extractedTextController,
+    this.photoCount = 0,
+    this.photos,
     super.key,
   });
 
@@ -68,6 +72,13 @@ class StudyDocumentCard extends ConsumerWidget {
   /// Para desplegar la fila del texto desde afuera: «Volver al audio», con
   /// la transcripción plegada, la despliega para mostrar lo que suena.
   final ExpansibleController? extractedTextController;
+
+  /// Cuántas fotos trae la página o la publicación (F39); sin ninguna, no
+  /// hay fila «Fotos».
+  final int photoCount;
+
+  /// Las fotos, armadas recién al desplegar su fila.
+  final WidgetBuilder? photos;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -151,6 +162,14 @@ class StudyDocumentCard extends ConsumerWidget {
                 title: extractedTextTitle ?? l10n.studyExtractText,
                 subtitle: extractedTextSubtitle,
                 controller: extractedTextController,
+                child: Builder(builder: builder),
+              ),
+            if (photos case final builder? when photoCount > 0)
+              _ExtractRow(
+                key: const Key('study-extract-photos'),
+                icon: Icons.photo_library_outlined,
+                title: l10n.studyExtractPhotos,
+                subtitle: l10n.studyPhotoCount(photoCount),
                 child: Builder(builder: builder),
               ),
             _SentencesRow(

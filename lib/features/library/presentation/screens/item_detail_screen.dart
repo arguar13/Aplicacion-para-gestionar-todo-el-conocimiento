@@ -20,6 +20,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organized_line.dart';
+import 'package:sinapsis/features/attachments/presentation/providers/attachment_providers.dart';
 import 'package:sinapsis/features/attachments/presentation/widgets/item_content_section.dart';
 import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
 import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
@@ -429,24 +430,30 @@ class _DetailBodyState extends State<_DetailBody> {
                 // o la síntesis en el original y extraerlos.
                 if (study != null) ...[
                   const SizedBox(height: 16),
-                  StudyDocumentCard(
-                    key: _studyCardKey,
-                    text: study,
-                    item: item,
-                    kind: item.source.kind,
-                    extractedText: (context) => _ExtractedTextBody(
+                  // Las fotos de la página o la publicación van en la
+                  // tarjeta, plegadas, y no en «Contenido» (F39).
+                  Consumer(
+                    builder: (context, ref, _) => StudyDocumentCard(
+                      key: _studyCardKey,
+                      text: study,
                       item: item,
-                      texts: texts,
-                      readable: _readableUnfolded,
-                      link: _follow,
+                      kind: item.source.kind,
+                      extractedText: (context) => _ExtractedTextBody(
+                        item: item,
+                        texts: texts,
+                        readable: _readableUnfolded,
+                        link: _follow,
+                      ),
+                      extractedTextTitle: transcript
+                          ? AppLocalizations.of(context)!.studyExtractTranscript
+                          : null,
+                      extractedTextSubtitle: AppLocalizations.of(
+                        context,
+                      )!.detailExtractedTextSubtitle,
+                      extractedTextController: _textFold,
+                      photoCount: ref.watch(itemPhotosProvider(item.id)).length,
+                      photos: (context) => ItemPhotosGrid(itemId: item.id),
                     ),
-                    extractedTextTitle: transcript
-                        ? AppLocalizations.of(context)!.studyExtractTranscript
-                        : null,
-                    extractedTextSubtitle: AppLocalizations.of(
-                      context,
-                    )!.detailExtractedTextSubtitle,
-                    extractedTextController: _textFold,
                   ),
                 ],
 
@@ -463,8 +470,9 @@ class _DetailBodyState extends State<_DetailBody> {
 
                 // Lo que se bajó de la página, en su formato y con su texto
                 // (F30): arriba del texto, que puede ser un libro entero. Sin
-                // nada bajado ni por bajar, no ocupa lugar.
-                ItemContentSection(item: item),
+                // nada bajado ni por bajar, no ocupa lugar. Con la tarjeta de
+                // estudiar, sin las fotos: van en ella (F39).
+                ItemContentSection(item: item, showImages: study == null),
 
                 // El texto, salvo mientras se vuelve a extraer: ahí el panel
                 // cuenta cómo va, y el viejo deja de verse.

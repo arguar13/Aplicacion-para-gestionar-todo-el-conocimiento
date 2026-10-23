@@ -11,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
+import 'package:sinapsis/features/attachments/presentation/providers/attachment_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
@@ -140,6 +141,8 @@ void main() {
     await pumpItem(tester, kind: SourceKind.webPage);
 
     expect(find.text(es.studyCardTitleWebPage), findsOneWidget);
+    // Sin fotos, no hay fila de fotos.
+    expect(find.byKey(const Key('study-extract-photos')), findsNothing);
     expect(find.text(es.detailExtractedTextTitle), findsNothing);
     expect(find.textContaining('La primera frase'), findsNothing);
 
@@ -233,5 +236,61 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.added, ['industrial']);
+  });
+
+  testWidgets('las fotos de una página van en la tarjeta, en «Fotos», '
+      'plegadas, y no en «Contenido» (F39)', (tester) async {
+    final harness = await pumpItem(tester, kind: SourceKind.webPage);
+    final attachments = harness.container.read(attachmentRepositoryProvider);
+    for (final (i, name) in ['coliseo.jpg', 'foro.jpg'].indexed) {
+      await attachments.addAttachment(
+        itemId: 'item-1',
+        kind: RenditionKind.image,
+        relativePath: 'originales/src-1/contenido/$name',
+        position: i,
+      );
+    }
+    await attachments.addAttachment(
+      itemId: 'item-1',
+      kind: RenditionKind.pdf,
+      relativePath: 'originales/src-1/contenido/informe.pdf',
+      position: 2,
+    );
+    await tester.pumpAndSettle();
+
+    final row = find.byKey(const Key('study-extract-photos'));
+    expect(
+      find.descendant(of: row, matching: find.text(es.studyPhotoCount(2))),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('item-photos-grid')), findsNothing);
+    expect(find.text('${es.contentGroupImages} · 2'), findsNothing);
+    expect(find.text('${es.contentGroupDocuments} · 1'), findsOneWidget);
+
+    await tester.ensureVisible(row);
+    await tester.tap(
+      find.descendant(of: row, matching: find.text(es.studyExtractPhotos)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('item-photos-grid')), findsOneWidget);
+  });
+
+  testWidgets('sin la tarjeta —una nota—, las fotos siguen en «Contenido»', (
+    tester,
+  ) async {
+    final harness = await pumpItem(tester, kind: SourceKind.manualNote);
+    await harness.container
+        .read(attachmentRepositoryProvider)
+        .addAttachment(
+          itemId: 'item-1',
+          kind: RenditionKind.image,
+          relativePath: 'originales/src-1/contenido/coliseo.jpg',
+          position: 0,
+        );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('study-extract-photos')), findsNothing);
+    expect(find.text('${es.contentGroupImages} · 1'), findsOneWidget);
   });
 }

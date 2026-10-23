@@ -24,17 +24,30 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// del tope por elemento, sin lugar o sin poder bajarse, con «Bajar el
 /// resto». Sin nada bajado ni nada que bajar, no dibuja nada.
 ///
+/// Sin [showImages], las fotos no van acá —ni en la cuenta—: están en la
+/// tarjeta de estudiar, en su fila «Fotos» (F39), con [ItemPhotosGrid].
+///
 /// Nada se abre solo: un archivo se abre cuando la persona lo toca, con la
 /// app del teléfono que corresponda.
 class ItemContentSection extends ConsumerWidget {
-  const ItemContentSection({required this.item, super.key});
+  const ItemContentSection({
+    required this.item,
+    this.showImages = true,
+    super.key,
+  });
 
   final KnowledgeItem item;
 
+  /// Si las fotos van acá; si no, van en la tarjeta de estudiar.
+  final bool showImages;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final attachments =
-        ref.watch(attachmentsProvider(item.id)).valueOrNull ?? const [];
+    final all = ref.watch(attachmentsProvider(item.id)).valueOrNull ?? const [];
+    final attachments = [
+      for (final a in all)
+        if (showImages || a.group != AttachmentGroup.images) a,
+    ];
     final downloads =
         ref.watch(attachmentDownloadsProvider(item.id)).valueOrNull ?? const [];
     final remaining = [
@@ -99,7 +112,7 @@ class ItemContentSection extends ConsumerWidget {
               _GroupHeader(group: group, count: list.length),
               const SizedBox(height: 4),
               if (group == AttachmentGroup.images)
-                _ImageGrid(images: list)
+                AttachmentImageGrid(images: list)
               else
                 for (final attachment in list)
                   _FileTile(attachment: attachment),
@@ -279,10 +292,28 @@ String _details(Attachment attachment, AppLocalizations l10n) {
   ].join(' · ');
 }
 
+/// Las fotos de un elemento, en grilla, para la tarjeta de estudiar (F39):
+/// tocar una ofrece lo mismo que en «Contenido». Sin fotos, no ocupa lugar.
+class ItemPhotosGrid extends ConsumerWidget {
+  const ItemPhotosGrid({required this.itemId, super.key});
+
+  final String itemId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final photos = ref.watch(itemPhotosProvider(itemId));
+    if (photos.isEmpty) return const SizedBox.shrink();
+    return AttachmentImageGrid(
+      key: const Key('item-photos-grid'),
+      images: photos,
+    );
+  }
+}
+
 /// Las fotos, en miniatura: cada una se decodifica al tamaño en que se ve,
 /// no entera.
-class _ImageGrid extends ConsumerWidget {
-  const _ImageGrid({required this.images});
+class AttachmentImageGrid extends ConsumerWidget {
+  const AttachmentImageGrid({required this.images, super.key});
 
   final List<Attachment> images;
 
