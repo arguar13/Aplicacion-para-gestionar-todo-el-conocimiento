@@ -248,5 +248,6 @@ que la leía: no hay un estado intermedio que compile.
 - El paso es solo documentación: la suite entera es la del paso 5 (8.586, 78 omitidas), y
   `verify_commit` pasa con los 19 avisos de la línea base.
 - La APK al teléfono no se armó: se hace solo si la pedís.
-- Queda abierto, a tu decisión: compartir desde otra app sigue abriendo el formulario con el tema
-  ya puesto, en vez de guardar solo con «Guardado en X · Cambiar».
+- Decidido (2026-10-23, «elijo opción A»): compartir desde otra app **sigue abriendo el
+  formulario** con el tema ya puesto, para ver dónde queda antes de guardar. No se guarda solo con
+  «Guardado en X · Cambiar».

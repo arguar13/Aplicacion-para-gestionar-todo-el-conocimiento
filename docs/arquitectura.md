@@ -6425,8 +6425,9 @@ Plan, con el «Avance» de cada paso: `docs/planes/F37-todo-en-un-tema.md`.
   se toca (`changeSpaces`, un cambio por elemento).
 - **Compartir no cambió** (decisión E). El plan suponía que lo compartido se guardaba sin
   preguntar. Desde la fase 2 abre la captura ya cargada, y ahora también con los temas de la
-  última vez. No se agregó guardar sin revisar ni el aviso «Guardado en X · Cambiar». Queda a
-  pedido.
+  última vez. No se agregó guardar sin revisar ni el aviso «Guardado en X · Cambiar». **El dueño
+  lo eligió así** (2026-10-23, «elijo opción A»): ver el formulario y tocar «Guardar» le deja ver
+  en qué tema queda cada cosa, y eso vale más que ahorrarse un toque.
 - **La IA** (decisión de F27, igual). «Elegir el tema» solo actúa sobre lo que no tiene ninguno, y
   deshacer su pasada saca solo el tema que puso.
 - **Se descartó:**
