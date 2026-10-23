@@ -12,6 +12,7 @@ import 'package:sinapsis/core/design/thumbnail_decode.dart';
 import 'package:sinapsis/core/design/widgets/custom_text_field.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/blocks/presentation/providers/note_template_providers.dart';
@@ -31,11 +32,14 @@ import 'package:sinapsis/features/capture/presentation/providers/capture_notifie
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_state.dart';
 import 'package:sinapsis/features/capture/presentation/providers/shared_content_controller.dart';
+import 'package:sinapsis/features/capture/presentation/widgets/first_space_card.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/widgets/duplicate_warning_dialog.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
-import 'package:sinapsis/features/library/presentation/widgets/space_field.dart';
+import 'package:sinapsis/features/library/presentation/widgets/spaces_field.dart';
+import 'package:sinapsis/features/organize/presentation/providers/last_spaces.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// De qué se trata lo que se está por guardar, elegido a propósito antes de
@@ -191,21 +195,26 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   /// el borde que avisa que soltar acá va a funcionar.
   var _isDraggingFile = false;
 
-  /// El tema en el que va a quedar lo que se guarde, o `null` para "sin
-  /// clasificar".
+  /// Los temas en que va a quedar lo que se guarde (F37): uno al menos, o no
+  /// se guarda.
   ///
   /// Arranca en el tema en el que está parada la biblioteca: quien está
   /// mirando "Filosofía" y aprieta guardar casi siempre trae algo para
-  /// "Filosofía", y si no, cambiarlo es un toque. Se lee una sola vez, en
-  /// `initState`: lo que se elija después en el formulario no tiene por qué
-  /// volver a la biblioteca. Sobrevive a "Cambiar tipo" a propósito: el tema
-  /// no depende de si lo que se guarda es un video o un libro.
-  String? _spaceId;
+  /// "Filosofía". Si no está parada en ninguno, en los de la última vez
+  /// (decisión B). Se lee una sola vez, en `initState`: lo que se elija
+  /// después en el formulario no tiene por qué volver a la biblioteca.
+  /// Sobrevive a "Cambiar tipo" a propósito: los temas no dependen de si lo
+  /// que se guarda es un video o un libro.
+  ///
+  /// Puede tener uno que ya no existe —uno de la última vez que se borró—:
+  /// lo que se muestra y lo que se guarda es [_chosenSpaceIds].
+  late Set<String> _spaceIds;
 
   @override
   void initState() {
     super.initState();
-    _spaceId = ref.read(libraryQueryNotifierProvider).spaceId;
+    final filtered = ref.read(libraryQueryNotifierProvider).spaceId;
+    _spaceIds = filtered != null ? {filtered} : ref.read(lastSpacesProvider);
     // Lo escrito decide qué se muestra abajo, así que hay que redibujar a
     // medida que se escribe.
     _inputController.addListener(_onInputChanged);
@@ -411,8 +420,17 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     );
   }
 
+  /// De [_spaceIds], los que existen en [spaces]; mientras los temas no
+  /// terminaron de cargar, todos.
+  Set<String> _chosenSpaceIds(List<Space>? spaces) => spaces == null
+      ? _spaceIds
+      : _spaceIds.intersection({for (final space in spaces) space.id});
+
   Future<void> _submit() async {
     final l10n = AppLocalizations.of(context)!;
+    final spaceIds = _chosenSpaceIds(ref.read(allSpacesProvider).valueOrNull);
+    // El botón ya no se deja tocar sin temas: esto es la última guarda.
+    if (spaceIds.isEmpty) return;
     final file = await _fileToSubmit();
     if (!mounted) return;
 
@@ -442,13 +460,13 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
             file: file,
             title: _titleController.text,
             note: _noteController.text,
-            spaceIds: {?_spaceId},
+            spaceIds: spaceIds,
           )
         : await notifier.capture(
             rawInput: _inputController.text,
             title: _titleController.text,
             note: _noteController.text,
-            spaceIds: {?_spaceId},
+            spaceIds: spaceIds,
           );
 
     if (!mounted || item == null) return;
@@ -481,6 +499,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(captureNotifierProvider);
+    final spaces = ref.watch(allSpacesProvider).valueOrNull;
 
     ref.listen<CaptureState>(captureNotifierProvider, (previous, next) {
       if (next case CaptureFailed(:final failure)) {
@@ -520,7 +539,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                 child: _kind == null
                     ? _TypeSelector(
                         key: const ValueKey('selector'),
-                        spaceId: _spaceId,
+                        spaceIds: _chosenSpaceIds(spaces),
                         onSelected: _selectKind,
                       )
                     : _CaptureForm(
@@ -529,9 +548,11 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                         inputController: _inputController,
                         titleController: _titleController,
                         noteController: _noteController,
-                        spaceId: _spaceId,
-                        onSpaceChanged: (spaceId) =>
-                            setState(() => _spaceId = spaceId),
+                        spaceIds: _chosenSpaceIds(spaces),
+                        // Sin ningún tema todavía, la tarjeta del primero.
+                        noSpacesYet: spaces != null && spaces.isEmpty,
+                        onSpacesChanged: (spaceIds) =>
+                            setState(() => _spaceIds = spaceIds),
                         file: _file,
                         scannedPages: _scannedPages,
                         detectedKind: _detectedKind,
@@ -560,14 +581,15 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
 /// es un gesto más corto que abrir un selector para después elegir adentro.
 class _TypeSelector extends ConsumerWidget {
   const _TypeSelector({
-    required this.spaceId,
+    required this.spaceIds,
     required this.onSelected,
     super.key,
   });
 
-  /// El tema con el que arranca una nota —ver `_CaptureScreenState._spaceId`—:
-  /// la nota se escribe en su propio editor, que tiene su propio campo Tema.
-  final String? spaceId;
+  /// Los temas con que arranca una nota —ver
+  /// `_CaptureScreenState._spaceIds`—: la nota se escribe en su propio
+  /// editor, que tiene su propio campo de temas.
+  final Set<String> spaceIds;
   final ValueChanged<_CaptureKind> onSelected;
 
   @override
@@ -604,7 +626,8 @@ class _TypeSelector extends ConsumerWidget {
         OutlinedButton.icon(
           onPressed: () => Navigator.of(context).push<void>(
             MaterialPageRoute(
-              builder: (context) => BlockEditorScreen(initialSpaceId: spaceId),
+              builder: (context) =>
+                  BlockEditorScreen(initialSpaceIds: spaceIds),
             ),
           ),
           icon: Icon(SourceKind.manualNote.icon),
@@ -622,7 +645,7 @@ class _TypeSelector extends ConsumerWidget {
                 MaterialPageRoute(
                   builder: (context) => BlockEditorScreen(
                     template: template,
-                    initialSpaceId: spaceId,
+                    initialSpaceIds: spaceIds,
                   ),
                 ),
               );
@@ -684,8 +707,9 @@ class _CaptureForm extends StatelessWidget {
     required this.inputController,
     required this.titleController,
     required this.noteController,
-    required this.spaceId,
-    required this.onSpaceChanged,
+    required this.spaceIds,
+    required this.noSpacesYet,
+    required this.onSpacesChanged,
     required this.file,
     required this.scannedPages,
     required this.detectedKind,
@@ -703,10 +727,14 @@ class _CaptureForm extends StatelessWidget {
   final TextEditingController titleController;
   final TextEditingController noteController;
 
-  /// El tema elegido para lo que se va a guardar —ver
-  /// `_CaptureScreenState._spaceId`—.
-  final String? spaceId;
-  final ValueChanged<String?> onSpaceChanged;
+  /// Los temas elegidos para lo que se va a guardar —ver
+  /// `_CaptureScreenState._spaceIds`—.
+  final Set<String> spaceIds;
+
+  /// Si la bóveda todavía no tiene ningún tema: en vez del campo, la tarjeta
+  /// para crear el primero.
+  final bool noSpacesYet;
+  final ValueChanged<Set<String>> onSpacesChanged;
   final CapturedFile? file;
 
   /// Las fotos escaneadas hasta ahora — ver el comentario de
@@ -840,9 +868,16 @@ class _CaptureForm extends StatelessWidget {
           textInputAction: TextInputAction.next,
         ),
         const SizedBox(height: 16),
-        // En todos los tipos por igual, entre el título y la nota: es otro
-        // dato opcional sobre lo que se guarda, no parte de qué se guarda.
-        SpaceField(spaceId: spaceId, onChanged: onSpaceChanged),
+        // En todos los tipos por igual, entre el título y la nota: es un dato
+        // sobre lo que se guarda, no parte de qué se guarda.
+        if (noSpacesYet)
+          FirstSpaceCard(onCreated: (space) => onSpacesChanged({space.id}))
+        else
+          SpacesField(
+            spaceIds: spaceIds,
+            onChanged: onSpacesChanged,
+            requireOne: true,
+          ),
         const SizedBox(height: 16),
         CustomTextField(
           label: l10n.captureOptionalNoteLabel,
@@ -854,7 +889,8 @@ class _CaptureForm extends StatelessWidget {
         PrimaryButton(
           label: l10n.captureAction,
           isLoading: isSaving,
-          onPressed: onSubmit,
+          // Sin temas no se guarda: el campo o la tarjeta dicen por qué.
+          onPressed: spaceIds.isEmpty ? null : onSubmit,
         ),
       ],
     );

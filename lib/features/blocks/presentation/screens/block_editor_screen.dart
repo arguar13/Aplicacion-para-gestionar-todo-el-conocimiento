@@ -19,7 +19,7 @@ import 'package:sinapsis/features/blocks/presentation/providers/note_template_pr
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/widgets/duplicate_warning_dialog.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
-import 'package:sinapsis/features/library/presentation/widgets/space_field.dart';
+import 'package:sinapsis/features/library/presentation/widgets/spaces_field.dart';
 import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
 import 'package:sinapsis/features/links/presentation/widgets/broken_link_offer.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
@@ -27,6 +27,7 @@ import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/notes/presentation/providers/derived_note_providers.dart';
+import 'package:sinapsis/features/organize/presentation/providers/last_spaces.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -49,24 +50,28 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Lo escrito se puede escuchar con el lector flotante (F25), sin resaltado:
 /// el texto está en campos que se editan.
 ///
-/// Una nota nueva elige su tema acá, debajo del título —arrancando en
-/// [initialSpaceId]—, igual que cualquier otra cosa que se guarda desde la
-/// captura. Una que ya existe no: su tema se cambia desde el detalle, y
-/// este editor solo reemplaza el título y los bloques.
+/// Una nota nueva elige sus temas acá, debajo del título —arrancando en
+/// [initialSpaceIds] (F37)—, igual que cualquier otra cosa que se guarda
+/// desde la captura. Una que ya existe no: sus temas
+/// se cambian desde el detalle, y este editor solo reemplaza el título y los
+/// bloques.
 class BlockEditorScreen extends ConsumerStatefulWidget {
   const BlockEditorScreen({
     this.existingItem,
     this.template,
-    this.initialSpaceId,
+    this.initialSpaceIds = const {},
     super.key,
   });
 
   final KnowledgeItem? existingItem;
   final NoteTemplate? template;
 
-  /// El tema con el que arranca una nota nueva; se ignora al editar una que
-  /// ya existe.
-  final String? initialSpaceId;
+  /// Los temas con que arranca una nota nueva, tal cual. Los decide quien la
+  /// abre —la captura: el tema de la Biblioteca o los de la última vez que
+  /// todavía existen—; el editor no pone otros por su cuenta, porque los de
+  /// la última vez pueden ser temas borrados. Se ignora al editar una que ya
+  /// existe.
+  final Set<String> initialSpaceIds;
 
   @override
   ConsumerState<BlockEditorScreen> createState() => _BlockEditorScreenState();
@@ -134,7 +139,7 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     text: widget.existingItem?.title ?? '',
   );
   late final List<_BlockEntry> _blocks = _initialBlocks();
-  late String? _spaceId = widget.initialSpaceId;
+  late Set<String> _spaceIds = widget.initialSpaceIds;
   var _saving = false;
 
   Timer? _linkCheckTimer;
@@ -460,7 +465,7 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
             renditions: [blocksRendition],
             // En el mismo guardado que la nota, como en la captura: o queda
             // con su tema, o no queda nada.
-            spaceIds: {?_spaceId},
+            spaceIds: _spaceIds,
           )
         : existing.copyWith(
             title: title.isEmpty ? l10n.blocksUntitled : title,
@@ -483,6 +488,10 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
       return;
+    }
+
+    if (existing == null) {
+      await ref.read(lastSpacesProvider.notifier).remember(item.spaceIds);
     }
 
     // Editar el contenido de un derivado lo hace suyo (F16, D3): solo al
@@ -691,10 +700,10 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
                                   ),
                                 ),
                                 if (widget.existingItem == null)
-                                  SpaceField.compact(
-                                    spaceId: _spaceId,
-                                    onChanged: (spaceId) =>
-                                        setState(() => _spaceId = spaceId),
+                                  SpacesField.compact(
+                                    spaceIds: _spaceIds,
+                                    onChanged: (spaceIds) =>
+                                        setState(() => _spaceIds = spaceIds),
                                   ),
                               ],
                             ),

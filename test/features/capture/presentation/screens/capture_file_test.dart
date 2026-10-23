@@ -24,6 +24,14 @@ void main() {
     bytes: Uint8List.fromList(utf8.encode('%PDF-1.7 el contenido')),
   );
 
+  /// Toca «Guardar», que con los temas (F37) puede quedar más abajo del
+  /// borde de la pantalla chica de una prueba.
+  Future<void> tapSave(WidgetTester tester) async {
+    await tester.ensureVisible(find.text(es.captureAction));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(es.captureAction));
+  }
+
   Future<void> pumpCapture(WidgetTester tester, LibraryHarness harness) async {
     await tester.pumpWidget(harness.wrapWithAppRouter());
     await tester.pumpAndSettle();
@@ -104,10 +112,11 @@ void main() {
   group('guardar un archivo', () {
     testWidgets('queda en la biblioteca con su procedencia', (tester) async {
       final harness = await LibraryHarness.create(chosenFile: pdf());
+      await harness.rememberSpace();
       await pumpCapture(tester, harness);
       await chooseBookType(tester);
 
-      await tester.tap(find.text(es.captureAction));
+      await tapSave(tester);
       await tester.pumpAndSettle();
 
       expect(find.byType(LibraryScreen), findsOneWidget);
@@ -129,10 +138,11 @@ void main() {
 
     testWidgets('entra en la cola para que le saquen el texto', (tester) async {
       final harness = await LibraryHarness.create(chosenFile: pdf());
+      await harness.rememberSpace();
       await pumpCapture(tester, harness);
       await chooseBookType(tester);
 
-      await tester.tap(find.text(es.captureAction));
+      await tapSave(tester);
       await tester.pumpAndSettle();
 
       expect(harness.queue.enqueued, hasLength(1));
@@ -144,6 +154,7 @@ void main() {
       final harness = await LibraryHarness.create(
         chosenFile: pdf(name: 'descarga (3).pdf'),
       );
+      await harness.rememberSpace();
       await pumpCapture(tester, harness);
       await chooseBookType(tester);
 
@@ -151,7 +162,7 @@ void main() {
         find.widgetWithText(TextField, es.captureOptionalTitleLabel),
         'La tesis que me paso Ana',
       );
-      await tester.tap(find.text(es.captureAction));
+      await tapSave(tester);
       await tester.pumpAndSettle();
 
       final items =
@@ -169,10 +180,11 @@ void main() {
       final harness = await LibraryHarness.create(
         chosenFile: CapturedFile(name: 'vacio.pdf', bytes: Uint8List(0)),
       );
+      await harness.rememberSpace();
       await pumpCapture(tester, harness);
       await chooseBookType(tester);
 
-      await tester.tap(find.text(es.captureAction));
+      await tapSave(tester);
       await tester.pumpAndSettle();
 
       expect(find.byType(CaptureScreen), findsOneWidget);
@@ -183,6 +195,7 @@ void main() {
       final harness = await LibraryHarness.create(
         chosenFile: CapturedFile(name: 'libro.epub', bytes: buildEpub()),
       );
+      await harness.rememberSpace();
       await pumpCapture(tester, harness);
 
       await chooseBookType(tester);

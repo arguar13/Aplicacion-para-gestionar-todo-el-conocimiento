@@ -224,15 +224,27 @@ Solo se muestra el campo que hace falta según lo que elegiste:
 Arriba del formulario siempre hay un botón **"Cambiar tipo"**, por si te
 arrepentiste de la elección del paso 1.
 
-Debajo de cualquiera de estos campos hay tres casilleros opcionales:
+Debajo de cualquiera de estos campos hay tres casilleros:
 
 - **"Título (opcional)"**.
-- **"Tema (opcional)"**: para dejarlo guardado directamente en uno de tus
-  Temas. Al tocarlo se abre una lista con tus Temas, con **"Nuevo tema"**
-  arriba para crear uno en el momento. Si tenés muchos, aparece un buscador;
-  si buscás un nombre que no existe, te ofrece **"Crear el tema «…»"** ahí
-  mismo. Si estabas mirando un Tema en la Biblioteca, ya viene elegido; la
-  "X" lo quita.
+- **"Temas"**: todo lo que guardás va a uno o varios de tus Temas, así nada
+  queda suelto. Cada tema elegido se ve como un chip con su "X". Al tocar el
+  campo se abre una hoja con todos tus Temas para **marcar uno o varios**;
+  desde 8 temas aparece un buscador, y **"Crear tema nuevo"** crea uno con el
+  nombre escrito y lo deja marcado, sin cerrar la hoja (si ese nombre ya
+  existe, marca el que tenés). **"Listo"** confirma; sin ningún tema marcado
+  no se puede tocar.
+  - **Ya viene completo:** con los temas de lo último que guardaste en este
+    teléfono. Si estabas mirando un Tema en la Biblioteca, viene ese en su
+    lugar. Un tema que borraste después no vuelve a aparecer.
+  - **Tiene que quedar al menos uno:** si querés sacar el último chip, la app
+    te avisa *"Tiene que quedar al menos un tema"*; y mientras no haya
+    ninguno, **"Guardar"** está apagado y el campo dice *"Elegí al menos un
+    tema"*.
+  - **La primera vez**, cuando todavía no tenés ningún Tema, en lugar del
+    campo aparece la tarjeta **"Primero, un tema para empezar a ordenar"**:
+    escribí un nombre (por ejemplo, "Historia") y tocá **"Crear tema"**. Queda
+    elegido y ya podés guardar.
 - **"Tu nota (opcional)"**, para escribir por qué guardás esto o alguna
   aclaración personal.
 
@@ -273,6 +285,12 @@ agregando y reordenando: encabezados, párrafos de texto, listas, casilleros
 (para hacer una lista de tareas) y citas. Cada bloque se edita por separado.
 Es el mismo editor que se usa para modificar cualquier nota que ya exista.
 
+Arriba, los chips de sus **Temas**: una nota nueva arranca en el Tema que
+estabas mirando en la Biblioteca o, si no, en los de lo último que guardaste.
+**"Elegir temas"** (u **"Otro tema"**, si ya tiene alguno) abre la misma hoja
+para marcar varios. A diferencia del formulario de captura, una nota se puede
+guardar sin tema.
+
 ---
 
 ## La Biblioteca
@@ -290,8 +308,9 @@ Arriba a la derecha hay un botón para cambiar la vista, con cuatro opciones:
   Etiquetas, Estado y fecha de captura. Se puede ordenar tocando el
   encabezado de una columna.
 - **Tablero**: estilo "kanban", una columna por cada Tema (más una de "Sin
-  clasificar"). Arrastrás una tarjeta de una columna a otra para cambiarle el
-  Tema.
+  clasificar"). Un elemento que está en varios Temas aparece en la columna de
+  cada uno. Arrastrás una tarjeta de una columna a otra para pasarla de un
+  Tema al otro: sale del Tema de donde la sacaste y conserva los demás.
 - **Calendario**: los elementos ubicados en un calendario mensual, con
   flechas para pasar de mes.
 
@@ -329,13 +348,13 @@ todos, también el Tema.
 
 ### Temas (tus "carpetas")
 
-Cada elemento puede estar en un Tema. Para ver solo los de un Tema, elegilo
+Cada elemento puede estar en uno o varios Temas. Para ver solo los de un Tema, elegilo
 en **Filtros → "Tema"**. Mientras estás parado en un Tema, su nombre se ve
 como un chip debajo del buscador: tocarlo abre los filtros, y su "X" te saca
 del Tema.
 
-- **Crear un Tema:** al guardar algo, desde el campo **"Tema"** del
-  formulario; o desde **"Mover a tema"** (en el menú de tres puntos de una
+- **Crear un Tema:** al guardar algo, desde el campo **"Temas"** del
+  formulario (o la tarjeta de la primera vez); o desde **"Mover a tema"** (en el menú de tres puntos de una
   tarjeta, en la selección múltiple o en el detalle), con la opción **"Nuevo
   tema"**. El primero también se puede crear desde **Filtros → "Tema"**,
   mientras no tengas ninguno.
@@ -713,7 +732,7 @@ propósito distinto:
 ### Etiquetas
 
 Palabras clave libres. Un mismo elemento puede tener muchas etiquetas a la
-vez (a diferencia del Tema, que es uno solo). Se agregan y quitan desde la
+vez. Las etiquetas describen de qué habla; los Temas son dónde lo guardás. Se agregan y quitan desde la
 sección "Etiquetas" del detalle de cualquier elemento, y sirven para filtrar
 en la Biblioteca, el material de un tema o la Línea de tiempo.
 
@@ -734,12 +753,12 @@ elemento aparezca en la Línea de tiempo). Se agregan desde la sección
 
 ### Tema
 
-Es como una carpeta: cada elemento pertenece, como mucho, a un solo Tema (a
-diferencia de las etiquetas, de las que puede tener varias). Es la forma
-principal de moverse por la Biblioteca. Se le asigna a un elemento al
-guardarlo (campo **"Tema"** del formulario), desde su detalle, o desde el
-menú de tres puntos de su tarjeta (**"Mover a tema"**); en cualquiera de esos
-lugares podés crear uno nuevo con **"Nuevo tema"**. Para ver solo los de un
+Es como una carpeta, pero un elemento puede estar en varias a la vez: lo
+que trata de Roma y de arte va en los dos Temas, y aparece en cada uno. Es la
+forma principal de moverse por la Biblioteca. Al guardarlo se eligen uno o
+varios (campo **"Temas"** del formulario). Desde su detalle o desde el menú de
+tres puntos de su tarjeta (**"Mover a tema"**) se lo deja en un solo Tema; en
+cualquiera de esos lugares podés crear uno nuevo con **"Nuevo tema"**. Para ver solo los de un
 Tema, usá **Filtros → "Tema"** en la Biblioteca.
 
 Tus Temas también arman el [Mapa](#el-mapa) y el [Atlas](#el-atlas): es lo

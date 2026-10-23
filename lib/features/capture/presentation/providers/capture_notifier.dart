@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
@@ -7,6 +9,7 @@ import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_state.dart';
+import 'package:sinapsis/features/organize/presentation/providers/last_spaces.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 
 class CaptureNotifier extends StateNotifier<CaptureState> {
@@ -14,14 +17,19 @@ class CaptureNotifier extends StateNotifier<CaptureState> {
     required CaptureItemUseCase captureItem,
     required ProcessingQueueNotifier queue,
     required AppLogger logger,
+    required LastSpacesNotifier lastSpaces,
   }) : _captureItem = captureItem,
        _queue = queue,
        _logger = logger,
+       _lastSpaces = lastSpaces,
        super(const CaptureState.idle());
 
   final CaptureItemUseCase _captureItem;
   final ProcessingQueueNotifier _queue;
   final AppLogger _logger;
+
+  /// Lo que se guardó bien deja sus temas como los de la próxima vez (F37).
+  final LastSpacesNotifier _lastSpaces;
 
   /// Guarda un texto pegado o escrito. Devuelve el elemento guardado, o
   /// `null` si falló — la pantalla lo usa para saber si corresponde
@@ -75,6 +83,7 @@ class CaptureNotifier extends StateNotifier<CaptureState> {
         // que el usuario capturó ya está guardado y la pantalla puede
         // cerrarse. El resultado aparece solo en la lista cuando llegue.
         _queue.enqueue(item.id);
+        unawaited(_lastSpaces.remember(request.spaceIds));
         return item;
       },
     );
@@ -87,5 +96,6 @@ final captureNotifierProvider =
         captureItem: ref.watch(captureItemUseCaseProvider),
         queue: ref.watch(processingQueueProvider.notifier),
         logger: ref.watch(appLoggerProvider),
+        lastSpaces: ref.watch(lastSpacesProvider.notifier),
       );
     });

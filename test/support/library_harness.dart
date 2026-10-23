@@ -26,6 +26,8 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dar
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
+import 'package:sinapsis/features/organize/presentation/providers/last_spaces.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
@@ -464,6 +466,17 @@ class LibraryHarness {
       (failure) => throw StateError('la captura de prueba falló: $failure'),
       (_) {},
     );
+  }
+
+  /// Crea el tema [name] y lo deja como el de la última vez (F37): la
+  /// captura arranca en él y se puede guardar sin elegir nada. Para las
+  /// pruebas que guardan desde el formulario y no miden los temas.
+  Future<String> rememberSpace([String name = 'General']) async {
+    final space =
+        (await container.read(organizeRepositoryProvider).createSpace(name))
+            .getOrElse((failure) => throw StateError('$failure'));
+    await container.read(lastSpacesProvider.notifier).remember({space.id});
+    return space.id;
   }
 
   /// Envuelve una pantalla con lo mínimo para que viva en un test.

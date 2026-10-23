@@ -6015,14 +6015,6 @@
   "@libraryLeaveSpaceTooltip": {
     "description": "Ayuda de la cruz del chip que muestra, debajo de la búsqueda, el tema en el que está parada la biblioteca."
   },
-  "captureSpaceLabel": "Topic (optional)",
-  "@captureSpaceLabel": {
-    "description": "Etiqueta del campo para elegir o crear el tema de lo que se está por guardar, en el formulario de captura."
-  },
-  "captureSpaceClear": "Remove topic",
-  "@captureSpaceClear": {
-    "description": "Ayuda del botón que deja sin tema lo que se está por guardar."
-  },
   "spacesCreateNamed": "Create topic “{name}”",
   "@spacesCreateNamed": {
     "description": "Opción del selector de temas cuando lo buscado no coincide con ningún tema: lo crea con ese nombre.",
@@ -10246,5 +10238,31 @@
   "studyCopied": "Copied",
   "@studyCopied": {"description": "Estudiar (F36): aviso después de copiar."},
   "studyModelRequired": "Studying the document needs the language model downloaded.",
-  "@studyModelRequired": {"description": "Estudiar (F36): sin Gemma bajada, al tocar Resumir o Sintetizar."}
+  "@studyModelRequired": {"description": "Estudiar (F36): sin Gemma bajada, al tocar Resumir o Sintetizar."},
+  "spacesLabel": "Topics",
+  "@spacesLabel": {"description": "Temas (F37): etiqueta del campo de los temas de lo que se está por guardar."},
+  "spacesChoose": "Choose topics",
+  "@spacesChoose": {"description": "Temas (F37): chip del editor de notas cuando todavía no tiene ninguno."},
+  "spacesAddMore": "Another topic",
+  "@spacesAddMore": {"description": "Temas (F37): chip del editor de notas para sumar otro tema."},
+  "spacesRemove": "Remove “{name}”",
+  "@spacesRemove": {"description": "Temas (F37): ayuda del ✕ de un chip de tema.", "placeholders": {"name": {"type": "String"}}},
+  "spacesKeepOne": "Keep at least one topic",
+  "@spacesKeepOne": {"description": "Temas (F37): aviso al querer sacar el último tema de lo que se está por guardar."},
+  "spacesPickerTitle": "Topics",
+  "@spacesPickerTitle": {"description": "Temas (F37): título de la hoja para marcar los temas."},
+  "spacesPickerHint": "Tick one or more",
+  "@spacesPickerHint": {"description": "Temas (F37): subtítulo de la hoja de temas."},
+  "spacesPickerNeedOne": "Choose at least one topic",
+  "@spacesPickerNeedOne": {"description": "Temas (F37): por qué no se puede guardar ni tocar «Listo» sin temas."},
+  "spacesPickerDone": "Done",
+  "@spacesPickerDone": {"description": "Temas (F37): botón que confirma los temas marcados."},
+  "captureFirstSpaceTitle": "First, a topic to start organizing",
+  "@captureFirstSpaceTitle": {"description": "Temas (F37): título de la tarjeta de la captura cuando todavía no hay ningún tema."},
+  "captureFirstSpaceBody": "What you save will go there. Later you can create more and put something in several.",
+  "@captureFirstSpaceBody": {"description": "Temas (F37): texto de la tarjeta del primer tema."},
+  "captureFirstSpaceHint": "For example: History",
+  "@captureFirstSpaceHint": {"description": "Temas (F37): ayuda del campo del nombre del primer tema."},
+  "captureFirstSpaceCreate": "Create topic",
+  "@captureFirstSpaceCreate": {"description": "Temas (F37): botón de la tarjeta del primer tema."}
 }

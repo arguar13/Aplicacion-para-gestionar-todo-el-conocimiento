@@ -139,3 +139,41 @@ que la leía: no hay un estado intermedio que compile.
 - Al pasar a varios temas, deshacer una revisión que sacó el tema de la IA lo devuelve, aunque la
   persona haya sumado otro después. Antes no lo devolvía, porque con un tema solo, sumar otro era
   reemplazar el de la IA.
+
+### Paso 3 (hecho)
+
+- **La hoja de temas** (`spaces_picker_sheet.dart`):
+  - se marcan uno o varios;
+  - desde 8 temas, un buscador;
+  - «Crear tema nuevo» lo crea con lo escrito y lo deja marcado, sin cerrar la hoja; si el nombre
+    ya existe (sin contar mayúsculas ni tildes), marca ese.
+  - Con `requireOne`, «Listo» no se toca sin ninguno y lo dice.
+- **El campo «Temas»** (`spaces_field.dart`): chips con su ✕ y la hoja al tocarlo. Hay una versión
+  compacta para el editor de notas. En la captura tiene que quedar al menos uno: sacar el último
+  avisa, y sin ninguno «Guardar» está apagado.
+- **La primera vez** (`first_space_card.dart`): sin ningún tema, la captura muestra la tarjeta para
+  crear el primero, y queda elegido.
+- **Los temas de la última vez** (`last_spaces.dart`, decisión B):
+  - se guardan en el teléfono (SharedPreferences, `last_space_ids`), no en la bóveda;
+  - los escribe cada captura que se guarda bien y cada nota nueva;
+  - algo guardado sin temas no los borra.
+  - Al abrir la captura, de esos quedan solo los que todavía existen.
+- **Qué gana al abrir la captura**: si la Biblioteca está parada en un tema, ese. Si no, los de la
+  última vez. Se decidió así porque abrir la captura desde un tema dice dónde va lo nuevo.
+- **El editor de notas, adelantado del paso 4**:
+  - una nota nueva elige sus temas con el campo compacto;
+  - arranca en los que le pasa la captura;
+  - no exige ninguno.
+  - Primero, el editor ponía los de la última vez por su cuenta. La mutación mostró que así podía
+    traer de vuelta un tema borrado. Ahora los decide solo la captura, que ya filtra los que existen.
+- La hoja vieja de un solo tema (`space_picker_sheet.dart`) sigue en uso en la selección múltiple,
+  el menú de la tarjeta y el detalle. Pasan a la hoja nueva en el paso 4, y entonces se borra.
+- Pruebas:
+  - suite entera 8.567 (78 omitidas);
+  - la captura, con el grupo «los temas de lo que se guarda (F37)»;
+  - `last_spaces_test.dart`.
+- Mutación: 15/15 sobre el código final, en dos vueltas (13 de 14 en la primera; el que vivió ya no aplica).
+  - En la primera sobrevivió «el editor no arranca en los de la última vez» y mostró el defecto de
+    arriba.
+  - Se corrigió, y la prueba nueva (una nota nueva no arranca en un tema borrado) mata los dos
+    mutantes del editor.

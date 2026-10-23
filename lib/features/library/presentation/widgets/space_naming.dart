@@ -6,14 +6,14 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Avisa si [name] ya es una etiqueta (un valor de Tema) y pregunta si se
 /// sigue igual. Devuelve `true` si no hay nada que avisar o si se sigue.
 ///
-/// Un tema y una etiqueta se llaman igual y no son lo mismo —el tema es una
-/// carpeta y un elemento está en una sola; la etiqueta se pone a muchos—: con
-/// el mismo nombre se confunden. Avisar y dejar seguir, no impedir.
+/// Un tema y una etiqueta se llaman igual y no son lo mismo —el tema es donde
+/// se ordena lo que se guarda; la etiqueta dice de qué trata—: con el mismo
+/// nombre se confunden. Avisar y dejar seguir, no impedir.
 ///
-/// Compartido entre crear un tema —desde el selector de temas, en la captura
-/// o al mover algo— y renombrarlo desde el panel de filtros: el mismo nombre
-/// confunde igual venga de donde venga. [action] es el texto del botón que
-/// sigue adelante ("Crear igual", "Renombrar igual").
+/// Compartido entre crear un tema —desde la hoja de temas o la tarjeta del
+/// primero, en la captura o al mover algo— y renombrarlo desde el panel de
+/// filtros: el mismo nombre confunde igual venga de donde venga. [action] es
+/// el texto del botón que sigue adelante ("Crear igual", "Renombrar igual").
 Future<bool> confirmSpaceNameNotATag(
   BuildContext context,
   WidgetRef ref,
