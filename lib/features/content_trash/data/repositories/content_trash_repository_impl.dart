@@ -9,6 +9,8 @@ import 'package:sinapsis/core/database/file_references.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/domain/entities/trashed_content_kind.dart';
@@ -385,6 +387,9 @@ String encodeTrashedHighlights(List<HighlightRow> highlights) => jsonEncode([
       'excerpt': h.excerpt,
       if (h.note != null) 'note': h.note,
       'createdAt': h.createdAt.millisecondsSinceEpoch,
+      // Cómo se ve (F38). Lo soltado antes no lo tiene: el de siempre.
+      if (h.color case final color?) 'color': color.name,
+      'style': h.style.name,
     },
 ]);
 
@@ -402,6 +407,14 @@ List<HighlightsCompanion> decodeTrashedHighlights(String? stored) {
         excerpt: raw['excerpt'] as String,
         note: Value(raw['note'] as String?),
         createdAt: DateTime.fromMillisecondsSinceEpoch(raw['createdAt'] as int),
+        color: Value(switch (raw['color']) {
+          final String name => HighlightColor.values.byName(name),
+          _ => null,
+        }),
+        style: Value(switch (raw['style']) {
+          final String name => HighlightStyle.values.byName(name),
+          _ => HighlightStyle.fill,
+        }),
       ),
   ];
 }

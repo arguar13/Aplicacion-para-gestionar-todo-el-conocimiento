@@ -9,6 +9,8 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
@@ -1494,6 +1496,94 @@ void main() {
       expect(highlight.note, 'ahora sí tiene nota');
       expect(highlight.excerpt, 'text');
       expect(highlight.startOffset, 0);
+    });
+
+    test('sin elegir, el color de siempre y de fondo; elegidos, se guardan y '
+        'se leen de vuelta (F38)', () async {
+      final item = await seedItem();
+      final renditionId = await seedRendition(item.id, content: 'uno dos');
+
+      final plain = (await repository.createHighlight(
+        renditionId: renditionId,
+        startOffset: 0,
+        endOffset: 3,
+        excerpt: 'uno',
+      )).getRight().toNullable()!;
+      final chosen = (await repository.createHighlight(
+        renditionId: renditionId,
+        startOffset: 4,
+        endOffset: 7,
+        excerpt: 'dos',
+        color: HighlightColor.violet,
+        style: HighlightStyle.underline,
+      )).getRight().toNullable()!;
+
+      expect((plain.color, plain.style), (null, HighlightStyle.fill));
+      expect(
+        (chosen.color, chosen.style),
+        (HighlightColor.violet, HighlightStyle.underline),
+      );
+      final stored = await repository
+          .watchHighlightsForRendition(renditionId)
+          .first;
+      expect(stored.map((h) => (h.color, h.style)), [
+        (null, HighlightStyle.fill),
+        (HighlightColor.violet, HighlightStyle.underline),
+      ]);
+    });
+
+    test('cambiar cómo se ve no cambia la nota ni el tramo (F38)', () async {
+      final item = await seedItem();
+      final renditionId = await seedRendition(item.id);
+      final created = (await repository.createHighlight(
+        renditionId: renditionId,
+        startOffset: 0,
+        endOffset: 4,
+        excerpt: 'text',
+        note: 'algo',
+        color: HighlightColor.orange,
+      )).getRight().toNullable()!;
+
+      final updated = (await repository.updateHighlightLook(
+        id: created.id,
+        color: HighlightColor.turquoise,
+        style: HighlightStyle.underline,
+      )).getRight().toNullable()!;
+      expect(updated.color, HighlightColor.turquoise);
+      expect(updated.style, HighlightStyle.underline);
+      expect(updated.note, 'algo');
+      expect((updated.startOffset, updated.endOffset), (0, 4));
+
+      // Y de vuelta al de siempre, de fondo.
+      final back = (await repository.updateHighlightLook(
+        id: created.id,
+        color: null,
+        style: HighlightStyle.fill,
+      )).getRight().toNullable()!;
+      expect((back.color, back.style), (null, HighlightStyle.fill));
+      final stored = await repository
+          .watchHighlightsForRendition(renditionId)
+          .first;
+      expect(stored.single.color, isNull);
+      expect(stored.single.style, HighlightStyle.fill);
+    });
+
+    test('cambiar cómo se ve uno que ya no existe es un fallo', () async {
+      final result = await repository.updateHighlightLook(
+        id: 'no-existe',
+        color: HighlightColor.violet,
+        style: HighlightStyle.fill,
+      );
+
+      // Dice qué pasó —se borró—, no un error genérico.
+      expect(
+        result.getLeft().toNullable(),
+        isA<UnexpectedFailure>().having(
+          (f) => f.message,
+          'mensaje',
+          contains('ya no existe'),
+        ),
+      );
     });
 
     test('poner la nota en null la borra', () async {

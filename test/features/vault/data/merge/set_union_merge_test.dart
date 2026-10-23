@@ -4,6 +4,8 @@ import 'package:sinapsis/core/domain/entities/card_phase.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
@@ -143,6 +145,24 @@ void main() {
 
       expect(result.highlightsAdded, 1);
       expect(await idsOf(tel, 'highlights'), {'hl-tel', 'hl-pc'});
+    });
+
+    test('el que entra trae su color y su estilo (F38)', () async {
+      await shareItems();
+      pc.at(5);
+      await pc.addHighlight(
+        'hl-pc',
+        'a',
+        color: HighlightColor.turquoise,
+        style: HighlightStyle.underline,
+      );
+
+      tel.at(9);
+      await tel.mergeFrom(pc);
+
+      final row = await tel.db.select(tel.db.highlights).getSingle();
+      expect(row.color, HighlightColor.turquoise);
+      expect(row.style, HighlightStyle.underline);
     });
   });
 

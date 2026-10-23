@@ -62,6 +62,8 @@ import 'package:sinapsis/core/domain/entities/contributor_role.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
@@ -178,7 +180,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 41;
+  static const currentSchemaVersion = 42;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -1053,6 +1055,34 @@ class AppDatabase extends _$AppDatabase {
             );
           }
           await _requireSameCounts(before, step: 'v41', tables: tables);
+        }
+        // El color y el estilo de cada subrayado (F38): dos columnas en
+        // `highlights` que en todo lo de antes dicen «el color de siempre» y
+        // «fondo». Lo de la papelera los guarda en su JSON, sin columna nueva.
+        // Aditiva: los conteos de todo son compuerta.
+        if (from < 42) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+            ...VaultCounts.studyTables,
+            ...VaultCounts.itemSpaceTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          for (final column in [highlights.color, highlights.style]) {
+            if (!await _columnExists('highlights', column.name)) {
+              await migrator.addColumn(highlights, column);
+            }
+          }
+          await _requireSameCounts(before, step: 'v42', tables: tables);
         }
       });
     },

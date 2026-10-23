@@ -68,6 +68,9 @@ const kHighlightColumns = [
   'excerpt',
   'note',
   'created_at',
+  // Cómo se ve (F38).
+  'color',
+  'style',
 ];
 const kStudyMarkColumns = [
   'id',

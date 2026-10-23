@@ -15,6 +15,8 @@ import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_receipt.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
@@ -793,6 +795,8 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     required int endOffset,
     required String excerpt,
     String? note,
+    HighlightColor? color,
+    HighlightStyle style = HighlightStyle.fill,
   }) async {
     if (startOffset < 0 || endOffset <= startOffset) {
       return left(
@@ -815,6 +819,8 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
               excerpt: excerpt,
               note: Value(_nonEmpty(note)),
               createdAt: createdAt,
+              color: Value(color),
+              style: Value(style),
             ),
           );
 
@@ -827,6 +833,8 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
           excerpt: excerpt,
           createdAt: createdAt,
           note: _nonEmpty(note),
+          color: color,
+          style: style,
         ),
       );
       // Ver `_unexpected`: un TypeError es Error, no Exception.
@@ -869,6 +877,43 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
           e,
           stackTrace,
           'OrganizeRepositoryImpl.updateHighlightNote',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Highlight>> updateHighlightLook({
+    required String id,
+    required HighlightColor? color,
+    required HighlightStyle style,
+  }) async {
+    try {
+      final updated =
+          await (_db.update(
+            _db.highlights,
+          )..where((h) => h.id.equals(id))).writeReturning(
+            HighlightsCompanion(color: Value(color), style: Value(style)),
+          );
+
+      final row = updated.singleOrNull;
+      if (row == null) {
+        return left(
+          const Failure.unexpected(
+            message: 'El resaltado ya no existe; puede que se haya borrado.',
+          ),
+        );
+      }
+
+      return right(_toHighlight(row));
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'OrganizeRepositoryImpl.updateHighlightLook',
         ),
       );
     }
@@ -1712,6 +1757,8 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     excerpt: row.excerpt,
     createdAt: row.createdAt,
     note: row.note,
+    color: row.color,
+    style: row.style,
   );
 
   /// Una nota en blanco cuenta como ausente: un campo de texto vacío no es lo

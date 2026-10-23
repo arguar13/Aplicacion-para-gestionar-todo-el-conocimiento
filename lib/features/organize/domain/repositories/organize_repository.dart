@@ -2,6 +2,8 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_receipt.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
@@ -181,13 +183,24 @@ abstract interface class OrganizeRepository {
   // Resaltados
   // ---------------------------------------------------------------------
 
-  /// Subraya un fragmento de una forma de contenido, con una nota opcional.
+  /// Subraya un fragmento de una forma de contenido, con una nota opcional,
+  /// del [color] y con el [style] elegidos (F38). Sin [color], el de siempre.
   Future<Either<Failure, Highlight>> createHighlight({
     required String renditionId,
     required int startOffset,
     required int endOffset,
     required String excerpt,
     String? note,
+    HighlightColor? color,
+    HighlightStyle style = HighlightStyle.fill,
+  });
+
+  /// Cambia cómo se ve un resaltado ya hecho (F38): su color —`null`, el de
+  /// siempre— y si es fondo o subrayado. La nota y el tramo quedan.
+  Future<Either<Failure, Highlight>> updateHighlightLook({
+    required String id,
+    required HighlightColor? color,
+    required HighlightStyle style,
   });
 
   /// Cambia la nota de un resaltado ya hecho. `null` la borra sin borrar el

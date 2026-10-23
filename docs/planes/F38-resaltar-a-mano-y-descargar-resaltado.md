@@ -118,3 +118,20 @@
   - varios renglones, varias páginas, el original byte por byte, el texto intacto y una página que
     no existe.
 - Mutación: 11/11.
+
+### Paso 2 (hecho): dónde se guarda el color y el estilo
+
+- Los colores (`HighlightColor`: amarillo claro, naranja, violeta, turquesa) y los estilos
+  (`HighlightStyle`: fondo o subrayado) están en `lib/core/domain/entities/`. Los usan la app y lo
+  que se descarga: el escritor de PDF del paso 1 dejó su propio tipo y usa este.
+- **Esquema v42**: `highlights` gana `color` (vacío = el color de siempre) y `style` (por defecto,
+  fondo). Es aditiva, así que todo subrayado de antes queda igual. Los conteos de todo son
+  compuerta.
+- `OrganizeRepository` crea con color y estilo, y suma `updateHighlightLook` para cambiarlos sin
+  tocar la nota ni el tramo.
+- **Papelera**: el JSON de los subrayados soltados guarda las dos cosas. Lo soltado antes vuelve con
+  el color de siempre y de fondo.
+- **Unión de bóvedas**: las dos columnas viajan. Como la nota, un resaltado que ya está en las dos
+  no se pisa: entra solo el que falta.
+- Pruebas: la migración 41→42 (`migration_v42_test.dart`), el repositorio, la papelera (ida y
+  vuelta, y lo soltado antes) y la unión.

@@ -5,6 +5,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -103,7 +105,11 @@ void main() {
     db.chunks,
   )..where((c) => c.itemId.equals(id))).get()).length;
 
-  Future<void> highlight(String renditionId) => db
+  Future<void> highlight(
+    String renditionId, {
+    HighlightColor? color,
+    HighlightStyle style = HighlightStyle.fill,
+  }) => db
       .into(db.highlights)
       .insert(
         HighlightsCompanion.insert(
@@ -114,6 +120,8 @@ void main() {
           excerpt: 'Roma',
           note: const Value('La ciudad'),
           createdAt: captured,
+          color: Value(color),
+          style: Value(style),
         ),
       );
 
@@ -273,6 +281,35 @@ void main() {
       expect(await chunksOf(id), greaterThan(0));
       expect((await sourceOf(id)).onlyFile, isFalse);
       expect(await db.select(db.trashedContents).get(), isEmpty);
+    });
+
+    test('un subrayado vuelve con su color y su estilo (F38)', () async {
+      final id = await saveBook('libro');
+      await highlight(
+        'libro-texto',
+        color: HighlightColor.violet,
+        style: HighlightStyle.underline,
+      );
+      final trashed = (await trash.keepOnlyFile(
+        id,
+      )).getOrElse((f) => fail('$f'));
+
+      await trash.restore(trashed.single.id);
+
+      final restored = (await db.select(db.highlights).get()).single;
+      expect(restored.color, HighlightColor.violet);
+      expect(restored.style, HighlightStyle.underline);
+    });
+
+    test('lo soltado antes de F38, sin color ni estilo, vuelve con el de '
+        'siempre y de fondo', () {
+      final decoded = decodeTrashedHighlights(
+        '[{"id":"viejo","start":0,"end":4,"excerpt":"Roma",'
+        '"createdAt":1790000000000}]',
+      ).single;
+
+      expect(decoded.color, const Value<HighlightColor?>(null));
+      expect(decoded.style, const Value(HighlightStyle.fill));
     });
 
     test('lo resaltado para estudiar se va con el texto y vuelve con él '

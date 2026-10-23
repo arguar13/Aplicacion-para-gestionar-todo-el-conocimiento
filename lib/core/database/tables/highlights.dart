@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/tables/renditions.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 
 /// Los fragmentos subrayados, con su nota.
 @DataClassName('HighlightRow')
@@ -25,6 +27,15 @@ class Highlights extends Table {
 
   TextColumn get note => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
+
+  /// El color que eligió la persona (F38, v42). `null` en todos los de antes
+  /// —y en los que se hacen sin elegir—: se ven con el color de siempre.
+  TextColumn get color => textEnum<HighlightColor>().nullable()();
+
+  /// Fondo pintado o línea debajo (F38, v42). Los de antes, fondo.
+  TextColumn get style => textEnum<HighlightStyle>().withDefault(
+    Constant(HighlightStyle.fill.name),
+  )();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

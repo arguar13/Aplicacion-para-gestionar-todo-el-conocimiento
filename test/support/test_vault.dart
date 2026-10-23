@@ -21,6 +21,8 @@ import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
@@ -401,6 +403,8 @@ class TestVault {
     String itemId, {
     int start = 0,
     int end = 5,
+    HighlightColor? color,
+    HighlightStyle style = HighlightStyle.fill,
   }) => db
       .into(db.highlights)
       .insert(
@@ -411,6 +415,8 @@ class TestVault {
           endOffset: end,
           excerpt: 'extracto',
           createdAt: now,
+          color: Value(color),
+          style: Value(style),
         ),
       );
 

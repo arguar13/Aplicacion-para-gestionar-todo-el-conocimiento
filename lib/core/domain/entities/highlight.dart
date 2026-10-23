@@ -1,4 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 
 part 'highlight.freezed.dart';
 
@@ -28,5 +30,11 @@ sealed class Highlight with _$Highlight {
     required String excerpt,
     required DateTime createdAt,
     String? note,
+
+    /// El color que eligió la persona (F38). `null`: el de siempre.
+    HighlightColor? color,
+
+    /// Fondo pintado o línea debajo (F38).
+    @Default(HighlightStyle.fill) HighlightStyle style,
   }) = _Highlight;
 }
