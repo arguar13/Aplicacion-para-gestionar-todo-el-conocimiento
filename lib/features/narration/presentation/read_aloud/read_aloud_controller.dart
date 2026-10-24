@@ -27,6 +27,7 @@ enum ReadAloudPanel {
 class ReadAloudState {
   const ReadAloudState({
     this.document,
+    this.scope = ReadScope.all,
     this.segmentIndex = 0,
     this.charInSegment = 0,
     this.playing = false,
@@ -39,7 +40,10 @@ class ReadAloudState {
   /// Lo que se está leyendo; `null` si nada.
   final ReadableDocument? document;
 
-  /// Qué pedazo de [document] se lee ahora.
+  /// Qué parte de [document] se lee (F39): todo, o lo estudiado.
+  final ReadScope scope;
+
+  /// Qué pedazo de [segments] se lee ahora.
   final int segmentIndex;
 
   /// Por dónde va dentro de lo que se dice de ese pedazo (`spoken`), en
@@ -60,16 +64,21 @@ class ReadAloudState {
   /// El motor de voz falló; se ve en el reproductor.
   final bool failed;
 
+  /// Los pedazos que se leen: los de [scope] de [document]. Lo que se
+  /// resalta, el avance y los saltos salen todos de acá (F39).
+  List<ReadableSegment> get segments =>
+      document?.segmentsOf(scope) ?? const <ReadableSegment>[];
+
   ReadableSegment? get currentSegment {
-    final segments = document?.segments;
-    if (segments == null || segmentIndex >= segments.length) return null;
+    final segments = this.segments;
+    if (segmentIndex >= segments.length) return null;
     return segments[segmentIndex];
   }
 
   /// Cuánto leyó, de 0 a 1, por caracteres dichos: el anillo del botón.
   double get progress {
-    final segments = document?.segments;
-    if (segments == null || segments.isEmpty) return 0;
+    final segments = this.segments;
+    if (segments.isEmpty) return 0;
     var total = 0;
     var done = 0;
     for (var i = 0; i < segments.length; i++) {
@@ -84,6 +93,7 @@ class ReadAloudState {
   ReadAloudState copyWith({
     ReadableDocument? document,
     bool clearDocument = false,
+    ReadScope? scope,
     int? segmentIndex,
     int? charInSegment,
     bool? playing,
@@ -94,6 +104,7 @@ class ReadAloudState {
     bool? failed,
   }) => ReadAloudState(
     document: clearDocument ? null : document ?? this.document,
+    scope: scope ?? this.scope,
     segmentIndex: segmentIndex ?? this.segmentIndex,
     charInSegment: charInSegment ?? this.charInSegment,
     playing: playing ?? this.playing,
@@ -172,38 +183,76 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   }
 
   /// Abre el reproductor sobre [document] y empieza a leer desde el pedazo
-  /// [fromSegment]. Si ya se estaba leyendo ese mismo documento, sigue
-  /// donde iba y solo abre el reproductor.
-  Future<void> open(ReadableDocument document, {int fromSegment = 0}) async {
+  /// [fromSegment] de [scope] —sin decirlo, el que ya se leía de ese
+  /// documento, o todo; y si no hay, la primera capa estudiada que tenga
+  /// algo—. Si ya se estaba leyendo eso mismo, sigue donde iba y solo abre el
+  /// reproductor.
+  Future<void> open(
+    ReadableDocument document, {
+    int fromSegment = 0,
+    ReadScope? scope,
+  }) async {
     if (document.isEmpty) return;
     final current = state.document;
-    if (current != null && current.id == document.id) {
+    final same = current != null && current.id == document.id;
+    final target =
+        scope ??
+        (same && document.offers(state.scope)
+            ? state.scope
+            : document.defaultScope);
+    if (same && target == state.scope && document.offers(target)) {
       // El mismo documento, quizá con el texto cambiado —la pantalla se
       // reconstruyó después de editarlo—: se toma el nuevo para que el
       // resaltado caiga en su lugar, sin volver a empezar.
-      if (current != document) _load(document);
-      final index = state.segmentIndex.clamp(0, document.segments.length - 1);
+      final segments = document.segmentsOf(target);
+      if (current != document) _load(segments);
+      final index = state.segmentIndex.clamp(0, segments.length - 1);
       state = state.copyWith(
         document: document,
         segmentIndex: index,
         charInSegment: state.charInSegment.clamp(
           0,
-          document.segments[index].spoken.length,
+          segments[index].spoken.length,
         ),
         panel: ReadAloudPanel.expanded,
       );
       return;
     }
+    if (!document.offers(target)) return;
+    await _start(document, target, fromSegment: fromSegment);
+  }
 
+  /// Cambia qué parte del documento se lee (F39) —todo, o solo el resumen, la
+  /// síntesis o las palabras clave— y empieza a leerla desde el principio:
+  /// cada parte es otra lista de pedazos, y la posición de una no es la de
+  /// la otra. Una parte sin nada que leer no cambia nada.
+  Future<void> setScope(ReadScope scope) async {
+    final document = state.document;
+    if (document == null || scope == state.scope || !document.offers(scope)) {
+      return;
+    }
+    await _start(document, scope, panel: state.panel);
+  }
+
+  /// Lee [scope] de [document] desde el pedazo [fromSegment], cortando lo que
+  /// esté sonando.
+  Future<void> _start(
+    ReadableDocument document,
+    ReadScope scope, {
+    int fromSegment = 0,
+    ReadAloudPanel panel = ReadAloudPanel.expanded,
+  }) async {
+    final segments = document.segmentsOf(scope);
     final generation = _cut();
     final wasPlaying = state.playing;
-    _load(document);
+    _load(segments);
     state = state.copyWith(
       document: document,
-      segmentIndex: fromSegment.clamp(0, document.segments.length - 1),
+      scope: scope,
+      segmentIndex: fromSegment.clamp(0, segments.length - 1),
       charInSegment: 0,
       playing: true,
-      panel: ReadAloudPanel.expanded,
+      panel: panel,
       failed: false,
     );
     if (wasPlaying) await _tts.stop();
@@ -303,17 +352,17 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   // --- La lectura -----------------------------------------------------------
 
   bool get _atEnd {
-    final segments = state.document!.segments;
+    final segments = state.segments;
     return state.segmentIndex >= segments.length - 1 &&
         state.charInSegment >= segments.last.spoken.length;
   }
 
-  void _load(ReadableDocument document) {
-    final starts = List<int>.filled(document.segments.length, 0);
+  void _load(List<ReadableSegment> segments) {
+    final starts = List<int>.filled(segments.length, 0);
     var total = 0;
-    for (var i = 0; i < document.segments.length; i++) {
+    for (var i = 0; i < segments.length; i++) {
       starts[i] = total;
-      total += document.segments[i].spoken.length;
+      total += segments[i].spoken.length;
     }
     _starts = starts;
     _total = total;
@@ -355,7 +404,7 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   /// El pedazo actual terminó: sigue con el próximo, o queda terminado al
   /// final —con el reproductor como estaba, para volver a empezar—.
   Future<void> _next() async {
-    if (state.segmentIndex + 1 < state.document!.segments.length) {
+    if (state.segmentIndex + 1 < state.segments.length) {
       state = state.copyWith(
         segmentIndex: state.segmentIndex + 1,
         charInSegment: 0,
@@ -374,7 +423,7 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   Future<void> _finishAtEnd() async {
     final wasPlaying = state.playing;
     _cut();
-    final segments = state.document!.segments;
+    final segments = state.segments;
     state = state.copyWith(
       segmentIndex: segments.length - 1,
       charInSegment: segments.last.spoken.length,
@@ -459,7 +508,7 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     return (low, position - _starts[low]);
   }
 
-  String _spokenOf(int index) => state.document!.segments[index].spoken;
+  String _spokenOf(int index) => state.segments[index].spoken;
 
   /// El comienzo de la palabra en [position]; si cae en un espacio, el de la
   /// palabra que sigue.
@@ -592,3 +641,34 @@ final readAloudHighlightProvider = Provider.family<(int, int)?, String>((
   if (segment == null || segment.sourceKey != sourceKey) return null;
   return (segment.start, segment.end);
 });
+
+/// Cómo va la lectura de una parte de un documento (F39).
+enum ReadAloudRun {
+  /// El lector no está leyendo esa parte de ese documento.
+  none,
+
+  /// La está leyendo, en pausa.
+  paused,
+
+  /// La está leyendo, sonando.
+  playing,
+}
+
+/// Cómo va la lectura de la parte `scope` del documento `documentId`: lo que
+/// un botón «Escuchar» necesita para saber si empieza, pausa o retoma. Sale
+/// del mismo estado que el reproductor, no de una copia.
+final readAloudRunProvider =
+    Provider.family<ReadAloudRun, ({String documentId, ReadScope scope})>((
+      ref,
+      key,
+    ) {
+      return ref.watch(
+        readAloudControllerProvider.select((s) {
+          // Cerrado el lector no queda documento: el panel no hace falta.
+          if (s.document?.id != key.documentId || s.scope != key.scope) {
+            return ReadAloudRun.none;
+          }
+          return s.playing ? ReadAloudRun.playing : ReadAloudRun.paused;
+        }),
+      );
+    });

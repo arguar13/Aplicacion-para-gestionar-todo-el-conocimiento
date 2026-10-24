@@ -6,9 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/export/presentation/providers/marked_download_providers.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_extracts.dart';
+import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
@@ -29,9 +34,13 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// - **Abajo, «Extraer»**: el texto extraído —si viene [extractedText]; la
 ///   transcripción, en un audio o un video—, las fotos de una página o una
 ///   publicación —con [photos]—, el resumen, la síntesis y las palabras
-///   clave, cada uno plegado, con cuánto tiene y «Copiar». El texto entero y
-///   las fotos van plegados acá y no desplegados debajo de la tarjeta:
-///   ocupan mucho.
+///   clave, cada uno plegado, con cuánto tiene, «Copiar» y «Escuchar» (F39).
+///   El texto entero y las fotos van plegados acá y no desplegados debajo de
+///   la tarjeta: ocupan mucho.
+/// - **«Escuchar»** lee en voz alta, con el lector flotante, solo lo de esa
+///   fila: las oraciones del resumen o de la síntesis, o las palabras clave,
+///   en el orden del texto. Se resalta en amarillo en su lugar del texto y en
+///   la propia fila.
 /// - Con [item], **«Descargar»** (F38): el original en su mismo formato con
 ///   el resumen, la síntesis, las palabras clave o los subrayados marcados.
 ///   Solo aparece si el formato del original se puede marcar.
@@ -48,6 +57,7 @@ class StudyDocumentCard extends ConsumerWidget {
     this.extractedTextController,
     this.photoCount = 0,
     this.photos,
+    this.listenToText = true,
     super.key,
   });
 
@@ -81,6 +91,12 @@ class StudyDocumentCard extends ConsumerWidget {
   /// Las fotos, armadas recién al desplegar su fila.
   final WidgetBuilder? photos;
 
+  /// Si «Extraer texto» trae «Escuchar» (F39). Es `false` cuando el texto ya
+  /// suena en su propio audio —un audio, un video—: leerlo con la voz del
+  /// lector sería un segundo audio de lo mismo. El resumen, la síntesis y las
+  /// palabras clave siempre se escuchan con la voz del lector.
+  final bool listenToText;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
@@ -89,6 +105,13 @@ class StudyDocumentCard extends ConsumerWidget {
     final study =
         ref.watch(documentStudyProvider(text.renditionId)).valueOrNull ??
         DocumentStudy.notStarted;
+    final listening = _Listening(
+      text: text,
+      study: study,
+      title: item?.title ?? '',
+      transcript: item != null && isTranscriptSource(item!.source),
+      includeText: listenToText,
+    );
 
     return Material(
       key: const Key('study-document-card'),
@@ -166,7 +189,20 @@ class StudyDocumentCard extends ConsumerWidget {
                 title: extractedTextTitle ?? l10n.studyExtractText,
                 subtitle: extractedTextSubtitle,
                 controller: extractedTextController,
-                child: Builder(builder: builder),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (listenToText)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: _ListenButton(
+                          listening: listening,
+                          scope: ReadScope.all,
+                        ),
+                      ),
+                    Builder(builder: builder),
+                  ],
+                ),
               ),
             if (photos case final builder? when photoCount > 0)
               _ExtractRow(
@@ -182,6 +218,7 @@ class StudyDocumentCard extends ConsumerWidget {
               color: StudyPalette.of(theme.brightness).summary,
               text: text,
               study: study,
+              listening: listening,
               kind: StudyMarkKind.summary,
               onManual: extractedTextController?.expand,
             ),
@@ -191,12 +228,14 @@ class StudyDocumentCard extends ConsumerWidget {
               color: StudyPalette.of(theme.brightness).synthesis,
               text: text,
               study: study,
+              listening: listening,
               kind: StudyMarkKind.synthesis,
               onManual: extractedTextController?.expand,
             ),
             _KeywordsRow(
               text: text,
               study: study,
+              listening: listening,
               onManual: extractedTextController?.expand,
             ),
           ],
@@ -474,12 +513,16 @@ class _ExtractRow extends StatelessWidget {
 /// «Extraer resumen» o «Extraer síntesis»: sus oraciones en orden, como
 /// texto corrido, con cuántas oraciones y palabras son. Vacía, al
 /// desplegarla ofrece armarlo con la IA o a mano (F39).
-class _SentencesRow extends StatelessWidget {
+///
+/// Con «Escuchar», la oración que suena se resalta en amarillo acá mismo,
+/// además de en el texto.
+class _SentencesRow extends ConsumerWidget {
   const _SentencesRow({
     required this.title,
     required this.color,
     required this.text,
     required this.study,
+    required this.listening,
     required this.kind,
     this.onManual,
     super.key,
@@ -489,12 +532,14 @@ class _SentencesRow extends StatelessWidget {
   final Color color;
   final StudyText text;
   final DocumentStudy study;
+  final _Listening listening;
   final StudyMarkKind kind;
   final VoidCallback? onManual;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    final parts = studySentenceParts(text.content, study, kind);
     final extract = studySentencesExtract(text.content, study, kind);
     final has = extract.sentences > 0;
 
@@ -509,27 +554,84 @@ class _SentencesRow extends StatelessWidget {
       child: has
           ? _Extracted(
               copyText: extract.text,
-              child: SelectableText(extract.text),
+              listen: _ListenButton(
+                listening: listening,
+                scope: kind == StudyMarkKind.summary
+                    ? ReadScope.summary
+                    : ReadScope.synthesis,
+              ),
+              child: _ReadingSentences(
+                parts: parts,
+                renditionId: text.renditionId,
+              ),
             )
           : _EmptyExtract(text: text, kind: kind, onManual: onManual),
     );
   }
 }
 
+/// Las oraciones del resumen o de la síntesis, una tras otra; la que el
+/// lector en voz alta está leyendo, en amarillo.
+class _ReadingSentences extends ConsumerWidget {
+  const _ReadingSentences({required this.parts, required this.renditionId});
+
+  final List<StudySentencePart> parts;
+  final String renditionId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reading = ref.watch(readAloudHighlightProvider(renditionId));
+    return SelectableText.rich(
+      TextSpan(
+        children: [
+          for (final (index, part) in parts.indexed) ...[
+            if (index > 0) const TextSpan(text: ' '),
+            TextSpan(
+              text: part.text,
+              style: _readingStyle(reading, part.mark.start, part.mark.end),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Si `[start, end)` del texto toca lo que el lector está leyendo.
+bool _isBeingRead((int, int)? reading, int start, int end) =>
+    reading != null && start < reading.$2 && end > reading.$1;
+
+/// El amarillo de lo que suena, con letra oscura también en modo oscuro, si
+/// `[start, end)` toca lo que se está leyendo; si no, ningún estilo.
+TextStyle? _readingStyle((int, int)? reading, int start, int end) =>
+    _isBeingRead(reading, start, end)
+    ? const TextStyle(
+        backgroundColor: RenderedMarkdown.playingColor,
+        color: Colors.black87,
+      )
+    : null;
+
 /// «Extraer palabras clave»: como etiquetas, en el orden en que aparecen.
-class _KeywordsRow extends StatelessWidget {
-  const _KeywordsRow({required this.text, required this.study, this.onManual});
+/// La que suena con «Escuchar» se resalta en amarillo.
+class _KeywordsRow extends ConsumerWidget {
+  const _KeywordsRow({
+    required this.text,
+    required this.study,
+    required this.listening,
+    this.onManual,
+  });
 
   final StudyText text;
   final DocumentStudy study;
+  final _Listening listening;
   final VoidCallback? onManual;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final palette = StudyPalette.of(Theme.of(context).brightness);
-    final words = studyKeywordsExtract(text.content, study);
-    if (words.isEmpty) {
+    final parts = studyKeywordParts(text.content, study);
+    if (parts.isEmpty) {
       return _ExtractRow(
         key: const Key('study-extract-keywords'),
         icon: Icons.key_outlined,
@@ -544,23 +646,28 @@ class _KeywordsRow extends StatelessWidget {
       );
     }
 
+    final reading = ref.watch(readAloudHighlightProvider(text.renditionId));
     return _ExtractRow(
       key: const Key('study-extract-keywords'),
       icon: Icons.key_outlined,
       iconColor: palette.keyword,
       title: l10n.studyExtractKeywords,
-      subtitle: l10n.studyKeywordCount(words.length),
+      subtitle: l10n.studyKeywordCount(parts.length),
       child: _Extracted(
-        copyText: words.join(', '),
+        copyText: [for (final part in parts) part.word].join(', '),
+        listen: _ListenButton(listening: listening, scope: ReadScope.keywords),
         child: Wrap(
           spacing: 6,
           runSpacing: 6,
           children: [
-            for (final word in words)
+            for (final part in parts)
               Chip(
-                label: Text(word),
+                label: Text(part.word),
                 labelStyle: const TextStyle(color: StudyPalette.ink),
-                backgroundColor: palette.keyword,
+                backgroundColor:
+                    _isBeingRead(reading, part.mark.start, part.mark.end)
+                    ? RenderedMarkdown.playingColor
+                    : palette.keyword,
                 side: BorderSide.none,
                 visualDensity: VisualDensity.compact,
               ),
@@ -609,11 +716,16 @@ class _EmptyExtract extends ConsumerWidget {
   }
 }
 
-/// Lo extraído y su «Copiar».
+/// Lo extraído, con su «Escuchar» y su «Copiar».
 class _Extracted extends StatelessWidget {
-  const _Extracted({required this.copyText, required this.child});
+  const _Extracted({
+    required this.copyText,
+    required this.listen,
+    required this.child,
+  });
 
   final String copyText;
+  final Widget listen;
   final Widget child;
 
   @override
@@ -625,19 +737,101 @@ class _Extracted extends StatelessWidget {
         child,
         Align(
           alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            icon: const Icon(Icons.copy_outlined, size: 18),
-            label: Text(l10n.studyCopy),
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: copyText));
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(SnackBar(content: Text(l10n.studyCopied)));
-            },
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            children: [
+              listen,
+              TextButton.icon(
+                icon: const Icon(Icons.copy_outlined, size: 18),
+                label: Text(l10n.studyCopy),
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: copyText));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(SnackBar(content: Text(l10n.studyCopied)));
+                },
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Lo que hace falta para escuchar el texto estudiado (F39): armar lo que se
+/// ofrece al lector flotante recién cuando se toca «Escuchar», y no con cada
+/// cuadro —el texto de un libro entero se parte en líneas una vez—.
+@immutable
+class _Listening {
+  const _Listening({
+    required this.text,
+    required this.study,
+    required this.title,
+    required this.transcript,
+    required this.includeText,
+  });
+
+  final StudyText text;
+  final DocumentStudy study;
+  final String title;
+  final bool transcript;
+  final bool includeText;
+
+  String get documentId => studyReadableId(text.renditionId);
+
+  /// El mismo texto, con los mismos pedazos y posiciones que ofrece el
+  /// detalle: lo que suena cae en su lugar.
+  ReadableDocument document() => studyReadableDocument(
+    text: text,
+    title: title,
+    scopes: studyReadScopes(
+      sourceKey: text.renditionId,
+      content: text.content,
+      study: study,
+      markdown: text.markdown,
+    ),
+    transcript: transcript,
+    includeText: includeText,
+  );
+}
+
+/// «Escuchar» (F39): lee en voz alta con el lector flotante solo lo de la
+/// fila —el texto entero, las oraciones del resumen o de la síntesis, o las
+/// palabras clave—. Mientras suena dice «Pausar»; en pausa, vuelve a leer.
+class _ListenButton extends ConsumerWidget {
+  const _ListenButton({required this.listening, required this.scope});
+
+  final _Listening listening;
+  final ReadScope scope;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final run = ref.watch(
+      readAloudRunProvider((documentId: listening.documentId, scope: scope)),
+    );
+    final playing = run == ReadAloudRun.playing;
+
+    return TextButton.icon(
+      key: Key('study-listen-${scope.name}'),
+      icon: Icon(
+        playing ? Icons.pause_outlined : Icons.volume_up_outlined,
+        size: 18,
+      ),
+      label: Text(playing ? l10n.mediaPlayerPause : l10n.studyListen),
+      onPressed: () {
+        final controller = ref.read(readAloudControllerProvider.notifier);
+        unawaited(switch (run) {
+          ReadAloudRun.playing => controller.pause(),
+          ReadAloudRun.paused => controller.play(),
+          ReadAloudRun.none => controller.open(
+            listening.document(),
+            scope: scope,
+          ),
+        });
+      },
     );
   }
 }

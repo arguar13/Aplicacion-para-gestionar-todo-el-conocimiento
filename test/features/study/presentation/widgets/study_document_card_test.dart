@@ -8,6 +8,7 @@ import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/usecases/analyze_for_study.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
@@ -18,6 +19,7 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/fake_study_analysis.dart';
 import '../../../../support/memory_study_repository.dart';
+import '../../../../support/read_aloud_test_support.dart';
 
 void main() {
   final es = AppLocalizationsEs();
@@ -74,6 +76,7 @@ void main() {
     analysis = FakeStudyAnalysis();
     container = ProviderContainer(
       overrides: [
+        readAloudControllerProvider.overrideWith(FakeReadAloudController.new),
         studyRepositoryProvider.overrideWithValue(repository),
         studyAnalysisProvider.overrideWith((ref, id) => analysis),
         chosenLanguageModelNameProvider.overrideWithValue('gemini-2.5-flash'),

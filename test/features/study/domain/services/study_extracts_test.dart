@@ -110,6 +110,83 @@ void main() {
     ]);
   });
 
+  group('cada oración o palabra con la marca de la que salió (F39)', () {
+    test('las oraciones, sin marcado y con su lugar en el texto', () {
+      final parts = studySentenceParts(content, study, StudyMarkKind.summary);
+
+      expect(parts.map((p) => p.text), [
+        'La revolución industrial cambió todo.',
+        'El Vapor movía las máquinas.',
+      ]);
+      expect(parts.map((p) => content.substring(p.mark.start, p.mark.end)), [
+        'La **revolución** industrial cambió todo.',
+        'El Vapor movía las máquinas.',
+      ]);
+    });
+
+    test('una oración que queda vacía sin marcado no cuenta', () {
+      const raw = 'Hola mundo. **__**';
+      const blank = DocumentStudy(
+        marks: [
+          StudyMark(
+            id: 'a',
+            kind: StudyMarkKind.summary,
+            origin: ContentOrigin.ai,
+            start: 0,
+            end: 11,
+          ),
+          StudyMark(
+            id: 'b',
+            kind: StudyMarkKind.summary,
+            origin: ContentOrigin.ai,
+            start: 12,
+            end: 18,
+          ),
+        ],
+        analyzedUntil: 18,
+        complete: true,
+      );
+
+      expect(
+        studySentenceParts(
+          raw,
+          blank,
+          StudyMarkKind.summary,
+        ).map((p) => p.text),
+        ['Hola mundo.'],
+      );
+    });
+
+    test('las palabras clave, cada una con la marca de su primera vez', () {
+      const repeated = 'El vapor. Más vapor. Otro Vapor.';
+      StudyMark keyword(String text, int from) {
+        final start = repeated.indexOf(text, from);
+        return StudyMark(
+          id: '$start',
+          kind: StudyMarkKind.keyword,
+          origin: ContentOrigin.user,
+          start: start,
+          end: start + text.length,
+        );
+      }
+
+      final parts = studyKeywordParts(
+        repeated,
+        DocumentStudy(
+          marks: [
+            keyword('vapor', 0),
+            keyword('vapor', 10),
+            keyword('Vapor', 20),
+          ],
+          analyzedUntil: repeated.length,
+          complete: true,
+        ),
+      );
+
+      expect(parts.map((p) => (p.word, p.mark.start)), [('vapor', 3)]);
+    });
+  });
+
   test('el texto sin marcado: un renglón, sin negritas ni enlaces', () {
     expect(
       studyPlainText('Un **dato**\n y [[Roma]], `código` y [x](http://a).'),

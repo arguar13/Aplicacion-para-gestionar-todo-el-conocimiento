@@ -12,10 +12,16 @@ class FakeReadAloudController extends ReadAloudController {
   @override
   ReadAloudState build() => const ReadAloudState();
 
-  /// Deja al lector leyendo el pedazo [segment] de [document], con el
-  /// reproductor abierto: lo que pasa después de tocar el botón flotante.
-  void readAt(ReadableDocument document, int segment) => state = ReadAloudState(
+  /// Deja al lector leyendo el pedazo [segment] de [document] —de la parte
+  /// [scope], todo si no se dice—, con el reproductor abierto: lo que pasa
+  /// después de tocar el botón flotante.
+  void readAt(
+    ReadableDocument document,
+    int segment, {
+    ReadScope scope = ReadScope.all,
+  }) => state = ReadAloudState(
     document: document,
+    scope: scope,
     segmentIndex: segment,
     playing: true,
     panel: ReadAloudPanel.expanded,

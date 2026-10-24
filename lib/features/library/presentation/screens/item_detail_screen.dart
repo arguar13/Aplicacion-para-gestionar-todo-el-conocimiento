@@ -58,6 +58,7 @@ import 'package:sinapsis/features/organize/presentation/widgets/relations_sectio
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/reference_section.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_document_card.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
@@ -290,15 +291,18 @@ class _DetailBodyState extends State<_DetailBody> {
         // un documento, una nota, o un YouTube cuyo audio no se pudo bajar.
         // Mientras se averigua, no se ofrece —así el botón no aparece para
         // irse enseguida—; si averiguarlo falla, no hay qué escuchar y sí.
+        //
+        // Lo estudiado —el resumen, la síntesis, las palabras clave— se ofrece
+        // siempre, también con su propio audio: se escucha con la voz del
+        // lector, no con el audio original (F39).
         Consumer(
           builder: (context, ref, child) {
-            final offer = switch (ref.watch(itemPlaybackPathProvider(item))) {
-              AsyncData(:final value) => value == null,
-              AsyncError() => true,
-              _ => false,
-            };
             return ReadableRegion(
-              document: offer ? _readable : null,
+              document: _offeredAloud(
+                ref,
+                item,
+                _withStudy(ref, _readable, _studiedText(item)),
+              ),
               child: child!,
             );
           },
@@ -324,9 +328,7 @@ class _DetailBodyState extends State<_DetailBody> {
     ThemeData theme,
     List<TextRendition> texts,
   ) {
-    // Lo que se estudia (F36); mientras se vuelve a extraer el texto, nada:
-    // lo estudiado se reubica al terminar.
-    final study = item.isBeingProcessed ? null : studyTextOf(item);
+    final study = _studiedText(item);
     // Con la tarjeta de estudiar, el texto se lee en su «Extraer texto»
     // —en un audio o un video, «Extraer transcripción»—, plegado: desplegado
     // debajo de todo ocupaba la pantalla entera (F39).
@@ -442,6 +444,7 @@ class _DetailBodyState extends State<_DetailBody> {
                         item: item,
                         texts: texts,
                         readable: _readableUnfolded,
+                        study: study,
                         link: _follow,
                       ),
                       extractedTextTitle: transcript
@@ -451,6 +454,9 @@ class _DetailBodyState extends State<_DetailBody> {
                         context,
                       )!.detailExtractedTextSubtitle,
                       extractedTextController: _textFold,
+                      listenToText: _readsTextAloud(
+                        ref.watch(itemPlaybackPathProvider(item)),
+                      ),
                       photoCount: ref.watch(itemPhotosProvider(item.id)).length,
                       photos: (context) => ItemPhotosGrid(itemId: item.id),
                     ),
@@ -536,6 +542,42 @@ class _DetailBodyState extends State<_DetailBody> {
     );
   }
 }
+
+/// Lo que se estudia de [item] (F36); mientras se vuelve a extraer el texto,
+/// nada: lo estudiado se reubica al terminar.
+StudyText? _studiedText(KnowledgeItem item) =>
+    item.isBeingProcessed ? null : studyTextOf(item);
+
+/// Si el lector en voz alta puede leer el texto entero: no cuando el elemento
+/// tiene su propio audio —un audio, un video, un reel, el de YouTube ya
+/// bajado—, que ya lo dice con la voz original. Mientras se averigua, no.
+bool _readsTextAloud(AsyncValue<String?> playback) => switch (playback) {
+  AsyncData(:final value) => value == null,
+  AsyncError() => true,
+  _ => false,
+};
+
+/// Lo que de [document] se ofrece leer en voz alta en [item]: todo, o, con su
+/// propio audio, solo lo estudiado (F39, decisión B). Una sola regla para
+/// cada región que ofrece el texto de [item]: el detalle entero y el texto
+/// desplegado adentro.
+ReadableDocument _offeredAloud(
+  WidgetRef ref,
+  KnowledgeItem item,
+  ReadableDocument document,
+) => _readsTextAloud(ref.watch(itemPlaybackPathProvider(item)))
+    ? document
+    : document.withoutText();
+
+/// [document] con lo que se lee de cada capa de lo estudiado de [study] (F39),
+/// al día con los cambios; sin [study], tal cual.
+ReadableDocument _withStudy(
+  WidgetRef ref,
+  ReadableDocument document,
+  StudyText? study,
+) => study == null
+    ? document
+    : document.withScopes(ref.watch(studyReadScopesProvider(study)));
 
 /// Lo que se lee en voz alta del detalle de [item] (F25), en el orden en que
 /// se ve: la nota del usuario, y después cada forma de texto —una nota de
@@ -792,11 +834,12 @@ class _CollapsedExtractedText extends StatelessWidget {
 /// El texto que se sacó de un documento, desplegado: se lee en voz alta
 /// (F25), y lo estudiado se ve con sus colores (F36). Lo mismo plegado en el
 /// detalle que en el «Extraer texto» de la tarjeta de estudiar.
-class _ExtractedTextBody extends StatelessWidget {
+class _ExtractedTextBody extends ConsumerWidget {
   const _ExtractedTextBody({
     required this.item,
     required this.texts,
     required this.readable,
+    this.study,
     this.link,
   });
 
@@ -804,12 +847,16 @@ class _ExtractedTextBody extends StatelessWidget {
   final List<TextRendition> texts;
   final ReadableDocument Function() readable;
 
+  /// El texto que se estudia, si este es: lo que ofrece para leer suma lo
+  /// estudiado (F39).
+  final StudyText? study;
+
   /// Con el mini reproductor, para "Volver al audio" (F23).
   final PlaybackFollowLink? link;
 
   @override
-  Widget build(BuildContext context) => ReadableRegion(
-    document: readable(),
+  Widget build(BuildContext context, WidgetRef ref) => ReadableRegion(
+    document: _offeredAloud(ref, item, _withStudy(ref, readable(), study)),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart'
     show formatSpeed, mediaSkipStep;
@@ -234,6 +235,7 @@ class ReadAloudPlayer extends ConsumerWidget {
               padding: EdgeInsets.only(right: 8),
               child: _ProgressBar(),
             ),
+            const _ScopeRow(),
             const SizedBox(height: 6),
             Row(
               children: [
@@ -337,6 +339,74 @@ class _Artwork extends StatelessWidget {
           playing ? Icons.graphic_eq_rounded : Icons.record_voice_over_rounded,
           key: ValueKey(playing),
           color: scheme.onPrimaryContainer,
+        ),
+      ),
+    );
+  }
+}
+
+/// «Leer: Todo · Resumen · Síntesis · Palabras clave» (F39): qué parte del
+/// texto se lee. Solo la lleva un texto que se estudia; la parte que todavía
+/// no tiene nada —no hay resumen, o el texto está plegado— aparece apagada.
+/// Elegir una empieza a leerla desde el principio.
+class _ScopeRow extends ConsumerWidget {
+  const _ScopeRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final controller = ref.read(readAloudControllerProvider.notifier);
+    final (scope, offered) = ref.watch(
+      readAloudControllerProvider.select((s) {
+        final document = s.document;
+        if (document == null || !document.hasScopes) return (s.scope, null);
+        // Una máscara y no la lista de partes: lo único que cambia el
+        // dibujo es cuáles tienen algo, y es comparable sin recorrer nada.
+        var mask = 0;
+        for (final scope in ReadScope.values) {
+          if (document.offers(scope)) mask |= 1 << scope.index;
+        }
+        return (s.scope, mask);
+      }),
+    );
+    if (offered == null) return const SizedBox.shrink();
+
+    String label(ReadScope scope) => switch (scope) {
+      ReadScope.all => l10n.readAloudScopeAll,
+      ReadScope.summary => l10n.readAloudScopeSummary,
+      ReadScope.synthesis => l10n.readAloudScopeSynthesis,
+      ReadScope.keywords => l10n.readAloudScopeKeywords,
+    };
+
+    return Padding(
+      key: const Key('read-aloud-scopes'),
+      padding: const EdgeInsets.only(top: 6, right: 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          spacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              l10n.readAloudScopeLabel,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            for (final option in ReadScope.values)
+              ChoiceChip(
+                key: Key('read-aloud-scope-${option.name}'),
+                label: Text(label(option)),
+                selected: option == scope,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                // Sin onSelected, el chip queda apagado.
+                onSelected: offered & (1 << option.index) == 0
+                    ? null
+                    : (_) => unawaited(controller.setScope(option)),
+              ),
+          ],
         ),
       ),
     );

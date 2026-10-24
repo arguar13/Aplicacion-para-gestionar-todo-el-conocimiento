@@ -27,13 +27,24 @@ class _FakeReadAloud extends ReadAloudController {
   ReadAloudState build() => _initial;
 
   @override
-  Future<void> open(ReadableDocument document, {int fromSegment = 0}) async {
+  Future<void> open(
+    ReadableDocument document, {
+    int fromSegment = 0,
+    ReadScope? scope,
+  }) async {
     calls.add('open ${document.id}');
     state = state.copyWith(
       document: document,
+      scope: scope ?? document.defaultScope,
       panel: ReadAloudPanel.expanded,
       playing: true,
     );
+  }
+
+  @override
+  Future<void> setScope(ReadScope scope) async {
+    calls.add('scope ${scope.name}');
+    state = state.copyWith(scope: scope, segmentIndex: 0, playing: true);
   }
 
   @override
@@ -374,6 +385,113 @@ void main() {
       );
 
       expect(find.text(es.readAloudFailed), findsOneWidget);
+    });
+  });
+
+  group('«Leer: Todo · Resumen · Síntesis · Palabras clave» (F39)', () {
+    const piece = ReadableSegment(
+      sourceKey: 'texto',
+      start: 0,
+      end: 4,
+      spoken: 'Algo',
+    );
+    const studied = ReadableDocument(
+      id: 'item-2',
+      title: 'Un texto estudiado',
+      segments: [piece],
+      scopes: {
+        ReadScope.summary: [piece],
+        ReadScope.synthesis: [],
+        ReadScope.keywords: [piece],
+      },
+    );
+    const readingStudied = ReadAloudState(
+      document: studied,
+      playing: true,
+      panel: ReadAloudPanel.expanded,
+    );
+
+    Finder chip(ReadScope scope) =>
+        find.byKey(Key('read-aloud-scope-${scope.name}'));
+    bool enabled(WidgetTester tester, ReadScope scope) =>
+        tester.widget<ChoiceChip>(chip(scope)).onSelected != null;
+
+    testWidgets('un texto que no se estudia no lleva la fila', (tester) async {
+      await pump(tester, initial: _reading);
+
+      expect(find.byKey(const Key('read-aloud-scopes')), findsNothing);
+      expect(find.text(es.readAloudScopeLabel), findsNothing);
+    });
+
+    testWidgets('un texto estudiado ofrece las cuatro, con la que se lee '
+        'elegida', (tester) async {
+      await pump(tester, initial: readingStudied);
+
+      expect(find.text(es.readAloudScopeLabel), findsOneWidget);
+      expect(find.text(es.readAloudScopeAll), findsOneWidget);
+      expect(find.text(es.readAloudScopeSummary), findsOneWidget);
+      expect(find.text(es.readAloudScopeSynthesis), findsOneWidget);
+      expect(find.text(es.readAloudScopeKeywords), findsOneWidget);
+      expect(tester.widget<ChoiceChip>(chip(ReadScope.all)).selected, isTrue);
+      expect(
+        tester.widget<ChoiceChip>(chip(ReadScope.summary)).selected,
+        isFalse,
+      );
+    });
+
+    testWidgets('las que no tienen datos aparecen apagadas', (tester) async {
+      await pump(tester, initial: readingStudied);
+
+      expect(enabled(tester, ReadScope.all), isTrue);
+      expect(enabled(tester, ReadScope.summary), isTrue);
+      expect(enabled(tester, ReadScope.synthesis), isFalse);
+      expect(enabled(tester, ReadScope.keywords), isTrue);
+
+      await tester.tap(chip(ReadScope.synthesis));
+      await tester.pumpAndSettle();
+      expect(reader.calls, isEmpty);
+    });
+
+    testWidgets('sin texto propio, «Todo» queda apagado', (tester) async {
+      await pump(
+        tester,
+        initial: ReadAloudState(
+          document: studied.withoutText(),
+          scope: ReadScope.summary,
+          playing: true,
+          panel: ReadAloudPanel.expanded,
+        ),
+      );
+
+      expect(enabled(tester, ReadScope.all), isFalse);
+      expect(
+        tester.widget<ChoiceChip>(chip(ReadScope.summary)).selected,
+        isTrue,
+      );
+    });
+
+    testWidgets('elegir una parte se la pide al lector', (tester) async {
+      await pump(tester, initial: readingStudied);
+
+      await tester.tap(chip(ReadScope.keywords));
+      await tester.pumpAndSettle();
+
+      expect(reader.calls, ['scope keywords']);
+      expect(
+        tester.widget<ChoiceChip>(chip(ReadScope.keywords)).selected,
+        isTrue,
+      );
+    });
+
+    testWidgets('tocar el botón redondo de un texto estudiado sin texto '
+        'visible empieza por lo estudiado', (tester) async {
+      await pump(tester, offered: studied.withoutText());
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+
+      expect(reader.calls, ['open item-2']);
+      expect(reader.state.scope, ReadScope.summary);
     });
   });
 

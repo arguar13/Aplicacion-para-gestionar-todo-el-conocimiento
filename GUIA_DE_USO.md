@@ -777,10 +777,25 @@ qué hacer, y **«Reintentar»** sigue desde donde quedó.
   texto corrido, con cuántas oraciones y palabras son.
 - **Extraer palabras clave**: las palabras como etiquetas, cada una una
   vez, en el orden en que aparecen.
-- Cada fila trae **Copiar**. Vacía, dice *«Todavía no hay: desplegá para
+- Cada fila trae **Copiar** y **Escuchar**. Vacía, dice *«Todavía no hay: desplegá para
   armarlo con la IA o a mano»*, y al desplegarla ofrece los mismos dos
   caminos de la hoja. Mientras la IA analiza, avisa que va a aparecer ahí a
   medida que avanza.
+
+**«Escuchar»**, en cada fila, lee en voz alta **solo lo de esa fila**, con la
+voz del lector (ver [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)):
+
+- En **Extraer resumen** y **Extraer síntesis**, las oraciones suenan una
+  tras otra, en el orden del texto. La que suena se resalta en amarillo en
+  la misma fila y también **en su lugar del texto**, en «Extraer texto» y en
+  «Leer como libro».
+- En **Extraer palabras clave**, se leen una tras otra; la que suena se
+  resalta en amarillo.
+- En **Extraer texto**, lee el texto entero. En un audio o un video no está:
+  el texto ya se escucha con el audio original. El resumen, la síntesis y las
+  palabras clave sí se escuchan, con la voz del lector.
+- Mientras suena, el botón dice **Pausar**; en pausa, vuelve a decir
+  **Escuchar** y retoma donde estaba.
 
 **«Descargar»**, en la tarjeta, baja **el mismo documento con lo marcado**,
 en el formato del original. Elegís qué lleva, y se combina:
@@ -1730,12 +1745,13 @@ modo lectura, el lector de libros y documentos, el editor de notas, el chat
 y el repaso de tarjetas. No aparece en la Biblioteca, la Bandeja, el Mapa,
 el Atlas, Ajustes ni la Papelera.
 
-Tampoco aparece en un audio o un video que tiene su propio audio (también un
-reel, un TikTok o un YouTube con el audio ya bajado): ahí el texto ya se
-escucha con la voz original y se resalta solo (ver
-[El texto sigue al audio](#el-texto-sigue-al-audio)). Si un video de YouTube
-no pudo bajar su audio, el botón sí aparece, porque es la única forma de
-escucharlo.
+En un audio o un video que tiene su propio audio (también un reel, un TikTok
+o un YouTube con el audio ya bajado) el texto entero no se lee con este
+lector: ya se escucha con la voz original y se resalta solo (ver
+[El texto sigue al audio](#el-texto-sigue-al-audio)). Lo que sí ofrece es lo
+estudiado: el resumen, la síntesis y las palabras clave, con la voz del
+lector. Si un video de YouTube no pudo bajar su audio, el botón lee también el
+texto entero, porque es la única forma de escucharlo.
 
 1. **Tocalo** y la app empieza a leer el texto de esa pantalla en voz alta.
    La **línea que está leyendo se ve en amarillo**. Lee el texto tal cual se
@@ -1745,6 +1761,13 @@ escucharlo.
      la misma palabra.
    - **Retroceder y avanzar 10 segundos**, medidos con la voz y la
      velocidad que elegiste.
+   - **Leer: Todo · Resumen · Síntesis · Palabras clave**, en un texto que se
+     estudia (ver [Estudiar el documento](#estudiar-el-documento-resumen-síntesis-y-palabras-clave)):
+     elegís qué parte se lee. **Resumen** y **Síntesis** leen solo sus
+     oraciones, **Palabras clave** las lee una tras otra, y **Todo** el
+     texto. Lo que suena se resalta en amarillo en su lugar del texto, y
+     siempre en el orden del texto. Las partes que todavía no tienen nada
+     aparecen apagadas; elegir una empieza a leerla desde el principio.
    - **La velocidad**, de 0,5× a 2×.
    - **Voz y acento**: el acento es el idioma y la región (Español de
      Argentina, de España, inglés de Estados Unidos…), según las voces

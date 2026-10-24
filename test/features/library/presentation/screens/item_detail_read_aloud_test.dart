@@ -3,23 +3,29 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
+import 'package:sinapsis/features/study/domain/entities/document_study.dart';
+import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
+import '../../../../support/fake_study_analysis.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/memory_study_repository.dart';
 import '../../../../support/quiet_video_player.dart';
 import '../../../../support/read_aloud_test_support.dart';
 
@@ -334,5 +340,161 @@ void main() {
     // Lo que el detalle deja programado al cerrarse termina antes de que
     // termine la prueba.
     await tester.pump(const Duration(seconds: 1));
+  });
+
+  group('lo estudiado se escucha aparte (F39)', () {
+    const body = 'Primera frase. Segunda frase.\n\nOtra línea más.';
+
+    StudyMark mark(String id, StudyMarkKind kind, String part) {
+      final start = body.indexOf(part);
+      return StudyMark(
+        id: id,
+        kind: kind,
+        origin: ContentOrigin.ai,
+        start: start,
+        end: start + part.length,
+      );
+    }
+
+    final studied = DocumentStudy(
+      marks: [
+        mark('s1', StudyMarkKind.summary, 'Segunda frase.'),
+        mark('k1', StudyMarkKind.keyword, 'Otra'),
+      ],
+      analyzedUntil: body.length,
+      complete: true,
+    );
+
+    /// El detalle de un elemento de [kind] con [studied], y con su propio
+    /// audio si [withAudio].
+    Future<String> pumpStudied(
+      WidgetTester tester, {
+      required SourceKind kind,
+      bool withAudio = false,
+      String? notes,
+    }) async {
+      VideoPlayerPlatform.instance = QuietVideoPlayer();
+      harness = await LibraryHarness.create(
+        extraOverrides: [
+          readAloudControllerProvider.overrideWith(FakeReadAloudController.new),
+          studyRepositoryProvider.overrideWithValue(
+            MemoryStudyRepository(studied),
+          ),
+          studyAnalysisProvider.overrideWith((ref, id) => FakeStudyAnalysis()),
+          if (withAudio)
+            resolvedFileViewerProvider.overrideWith(
+              (ref, item) async => const MediaResolvedViewer(
+                path: '/boveda/archivos/clase.opus',
+                isVideo: false,
+              ),
+            ),
+        ],
+      );
+      const id = 'f39-estudiado';
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .save(
+            KnowledgeItem(
+              id: id,
+              title: 'Estudiado',
+              notes: notes,
+              source: Source(
+                id: id,
+                kind: kind,
+                capturedAt: now,
+                originalFilePath: withAudio ? 'clase.opus' : null,
+              ),
+              processingState: ProcessingState.ready,
+              createdAt: now,
+              updatedAt: now,
+              renditions: [text(id, body)],
+            ),
+          );
+      await pumpDetail(tester, id);
+      return id;
+    }
+
+    testWidgets('con el texto plegado se ofrece lo estudiado, sin el texto '
+        'entero: el reproductor deja «Todo» apagado', (tester) async {
+      final id = await pumpStudied(tester, kind: SourceKind.webPage);
+
+      final document = offered()!;
+      expect(document.id, 'item:$id');
+      expect(document.segments, isEmpty);
+      expect(document.segmentsOf(ReadScope.summary).map((s) => s.spoken), [
+        'Segunda frase.',
+      ]);
+      expect(document.segmentsOf(ReadScope.keywords).map((s) => s.spoken), [
+        'Otra',
+      ]);
+      expect(document.offers(ReadScope.synthesis), isFalse);
+    });
+
+    testWidgets('desplegado el texto, se ofrece también entero, con las '
+        'mismas posiciones', (tester) async {
+      await pumpStudied(tester, kind: SourceKind.webPage);
+      await unfoldText(tester);
+
+      final document = offered()!;
+      expect(document.segments.map((s) => s.spoken), [
+        'Primera frase. Segunda frase.',
+        'Otra línea más.',
+      ]);
+      final summary = document.segmentsOf(ReadScope.summary).single;
+      expect(summary.sourceKey, document.segments.first.sourceKey);
+      expect(body.substring(summary.start, summary.end), 'Segunda frase.');
+    });
+
+    testWidgets('lo que suena del resumen se ve en amarillo en su lugar del '
+        'texto, no la línea entera', (tester) async {
+      await pumpStudied(tester, kind: SourceKind.webPage);
+      await unfoldText(tester);
+
+      reader().readAt(offered()!, 0, scope: ReadScope.summary);
+      await tester.pump();
+
+      expect(
+        readAloudHighlights(
+          tester,
+          within: find.byKey(const Key('study-extract-text')),
+        ),
+        ['Segunda frase.'],
+      );
+    });
+
+    testWidgets('con su propio audio no se lee el texto con la voz del '
+        'lector, pero el resumen sí (decisión B)', (tester) async {
+      await pumpStudied(
+        tester,
+        kind: SourceKind.audio,
+        withAudio: true,
+        notes: 'Mi nota.',
+      );
+
+      // Ni siquiera la nota: con su propio audio, lo único que se ofrece es
+      // lo estudiado.
+      final document = offered()!;
+      expect(document.segments, isEmpty);
+      expect(document.offers(ReadScope.all), isFalse);
+      expect(document.offers(ReadScope.summary), isTrue);
+      expect(document.offers(ReadScope.keywords), isTrue);
+      expect(document.defaultScope, ReadScope.summary);
+
+      // En la tarjeta, el texto no trae «Escuchar»; el resumen sí. Y
+      // desplegado, la transcripción tampoco se ofrece entera: es la misma
+      // regla que en el detalle.
+      await unfoldText(tester);
+      expect(offered()!.segments, isEmpty);
+      expect(offered()!.offers(ReadScope.all), isFalse);
+      expect(offered()!.offers(ReadScope.summary), isTrue);
+      expect(find.byKey(const Key('study-listen-all')), findsNothing);
+      final summary = find.byKey(const Key('study-extract-summary'));
+      await tester.ensureVisible(summary);
+      await tester.tap(summary);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('study-listen-summary')), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    });
   });
 }

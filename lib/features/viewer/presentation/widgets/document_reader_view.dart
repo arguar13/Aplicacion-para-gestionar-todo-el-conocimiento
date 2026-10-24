@@ -16,8 +16,10 @@ import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
+import 'package:sinapsis/features/viewer/domain/services/reader_page_segments.dart';
 import 'package:sinapsis/features/viewer/domain/services/reader_pagination.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/reader_font_scale_notifier.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -131,8 +133,9 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
   /// de página no vuelve a preparar lo que ya se preparó.
   final _pageSegments = <int, List<ReadableSegment>>{};
 
-  /// Lo que se ofrece ahora, y desde qué página.
-  (int, ReadableDocument)? _readable;
+  /// Lo que se ofrece ahora, desde qué página y con qué estudiado: el mismo
+  /// documento mientras no cambie ninguna de las dos cosas.
+  (int, Map<ReadScope, List<ReadableSegment>>, ReadableDocument)? _readable;
 
   String _pageKey(int page) => '$_book:page:$page';
 
@@ -148,9 +151,18 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
   /// [ReadableDocument.id]—, pero las líneas se llaman igual desde cualquier
   /// página —[_pageKey]—, así que lo que se está leyendo se resalta y se
   /// sigue aunque la página de la que se partió ya no sea la que se ve.
-  ReadableDocument _readableFrom(int from) {
+  ///
+  /// [studied] es lo que se lee con cada capa de lo estudiado, en posiciones
+  /// del texto entero: se lleva a las mismas páginas, así que el resumen, la
+  /// síntesis y las palabras clave también se resaltan donde suenan (F39).
+  ReadableDocument _readableFrom(
+    int from,
+    Map<ReadScope, List<ReadableSegment>> studied,
+  ) {
     final cached = _readable;
-    if (cached != null && cached.$1 == from) return cached.$2;
+    if (cached != null && cached.$1 == from && identical(cached.$2, studied)) {
+      return cached.$3;
+    }
     final until = (from + _readAheadPages).clamp(0, _pages.length);
     final document = ReadableDocument(
       id: '$_book:from:$from',
@@ -163,8 +175,18 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
             markdown: widget.markdown,
           )),
       ],
+      scopes: {
+        for (final MapEntry(:key, :value) in studied.entries)
+          key: readerPageSegments(
+            value,
+            _ranges,
+            from: from,
+            until: until,
+            keyOf: _pageKey,
+          ),
+      },
     );
-    _readable = (from, document);
+    _readable = (from, studied, document);
     return document;
   }
 
@@ -221,8 +243,13 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
 
     if (_pages.isEmpty) return const SizedBox.shrink();
 
+    final studied = switch (widget.study) {
+      final study? => ref.watch(studyReadScopesProvider(study)),
+      null => const <ReadScope, List<ReadableSegment>>{},
+    };
+
     return ReadableRegion(
-      document: _readableFrom(_pageIndex),
+      document: _readableFrom(_pageIndex, studied),
       child: _buildReader(l10n, fontScale),
     );
   }

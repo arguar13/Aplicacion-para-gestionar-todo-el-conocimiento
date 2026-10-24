@@ -435,3 +435,25 @@
   - 20 mutaciones, todas muertas; las tres que al principio sobrevivían murieron con pruebas
     nuevas: una oración partida por una nota al pie, un toque pasando el punto final y la llamada
     al cursor.
+- **Paso 4 — hecho.** «Escuchar» en las filas de «Extraer» y «Leer: Todo · Resumen · Síntesis ·
+  Palabras clave» en el reproductor.
+  - **Diseño de raíz**: el lector recibe **qué tramos leer**, no un texto aparte. `ReadableDocument`
+    ofrece, además de «Todo», los tramos de cada capa de lo estudiado (`scopes`): las oraciones del
+    resumen y de la síntesis y las palabras clave, en el orden del texto y con sus posiciones en el
+    texto entero (`buildReadableSegmentsWithin`, `studyReadScopes`). Lo que suena se resalta en
+    amarillo en su lugar del texto, también en «Leer como libro», donde los tramos pasan a su
+    página (`readerPageSegments`).
+  - **Una sola fuente de verdad**: `ReadAloudState.scope` y `readAloudRunProvider`, que miran la
+    tarjeta y el reproductor. Cambiar de parte corta lo que suena y empieza la elegida desde el
+    principio.
+  - **Tarjeta**: «Escuchar» junto a «Copiar» en resumen, síntesis y palabras clave, y arriba en
+    «Extraer texto»; mientras suena dice «Pausar». La oración o la etiqueta que suena se pinta en
+    amarillo en la misma fila. Las palabras clave son las de las etiquetas, cada una una vez.
+  - **Reproductor**: la fila «Leer:» aparece en un texto que se estudia; las partes sin datos
+    quedan apagadas. Con el texto plegado, «Todo» queda apagado y el botón redondo empieza por lo
+    estudiado.
+  - **Decisión B**: con audio o video propio no se ofrece el texto entero ni la nota; el resumen,
+    la síntesis y las palabras clave se escuchan con la voz del lector. Al integrar apareció que la
+    transcripción desplegada armaba su propia región sin esa regla y ofrecía el texto entero: la
+    regla quedó en una sola función (`_offeredAloud`) para las dos regiones, con su prueba.
+  - 61 mutaciones, todas muertas; cuatro sobrevivían en la primera pasada y se sumaron pruebas.

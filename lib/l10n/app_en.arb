@@ -10457,5 +10457,17 @@
   "documentHighlightNotLocated": "I couldn't find the selection in the document's text. Try highlighting it in “Extracted text”.",
   "@documentHighlightNotLocated": {"description": "Visor de PDF y de página web (F38): aviso cuando la selección no se pudo llevar al texto extraído."},
   "documentHighlightNotSaved": "The highlight couldn't be saved.",
-  "@documentHighlightNotSaved": {"description": "Visor de PDF y de página web (F38): aviso cuando el resaltado no se pudo guardar."}
+  "@documentHighlightNotSaved": {"description": "Visor de PDF y de página web (F38): aviso cuando el resaltado no se pudo guardar."},
+  "readAloudScopeLabel": "Read:",
+  "@readAloudScopeLabel": {"description": "Lector flotante (F39): rótulo de la fila que elige qué parte del texto se lee en voz alta."},
+  "readAloudScopeAll": "All",
+  "@readAloudScopeAll": {"description": "Lector flotante (F39): leer todo el texto."},
+  "readAloudScopeSummary": "Summary",
+  "@readAloudScopeSummary": {"description": "Lector flotante (F39): leer solo las oraciones del resumen. Aparece apagado si todavía no hay resumen."},
+  "readAloudScopeSynthesis": "Synthesis",
+  "@readAloudScopeSynthesis": {"description": "Lector flotante (F39): leer solo las oraciones de la síntesis. Aparece apagado si todavía no hay síntesis."},
+  "readAloudScopeKeywords": "Keywords",
+  "@readAloudScopeKeywords": {"description": "Lector flotante (F39): leer solo las palabras clave, una tras otra. Aparece apagado si todavía no hay."},
+  "studyListen": "Listen",
+  "@studyListen": {"description": "Estudiar (F39): botón de cada fila de «Extraer» que lee en voz alta lo de esa fila, junto a «Copiar»."}
 }

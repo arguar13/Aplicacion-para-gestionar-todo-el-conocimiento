@@ -37,6 +37,10 @@ final _words = ReadableDocument(
   ),
 );
 
+/// Un texto estudiado: dos líneas, y adentro de la primera las oraciones y
+/// palabras que se leen aparte.
+const _studiedText = 'Uno dos tres. Cuatro cinco seis.\nSiete ocho.';
+
 const _voice = NarrationVoice(name: 'es-ar-x-local', locale: 'es-AR');
 
 void main() {
@@ -464,6 +468,255 @@ void main() {
       tts.completeCurrent();
       await pumpEventQueue();
       expect(tts.spoken, hasLength(2));
+    });
+  });
+
+  group('leer una parte: todo, el resumen o las palabras clave (F39)', () {
+    List<ReadableSegment> within(String part, {String key = 'texto'}) {
+      final start = _studiedText.indexOf(part);
+      return buildReadableSegmentsWithin(
+        _studiedText,
+        start,
+        start + part.length,
+        sourceKey: key,
+      );
+    }
+
+    ReadableDocument studied({bool withText = true}) => ReadableDocument(
+      id: 'item:2',
+      title: 'Estudiado',
+      segments: withText
+          ? buildReadableSegments(_studiedText, sourceKey: 'texto')
+          : const [],
+      scopes: {
+        ReadScope.summary: [
+          ...within('Cuatro cinco seis.'),
+          ...within('Siete ocho.'),
+        ],
+        ReadScope.synthesis: const [],
+        ReadScope.keywords: [...within('cinco'), ...within('ocho')],
+      },
+    );
+
+    (int, int)? highlight() =>
+        container.read(readAloudHighlightProvider('texto'));
+
+    test('abrir sin decir la parte lee todo, como siempre', () async {
+      await controller().open(studied());
+
+      expect(state().scope, ReadScope.all);
+      expect(tts.spoken, ['Uno dos tres. Cuatro cinco seis.']);
+    });
+
+    test('las oraciones del resumen suenan una tras otra, en el orden del '
+        'texto, y cada una se resalta en su lugar del texto entero', () async {
+      await controller().open(studied(), scope: ReadScope.summary);
+
+      expect(state().scope, ReadScope.summary);
+      expect(tts.spoken, ['Cuatro cinco seis.']);
+      expect(highlight(), (
+        _studiedText.indexOf('Cuatro'),
+        _studiedText.indexOf('Cuatro') + 'Cuatro cinco seis.'.length,
+      ));
+
+      tts.completeCurrent();
+      await pumpEventQueue();
+      expect(tts.spoken, ['Cuatro cinco seis.', 'Siete ocho.']);
+      expect(highlight(), (_studiedText.indexOf('Siete'), _studiedText.length));
+
+      tts.completeCurrent();
+      await pumpEventQueue();
+      expect(state().playing, isFalse);
+      expect(tts.spoken, hasLength(2));
+    });
+
+    test('las palabras clave se leen una tras otra', () async {
+      await controller().open(studied(), scope: ReadScope.keywords);
+
+      expect(tts.spoken, ['cinco']);
+      tts.completeCurrent();
+      await pumpEventQueue();
+      expect(tts.spoken, ['cinco', 'ocho']);
+      expect(highlight(), (
+        _studiedText.indexOf('ocho'),
+        _studiedText.indexOf('ocho') + 4,
+      ));
+    });
+
+    test('sin texto propio —ya suena en su audio—, empieza por lo estudiado: '
+        'la primera parte que tenga algo', () async {
+      await controller().open(studied(withText: false));
+
+      expect(state().scope, ReadScope.summary);
+      expect(tts.spoken, ['Cuatro cinco seis.']);
+    });
+
+    test('una parte sin nada que leer no abre nada', () async {
+      await controller().open(studied(), scope: ReadScope.synthesis);
+
+      expect(state().document, isNull);
+      expect(tts.spoken, isEmpty);
+    });
+
+    test('elegir otra parte corta lo que suena y la lee desde el '
+        'principio', () async {
+      await controller().open(studied());
+      tts.emitProgress(4);
+      await pumpEventQueue();
+
+      await controller().setScope(ReadScope.keywords);
+
+      expect(state().scope, ReadScope.keywords);
+      expect(state().segmentIndex, 0);
+      expect(state().charInSegment, 0);
+      expect(state().playing, isTrue);
+      expect(tts.stopCount, 1);
+      expect(tts.spoken.last, 'cinco');
+      expect(state().document?.id, 'item:2');
+    });
+
+    test(
+      'elegir la parte que ya se lee, o una vacía, no cambia nada',
+      () async {
+        await controller().open(studied(), scope: ReadScope.summary);
+        final spoken = [...tts.spoken];
+
+        await controller().setScope(ReadScope.summary);
+        await controller().setScope(ReadScope.synthesis);
+
+        expect(state().scope, ReadScope.summary);
+        expect(tts.spoken, spoken);
+      },
+    );
+
+    test('elegir una parte en pausa la lee sonando', () async {
+      await controller().open(studied());
+      await controller().pause();
+
+      await controller().setScope(ReadScope.summary);
+
+      expect(state().playing, isTrue);
+      expect(tts.spoken.last, 'Cuatro cinco seis.');
+    });
+
+    test('sin documento, elegir una parte no hace nada', () async {
+      await controller().setScope(ReadScope.summary);
+
+      expect(state().document, isNull);
+      expect(tts.spoken, isEmpty);
+    });
+
+    test('el avance y los saltos cuentan solo lo de la parte', () async {
+      await controller().open(studied(), scope: ReadScope.keywords);
+      // "cinco" y "ocho": 9 caracteres en total.
+      expect(state().progress, 0);
+
+      tts.completeCurrent();
+      await pumpEventQueue();
+      expect(state().segmentIndex, 1);
+      expect(state().progress, closeTo(5 / 9, 1e-9));
+
+      await controller().skip(const Duration(seconds: 10));
+      expect(state().playing, isFalse);
+      expect(state().segmentIndex, 1);
+      expect(state().charInSegment, 4);
+    });
+
+    test('volver a abrir el mismo documento sigue donde iba; pidiendo otra '
+        'parte, la empieza', () async {
+      await controller().open(studied(), scope: ReadScope.summary);
+      tts.completeCurrent();
+      await pumpEventQueue();
+      expect(state().segmentIndex, 1);
+
+      await controller().open(studied());
+      expect(state().scope, ReadScope.summary);
+      expect(state().segmentIndex, 1);
+      expect(tts.spoken, ['Cuatro cinco seis.', 'Siete ocho.']);
+
+      await controller().open(studied(), scope: ReadScope.keywords);
+      expect(state().scope, ReadScope.keywords);
+      expect(state().segmentIndex, 0);
+      expect(tts.spoken.last, 'cinco');
+    });
+
+    test('si el documento vuelve con otro texto, los saltos cuentan el '
+        'nuevo', () async {
+      ReadableDocument version(List<String> pieces) => ReadableDocument(
+        id: 'item:9',
+        title: 'Cambiante',
+        segments: const [],
+        scopes: {
+          ReadScope.summary: [
+            for (final (i, piece) in pieces.indexed)
+              ReadableSegment(
+                sourceKey: 'texto',
+                start: i * 200,
+                end: i * 200 + piece.length,
+                spoken: piece,
+              ),
+          ],
+        },
+      );
+      final long = List.filled(10, 'palabra').join(' ');
+      await controller().open(version(['Corto']));
+
+      await controller().open(version([long, long, long]));
+      await controller().skip(const Duration(seconds: 10));
+
+      // Diez segundos son unos 140 caracteres: cae adentro de la segunda
+      // línea y sigue sonando, no queda terminado como con el texto viejo.
+      expect(state().playing, isTrue);
+      expect(state().segmentIndex, 1);
+    });
+
+    test('si el documento vuelve sin la parte que se leía, sigue con lo '
+        'que haya', () async {
+      await controller().open(studied(), scope: ReadScope.summary);
+
+      await controller().open(
+        ReadableDocument(
+          id: 'item:2',
+          title: 'Estudiado',
+          segments: buildReadableSegments(_studiedText, sourceKey: 'texto'),
+        ),
+      );
+
+      expect(state().scope, ReadScope.all);
+      expect(state().segmentIndex, 0);
+      expect(tts.spoken.last, 'Uno dos tres. Cuatro cinco seis.');
+    });
+
+    test('cerrar vuelve a leer todo la próxima vez', () async {
+      await controller().open(studied(), scope: ReadScope.keywords);
+      await controller().close();
+
+      expect(state().scope, ReadScope.all);
+    });
+
+    test('readAloudRunProvider dice si esa parte de ese documento suena, '
+        'está en pausa o no se lee', () async {
+      const summary = (documentId: 'item:2', scope: ReadScope.summary);
+      const keywords = (documentId: 'item:2', scope: ReadScope.keywords);
+      const other = (documentId: 'item:3', scope: ReadScope.summary);
+      ReadAloudRun run(({String documentId, ReadScope scope}) key) =>
+          container.read(readAloudRunProvider(key));
+
+      expect(run(summary), ReadAloudRun.none);
+
+      await controller().open(studied(), scope: ReadScope.summary);
+      expect(run(summary), ReadAloudRun.playing);
+      expect(run(keywords), ReadAloudRun.none);
+      expect(run(other), ReadAloudRun.none);
+
+      await controller().pause();
+      expect(run(summary), ReadAloudRun.paused);
+
+      controller().minimize();
+      expect(run(summary), ReadAloudRun.paused);
+
+      await controller().close();
+      expect(run(summary), ReadAloudRun.none);
     });
   });
 

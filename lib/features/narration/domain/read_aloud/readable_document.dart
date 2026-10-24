@@ -44,14 +44,41 @@ class ReadableSegment {
   String toString() => 'ReadableSegment($sourceKey, $start-$end, "$spoken")';
 }
 
+/// Qué parte de un texto se lee (F39): todo, o solo lo estudiado de él.
+///
+/// Cada una es una lista de pedazos con **sus posiciones en el texto
+/// entero** —ver [ReadableDocument.scopes]—: lo que suena se resalta en su
+/// lugar del texto, no en uno aparte.
+enum ReadScope {
+  /// Lo que se ve, de punta a punta.
+  all,
+
+  /// Las oraciones del resumen, en el orden del texto.
+  summary,
+
+  /// Las oraciones de la síntesis, en el orden del texto.
+  synthesis,
+
+  /// Las palabras clave, una tras otra, en el orden del texto.
+  keywords,
+}
+
 /// Lo que una pantalla ofrece para leer en voz alta (F25): su texto, ya
 /// partido en lo que se lee de una vez.
+///
+/// [segments] es lo que se lee con [ReadScope.all]. Un texto que se estudia
+/// ofrece además, en [scopes], lo que se lee con cada capa de lo estudiado:
+/// pedazos del mismo texto, con las mismas posiciones y el mismo
+/// [ReadableSegment.sourceKey], así que lo que suena cae en su lugar del
+/// texto entero. Una capa que se ofrece sin pedazos —todavía no hay
+/// resumen— se ve en el reproductor, apagada.
 @immutable
 class ReadableDocument {
   const ReadableDocument({
     required this.id,
     required this.title,
     required this.segments,
+    this.scopes = const {},
   });
 
   /// Qué es: lo mismo que se ofrece dos veces —la pantalla se reconstruyó—
@@ -61,17 +88,87 @@ class ReadableDocument {
   /// Lo que muestra el reproductor: el título del elemento, "Chat"...
   final String title;
 
+  /// Lo que se lee con [ReadScope.all].
   final List<ReadableSegment> segments;
 
-  bool get isEmpty => segments.isEmpty;
+  /// Lo que se lee con cada capa de lo estudiado; nunca trae
+  /// [ReadScope.all], que es [segments].
+  final Map<ReadScope, List<ReadableSegment>> scopes;
+
+  /// Los pedazos que se leen con [scope]; ninguno si no se ofrece.
+  List<ReadableSegment> segmentsOf(ReadScope scope) => scope == ReadScope.all
+      ? segments
+      : scopes[scope] ?? const <ReadableSegment>[];
+
+  /// Si hay algo que leer con [scope].
+  bool offers(ReadScope scope) => segmentsOf(scope).isNotEmpty;
+
+  /// Si ofrece elegir qué parte leer —un texto que se estudia—, haya o no
+  /// algo estudiado todavía.
+  bool get hasScopes => scopes.isNotEmpty;
+
+  /// Con qué parte empieza a leer quien no eligió: todo, y si no hay —el
+  /// texto está plegado, o ya suena en su propio audio—, la primera capa
+  /// estudiada que tenga algo.
+  ReadScope get defaultScope {
+    for (final scope in ReadScope.values) {
+      if (offers(scope)) return scope;
+    }
+    return ReadScope.all;
+  }
+
+  /// Sin [segments]: solo lo estudiado. Lo que se ofrece cuando el texto
+  /// entero ya suena por otro lado.
+  ReadableDocument withoutText() => ReadableDocument(
+    id: id,
+    title: title,
+    segments: const [],
+    scopes: scopes,
+  );
+
+  /// Con [scopes] en lugar de los que traía.
+  ReadableDocument withScopes(Map<ReadScope, List<ReadableSegment>> scopes) =>
+      ReadableDocument(
+        id: id,
+        title: title,
+        segments: segments,
+        scopes: scopes,
+      );
+
+  /// Si no hay nada que leer, con ninguna parte.
+  bool get isEmpty =>
+      ReadScope.values.every((scope) => segmentsOf(scope).isEmpty);
 
   @override
   bool operator ==(Object other) =>
       other is ReadableDocument &&
       other.id == id &&
       other.title == title &&
-      listEquals(other.segments, segments);
+      listEquals(other.segments, segments) &&
+      _sameScopes(other.scopes, scopes);
 
   @override
-  int get hashCode => Object.hash(id, title, Object.hashAll(segments));
+  int get hashCode => Object.hash(
+    id,
+    title,
+    Object.hashAll(segments),
+    Object.hashAll([
+      for (final scope
+          in scopes.keys.toList()..sort((a, b) => a.index - b.index))
+        Object.hash(scope, Object.hashAll(scopes[scope]!)),
+    ]),
+  );
+}
+
+bool _sameScopes(
+  Map<ReadScope, List<ReadableSegment>> a,
+  Map<ReadScope, List<ReadableSegment>> b,
+) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (final entry in a.entries) {
+    final other = b[entry.key];
+    if (other == null || !listEquals(entry.value, other)) return false;
+  }
+  return true;
 }

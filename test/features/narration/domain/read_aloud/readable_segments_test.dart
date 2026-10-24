@@ -218,6 +218,71 @@ void main() {
     });
   });
 
+  group('buildReadableSegmentsWithin (F39)', () {
+    const raw =
+        '# Título\n'
+        'Una frase que sigue. - Esto no es viñeta. 2. Ni número.\n'
+        '  - Esta sí es viñeta.\n'
+        '[0:05] Una línea hablada.';
+
+    List<ReadableSegment> within(
+      String part, {
+      bool markdown = true,
+      bool transcript = false,
+    }) {
+      final start = raw.indexOf(part);
+      return buildReadableSegmentsWithin(
+        raw,
+        start,
+        start + part.length,
+        sourceKey: 'k',
+        markdown: markdown,
+        transcript: transcript,
+      );
+    }
+
+    test('las posiciones son las del texto entero, no las del tramo', () {
+      final segments = within('Una frase que sigue.');
+
+      expect(_visible(raw, segments), ['Una frase que sigue.']);
+      expect(segments.single.start, raw.indexOf('Una frase'));
+      expect(segments.single.sourceKey, 'k');
+    });
+
+    test('un tramo que empieza una línea pierde su marca de formato', () {
+      expect(_spoken(within('# Título')), ['Título']);
+      expect(_spoken(within('- Esta sí es viñeta.')), ['Esta sí es viñeta.']);
+    });
+
+    test('un tramo que empieza a mitad de una línea conserva lo que parece '
+        'formato: no es un comienzo de línea', () {
+      expect(_spoken(within('- Esto no es viñeta.')), ['- Esto no es viñeta.']);
+      expect(_spoken(within('2. Ni número.')), ['2. Ni número.']);
+    });
+
+    test('la marca de tiempo solo se saca si el tramo abre la línea', () {
+      expect(_spoken(within('[0:05] Una línea hablada.', transcript: true)), [
+        'Una línea hablada.',
+      ]);
+      expect(_spoken(within('Una línea hablada.', transcript: true)), [
+        'Una línea hablada.',
+      ]);
+    });
+
+    test('un tramo sin nada que decir no da pedazos', () {
+      expect(
+        buildReadableSegmentsWithin(
+          'Hola.   ***   Chau.',
+          6,
+          13,
+          sourceKey: 'k',
+          markdown: true,
+        ),
+        isEmpty,
+      );
+    });
+  });
+
   group('documentFrom (F25)', () {
     test('junta varios textos en orden, cada pedazo con el suyo', () {
       final document = documentFrom('chat:1', 'Chat', [

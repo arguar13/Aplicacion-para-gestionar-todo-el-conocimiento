@@ -15,6 +15,7 @@ import 'package:sinapsis/features/export/domain/entities/marked_document_format.
 import 'package:sinapsis/features/export/domain/services/marked_document_writer.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/export/presentation/providers/marked_download_providers.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
@@ -28,6 +29,7 @@ import '../../../../support/fake_marked_document_writer.dart';
 import '../../../../support/fake_study_analysis.dart';
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/memory_study_repository.dart';
+import '../../../../support/read_aloud_test_support.dart';
 import '../../../../support/sample_files.dart';
 import '../../../../support/sample_knowledge_item.dart';
 
@@ -124,6 +126,7 @@ void main() {
   }) async {
     container = ProviderContainer(
       overrides: [
+        readAloudControllerProvider.overrideWith(FakeReadAloudController.new),
         studyRepositoryProvider.overrideWithValue(MemoryStudyRepository(study)),
         studyAnalysisProvider.overrideWith((ref, id) => FakeStudyAnalysis()),
         renditionHighlightsProvider.overrideWith(

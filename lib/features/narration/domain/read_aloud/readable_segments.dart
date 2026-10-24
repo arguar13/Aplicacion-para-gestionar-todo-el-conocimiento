@@ -88,19 +88,28 @@ typedef ReadablePart = ({
 /// la línea —que sí queda dentro del resaltado: es parte del renglón—; con
 /// [markdown], los símbolos de formato. Un pedazo sin nada que decir no se
 /// incluye.
+///
+/// Con [startsLine] en `false`, [raw] arranca a mitad de una línea —es un
+/// tramo de un texto más largo—: su primer pedazo no es un comienzo de línea,
+/// así que no pierde un `#` ni una viñeta que no son de formato, ni una marca
+/// de tiempo.
 List<ReadableSegment> buildReadableSegments(
   String raw, {
   required String sourceKey,
   bool transcript = false,
   bool markdown = false,
+  bool startsLine = true,
 }) {
   final segments = <ReadableSegment>[];
   var inCodeBlock = false;
   var lineStart = 0;
+  var continuesLine = !startsLine;
 
   while (lineStart <= raw.length) {
     var lineEnd = raw.indexOf('\n', lineStart);
     if (lineEnd < 0) lineEnd = raw.length;
+    final firstLine = continuesLine;
+    continuesLine = false;
 
     final line = raw.substring(lineStart, lineEnd);
     final start = lineStart + line.length - line.trimLeft().length;
@@ -116,7 +125,7 @@ List<ReadableSegment> buildReadableSegments(
     // `#` ahí son parte de lo que dice.
     final stripMarkdown = markdown && !inCodeBlock;
 
-    var firstOfLine = true;
+    var firstOfLine = !firstLine;
     for (final (pieceStart, pieceEnd) in _pieces(raw, start, end)) {
       final spoken = _spoken(
         raw.substring(pieceStart, pieceEnd),
@@ -137,6 +146,42 @@ List<ReadableSegment> buildReadableSegments(
     }
   }
   return segments;
+}
+
+/// Lo mismo que [buildReadableSegments] para el tramo `[from, to)` de [raw],
+/// con las posiciones de [raw] (F39): lo que se lee de una oración del
+/// resumen o de una palabra clave, que cae en su lugar del texto entero.
+///
+/// El tramo cuenta como comienzo de línea si antes de él, en su línea, solo
+/// hay espacios. No ve las cercas de código que quedan antes de [from]: una
+/// oración elegida adentro de un bloque de código se lee como texto.
+List<ReadableSegment> buildReadableSegmentsWithin(
+  String raw,
+  int from,
+  int to, {
+  required String sourceKey,
+  bool transcript = false,
+  bool markdown = false,
+}) {
+  var before = from - 1;
+  while (before >= 0 && raw[before] != '\n' && _isSpace(raw[before])) {
+    before--;
+  }
+  return [
+    for (final segment in buildReadableSegments(
+      raw.substring(from, to),
+      sourceKey: sourceKey,
+      transcript: transcript,
+      markdown: markdown,
+      startsLine: before < 0 || raw[before] == '\n',
+    ))
+      ReadableSegment(
+        sourceKey: segment.sourceKey,
+        start: segment.start + from,
+        end: segment.end + from,
+        spoken: segment.spoken,
+      ),
+  ];
 }
 
 /// Un documento hecho de varios textos en pantalla, uno detrás del otro: los
