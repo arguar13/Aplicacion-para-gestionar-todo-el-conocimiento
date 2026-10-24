@@ -623,6 +623,20 @@ elegiste en el texto extraído —una página escaneada, que no tiene letras, o
 un texto que se volvió a extraer y cambió—, la app te lo dice y no resalta
 nada. Un PDF que no deja copiar su texto no ofrece Copiar.
 
+**En la página web**, el teléfono muestra además su propia barra (Copiar,
+Compartir…) y no hay forma de ocultarla: las dos se ponen **una encima de la
+otra, sin taparse**. La de Sinapsis va debajo de lo seleccionado y, si ahí no
+entra, arriba de la del teléfono. Como trae todo —también Compartir,
+Seleccionar todo y Buscar en la Web, en Más opciones—, con la de Sinapsis
+alcanza.
+
+En la página web, lo estudiado se pinta **mientras la mirás**: elegir a mano
+una oración o una palabra, o prender el resumen, no vuelve a cargar la página
+ni la mueve de donde estabas. Eligiendo a mano, **cualquier palabra** de la
+página se puede tocar, esté o no en una oración resaltada. Una oración que en
+la página tiene una nota al pie en el medio se pinta igual, salteando la nota.
+Tocar el menú, una etiqueta o algo que no es del artículo no elige nada.
+
 ---
 
 ## Ver los archivos originales

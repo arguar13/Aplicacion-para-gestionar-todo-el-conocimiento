@@ -6,14 +6,10 @@ import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/util/word_folding.dart';
-import 'package:sinapsis/features/study/domain/services/study_words.dart';
+import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/transform/domain/archive/page_images.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_alignment.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_fidelity.dart';
-
-/// Una oración marcada para estudiar (F36): su tramo del texto extraído y si
-/// es del resumen o de la síntesis.
-typedef ArchivedPageSentence = ({int start, int end, StudyMarkKind kind});
 
 /// Los colores de resaltador, como `0xAARRGGBB`.
 typedef ArchivedPageColors = ({int summary, int synthesis, int keyword});
@@ -21,26 +17,21 @@ typedef ArchivedPageColors = ({int summary, int synthesis, int keyword});
 /// El canal por el que la página avisa qué palabra se tocó.
 const archivedPageChannel = 'SinapsisStudy';
 
-/// Lo estudiado del texto extraído de una página web, para mostrarlo sobre
-/// ella (F36): el texto, sus oraciones marcadas y los colores.
-typedef ArchivedPageStudy = ({
-  String content,
-  List<ArchivedPageSentence> sentences,
-  ArchivedPageColors colors,
-});
+/// El texto extraído de una página web, para estudiar y resaltar sobre ella
+/// (F36, F38), y los colores de lo estudiado.
+typedef ArchivedPageStudy = ({String content, ArchivedPageColors colors});
 
 /// La copia de la página web archivada [html] que se muestra: con sus fotos
-/// listas —ver `showArchivedImages`— y, con [study], lo estudiado listo para
-/// verse (decisión E).
+/// listas —ver `showArchivedImages`— y, con [study], lista para estudiar sobre
+/// ella (decisión E).
 ///
-/// Cada oración se ubica en la página comparando solo letras y números, sin
-/// mayúsculas ni acentos: el texto extraído es el artículo en Markdown y la
-/// página tiene además su menú, sus etiquetas y sus espacios. Una oración que
-/// no está en la página se saltea. Lo encontrado se envuelve en `<mark>` con
-/// la clase de su oración y, cada palabra, con su posición en el texto
-/// (`data-o`): desde la app se prende el resumen o la síntesis y se marcan las
-/// palabras clave cambiando clases, sin volver a cargar la página (ver
-/// [archivedPageStateScript]), y tocar una palabra devuelve su posición.
+/// La copia no lleva nada estudiado adentro (F39): lleva el programa de la
+/// app, que lo pinta mientras la página está abierta —ver
+/// [archivedPageStudyScript]—, así que elegir a mano una oración o una palabra
+/// no vuelve a cargar la página ni la mueve de lugar, y la página queda como
+/// el original, sin un `<mark>` por palabra. Dónde va cada cosa lo dice cómo
+/// se corresponde el texto de la página con el extraído (ver
+/// [ArchivedPageAlignment]), que se cuenta acá.
 ///
 /// Con [study], la página se ve como hasta ahora, que se mostraba con
 /// JavaScript apagado: se le sacan sus programas —`<script>`, los atributos
@@ -65,11 +56,7 @@ String showableArchivedPage(String html, {ArchivedPageStudy? study}) =>
   if (study != null) {
     _neutralize(document);
     final body = document.body;
-    if (body != null) {
-      final marker = _PageMarker(body, study.content);
-      alignment = marker.alignment();
-      marker.mark(study.sentences);
-    }
+    if (body != null) alignment = _PageCounter(body, study.content).alignment();
     _inject(document, study.colors);
   }
   return (html: document.outerHtml, alignment: alignment);
@@ -80,11 +67,7 @@ String showableArchivedPage(String html, {ArchivedPageStudy? study}) =>
 ArchivedPageAlignment? alignArchivedPage(String html, String content) =>
     showArchivedPage(
       html,
-      study: (
-        content: content,
-        sentences: const [],
-        colors: (summary: 0, synthesis: 0, keyword: 0),
-      ),
+      study: (content: content, colors: (summary: 0, synthesis: 0, keyword: 0)),
     ).alignment;
 
 /// El canal por el que la página avisa lo que la persona selecciona en ella y
@@ -192,23 +175,56 @@ ArchivedPageEvent? parseArchivedPageEvent(String message) {
 
 /// Lo que se le pide a la página para mostrar lo que se eligió: si se ven
 /// el resumen ([summary]), la síntesis ([synthesis]) —juntos, la síntesis
-/// encima (F39)— y las palabras clave [keywords] —las que empiezan en
-/// [keywordOffsets]—, y si tocar una palabra la elige ([picking]).
+/// encima (F39)— y las palabras clave ([keywords]), y si tocar la página
+/// elige ([picking]). Solo cambia clases: lo pintado ya está (ver
+/// [archivedPageStudyScript]).
 String archivedPageStateScript({
   required bool summary,
   required bool synthesis,
   required bool keywords,
   required bool picking,
-  required Iterable<int> keywordOffsets,
 }) {
   final state = jsonEncode({
     'summary': summary,
     'synthesis': synthesis,
     'keywords': keywords,
     'picking': picking,
-    'kw': keywordOffsets.toList(),
   });
   return 'window.sinapsis && window.sinapsis.set($state);';
+}
+
+/// Lo que se le pide a la página para pintar lo estudiado [marks] (F39): de
+/// cada oración del resumen y de la síntesis y de cada palabra clave, sus
+/// tramos en el texto corrido de la página —ver
+/// [ArchivedPageAlignment.pageRangesOf]—. Se pinta todo, y lo que se ve lo
+/// deciden las clases de [archivedPageStateScript]: prender o apagar no
+/// vuelve a pintar nada.
+///
+/// Una oración se ubica letra a letra, así que la que en la página tiene una
+/// nota al pie en el medio se pinta igual, en dos tramos; lo que la página no
+/// tiene no se pinta. Reemplaza lo pintado antes.
+String archivedPageStudyScript(
+  ArchivedPageAlignment alignment,
+  Iterable<StudyMark> marks,
+) {
+  final layers = {
+    for (final kind in StudyMarkKind.values) kind.name: <List<int>>[],
+  };
+  for (final mark in marks) {
+    for (final range in alignment.pageRangesOf(mark.start, mark.end)) {
+      layers[mark.kind.name]!.add([range.start, range.end]);
+    }
+  }
+  return 'window.sinapsis && window.sinapsis.study(${jsonEncode(layers)});';
+}
+
+/// La posición en el texto extraído de lo que se tocó en la página (F39):
+/// [message] es la posición en el texto corrido de la página que manda su
+/// programa por [archivedPageChannel]. `null` si no se entiende o si lo
+/// tocado no es del artículo —el menú, una etiqueta—.
+int? archivedPageTappedOffset(ArchivedPageAlignment alignment, String message) {
+  final position = int.tryParse(message);
+  return position == null ? null : alignment.contentOffsetAt(position);
 }
 
 /// Lo que no se recorre buscando texto: no es texto que se lea, o no admite
@@ -230,8 +246,10 @@ const _opaque = {
 /// Una imagen entera tampoco —su texto alternativo es un atributo—.
 final _markdownUrls = RegExp(r'!\[[^\]]*\]\([^)]*\)|\]\([^)]*\)');
 
-class _PageMarker {
-  _PageMarker(Element body, this.content) {
+/// Cuenta los textos de la página y los del extraído, letra a letra, para ver
+/// cómo se corresponden: ver [alignment].
+class _PageCounter {
+  _PageCounter(Element body, this.content) {
     _collect(body);
     _buildPage();
     _buildContent();
@@ -255,11 +273,6 @@ class _PageMarker {
   /// Lo mismo del texto extraído: cada letra y su posición en [content].
   late final String _content;
   final _contentAt = <int>[];
-
-  /// Por texto de la página, de cada letra: de qué oraciones es (1 resumen,
-  /// 2 síntesis) y de qué palabra (su posición en [content], o -1).
-  final _kinds = <int, List<int>>{};
-  final _words = <int, List<int>>{};
 
   void _collect(Node node) {
     for (final child in node.nodes) {
@@ -328,8 +341,7 @@ class _PageMarker {
   static const _skip = 4;
 
   /// Cómo se corresponde letra a letra el texto de la página con el extraído
-  /// (F38): ver [ArchivedPageAlignment]. Va antes de [mark], que parte los
-  /// textos en pedazos.
+  /// (F38): ver [ArchivedPageAlignment].
   ///
   /// Se buscan en la página los renglones del extraído, en orden, cada uno
   /// desde donde terminó el anterior. Uno que no está entero —tiene una nota
@@ -467,45 +479,6 @@ class _PageMarker {
     );
   }
 
-  void mark(List<ArchivedPageSentence> sentences) {
-    // Una oración que es del resumen y de la síntesis se ubica una vez.
-    final bits = <(int, int), int>{};
-    for (final s in sentences) {
-      final bit = s.kind == StudyMarkKind.synthesis ? 2 : 1;
-      bits.update((s.start, s.end), (b) => b | bit, ifAbsent: () => bit);
-    }
-    final ordered = bits.keys.toList()..sort((a, b) => a.$1.compareTo(b.$1));
-    var cursor = 0;
-    for (final range in ordered) {
-      final sentence = (start: range.$1, end: range.$2);
-      final from = _lowerBound(sentence.start);
-      final to = _lowerBound(sentence.end);
-      if (to <= from) continue;
-      final needle = _content.substring(from, to);
-      var at = _page.indexOf(needle, cursor);
-      if (at < 0) at = _page.indexOf(needle);
-      if (at < 0) continue;
-      cursor = at + needle.length;
-
-      final bit = bits[range]!;
-      _fill(
-        at,
-        at + needle.length,
-        (n, i) => _kindsOf(n)[i] |= bit,
-        withClosing: true,
-      );
-      for (final word in studyWordsIn(content, sentence.start, sentence.end)) {
-        final first = _lowerBound(word.start) - from + at;
-        final last = _lowerBound(word.end) - from + at;
-        if (last <= first) continue;
-        _fill(first, last, (n, i) => _wordsOf(n)[i] = word.start);
-      }
-    }
-    for (final n in {..._kinds.keys, ..._words.keys}) {
-      _rebuild(n);
-    }
-  }
-
   /// La primera letra del texto extraído que está en [offset] o después.
   int _lowerBound(int offset) {
     var low = 0;
@@ -520,96 +493,7 @@ class _PageMarker {
     }
     return low;
   }
-
-  /// Recorre los lugares de la página de la letra [first] hasta antes de
-  /// [last], con lo que hay entre medio —espacios, signos—. Con
-  /// [withClosing], también los signos que cierran la oración pegados a su
-  /// última letra: el punto, las comillas.
-  void _fill(
-    int first,
-    int last,
-    void Function(int node, int offset) visit, {
-    bool withClosing = false,
-  }) {
-    final startNode = _pageNode[first];
-    final endNode = _pageNode[last - 1];
-    var endOffset = _pageOffset[last - 1] + 1;
-    if (withClosing) {
-      final data = _texts[endNode].data;
-      while (endOffset < data.length &&
-          !_isSpace(data.codeUnitAt(endOffset)) &&
-          foldWordChar(data.codeUnitAt(endOffset)) == null) {
-        endOffset++;
-      }
-    }
-    for (var n = startNode; n <= endNode; n++) {
-      final from = n == startNode ? _pageOffset[first] : 0;
-      final to = n == endNode ? endOffset : _texts[n].data.length;
-      for (var i = from; i < to; i++) {
-        visit(n, i);
-      }
-    }
-  }
-
-  List<int> _kindsOf(int n) =>
-      _kinds[n] ??= List<int>.filled(_texts[n].data.length, 0);
-
-  List<int> _wordsOf(int n) =>
-      _words[n] ??= List<int>.filled(_texts[n].data.length, -1);
-
-  /// Cambia el texto [n] por sus tramos, cada uno con lo que lleva. Un texto
-  /// de solo espacios queda como está: entre las filas de una tabla o los
-  /// ítems de una lista, un `<mark>` movería cosas de lugar.
-  void _rebuild(int n) {
-    final text = _texts[n];
-    final parent = text.parentNode;
-    final data = text.data;
-    if (parent == null || data.trim().isEmpty) return;
-    final kinds = _kinds[n];
-    final words = _words[n];
-    int kindAt(int i) => kinds?[i] ?? 0;
-    int wordAt(int i) => words?[i] ?? -1;
-
-    final pieces = <Node>[];
-    var start = 0;
-    while (start < data.length) {
-      final kind = kindAt(start);
-      final word = wordAt(start);
-      var end = start + 1;
-      while (end < data.length && kindAt(end) == kind && wordAt(end) == word) {
-        end++;
-      }
-      final piece = data.substring(start, end);
-      if (kind == 0) {
-        pieces.add(Text(piece));
-      } else {
-        pieces.add(_markOf(piece, kind, word));
-      }
-      start = end;
-    }
-
-    final index = parent.nodes.indexOf(text);
-    text.remove();
-    parent.nodes.insertAll(index, pieces);
-  }
-
-  Element _markOf(String piece, int kind, int word) {
-    final classes = [
-      'sn-m',
-      if (kind & 1 != 0) 'sn-summary',
-      if (kind & 2 != 0) 'sn-synthesis',
-      if (word >= 0) 'sn-w',
-    ];
-    final mark = Element.tag('mark')
-      ..attributes['class'] = classes.join(' ')
-      ..append(Text(piece));
-    if (word >= 0) mark.attributes['data-o'] = '$word';
-    return mark;
-  }
 }
-
-bool _isSpace(int unit) =>
-    unit == 0x20 || (unit >= 0x09 && unit <= 0x0D) || unit == 0xA0;
 
 void _neutralize(Document document) {
   for (final script in document.querySelectorAll('script')) {
@@ -669,28 +553,26 @@ String _css(ArchivedPageColors colors) {
         '$weight}';
   }
 
-  // Las palabras clave, todas, estén o no en una oración resaltada (F39).
-  const keywords = 'html.sn-kw mark.sn-k';
   return [
     // Sin nada de lo que la página le ponga a `mark` —margen, borde, peso,
     // `display`—: envolver una palabra no puede mover ni una letra (F39).
     'mark.sn-m{all:unset}',
-    // La síntesis después: con las dos prendidas, va encima del resumen.
+    // Lo de adentro se ve encima (ver `repaint` en el programa): la síntesis
+    // sobre el resumen, los resaltados a mano (F38) sobre las dos, y una
+    // palabra clave que se ve sobre todo. Un subrayado es una línea debajo de
+    // las letras: no tapa nada.
     'html.sn-l-summary mark.sn-summary${paint(colors.summary)}',
     'html.sn-l-synthesis mark.sn-synthesis${paint(colors.synthesis)}',
-    '$keywords${paint(colors.keyword, bold: true)}',
-    'html.sn-pick mark.sn-w{cursor:pointer}',
-    // Los resaltados a mano (F38) van adentro del texto, así que encima de
-    // las oraciones; una palabra clave que se ve los tapa. Subrayados no: una
-    // línea debajo de las letras no tapa nada.
     '.sn-hf{color:#000!important}',
-    '$keywords .sn-hf{background:transparent!important}',
+    // Las palabras clave, todas, estén o no en una oración resaltada (F39).
+    'html.sn-kw mark.sn-k${paint(colors.keyword, bold: true)}',
   ].join('\n');
 }
 
-/// El programa de la app en la página: cambia las clases que prenden cada
-/// color y, eligiendo palabras clave, avisa la posición de la palabra tocada.
-const _script = '''
+/// El programa de la app en la página: pinta lo estudiado y los resaltados de
+/// la persona, cambia las clases que prenden cada color, avisa lo que se
+/// selecciona y, eligiendo a mano, la posición de lo que se toca.
+const _script = r'''
 (function () {
   var root = document.documentElement;
   var picking = false;
@@ -758,21 +640,33 @@ const _script = '''
     reportTimer = setTimeout(report, 180);
   });
 
-  // Los resaltados de la persona: un <span> por tramo, adentro del texto.
+  // Lo que pinta la app, adentro del texto: las oraciones del resumen y de la
+  // síntesis, los resaltados de la persona y las palabras clave. Todo lleva
+  // sn-p, para sacarlo y volver a pintar.
+  var study = {summary: [], synthesis: [], keyword: []};
+  var hand = [];
+
   function unwrap() {
-    var spans = document.querySelectorAll('span.sn-h');
-    for (var i = spans.length - 1; i >= 0; i--) {
-      var span = spans[i];
-      var parent = span.parentNode;
+    var painted = document.querySelectorAll('.sn-p');
+    for (var i = painted.length - 1; i >= 0; i--) {
+      var element = painted[i];
+      var parent = element.parentNode;
       if (!parent) continue;
-      while (span.firstChild) parent.insertBefore(span.firstChild, span);
-      parent.removeChild(span);
+      while (element.firstChild) parent.insertBefore(element.firstChild, element);
+      parent.removeChild(element);
     }
     document.body.normalize();
   }
+  function markOf(kind) {
+    return function () {
+      var mark = document.createElement('mark');
+      mark.className = 'sn-p sn-m sn-' + kind;
+      return mark;
+    };
+  }
   function spanOf(item) {
     var span = document.createElement('span');
-    span.className = 'sn-h ' + (item.underline ? 'sn-hu' : 'sn-hf');
+    span.className = 'sn-p sn-h ' + (item.underline ? 'sn-hu' : 'sn-hf');
     span.setAttribute('data-h', item.id);
     if (item.underline) {
       span.style.cssText = 'text-decoration:underline;text-decoration-color:' +
@@ -782,7 +676,7 @@ const _script = '''
     }
     return span;
   }
-  function wrapText(node, parts, items) {
+  function wrapText(node, parts, make) {
     var data = node.data;
     var cuts = [0, data.length];
     parts.forEach(function (part) { cuts.push(part.from, part.to); });
@@ -799,50 +693,107 @@ const _script = '''
       var top = document.createTextNode(data.substring(from, to));
       // El último de la lista, el de arriba, queda pegado al texto.
       for (var c = covering.length - 1; c >= 0; c--) {
-        var span = spanOf(items[covering[c]]);
-        span.appendChild(top);
-        top = span;
+        var element = make(covering[c]);
+        element.appendChild(top);
+        top = element;
       }
       fragment.appendChild(top);
     }
     node.parentNode.replaceChild(fragment, node);
   }
+  // Envuelve con make(k) cada tramo [a, b) del texto corrido de la página de
+  // [ranges], cada uno con su k.
+  function paint(ranges, make) {
+    if (!ranges.length) return;
+    var texts = textNodes();
+    var starts = [];
+    var total = 0;
+    for (var i = 0; i < texts.length; i++) {
+      starts.push(total);
+      total += texts[i].data.length;
+    }
+    var perNode = {};
+    ranges.forEach(function (item) {
+      var range = item.range;
+      var low = 0;
+      var high = texts.length;
+      while (low < high) {
+        var mid = (low + high) >> 1;
+        if (starts[mid] + texts[mid].data.length <= range[0]) low = mid + 1;
+        else high = mid;
+      }
+      for (var n = low; n < texts.length && starts[n] < range[1]; n++) {
+        var from = Math.max(range[0], starts[n]) - starts[n];
+        var to = Math.min(range[1], starts[n] + texts[n].data.length) - starts[n];
+        // Un texto de solo espacios queda como está: entre las filas de una
+        // tabla o los ítems de una lista, envolverlo movería cosas.
+        if (to > from && /\S/.test(texts[n].data)) {
+          (perNode[n] = perNode[n] || []).push({from: from, to: to, k: item.k});
+        }
+      }
+    });
+    Object.keys(perNode).forEach(function (n) {
+      wrapText(texts[n], perNode[n], make);
+    });
+  }
+  function each(ranges) {
+    return ranges.map(function (range) { return {range: range, k: 0}; });
+  }
+  // De afuera hacia adentro, y lo de adentro se ve encima: el resumen, la
+  // síntesis, los resaltados de la persona —el último de la lista, arriba—
+  // y las palabras clave.
+  function repaint() {
+    unwrap();
+    paint(each(study.summary), markOf('summary'));
+    paint(each(study.synthesis), markOf('synthesis'));
+    var marked = [];
+    hand.forEach(function (item, k) {
+      item.ranges.forEach(function (range) { marked.push({range: range, k: k}); });
+    });
+    paint(marked, function (k) { return spanOf(hand[k]); });
+    paint(each(study.keyword), markOf('k'));
+  }
+
+  // Dónde cae el cursor en (x, y): el texto y el lugar en él.
+  function caretAt(x, y) {
+    if (document.caretRangeFromPoint) {
+      var range = document.caretRangeFromPoint(x, y);
+      if (range && range.startContainer.nodeType === 3) {
+        return {node: range.startContainer, offset: range.startOffset};
+      }
+    } else if (document.caretPositionFromPoint) {
+      var caret = document.caretPositionFromPoint(x, y);
+      if (caret && caret.offsetNode.nodeType === 3) {
+        return {node: caret.offsetNode, offset: caret.offset};
+      }
+    }
+    return null;
+  }
 
   window.sinapsis = {
     marks: function (items) {
-      unwrap();
-      if (!items || !items.length) return;
-      var texts = textNodes();
-      var starts = [];
-      var total = 0;
-      for (var i = 0; i < texts.length; i++) {
-        starts.push(total);
-        total += texts[i].data.length;
-      }
-      var perNode = {};
-      items.forEach(function (item, k) {
-        item.ranges.forEach(function (range) {
-          var low = 0;
-          var high = texts.length;
-          while (low < high) {
-            var mid = (low + high) >> 1;
-            if (starts[mid] + texts[mid].data.length <= range[0]) low = mid + 1;
-            else high = mid;
-          }
-          for (var n = low; n < texts.length && starts[n] < range[1]; n++) {
-            var from = Math.max(range[0], starts[n]) - starts[n];
-            var to = Math.min(range[1], starts[n] + texts[n].data.length) - starts[n];
-            if (to > from) (perNode[n] = perNode[n] || []).push({from: from, to: to, k: k});
-          }
-        });
-      });
-      Object.keys(perNode).forEach(function (n) {
-        wrapText(texts[n], perNode[n], items);
-      });
+      hand = items || [];
+      repaint();
+    },
+    study: function (layers) {
+      study = {
+        summary: layers.summary || [],
+        synthesis: layers.synthesis || [],
+        keyword: layers.keyword || []
+      };
+      repaint();
     },
     clearSelection: function () {
       var selection = window.getSelection();
       if (selection) selection.removeAllRanges();
+    },
+    selectAll: function () {
+      var selection = window.getSelection();
+      if (!selection) return;
+      var range = document.createRange();
+      range.selectNodeContents(document.body);
+      selection.removeAllRanges();
+      selection.addRange(range);
     },
     set: function (state) {
       root.classList.toggle('sn-l-summary', !!state.summary);
@@ -850,25 +801,19 @@ const _script = '''
       root.classList.toggle('sn-kw', !!state.keywords);
       root.classList.toggle('sn-pick', !!state.picking);
       picking = !!state.picking;
-      var chosen = {};
-      (state.kw || []).forEach(function (o) { chosen[String(o)] = true; });
-      var words = document.querySelectorAll('mark.sn-w');
-      for (var i = 0; i < words.length; i++) {
-        var word = words[i];
-        word.classList.toggle('sn-k', chosen[word.getAttribute('data-o')] === true);
-      }
     }
   };
+  // Eligiendo a mano, cualquier palabra se toca (F39): se avisa la posición
+  // del cursor en el texto corrido de la página, y la app la ubica en el
+  // texto extraído. Un enlace no se sigue.
   document.addEventListener('click', function (event) {
     if (!picking) return;
-    var node = event.target;
-    while (node && node.nodeType === 1 && !node.classList.contains('sn-w')) {
-      node = node.parentNode;
-    }
-    if (!node || node.nodeType !== 1) return;
+    var caret = caretAt(event.clientX, event.clientY);
+    if (!caret) return;
     event.preventDefault();
     event.stopPropagation();
-    if (window.SinapsisStudy) window.SinapsisStudy.postMessage(node.getAttribute('data-o'));
+    var at = position(textNodes(), caret.node, caret.offset);
+    if (window.SinapsisStudy) window.SinapsisStudy.postMessage(String(at));
   }, true);
   // Tocar un resaltado de la persona avisa cuál, salvo que se esté
   // seleccionando o sea un enlace.

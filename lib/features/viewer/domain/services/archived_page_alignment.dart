@@ -132,6 +132,20 @@ class ArchivedPageAlignment {
     return (start: rangeStart, end: rangeEnd);
   }
 
+  /// La posición en el texto extraído de la letra que está en [position] del
+  /// texto corrido de la página (F39) —o, si ahí no hay una, de la que
+  /// termina justo antes: tocar la mitad derecha de la última letra de una
+  /// palabra deja el cursor después de ella—, o `null` si no es del artículo.
+  int? contentOffsetAt(int position) {
+    var j = _lowerBound(letterPosition, position);
+    if (j >= letterPosition.length || letterPosition[j] != position) {
+      j--;
+      if (j < 0 || letterPosition[j] != position - 1) return null;
+    }
+    final letter = pageToContent[j];
+    return letter < 0 ? null : contentPosition[letter];
+  }
+
   /// Los tramos del texto corrido de la página que son `[start, end)` del
   /// texto extraído: uno por cada pedazo seguido, que se corta donde el
   /// extraído tiene algo que la página no. Ninguno si nada de eso está en la

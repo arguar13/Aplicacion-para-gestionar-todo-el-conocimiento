@@ -29,6 +29,7 @@ void main() {
     VoidCallback? onCreateFlashcard,
     List<HighlightToolbarAction> moreActions = const [],
     Size size = const Size(400, 800),
+    double systemToolbarExtent = 0,
   }) async {
     await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -43,6 +44,7 @@ void main() {
             underlineColor: underlineColor,
             onHighlight: onHighlight ?? (_) {},
             onUnderline: onUnderline ?? (_) {},
+            systemToolbarExtent: systemToolbarExtent,
             onCopy: onCopy,
             onReadAloud: onReadAloud,
             onNote: onNote,
@@ -283,5 +285,49 @@ void main() {
 
     final bar = tester.getRect(find.byKey(const Key('highlight-toolbar-card')));
     expect(bar.top, greaterThanOrEqualTo(50));
+  });
+
+  group('con una barra del sistema que no se puede ocultar —la de una página '
+      'web— (F39)', () {
+    const system = HighlightToolbar.androidSystemToolbarExtent;
+    Rect bar(WidgetTester tester) =>
+        tester.getRect(find.byKey(const Key('highlight-toolbar-card')));
+
+    testWidgets('con lugar arriba, el sistema pone la suya encima: esta va '
+        'debajo de la selección', (tester) async {
+      await pump(tester, onCopy: () {}, systemToolbarExtent: system);
+
+      expect(bar(tester).top, greaterThanOrEqualTo(420));
+    });
+
+    testWidgets('si debajo no entra, va encima de la del sistema, sin '
+        'taparla', (tester) async {
+      await pump(
+        tester,
+        onCopy: () {},
+        systemToolbarExtent: system,
+        anchors: const TextSelectionToolbarAnchors(
+          primaryAnchor: Offset(200, 700),
+          secondaryAnchor: Offset(200, 720),
+        ),
+      );
+
+      expect(bar(tester).bottom, lessThanOrEqualTo(700 - system));
+    });
+
+    testWidgets('sin lugar arriba, el sistema pone la suya debajo: esta va '
+        'debajo de la del sistema', (tester) async {
+      await pump(
+        tester,
+        onCopy: () {},
+        systemToolbarExtent: system,
+        anchors: const TextSelectionToolbarAnchors(
+          primaryAnchor: Offset(200, 40),
+          secondaryAnchor: Offset(200, 60),
+        ),
+      );
+
+      expect(bar(tester).top, greaterThanOrEqualTo(60 + system));
+    });
   });
 }

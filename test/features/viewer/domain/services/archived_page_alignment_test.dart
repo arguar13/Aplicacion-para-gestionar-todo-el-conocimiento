@@ -7,7 +7,6 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html_parser;
-import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_alignment.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_study.dart';
 
@@ -356,7 +355,7 @@ void main() {
       return out.toString();
     }
 
-    test('con oraciones y palabras marcadas', () {
+    test('la copia para estudiar no lleva nada marcado adentro (F39)', () {
       const content = 'La **revolución** industrial cambió todo. Después, más.';
       final shown = showArchivedPage(
         '<html><head><title>Un título</title></head><body>'
@@ -366,10 +365,6 @@ void main() {
         '<p>Después, <i>más</i>.</p></body></html>',
         study: (
           content: content,
-          sentences: [
-            (start: 0, end: 41, kind: StudyMarkKind.summary),
-            (start: 42, end: content.length, kind: StudyMarkKind.synthesis),
-          ],
           colors: (
             summary: 0xFF00FF00,
             synthesis: 0xFF0000FF,
@@ -378,7 +373,7 @@ void main() {
         ),
       );
 
-      expect(shown.html, contains('class="sn-m'));
+      expect(shown.html, isNot(contains('<mark')));
       final after = pageTextOf(html_parser.parse(shown.html));
       expect(after, shown.alignment!.pageText);
       expect(after, contains('Sin programas'));
@@ -484,13 +479,11 @@ void main() {
     });
 
     test('la página que se muestra lleva el programa y el estilo de los '
-        'resaltados: el de fondo cede ante una palabra clave y el subrayado '
-        'no', () {
+        'resaltados: lo de adentro, encima', () {
       final shown = showableArchivedPage(
         '<html><head></head><body><p>Hola mundo largo.</p></body></html>',
         study: (
           content: 'Hola mundo largo.',
-          sentences: const [],
           colors: (
             summary: 0xFF00FF00,
             synthesis: 0xFF0000FF,
@@ -502,7 +495,6 @@ void main() {
 
       final css = document.getElementById('sinapsis-study')!.text;
       expect(css, contains('.sn-hf{color:#000!important}'));
-      expect(css, contains('mark.sn-k .sn-hf'));
       // Las palabras clave, todas, estén o no en una oración resaltada; y
       // con el resumen y la síntesis prendidos, la síntesis encima (F39).
       expect(css, contains('html.sn-kw mark.sn-k{background:#ff0000'));
@@ -514,6 +506,18 @@ void main() {
       expect(css, isNot(contains('.sn-hu{background')));
       final script = document.getElementById('sinapsis-study-script')!.text;
       expect(script, contains('marks: function (items)'));
+      // De afuera hacia adentro: el resumen, la síntesis, los de la persona
+      // y las palabras clave, que se ven encima de todo (F39).
+      final order = [
+        "markOf('summary')",
+        "markOf('synthesis')",
+        'spanOf(hand[k])',
+        "markOf('k')",
+      ].map(script.indexOf).toList();
+      expect(order, everyElement(greaterThan(0)));
+      expect([...order]..sort(), order);
+      expect(script, contains('document.caretRangeFromPoint(x, y)'));
+      expect(script, contains('document.caretPositionFromPoint(x, y)'));
       expect(script, contains("t: 'tap'"));
       expect(script, contains('SinapsisMarks'));
       expect(archivedPageMarksChannel, 'SinapsisMarks');

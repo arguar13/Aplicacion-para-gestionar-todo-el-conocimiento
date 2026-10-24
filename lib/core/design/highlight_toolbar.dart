@@ -22,6 +22,12 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///    un `SelectableText` son los `contextMenuAnchors` de su
 ///    `EditableTextState`; con una selección sobre un PDF, los bordes del
 ///    rectángulo que ocupa.
+///  * [systemToolbarExtent]: lo que ocupa, encima o debajo de la selección,
+///    una barra del sistema que no se puede ocultar —la del `WebView`, en una
+///    página web (F39)—; `0`, ninguna. Con una, la barrita se para del lado
+///    donde no está: el sistema pone la suya encima si entra y, si no,
+///    debajo; esta va debajo de la selección o, si ahí no entra, encima de
+///    la del sistema. Nunca una sobre la otra.
 ///  * [underlineColor]: el color de la línea de «Subrayar» —el último que se
 ///    eligió, o el primero—. Lo guarda quien la usa; ver
 ///    `lastHighlightColorProvider`.
@@ -45,6 +51,7 @@ class HighlightToolbar extends StatelessWidget {
     required this.underlineColor,
     required this.onHighlight,
     required this.onUnderline,
+    this.systemToolbarExtent = 0,
     this.onCopy,
     this.onReadAloud,
     this.onNote,
@@ -58,6 +65,7 @@ class HighlightToolbar extends StatelessWidget {
   final HighlightColor underlineColor;
   final ValueChanged<HighlightColor> onHighlight;
   final ValueChanged<HighlightColor> onUnderline;
+  final double systemToolbarExtent;
   final VoidCallback? onCopy;
   final VoidCallback? onReadAloud;
   final VoidCallback? onNote;
@@ -74,6 +82,10 @@ class HighlightToolbar extends StatelessWidget {
   /// selección.
   static const _height = 160.0;
 
+  /// Lo que ocupa la barra flotante de Android sobre lo seleccionado en un
+  /// `WebView`: 48 de alto y el aire con la selección y con lo de al lado.
+  static const androidSystemToolbarExtent = 64.0;
+
   /// El aire con el borde de la pantalla, y con la selección.
   static const _screenPadding = 8.0;
   static const _distanceAbove = 8.0;
@@ -81,18 +93,45 @@ class HighlightToolbar extends StatelessWidget {
       TextSelectionToolbar.kToolbarContentDistanceBelow;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    // Lo que entra debajo se mide en el lugar que le dan, no en la pantalla:
+    // sobre una página web, el lugar empieza debajo de la barra de arriba.
+    builder: (context, constraints) => _build(
+      context,
+      constraints.hasBoundedHeight
+          ? constraints.maxHeight
+          : MediaQuery.sizeOf(context).height,
+    ),
+  );
+
+  Widget _build(BuildContext context, double height) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     // Lo mismo que hace la barra de Flutter para pararse junto a la
     // selección: encima si entra, debajo si no.
-    final anchorAbove = anchors.primaryAnchor - const Offset(0, _distanceAbove);
-    final anchorBelow =
+    var anchorAbove = anchors.primaryAnchor - const Offset(0, _distanceAbove);
+    var anchorBelow =
         (anchors.secondaryAnchor ?? anchors.primaryAnchor) +
         const Offset(0, _distanceBelow);
     final paddingAbove = MediaQuery.paddingOf(context).top + _screenPadding;
-    final fitsAbove = _height <= anchorAbove.dy - _distanceAbove - paddingAbove;
+    var fitsAbove = _height <= anchorAbove.dy - _distanceAbove - paddingAbove;
+    final system = systemToolbarExtent;
+    if (system > 0) {
+      // Del lado donde no está la del sistema (ver [systemToolbarExtent]).
+      final systemAbove = system <= anchorAbove.dy - paddingAbove;
+      final bottom =
+          height - MediaQuery.paddingOf(context).bottom - _screenPadding;
+      if (!systemAbove) {
+        anchorBelow += Offset(0, system);
+        fitsAbove = false;
+      } else if (anchorBelow.dy + _height <= bottom) {
+        fitsAbove = false;
+      } else {
+        anchorAbove -= Offset(0, system);
+        fitsAbove = true;
+      }
+    }
     final localAdjustment = Offset(_screenPadding, paddingAbove);
 
     final colorButtons = [

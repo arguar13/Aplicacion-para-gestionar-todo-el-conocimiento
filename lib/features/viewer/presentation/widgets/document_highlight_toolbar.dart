@@ -35,6 +35,7 @@ Widget documentHighlightToolbar(
   required DocumentSelection selection,
   required StudyText text,
   bool canCopy = true,
+  double systemToolbarExtent = 0,
   List<HighlightToolbarAction> moreActions = const [],
 }) {
   void highlight(HighlightColor color, HighlightStyle style) {
@@ -46,6 +47,7 @@ Widget documentHighlightToolbar(
 
   return HighlightToolbar(
     anchors: anchors,
+    systemToolbarExtent: systemToolbarExtent,
     underlineColor: ref.read(lastHighlightColorProvider),
     onHighlight: (color) => highlight(color, HighlightStyle.fill),
     onUnderline: (color) => highlight(color, HighlightStyle.underline),

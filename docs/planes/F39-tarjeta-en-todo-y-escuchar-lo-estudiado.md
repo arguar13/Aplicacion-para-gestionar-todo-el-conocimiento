@@ -405,3 +405,33 @@
     entraron necesitan guardar el enlace de nuevo. No se guarda lo que arma un programa al abrir
     (el aviso CentralNotice de Wikipedia).
   - Pruebas con una Wikipedia grabada y recortada, sin red; 23 mutaciones, todas muertas.
+- **Paso 3, tercera parte (3c) — hecho.** En la página web guardada, cualquier palabra se toca, y
+  la barrita de la app no se encima con la del sistema.
+  - **Causa de fondo**: la copia de la página llevaba lo estudiado adentro, armado en Dart —un
+    `<mark>` por oración y uno por palabra, solo dentro de las oraciones resaltadas—. Afuera de
+    ellas no había nada que tocar, así que no se podía elegir una oración nueva ni ver una palabra
+    clave; y cada oración elegida a mano volvía a armar y a cargar la página, que saltaba arriba.
+    Una oración se ubicaba entera con `indexOf`: con una nota al pie en el medio no aparecía.
+  - **Ahora la copia se arma una sola vez, sin nada estudiado adentro**: el programa de la app
+    pinta en vivo, por tramos del texto corrido de la página (`archivedPageStudyScript`, con
+    `ArchivedPageAlignment.pageRangesOf`), las oraciones del resumen y de la síntesis y las
+    palabras clave, igual que los resaltados a mano (F38). Va de afuera hacia adentro —resumen,
+    síntesis, resaltados de la persona, palabras clave—, y lo de adentro se ve encima. Prender o
+    apagar sigue siendo cambiar clases.
+  - **Tocar**: eligiendo a mano, el programa toma la posición del cursor donde se tocó
+    (`caretRangeFromPoint`) en el texto corrido de la página, y la app la ubica en el extraído
+    (`ArchivedPageAlignment.contentOffsetAt`, `archivedPageTappedOffset`). Vale para cualquier
+    palabra; tocar el menú o una etiqueta no elige nada.
+  - **Los dos menús**: el `WebView` muestra su barra y no hay cómo ocultarla. `HighlightToolbar`
+    recibe `systemToolbarExtent` y se para del lado donde no está la del sistema —que va encima de
+    la selección si entra—: debajo de la selección o, si ahí no entra, encima de la del sistema.
+    Lo que entra se mide en el lugar que le dan (`LayoutBuilder`), no en la pantalla: la página
+    empieza debajo de la barra de arriba. La de la app suma en «Más opciones» Compartir,
+    Seleccionar todo y Buscar en la Web, así que alcanza sola.
+  - Las páginas ya guardadas lo tienen solas: no hace falta volver a guardarlas.
+  - Lo que el programa hace en el navegador no se puede probar sin uno; las pruebas fijan lo que
+    se le pide (los tramos de cada capa, el orden de las capas en el programa, el estado) y cómo se
+    ubica lo tocado.
+  - 20 mutaciones, todas muertas; las tres que al principio sobrevivían murieron con pruebas
+    nuevas: una oración partida por una nota al pie, un toque pasando el punto final y la llamada
+    al cursor.

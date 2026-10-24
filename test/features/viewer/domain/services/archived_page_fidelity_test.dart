@@ -7,7 +7,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html_parser;
-import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_study.dart';
 
 /// La página archivada se ve como la original (F39). Los casos salen de
@@ -74,7 +73,6 @@ void main() {
         study: (
           content:
               'El Imperio romano fue el Estado que dominó el Mediterráneo.',
-          sentences: const [],
           colors: colors,
         ),
       );
@@ -128,14 +126,7 @@ void main() {
           '<noscript><img src="https://ejemplo.org/foto.jpg"></noscript>'
           '</div></body></html>';
 
-      for (final study in [
-        null,
-        (
-          content: 'x',
-          sentences: const <ArchivedPageSentence>[],
-          colors: colors,
-        ),
-      ]) {
+      for (final study in [null, (content: 'x', colors: colors)]) {
         final page = shown(html, study: study);
 
         expect(page.querySelectorAll('img'), hasLength(1), reason: '$study');
@@ -149,14 +140,7 @@ void main() {
           '<noscript><img src="https://ejemplo.org/sola.jpg"></noscript>'
           '</div></body></html>';
 
-      final page = shown(
-        html,
-        study: (
-          content: 'Texto',
-          sentences: const <ArchivedPageSentence>[],
-          colors: colors,
-        ),
-      );
+      final page = shown(html, study: (content: 'Texto', colors: colors));
 
       expect(page.querySelectorAll('img'), hasLength(1));
     });
@@ -194,11 +178,7 @@ void main() {
         'que acomoda', () {
       final page = shown(
         '<html><head></head><body><p>Hola mundo</p></body></html>',
-        study: (
-          content: 'Hola mundo',
-          sentences: const [(start: 0, end: 10, kind: StudyMarkKind.summary)],
-          colors: colors,
-        ),
+        study: (content: 'Hola mundo', colors: colors),
       );
 
       final css = page.getElementById('sinapsis-study')!.text;
@@ -213,19 +193,19 @@ void main() {
         '<html><head><style>mark{margin:0 8px;border:2px solid red;'
         'font-weight:bold;display:block}</style></head>'
         '<body><p>Hola mundo</p></body></html>',
-        study: (
-          content: 'Hola mundo',
-          sentences: const [(start: 0, end: 10, kind: StudyMarkKind.summary)],
-          colors: colors,
-        ),
+        study: (content: 'Hola mundo', colors: colors),
       );
 
       // `all: unset` en lo marcado: lo de la página para `mark` no entra.
       expect(
         page.getElementById('sinapsis-study')!.text,
-        contains('all:unset'),
+        contains('mark.sn-m{all:unset}'),
       );
-      expect(page.querySelectorAll('mark.sn-m'), isNotEmpty);
+      // Y lo marcado es lo que pinta el programa, con esa clase (F39).
+      expect(
+        page.getElementById('sinapsis-study-script')!.text,
+        contains("'sn-p sn-m sn-'"),
+      );
     });
 
     test('el texto de la página, letra por letra, es el mismo', () {
@@ -236,11 +216,7 @@ void main() {
       final plain = shown(html).body!.text;
       final page = shown(
         html,
-        study: (
-          content: 'Hola mundo, esto es una prueba.',
-          sentences: const [(start: 0, end: 31, kind: StudyMarkKind.summary)],
-          colors: colors,
-        ),
+        study: (content: 'Hola mundo, esto es una prueba.', colors: colors),
       );
       // El programa de la app es un <script>: no es texto de la página.
       page.getElementById('sinapsis-study-script')!.remove();

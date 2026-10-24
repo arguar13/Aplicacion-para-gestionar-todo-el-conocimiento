@@ -4,12 +4,14 @@ import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/highlight_palette.dart';
+import 'package:sinapsis/core/design/highlight_toolbar.dart';
+import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
-import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
@@ -26,20 +28,15 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 /// Lo que se le pide a la página guardada para mostrar lo que [view] deja ver
-/// de [marks] (F36): el resumen y la síntesis, cada uno por su lado (F39); las
-/// palabras clave que se ven —también eligiéndolas—, y si tocar elige.
+/// (F36): el resumen y la síntesis, cada uno por su lado (F39); las palabras
+/// clave —también eligiéndolas—, y si tocar elige.
 @visibleForTesting
-String webPageStudyState(StudyView view, List<StudyMark> marks) =>
-    archivedPageStateScript(
-      summary: view.summary,
-      synthesis: view.synthesis,
-      keywords: view.showsKeywords,
-      picking: view.picking,
-      keywordOffsets: [
-        for (final mark in marks)
-          if (mark.kind == StudyMarkKind.keyword) mark.start,
-      ],
-    );
+String webPageStudyState(StudyView view) => archivedPageStateScript(
+  summary: view.summary,
+  synthesis: view.synthesis,
+  keywords: view.showsKeywords,
+  picking: view.picking,
+);
 
 /// La página tal como quedó archivada al guardarla: con sus imágenes y sus
 /// estilos incrustados, no la versión en Markdown que ya se ve en el
@@ -75,12 +72,14 @@ String webPageStudyState(StudyView view, List<StudyMark> marks) =>
 /// `loadHtmlString` evita el problema de raíz: no hay ningún `file://` que
 /// resolver.
 ///
-/// **Lo estudiado (F36, decisión E).** Con [text] y oraciones ya marcadas, la
-/// copia las lleva listas —ver `showableArchivedPage`—: sin los
-/// programas de la página, que con JavaScript apagado tampoco corrían, y con
-/// el de la app, que prende el resumen o la síntesis y las palabras clave sin
-/// volver a cargarla, y avisa la palabra que se toca para elegirla. Sin
-/// [text], la página se muestra como siempre, con JavaScript apagado.
+/// **Lo estudiado (F36, decisión E).** Con [text], la copia se arma una sola
+/// vez —ver `showableArchivedPage`—: sin los programas de la página, que con
+/// JavaScript apagado tampoco corrían, y con el de la app, que pinta lo
+/// estudiado mientras la página está abierta (F39) y prende el resumen, la
+/// síntesis y las palabras clave cambiando clases. Elegir a mano no la vuelve
+/// a cargar: cualquier palabra se toca, la página avisa dónde, y eso se ubica
+/// en el texto extraído. Sin [text], la página se muestra como siempre, con
+/// JavaScript apagado.
 ///
 /// **Resaltar a mano (F38).** Con [text], la copia lleva también cómo se
 /// corresponde el texto de la página con el extraído —ver
@@ -90,7 +89,10 @@ String webPageStudyState(StudyView view, List<StudyMark> marks) =>
 /// su color y su estilo, encima de las oraciones y debajo de las palabras
 /// clave; y tocar uno abre su ficha. Junto a lo seleccionado aparece la
 /// barrita de resaltado, la de «Texto extraído» (ver
-/// `documentHighlightToolbar`).
+/// `documentHighlightToolbar`), del lado donde no está la del sistema —el
+/// `WebView` muestra la suya y no hay cómo ocultarla—: una encima de la otra,
+/// sin taparse (F39). La de la app suma Compartir, Seleccionar todo y Buscar
+/// en la Web, como sobre cualquier otro texto.
 ///
 /// Sin `Scaffold` propio a propósito: `WebPageViewerScreen` lo envuelve para
 /// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
@@ -147,20 +149,15 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
 
   late final Future<bool> _loaded = _load();
 
-  /// La página archivada, tal cual.
-  String? _html;
-
-  /// Las oraciones que lleva la copia que se ve; `null`, la página tal cual.
-  List<ArchivedPageSentence>? _shown;
-
-  /// Las que se pidieron mostrar, por si llegan mientras se arma otra copia.
-  List<ArchivedPageSentence> _wanted = const [];
-  bool _building = false;
-  bool _studyReady = false;
-
   /// Lo último que se le pidió a la página, y si ya terminó de cargar.
   String? _state;
   bool _pageReady = false;
+
+  /// Lo estudiado del texto, el pedido para pintarlo en la página (F39) y
+  /// cuál ya se le mandó.
+  List<StudyMark> _studyMarks = const [];
+  String? _study;
+  String? _appliedStudy;
 
   /// Cómo se corresponde el texto de la copia que se ve con el extraído; solo
   /// con [WebPageViewerView.text].
@@ -180,8 +177,7 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
   Future<bool> _load() async {
     if (_webView == null) return false;
     try {
-      _html = await File(widget.path).readAsString();
-      await _show();
+      await _show(await File(widget.path).readAsString());
       return true;
       // El archivo puede haberse borrado del disco después de indexarse, o
       // `WebViewController` puede no tener implementación nativa en esta
@@ -194,50 +190,26 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     }
   }
 
-  /// Muestra la copia de la página con las oraciones que se quieren ver, si
-  /// cambiaron: la primera vez, siempre, por las fotos.
-  Future<void> _show() async {
-    final html = _html;
-    if (html == null || _building) return;
-    _building = true;
-    try {
-      while (_shown == null || !listEquals(_wanted, _shown)) {
-        final sentences = _wanted;
-        final text = widget.text;
-        // Con texto, la copia siempre lleva el programa de la app y cómo se
-        // corresponde su texto con el extraído, aunque no haya oraciones
-        // todavía: es lo que permite resaltar a mano (F38).
-        final study = text == null
-            ? null
-            : (content: text.content, sentences: sentences, colors: _colors());
-        // Sin texto, una copia ya armada se queda: sin nada prendido se ve
-        // igual que la original.
-        if (study == null && _shown != null) {
-          _shown = sentences;
-          continue;
-        }
-        // Una página archivada pesa megas: se arma fuera del hilo de la
-        // pantalla.
-        final shown = await Isolate.run(
-          () => showArchivedPage(html, study: study),
-        );
-        if (!mounted) return;
-        if (study != null) await _prepareStudy();
-        _pageReady = false;
-        _appliedMarks = null;
-        _alignment = shown.alignment;
-        _updateMarks(force: true);
-        await _controller.loadHtmlString(shown.html, baseUrl: widget.url);
-        _shown = sentences;
-      }
-    } finally {
-      _building = false;
-    }
+  /// Muestra la copia de la página archivada [html], una sola vez: con
+  /// texto, lleva el programa de la app y cómo se corresponde su texto con el
+  /// extraído —lo que permite estudiar y resaltar sobre ella—; sin texto,
+  /// solo sus fotos listas.
+  Future<void> _show(String html) async {
+    final text = widget.text;
+    final study = text == null
+        ? null
+        : (content: text.content, colors: _colors());
+    // Una página archivada pesa megas: se arma fuera del hilo de la pantalla.
+    final shown = await Isolate.run(() => showArchivedPage(html, study: study));
+    if (!mounted) return;
+    if (study != null) await _prepareStudy();
+    _alignment = shown.alignment;
+    _updateStudy(force: true);
+    _updateMarks(force: true);
+    await _controller.loadHtmlString(shown.html, baseUrl: widget.url);
   }
 
   Future<void> _prepareStudy() async {
-    if (_studyReady) return;
-    _studyReady = true;
     await _controller.setJavaScriptMode(JavaScriptMode.unrestricted);
     await _controller.addJavaScriptChannel(
       archivedPageChannel,
@@ -257,10 +229,14 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     );
   }
 
+  /// Eligiendo a mano, lo que se tocó en la página (F39): cualquier palabra,
+  /// ubicada en el texto extraído.
   void _onWordTapped(String message) {
     final text = widget.text;
-    final offset = int.tryParse(message);
-    if (text == null || offset == null || !mounted) return;
+    final alignment = _alignment;
+    if (text == null || alignment == null || !mounted) return;
+    final offset = archivedPageTappedOffset(alignment, message);
+    if (offset == null) return;
     unawaited(
       pickStudyAt(
         ref,
@@ -302,9 +278,14 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     if (!_pageReady) return;
     try {
       if (state != null) await _controller.runJavaScript(state);
-      // Los resaltados se pintan una vez por copia de la página, y de nuevo
-      // cuando cambian: volver a envolver el texto en cada cambio de lo
-      // estudiado sería un parpadeo de balde.
+      // Lo estudiado y los resaltados se pintan una vez y de nuevo cuando
+      // cambian: volver a envolver el texto con cada cosa que se prende sería
+      // un parpadeo de balde.
+      final study = _study;
+      if (study != null && study != _appliedStudy) {
+        _appliedStudy = study;
+        await _controller.runJavaScript(study);
+      }
       final marks = _marks;
       if (marks != null && marks != _appliedMarks) {
         _appliedMarks = marks;
@@ -314,6 +295,17 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
       // lo recibe la siguiente al terminar de cargar.
       // ignore: avoid_catches_without_on_clauses
     } catch (_) {}
+  }
+
+  /// Arma el pedido para pintar lo estudiado [_studyMarks] en la copia que se
+  /// ve (F39), y lo manda si cambió (o con [force]).
+  void _updateStudy({bool force = false}) {
+    final alignment = _alignment;
+    if (alignment == null) return;
+    final script = archivedPageStudyScript(alignment, _studyMarks);
+    if (script == _study && !force) return;
+    _study = script;
+    unawaited(_apply());
   }
 
   /// Arma el pedido para pintar los resaltados de la persona [_highlights] en
@@ -363,17 +355,12 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
         .valueOrNull;
     final view = ref.watch(studyViewProvider(text.renditionId));
     final marks = study?.marks ?? const <StudyMark>[];
-    final sentences = <ArchivedPageSentence>[
-      for (final mark in marks)
-        if (mark.kind != StudyMarkKind.keyword)
-          (start: mark.start, end: mark.end, kind: mark.kind),
-    ];
-    if (!listEquals(sentences, _wanted)) {
-      _wanted = sentences;
-      if (_html != null) unawaited(_show());
+    if (!listEquals(marks, _studyMarks)) {
+      _studyMarks = marks;
+      _updateStudy();
     }
 
-    final state = webPageStudyState(view, marks);
+    final state = webPageStudyState(view);
     if (state != _state) {
       _state = state;
       unawaited(_apply());
@@ -438,6 +425,11 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
                       ),
                       selection: _selection,
                       text: text,
+                      systemToolbarExtent:
+                          defaultTargetPlatform == TargetPlatform.android
+                          ? HighlightToolbar.androidSystemToolbarExtent
+                          : 0,
+                      moreActions: _moreActions(context, selected.text),
                     );
                   },
                 ),
@@ -446,6 +438,52 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
         );
       },
     );
+  }
+
+  /// Lo que va detrás de «Más opciones» (F39): lo mismo que el sistema
+  /// ofrece en su barra —Compartir, Seleccionar todo, Buscar en la Web—, para
+  /// que la de la app alcance sola.
+  List<HighlightToolbarAction> _moreActions(
+    BuildContext context,
+    String selected,
+  ) {
+    String label(ContextMenuButtonType type) =>
+        AdaptiveTextSelectionToolbar.getButtonLabel(
+          context,
+          ContextMenuButtonItem(type: type, onPressed: null),
+        );
+    return [
+      HighlightToolbarAction(
+        label: label(ContextMenuButtonType.share),
+        onPressed: () => unawaited(() async {
+          await _selection.clear();
+          // Lo mismo que hace un texto de Flutter al compartir lo elegido.
+          await SystemChannels.platform.invokeMethod<void>(
+            'Share.invoke',
+            selected,
+          );
+        }()),
+      ),
+      HighlightToolbarAction(
+        label: label(ContextMenuButtonType.selectAll),
+        onPressed: () => unawaited(_runInPage('window.sinapsis.selectAll();')),
+      ),
+      HighlightToolbarAction(
+        label: label(ContextMenuButtonType.searchWeb),
+        onPressed: () => unawaited(() async {
+          await _selection.clear();
+          await searchWeb(selected);
+        }()),
+      ),
+    ];
+  }
+
+  Future<void> _runInPage(String script) async {
+    try {
+      await _controller.runJavaScript('window.sinapsis && $script');
+      // Una página que se está cambiando por otra no tiene dónde correrlo.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {}
   }
 }
 
@@ -506,12 +544,6 @@ class _WebSelection implements DocumentSelection {
   @override
   Future<void> clear() async {
     _state._select(null);
-    try {
-      await _state._controller.runJavaScript(
-        'window.sinapsis && window.sinapsis.clearSelection();',
-      );
-      // Una página que se está cambiando por otra no tiene dónde correrlo.
-      // ignore: avoid_catches_without_on_clauses
-    } catch (_) {}
+    await _state._runInPage('window.sinapsis.clearSelection();');
   }
 }
