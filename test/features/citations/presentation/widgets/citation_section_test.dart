@@ -76,8 +76,9 @@ void main() {
 
   Future<List<String>> pumpSection(
     WidgetTester tester,
-    KnowledgeItem item,
-  ) async {
+    KnowledgeItem item, {
+    double width = 800,
+  }) async {
     final copied = <String>[];
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
@@ -94,7 +95,7 @@ void main() {
         null,
       ),
     );
-    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.physicalSize = Size(width, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -237,6 +238,33 @@ void main() {
         shown(tester),
         'G. García Márquez, Cien años de soledad. Sudamericana, 1967.',
       );
+    });
+
+    testWidgets(
+      'en una línea angosta el estilo más largo se corta con «…» en vez de '
+      'desbordar, y se sigue eligiendo',
+      (tester) async {
+        final item = await source('libro', reference: book);
+        // Con la letra de prueba, «Chicago 17 · notas y bibliografía» mide
+        // más que esta línea.
+        await pumpSection(tester, item, width: 320);
+        await chooseStyle(tester, es.citationStyleChicagoNotes);
+
+        expect(tester.takeException(), isNull);
+        final button = tester.getSize(find.byKey(const Key('citation-style')));
+        expect(button.width, lessThanOrEqualTo(320));
+        expect(shown(tester), contains('García Márquez'));
+      },
+    );
+
+    testWidgets('en una línea ancha el estilo no ocupa más que su texto', (
+      tester,
+    ) async {
+      final item = await source('libro', reference: book);
+      await pumpSection(tester, item);
+
+      final button = tester.getSize(find.byKey(const Key('citation-style')));
+      expect(button.width, lessThan(800));
     });
 
     testWidgets('los dos sistemas de Chicago llevan su explicación', (

@@ -83,17 +83,26 @@ class _CitationSectionState extends ConsumerState<CitationSection> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            DropdownButton<String>(
-              key: const Key('citation-style'),
-              value: style.id,
-              onChanged: (id) => setState(() => _styleId = id),
-              items: [
-                for (final option in kReferenceStyles.styles)
-                  DropdownMenuItem(
-                    value: option.id,
-                    child: Text(option.label(l10n)),
-                  ),
-              ],
+            // Tan ancho como el estilo más largo, pero nunca más que la
+            // línea: en una pantalla angosta o con letra grande se corta con
+            // «…» en vez de desbordar.
+            IntrinsicWidth(
+              child: DropdownButton<String>(
+                key: const Key('citation-style'),
+                value: style.id,
+                isExpanded: true,
+                onChanged: (id) => setState(() => _styleId = id),
+                items: [
+                  for (final option in kReferenceStyles.styles)
+                    DropdownMenuItem(
+                      value: option.id,
+                      child: Text(
+                        option.label(l10n),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+              ),
             ),
             SegmentedButton<CitationLanguage>(
               key: const Key('citation-language'),
