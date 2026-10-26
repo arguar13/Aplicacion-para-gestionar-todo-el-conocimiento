@@ -21,6 +21,7 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_run_repository_impl.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
@@ -346,6 +347,103 @@ void main() {
     final undone = (await runs.undoRun(run)).getOrElse((f) => fail('$f'));
     expect(undone, const AiRunTally(flashcards: 2));
     expect(await db.select(db.flashcards).get(), isEmpty);
+  });
+
+  group('lo que costó cada pasada (F39, paso 6)', () {
+    Future<AiRun> listedRun(String id) async => (await runs.listRuns())
+        .getOrElse((f) => fail('$f'))
+        .firstWhere((run) => run.id == id);
+
+    test('una pasada recién abierta no costó nada, y una de antes de v43 '
+        'tampoco: ceros, no un dato inventado', () async {
+      final run = await startRun('a');
+
+      final listed = await listedRun(run);
+
+      expect(listed.workTime, Duration.zero);
+      expect((listed.inputTokens, listed.outputTokens), (0, 0));
+      expect(listed.hasUsage, isFalse);
+      expect(listed.scope, AiRunScope.organize);
+    });
+
+    test('lo gastado se suma en cada tanda de trabajo: una pasada cortada '
+        'esperando al modelo y retomada suma las dos', () async {
+      final run = await startRun('a');
+
+      await runs.addUsage(
+        run,
+        const AiTaskUsage(
+          elapsed: Duration(seconds: 40),
+          inputTokens: 1000,
+          outputTokens: 200,
+        ),
+      );
+      await runs.addUsage(
+        run,
+        const AiTaskUsage(
+          elapsed: Duration(milliseconds: 2500),
+          inputTokens: 500,
+          outputTokens: 50,
+        ),
+      );
+
+      final listed = await listedRun(run);
+      expect(listed.workTime, const Duration(milliseconds: 42500));
+      expect((listed.inputTokens, listed.outputTokens), (1500, 250));
+      expect(listed.tokens, 1750);
+      expect(listed.hasUsage, isTrue);
+    });
+
+    test('sumar a una pasada que ya no existe es un fallo, no un silencio', () {
+      return runs
+          .addUsage('fantasma', const AiTaskUsage(inputTokens: 1))
+          .then((result) => expect(result.isLeft(), isTrue));
+    });
+
+    test('cada pasada lleva lo suyo', () async {
+      final a = await startRun('a');
+      final b = await startRun('b');
+
+      await runs.addUsage(a, const AiTaskUsage(inputTokens: 7));
+
+      expect((await listedRun(a)).inputTokens, 7);
+      expect((await listedRun(b)).inputTokens, 0);
+    });
+
+    test('el análisis para estudiar es una pasada de estudio: se lista con '
+        'su costo, no cuenta como organizar el elemento ni se deshace con '
+        '«deshacer todo»', () async {
+      final organized = await organizeA();
+      await runs.finishRun(organized);
+      now = DateTime(2026, 10, 3);
+      final study = (await runs.startRun(
+        'a',
+        model: 'gemini-3.8-flash',
+        scope: AiRunScope.study,
+      )).getOrElse((f) => fail('$f'));
+      await runs.addUsage(
+        study,
+        const AiTaskUsage(elapsed: Duration(minutes: 3), outputTokens: 900),
+      );
+      await runs.finishRun(study);
+
+      final listed = await listedRun(study);
+      expect(listed.scope, AiRunScope.study);
+      expect(listed.organizedItem, isFalse);
+      expect(listed.workTime, const Duration(minutes: 3));
+      expect(listed.remaining.isEmpty, isTrue);
+
+      // «Deshacer todo» deshace lo que la IA organizó y deja el estudio.
+      await runs.undoItem('a');
+      expect((await listedRun(organized)).isUndone, isTrue);
+      expect((await listedRun(study)).isUndone, isFalse);
+      // Y tampoco lo hace pasar por «organizado»: no aparece deshecho porque
+      // la última pasada que organizó sí lo está.
+      expect(
+        (await runs.undoneItemsAmong(['a'])).getOrElse((f) => fail('$f')),
+        {'a'},
+      );
+    });
   });
 
   test('borrar el elemento se lleva sus pasadas', () async {

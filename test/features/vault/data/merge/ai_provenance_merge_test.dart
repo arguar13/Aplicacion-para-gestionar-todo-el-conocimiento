@@ -100,6 +100,32 @@ void main() {
       expect(again.changedNothing, isTrue);
     });
 
+    test('llegan con lo que costaron —el tiempo, los tokens— y con su '
+        'alcance de estudio (v43)', () async {
+      await shareItems();
+      await addRun(pc, 'pasada', 'a');
+      await pc.db.customStatement(
+        "UPDATE ai_runs SET scope = 'study', work_millis = 125000, "
+        "input_tokens = 9000, output_tokens = 1500 WHERE id = 'pasada'",
+      );
+
+      await tel.mergeFrom(pc);
+
+      expect(
+        await rowOf(
+          tel,
+          'SELECT scope, work_millis, input_tokens, output_tokens '
+          "FROM ai_runs WHERE id = 'pasada'",
+        ),
+        {
+          'scope': 'study',
+          'work_millis': 125000,
+          'input_tokens': 9000,
+          'output_tokens': 1500,
+        },
+      );
+    });
+
     test('llegan con lo que completaron del tema y la referencia, y con la '
         'huella del texto que vieron (v35)', () async {
       await shareItems();

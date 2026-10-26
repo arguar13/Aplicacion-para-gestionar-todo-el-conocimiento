@@ -328,7 +328,13 @@ Future<void> analyzeForStudyIfNeeded(
   if (study.complete || !context.mounted) return;
   final ready = await ensureStudyModelReady(context, ref);
   if (!ready || !context.mounted) return;
-  unawaited(notifier.start(content: text.content, markdown: text.markdown));
+  unawaited(
+    notifier.start(
+      content: text.content,
+      markdown: text.markdown,
+      itemId: text.itemId,
+    ),
+  );
 }
 
 /// Si el modelo elegido está listo para estudiar; si no, lo avisa con el

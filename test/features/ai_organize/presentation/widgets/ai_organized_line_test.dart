@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
@@ -204,6 +205,26 @@ void main() {
 
     expect(find.text(es.aiItemLineTitle), findsOneWidget);
     expect(find.byKey(const Key('ai-organized-line-reorganize')), findsNothing);
+  });
+
+  testWidgets('analizar para estudiar después de deshacer no es volver a '
+      'organizar: sigue ofreciendo «Volver a organizar» (F39)', (tester) async {
+    await setUpWith([
+      fakeRun(
+        'estudio',
+        itemId: 'a',
+        scope: AiRunScope.study,
+        remaining: const AiRunTally(),
+        outputTokens: 100,
+      ),
+      fakeRun('r1', itemId: 'a', undone: true),
+    ]);
+    await pumpDetail(tester);
+
+    expect(
+      find.byKey(const Key('ai-organized-line-reorganize')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('si se deshizo solo la última pasada, sigue contando lo de '

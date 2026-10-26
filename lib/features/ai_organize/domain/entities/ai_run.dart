@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 
 part 'ai_run.freezed.dart';
 
@@ -91,6 +92,19 @@ sealed class AiRun with _$AiRun {
     /// Qué modelo trabajó, si se sabe.
     String? model,
 
+    /// Qué le pidieron: organizar el elemento, solo tarjetas, revisarlo o
+    /// analizarlo para estudiar (F39).
+    @Default(AiRunScope.organize) AiRunScope scope,
+
+    /// Cuánto trabajó el modelo en la pasada (F39, paso 6), sin las esperas
+    /// por la cuota o la conexión. Cero en las de antes, que no lo guardaban.
+    @Default(Duration.zero) Duration workTime,
+
+    /// Los tokens que el modelo leyó y escribió, contados por quien los
+    /// cuenta de verdad. Cero en las de antes.
+    @Default(0) int inputTokens,
+    @Default(0) int outputTokens,
+
     /// Lo que creó, contado al terminar: la historia, que no cambia.
     @Default(AiRunTally()) AiRunTally created,
 
@@ -103,4 +117,14 @@ sealed class AiRun with _$AiRun {
   const AiRun._();
 
   bool get isUndone => undoneAt != null;
+
+  int get tokens => inputTokens + outputTokens;
+
+  /// Si la pasada tiene algo que contar de lo que costó: tiempo o tokens.
+  bool get hasUsage => workTime > Duration.zero || tokens > 0;
+
+  /// Si la pasada organizó el elemento: la última de estas es la que dice si
+  /// la persona se lo sacó a la IA. Las de solo tarjetas, la revisión y el
+  /// análisis para estudiar no cuentan.
+  bool get organizedItem => scope == AiRunScope.organize;
 }

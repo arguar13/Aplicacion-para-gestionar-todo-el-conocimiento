@@ -50,6 +50,7 @@ class LanguageModelReply {
     required this.words,
     this.firstToken,
     this.tokens,
+    this.inputTokens,
   });
 
   final LanguageModelReplyKind kind;
@@ -64,6 +65,12 @@ class LanguageModelReply {
   /// Cuántos tokens generó, según el propio tokenizador del modelo. `null` si
   /// no se pudo contar.
   final int? tokens;
+
+  /// Cuántos tokens leyó —la instrucción y el pedido—, según quien los cuenta
+  /// de verdad: el proveedor en la nube o el tokenizador de Gemma (F39).
+  /// `null` si no se contaron, como en el chat de Gemma, que lleva su propia
+  /// cuenta de la ventana.
+  final int? inputTokens;
 
   /// Cuántas palabras escribió.
   final int words;

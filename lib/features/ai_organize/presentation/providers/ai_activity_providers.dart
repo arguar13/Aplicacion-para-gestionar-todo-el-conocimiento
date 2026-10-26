@@ -7,6 +7,8 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/ai_task_providers.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_backlog.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
@@ -174,8 +176,12 @@ final aiItemSummaryProvider = Provider.autoDispose
             if (!run.isUndone) run.remaining,
         ].fold(const AiRunTally(), (sum, tally) => sum + tally),
         reviewCount: review.valueOrNull?.length ?? 0,
-        // Las pasadas llegan de la más nueva a la más vieja.
-        undone: runs?.firstOrNull?.isUndone ?? false,
+        // Las pasadas llegan de la más nueva a la más vieja. Cuenta la última
+        // que organizó el elemento: una de solo tarjetas, una revisión o el
+        // análisis para estudiar que vino después no es «volver a organizar».
+        undone:
+            runs?.where((run) => run.organizedItem).firstOrNull?.isUndone ??
+            false,
       );
     });
 
@@ -306,6 +312,10 @@ class AiActivityController extends StateNotifier<AiActivityState> {
   }
 }
 
+/// Qué tareas están en marcha, por su identificador: lo que cambia cuando una
+/// empieza o termina, y no cuando solo avanza.
+String _taskIds(List<AiTask> tasks) => tasks.map((task) => task.id).join(',');
+
 /// La actividad, de toda la bóveda (`null`) o de un elemento.
 ///
 /// Se vuelve a leer cada vez que la cola cambia de estado: es cuando una
@@ -316,8 +326,15 @@ final aiActivityControllerProvider = StateNotifierProvider.autoDispose
         repository: ref.watch(aiRunRepositoryProvider),
         itemId: itemId,
       );
-      ref.listen(aiOrganizeStatusProvider, (_, _) {
-        unawaited(controller.refresh());
-      });
+      ref
+        ..listen(aiOrganizeStatusProvider, (_, _) {
+          unawaited(controller.refresh());
+        })
+        // Una tarea que empieza o termina es una pasada que se abre o se
+        // cierra con lo que costó (F39): el análisis para estudiar no pasa por
+        // el estado de la cola.
+        ..listen(aiLiveTasksProvider.select(_taskIds), (_, _) {
+          unawaited(controller.refresh());
+        });
       return controller;
     });

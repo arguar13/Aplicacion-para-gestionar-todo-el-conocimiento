@@ -16,10 +16,15 @@ import 'package:sinapsis/features/chat/domain/services/language_model_meter.dart
 /// a mitad, `flutter_gemma` no anota la respuesta en su historial y la sesión
 /// queda desfasada. Para cortarla se usa `InferenceChat.stopGeneration`, que
 /// la termina limpia con lo escrito hasta ahí.
+///
+/// [inputTokens] son los que ocupó lo que se le pidió, contados con el
+/// tokenizador del modelo por quien armó el pedido (F39): la respuesta no los
+/// sabe, y sin ellos lo que gastó una tarea sería solo lo que escribió.
 Stream<String> measuredReply(
   InferenceChat chat, {
   required LanguageModelMeter meter,
   required LanguageModelReplyKind kind,
+  int? inputTokens,
 }) async* {
   final watch = Stopwatch()..start();
   final tokensBefore = chat.currentTokens;
@@ -44,6 +49,7 @@ Stream<String> measuredReply(
       firstToken: firstToken,
       total: watch.elapsed,
       tokens: tokens > 0 ? tokens : null,
+      inputTokens: inputTokens,
       words: countWords(text.toString()),
     ),
   );
@@ -67,9 +73,15 @@ Future<String> collectReply(
   InferenceChat chat, {
   required LanguageModelMeter meter,
   LanguageModelReplyKind kind = LanguageModelReplyKind.task,
+  int? inputTokens,
 }) async {
   final text = StringBuffer();
-  await for (final piece in measuredReply(chat, meter: meter, kind: kind)) {
+  await for (final piece in measuredReply(
+    chat,
+    meter: meter,
+    kind: kind,
+    inputTokens: inputTokens,
+  )) {
     text.write(piece);
   }
   return cleanReply(chat, text.toString());

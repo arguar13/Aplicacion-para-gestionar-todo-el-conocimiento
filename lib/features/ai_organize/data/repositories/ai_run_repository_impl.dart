@@ -22,6 +22,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_field_ledger.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
@@ -126,6 +127,39 @@ class AiRunRepositoryImpl implements AiRunRepository {
   }
 
   @override
+  Future<Either<Failure, Unit>> addUsage(
+    String runId,
+    AiTaskUsage usage,
+  ) async {
+    try {
+      // Sumado en SQL y no leído y escrito: dos tandas que terminan juntas
+      // —la cola y un análisis no comparten pasada, pero una retomada sí
+      // pasa por acá dos veces— no se pisan.
+      final updated = await _db.customUpdate(
+        '''
+        UPDATE ai_runs
+           SET work_millis = work_millis + ?,
+               input_tokens = input_tokens + ?,
+               output_tokens = output_tokens + ?
+         WHERE id = ?''',
+        variables: [
+          Variable.withInt(usage.elapsed.inMilliseconds),
+          Variable.withInt(usage.inputTokens),
+          Variable.withInt(usage.outputTokens),
+          Variable.withString(runId),
+        ],
+        updates: {_db.aiRuns},
+      );
+      if (updated == 0) return left(_missingRun);
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(_unexpected(e, stackTrace, 'AiRunRepositoryImpl.addUsage'));
+    }
+  }
+
+  @override
   Future<Either<Failure, AiRunTally>> finishRun(String runId) async {
     try {
       return await _db.transaction(() async {
@@ -183,7 +217,8 @@ class AiRunRepositoryImpl implements AiRunRepository {
             '''
             SELECT r.id, r.item_id, r.model, r.started_at, r.finished_at,
                    r.undone_at, r.relations_created, r.flashcards_created,
-                   r.properties_created, i.title AS item_title,
+                   r.properties_created, r.scope, r.work_millis,
+                   r.input_tokens, r.output_tokens, i.title AS item_title,
                    ${_remainingSql('relations', 'r.id')} AS relations_left,
                    ${_remainingSql('flashcards', 'r.id')} AS flashcards_left,
                    ${_propertiesRemainingSql('r.id')} AS properties_left
@@ -226,6 +261,10 @@ class AiRunRepositoryImpl implements AiRunRepository {
             itemId: row.read<String>('item_id'),
             itemTitle: row.read<String>('item_title'),
             model: row.readNullable<String>('model'),
+            scope: AiRunScope.values.byName(row.read<String>('scope')),
+            workTime: Duration(milliseconds: row.read<int>('work_millis')),
+            inputTokens: row.read<int>('input_tokens'),
+            outputTokens: row.read<int>('output_tokens'),
             startedAt: row.read<DateTime>('started_at'),
             finishedAt: row.readNullable<DateTime>('finished_at'),
             undoneAt: row.readNullable<DateTime>('undone_at'),
@@ -285,9 +324,16 @@ class AiRunRepositoryImpl implements AiRunRepository {
   Future<Either<Failure, AiRunTally>> undoItem(String itemId) async {
     try {
       return await _db.transaction(() async {
-        final runs = await (_db.select(
-          _db.aiRuns,
-        )..where((r) => r.itemId.equals(itemId) & r.undoneAt.isNull())).get();
+        // El análisis para estudiar no es algo que la IA hizo en el elemento y
+        // se deshaga: no tiene nada suyo que sacar.
+        final runs =
+            await (_db.select(_db.aiRuns)..where(
+                  (r) =>
+                      r.itemId.equals(itemId) &
+                      r.undoneAt.isNull() &
+                      r.scope.equalsValue(AiRunScope.study).not(),
+                ))
+                .get();
         var total = const AiRunTally();
         for (final run in runs) {
           total += await _undo(run);

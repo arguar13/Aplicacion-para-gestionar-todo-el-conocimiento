@@ -406,6 +406,7 @@ class CloudModelBackend implements ModelBackend {
           firstToken: firstToken,
           total: watch.elapsed,
           tokens: outputTokens,
+          inputTokens: inputTokens,
           words: countWords(text.toString()),
         ),
       );

@@ -8,7 +8,9 @@ import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/ai_task_providers.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
 import 'package:sinapsis/features/ai_organize/data/services/battery_charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/data/services/prefs_ai_organize_memory.dart';
@@ -170,6 +172,7 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
         .keeperFor(LongWorkOwner.aiOrganize),
     onFlashcardsBatch: (batch) =>
         ref.read(aiFlashcardsBatchProvider.notifier).state = batch,
+    tasks: ref.read(aiTaskTrackerProvider),
   );
   ref
     ..listen(
@@ -191,22 +194,26 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
 final aiItemReviewerProvider = Provider<AiItemReviewer>((ref) {
   final model = ref.watch(requestedBackgroundLanguageModelProvider);
   final textBudget = ref.watch(languageModelTextBudgetProvider);
-  return AiItemReviewers([
-    ReviewFlashcardsStep(
-      reviewer: model,
-      flashcards: ref.watch(flashcardRepositoryProvider),
-      suggestions: ref.watch(suggestionRepositoryProvider),
-      runs: ref.watch(aiRunRepositoryProvider),
-      textBudget: textBudget,
-    ),
-    ReviewThingsStep(
-      reviewer: model,
-      runs: ref.watch(aiRunRepositoryProvider),
-      atlas: ref.watch(aiAtlasRepositoryProvider),
-      suggestions: ref.watch(suggestionRepositoryProvider),
-      textBudget: textBudget,
-    ),
-  ]);
+  return AiItemReviewers(
+    [
+      ReviewFlashcardsStep(
+        reviewer: model,
+        flashcards: ref.watch(flashcardRepositoryProvider),
+        suggestions: ref.watch(suggestionRepositoryProvider),
+        runs: ref.watch(aiRunRepositoryProvider),
+        textBudget: textBudget,
+      ),
+      ReviewThingsStep(
+        reviewer: model,
+        runs: ref.watch(aiRunRepositoryProvider),
+        atlas: ref.watch(aiAtlasRepositoryProvider),
+        suggestions: ref.watch(suggestionRepositoryProvider),
+        textBudget: textBudget,
+      ),
+    ],
+    // Los dos pasos de «Cómo lo hace», en el mismo orden (F39).
+    steps: const [AiTaskStepKind.reviewFlashcards, AiTaskStepKind.reviewThings],
+  );
 });
 
 /// Cómo va el pedido de «Revisar con otro modelo» (F33), o `null` si no hay
@@ -229,6 +236,7 @@ final aiReviewQueueProvider = Provider<AiReviewQueue>((ref) {
     longWork: ref
         .read(longWorkCoordinatorProvider)
         .keeperFor(LongWorkOwner.aiReview),
+    tasks: ref.read(aiTaskTrackerProvider),
   );
   ref
     // Elegir otro modelo o cargar una clave puede destrabar lo que esperaba.

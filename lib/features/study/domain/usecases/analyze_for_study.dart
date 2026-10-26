@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
+import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
 import 'package:sinapsis/features/study/domain/repositories/study_repository.dart';
 import 'package:sinapsis/features/study/domain/services/study_marker.dart';
 import 'package:sinapsis/features/study/domain/services/study_reply.dart';
@@ -64,6 +66,10 @@ class StudySaveException implements Exception {
 /// de lo hecho. Una parte en que el modelo no contesta en el formato se
 /// reintenta una vez; si tampoco, queda analizada sin marcas —para no volver
 /// a gastar en ella cada vez— y se cuenta en [StudyProgress.unreadParts].
+///
+/// Si se corre dentro de una tarea de la IA (`AiTaskHandle.current`, F39),
+/// le va diciendo en qué paso está: partir el texto, mandar la parte al modelo
+/// y juntar lo marcado para guardarlo.
 class AnalyzeForStudy {
   const AnalyzeForStudy({
     required StudyRepository repository,
@@ -83,6 +89,8 @@ class AnalyzeForStudy {
     required bool markdown,
     bool Function()? shouldStop,
   }) async* {
+    final task = AiTaskHandle.current;
+    task?.step(AiTaskStepKind.studySplit);
     final sentences = splitStudySentences(content, markdown: markdown);
     final study = await _repository.read(renditionId);
     if (study.complete) return;
@@ -110,6 +118,7 @@ class AnalyzeForStudy {
 
     // Antes de la primera parte, para que se vea cuántas son desde el
     // principio y no recién cuando termina una.
+    task?.finishStep(AiTaskStepKind.studySplit);
     yield StudyProgress(
       partsDone: 0,
       partsTotal: _partsLeft(sentences, next, budget),
@@ -121,6 +130,7 @@ class AnalyzeForStudy {
       final end = studyPartEnd(sentences, next, charBudget: budget);
       final part = sentences.sublist(next, end);
 
+      task?.step(AiTaskStepKind.studySend);
       var outcome = await _marker.markPart(content: content, part: part);
       if (outcome.marks == null) {
         outcome = await _marker.markPart(
@@ -133,6 +143,7 @@ class AnalyzeForStudy {
       if (marks == null) unread++;
 
       final last = next + analyzed;
+      task?.step(AiTaskStepKind.studyJoin);
       await _save(
         renditionId,
         content,

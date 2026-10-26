@@ -457,3 +457,26 @@
     transcripción desplegada armaba su propia región sin esa regla y ofrecía el texto entero: la
     regla quedó en una sola función (`_offeredAloud`) para las dos regiones, con su prueba.
   - 61 mutaciones, todas muertas; cuatro sobrevivían en la primera pasada y se sumaron pruebas.
+- **Paso 6 — hecho.** «Lo que hizo la IA», en vivo.
+  - **«Ahora»**, arriba, mientras la IA trabaja: una sola tarjeta con qué hace («Analizando
+    «Historia» para estudiar»), la parte o el paso que va, el porcentaje, el modelo, el tiempo que
+    lleva (corre solo) y los tokens. Con la nube cortada por algo pasajero dice «Reintentando (2 de
+    4)». Si la IA hace varias cosas a la vez, la tarjeta es una y las otras van en una línea; la
+    tarjeta de la cola se esconde mientras «Ahora» ya dice lo mismo.
+  - **«Cómo lo hace»**, plegado: los pasos, con el que va marcado —partir el texto, mandar cada
+    parte y juntar lo marcado; los pasos de organizar prendidos; o las tarjetas y lo demás al
+    revisar—, y los tokens leídos y escritos.
+  - **Causa y diseño**: no había dónde preguntar qué hace la IA ahora, y los tokens de una tarea no
+    se guardaban. Ahora hay una fuente única, `AiTaskTracker`, que alimentan el análisis para
+    estudiar, la cola, el pedido de tarjetas y la revisión.
+  - **Tokens de verdad, sin estimar**: los cuenta el proveedor en la nube o el tokenizador de Gemma.
+    Cada respuesta se atribuye a la tarea que la pidió por su zona de Dart, no por «la tarea
+    activa»: dos tareas a la vez no se mezclan, ni esperando el turno del modelo.
+  - **Actividad**: cada pasada guarda su tiempo de trabajo y sus tokens (esquema v43, aditivo; la
+    unión de bóvedas los lleva y se suman si la pasada se corta y se retoma). Cada fila dice
+    modelo, tiempo y tokens; las de antes, que no los guardaban, no inventan ceros. El análisis
+    para estudiar deja su pasada (`AiRunScope.study`, «Analizado para estudiar», sin «Deshacer»),
+    y «Volver a organizar» ya no se esconde por una pasada de estudio posterior: mira la última que
+    organizó.
+  - 92 mutaciones, todas muertas, tras matar 8 sobrevivientes con pruebas nuevas; una era
+    equivalente y su parámetro sobraba, así que salió del código.

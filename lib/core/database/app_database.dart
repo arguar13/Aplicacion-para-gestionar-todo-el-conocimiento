@@ -180,7 +180,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 42;
+  static const currentSchemaVersion = 43;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -1083,6 +1083,40 @@ class AppDatabase extends _$AppDatabase {
             }
           }
           await _requireSameCounts(before, step: 'v42', tables: tables);
+        }
+
+        // Lo que costó cada pasada de la IA (F39, paso 6): el tiempo que el
+        // modelo trabajó y los tokens que leyó y escribió, tres columnas en
+        // `ai_runs` que en todo lo de antes dicen 0 —no se guardaban—. Aditiva:
+        // los conteos de todo son compuerta. La columna puede existir ya: el
+        // paso v34 crea `ai_runs` con su definición de hoy.
+        if (from < 43) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+            ...VaultCounts.studyTables,
+            ...VaultCounts.itemSpaceTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          for (final column in [
+            aiRuns.workMillis,
+            aiRuns.inputTokens,
+            aiRuns.outputTokens,
+          ]) {
+            if (!await _columnExists('ai_runs', column.name)) {
+              await migrator.addColumn(aiRuns, column);
+            }
+          }
+          await _requireSameCounts(before, step: 'v43', tables: tables);
         }
       });
     },

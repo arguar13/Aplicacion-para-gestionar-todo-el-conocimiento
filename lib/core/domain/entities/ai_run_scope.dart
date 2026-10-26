@@ -16,4 +16,11 @@ enum AiRunScope {
   /// esta pasada, y deshacerla lo devuelve a como estaba. No cuenta como
   /// organizar el elemento.
   review,
+
+  /// Analizar un texto para estudiarlo (F36, F39): el resumen, la síntesis y
+  /// las palabras clave que la IA marca por partes. Es la historia de lo que
+  /// costó —tiempo, tokens, modelo— en «Lo que hizo la IA»: no crea nada que
+  /// se deshaga como una pasada, porque lo marcado se rehace con «Volver a
+  /// analizar». No cuenta como organizar el elemento.
+  study,
 }

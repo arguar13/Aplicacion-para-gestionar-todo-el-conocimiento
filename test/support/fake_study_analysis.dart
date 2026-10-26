@@ -6,12 +6,16 @@ class FakeStudyAnalysis extends StudyAnalysisNotifier {
   FakeStudyAnalysis({super.renditionId = 'r1'})
     : super(analyze: () => throw UnimplementedError('sin modelo en la prueba'));
 
-  final starts = <({String content, bool markdown})>[];
+  final starts = <({String content, bool markdown, String? itemId})>[];
   int stops = 0;
 
   @override
-  Future<void> start({required String content, required bool markdown}) async {
-    starts.add((content: content, markdown: markdown));
+  Future<void> start({
+    required String content,
+    required bool markdown,
+    String? itemId,
+  }) async {
+    starts.add((content: content, markdown: markdown, itemId: itemId));
   }
 
   @override

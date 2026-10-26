@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
+import 'package:sinapsis/features/ai_organize/presentation/ai_task_texts.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_presentation.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -262,10 +264,18 @@ class _RunRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final locale = Localizations.localeOf(context).toString();
+    // Lo que costó la pasada (F39, paso 6): el modelo, el tiempo que trabajó
+    // y los tokens. Las de antes, que no lo guardaban, no dicen nada.
+    final cost = aiRunCostText(l10n, locale, run);
 
     final Widget body;
     if (run.isUndone) {
       body = _QuietNote(icon: Icons.undo, text: l10n.aiRunUndone);
+    } else if (run.scope == AiRunScope.study) {
+      // Analizar para estudiar no deja nada que deshacer: lo marcado se
+      // rehace con «Volver a analizar».
+      body = _QuietNote(icon: Icons.school_outlined, text: l10n.aiRunStudied);
     } else if (run.remaining.isEmpty) {
       body = inProgress
           ? _QuietNote(icon: Icons.auto_awesome, text: l10n.aiRunInProgress)
@@ -313,6 +323,37 @@ class _RunRow extends StatelessWidget {
             child: body,
           ),
         ),
+        if (cost != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Tooltip(
+              message: run.tokens > 0
+                  ? l10n.aiRunCostSplit(
+                      aiTokenCount(locale, run.inputTokens),
+                      aiTokenCount(locale, run.outputTokens),
+                    )
+                  : cost,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      cost,
+                      key: Key('ai-run-cost-${run.id}'),
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }

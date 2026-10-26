@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_reviewer.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/things_reviewer.dart';
+import 'package:sinapsis/features/chat/data/services/gemma_backend.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_engine.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
@@ -18,6 +19,7 @@ import '../../../../support/fake_inference_model.dart';
 void main() {
   late FakeInferenceModel model;
   late GemmaChatModel gemma;
+  late LanguageModelMeter meter;
 
   /// Con qué se pidió cargar el modelo, cada vez.
   late List<GemmaLoadRequest> loads;
@@ -32,7 +34,7 @@ void main() {
         ],
       ),
     );
-    final meter = LanguageModelMeter();
+    meter = LanguageModelMeter();
     gemma = GemmaChatModel(
       gate: LanguageModelGate(),
       engine: GemmaEngine(
@@ -46,6 +48,87 @@ void main() {
       meter: meter,
       countTokens: (_, text) async => (text.length / 4).ceil(),
     );
+  });
+
+  group('los tokens que gastó cada respuesta (F39)', () {
+    int count(String text) => (text.length / 4).ceil();
+
+    test('lo escrito sale del tokenizador del modelo y lo leído se cuenta con '
+        'él: el pedido y, la primera vez, la instrucción', () async {
+      await gemma.summarize(content: 'Texto largo para resumir.');
+
+      final chat = model.chats.single;
+      final instruction = model.opened.single.instruction!;
+      final reply = meter.performance.value.taskReply!;
+      expect(chat.received, hasLength(1));
+      expect(
+        reply.inputTokens,
+        count(chat.received.single) + count(instruction),
+      );
+      expect(reply.tokens, isNotNull);
+    });
+
+    test('en un mismo intercambio la instrucción se cuenta una sola vez: lo '
+        'que sigue es solo el pedido', () async {
+      final backend = GemmaBackend(
+        gate: LanguageModelGate(),
+        engine: GemmaEngine(
+          ensureReady: () async => true,
+          meter: meter,
+          load: (request) async => model,
+        ),
+        meter: meter,
+        countTokens: (_, text) async => count(text),
+      );
+      final exchange = await backend.openExchange(
+        instruction: 'Una instrucción larga para el modelo.',
+        maxOutputTokens: 64,
+      );
+
+      await exchange.reply('Primero.');
+      final first = meter.performance.value.taskReply!.inputTokens;
+      await exchange.reply('Segundo pedido.');
+      final second = meter.performance.value.taskReply!.inputTokens;
+
+      expect(
+        first,
+        count('Primero.') + count('Una instrucción larga para el modelo.'),
+      );
+      expect(second, count('Segundo pedido.'));
+      await exchange.close();
+    });
+
+    test('una tarea que lo oye lo recibe en el acto, con lo leído y lo '
+        'escrito', () async {
+      final heard = <(int?, int?)>[];
+      meter.addTap((reply) => heard.add((reply.inputTokens, reply.tokens)));
+
+      await gemma.summarize(content: 'Texto.');
+
+      expect(heard, hasLength(1));
+      expect(heard.single.$1, greaterThan(0));
+      expect(heard.single.$2, greaterThan(0));
+    });
+
+    test('si el tokenizador falla, la respuesta sale igual y lo leído queda '
+        'sin contar, no inventado', () async {
+      final failing = LanguageModelMeter();
+      final broken = GemmaChatModel(
+        gate: LanguageModelGate(),
+        engine: GemmaEngine(
+          ensureReady: () async => true,
+          meter: failing,
+          load: (request) async => model,
+        ),
+        meter: failing,
+        countTokens: (_, _) async => throw StateError('sin tokenizador'),
+      );
+
+      expect(await broken.summarize(content: 'Texto.'), 'Un resumen.');
+
+      final reply = failing.performance.value.taskReply!;
+      expect(reply.inputTokens, isNull);
+    });
   });
 
   group('cada uso tiene su tope de largo', () {

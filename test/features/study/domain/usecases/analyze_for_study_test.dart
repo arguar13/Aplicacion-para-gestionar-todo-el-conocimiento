@@ -7,7 +7,10 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
+import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
 import 'package:sinapsis/features/study/data/repositories/study_repository_impl.dart';
+import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_marker.dart';
 import 'package:sinapsis/features/study/domain/services/study_reply.dart';
 import 'package:sinapsis/features/study/domain/services/study_sentences.dart';
@@ -36,6 +39,9 @@ class _RecordedMarker implements StudyMarker {
 
   final parts = <List<StudySentence>>[];
 
+  /// Qué mira la prueba cada vez que se le pide una parte.
+  void Function()? onPart;
+
   /// Si la próxima llamada falla, como sin conexión.
   Error? failNext;
 
@@ -44,6 +50,7 @@ class _RecordedMarker implements StudyMarker {
     required String content,
     required List<StudySentence> part,
   }) async {
+    onPart?.call();
     if (failNext case final error?) {
       failNext = null;
       throw error;
@@ -56,6 +63,24 @@ class _RecordedMarker implements StudyMarker {
       analyzed: fitted.length,
       marks: parseStudyReply(_reply(fitted), content: content, part: fitted),
     );
+  }
+}
+
+/// La base de verdad, que dice qué paso tiene la tarea en curso cada vez que
+/// se le pide lo ya analizado.
+class _WatchingRepository extends StudyRepositoryImpl {
+  _WatchingRepository({
+    required super.database,
+    required super.telemetry,
+    required this.onRead,
+  });
+
+  final void Function() onRead;
+
+  @override
+  Future<DocumentStudy> read(String renditionId) {
+    onRead();
+    return super.read(renditionId);
   }
 }
 
@@ -243,6 +268,103 @@ void main() {
 
     expect(again.parts, isEmpty);
     expect(progress, isEmpty);
+  });
+
+  group('dentro de una tarea de la IA (F39, paso 6)', () {
+    late AiTaskTracker tracker;
+    late AiTaskHandle task;
+
+    setUp(() {
+      tracker = AiTaskTracker(clock: () => now);
+      task = tracker.begin(
+        kind: AiTaskKind.studyAnalysis,
+        title: 'Libro',
+        steps: const [
+          AiTaskStepKind.studySplit,
+          AiTaskStepKind.studySend,
+          AiTaskStepKind.studyJoin,
+        ],
+      );
+    });
+
+    tearDown(() => tracker.dispose());
+
+    AiTask current() => tracker.tasks.value.single;
+
+    test('le dice en qué paso está: parte el texto, manda cada parte y junta '
+        'lo marcado para guardarlo', () async {
+      final atMark = <AiTaskStepKind?>[];
+      final marker = _RecordedMarker(partCharBudget: 164)
+        ..onPart = () => atMark.add(current().currentStep);
+      final afterEach = <AiTaskStepKind?>[];
+
+      await task.run(() async {
+        await for (final _ in AnalyzeForStudy(
+          repository: repository,
+          marker: marker,
+        ).call(renditionId: 'texto', content: content, markdown: false)) {
+          afterEach.add(current().currentStep);
+        }
+      });
+
+      // Al pedirle cada parte al modelo, el paso es el de mandarla.
+      expect(atMark, everyElement(AiTaskStepKind.studySend));
+      expect(atMark, hasLength(5));
+      // Antes de la primera parte ya se partió el texto y no hay paso en
+      // curso; después de cada una, lo marcado se junta y se guarda.
+      expect(afterEach.first, isNull);
+      expect(afterEach.skip(1), everyElement(AiTaskStepKind.studyJoin));
+    });
+
+    test('mientras parte el texto y lee lo ya analizado, el paso en curso es '
+        'partirlo', () async {
+      final seen = <AiTaskStepKind?>[];
+      final watching = _WatchingRepository(
+        database: db,
+        telemetry: _SilentTelemetry(),
+        onRead: () => seen.add(current().currentStep),
+      );
+      final stream = task.run(
+        () => AnalyzeForStudy(
+          repository: watching,
+          marker: _RecordedMarker(partCharBudget: 164),
+        ).call(renditionId: 'texto', content: content, markdown: false),
+      );
+
+      await task.run(() => stream.first);
+
+      expect(seen, [AiTaskStepKind.studySplit]);
+    });
+
+    test('partir el texto queda hecho antes de la primera parte', () async {
+      final marker = _RecordedMarker(partCharBudget: 164);
+      final stream = task.run(
+        () => AnalyzeForStudy(
+          repository: repository,
+          marker: marker,
+        ).call(renditionId: 'texto', content: content, markdown: false),
+      );
+
+      await task.run(() => stream.first);
+
+      expect(
+        current().stateOf(AiTaskStepKind.studySplit),
+        AiTaskStepState.done,
+      );
+      expect(
+        current().stateOf(AiTaskStepKind.studySend),
+        AiTaskStepState.pending,
+      );
+    });
+
+    test('afuera de toda tarea no cambia nada: analiza igual', () async {
+      final marker = _RecordedMarker(partCharBudget: 164);
+
+      final progress = await analyze(marker);
+
+      expect(progress.last.finished, isTrue);
+      expect(current().currentStep, isNull);
+    });
   });
 
   test(

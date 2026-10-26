@@ -3,13 +3,22 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_notice.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
+import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/ai_task_providers.dart';
+import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_run_usage_saver.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/study/data/repositories/study_repository_impl.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/repositories/study_repository.dart';
@@ -113,6 +122,10 @@ class StudyAnalysisFailed extends StudyAnalysisState {
 /// detalle no lo corta, y volver muestra cuánto va. Mientras analiza mantiene
 /// viva la app con el servicio en primer plano: un libro con Gemma en el
 /// teléfono son muchos minutos, y al minimizar la app se congelaría.
+///
+/// Cada pasada es una tarea de la IA (F39, paso 6): «Lo que hizo la IA» la
+/// muestra en vivo —la parte que va, el modelo, el tiempo y los tokens— y, al
+/// terminar, deja una pasada de estudio (`AiRunScope.study`) con lo que costó.
 class StudyAnalysisNotifier extends StateNotifier<StudyAnalysisState> {
   StudyAnalysisNotifier({
     required this.renditionId,
@@ -120,10 +133,20 @@ class StudyAnalysisNotifier extends StateNotifier<StudyAnalysisState> {
     LongWorkKeeper Function()? keeper,
     Stream<AiNotice>? notices,
     Clock? clock,
+    AiTaskTracker? tasks,
+    AiRunRepository Function()? runs,
+    TelemetryService? telemetry,
+    String? Function()? modelName,
+    Future<String?> Function(String itemId)? titleOf,
   }) : _analyze = analyze,
        _keeperOf = keeper,
        _notices = notices,
        _eta = StudyEta(clock: clock ?? DateTime.now),
+       _tasks = tasks,
+       _runs = runs,
+       _telemetry = telemetry,
+       _modelName = modelName,
+       _titleOf = titleOf,
        super(const StudyAnalysisIdle());
 
   final String renditionId;
@@ -137,12 +160,31 @@ class StudyAnalysisNotifier extends StateNotifier<StudyAnalysisState> {
   final LongWorkKeeper Function()? _keeperOf;
   LongWorkKeeper? _keeper;
 
+  /// Lo que la IA está haciendo ahora, y dónde queda lo que costó cada pasada
+  /// (F39, paso 6). Sin ellos —las pruebas que no los miran—, el análisis
+  /// anda igual.
+  final AiTaskTracker? _tasks;
+  final AiRunRepository Function()? _runs;
+  final TelemetryService? _telemetry;
+  final String? Function()? _modelName;
+
+  /// El título del documento, para decir qué se analiza.
+  final Future<String?> Function(String itemId)? _titleOf;
+
+  /// La tarea en curso, para contarle los reintentos.
+  AiTaskHandle? _task;
+
   var _stopRequested = false;
 
   bool get isRunning => state is StudyAnalysisRunning;
 
   /// Analiza lo que falta de [content]. Si ya está analizando, no hace nada.
-  Future<void> start({required String content, required bool markdown}) async {
+  /// [itemId] es el documento: con él la pasada queda en «Lo que hizo la IA».
+  Future<void> start({
+    required String content,
+    required bool markdown,
+    String? itemId,
+  }) async {
     if (isRunning) return;
     _stopRequested = false;
     state = const StudyAnalysisRunning(null);
@@ -152,22 +194,54 @@ class StudyAnalysisNotifier extends StateNotifier<StudyAnalysisState> {
 
     var unread = 0;
     final retries = _notices?.listen(_onNotice);
+    final task = _task = _tasks?.begin(
+      kind: AiTaskKind.studyAnalysis,
+      title: (itemId == null ? null : await _titleOf?.call(itemId)) ?? '',
+      itemId: itemId,
+      model: _modelName?.call(),
+      steps: const [
+        AiTaskStepKind.studySplit,
+        AiTaskStepKind.studySend,
+        AiTaskStepKind.studyJoin,
+      ],
+    );
+    String? runId;
+    AiRunUsageSaver? usage;
     try {
-      await for (final progress in _analyze()(
-        renditionId: renditionId,
-        content: content,
-        markdown: markdown,
-        shouldStop: () => _stopRequested || !mounted,
-      )) {
-        unread = progress.unreadParts;
-        if (!mounted) return;
-        // Una parte terminada es que lo pasajero pasó.
-        state = StudyAnalysisRunning(
-          progress,
-          remaining: _eta.remaining(progress),
-        );
-        keeper?.working(done: progress.partsDone, total: progress.partsTotal);
+      Future<void> analyze() async {
+        await for (final progress in _analyze()(
+          renditionId: renditionId,
+          content: content,
+          markdown: markdown,
+          shouldStop: () => _stopRequested || !mounted,
+        )) {
+          unread = progress.unreadParts;
+          if (!mounted) return;
+          // Una parte terminada es que lo pasajero pasó.
+          state = StudyAnalysisRunning(
+            progress,
+            remaining: _eta.remaining(progress),
+          );
+          keeper?.working(done: progress.partsDone, total: progress.partsTotal);
+          task?.parts(progress.partsDone, progress.partsTotal);
+          // La pasada se abre cuando hay partes que analizar: un texto sin
+          // nada por hacer no deja nada en «Lo que hizo la IA».
+          if (runId == null && itemId != null && progress.partsTotal > 0) {
+            runId = await _openRun(itemId);
+            if (runId != null && task != null) {
+              usage = AiRunUsageSaver(
+                runs: _runs!(),
+                telemetry: _telemetry!,
+                runId: runId!,
+                task: task,
+                hint: 'StudyAnalysisNotifier',
+              );
+            }
+          }
+        }
       }
+
+      await (task == null ? analyze() : task.run(analyze));
       if (mounted) {
         state = _stopRequested
             ? const StudyAnalysisIdle()
@@ -181,7 +255,53 @@ class StudyAnalysisNotifier extends StateNotifier<StudyAnalysisState> {
     } finally {
       unawaited(retries?.cancel());
       keeper?.idle();
+      // Lo que costó, y la pasada cerrada, antes de que la tarea deje de
+      // verse: «Lo que hizo la IA» vuelve a leer cuando termina. También si
+      // se cortó o falló: los tokens ya se gastaron.
+      await usage?.save();
+      await _closeRun(runId);
+      if (usage != null) {
+        usage!.end();
+      } else {
+        task?.end();
+      }
+      _task = null;
     }
+  }
+
+  /// Abre la pasada de estudio de [itemId]; `null` si no se pudo, y se
+  /// registra: el análisis sigue sin dejar su historia.
+  Future<String?> _openRun(String itemId) async {
+    final runs = _runs;
+    final telemetry = _telemetry;
+    if (runs == null || telemetry == null) return null;
+    final started = await runs().startRun(
+      itemId,
+      model: _modelName?.call(),
+      scope: AiRunScope.study,
+    );
+    return started.fold((failure) {
+      telemetry.recordError(
+        failure,
+        StackTrace.current,
+        hint: 'StudyAnalysisNotifier: no se pudo abrir la pasada de estudio',
+      );
+      return null;
+    }, (id) => id);
+  }
+
+  Future<void> _closeRun(String? runId) async {
+    final runs = _runs;
+    final telemetry = _telemetry;
+    if (runId == null || runs == null || telemetry == null) return;
+    (await runs().finishRun(runId)).match(
+      (failure) => telemetry.recordError(
+        failure,
+        StackTrace.current,
+        hint: 'StudyAnalysisNotifier: no se pudo cerrar la pasada de estudio',
+      ),
+      (_) {},
+    );
   }
 
   /// Un reintento de la IA en la nube mientras se analiza: se muestra en la
@@ -191,6 +311,13 @@ class StudyAnalysisNotifier extends StateNotifier<StudyAnalysisState> {
     if (!mounted || current is! StudyAnalysisRunning) return;
     switch (notice) {
       case AiRetryNotice():
+        _task?.retry(
+          AiTaskRetry(
+            attempt: notice.attempt,
+            maxAttempts: notice.maxAttempts,
+            failure: notice.failure,
+          ),
+        );
         state = StudyAnalysisRunning(
           current.progress,
           remaining: current.remaining,
@@ -202,6 +329,7 @@ class StudyAnalysisNotifier extends StateNotifier<StudyAnalysisState> {
         );
       case AiRetryEndedNotice():
         if (current.retry == null) return;
+        _task?.retry(null);
         state = StudyAnalysisRunning(
           current.progress,
           remaining: current.remaining,
@@ -249,6 +377,15 @@ final studyAnalysisProvider =
             .keeperFor(LongWorkOwner.study),
         notices: ref.read(aiNoticeBusProvider).notices,
         clock: ref.read(clockProvider),
+        tasks: ref.read(aiTaskTrackerProvider),
+        runs: () => ref.read(aiRunRepositoryProvider),
+        telemetry: ref.read(telemetryServiceProvider),
+        modelName: ref.read(languageModelNameProvider),
+        titleOf: (itemId) async =>
+            (await ref.read(libraryRepositoryProvider).findById(itemId))
+                .getRight()
+                .toNullable()
+                ?.title,
       ),
     );
 
@@ -259,9 +396,12 @@ Future<void> reanalyzeForStudy(
   required String renditionId,
   required String content,
   required bool markdown,
+  String? itemId,
 }) async {
   final notifier = ref.read(studyAnalysisProvider(renditionId).notifier);
   if (notifier.isRunning) return;
   await ref.read(studyRepositoryProvider).clearAi(renditionId);
-  unawaited(notifier.start(content: content, markdown: markdown));
+  unawaited(
+    notifier.start(content: content, markdown: markdown, itemId: itemId),
+  );
 }

@@ -4,6 +4,7 @@ import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/reviewable_ai_thing.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
@@ -120,6 +121,10 @@ class FakeAiRunRepository implements AiRunRepository {
   Future<Either<Failure, AiRunTally>> finishRun(String runId) =>
       throw UnimplementedError('Las pantallas no cierran pasadas.');
 
+  @override
+  Future<Either<Failure, Unit>> addUsage(String runId, AiTaskUsage usage) =>
+      throw UnimplementedError('Lo hace la cola, no las pantallas.');
+
   /// Lo que devuelve [reviewableThings] (F33), por elemento.
   Map<String, List<ReviewableAiThing>> things = const {};
 
@@ -192,6 +197,11 @@ AiRun fakeRun(
   AiRunTally? created,
   bool finished = true,
   bool undone = false,
+  AiRunScope scope = AiRunScope.organize,
+  Duration workTime = Duration.zero,
+  int inputTokens = 0,
+  int outputTokens = 0,
+  String? model = 'gemma',
 }) {
   final started = startedAt ?? DateTime(2026, 9, 11, 9);
   return AiRun(
@@ -201,7 +211,11 @@ AiRun fakeRun(
     startedAt: started,
     finishedAt: finished ? started.add(const Duration(minutes: 1)) : null,
     undoneAt: undone ? FakeAiRunRepository.undoneAt : null,
-    model: 'gemma',
+    model: model,
+    scope: scope,
+    workTime: workTime,
+    inputTokens: inputTokens,
+    outputTokens: outputTokens,
     created: created ?? remaining,
     remaining: undone ? const AiRunTally() : remaining,
   );

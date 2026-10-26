@@ -8,6 +8,7 @@ import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -23,9 +24,12 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/account_usage.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_account.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
+import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/ai_task_providers.dart';
 import 'package:sinapsis/features/ai_models/presentation/screens/language_model_screen.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_account_switcher.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
@@ -56,11 +60,17 @@ void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
   late FakeAiRunRepository runs;
+  late AiTaskTracker tracker;
 
   Future<void> setUpWith(List<AiRun> initial) async {
     runs = FakeAiRunRepository(initial);
+    tracker = AiTaskTracker(clock: () => DateTime(2026, 9, 11, 9, 5));
+    addTearDown(tracker.dispose);
     harness = await LibraryHarness.create(
-      extraOverrides: [aiRunRepositoryProvider.overrideWithValue(runs)],
+      extraOverrides: [
+        aiRunRepositoryProvider.overrideWithValue(runs),
+        aiTaskTrackerProvider.overrideWithValue(tracker),
+      ],
     );
   }
 
@@ -568,6 +578,36 @@ void main() {
       expect(find.byKey(const Key('ai-activity-item-a')), findsOneWidget);
     });
 
+    testWidgets('se vuelve a leer cuando una tarea termina, aunque no sea la '
+        'cola: el análisis para estudiar deja su pasada', (tester) async {
+      await setUpWith(const []);
+      await pumpScreen(tester);
+      final task = tracker.begin(
+        kind: AiTaskKind.studyAnalysis,
+        title: 'Historia',
+      );
+      await tester.pump();
+      final before = runs.pages.length;
+
+      runs.add(
+        fakeRun(
+          'e1',
+          itemId: 'a',
+          itemTitle: 'Historia',
+          scope: AiRunScope.study,
+          remaining: const AiRunTally(),
+          workTime: const Duration(minutes: 1),
+          outputTokens: 50,
+        ),
+      );
+      task.end();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(runs.pages.length, greaterThan(before));
+      expect(find.byKey(const Key('ai-activity-item-a')), findsOneWidget);
+    });
+
     testWidgets('tocar un elemento lo abre, con el router real', (
       tester,
     ) async {
@@ -585,6 +625,142 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ItemDetailScreen), findsOneWidget);
+    });
+  });
+
+  group('lo que costó cada pasada (F39, paso 6)', () {
+    testWidgets('cada pasada dice con qué modelo, cuánto trabajó y cuántos '
+        'tokens gastó', (tester) async {
+      await setUpWith([
+        fakeRun(
+          'r1',
+          itemId: 'a',
+          itemTitle: 'Roma',
+          model: 'gemini-3.8-flash',
+          workTime: const Duration(minutes: 2, seconds: 14),
+          inputTokens: 12000,
+          outputTokens: 340,
+        ),
+      ]);
+      await pumpScreen(tester);
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('ai-activity-item-a')),
+          matching: find.text('Gemini 3.8 Flash · 2 min 14 s · 12.340 tokens'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('ai-run-cost-r1')), findsOneWidget);
+    });
+
+    testWidgets('solo con el tiempo, o solo con los tokens, dice lo que sabe '
+        'y sin modelo no lo inventa', (tester) async {
+      await setUpWith([
+        fakeRun(
+          'r2',
+          itemId: 'b',
+          itemTitle: 'Cartago',
+          model: null,
+          outputTokens: 1500,
+        ),
+        fakeRun(
+          'r1',
+          itemId: 'a',
+          itemTitle: 'Roma',
+          model: 'gemma4E4b',
+          workTime: const Duration(seconds: 45),
+        ),
+      ]);
+      await pumpScreen(tester);
+
+      expect(find.text('Gemma 4 E4B · 45 s'), findsOneWidget);
+      expect(find.text('1.500 tokens'), findsOneWidget);
+    });
+
+    testWidgets('una pasada de antes, que no lo guardaba, no dice nada: no '
+        'inventa un cero', (tester) async {
+      await setUpWith([fakeRun('r1', itemId: 'a', itemTitle: 'Roma')]);
+      await pumpScreen(tester);
+
+      expect(find.byKey(const Key('ai-run-cost-r1')), findsNothing);
+      expect(find.textContaining('tokens'), findsNothing);
+    });
+
+    testWidgets('el análisis para estudiar se lista con lo que costó y sin '
+        '«Deshacer»: no deja nada que deshacer', (tester) async {
+      await setUpWith([
+        fakeRun(
+          'e1',
+          itemId: 'a',
+          itemTitle: 'Historia',
+          scope: AiRunScope.study,
+          remaining: const AiRunTally(),
+          model: 'gemini-3.8-flash',
+          workTime: const Duration(minutes: 3),
+          inputTokens: 9000,
+          outputTokens: 900,
+        ),
+      ]);
+      await pumpScreen(tester);
+
+      expect(find.text(es.aiRunStudied), findsOneWidget);
+      expect(find.text(es.aiRunNothingLeft), findsNothing);
+      expect(find.text(es.aiRunUndo), findsNothing);
+      expect(
+        find.text('Gemini 3.8 Flash · 3 min 0 s · 9.900 tokens'),
+        findsOneWidget,
+      );
+    });
+  });
+
+  group('ahora (F39, paso 6)', () {
+    setUp(() => setUpWith(const []));
+
+    testWidgets('si la IA trabaja, arriba de todo una tarjeta con lo que '
+        'hace; al terminar se va', (tester) async {
+      await pumpScreen(tester);
+      final task = tracker.begin(
+        kind: AiTaskKind.studyAnalysis,
+        title: 'Historia',
+        model: 'gemini-3.8-flash',
+      )..parts(1, 4);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byKey(const Key('ai-now-card')), findsOneWidget);
+      expect(find.text(es.aiNowStudy('Historia')), findsOneWidget);
+      expect(find.text(es.aiNowPercent(25)), findsOneWidget);
+      // Arriba de la tarjeta de la cola.
+      expect(
+        tester.getTopLeft(find.byKey(const Key('ai-now-card'))).dy,
+        lessThan(tester.getTopLeft(find.byKey(const Key('ai-status-card'))).dy),
+      );
+
+      task.end();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byKey(const Key('ai-now-card')), findsNothing);
+    });
+
+    testWidgets('organizando, «Ahora» y la cola no dicen lo mismo dos '
+        'veces', (tester) async {
+      await pumpScreen(tester);
+      tracker.begin(kind: AiTaskKind.organize, title: 'Roma');
+      setStatus(
+        const AiOrganizeWorking(
+          itemTitle: 'Roma',
+          pending: 3,
+          source: AiWorkSource.fresh,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text(es.aiNowOrganize('Roma')), findsOneWidget);
+      expect(find.text(es.aiStatusWorkingMessage(3)), findsOneWidget);
+      expect(find.byKey(const Key('ai-status-card')), findsNothing);
     });
   });
 

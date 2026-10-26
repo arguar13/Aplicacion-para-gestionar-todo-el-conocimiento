@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 
 /// Una de las cosas que hace la IA sobre un elemento (F27): vincularlo, sus
@@ -65,4 +66,19 @@ class AiStepFailure implements Exception {
 extension AiStepEither<T> on Either<Failure, T> {
   T orThrowStep(String what) =>
       match((failure) => throw AiStepFailure(what, failure), (value) => value);
+}
+
+/// El paso de «Cómo lo hace» (F39) de cada interruptor que corre un paso de la
+/// IA; `null` en los que no son un paso, como el general o el de recorrer la
+/// biblioteca con el cargador.
+extension AiOrganizeToggleTask on AiOrganizeToggle {
+  AiTaskStepKind? get taskStep => switch (this) {
+    AiOrganizeToggle.reference => AiTaskStepKind.organizeReference,
+    AiOrganizeToggle.properties => AiTaskStepKind.organizeProperties,
+    AiOrganizeToggle.space => AiTaskStepKind.organizeSpace,
+    AiOrganizeToggle.relations => AiTaskStepKind.organizeRelations,
+    AiOrganizeToggle.flashcards => AiTaskStepKind.organizeFlashcards,
+    AiOrganizeToggle.atlas => AiTaskStepKind.organizeAtlas,
+    AiOrganizeToggle.enabled || AiOrganizeToggle.backfillWhileCharging => null,
+  };
 }

@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/ai_task_providers.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -210,6 +212,22 @@ class AiQueueStatusCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final view = ref.watch(aiQueueViewProvider);
+    // Mientras la cola organiza, «Ahora» (`AiNowCard`) ya dice qué hace, con
+    // qué modelo, cuánto va y cuántos quedan en la cola: esta tarjeta diría lo
+    // mismo con menos. Cuando no hay una tarea a la vista —recién arranca—,
+    // sigue siendo esta.
+    final nowShown = ref.watch(
+      aiLiveTasksProvider.select(
+        (tasks) => tasks.any(
+          (task) =>
+              task.kind == AiTaskKind.organize ||
+              task.kind == AiTaskKind.flashcards,
+        ),
+      ),
+    );
+    if (view is AiQueueWorkingView && nowShown) {
+      return const SizedBox(width: double.infinity);
+    }
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 240),

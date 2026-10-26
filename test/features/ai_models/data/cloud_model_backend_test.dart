@@ -109,6 +109,7 @@ void main() {
   late List<Duration> waits;
   late DateTime now;
   late CloudModelBackend backend;
+  late LanguageModelMeter meter;
   late AiAccount first;
   late AiAccount second;
 
@@ -128,6 +129,7 @@ void main() {
     settings = const AiModelSettings();
     notices = [];
     waits = [];
+    meter = LanguageModelMeter();
     backend = CloudModelBackend(
       wire: wire,
       catalog: catalog,
@@ -137,7 +139,7 @@ void main() {
       saveSettings: (next) async => settings = next,
       notify: notices.add,
       gate: LanguageModelGate(),
-      meter: LanguageModelMeter(),
+      meter: meter,
       clock: () => now,
       wait: (duration, cancel) async {
         waits.add(duration);
@@ -189,6 +191,34 @@ void main() {
     expect(spent.inputTokens, 100);
     expect(spent.outputTokens, 20);
     expect(notices, isEmpty);
+  });
+
+  test('cada respuesta le cuenta al medidor los tokens que el proveedor contó, '
+      'leídos y escritos, y a los oyentes en el acto (F39)', () async {
+    wire.scripts['clave-1'] = [
+      ['Hola, ', 'Armando.'],
+    ];
+    final heard = <(int?, int?)>[];
+    meter.addTap((reply) => heard.add((reply.inputTokens, reply.tokens)));
+
+    await ask(backend);
+
+    final reply = meter.performance.value.taskReply!;
+    expect((reply.inputTokens, reply.tokens), (100, 20));
+    expect(heard, [(100, 20)]);
+  });
+
+  test('una respuesta que falló no cuenta tokens: solo lo que el proveedor '
+      'contestó entero', () async {
+    wire.scripts['clave-1'] = [
+      const CloudModelException(CloudModelFailure.modelNotFound),
+    ];
+    final heard = <int?>[];
+    meter.addTap((reply) => heard.add(reply.tokens));
+
+    await expectLater(ask(backend), throwsA(isA<CloudModelException>()));
+
+    expect(heard, isEmpty);
   });
 
   test('la lista de modelos se pide una vez y se guarda; un modelo elegido '

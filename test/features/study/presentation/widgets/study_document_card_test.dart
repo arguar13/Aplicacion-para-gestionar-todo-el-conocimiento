@@ -141,7 +141,9 @@ void main() {
       expect(find.byKey(const Key('study-suggestion-summary')), findsNothing);
       expect(view().summary, isTrue);
       expect(view().picking, isFalse);
-      expect(analysis.starts, [(content: content, markdown: true)]);
+      expect(analysis.starts, [
+        (content: content, markdown: true, itemId: 'i1'),
+      ]);
     });
 
     testWidgets('a mano, lo prende y pasa a elegirlo, avisa qué se elige y '
@@ -649,7 +651,9 @@ void main() {
       await tap(tester, 'study-reanalyze-confirm');
 
       expect(repository.cleared, ['r1']);
-      expect(analysis.starts, [(content: content, markdown: true)]);
+      expect(analysis.starts, [
+        (content: content, markdown: true, itemId: 'i1'),
+      ]);
     });
 
     testWidgets('al cancelar, no toca nada', (tester) async {

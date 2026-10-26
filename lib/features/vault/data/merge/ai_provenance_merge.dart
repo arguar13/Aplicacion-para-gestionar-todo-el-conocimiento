@@ -31,6 +31,9 @@ const kAiRunColumns = [
   'properties_created',
   'content_simhash',
   'scope',
+  'work_millis',
+  'input_tokens',
+  'output_tokens',
 ];
 const kAiFieldChangeColumns = [
   'id',

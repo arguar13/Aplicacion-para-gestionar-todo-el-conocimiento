@@ -6,7 +6,9 @@ import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
+import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_batch.dart';
@@ -14,6 +16,7 @@ import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_reposit
 import 'package:sinapsis/features/ai_organize/domain/services/ai_item_reviewer.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_run_usage_saver.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 
@@ -54,6 +57,7 @@ class AiReviewQueue {
     required void Function(AiReviewBatch? batch) onBatch,
     LongWorkKeeper longWork = const NoLongWorkKeeper(),
     Duration modelRetryDelay = kAiModelRetryDelay,
+    AiTaskTracker? tasks,
   }) : _runs = runs,
        _library = library,
        _reviewer = reviewer,
@@ -63,7 +67,8 @@ class AiReviewQueue {
        _clock = clock,
        _onBatch = onBatch,
        _longWork = longWork,
-       _modelRetryDelay = modelRetryDelay;
+       _modelRetryDelay = modelRetryDelay,
+       _tasks = tasks;
 
   final AiRunRepository _runs;
   final LibraryRepository _library;
@@ -77,6 +82,10 @@ class AiReviewQueue {
   final void Function(AiReviewBatch? batch) _onBatch;
   final LongWorkKeeper _longWork;
   final Duration _modelRetryDelay;
+
+  /// Lo que la IA está haciendo ahora (F39, paso 6): cada elemento que revisa
+  /// es una tarea. Sin él, la cola trabaja igual.
+  final AiTaskTracker? _tasks;
 
   /// Lo que falta revisar, en orden.
   final _pending = Queue<_Request>();
@@ -271,13 +280,41 @@ class AiReviewQueue {
       return;
     }
 
+    // La tarea de «Lo que hizo la IA» (F39, paso 6): los dos revisores en
+    // orden y cuánto va del pedido entero.
+    final batchNow = _batch;
+    final task = _tasks?.begin(
+      kind: AiTaskKind.review,
+      title: item.title,
+      itemId: item.id,
+      model: model,
+      steps: const [
+        AiTaskStepKind.reviewFlashcards,
+        AiTaskStepKind.reviewThings,
+      ],
+      batchProgress: batchNow != null && serial == _serial
+          ? AiTaskProgress(
+              done: batchNow.done,
+              total: batchNow.total,
+              unit: AiTaskUnit.item,
+            )
+          : null,
+    );
+    final usage = AiRunUsageSaver(
+      runs: _runs,
+      telemetry: _telemetry,
+      runId: runId,
+      task: task,
+      hint: 'AiReviewQueue',
+    );
     try {
-      report = await _reviewer().review(
+      Future<AiStepReport> review() => _reviewer().review(
         item,
         runId: runId,
         model: model,
         exceptMadeBy: request.skipOwnWork ? model : null,
       );
+      report = await (task == null ? review() : task.run(review));
       // Como un paso de la IA: el modelo es de terceros. Lo que ya propuso
       // queda en «Revisión».
     } on Object catch (e, stackTrace) {
@@ -289,6 +326,8 @@ class AiReviewQueue {
         if (current != null) {
           _publish(current.copyWith(currentTitle: () => null));
         }
+        await usage.save();
+        usage.end();
         return;
       }
       _telemetry.recordError(
@@ -297,7 +336,10 @@ class AiReviewQueue {
         hint: 'AiReviewQueue: revisión de ${item.id}',
       );
     }
+    // Lo que costó, antes de cerrar la pasada.
+    await usage.save();
     await _close(runId);
+    usage.end();
     _done(serial, report);
   }
 

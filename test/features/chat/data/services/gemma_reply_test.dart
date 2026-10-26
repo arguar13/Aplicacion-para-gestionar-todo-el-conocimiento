@@ -31,6 +31,28 @@ void main() {
     expect(meter.performance.value.taskReply, isNull);
   });
 
+  test('los tokens leídos que le dio quien armó el pedido quedan anotados '
+      'junto a los escritos (F39)', () async {
+    final chat = FakeInferenceChat(
+      answer: (_, _) => ['Roma ', 'fue.'],
+      tokensPerPiece: 3,
+    );
+
+    await collectReply(chat, meter: meter, inputTokens: 420);
+
+    final reply = meter.performance.value.taskReply!;
+    expect(reply.inputTokens, 420);
+    expect(reply.tokens, 6);
+  });
+
+  test('sin tokens leídos contados, no se anota ninguno', () async {
+    final chat = FakeInferenceChat(answer: (_, _) => ['Hola.']);
+
+    await collectReply(chat, meter: meter);
+
+    expect(meter.performance.value.taskReply!.inputTokens, isNull);
+  });
+
   test('una tarea queda aparte del chat, y su texto sale limpio', () async {
     final chat = FakeInferenceChat(
       answer: (_, _) => ['  TEMA: 2 | alta', '\n'],

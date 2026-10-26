@@ -64,6 +64,19 @@ class AiRuns extends Table {
   TextColumn get scope =>
       textEnum<AiRunScope>().withDefault(Constant(AiRunScope.organize.name))();
 
+  /// Cuánto trabajó el modelo en esta pasada, en milisegundos (v43, F39):
+  /// el tiempo de cada vez que la pasada estuvo en marcha, sumado. Una que se
+  /// cortó esperando al modelo y se retomó suma las dos veces, sin la espera
+  /// del medio —por eso no es `finished_at - started_at`—. 0 en las de antes.
+  IntColumn get workMillis => integer().withDefault(const Constant(0))();
+
+  /// Los tokens que el modelo leyó y escribió en esta pasada (v43, F39),
+  /// según quien los cuenta de verdad: el proveedor en la nube, o el
+  /// tokenizador de Gemma. Se suman en cada vez que la pasada estuvo en
+  /// marcha. 0 en las de antes, que no los guardaban.
+  IntColumn get inputTokens => integer().withDefault(const Constant(0))();
+  IntColumn get outputTokens => integer().withDefault(const Constant(0))();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

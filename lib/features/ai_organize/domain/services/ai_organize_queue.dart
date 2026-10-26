@@ -8,7 +8,9 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
+import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
@@ -17,6 +19,7 @@ import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_reposit
 import 'package:sinapsis/features/ai_organize/domain/services/ai_flashcard_maker.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_memory.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_run_usage_saver.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/content_change.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
@@ -132,6 +135,7 @@ class AiOrganizeQueue {
     LongWorkKeeper longWork = const NoLongWorkKeeper(),
     void Function(AiFlashcardsBatch? batch)? onFlashcardsBatch,
     Duration modelRetryDelay = kAiModelRetryDelay,
+    AiTaskTracker? tasks,
   }) : _backlog = backlog,
        _runs = runs,
        _library = library,
@@ -149,7 +153,8 @@ class AiOrganizeQueue {
        _modelName = modelName,
        _noteQuietPeriod = noteQuietPeriod,
        _longWork = longWork,
-       _onFlashcardsBatch = onFlashcardsBatch;
+       _onFlashcardsBatch = onFlashcardsBatch,
+       _tasks = tasks;
 
   final AiOrganizeBacklog _backlog;
   final AiRunRepository _runs;
@@ -197,6 +202,11 @@ class AiOrganizeQueue {
 
   /// El servicio en primer plano, del lado de la IA (ver la clase).
   final LongWorkKeeper _longWork;
+
+  /// Lo que la IA está haciendo ahora (F39, paso 6): cada elemento que la cola
+  /// toma es una tarea, con sus pasos, el modelo y los tokens que gasta. Sin
+  /// él —las pruebas que no lo miran—, la cola trabaja igual.
+  final AiTaskTracker? _tasks;
 
   /// Si la cola lo tiene pedido ahora, y cuántos organizó desde que lo
   /// pidió: el avance de la notificación.
@@ -817,53 +827,98 @@ class AiOrganizeQueue {
     }
 
     final done = <AiOrganizeToggle>{...?resume?.done};
-    for (final step in _steps()) {
-      // Cada paso mira su interruptor al empezar: apagar un tipo a mitad de
-      // un elemento vale desde el paso siguiente.
-      if (!step.toggle.valueIn(_settings)) continue;
-      if (done.contains(step.toggle)) continue;
-      try {
-        await step.organize(item, runId: runId);
-        // Un paso que falla no corta la pasada: lo que ya creó queda, con su
-        // pasada, y los demás pasos se hacen igual. Se atrapa todo —el modelo
-        // es de terceros y falla de formas sin un tipo propio— y se registra.
-      } on Object catch (e, stackTrace) {
-        // Salvo que el modelo no pueda contestar por ahora (F32): seguir
-        // sería cerrar la pasada sin lo que faltaba. Se corta acá, abierta,
-        // y se retoma en este paso cuando vuelva.
-        final wait = aiModelWaitFor(e);
-        if (wait != null) {
-          _hold(wait, e);
-          _interrupted = (
-            itemId: item.id,
-            source: source,
-            runId: runId,
-            done: done,
-            anotherBatch: false,
+    final steps = [
+      for (final step in _steps())
+        if (step.toggle.valueIn(_settings)) step,
+    ];
+    final task = _beginTask(AiTaskKind.organize, item, steps: steps);
+    final usage = AiRunUsageSaver(
+      runs: _runs,
+      telemetry: _telemetry,
+      runId: runId,
+      task: task,
+      hint: 'AiOrganizeQueue',
+    );
+    try {
+      for (final step in steps) {
+        // Cada paso mira su interruptor al empezar: apagar un tipo a mitad de
+        // un elemento vale desde el paso siguiente.
+        if (!step.toggle.valueIn(_settings)) continue;
+        if (done.contains(step.toggle)) continue;
+        final stepKind = step.toggle.taskStep;
+        if (stepKind != null) task?.step(stepKind);
+        try {
+          await _within(task, () => step.organize(item, runId: runId));
+          // Un paso que falla no corta la pasada: lo que ya creó queda, con su
+          // pasada, y los demás pasos se hacen igual. Se atrapa todo —el modelo
+          // es de terceros y falla de formas sin un tipo propio— y se
+          // registra.
+        } on Object catch (e, stackTrace) {
+          // Salvo que el modelo no pueda contestar por ahora (F32): seguir
+          // sería cerrar la pasada sin lo que faltaba. Se corta acá, abierta,
+          // y se retoma en este paso cuando vuelva.
+          final wait = aiModelWaitFor(e);
+          if (wait != null) {
+            _hold(wait, e);
+            _interrupted = (
+              itemId: item.id,
+              source: source,
+              runId: runId,
+              done: done,
+              anotherBatch: false,
+            );
+            return false;
+          }
+          _telemetry.recordError(
+            e,
+            stackTrace,
+            hint: 'AiOrganizeQueue: ${step.toggle.name} en ${item.id}',
           );
-          return false;
         }
-        _telemetry.recordError(
-          e,
-          stackTrace,
-          hint: 'AiOrganizeQueue: ${step.toggle.name} en ${item.id}',
-        );
+        done.add(step.toggle);
       }
-      done.add(step.toggle);
-    }
 
-    (await _runs.finishRun(runId)).match((failure) {
-      // Sin cerrar, la pasada cuenta como a medias y se retomaría: en esta
-      // sesión no, para no repetirla en el acto.
-      _skip.add(item.id);
-      _telemetry.recordError(
-        failure,
-        StackTrace.current,
-        hint: 'AiOrganizeQueue: no se pudo cerrar la pasada',
-      );
-    }, (_) {});
-    return true;
+      // Lo que costó, antes de cerrar la pasada: quien la lee al cerrarse ya
+      // lo encuentra.
+      await usage.save();
+      (await _runs.finishRun(runId)).match((failure) {
+        // Sin cerrar, la pasada cuenta como a medias y se retomaría: en esta
+        // sesión no, para no repetirla en el acto.
+        _skip.add(item.id);
+        _telemetry.recordError(
+          failure,
+          StackTrace.current,
+          hint: 'AiOrganizeQueue: no se pudo cerrar la pasada',
+        );
+      }, (_) {});
+      return true;
+    } finally {
+      // También si se cortó esperando al modelo: lo que gastó hasta ahí es
+      // suyo, y al retomar se suma lo que falte.
+      await usage.save();
+      usage.end();
+    }
   }
+
+  /// Abre la tarea de [item] para «Lo que hizo la IA» (F39, paso 6), con los
+  /// pasos que hace. Una pasada retomada salta los que ya hizo, y los pasos de
+  /// antes del que va se ven hechos. `null` si la cola no lleva la cuenta.
+  AiTaskHandle? _beginTask(
+    AiTaskKind kind,
+    KnowledgeItem item, {
+    required List<AiOrganizeStep> steps,
+  }) => _tasks?.begin(
+    kind: kind,
+    title: item.title,
+    itemId: item.id,
+    model: _modelName?.call(),
+    steps: [for (final step in steps) ?step.toggle.taskStep],
+  );
+
+  /// Corre [body] como parte de [task]: lo que el modelo conteste adentro se
+  /// le anota. Sin tarea, corre solo.
+  static Future<T> _within<T>(AiTaskHandle? task, Future<T> Function() body) =>
+      task == null ? body() : task.run(body);
 
   /// Solo las tarjetas de [itemId] (F30): una pasada de solo tarjetas, con
   /// el paso de tarjetas como `AiFlashcardMaker`. Un fallo se registra y el
@@ -924,11 +979,39 @@ class AiOrganizeQueue {
           }, (id) => id);
       if (runId == null) return true;
 
+      // La tarea de «Lo que hizo la IA» (F39, paso 6): un paso, y cuánto va
+      // del pedido entero.
+      final batchNow = _batch;
+      final task = _tasks?.begin(
+        kind: AiTaskKind.flashcards,
+        title: item.title,
+        itemId: item.id,
+        model: _modelName?.call(),
+        steps: const [AiTaskStepKind.organizeFlashcards],
+        batchProgress: batchNow != null && batchOf == _batchSerial
+            ? AiTaskProgress(
+                done: batchNow.done,
+                total: batchNow.total,
+                unit: AiTaskUnit.item,
+              )
+            : null,
+      );
+      task?.step(AiTaskStepKind.organizeFlashcards);
+      final usage = AiRunUsageSaver(
+        runs: _runs,
+        telemetry: _telemetry,
+        runId: runId,
+        task: task,
+        hint: 'AiOrganizeQueue',
+      );
       try {
-        report = await maker.makeFlashcards(
-          item,
-          runId: runId,
-          anotherBatch: anotherBatch,
+        report = await _within(
+          task,
+          () => maker.makeFlashcards(
+            item,
+            runId: runId,
+            anotherBatch: anotherBatch,
+          ),
         );
         // Como un paso de la pasada entera: el modelo es de terceros y falla
         // de formas sin un tipo propio. Lo que ya creó queda, con su pasada.
@@ -957,8 +1040,15 @@ class AiOrganizeQueue {
           stackTrace,
           hint: 'AiOrganizeQueue: tarjetas en ${item.id}',
         );
+      } finally {
+        // Lo que costó, antes de cerrar la pasada y también si se cortó
+        // esperando al modelo.
+        await usage.save();
+        // Cortada, la pasada queda abierta y no se cierra acá: la tarea sí.
+        if (waiting) usage.end();
       }
       await _closeRun(runId, 'de tarjetas');
+      usage.end();
       return true;
     } finally {
       if (batchOf == _batchSerial && !waiting) _cardDone(report);

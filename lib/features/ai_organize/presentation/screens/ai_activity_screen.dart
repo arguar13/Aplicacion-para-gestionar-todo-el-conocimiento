@@ -12,6 +12,7 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_activity_feed.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_correction_cards.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_now_card.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_presentation.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_queue_status.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_review_cards.dart';
@@ -28,6 +29,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// De arriba abajo:
 ///
+/// 0. **Ahora** (F39): si la IA está trabajando, una sola tarjeta con qué
+///    hace, con qué modelo, cuánto va, cuánto lleva y cuántos tokens gastó, y
+///    plegado, «Cómo lo hace». Ver [AiNowCard].
 /// 1. **La cola**: en qué anda, y el botón que resuelve lo que la frena
 ///    —reanudar, bajar un modelo—. Ver [AiQueueStatusCard]. Debajo, cómo va
 ///    una revisión con otro modelo ([AiReviewProgressCard]) o, sin ella y
@@ -287,6 +291,7 @@ class _AiActivityScreenState extends ConsumerState<AiActivityScreen> {
             sliver: SliverList.list(
               children: [
                 if (itemId != null) _ItemFilter(itemId: itemId),
+                const AiNowCard(),
                 const AiQueueStatusCard(),
                 const AiReviewProgressCard(),
                 if (itemId == null) const AiReviewOfferCard(),

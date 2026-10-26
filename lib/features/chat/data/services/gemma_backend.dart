@@ -60,7 +60,7 @@ class GemmaBackend implements ModelBackend {
       systemInstruction: instruction,
       maxOutputTokens: maxOutputTokens,
     );
-    return _GemmaExchange(chat, _meter, _countTokens);
+    return _GemmaExchange(chat, instruction, _meter, _countTokens);
   }
 
   /// Una charla que deja su sesión abierta entre mensajes. Desde antes de
@@ -101,9 +101,10 @@ class GemmaBackend implements ModelBackend {
 
 /// Un pedido de una vuelta sobre una sesión de `flutter_gemma`.
 class _GemmaExchange implements ModelExchange {
-  _GemmaExchange(this._chat, this._meter, this._count);
+  _GemmaExchange(this._chat, this._instruction, this._meter, this._count);
 
   final InferenceChat _chat;
+  final String _instruction;
   final LanguageModelMeter _meter;
   final GemmaTokenCounter _count;
 
@@ -115,9 +116,36 @@ class _GemmaExchange implements ModelExchange {
     String text, {
     LanguageModelReplyKind kind = LanguageModelReplyKind.task,
   }) async {
+    final inputTokens = await _inputTokens(text);
     await _chat.addQueryChunk(Message.text(text: text, isUser: true));
-    return collectReply(_chat, meter: _meter, kind: kind);
+    return collectReply(
+      _chat,
+      meter: _meter,
+      kind: kind,
+      inputTokens: inputTokens,
+    );
   }
+
+  /// Lo que lee el modelo para contestar [text]: la instrucción —la primera
+  /// vez que se le habla— y el pedido, con su tokenizador (F39). Es lo que
+  /// gastó la tarea de ese lado; si no se pudo contar, no se anota nada en
+  /// lugar de estimarlo.
+  Future<int?> _inputTokens(String text) async {
+    try {
+      var tokens = await _count(_chat, text);
+      if (!_instructionCounted) {
+        tokens += await _count(_chat, _instruction);
+        _instructionCounted = true;
+      }
+      return tokens;
+      // El tokenizador es de `flutter_gemma`, que falla de formas sin un tipo
+      // propio; contar no puede romper la respuesta.
+    } on Object {
+      return null;
+    }
+  }
+
+  var _instructionCounted = false;
 
   @override
   Future<void> stop() => _chat.stopGeneration();

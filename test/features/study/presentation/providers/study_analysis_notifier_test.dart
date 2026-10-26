@@ -1,16 +1,23 @@
 import 'dart:async';
 
-import 'package:drift/drift.dart' hide isNull;
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_notice.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
+import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
+import 'package:sinapsis/features/ai_organize/data/repositories/ai_run_repository_impl.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
+import 'package:sinapsis/features/chat/domain/entities/language_model_performance.dart';
+import 'package:sinapsis/features/chat/domain/services/language_model_meter.dart';
 import 'package:sinapsis/features/study/data/repositories/study_repository_impl.dart';
 import 'package:sinapsis/features/study/domain/services/study_marker.dart';
 import 'package:sinapsis/features/study/domain/services/study_reply.dart';
@@ -19,7 +26,9 @@ import 'package:sinapsis/features/study/domain/usecases/analyze_for_study.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 
+import '../../../../support/fake_id_generator.dart';
 import '../../../../support/item_rows.dart';
+import '../../../../support/spy_ai_run_repository.dart';
 
 class _SilentTelemetry extends Mock implements TelemetryService {}
 
@@ -37,12 +46,16 @@ class _RecordedMarker implements StudyMarker {
   /// Qué pasa cada vez que se marca una parte (p. ej. correr el reloj).
   void Function()? onPart;
 
+  /// Qué pasa justo al empezar a marcar una parte, antes de esperar.
+  void Function()? onStart;
+
   @override
   Future<StudyPartOutcome> markPart({
     required String content,
     required List<StudySentence> part,
   }) async {
     calls++;
+    onStart?.call();
     await gate?.future;
     onPart?.call();
     if (fail case final error?) throw error;
@@ -323,6 +336,248 @@ void main() {
       await timed.start(content: content, markdown: false);
 
       expect((timed.state as StudyAnalysisFailed).failure, isNull);
+    });
+  });
+
+  group('F39, paso 6: una tarea de la IA y su pasada de estudio', () {
+    late DateTime clockNow;
+    late AiTaskTracker tracker;
+    late LanguageModelMeter meter;
+    late AiRunRepositoryImpl runs;
+    late StreamController<AiNotice> notices;
+    late StudyAnalysisNotifier tracked;
+
+    setUp(() {
+      clockNow = DateTime(2026, 10, 24, 10);
+      tracker = AiTaskTracker(clock: () => clockNow);
+      meter = LanguageModelMeter()
+        ..addTap(
+          (reply) => tracker.recordReply(
+            inputTokens: reply.inputTokens,
+            outputTokens: reply.tokens,
+          ),
+        );
+      runs = AiRunRepositoryImpl(
+        database: db,
+        telemetry: _SilentTelemetry(),
+        ids: FakeIdGenerator(),
+        clock: () => clockNow,
+      );
+      notices = StreamController<AiNotice>.broadcast();
+      tracked = StudyAnalysisNotifier(
+        renditionId: 'texto',
+        analyze: () => AnalyzeForStudy(repository: repository, marker: marker),
+        notices: notices.stream,
+        clock: () => clockNow,
+        tasks: tracker,
+        runs: () => runs,
+        telemetry: _SilentTelemetry(),
+        modelName: () => 'gemini-3.8-flash',
+        titleOf: (itemId) async => itemId == 'libro' ? 'Historia' : null,
+      );
+      // Cada parte: el modelo contesta con lo que contó y tarda 20 s.
+      marker.onPart = () {
+        meter.recordReply(
+          const LanguageModelReply(
+            kind: LanguageModelReplyKind.task,
+            total: Duration(seconds: 20),
+            words: 2,
+            inputTokens: 1000,
+            tokens: 100,
+          ),
+        );
+        clockNow = clockNow.add(const Duration(seconds: 20));
+      };
+    });
+
+    tearDown(() async {
+      tracked.dispose();
+      tracker.dispose();
+      await notices.close();
+    });
+
+    Future<List<AiRun>> studyRuns() async => (await runs.listRuns())
+        .getOrElse((f) => fail('$f'))
+        .where((run) => run.scope == AiRunScope.study)
+        .toList();
+
+    test('mientras analiza, la tarea dice qué documento, con qué modelo, qué '
+        'parte va y cuántos tokens lleva, y cuál es su paso', () async {
+      final seen = <AiTask>[];
+      marker.onStart = () => seen.add(tracker.tasks.value.single);
+
+      await tracked.start(content: content, markdown: false, itemId: 'libro');
+
+      expect(seen, hasLength(3));
+      final first = seen.first;
+      expect(first.kind, AiTaskKind.studyAnalysis);
+      expect(first.title, 'Historia');
+      expect(first.itemId, 'libro');
+      expect(first.model, 'gemini-3.8-flash');
+      expect(first.currentStep, AiTaskStepKind.studySend);
+      expect(first.stateOf(AiTaskStepKind.studySplit), AiTaskStepState.done);
+      expect(first.partProgress?.done, 0);
+      expect(first.partProgress?.total, 3);
+      expect(first.tokens, 0);
+      // Con la segunda, la primera ya está hecha y gastó sus tokens.
+      expect(seen[1].partProgress?.done, 1);
+      expect(seen[1].percent, 33);
+      expect(seen[1].tokens, 1100);
+      expect(seen[2].tokens, 2200);
+      expect(tracker.tasks.value, isEmpty);
+    });
+
+    test('al terminar deja una pasada de estudio con el modelo, el tiempo y '
+        'los tokens', () async {
+      await tracked.start(content: content, markdown: false, itemId: 'libro');
+
+      final run = (await studyRuns()).single;
+      expect(run.itemId, 'libro');
+      expect(run.model, 'gemini-3.8-flash');
+      expect(run.finishedAt, isNotNull);
+      expect(run.workTime, const Duration(seconds: 60));
+      expect((run.inputTokens, run.outputTokens), (3000, 300));
+      expect(run.organizedItem, isFalse);
+      expect(tracked.state, isA<StudyAnalysisDone>());
+    });
+
+    test('si el modelo se corta, lo que ya gastó queda en la pasada, cerrada, '
+        'y la tarea se va', () async {
+      var parts = 0;
+      final hook = marker.onPart;
+      marker.onPart = () {
+        hook!();
+        if (++parts == 2) {
+          marker.failWith = const CloudModelException(
+            CloudModelFailure.timeout,
+          );
+        }
+      };
+
+      await tracked.start(content: content, markdown: false, itemId: 'libro');
+
+      expect(tracked.state, isA<StudyAnalysisFailed>());
+      final run = (await studyRuns()).single;
+      expect(run.finishedAt, isNotNull);
+      // La segunda respuesta llegó a contarse antes de fallar la parte.
+      expect(run.tokens, 2200);
+      expect(run.workTime, const Duration(seconds: 40));
+      expect(tracker.tasks.value, isEmpty);
+    });
+
+    test('parar termina la pasada con lo gastado hasta ahí', () async {
+      marker.gate = Completer<void>();
+      final done = tracked.start(
+        content: content,
+        markdown: false,
+        itemId: 'libro',
+      );
+      await pumpEventQueue();
+      expect(tracker.tasks.value, hasLength(1));
+
+      tracked.stop();
+      marker.gate!.complete();
+      await done;
+
+      final run = (await studyRuns()).single;
+      expect(run.finishedAt, isNotNull);
+      expect((run.inputTokens, run.outputTokens), (1000, 100));
+      expect(tracker.tasks.value, isEmpty);
+    });
+
+    test('el reintento de la IA se ve en la tarea y se borra cuando vuelve '
+        'la respuesta', () async {
+      marker.gate = Completer<void>();
+      final done = tracked.start(
+        content: content,
+        markdown: false,
+        itemId: 'libro',
+      );
+      await pumpEventQueue();
+
+      notices.add(
+        AiRetryNotice(
+          at: clockNow,
+          provider: AiProvider.gemini,
+          failure: CloudModelFailure.network,
+          attempt: 2,
+          maxAttempts: 4,
+          wait: const Duration(seconds: 3),
+        ),
+      );
+      await pumpEventQueue();
+      expect(tracker.tasks.value.single.retry?.attempt, 2);
+
+      notices.add(
+        AiRetryEndedNotice(at: clockNow, provider: AiProvider.gemini),
+      );
+      await pumpEventQueue();
+      expect(tracker.tasks.value.single.retry, isNull);
+
+      marker.gate!.complete();
+      await done;
+    });
+
+    test('sin el documento no hay pasada que guardar, pero la tarea se '
+        've', () async {
+      AiTask? seen;
+      marker.onStart = () => seen ??= tracker.tasks.value.single;
+
+      await tracked.start(content: content, markdown: false);
+
+      expect(seen?.title, isEmpty);
+      expect(await studyRuns(), isEmpty);
+      expect(tracker.tasks.value, isEmpty);
+    });
+
+    test('lo que costó se guarda y la pasada se cierra antes de que la tarea '
+        'termine: «Lo que hizo la IA» vuelve a leer en ese momento', () async {
+      final log = <String>[];
+      tracker.tasks.addListener(() {
+        if (tracker.tasks.value.isEmpty) log.add('tarea terminada');
+      });
+      final ordered = StudyAnalysisNotifier(
+        renditionId: 'texto',
+        analyze: () => AnalyzeForStudy(repository: repository, marker: marker),
+        clock: () => clockNow,
+        tasks: tracker,
+        runs: () => SpyAiRunRepository(runs, log),
+        telemetry: _SilentTelemetry(),
+      );
+      addTearDown(ordered.dispose);
+
+      await ordered.start(content: content, markdown: false, itemId: 'libro');
+
+      expect(log, ['abre', 'suma costo', 'cierra', 'tarea terminada']);
+    });
+
+    test('un texto sin nada por analizar —ya llegó al final— no abre ninguna '
+        'pasada', () async {
+      await db
+          .into(db.studyAnalyses)
+          .insert(
+            StudyAnalysesCompanion.insert(
+              renditionId: 'texto',
+              analyzedUntil: content.length,
+              updatedAt: clockNow,
+            ),
+          );
+
+      await tracked.start(content: content, markdown: false, itemId: 'libro');
+
+      expect(marker.calls, 0);
+      expect(await studyRuns(), isEmpty);
+      expect(tracked.state, isA<StudyAnalysisDone>());
+    });
+
+    test('un texto ya analizado entero no abre ninguna pasada', () async {
+      await tracked.start(content: content, markdown: false, itemId: 'libro');
+      expect(await studyRuns(), hasLength(1));
+
+      await tracked.start(content: content, markdown: false, itemId: 'libro');
+
+      expect(await studyRuns(), hasLength(1));
+      expect(tracker.tasks.value, isEmpty);
     });
   });
 }

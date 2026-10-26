@@ -1071,7 +1071,25 @@ Lo que editás o borrás deja de contar como de la IA: ya es tuyo.
 **Cómo llegar:** Ajustes → "IA y modelos" → **"Lo que hizo la IA"**, o
 **"Ver"** en la línea de un elemento (ahí se ve solo lo de ese elemento).
 
-Arriba, una tarjeta dice en qué anda la IA: al día, organizando algo (con
+**Ahora.** Si la IA está trabajando, arriba de todo hay **una sola tarjeta**
+con lo que hace en este momento: por ejemplo "Analizando «Historia» para
+estudiar", con la parte que va ("Parte 3 de 12"), el **porcentaje**, el
+**modelo** que usa, **cuánto tiempo lleva** y **cuántos tokens** gastó. Los
+tokens son los que cuenta de verdad el modelo —el proveedor en la nube, o Gemma
+en el teléfono—, no una estimación, y suben a medida que contesta. Si la IA en
+la nube se corta por algo pasajero, la tarjeta dice "Reintentando (2 de 4)…".
+Si hace más de una cosa a la vez, la tarjeta muestra la que pediste vos y las
+otras van en una línea chica debajo.
+
+Debajo, plegado, **"Cómo lo hace"**: los pasos de esa tarea con el que va
+marcado. Al analizar un documento: partir el texto en partes, mandar cada parte
+al modelo y juntar lo marcado para guardarlo (con la parte que va). Al organizar
+un elemento: los pasos que tenés prendidos (referencia, etiquetas, tema,
+vínculos, tarjetas, Atlas). Al revisar con otro modelo: las tarjetas y lo
+demás. Tocalo para ver el detalle, incluidos los tokens leídos y escritos.
+Cuando la tarea termina, la tarjeta se va y queda en "Actividad".
+
+Debajo, una tarjeta dice en qué anda la IA: al día, organizando algo (con
 cuántos esperan), en pausa (con **"Reanudar"**), esperando el cargador, si
 falta un modelo o una clave, o **"Esperando a la IA"**: sin cuota (p. ej.
 "Ninguna cuenta tiene cuota: sigue sola a las 4:00"), en su tope del día,
@@ -1088,7 +1106,14 @@ cuentas, trae **"Cuentas y cuota"**. Debajo:
 - **"Revisión"**: lo que otro modelo propone corregir o sacar de lo que hizo
   la IA (ver [Revisar con otro modelo](#revisar-con-otro-modelo)).
 - **"Actividad"**: lo que hizo, por día y por elemento. Tocar un elemento lo
-  abre.
+  abre. Cada vez que la IA trabajó, la fila dice **con qué modelo, cuánto
+  tiempo trabajó y cuántos tokens gastó** ("Gemini 3.8 Flash · 2 min 14 s ·
+  12.340 tokens"; mantené apretado para ver cuántos leyó y cuántos escribió).
+  Lo de antes de esta versión no tenía esos datos y no los muestra. Cuando la
+  IA **analiza un documento para estudiarlo** (resumen, síntesis y palabras
+  clave), también queda una fila, "Analizado para estudiar", con lo que costó:
+  no hay nada que deshacer ahí, porque lo marcado se rehace con "Volver a
+  analizar".
 
 ### Revisar con otro modelo
 

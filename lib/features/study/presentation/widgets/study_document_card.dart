@@ -464,6 +464,7 @@ class _StudyMenu extends ConsumerWidget {
       renditionId: text.renditionId,
       content: text.content,
       markdown: text.markdown,
+      itemId: text.itemId,
     );
   }
 }

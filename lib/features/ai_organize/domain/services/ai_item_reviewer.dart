@@ -1,4 +1,6 @@
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
+import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 
 /// Revisa lo que hizo la IA en un elemento, con el modelo elegido ahora (F33,
@@ -25,10 +27,15 @@ abstract interface class AiItemReviewer {
 
 /// Varios revisores de un elemento, uno detrás del otro: las tarjetas y lo
 /// demás (F33). Para la cola son uno solo; lo que proponen se suma.
+///
+/// Con [steps] —uno por revisor, en el mismo orden—, le dice a la tarea en
+/// curso (`AiTaskHandle.current`) cuál de los dos va, para «Cómo lo hace»
+/// (F39).
 class AiItemReviewers implements AiItemReviewer {
-  const AiItemReviewers(this._reviewers);
+  const AiItemReviewers(this._reviewers, {this.steps = const []});
 
   final List<AiItemReviewer> _reviewers;
+  final List<AiTaskStepKind> steps;
 
   @override
   Future<AiStepReport> review(
@@ -39,13 +46,16 @@ class AiItemReviewers implements AiItemReviewer {
   }) async {
     var applied = 0;
     var forReview = 0;
-    for (final reviewer in _reviewers) {
+    for (final (index, reviewer) in _reviewers.indexed) {
+      final step = index < steps.length ? steps[index] : null;
+      if (step != null) AiTaskHandle.current?.step(step);
       final report = await reviewer.review(
         item,
         runId: runId,
         model: model,
         exceptMadeBy: exceptMadeBy,
       );
+      if (step != null) AiTaskHandle.current?.finishStep(step);
       applied += report.applied;
       forReview += report.forReview;
     }

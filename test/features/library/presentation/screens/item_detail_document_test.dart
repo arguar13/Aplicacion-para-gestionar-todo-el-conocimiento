@@ -119,7 +119,11 @@ void main() {
 
     expect(harness.container.read(studyViewProvider('r1')).summary, isTrue);
     expect(analysis.starts, [
-      (content: 'La primera frase del libro.', markdown: false),
+      (
+        content: 'La primera frase del libro.',
+        markdown: false,
+        itemId: 'item-1',
+      ),
     ]);
     expect(find.byType(AlertDialog), findsNothing);
     final summary = tester.widget<FilterChip>(

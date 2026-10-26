@@ -3,13 +3,17 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
+import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_item_reviewer.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_review_queue.dart';
+import 'package:sinapsis/features/chat/domain/entities/language_model_performance.dart';
+import 'package:sinapsis/features/chat/domain/services/language_model_meter.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 
 import '../../../../support/ai_organize_harness.dart';
@@ -119,6 +123,102 @@ void main() {
     );
     expect(queue.batch, const AiReviewBatch(total: 2, done: 2, proposed: 2));
     expect(batches.first, const AiReviewBatch(total: 2));
+  });
+
+  group('lo que la IA hace ahora y lo que costó (F39, paso 6)', () {
+    late AiTaskTracker tracker;
+    late LanguageModelMeter meter;
+
+    setUp(() {
+      tracker = AiTaskTracker(clock: vault.clock);
+      meter = LanguageModelMeter()
+        ..addTap(
+          (reply) => tracker.recordReply(
+            inputTokens: reply.inputTokens,
+            outputTokens: reply.tokens,
+          ),
+        );
+    });
+
+    tearDown(() => tracker.dispose());
+
+    AiReviewQueue tracked() {
+      final tracked = AiReviewQueue(
+        runs: vault.runs,
+        library: vault.library,
+        reviewer: () => reviewer,
+        languageModel: () =>
+            ({background = false}) async => status,
+        modelName: () => 'gemini-3.8-flash',
+        telemetry: vault.telemetry,
+        clock: vault.clock,
+        onBatch: batches.add,
+        tasks: tracker,
+      );
+      addTearDown(tracked.dispose);
+      return tracked;
+    }
+
+    test('cada elemento es una tarea de revisión con sus dos pasos, el modelo '
+        'y cuánto va del pedido; lo gastado queda en su pasada', () async {
+      final seen = <AiTask>[];
+      reviewer.answer = (item) async {
+        seen.add(tracker.tasks.value.single);
+        meter.recordReply(
+          const LanguageModelReply(
+            kind: LanguageModelReplyKind.task,
+            total: Duration(seconds: 1),
+            words: 1,
+            inputTokens: 700,
+            tokens: 70,
+          ),
+        );
+        vault.now = vault.now.add(const Duration(seconds: 9));
+        return const AiStepReport(forReview: 1);
+      };
+      final review = tracked()..review(['a', 'b']);
+      await review.settled;
+
+      expect(seen.map((t) => t.kind).toSet(), {AiTaskKind.review});
+      expect(seen.map((t) => t.title), ['Nota a', 'Nota b']);
+      expect(seen.first.model, 'gemini-3.8-flash');
+      expect(seen.first.steps, [
+        AiTaskStepKind.reviewFlashcards,
+        AiTaskStepKind.reviewThings,
+      ]);
+      expect(seen.first.batchProgress?.done, 0);
+      expect(seen.last.batchProgress?.done, 1);
+      expect(seen.last.batchProgress?.total, 2);
+      final runs = await reviewRuns();
+      expect(runs.map((r) => (r.inputTokens, r.outputTokens)).toSet(), {
+        (700, 70),
+      });
+      expect(runs.map((r) => r.workMillis).toSet(), {9000});
+      expect(tracker.tasks.value, isEmpty);
+    });
+
+    test('si el modelo deja de contestar, la tarea se va y lo gastado queda en '
+        'la pasada, que sigue abierta', () async {
+      reviewer.answer = (item) async {
+        meter.recordReply(
+          const LanguageModelReply(
+            kind: LanguageModelReplyKind.task,
+            total: Duration(seconds: 1),
+            words: 1,
+            inputTokens: 10,
+            tokens: 1,
+          ),
+        );
+        throw const CloudModelException(CloudModelFailure.timeout);
+      };
+      final review = tracked()..review(['a']);
+      await review.settled;
+
+      final run = (await reviewRuns()).single;
+      expect(run.finishedAt, isNull);
+      expect((run.inputTokens, run.outputTokens), (10, 1));
+      expect(tracker.tasks.value, isEmpty);
+    });
   });
 
   test('sale de la cuota de la persona: el chequeo no es el de la IA de '

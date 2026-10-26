@@ -4,6 +4,7 @@ import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/reviewable_ai_thing.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 
@@ -24,6 +25,10 @@ abstract interface class AiRunRepository {
   /// Abre una pasada de la IA sobre [itemId] y devuelve su id. [model] es el
   /// modelo que trabaja, si se sabe; [contentSimhash], la huella del texto que
   /// la pasada va a ver (`simhashOf`), con la que después se sabe si cambió.
+  ///
+  /// Con [scope] en [AiRunScope.study], es el análisis de un texto para
+  /// estudiarlo (F39): solo deja la historia de lo que costó, no tiene nada que
+  /// deshacer y no cuenta como organizar el elemento.
   ///
   /// Con [scope] en [AiRunScope.flashcards], es un pedido de solo tarjetas
   /// (F30, el ✨ de Repasar): se deshace y se lista como cualquier pasada,
@@ -57,6 +62,13 @@ abstract interface class AiRunRepository {
     required String itemId,
     required ExtractedMetadata extracted,
   });
+
+  /// Suma a la pasada [runId] lo que costó una vez que estuvo en marcha
+  /// (F39, paso 6): el tiempo que el modelo trabajó y los tokens que contó. Se
+  /// suma, no se pisa: una pasada que se cortó esperando al modelo y se retomó
+  /// pasa por acá una vez por cada tanda de trabajo. Una pasada que no existe
+  /// más es un fallo.
+  Future<Either<Failure, Unit>> addUsage(String runId, AiTaskUsage usage);
 
   /// Cierra la pasada [runId]: cuenta lo que creó —lo que lleva su id y sigue
   /// siendo de la IA— y lo deja como su historia. Devuelve esa cuenta.
