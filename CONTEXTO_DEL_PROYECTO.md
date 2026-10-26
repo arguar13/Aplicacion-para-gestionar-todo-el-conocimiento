@@ -183,6 +183,26 @@ desde F13):
   resaltados guardan color y estilo (esquema v42). «Descargar», en «Estudiar el documento», baja el
   original con lo elegido marcado, en su formato: PDF con anotaciones de verdad, Word, EPUB,
   página web, texto (como Word) y Markdown.
+- **F39** — **la tarjeta de estudiar en todo, a mano y para escuchar** (decisión 83).
+  - **La tarjeta** va en todo lo que trae texto. El texto, la transcripción y las fotos van
+    plegados adentro.
+  - **Resumen, síntesis y palabras clave** se prenden juntos o por separado; hay palabras clave en
+    todas las oraciones.
+  - **A mano**: sin nada todavía, el botón ofrece «Resumir con <modelo>» o «Elegir a mano», y se
+    elige tocando el texto en cualquier superficie, también cualquier palabra de la página web
+    guardada, que ahora pinta en vivo. «Volver a analizar» deja lo elegido a mano.
+  - **Para escuchar**: «Escuchar» en cada fila y «Leer: Todo · Resumen · Síntesis · Palabras clave»
+    en el reproductor; lo que suena se pinta en su lugar.
+  - **La IA en la nube** ya no se corta en falso: cada falla con su clase, reintento de lo
+    pasajero, y porcentaje y tiempo que falta.
+  - **«Lo que hizo la IA», en vivo**: «Ahora», con qué hace, el porcentaje, el tiempo y los tokens.
+    Cada pasada guarda su costo (esquema v43).
+  - **Además**:
+    - sale «Racha e historial» de Ajustes;
+    - los vínculos se cortan por peso;
+    - hay nueve temas con su muestra y nueve colores para resaltar;
+    - la vista previa del mapa no encima nada y la del documento queda fija en la página 1;
+    - la página web guardada se ve igual a la original.
 
 ## 5. Estado actual
 
@@ -206,9 +226,16 @@ desde F13):
 > `docs/planes/F38-resaltar-a-mano-y-descargar-resaltado.md`. Falta mirarla en el teléfono, sobre
 > todo la barrita sobre el PDF y la página web, que no tienen prueba automática de punta a punta.
 > La APK se instala solo si el dueño la pide.
+>
+> **F39 (la tarjeta de estudiar en todo, escuchar solo lo estudiado, la IA sin cortes falsos y
+> en vivo, más temas) está construida** (2026-10-26):
+> `docs/planes/F39-tarjeta-en-todo-y-escuchar-lo-estudiado.md`. Esquema v43.
+>
+> **F40 (la línea de tiempo con IA, dentro de Organizar) está en curso**:
+> `docs/planes/F40-linea-de-tiempo-con-ia.md`.
 
 
-- `origin/main` = el commit «docs: cierre de F38». **Suite: 8.955 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre).
+- `origin/main` = el commit «docs: cierre de F39». **Suite: 9.536 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre).
   **Analizador: 19 avisos.** Es la línea base de `tool/verify_commit.ps1` y **no puede crecer**.
 - Hay cinco archivos con cambios de solo formato que no son de este trabajo y no se commitean:
   - `lib/core/database/tables/suggestions.dart`

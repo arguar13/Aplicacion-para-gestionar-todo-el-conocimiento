@@ -1,6 +1,9 @@
 # F39 — La tarjeta de estudiar en todo, el texto plegado, las fotos, escuchar solo lo estudiado y hacerlo a mano
 
-> **Estado: APROBADO** (2026-10-23, *«Ahora sí continúa»* en el chat, con las decisiones A, B y C
+> **Estado: CONSTRUIDO** (2026-10-26): los diez pasos y los pedidos sumados, cada uno con su
+> commit; ver «Avance». Falta solo mirarlo en el teléfono, si el dueño lo pide.
+>
+> Aprobado el 2026-10-23 ( *«Ahora sí continúa»* en el chat, con las decisiones A, B y C
 > como están propuestas). Pedido del mismo día, en el chat:
 >
 > - *"cuando se trata de una página web o publicaciones en redes sociales, quiero que en esta
@@ -480,3 +483,9 @@
     organizó.
   - 92 mutaciones, todas muertas, tras matar 8 sobrevivientes con pruebas nuevas; una era
     equivalente y su parámetro sobraba, así que salió del código.
+- **Paso 10, cierre — hecho.** GUIA_DE_USO al día con cada paso, la decisión 83 en
+  `docs/arquitectura.md` y F39 en CONTEXTO. **Suite completa: 9.536 pruebas, 46 omitidas (las de
+  siempre).** En la corrida entera, con otros cuatro agentes compilando a la vez, fallaron tres
+  pruebas que miden memoria y tiempo real: las dos de `sqlite_vault_compactor_resources_test` y
+  «el silencio vence» de `cloud_http_test`. Corridas solas pasan las tres, así que fallaron por la
+  carga de la máquina y no por el código. Analizador: 19 avisos, la línea base.

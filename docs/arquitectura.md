@@ -6525,6 +6525,95 @@ formato de texto, el EPUB y las páginas web. Plan, con el «Avance» de cada pa
     sistema en el `WebView` de Android.
   - En el PDF y la web no se pinta todavía lo que se lee en voz alta.
 
+### 83. F39: la tarjeta de estudiar en todo, elegir a mano en cualquier lado, escuchar solo lo estudiado y la IA que dice qué pasa
+
+**Pedido** (2026-10-23): *"en esta tarjeta agregues primero [Extraer] texto … así ya no tenga todo
+el texto desplegado abajo … que el audio tenga opción de … leer solo el resumen o solo la síntesis
+o solo las palabras claves … si no hay resumen … una sugerencia de resumir con el modelo de ai
+usado, y de resumir manualmente"*. Durante el encargo se le sumaron la IA sin cortes falsos, «Lo
+que hizo la IA» en vivo, sacar la racha de Ajustes, el corte de los vínculos, más temas y cinco
+arreglos pedidos en el chat. Plan, con el «Avance» de cada paso:
+`docs/planes/F39-tarjeta-en-todo-y-escuchar-lo-estudiado.md`.
+
+- **La tarjeta va en todo lo que trae un texto propio.** Solo quedan afuera la nota escrita a mano
+  y la referencia. El texto va plegado adentro, en «Extraer texto» o «Extraer transcripción», y
+  «Fotos» también. La transcripción plegada sigue al audio: sabe lo que suena desde el primer
+  cuadro, sin esperar al próximo aviso del reproductor.
+- **Una sola regla para elegir a mano** (`studyPickAt`, `pickStudyAt`), la misma en el detalle,
+  la transcripción, «Leer como libro», el PDF y la página web:
+  - en el resumen o la síntesis, un toque pone o saca la oración entera;
+  - en las palabras clave, vale cualquier oración, hasta cuatro por oración.
+
+  Sin nada todavía, el botón ofrece **«Resumir con <modelo>»** o **«Elegir a mano»**. La decisión
+  lee lo guardado en el repositorio, no lo que la pantalla ya cargó.
+- **Decisión A: «Volver a analizar» rehace solo lo de la IA** (`clearAi`) y deja lo elegido a
+  mano. Un análisis no duplica lo que la persona ya eligió.
+- **Resumen, síntesis y palabras clave se superponen.** `StudyView` tiene tres interruptores en
+  vez de una capa, y la síntesis se pinta encima del resumen. Las palabras clave se piden para
+  **cada** oración, así que la ventana de Gemma reserva su lugar por oración
+  (`_perSentenceOverhead`) y la respuesta crece con la parte (`studyReplyTokens`).
+- **La página web guardada se arma una sola vez, sin nada estudiado adentro.** El programa de la
+  app pinta en vivo, por tramos del texto corrido (`ArchivedPageAlignment.pageRangesOf`), de afuera
+  hacia adentro: resumen, síntesis, resaltados a mano y palabras clave. Para tocar, toma la posición
+  del cursor (`caretRangeFromPoint`) y la ubica en el extraído (`contentOffsetAt`).
+  - Antes, la copia llevaba un `<mark>` por oración: afuera de ellas no había nada que tocar, y
+    cada elección recargaba la página, que saltaba arriba.
+  - La barrita de la app se para del lado donde no está la del sistema (`systemToolbarExtent`),
+    porque el `WebView` no deja ocultar la suya. Por eso suma Compartir, Seleccionar todo y Buscar
+    en la Web.
+- **La página web, igual al original.** Hay tres causas, medidas con la Wikipedia real:
+  - el visor restaura `client-js` solo si la propia página lo hacía;
+  - el archivador guarda las hojas de estilo primero, enteras y con pedidos aparte;
+  - el `WebView` de Android pide el viewport ancho, como un navegador (`setUseWideViewPort`).
+- **La IA no se corta en falso.** El `receiveTimeout` de dio vigila también el silencio entre
+  pedazos del cuerpo, así que un análisis largo daba «sin red». Ahora:
+  - `CloudModelFailure` distingue espera vencida, respuesta cortada, cuota, servicio caído, clave y
+    pedido inválido;
+  - hay esperas de 3 min con un vigilante propio;
+  - lo pasajero se reintenta solo, hasta cuatro veces;
+  - el error final dice qué pasó y qué hacer.
+- **Las demás piezas:**
+  - **Temas**: `AppThemeChoice` y `AppThemePalette` dan los nueve temas con su muestra (decisión
+    E). Lo guardado antes se lee sin migrar.
+  - **Vínculos**: `linkStrength` y `cutLinksByStrength`, puras, cortan por peso antes de elegir qué
+    dibujar, sin cambiar la base.
+  - **Racha**: sale de Ajustes (decisión D); se ve siempre en Repasar.
+  - **Colores a mano**: nueve, guardados por nombre (`textEnum`), así que no hizo falta migrar.
+  - **Vistas previas**: la del mapa tiene su propia disposición geométrica, sin simulación. La del
+    documento es la página 1 quieta, sin gesto que robe el arrastre.
+- **Escuchar solo lo estudiado: el lector recibe qué tramos leer, no un texto aparte.**
+  `ReadableDocument` lleva, además de «Todo», un `scopes` con los tramos de cada capa (resumen,
+  síntesis, palabras clave). Van en el orden del texto y con sus posiciones en el texto entero, así
+  lo que suena se pinta en su lugar, también en las páginas de «Leer como libro»
+  (`readerPageSegments`). `ReadAloudState.scope` y `readAloudRunProvider` son la única fuente de
+  «qué se está leyendo»: los miran la tarjeta («Escuchar» en cada fila) y el reproductor («Leer:
+  Todo · Resumen · Síntesis · Palabras clave»).
+  - **Decisión B**: con audio o video propio se ofrece solo lo estudiado, con la voz del lector.
+  - La regla vive en una sola función del detalle, `_offeredAloud`. La transcripción desplegada
+    armaba su propia región sin ella y ofrecía el texto entero.
+- **«Lo que hizo la IA», en vivo: una sola fuente de lo que la IA hace ahora** (`AiTaskTracker`,
+  `AiTask`), con reloj inyectable. La alimentan el análisis para estudiar, la cola, el pedido de
+  tarjetas y la revisión, y la mira la tarjeta «Ahora».
+  - Los tokens son los que cuenta el modelo (el proveedor o el tokenizador de Gemma), nunca
+    estimados.
+  - Se atribuyen a la tarea por la **zona de Dart** desde la que se pidió la respuesta: con «la
+    tarea activa», dos tareas intercaladas, o una esperando el turno de `LanguageModelGate`, se
+    mezclaban.
+  - Cada pasada guarda `work_millis`, `input_tokens` y `output_tokens` (esquema v43, aditivo, con
+    los conteos de todas las tablas como compuerta y en `kAiRunColumns` de la unión). El análisis
+    para estudiar deja su pasada, `AiRunScope.study`; como con `review` en v37, una app vieja no
+    entendería ese valor.
+- **Se descartó:**
+  - Armar un texto aparte para leer el resumen en voz alta: perdía las posiciones y no se podía
+    pintar en su lugar.
+  - Volver a armar la página web con cada elección.
+  - Ocultar la barra del sistema en el `WebView`: Android no lo permite.
+- **Lo que no quedó probado:**
+  - Lo que el programa hace en el navegador (pintar, tocar, el ancho) no tiene prueba sin uno. Las
+    pruebas fijan lo que se le pide y cómo se ubica lo tocado.
+  - Falta mirarlo en el teléfono, en especial el viewport ancho y las dos barritas en el `WebView`
+    de Android.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -6978,6 +7067,19 @@ formato de texto, el EPUB y las páginas web. Plan, con el «Avance» de cada pa
   documento», baja el original con el resumen, la síntesis, las palabras clave o los resaltados
   propios, en su formato: PDF, Word, EPUB, página web, texto (como Word) y Markdown. Ver la decisión
   82.
+- **F39, la tarjeta de estudiar en todo, a mano y para escuchar.** La tarjeta va en todo lo que
+  trae texto, con el texto, la transcripción y las fotos plegados adentro. Resumen, síntesis y
+  palabras clave se prenden juntos o por separado, se eligen a mano en cualquier superficie
+  —también tocando cualquier palabra de la página web guardada— y se escuchan solos con «Leer:
+  Todo · Resumen · Síntesis · Palabras clave». Además:
+  - la IA no se corta en falso y dice qué pasó y cuánto falta;
+  - «Lo que hizo la IA» muestra en vivo qué hace, el porcentaje, el tiempo y los tokens (v43);
+  - hay nueve temas y nueve colores para resaltar;
+  - los vínculos se cortan por peso, y la racha sale de Ajustes;
+  - las vistas previas del mapa y del documento quedan prolijas;
+  - la página web guardada se ve igual a la original.
+
+  Ver la decisión 83.
 
 ### Por construir
 
