@@ -62,6 +62,7 @@ import 'package:sinapsis/features/study/presentation/providers/study_readable_pr
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_document_card.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/item_timeline_link.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -395,6 +396,8 @@ class _DetailBodyState extends State<_DetailBody> {
                 TagEditor(item: item),
                 const SizedBox(height: 24),
                 PropertyEditor(item: item),
+                // Con fechas, a verlas en la línea de tiempo (F40).
+                ItemTimelineLink(itemId: item.id, title: item.title),
                 const SizedBox(height: 24),
 
                 if (item.notes?.isNotEmpty ?? false) ...[

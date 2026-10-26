@@ -161,3 +161,33 @@ carta de 1810). Un hecho fechado es una fecha **dentro** de un documento.
    entera y `verify_commit`; la APK al teléfono si la pedís.
 
 ## Avance
+
+- **Pasos 1 y 4, parte sin datos nuevos — hecho.** La línea de tiempo es un destino de Organizar,
+  arriba del Atlas: **Bandeja · Línea de tiempo · Atlas · Mapa**, en la lista del celular y en el
+  riel. El ícono de la Biblioteca salió (decisión A).
+  - Es la rama `ShellBranch.timeline`, sumada al final del enum y del router para no correr índices.
+  - **El filtro tiene un solo dueño**, `timelineFilterProvider`: un valor `TimelineFilter` con el
+    recorte, la búsqueda y el panel, del que sale la consulta de la biblioteca. El Atlas («Ver en la
+    línea de tiempo») y el detalle de un elemento con fechas lo fijan antes de navegar. Esa es la
+    causa de fondo: la pantalla vive en el `IndexedStack` y no se vuelve a construir, así que el
+    filtro no podía viajar por el constructor ni por la dirección.
+  - Arriba, una fila de chips: **Todo** (de entrada), **Tema ▾** y **Documento ▾**, cada uno con
+    una hoja con buscador. El filtro puesto se ve como un chip con «×», y se elige un recorte a la
+    vez. Una rama del Atlas tiene su propio chip.
+  - **El eje se mueve, no salta:** al filtrar y en «Mostrar todo», la vista se desliza hasta
+    encuadrar lo que quedó (centro lineal, ancho geométrico). No se desarma mientras responde la
+    consulta nueva y respeta las animaciones apagadas.
+  - **Doble toque** acerca ahí, con el paso del «+». Se arma a mano para no retrasar el toque simple
+    sobre un hecho.
+  - **Mini mapa** sobre el eje, con la densidad de todo el rango y la ventana marcada: tocar
+    desliza y arrastrar sigue al dedo. Se calcula una vez por lista de hechos: con 10.000 hechos
+    no se recalcula al acercar ni al mover.
+  - **Puerta para el paso 4 completo:** el lienzo entrega el evento entero al tocarlo y acepta
+    `colorOf` para los colores por documento. Faltan la ficha del hecho, los rangos como tramos y
+    la leyenda de colores, que dependen de los hechos fechados del paso 3.
+  - Las 77 mutaciones mueren.
+  - **Al integrarlo:** con el riel un poco más ancho, el cuerpo del detalle quedó más angosto que
+    el estilo de cita más largo, y el desplegable «Estilo» se desbordó (7 pruebas de navegación).
+    Se arregló en el desplegable mismo, en un commit aparte (`fix(citations)`): toma su ancho
+    natural y nunca más que la línea, y si no entra se corta con «…». Lo fijan dos pruebas y dos
+    mutaciones, las dos muertas.

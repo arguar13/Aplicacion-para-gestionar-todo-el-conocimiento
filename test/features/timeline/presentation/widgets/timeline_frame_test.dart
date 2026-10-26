@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
+import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 import 'package:sinapsis/features/timeline/domain/services/lane_layout.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_event_bar.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_events_painter.dart';
@@ -224,13 +225,15 @@ void main() {
       TimelineFrame frame,
       TimelineLabelCache labels, {
       ColorScheme? colors,
-      void Function(String)? onOpen,
+      void Function(TimelineEvent)? onOpen,
+      Color Function(TimelineEvent)? colorOf,
     }) => TimelineEventsPainter(
       frame: frame,
       scheme: colors ?? scheme,
       labelStyle: style,
       labels: labels,
       onOpen: onOpen ?? (_) {},
+      colorOf: colorOf,
     );
 
     test('solo se repinta si cambió el cuadro o los colores', () {
@@ -260,7 +263,7 @@ void main() {
     test('la semántica trae un nodo por evento, con su título y su fecha', () {
       final labels = TimelineLabelCache();
       addTearDown(labels.clear);
-      final opened = <String>[];
+      final opened = <TimelineEvent>[];
       final frame = place([
         (
           event: eventAt('cesar', dateOf(44, bce: true), title: 'César'),
@@ -282,7 +285,65 @@ void main() {
       expect(nodes.first.rect, frame.boxes.first.rect);
 
       nodes.last.properties.onTap!();
-      expect(opened, ['roma']);
+      // Con el evento entero, no solo su elemento: lo que abre lo decide quien
+      // lo recibe.
+      expect(opened, [frame.boxes.last.event]);
+    });
+
+    test('repinta si cambia cómo se colorea un evento (colores por '
+        'documento)', () {
+      final labels = TimelineLabelCache();
+      addTearDown(labels.clear);
+      final frame = place([(event: eventAt('a', dateOf(1010)), lane: 0)]);
+      Color red(TimelineEvent _) => Colors.red;
+      final original = painter(frame, labels, colorOf: red);
+
+      expect(
+        painter(frame, labels, colorOf: red).shouldRepaint(original),
+        isFalse,
+      );
+      expect(painter(frame, labels).shouldRepaint(original), isTrue);
+    });
+
+    testWidgets('sin colorOf cada barra lleva el color de su rol; con colorOf, '
+        'el que ese diga', (tester) async {
+      final labels = TimelineLabelCache();
+      addTearDown(labels.clear);
+      final frame = place([
+        (event: eventAt('a', dateOf(1010)), lane: 0),
+        (event: eventAt('b', dateOf(1020)), lane: 1),
+      ]);
+
+      Future<void> pump(Color Function(TimelineEvent)? colorOf) =>
+          tester.pumpWidget(
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: SizedBox(
+                width: 300,
+                height: 100,
+                child: CustomPaint(
+                  key: const ValueKey('events'),
+                  painter: painter(frame, labels, colorOf: colorOf),
+                ),
+              ),
+            ),
+          );
+
+      await pump(null);
+      expect(
+        tester.renderObject(find.byKey(const ValueKey('events'))),
+        paints
+          ..rrect(color: scheme.tertiary)
+          ..rrect(color: scheme.tertiary),
+      );
+
+      await pump((event) => event.itemId == 'a' ? Colors.red : Colors.blue);
+      expect(
+        tester.renderObject(find.byKey(const ValueKey('events'))),
+        paints
+          ..rrect(color: Colors.red)
+          ..rrect(color: Colors.blue),
+      );
     });
 
     test('la semántica se rearma solo con un cuadro nuevo', () {

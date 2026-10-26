@@ -19,6 +19,8 @@ import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart';
+import 'package:sinapsis/features/timeline/presentation/providers/timeline_providers.dart';
 import 'package:sinapsis/features/timeline/presentation/screens/timeline_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -440,12 +442,42 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('atlas-axis-roma')));
       await tester.pumpAndSettle();
 
+      // La línea de tiempo es un destino de la barra (F40): el Atlas la abre
+      // con el filtro puesto en su único dueño, no por la dirección.
       expect(find.byType(TimelineScreen), findsOneWidget);
+      final filter = harness.container.read(timelineFilterProvider);
+      expect(filter.scope?.kind, TimelineScopeKind.branch);
+      expect(filter.scope?.id, 'roma');
       // El filtro está rotulado con la rama y se puede quitar.
-      final chip = find.byKey(const ValueKey('timeline-branch-filter'));
+      final chip = find.byKey(const ValueKey('timeline-scope-branch'));
       expect(chip, findsOneWidget);
       expect(find.descendant(of: chip, matching: find.text('Roma')), findsOne);
       // El hecho de Grecia (476) no está: el filtro dejó solo lo de Roma.
+      expect(find.text(es.timelineEventCount(1)), findsOneWidget);
+    });
+
+    testWidgets('volver al Atlas y abrir otra rama cambia el filtro aunque la '
+        'pantalla ya estuviera armada', (tester) async {
+      await seed();
+      await factDate('f1', -43, 's1');
+      await factDate('f2', 476, 'g1');
+      await pump(tester);
+      await tester.tap(find.byKey(const ValueKey('atlas-axis-roma')));
+      await tester.pumpAndSettle();
+      expect(find.text(es.timelineEventCount(1)), findsOneWidget);
+
+      // Se vuelve al Atlas por la barra y se abre la otra rama: la línea de
+      // tiempo, que vive en el shell, no se construye de nuevo.
+      harness.goTo(RoutePaths.atlas);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('atlas-axis-grecia')));
+      await tester.pumpAndSettle();
+
+      final chip = find.byKey(const ValueKey('timeline-scope-branch'));
+      expect(
+        find.descendant(of: chip, matching: find.text('Grecia')),
+        findsOne,
+      );
       expect(find.text(es.timelineEventCount(1)), findsOneWidget);
     });
 
@@ -461,10 +493,7 @@ void main() {
       await tester.tap(find.byTooltip(es.timelineBranchFilterTooltip));
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('timeline-branch-filter')),
-        findsNothing,
-      );
+      expect(find.byKey(const ValueKey('timeline-scope-branch')), findsNothing);
       expect(find.text(es.timelineEventCount(2)), findsOneWidget);
     });
   });
@@ -632,7 +661,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(TimelineScreen), findsOneWidget);
-      final chip = find.byKey(const ValueKey('timeline-branch-filter'));
+      // Un tema es el chip «Tema» de la línea de tiempo (F40), no una rama.
+      final chip = find.byKey(const ValueKey('timeline-scope-topic'));
       expect(
         find.descendant(of: chip, matching: find.text('Antigüedad')),
         findsOne,

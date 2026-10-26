@@ -75,6 +75,31 @@ class TimelineViewport {
     return TimelineViewport(from: center - span / 2, to: center + span / 2);
   }
 
+  /// La vista que va de [begin] a [end] cuando ya pasó la fracción [t] (0 a 1)
+  /// del camino: la que se dibuja en cada cuadro de un encuadre animado.
+  ///
+  /// El centro se corre en línea recta y el ancho **geométricamente**: pasar
+  /// de ver veinte años a ver dos mil es un acercamiento de cien veces, y a
+  /// ritmo lineal casi todo el movimiento ocurriría en los primeros cuadros.
+  /// Con el ancho multiplicándose por lo mismo en cada cuadro, el zoom se
+  /// siente parejo. Los extremos son exactos —[t] de 0 o menos es [begin], de 1
+  /// o más es [end]— y lo del medio respeta [limits].
+  factory TimelineViewport.lerp(
+    TimelineViewport begin,
+    TimelineViewport end,
+    double t,
+    ViewportLimits limits,
+  ) {
+    if (t <= 0) return begin;
+    if (t >= 1) return end;
+    final span = begin.span * math.pow(end.span / begin.span, t);
+    final center = begin.center + (end.center - begin.center) * t;
+    return TimelineViewport(
+      from: center - span / 2,
+      to: center + span / 2,
+    ).clamped(limits);
+  }
+
   /// Aunque los datos estén todos en un mismo año, "mostrar todo" no acerca
   /// más que esto: un hecho suelto se ve mejor en su contexto que ocupando
   /// toda la pantalla.
@@ -103,6 +128,17 @@ class TimelineViewport {
       focusYear: center,
       fraction: 0.5,
       span: span / scale,
+      limits: limits,
+    );
+  }
+
+  /// La misma vista, con el centro en [year] y el ancho de siempre: lo que
+  /// hace tocar o arrastrar el mini mapa.
+  TimelineViewport centeredOn(double year, ViewportLimits limits) {
+    return TimelineViewport.anchored(
+      focusYear: year,
+      fraction: 0.5,
+      span: span,
       limits: limits,
     );
   }

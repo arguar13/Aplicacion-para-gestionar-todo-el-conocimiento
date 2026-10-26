@@ -13,8 +13,9 @@ enum NavStep { save, organize, ask, review, settings }
 /// [branchIndex] es la posición real de la rama en `app_router.dart` —fija,
 /// igual en todas las plataformas—, no la posición dentro de esta lista: en
 /// la web el chat no se muestra (ver [buildNavDestinations]), así que la
-/// lista visible puede tener menos elementos que ramas hay, y el Atlas se
-/// sumó al final del árbol de rutas pero se muestra tercero. Confundir las
+/// lista visible puede tener menos elementos que ramas hay, y el Atlas y la
+/// línea de tiempo se sumaron al final del árbol de rutas pero se muestran
+/// en el medio de «Organizar». Confundir las
 /// dos posiciones dejaría a `NavigationBar`/`NavigationRail` marcando un
 /// destino distinto del que en verdad está activo.
 class NavDestinationSpec {
@@ -74,8 +75,9 @@ class NavStepGroup {
 /// el índice de cada una es su posición en el árbol de rutas. Una prueba
 /// compara las dos listas (`app_router_branches_test.dart`).
 ///
-/// Con nombre y no con números sueltos: el Atlas y los cuadernos se sumaron
-/// al final para no correr las de arriba, y el Explorador salió de la barra
+/// Con nombre y no con números sueltos: el Atlas, los cuadernos y la línea de
+/// tiempo (F40) se sumaron al final para no correr las de arriba, y el
+/// Explorador salió de la barra
 /// (F36) —ahora se abre desde el Atlas y el Mapa—, así que sacar o sumar una
 /// rama corre las demás, y un número escrito a mano en otro lado quedaría
 /// apuntando a otra pantalla.
@@ -88,11 +90,12 @@ enum ShellBranch {
   settings,
   atlas,
   notebooks,
+  timeline,
 }
 
 /// Arma la lista de destinos principales, en el orden de uso en que se ven
-/// (F34): biblioteca; bandeja de entrada, atlas y mapa; chat y cuadernos;
-/// repaso; ajustes. Cada uno sabe su rama
+/// (F34): biblioteca; bandeja de entrada, línea de tiempo, atlas y mapa; chat
+/// y cuadernos; repaso; ajustes. Cada uno sabe su rama
 /// ([NavDestinationSpec.branchIndex]) y su paso ([NavDestinationSpec.step]).
 ///
 /// El riel de escritorio los muestra todos; la barra del celular, agrupados
@@ -133,6 +136,17 @@ List<NavDestinationSpec> buildNavDestinations({
       label: l10n.navInbox,
       hint: l10n.navInboxHint,
       badgeCount: pendingInboxCount,
+    ),
+    // Los hechos con fecha sobre un eje (F9, F40): arriba del Atlas, que la
+    // abre filtrada por una rama. `timeline` en los dos estados: no tiene
+    // variante rellena, y el riel marca el elegido con su cápsula.
+    NavDestinationSpec(
+      branchIndex: ShellBranch.timeline.index,
+      step: NavStep.organize,
+      icon: const Icon(Icons.timeline),
+      selectedIcon: const Icon(Icons.timeline),
+      label: l10n.navTimeline,
+      hint: l10n.navTimelineHint,
     ),
     // El índice dinámico de lo que se sabe y de lo que falta (F13): después de
     // lo que entra y antes de lo vinculado. `account_tree` porque es un

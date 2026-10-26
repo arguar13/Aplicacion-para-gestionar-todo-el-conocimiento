@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 import 'package:sinapsis/features/timeline/presentation/providers/timeline_providers.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_canvas.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_event_bar.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_filter_sheet.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/timeline_scope_bar.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Cuánto se espera después de la última tecla antes de buscar: cada consulta
@@ -15,29 +18,18 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 const _searchDelay = Duration(milliseconds: 300);
 
 /// La línea de tiempo (F9): los hechos con fecha de la bóveda sobre un eje
-/// que se mueve y se acerca.
+/// que se mueve y se acerca. Un destino de «Organizar», arriba del Atlas (F40).
 ///
 /// Los eventos son las "Fecha del hecho" puestas en los elementos. Lo que se
 /// sabe con menos precisión —un siglo, un "circa"— se ve distinto de una fecha
 /// exacta, y tocar un hecho abre el elemento.
+///
+/// No recibe filtro: lo que se ve lo dice `timelineFilterProvider`, que es el
+/// único dueño. La pantalla vive en una rama del shell, así que no se vuelve a
+/// construir cuando otra pantalla —el Atlas, el detalle— la abre recortada a
+/// algo; esas fijan el filtro antes de navegar y la pantalla lo muestra.
 class TimelineScreen extends ConsumerStatefulWidget {
-  const TimelineScreen({
-    this.initialValueId,
-    this.initialSpaceId,
-    this.initialValueLabel,
-    super.key,
-  });
-
-  /// Si viene, la línea de tiempo se abre ya filtrada por este valor de una
-  /// propiedad y sus subtemas —desde el eje temporal de una rama del Atlas—.
-  final String? initialValueId;
-
-  /// Si viene, ya filtrada por este tema —desde una rama del Atlas de los
-  /// temas (F28)—.
-  final String? initialSpaceId;
-
-  /// El nombre de ese valor o tema, para rotular el filtro.
-  final String? initialValueLabel;
+  const TimelineScreen({super.key});
 
   @override
   ConsumerState<TimelineScreen> createState() => _TimelineScreenState();
@@ -47,30 +39,15 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   final _searchController = TextEditingController();
   Timer? _searchTimer;
 
-  /// Si el filtro inicial ya se aplicó. Sin filtro inicial, siempre.
-  late bool _filterApplied =
-      widget.initialValueId == null && widget.initialSpaceId == null;
-
-  @override
-  void initState() {
-    super.initState();
-    if (_filterApplied) return;
-    final valueId = widget.initialValueId;
-    final spaceId = widget.initialSpaceId;
-    // Un proveedor no se modifica mientras se arma el árbol: el filtro se pone
-    // apenas termina, y hasta entonces no se lee nada —sin filtro serían todos
-    // los hechos de la bóveda, para descartarlos enseguida—.
-    scheduleMicrotask(() {
-      if (!mounted) return;
-      final filter = ref.read(timelineFilterProvider.notifier);
-      if (valueId != null) {
-        filter.filterByValue(valueId);
-      } else if (spaceId != null) {
-        filter.filterBySpace(spaceId);
-      }
-      setState(() => _filterApplied = true);
-    });
-  }
+  /// Lo último que llegó para mostrar, con la consulta a la que corresponde.
+  ///
+  /// Al cambiar el filtro, la consulta nueva tarda un instante en responder y,
+  /// mientras, `timelineEventsProvider` no tiene valor. Sin esto, el lienzo se
+  /// desarmaría y volvería a armarse con un giro de espera en el medio; así se
+  /// queda donde está, y cuando llegan los hechos nuevos se mueve, animado,
+  /// hasta encuadrarlos. El `frameKey` del lienzo es la consulta **de estos
+  /// hechos** y no la del filtro actual: si no, encuadraría los viejos.
+  ({LibraryQuery query, List<TimelineEvent> events})? _shown;
 
   @override
   void dispose() {
@@ -103,31 +80,31 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     setState(() {});
   }
 
+  /// El filtro cambió de búsqueda desde afuera —otra pantalla abrió la línea
+  /// recortada a algo, y eso borra lo que se había buscado—: el campo tiene que
+  /// decir lo mismo que el filtro. Lo que se escribe acá llega al filtro por su
+  /// propio camino y cae en el mismo texto, así que no lo pisa.
+  void _syncSearchField(String? searchText) {
+    final text = searchText ?? '';
+    if (text == _searchController.text.trim()) return;
+    _searchTimer?.cancel();
+    setState(() => _searchController.text = text);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    // Se mira ANTES de esperar el filtro inicial: un proveedor que nadie mira
-    // se descarta, y el filtro recién puesto se perdería.
     final filter = ref.watch(timelineFilterProvider);
-    if (!_filterApplied) {
-      return Scaffold(
-        appBar: AppBar(title: Text(l10n.timelineTitle)),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+    ref.listen(
+      timelineFilterProvider.select((f) => f.searchText),
+      (_, next) => _syncSearchField(next),
+    );
+    final query = filter.query;
+    final events = ref.watch(timelineEventsProvider(query));
+    if (events.valueOrNull case final loaded?) {
+      _shown = (query: query, events: loaded);
     }
-    final events = ref.watch(timelineEventsProvider(filter));
-    // Los del panel; la búsqueda ya se ve en su propio campo, y el filtro por
-    // una rama del Atlas, en su ficha.
-    final panelFilters = filter.sourceKinds.length + filter.tagIds.length;
-    final branchLabel =
-        filter.propertyValueIds.isEmpty && filter.spaceId == null
-        ? null
-        : widget.initialValueLabel;
-    final activeFilters =
-        panelFilters +
-        filter.propertyValueIds.length +
-        (filter.spaceId == null ? 0 : 1) +
-        (filter.hasSearchText ? 1 : 0);
+    final shown = _shown;
 
     return Scaffold(
       appBar: AppBar(
@@ -136,8 +113,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           IconButton(
             tooltip: l10n.timelineFiltersTooltip,
             icon: Badge(
-              isLabelVisible: panelFilters > 0,
-              label: Text('$panelFilters'),
+              isLabelVisible: filter.panelCount > 0,
+              label: Text('${filter.panelCount}'),
               child: const Icon(Icons.filter_list),
             ),
             onPressed: () => showTimelineFilters(context),
@@ -168,51 +145,35 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               ),
             ),
           ),
-          if (branchLabel != null)
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: InputChip(
-                  key: const ValueKey('timeline-branch-filter'),
-                  avatar: const Icon(Icons.account_tree_outlined, size: 18),
-                  label: Text(branchLabel),
-                  deleteButtonTooltipMessage: l10n.timelineBranchFilterTooltip,
-                  onDeleted: () => ref
-                      .read(timelineFilterProvider.notifier)
-                      .clearBranchFilter(),
-                ),
-              ),
-            ),
+          const TimelineScopeBar(),
           Expanded(
-            child: events.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => _LoadError(
-                onRetry: () => ref.invalidate(timelineEventsProvider(filter)),
+            child: switch (events) {
+              AsyncError() when shown == null => _LoadError(
+                onRetry: () => ref.invalidate(timelineEventsProvider(query)),
               ),
-              data: (list) {
-                if (list.isEmpty) {
-                  return _Empty(
-                    filtered: activeFilters > 0,
-                    onClearFilters: _clearAll,
-                  );
-                }
-                return Column(
-                  children: [
-                    Expanded(
-                      // Otra `key` por consulta: al cambiar los filtros el eje
-                      // se vuelve a encuadrar sobre lo que quedó.
-                      child: TimelineCanvas(
-                        key: ValueKey(filter),
-                        events: list,
-                        onOpen: (id) => context.push(RoutePaths.itemDetail(id)),
-                      ),
+              _ when shown == null => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              _ when shown.events.isEmpty => _Empty(
+                filtered: filter.activeCount > 0,
+                onClearFilters: _clearAll,
+              ),
+              _ => Column(
+                children: [
+                  Expanded(
+                    child: TimelineCanvas(
+                      events: shown.events,
+                      // Otra consulta: el eje se encuadra de nuevo sobre lo
+                      // que quedó.
+                      frameKey: shown.query,
+                      onOpen: (event) =>
+                          context.push(RoutePaths.itemDetail(event.itemId)),
                     ),
-                    _Legend(count: list.length),
-                  ],
-                );
-              },
-            ),
+                  ),
+                  _Legend(count: shown.events.length),
+                ],
+              ),
+            },
           ),
         ],
       ),

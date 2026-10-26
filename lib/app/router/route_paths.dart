@@ -97,31 +97,15 @@ abstract final class RoutePaths {
     return '/reading/$itemId$query';
   }
 
-  /// La línea de tiempo de los hechos con fecha (F9). Ruta plana, mismo
-  /// criterio que [brokenLinks]: es una vista sobre lo guardado, no un
-  /// destino de navegación.
+  /// La línea de tiempo de los hechos con fecha (F9), un destino de la
+  /// navegación principal desde F40: se ve en «Organizar», arriba del Atlas.
+  /// Sin parámetros en la dirección: el filtro con el que se llega lo fija
+  /// quien navega, en `timelineFilterProvider`.
   static const timeline = '/timeline';
 
   /// Lo que no está en ningún tema, para ordenarlo de a varios (F37). Ruta
   /// plana, mismo criterio que [timeline].
   static const unsorted = '/unsorted';
-
-  /// La línea de tiempo ya filtrada por el valor [valueId] de una propiedad,
-  /// con su nombre [label] para rotular el filtro (F13): lo que el Atlas abre
-  /// desde el eje temporal de una rama.
-  static String timelineFor({required String valueId, required String label}) =>
-      '$timeline?value=${Uri.encodeQueryComponent(valueId)}'
-      '&label=${Uri.encodeQueryComponent(label)}';
-
-  /// La línea de tiempo ya filtrada por el tema [spaceId] —un espacio—, con
-  /// su nombre [label] (F28): lo que el Atlas de los temas abre desde el eje
-  /// de una rama.
-  static String timelineForSpace({
-    required String spaceId,
-    required String label,
-  }) =>
-      '$timeline?space=${Uri.encodeQueryComponent(spaceId)}'
-      '&label=${Uri.encodeQueryComponent(label)}';
 
   /// El Mapa de conocimiento (F14): el tablero, el esquema y el grafo de
   /// temas. Un destino de navegación principal. Conserva el camino `/graph`

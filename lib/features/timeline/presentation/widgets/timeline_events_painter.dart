@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_event_bar.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_frame.dart';
 
@@ -65,6 +66,7 @@ class TimelineEventsPainter extends CustomPainter {
     required this.labelStyle,
     required this.labels,
     required this.onOpen,
+    this.colorOf,
   });
 
   final TimelineFrame frame;
@@ -72,8 +74,14 @@ class TimelineEventsPainter extends CustomPainter {
   final TextStyle labelStyle;
   final TimelineLabelCache labels;
 
-  /// Se llama con el elemento de un evento activado por accesibilidad.
-  final ValueChanged<String> onOpen;
+  /// Se llama con el evento activado por accesibilidad. Con el evento entero y
+  /// no solo su elemento: no todo hecho abre un elemento —uno fechado dentro de
+  /// un documento abre su ficha (F40)—, y eso lo decide quien la recibe.
+  final ValueChanged<TimelineEvent> onOpen;
+
+  /// De qué color se dibuja un evento. Sin él, el de su rol: una fuente y una
+  /// nota no se ven igual. Es por donde entran los colores por documento.
+  final Color Function(TimelineEvent event)? colorOf;
 
   final _paint = Paint();
 
@@ -88,7 +96,7 @@ class TimelineEventsPainter extends CustomPainter {
         canvas,
         box.bar,
         style: event.barStyle,
-        color: event.sourceKind.role.accent(scheme),
+        color: colorOf?.call(event) ?? event.sourceKind.role.accent(scheme),
         fuzzPx: box.fuzzPx,
         corePx: box.corePx,
         paint: _paint,
@@ -109,7 +117,8 @@ class TimelineEventsPainter extends CustomPainter {
   bool shouldRepaint(TimelineEventsPainter oldDelegate) =>
       !identical(oldDelegate.frame, frame) ||
       oldDelegate.scheme != scheme ||
-      oldDelegate.labelStyle != labelStyle;
+      oldDelegate.labelStyle != labelStyle ||
+      oldDelegate.colorOf != colorOf;
 
   @override
   SemanticsBuilderCallback get semanticsBuilder =>
@@ -122,7 +131,7 @@ class TimelineEventsPainter extends CustomPainter {
               button: true,
               label: '${box.event.title}, ${box.event.date.label}',
               textDirection: TextDirection.ltr,
-              onTap: () => onOpen(box.event.itemId),
+              onTap: () => onOpen(box.event),
             ),
           ),
       ];

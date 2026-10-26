@@ -85,10 +85,10 @@ En el celular, la barra tiene **cinco botones fijos, que son los pasos del
 trabajo en el orden en que los usás**, de izquierda a derecha:
 
 1. **Biblioteca**: guardás y encontrás todo. Se abre directo.
-2. **Organizar**: una lista con **Bandeja**, **Atlas** y **Mapa**, en ese
-   orden. Primero revisás lo que entró, después ves qué sabés y qué te falta,
-   y por último lo conectás. El número de pendientes de la Bandeja se ve en el
-   mismo botón. (El **Explorador** ya no está en la lista: repetía la
+2. **Organizar**: una lista con **Bandeja**, **Línea de tiempo**, **Atlas** y
+   **Mapa**, en ese orden. Primero revisás lo que entró, después lo ves sobre
+   un eje de fechas, ves qué sabés y qué te falta, y por último lo conectás.
+   El número de pendientes de la Bandeja se ve en el mismo botón. (El **Explorador** ya no está en la lista: repetía la
    Biblioteca. Lo suyo, el material de un tema, se abre desde el Atlas y el
    Mapa: ver [El material de un tema](#el-material-de-un-tema).)
 3. **Preguntar**: una lista con **Chat** y **Cuadernos**.
@@ -522,7 +522,9 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
   "Roma"). Si la categoría es de tipo fecha (como "Fecha del hecho"), se abre
   un formulario especial con año, qué tan precisa es, y si es aproximada —
   esto es también lo que hace que el elemento aparezca en la
-  [Línea de tiempo](#línea-de-tiempo).
+  [Línea de tiempo](#línea-de-tiempo). Con una fecha puesta, justo debajo
+  aparece **"Ver en la línea de tiempo"**: abre la línea de tiempo mostrando
+  solo los hechos de ese elemento.
 - **Cambiar los Temas:** tocá un chip de tema, o **"Otro tema"**, y en la
   hoja marcá o desmarcá los que quieras; la "X" de un chip lo saca al
   momento. Acá, a diferencia de cuando guardás algo nuevo, se puede dejar sin
@@ -1398,11 +1400,34 @@ Muestra en un eje temporal los elementos que tienen una propiedad de tipo
 fecha (la "Fecha del hecho"), con un dibujo distinto según qué tan precisa es
 esa fecha: exacta, aproximada ("circa") o un período (década o siglo).
 
-**Cómo llegar:** ícono de reloj en la Biblioteca, o desde una rama del Atlas.
+**Cómo llegar:** **"Línea de tiempo"** en la navegación, dentro de
+**"Organizar"** y arriba del Atlas (en la computadora, en el riel, en el mismo
+lugar). Ya no hay un ícono en la Biblioteca. También se llega desde una rama
+del Atlas ("Ver en la línea de tiempo") y desde el detalle de un elemento con
+fecha ("Ver en la línea de tiempo"): en esos dos casos se abre ya mostrando
+solo esa rama o ese elemento.
 
-Se recorre arrastrando el eje de un lado a otro, y se hace zoom con los dedos
-(pellizco) o con los botones de acercar/alejar. Tocar un hecho abre su
-detalle.
+**Qué ver: Todo, un Tema o un Documento.** Arriba hay una fila con tres
+chips. **"Todo"** es el de entrada: todos los hechos con fecha. **"Tema ▾"** y
+**"Documento ▾"** abren una hoja con un buscador (no distingue mayúsculas ni
+acentos): elegís un tema, o un documento entre los que tienen fechas, y la
+línea de tiempo muestra solo eso y se acomoda sobre su época. El filtro puesto
+se ve como un chip con el nombre y una **"×"** para quitarlo; tocar **"Todo"**
+también lo quita. Se elige uno a la vez: un tema reemplaza al documento y al
+revés. Siguen estando la búsqueda por texto y el botón de filtros (tipo de
+elemento y etiquetas), que se combinan con lo que hayas elegido.
+
+**Moverse:** se arrastra el eje de un lado a otro y se hace zoom con los
+dedos (pellizco), con la rueda del mouse o con los botones de acercar/alejar.
+**Doble toque** en un lugar vacío acerca justo ahí, igual que el botón de
+acercar. Al cambiar el filtro, al tocar **"Mostrar todo"** o al tocar el mini
+mapa, la vista no salta: se desliza hasta su lugar (si tenés desactivadas las
+animaciones del sistema, cambia de golpe). Tocar un hecho abre su detalle.
+
+**El mini mapa:** la franja de arriba del eje muestra dónde se juntan los
+hechos a lo largo de todo el rango —cuanto más alta la barra, más hechos— y
+un recuadro marca el tramo que estás viendo. Tocarla te lleva a esa época sin
+cambiar el zoom, y arrastrarla mueve la vista con el dedo.
 
 Para que algo aparezca acá, primero tenés que ponerle una propiedad de tipo
 fecha desde su detalle (sección Propiedades → "+ Agregar propiedad" →

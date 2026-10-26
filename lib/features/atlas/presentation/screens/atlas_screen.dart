@@ -20,6 +20,8 @@ import 'package:sinapsis/features/atlas/presentation/widgets/gaps_card.dart';
 import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart';
+import 'package:sinapsis/features/timeline/presentation/timeline_navigation.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El Atlas (F13): el mapa de lo que sabés y de lo que te falta, generado solo
@@ -70,10 +72,14 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
         : RoutePaths.explorerFor(valueId),
   );
 
-  void _openTimeline(AtlasNode node) => context.push(
+  /// La línea de tiempo recortada a la rama (F40): un tema, o un valor de una
+  /// propiedad con sus subtemas.
+  void _openTimeline(AtlasNode node) => showInTimeline(
+    context,
+    ref,
     _spaces
-        ? RoutePaths.timelineForSpace(spaceId: node.valueId, label: node.label)
-        : RoutePaths.timelineFor(valueId: node.valueId, label: node.label),
+        ? TimelineScope.topic(spaceId: node.valueId, label: node.label)
+        : TimelineScope.branch(valueId: node.valueId, label: node.label),
   );
 
   void _openNote(String noteId) => context.push(RoutePaths.itemDetail(noteId));

@@ -1013,10 +1013,6 @@
   "@timelineTitle": {
     "description": "Título de la pantalla de la línea de tiempo de los hechos con fecha."
   },
-  "libraryTimelineTooltip": "Timeline",
-  "@libraryTimelineTooltip": {
-    "description": "Tooltip del botón de la Biblioteca que abre la línea de tiempo."
-  },
   "timelineSearchHint": "Search dated events",
   "@timelineSearchHint": {
     "description": "Texto de ayuda del campo de búsqueda de la línea de tiempo."
@@ -3719,7 +3715,7 @@
   },
   "navStepOrganize": "Organize",
   "@navStepOrganize": {
-    "description": "Paso de la barra del celular (F34) que agrupa Bandeja, Atlas, Explorador y Mapa; tocarlo abre su lista."
+    "description": "Paso de la barra del celular (F34) que agrupa Bandeja, Línea de tiempo, Atlas y Mapa; tocarlo abre su lista."
   },
   "navStepAsk": "Ask",
   "@navStepAsk": {
@@ -4443,7 +4439,7 @@
   },
   "timelineBranchFilterTooltip": "Remove the filter",
   "@timelineBranchFilterTooltip": {
-    "description": "Tooltip del botón que quita el filtro por una rama del Atlas en la línea de tiempo."
+    "description": "Tooltip del botón «×» de un chip de la fila de recortes de la línea de tiempo (tema, documento o rama del Atlas): quita ese filtro."
   },
   "explorerTitle": "Topic material",
   "@explorerTitle": {
@@ -10541,5 +10537,35 @@
   "aiRunCostTokens": "{model}{tokens} tokens",
   "@aiRunCostTokens": {"description": "Actividad (F39): lo que costó una pasada de la IA cuando solo se sabe los tokens; {model} es el modelo seguido de « · » o vacío, {tokens} ya viene con separador de miles.", "placeholders": {"model": {"type": "String"}, "tokens": {"type": "String"}}},
   "aiRunCostSplit": "{input} read · {output} written",
-  "@aiRunCostSplit": {"description": "Actividad (F39): descripción accesible de los tokens de una pasada, leídos y escritos; vienen con separador de miles.", "placeholders": {"input": {"type": "String"}, "output": {"type": "String"}}}
+  "@aiRunCostSplit": {"description": "Actividad (F39): descripción accesible de los tokens de una pasada, leídos y escritos; vienen con separador de miles.", "placeholders": {"input": {"type": "String"}, "output": {"type": "String"}}},
+  "navTimeline": "Timeline",
+  "@navTimeline": {"description": "Destino de la navegación principal (F40), en el paso «Organizar», arriba del Atlas: los hechos con fecha sobre un eje que se acerca."},
+  "navTimelineHint": "Your dated events on a zoomable axis",
+  "@navTimelineHint": {"description": "Para qué sirve la línea de tiempo, en una línea: debajo de su nombre en la lista del paso «Organizar» (F40)."},
+  "timelineScopeAll": "All",
+  "@timelineScopeAll": {"description": "Chip de la fila de recortes de la línea de tiempo (F40): sin recorte, todos los hechos. Es el de entrada."},
+  "timelineScopeTopic": "Topic",
+  "@timelineScopeTopic": {"description": "Chip de la fila de recortes de la línea de tiempo (F40): abre la hoja para elegir un tema. Con uno elegido muestra su nombre."},
+  "timelineScopeDocument": "Document",
+  "@timelineScopeDocument": {"description": "Chip de la fila de recortes de la línea de tiempo (F40): abre la hoja para elegir un documento. Con uno elegido muestra su título."},
+  "timelineTopicSheetTitle": "Show a topic",
+  "@timelineTopicSheetTitle": {"description": "Título de la hoja de la línea de tiempo (F40) para recortar los hechos a un tema."},
+  "timelineDocumentSheetTitle": "Show a document",
+  "@timelineDocumentSheetTitle": {"description": "Título de la hoja de la línea de tiempo (F40) para recortar los hechos a un documento."},
+  "timelineTopicSearchHint": "Search topics",
+  "@timelineTopicSearchHint": {"description": "Texto de ayuda del buscador de la hoja de temas de la línea de tiempo (F40)."},
+  "timelineDocumentSearchHint": "Search documents with dates",
+  "@timelineDocumentSearchHint": {"description": "Texto de ayuda del buscador de la hoja de documentos de la línea de tiempo (F40)."},
+  "timelineTopicsEmpty": "There are no topics yet.",
+  "@timelineTopicsEmpty": {"description": "Hoja de temas de la línea de tiempo (F40) cuando la bóveda no tiene ningún tema."},
+  "timelineDocumentsEmpty": "There are no documents with dates yet.",
+  "@timelineDocumentsEmpty": {"description": "Hoja de documentos de la línea de tiempo (F40) cuando ningún elemento tiene una fecha."},
+  "timelinePickerNoMatch": "Nothing matches your search.",
+  "@timelinePickerNoMatch": {"description": "Hojas de temas y de documentos de la línea de tiempo (F40): el buscador no encontró nada."},
+  "timelineDocumentSubtitle": "{count, plural, =1{1 date: {range}} other{{count} dates: {range}}}",
+  "@timelineDocumentSubtitle": {"description": "Debajo del título de un documento en la hoja de la línea de tiempo (F40): cuántas fechas tiene y de cuándo a cuándo van. {range} ya viene armado, p. ej. «44 a.C. – 1453».", "placeholders": {"count": {"type": "int"}, "range": {"type": "String"}}},
+  "timelineMinimapLabel": "Where the events cluster. Tap or drag to jump to that period.",
+  "@timelineMinimapLabel": {"description": "Lectura de accesibilidad del mini mapa de la línea de tiempo (F40): la franja de arriba del eje que muestra dónde hay más hechos y qué tramo se ve."},
+  "detailOpenTimeline": "View on the timeline",
+  "@detailOpenTimeline": {"description": "Botón del detalle de un elemento con «Fecha del hecho» (F40): abre la línea de tiempo recortada a ese documento."}
 }

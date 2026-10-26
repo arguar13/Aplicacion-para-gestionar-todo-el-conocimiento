@@ -46,8 +46,10 @@ class _TimelineFilterSheet extends ConsumerWidget {
                   ),
                 ),
                 if (hasKindOrTag)
+                  // Quita los de este panel: el recorte y la búsqueda tienen su
+                  // propio lugar arriba, y los quita quien los puso.
                   TextButton(
-                    onPressed: notifier.clear,
+                    onPressed: notifier.clearPanel,
                     child: Text(l10n.timelineFilterClear),
                   ),
               ],

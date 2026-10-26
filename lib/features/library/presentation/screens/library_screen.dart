@@ -219,11 +219,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.timeline),
-                  tooltip: l10n.libraryTimelineTooltip,
-                  onPressed: () => context.push(RoutePaths.timeline),
-                ),
-                IconButton(
                   icon: const Icon(Icons.file_download_outlined),
                   tooltip: l10n.libraryImportReferencesAction,
                   onPressed: () => importReferences(context, ref),

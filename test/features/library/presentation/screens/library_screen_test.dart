@@ -109,6 +109,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('la barra de la Biblioteca ya no tiene el ícono de la línea de '
+      'tiempo: está en «Organizar» (F40, decisión A)', (tester) async {
+    await pumpLibrary(tester);
+
+    expect(find.byIcon(Icons.timeline), findsNothing);
+    expect(find.byTooltip('Línea de tiempo'), findsNothing);
+  });
+
   group('estados vacíos', () {
     testWidgets('una biblioteca recién estrenada explica para qué sirve la '
         'app', (tester) async {

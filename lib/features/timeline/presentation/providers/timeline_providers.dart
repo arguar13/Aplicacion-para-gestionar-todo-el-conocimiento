@@ -6,7 +6,9 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/timeline/data/repositories/timeline_repository_impl.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
+import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart';
 import 'package:sinapsis/features/timeline/domain/repositories/timeline_repository.dart';
+import 'package:sinapsis/features/timeline/domain/services/timeline_documents.dart';
 
 final timelineRepositoryProvider = Provider<TimelineRepository>((ref) {
   return TimelineRepositoryImpl(
@@ -16,13 +18,21 @@ final timelineRepositoryProvider = Provider<TimelineRepository>((ref) {
   );
 });
 
-/// Los filtros de la línea de tiempo: la misma consulta que entiende la
-/// biblioteca, así "qué elementos entran" tiene una sola respuesta.
+/// El único dueño de lo que filtra la línea de tiempo (F40): el recorte de
+/// arriba —todo, un tema, un documento, una rama del Atlas—, la búsqueda y el
+/// panel de tipos y etiquetas.
 ///
-/// Es propia de esta pantalla y no la de la biblioteca: filtrar el eje no
-/// tiene que cambiar lo que se ve en la lista, ni al revés.
-class TimelineFilterNotifier extends StateNotifier<LibraryQuery> {
-  TimelineFilterNotifier() : super(const LibraryQuery());
+/// Es propio de esta pantalla y no el de la biblioteca: filtrar el eje no tiene
+/// que cambiar lo que se ve en la lista, ni al revés.
+///
+/// Quien quiera abrir la línea de tiempo ya recortada —el Atlas con una rama,
+/// el detalle con su documento— lo hace con [focusOn] y después navega: la
+/// pantalla vive en una rama del shell y no se vuelve a construir al volver a
+/// ella, así que el filtro no puede viajar por el constructor ni por la
+/// dirección. Tampoco se descarta solo (`autoDispose`): se fija **antes** de
+/// que la pantalla exista, y sin nadie mirándolo se perdería.
+class TimelineFilterNotifier extends StateNotifier<TimelineFilter> {
+  TimelineFilterNotifier() : super(const TimelineFilter());
 
   void search(String text) {
     final trimmed = text.trim();
@@ -41,29 +51,31 @@ class TimelineFilterNotifier extends StateNotifier<LibraryQuery> {
     state = state.copyWith(tagIds: tagIds);
   }
 
-  /// Deja SOLO el filtro por el valor [valueId] de una propiedad —una rama
-  /// del Atlas—: los hechos con ese valor o con uno de sus subtemas.
-  void filterByValue(String valueId) {
-    state = LibraryQuery(propertyValueIds: {valueId});
+  /// Quita los filtros del panel —tipos y etiquetas— y deja el recorte y la
+  /// búsqueda.
+  void clearPanel() {
+    state = state.copyWith(sourceKinds: const {}, tagIds: const {});
   }
 
-  /// Deja SOLO el filtro por el tema [spaceId] —una rama del Atlas de los
-  /// temas (F28)—: los hechos de lo que está en ese tema.
-  void filterBySpace(String spaceId) {
-    state = LibraryQuery(spaceId: spaceId);
+  /// Cambia el recorte de la fila de chips —`null` es «Todo»— y deja la
+  /// búsqueda y el panel como estaban.
+  void setScope(TimelineScope? scope) {
+    state = state.copyWith(scope: scope);
   }
 
-  /// Quita el filtro por una rama del Atlas —un valor de propiedad o un
-  /// tema— y deja lo demás.
-  void clearBranchFilter() {
-    state = state.copyWith(propertyValueIds: const {}, spaceId: null);
+  /// Deja SOLO el recorte [scope], sin búsqueda ni filtros del panel: lo que
+  /// se quiere ver al llegar desde otra pantalla es eso y nada más, no eso
+  /// cruzado con lo que se había buscado la vez pasada.
+  void focusOn(TimelineScope scope) {
+    state = TimelineFilter(scope: scope);
   }
 
-  void clear() => state = const LibraryQuery();
+  /// Quita todo: el recorte, la búsqueda y el panel.
+  void clear() => state = const TimelineFilter();
 }
 
 final timelineFilterProvider =
-    StateNotifierProvider.autoDispose<TimelineFilterNotifier, LibraryQuery>(
+    StateNotifierProvider<TimelineFilterNotifier, TimelineFilter>(
       (ref) => TimelineFilterNotifier(),
     );
 
@@ -74,4 +86,15 @@ final timelineFilterProvider =
 final timelineEventsProvider = StreamProvider.autoDispose
     .family<List<TimelineEvent>, LibraryQuery>((ref, filter) {
       return ref.watch(timelineRepositoryProvider).watchEvents(filter);
+    });
+
+/// Los documentos que tienen alguna fecha, para elegir uno en la hoja de
+/// «Documento» (F40). Salen de los hechos de toda la bóveda: la misma consulta
+/// sin filtro que muestra la línea de tiempo en «Todo», así que no suma una
+/// lectura aparte.
+final timelineDocumentsProvider =
+    Provider.autoDispose<AsyncValue<List<TimelineDocument>>>((ref) {
+      return ref
+          .watch(timelineEventsProvider(const LibraryQuery()))
+          .whenData(groupTimelineDocuments);
     });

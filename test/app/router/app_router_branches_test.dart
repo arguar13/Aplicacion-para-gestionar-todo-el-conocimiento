@@ -77,8 +77,21 @@ void main() {
           ShellBranch.settings => RoutePaths.settings,
           ShellBranch.atlas => RoutePaths.atlas,
           ShellBranch.notebooks => RoutePaths.notebooks,
+          ShellBranch.timeline => RoutePaths.timeline,
         },
     ]);
+  });
+
+  test('la línea de tiempo (F40) es una rama de la barra y no una ruta plana '
+      'que se abre encima', () {
+    final branchPaths = [
+      for (final branch in shell().branches)
+        for (final route in branch.routes)
+          if (route is GoRoute) route.path,
+    ];
+
+    expect(branchPaths, contains(RoutePaths.timeline));
+    expect(topLevel().where((r) => r.path == RoutePaths.timeline), isEmpty);
   });
 
   test('el material de un tema (el Explorador de antes) ya no es una rama de '

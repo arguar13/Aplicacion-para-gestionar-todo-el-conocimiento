@@ -42,6 +42,7 @@ void main() {
         NavStep.save: at([ShellBranch.library]),
         NavStep.organize: at([
           ShellBranch.inbox,
+          ShellBranch.timeline,
           ShellBranch.atlas,
           ShellBranch.graph,
         ]),
@@ -99,6 +100,26 @@ void main() {
     );
   });
 
+  test('la línea de tiempo (F40) va en «Organizar», arriba del Atlas, con su '
+      'nombre y su ícono', () {
+    final organize = groups()[1];
+    final labels = [for (final d in organize.destinations) d.label];
+    final timeline = organize.destinations.singleWhere(
+      (d) => d.branchIndex == ShellBranch.timeline.index,
+    );
+
+    expect(labels, [es.navInbox, es.navTimeline, es.navAtlas, es.navMap]);
+    expect(timeline.step, NavStep.organize);
+    expect((timeline.icon as Icon).icon, Icons.timeline);
+    expect(timeline.hint, es.navTimelineHint);
+  });
+
+  test('la rama de la línea de tiempo está al final: sumarla no corrió el '
+      'índice de ninguna de las de antes', () {
+    expect(ShellBranch.timeline.index, ShellBranch.values.length - 1);
+    expect(ShellBranch.notebooks.index, ShellBranch.timeline.index - 1);
+  });
+
   test('los pendientes de la Bandeja se ven en «Organizar»', () {
     final organize = groups(pendingInboxCount: 3)[1];
 
@@ -145,6 +166,7 @@ void main() {
       {
         ShellBranch.library.index: es.navLibraryHint,
         ShellBranch.inbox.index: es.navInboxHint,
+        ShellBranch.timeline.index: es.navTimelineHint,
         ShellBranch.atlas.index: es.navAtlasHint,
         ShellBranch.graph.index: es.navMapHint,
         ShellBranch.chat.index: es.navChatHint,

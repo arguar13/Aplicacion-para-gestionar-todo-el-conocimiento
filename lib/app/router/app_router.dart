@@ -198,15 +198,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: RoutePaths.timeline,
-        name: RouteNames.timeline,
-        builder: (context, state) => TimelineScreen(
-          initialValueId: state.uri.queryParameters['value'],
-          initialSpaceId: state.uri.queryParameters['space'],
-          initialValueLabel: state.uri.queryParameters['label'],
-        ),
-      ),
-      GoRoute(
         path: RoutePaths.unsorted,
         name: RouteNames.unsorted,
         builder: (context, state) => const UnsortedItemsScreen(),
@@ -279,7 +270,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             LocalGraphScreen(itemId: state.pathParameters['id']!),
       ),
-      // Los ocho destinos principales, cada uno con su propio `Navigator` —
+      // Los nueve destinos principales, cada uno con su propio `Navigator` —
       // así cambiar de pestaña y volver conserva el scroll y los filtros de
       // cada una—, envueltos por `AdaptiveScaffold`: una barra abajo en
       // celular, un riel al costado en escritorio. Reemplaza al AppBar de
@@ -383,6 +374,22 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     ),
                   ),
                 ],
+              ),
+            ],
+          ),
+          // La línea de tiempo (F40), mismo criterio: se ve arriba del Atlas,
+          // en «Organizar». Era una ruta plana que se abría encima de la
+          // barra (F9). El filtro con el que se llega —una rama del Atlas, un
+          // documento— no viaja en la dirección: lo fija quien navega en
+          // `timelineFilterProvider`, el único dueño del filtro, porque la
+          // pantalla vive en el `IndexedStack` y no se vuelve a construir al
+          // volver a ella.
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.timeline,
+                name: RouteNames.timeline,
+                builder: (context, state) => const TimelineScreen(),
               ),
             ],
           ),
