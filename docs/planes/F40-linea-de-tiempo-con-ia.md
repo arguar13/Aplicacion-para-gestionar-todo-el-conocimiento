@@ -191,3 +191,24 @@ carta de 1810). Un hecho fechado es una fecha **dentro** de un documento.
     Se arregló en el desplegable mismo, en un commit aparte (`fix(citations)`): toma su ancho
     natural y nunca más que la línea, y si no entra se corta con «…». Lo fijan dos pruebas y dos
     mutaciones, las dos muertas.
+
+- **Pedido durante el encargo: el detalle en blanco desde el Atlas — arreglado de raíz.** El
+  material de una rama del Atlas abría en blanco el detalle de cada elemento. Pasaba desde
+  cualquier pantalla que se abre encima de la barra (el material de un tema, la lectura, el mapa
+  local…).
+  - **Causa:** el detalle vivía dentro de la Biblioteca. Al empujarlo desde una ruta de la raíz,
+    go_router apilaba un segundo shell con la misma clave de página.
+  - **Arreglo:** el detalle se dibuja en el `Navigator` de la raíz, con una llave por router. Es
+    un solo destino, igual desde todos lados, y va a pantalla completa, sin la barra de abajo,
+    también desde la Biblioteca. La dirección `/library/:id` y el «atrás» por enlace directo
+    siguen igual.
+  - **Lo que no era:** la lista del material de una rama traía todo bien; la insignia «1» es la
+    rama misma.
+  - **Pruebas:** quedan fijados el recorrido completo (rama por etiquetas y por temas, fuente y
+    nota, ida y vuelta) y el detalle abierto desde cada origen. Las 2 mutaciones mueren.
+  - **Al irse del detalle a otra rama,** ahora el detalle se suelta. Las pruebas que lo hacen
+    dejan correr el temporizador con el que drift cierra sus consultas; una de ellas es la del
+    enlace a la línea de tiempo.
+  - **Prueba frágil corregida, en un commit aparte:** en la tanda amplia, la de la nota guardada
+    en una transacción esperaba 50 ms de reloj real a que terminara el generador de duplicados.
+    Ahora espera a que termine de verdad.

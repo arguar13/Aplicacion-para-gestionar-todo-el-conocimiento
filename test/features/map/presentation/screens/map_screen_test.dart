@@ -604,6 +604,10 @@ void main() {
         matching: find.byType(MapItemBox),
       );
       expect(tester.widget<MapItemBox>(a).highlighted, isTrue);
+
+      // El detalle ya no vive en el shell: al irse al Mapa se suelta, y drift
+      // cierra sus consultas con un temporizador que hay que dejar correr.
+      await tester.pump(const Duration(milliseconds: 1));
     });
   });
 

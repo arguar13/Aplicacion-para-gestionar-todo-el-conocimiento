@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/navigation/adaptive_scaffold.dart';
@@ -72,7 +73,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   ]);
   ref.onDispose(refreshNotifier.dispose);
 
+  // El `Navigator` de la raíz, donde van las pantallas que se abren encima de
+  // la barra de navegación. Una llave por router: compartida entre routers
+  // chocaría si el provider se reconstruye con el viejo todavía montado.
+  final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+
   final router = GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: RoutePaths.splash,
     debugLogDiagnostics: EnvConfig.current.flavor == AppFlavor.dev,
     refreshListenable: refreshNotifier,
@@ -292,7 +299,19 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   // existe por fuera de ella, y así "volver" lleva siempre a
                   // la lista — incluso cuando se llega por un enlace
                   // directo en web.
+                  //
+                  // Pero se dibuja en el `Navigator` de la raíz, encima de la
+                  // barra, no en el de la rama: el detalle se abre desde
+                  // cualquier pantalla —el Atlas, el material de un tema, un
+                  // cuaderno, la lectura…—, y varias son rutas de la raíz que
+                  // están ENCIMA del shell. Empujar desde ahí una ruta que
+                  // vive dentro del shell apilaba un segundo shell con la
+                  // misma clave de página sobre el primero, y el detalle
+                  // salía en blanco (en `debug`, con una aserción del
+                  // `Navigator`). En la raíz es un solo destino que se abre
+                  // igual desde todos lados.
                   GoRoute(
+                    parentNavigatorKey: rootNavigatorKey,
                     path: ':id',
                     name: RouteNames.itemDetail,
                     builder: (context, state) =>

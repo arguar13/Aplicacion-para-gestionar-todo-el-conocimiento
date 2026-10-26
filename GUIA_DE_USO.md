@@ -419,6 +419,10 @@ Tocando cualquier tarjeta —de la Biblioteca, el material de un tema, un
 Cuaderno o la Línea de tiempo— entrás al detalle de ese elemento: la pantalla donde lo leés,
 lo clasificás, lo vinculás con otros y lo repasás.
 
+El detalle se abre igual desde cualquier lado —incluido el material de una
+rama del Atlas o del Mapa—, ocupando toda la pantalla (sin la barra de
+navegación), y la flecha de la barra superior te devuelve adonde estabas.
+
 De arriba hacia abajo, vas a encontrar:
 
 1. **Barra superior**, con botones para exportar (PDF o Word), armar su

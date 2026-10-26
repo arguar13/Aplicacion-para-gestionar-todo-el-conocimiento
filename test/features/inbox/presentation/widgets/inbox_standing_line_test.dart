@@ -171,6 +171,10 @@ void main() {
     expect(find.byType(InboxScreen), findsOneWidget);
     expect(find.text('El Imperio romano'), findsOneWidget);
     expect(find.text('La que espera desde antes'), findsNothing);
+
+    // El detalle ya no vive en el shell: al irse a la Bandeja se suelta, y
+    // drift cierra sus consultas con un temporizador que hay que dejar correr.
+    await tester.pump(const Duration(milliseconds: 1));
   });
 
   testWidgets('una nota no pasa por la Bandeja: no hay chip', (tester) async {

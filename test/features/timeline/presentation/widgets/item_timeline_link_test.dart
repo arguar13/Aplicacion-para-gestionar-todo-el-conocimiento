@@ -127,6 +127,11 @@ void main() {
       ),
       findsOneWidget,
     );
+
+    // El detalle ya no vive en el shell: al irse a la línea de tiempo se
+    // suelta, y drift cierra sus consultas con un temporizador que hay que
+    // dejar correr.
+    await tester.pump(const Duration(milliseconds: 1));
   });
 
   testWidgets('un elemento sin ninguna fecha no ofrece nada, aunque otros '
