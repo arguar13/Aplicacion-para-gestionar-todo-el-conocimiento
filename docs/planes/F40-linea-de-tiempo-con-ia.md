@@ -212,3 +212,24 @@ carta de 1810). Un hecho fechado es una fecha **dentro** de un documento.
   - **Prueba frágil corregida, en un commit aparte:** en la tanda amplia, la de la nota guardada
     en una transacción esperaba 50 ms de reloj real a que terminara el generador de duplicados.
     Ahora espera a que termine de verdad.
+
+- **Paso 2 — hecho.** El detector de fechas, el analizador estricto y el pedido al modelo: todo
+  puro y probado aparte, sin tocar el esquema ni la pantalla.
+  - **El detector** (`findTemporalExpressions`) marca, en español y en inglés, años, «siglo XIX»,
+    «la década de 1920», «44 a.C.», «hacia 1500», rangos y meses con día.
+    - No toma por año una cantidad, una página, un teléfono ni una hora.
+    - «Los años 20» solo se lee si hay cerca un año que diga el siglo (decisión D).
+  - **El analizador** (`parseNormalizedDate`) lee la fecha normalizada que devuelve el modelo
+    (`1859`, `1809-02-12`, `s. XIX`, `década 1920`, `c. 1500`, `1914..1918`). Rechaza lo ambiguo o
+    lo que no existe: mes 13, 31 de febrero, año 0, siglo 0, un año con signo.
+  - **El selector** arma los pasajes (la oración fechada más la anterior, del mismo párrafo) y los
+    reparte en pedidos del tamaño que acepta el modelo elegido. Un texto sin fechas no manda nada.
+  - **La tarea del modelo**, `datedEventsOf`:
+    - pide una línea `HECHO` por hecho;
+    - se ajusta a la ventana como `markPart`;
+    - deja dicho cuántos pasajes leyó.
+  - **La lectura de la respuesta** (`parseDatedEventsReply`) descarta lo que el texto no dice:
+    ubica la cita en el texto entero y comprueba que la fecha, y su fin, sean los que la cita
+    escribe.
+  - El detector recorre 3 millones de caracteres con 100.000 expresiones en unos 4 s.
+  - 344 pruebas nuevas; las 98 mutaciones mueren.

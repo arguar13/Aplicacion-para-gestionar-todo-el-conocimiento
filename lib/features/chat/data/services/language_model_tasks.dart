@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:meta/meta.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_review_parser.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_reviewer.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/map_note_intro.dart';
@@ -34,6 +35,9 @@ import 'package:sinapsis/features/study/domain/services/study_reply.dart';
 import 'package:sinapsis/features/study/domain/services/study_sentences.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_parser.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_service.dart';
+import 'package:sinapsis/features/timeline/domain/services/dated_events_extractor.dart';
+import 'package:sinapsis/features/timeline/domain/services/dated_events_reply.dart';
+import 'package:sinapsis/features/timeline/domain/services/dated_passage_selector.dart';
 
 /// Le pide instrucciones tajantes de no inventar nada que no esté en el
 /// contexto: es lo único que separa una respuesta útil de una que suena
@@ -314,6 +318,32 @@ const _timelineSystemInstruction =
     '"afirmación" es un hecho, con su fecha si la tiene. No hace falta '
     'agrupar por título. $_derivedFormatInstruction';
 
+/// Los hechos fechados de un documento (F40): leer fragmentos con una fecha
+/// escrita y devolver, por cada hecho, una línea con la fecha **normalizada**
+/// —la que lee `parseNormalizedDate`, que descarta toda otra forma—, su fin
+/// si duró, un título corto y la cita textual. Lo que contesta se lee con
+/// `parseDatedEventsReply`, que descarta lo que el texto no dice.
+///
+/// Una sola forma de decir cada fecha, con un ejemplo: un modelo chico como
+/// Gemma copia el formato en vez de entenderlo.
+const _datedEventsSystemInstruction =
+    'Respondé siempre en español. Te doy fragmentos de un documento, '
+    'numerados. Tu única tarea es encontrar, basándote ÚNICAMENTE en ellos, '
+    'los hechos que tienen una fecha escrita con su año. No agregues fechas '
+    'que el texto no diga ni uses lo que sepas de otras fuentes. Respondé '
+    'con una línea por hecho, con este formato exacto, sin Markdown:\n'
+    'HECHO: <fecha> | <fin> | <título> | <cita>\n'
+    '<fecha>: 1859 (año), 1809-02 (mes), 1809-02-12 (día), 44 a.C., '
+    '476 d.C., s. XIX (siglo), s. V a.C., década 1920, c. 1500 '
+    '(aproximada). Usá la precisión que dice el texto: si dice solo el año, '
+    'solo el año. <fin>: cuándo terminó, con el mismo formato, o - si no '
+    'duró. <título>: el hecho en pocas palabras, en el idioma del texto. '
+    '<cita>: la frase del fragmento donde está la fecha, copiada '
+    'TEXTUALMENTE, sin cambiar ni una palabra.\nEjemplo:\nHECHO: 1859 | - | '
+    'Publica El origen de las especies | En 1859 Darwin publicó El origen de '
+    'las especies.\nSi un fragmento no tiene ningún hecho fechado, no '
+    'escribas nada. No respondas nada más.';
+
 /// Cuánto puede escribir el modelo, como mucho, en cada uso (F30): un tope de
 /// tokens por respuesta (`maxOutputTokens`).
 ///
@@ -404,7 +434,8 @@ class LanguageModelTasks
         QuizQuestionGenerator,
         NotebookCandidateJudge,
         NotebookNamer,
-        StudyMarker {
+        StudyMarker,
+        DatedEventsExtractor {
   /// Cada uso pasa por [gate] (F27): esta instancia es la de la persona —el
   /// chat, resumir, las tarjetas y el quiz a mano— y [background], la de la
   /// cola de la IA. [backend] es el motor que escribe, compartido con
@@ -714,6 +745,64 @@ class LanguageModelTasks
         return StudyPartOutcome(
           analyzed: fitted.length,
           marks: parseStudyReply(reply, content: content, part: fitted),
+        );
+      } finally {
+        await chat?.close();
+      }
+    });
+  }
+
+  @override
+  int get datedPartCharBudget =>
+      textBudgetFor(_backend.contextTokens).partChars;
+
+  @override
+  Future<DatedEventsOutcome> datedEventsOf(DatedTextPart part) {
+    return _withTurn(() async {
+      ModelExchange? chat = await _backend.openExchange(
+        instruction: _datedEventsSystemInstruction,
+        maxOutputTokens: datedEventsReplyTokens(part.passages.length),
+      );
+
+      try {
+        // Nunca más de lo que entra, como `markPart`: con el tokenizador del
+        // modelo, lo que queda de la ventana después de la instrucción y de la
+        // respuesta más larga. Quien llama arma pedidos que suelen entrar
+        // (`datedPartCharBudget`); esto lo garantiza aunque el texto cuente
+        // más tokens de lo común, y lo que no entró se pide después
+        // (`DatedTextPart.after`).
+        final instructionTokens = await chat.countTokens(
+          _datedEventsSystemInstruction,
+        );
+        int room(int count) =>
+            _backend.contextTokens -
+            datedEventsReplyTokens(count) -
+            instructionTokens -
+            kPromptMarginTokens;
+        var fitted = part;
+        var prompt = buildDatedEventsPrompt(fitted);
+        while (fitted.passages.length > 1 &&
+            await chat.countTokens(prompt) > room(fitted.passages.length)) {
+          fitted = DatedTextPart(
+            fitted.passages.sublist(0, fitted.passages.length * 3 ~/ 4),
+          );
+          prompt = buildDatedEventsPrompt(fitted);
+        }
+        if (fitted.passages.length < part.passages.length) {
+          // El tope de la respuesta es el de lo que entra, no el del pedido
+          // entero. Una sesión a la vez: Gemma tiene una sola.
+          await chat.close();
+          chat = null;
+          chat = await _backend.openExchange(
+            instruction: _datedEventsSystemInstruction,
+            maxOutputTokens: datedEventsReplyTokens(fitted.passages.length),
+          );
+        }
+
+        final reply = await _generate(chat, prompt);
+        return DatedEventsOutcome(
+          analyzed: fitted.passages.length,
+          events: parseDatedEventsReply(reply, fitted),
         );
       } finally {
         await chat?.close();
