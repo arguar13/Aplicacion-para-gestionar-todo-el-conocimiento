@@ -7,9 +7,10 @@ import 'package:sinapsis/features/transform/domain/usecases/reextraction.dart';
 
 /// [TextAnchorRelocator] sobre la base (F22).
 ///
-/// Escribe directo en `highlights`, `flashcards`, `flashcard_options` y
-/// `relations`: no hay otra forma de mover una posición, y es un ajuste del
-/// mismo dato —dónde está ese fragmento—, no una edición del usuario.
+/// Escribe directo en `highlights`, `flashcards`, `flashcard_options`,
+/// `relations`, `study_marks` y `dated_events`: no hay otra forma de mover una
+/// posición, y es un ajuste del mismo dato —dónde está ese fragmento—, no una
+/// edición del usuario.
 class TextAnchorRelocatorImpl implements TextAnchorRelocator {
   const TextAnchorRelocatorImpl(this._db);
 
@@ -59,6 +60,7 @@ class TextAnchorRelocatorImpl implements TextAnchorRelocator {
     }
 
     await _relocateStudy(renditionId, from: from, to: to, find: find);
+    await _relocateDatedEvents(renditionId, find: find);
 
     final cards =
         await (_db.select(_db.flashcards)..where(
@@ -191,6 +193,35 @@ class TextAnchorRelocatorImpl implements TextAnchorRelocator {
         ),
       ),
     );
+  }
+
+  /// Los hechos fechados que citan el texto (F40): cada cita, por su
+  /// fragmento. A diferencia de un subrayado, el hecho que ya no se encuentra
+  /// NO se va: la fecha y el título siguen siendo un dato aunque el texto
+  /// haya cambiado. Se queda sin posición —y se muestra sin «Abrir en el
+  /// documento»—, con su fragmento y la forma de la que salió.
+  Future<void> _relocateDatedEvents(
+    String renditionId, {
+    required ({int start, int end})? Function(String excerpt, int oldStart)
+    find,
+  }) async {
+    final events =
+        await (_db.select(_db.datedEvents)..where(
+              (e) =>
+                  e.renditionId.equals(renditionId) & e.startOffset.isNotNull(),
+            ))
+            .get();
+    for (final event in events) {
+      final range = _relocated(event.excerpt, event.startOffset!, find);
+      await (_db.update(
+        _db.datedEvents,
+      )..where((e) => e.id.equals(event.id))).write(
+        DatedEventsCompanion(
+          startOffset: Value(range?.start),
+          endOffset: Value(range?.end),
+        ),
+      );
+    }
   }
 
   ({int start, int end})? _relocated(

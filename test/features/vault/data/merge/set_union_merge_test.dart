@@ -752,6 +752,8 @@ void main() {
       // Lo resaltado para estudiar y hasta dónde se analizó (F36).
       expect(kStudyMarkColumns.toSet(), await columnsOf('study_marks'));
       expect(kStudyAnalysisColumns.toSet(), await columnsOf('study_analyses'));
+      // Los hechos fechados dentro de un documento (F40).
+      expect(kDatedEventColumns.toSet(), await columnsOf('dated_events'));
       // Las pasadas de la IA, lo que «no era» y las asignaciones de
       // propiedades, que ahora llevan su pasada (F27).
       expect(kAiRunColumns.toSet(), await columnsOf('ai_runs'));

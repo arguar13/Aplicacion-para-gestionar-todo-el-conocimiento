@@ -5,8 +5,9 @@ part 'ai_run.freezed.dart';
 
 /// Cuánto de cada cosa (F27): vínculos, tarjetas, propiedades, el tema de la
 /// biblioteca, los datos de la referencia, los temas que ubicó en el árbol,
-/// las notas mapa que escribió y —en una pasada de revisión (F33)— las
-/// correcciones que la persona le aceptó.
+/// las notas mapa que escribió, los hechos fechados que puso en la línea de
+/// tiempo (F40) y —en una pasada de revisión (F33)— las correcciones que la
+/// persona le aceptó.
 @freezed
 sealed class AiRunTally with _$AiRunTally {
   const factory AiRunTally({
@@ -31,6 +32,10 @@ sealed class AiRunTally with _$AiRunTally {
     /// ser de la IA si la persona la editó o la borró.
     @Default(0) int mapNotes,
 
+    /// Los hechos fechados que puso (F40), cada uno con su cita. Lo que
+    /// todavía es de la IA es lo que la persona no editó ni quitó.
+    @Default(0) int dates,
+
     /// Lo que la persona le aceptó a una pasada de revisión (F33): cada
     /// corrección o cada cosa que se sacó, de a una. Lo que todavía es de la
     /// IA es lo que sigue como la dejó la corrección.
@@ -47,13 +52,16 @@ sealed class AiRunTally with _$AiRunTally {
       referenceFields +
       topicPlacements +
       mapNotes +
+      dates +
       corrections;
 
   bool get isEmpty => total == 0;
 
   /// Lo que «Revisar con otro modelo» (F33) puede mirar: las tarjetas, los
   /// vínculos, las etiquetas, el tema, los datos de la referencia y las notas
-  /// mapa. No lo que ubicó en el árbol ni lo que ya corrigió una revisión.
+  /// mapa. No lo que ubicó en el árbol, ni los hechos fechados —cada uno ya
+  /// trae su cita para revisarlo en la línea—, ni lo que ya corrigió una
+  /// revisión.
   /// Alcanza para ofrecerlo; qué se revisa de verdad lo dice
   /// `AiRunRepository.reviewCandidates`.
   int get reviewable =>
@@ -67,6 +75,7 @@ sealed class AiRunTally with _$AiRunTally {
     referenceFields: referenceFields + other.referenceFields,
     topicPlacements: topicPlacements + other.topicPlacements,
     mapNotes: mapNotes + other.mapNotes,
+    dates: dates + other.dates,
     corrections: corrections + other.corrections,
   );
 }

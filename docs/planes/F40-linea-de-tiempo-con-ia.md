@@ -233,3 +233,31 @@ carta de 1810). Un hecho fechado es una fecha **dentro** de un documento.
     escribe.
   - El detector recorre 3 millones de caracteres con 100.000 expresiones en unos 4 s.
   - 344 pruebas nuevas; las 98 mutaciones mueren.
+
+- **Paso 3 — hecho.** Los hechos fechados ya tienen dónde vivir: `dated_events` (esquema v44),
+  con título, fecha, fin opcional, la cita en el texto y quién lo puso.
+  - **La fecha** tiene la forma de «Fecha del hecho», que no se toca ni se migra (decisión C). El
+    circa es del hecho entero.
+  - **Se va con su elemento y con su texto.** Al soltar un texto, el hecho viaja en la papelera
+    del contenido y vuelve con él; trae su pasada si sigue existiendo.
+  - **Al volver a extraer,** la cita se reubica por su fragmento. Si ya no está, el hecho conserva
+    su fecha y su título, sin «Abrir en el documento».
+  - **Viaja en la unión de bóvedas:**
+    - entra por id, o por la misma fecha y la misma cita;
+    - se re-apunta al texto que guardó la cita;
+    - respeta lo que la persona quitó y lo que adoptó.
+  - **La IA:**
+    - `addFromAi` pone los hechos de una pasada con su pasada, su fragmento y la marca ✨, sin
+      repetir lo que ya está ni lo que la persona quitó.
+    - Editar un hecho lo vuelve de la persona.
+    - Quitar uno de la IA lo anota en la memoria de «no era» (el elemento, la fecha de inicio y la
+      cita normalizada), y se puede deshacer.
+  - **«Lo que hizo la IA»** cuenta las fechas («12 fechas», `dates_created`). Deshacer la pasada
+    saca las que siguen siendo de la IA.
+  - **La línea de tiempo:** `TimelineEvent` distingue los dos orígenes, y `watchEvents` los
+    combina con los mismos filtros y la papelera. El fin define `from` y `to`.
+  - **Entrada del repositorio:** recibe `DatedEventInput`, que lleva la forma citada. El paso 6
+    arma uno desde cada `DatedEventDraft` del paso 2.
+  - **Lo que no cuenta todavía:** la vista previa de la fusión no muestra cuántos hechos trae,
+    igual que pasa con lo estudiado.
+  - **Cifras:** 10.000 hechos fechados se leen en menos de 3 s. Las 88 mutaciones mueren.

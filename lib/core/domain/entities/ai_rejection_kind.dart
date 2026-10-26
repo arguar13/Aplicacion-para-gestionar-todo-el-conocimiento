@@ -8,4 +8,7 @@ enum AiRejectionKind {
 
   /// Una tarjeta de repaso de un elemento, por su pregunta.
   flashcard,
+
+  /// Un hecho fechado de un elemento (F40), por su fecha y su cita.
+  datedEvent,
 }

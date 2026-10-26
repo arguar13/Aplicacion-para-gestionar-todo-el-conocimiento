@@ -9,6 +9,7 @@ import 'package:sinapsis/core/database/file_references.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
+import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -104,6 +105,9 @@ class ContentTrashRepositoryImpl implements ContentTrashRepository {
         final studyAnalysis = await (_db.select(
           _db.studyAnalyses,
         )..where((a) => a.renditionId.equals(text.id))).getSingleOrNull();
+        final datedEvents = await (_db.select(
+          _db.datedEvents,
+        )..where((e) => e.renditionId.equals(text.id))).get();
         final id = _ids.next();
         await _db
             .into(_trash)
@@ -122,12 +126,13 @@ class ContentTrashRepositoryImpl implements ContentTrashRepository {
                 studyMarks: Value(
                   encodeTrashedStudy(studyMarks, studyAnalysis),
                 ),
+                datedEvents: Value(encodeTrashedDatedEvents(datedEvents)),
                 trashedAt: now,
               ),
             );
         ids.add(id);
-        // Los subrayados y lo resaltado para estudiar se van con la forma, en
-        // cascada: ya están copiados.
+        // Los subrayados, lo resaltado para estudiar y los hechos fechados que
+        // la citan se van con la forma, en cascada: ya están copiados.
         await (_db.delete(
           _db.renditions,
         )..where((r) => r.id.equals(text.id))).go();
@@ -231,6 +236,27 @@ class ContentTrashRepositoryImpl implements ContentTrashRepository {
         await _db
             .into(_db.studyAnalyses)
             .insert(analysis, mode: InsertMode.insertOrIgnore);
+      }
+      for (final event in decodeTrashedDatedEvents(
+        row.datedEvents,
+        itemId: row.itemId,
+        renditionId: id,
+      )) {
+        // La pasada que lo puso pudo irse mientras tanto (deshacer no la
+        // borra, pero su elemento sí): el hecho vuelve igual, sin ella.
+        final run = event.aiRunId.value;
+        final runExists =
+            run != null &&
+            await (_db.select(
+                  _db.aiRuns,
+                )..where((r) => r.id.equals(run))).getSingleOrNull() !=
+                null;
+        await _db
+            .into(_db.datedEvents)
+            .insert(
+              runExists ? event : event.copyWith(aiRunId: const Value(null)),
+              mode: InsertMode.insertOrIgnore,
+            );
       }
       await (_db.delete(_trash)..where((t) => t.id.equals(row.id))).go();
       await _writer.setOnlyFile(row.itemId, onlyFile: false);
@@ -489,4 +515,78 @@ decodeTrashedStudy(String? stored, {required String renditionId}) {
             updatedAt: at(analysis['updatedAt']),
           ),
   );
+}
+
+/// Los hechos fechados que citaban una forma de texto (F40), para guardarlos
+/// en la papelera con ella: en la base cuelgan de la forma, y al soltarla se
+/// irían en cascada. `null` si no había ninguno.
+String? encodeTrashedDatedEvents(List<DatedEventRow> events) {
+  if (events.isEmpty) return null;
+  return jsonEncode([
+    for (final e in events)
+      {
+        'id': e.id,
+        'title': e.title,
+        'from': [e.dateFromYear, e.dateFromMonth, e.dateFromDay],
+        'precision': e.datePrecision.name,
+        'circa': e.dateIsCirca,
+        if (e.dateEndYear != null)
+          'to': [e.dateEndYear, e.dateEndMonth, e.dateEndDay],
+        if (e.dateEndPrecision case final precision?)
+          'toPrecision': precision.name,
+        if (e.startOffset != null) 'start': e.startOffset,
+        if (e.endOffset != null) 'end': e.endOffset,
+        if (e.excerpt != null) 'excerpt': e.excerpt,
+        'origin': e.origin.name,
+        if (e.aiRunId != null) 'aiRunId': e.aiRunId,
+        'createdAt': e.createdAt.millisecondsSinceEpoch,
+        'updatedAt': e.updatedAt.millisecondsSinceEpoch,
+      },
+  ]);
+}
+
+/// Lo guardado por [encodeTrashedDatedEvents], listo para volver a la base con
+/// la forma [renditionId] del elemento [itemId].
+List<DatedEventsCompanion> decodeTrashedDatedEvents(
+  String? stored, {
+  required String itemId,
+  required String renditionId,
+}) {
+  if (stored == null || stored.isEmpty) return const [];
+  DateTime at(Object? millis) =>
+      DateTime.fromMillisecondsSinceEpoch(millis! as int);
+  return [
+    for (final raw in (jsonDecode(stored) as List).cast<Map<String, dynamic>>())
+      () {
+        final from = (raw['from'] as List).cast<int>();
+        final to = (raw['to'] as List?)?.cast<int>();
+        return DatedEventsCompanion.insert(
+          id: raw['id'] as String,
+          itemId: itemId,
+          renditionId: Value(renditionId),
+          title: raw['title'] as String,
+          dateFromYear: from[0],
+          dateFromMonth: from[1],
+          dateFromDay: from[2],
+          datePrecision: DatePrecision.values.byName(
+            raw['precision'] as String,
+          ),
+          dateIsCirca: Value(raw['circa'] as bool),
+          dateEndYear: Value(to?[0]),
+          dateEndMonth: Value(to?[1]),
+          dateEndDay: Value(to?[2]),
+          dateEndPrecision: Value(switch (raw['toPrecision']) {
+            final String name => DatePrecision.values.byName(name),
+            _ => null,
+          }),
+          startOffset: Value(raw['start'] as int?),
+          endOffset: Value(raw['end'] as int?),
+          excerpt: Value(raw['excerpt'] as String?),
+          origin: Value(ContentOrigin.values.byName(raw['origin'] as String)),
+          aiRunId: Value(raw['aiRunId'] as String?),
+          createdAt: at(raw['createdAt']),
+          updatedAt: at(raw['updatedAt']),
+        );
+      }(),
+  ];
 }

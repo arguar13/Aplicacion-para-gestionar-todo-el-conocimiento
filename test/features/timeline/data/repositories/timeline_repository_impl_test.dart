@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -22,8 +23,12 @@ import 'package:sinapsis/features/library/data/repositories/library_repository_i
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
+import 'package:sinapsis/features/timeline/data/repositories/dated_event_repository_impl.dart';
 import 'package:sinapsis/features/timeline/data/repositories/timeline_repository_impl.dart';
+import 'package:sinapsis/features/timeline/domain/entities/dated_event.dart';
+import 'package:sinapsis/features/timeline/domain/entities/dated_event_input.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
+import 'package:sinapsis/features/timeline/domain/services/timeline_axis.dart';
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
@@ -488,6 +493,310 @@ void main() {
         await read(const LibraryQuery(sourceKinds: {SourceKind.webPage})),
         isEmpty,
       );
+    });
+  });
+
+  group('hechos fechados dentro de un documento (F40)', () {
+    late DatedEventRepositoryImpl facts;
+
+    setUp(() {
+      facts = DatedEventRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        ids: FakeIdGenerator(),
+        clock: () => now,
+      );
+    });
+
+    Future<DatedEvent> addFact(
+      String itemId,
+      String title,
+      HistoricalDate date, {
+      HistoricalDate? end,
+    }) async => (await facts.add(
+      itemId,
+      DatedEventInput(title: title, date: date, end: end),
+    )).getOrElse((f) => fail('$f'));
+
+    test('un elemento sin «Fecha del hecho» aparece por sus hechos, con el '
+        'título del hecho', () async {
+      await seedItem('darwin', title: 'Biografía de Darwin');
+      await addFact('darwin', 'Publica El origen', dateOf(1859));
+
+      final event = (await read()).single;
+
+      expect(event.title, 'Publica El origen');
+      expect(event.itemTitle, 'Biografía de Darwin');
+      expect(event.documentTitle, 'Biografía de Darwin');
+      expect(event.itemId, 'darwin');
+      expect(event.isDatedEvent, isTrue);
+      expect(event.origin, ContentOrigin.user);
+      expect(event.sourceKind, SourceKind.webPage);
+    });
+
+    test('los dos orígenes conviven en orden cronológico', () async {
+      await seedItem('roma', title: 'Caída de Roma');
+      await setDate('roma', dateOf(476));
+      await seedItem('darwin', title: 'Darwin');
+      await addFact('darwin', 'Nace', dateOf(1809));
+      await addFact('darwin', 'Zarpa', dateOf(1831));
+      await addFact('darwin', 'Cae un imperio', dateOf(100, bce: true));
+
+      final events = await read();
+
+      expect(events.map((e) => e.title), [
+        'Cae un imperio',
+        'Caída de Roma',
+        'Nace',
+        'Zarpa',
+      ]);
+      expect(events.map((e) => e.datedEventId == null), [
+        false,
+        true,
+        false,
+        false,
+      ]);
+      // La «Fecha del hecho» se lee como siempre: sin cita ni origen.
+      final roma = events.firstWhere((e) => e.itemId == 'roma');
+      expect(roma.itemTitle, isNull);
+      expect(roma.origin, isNull);
+      expect(roma.end, isNull);
+    });
+
+    test('un hecho con fin ocupa de donde empieza a donde termina', () async {
+      await seedItem('guerra');
+      final fact = await addFact(
+        'guerra',
+        'La Gran Guerra',
+        dateOf(1914),
+        end: dateOf(1918),
+      );
+
+      final event = (await read()).single;
+
+      expect(event.datedEventId, fact.id);
+      expect(event.end, dateOf(1918));
+      expect(event.isRange, isTrue);
+      expect(event.isPeriod, isFalse);
+      expect(event.from, 1914.0);
+      expect(event.to, 1919.0);
+    });
+
+    test(
+      'el fin conserva su precisión: noviembre de 1918 termina donde empieza '
+      'diciembre',
+      () async {
+        await seedItem('guerra');
+        await addFact(
+          'guerra',
+          'La Gran Guerra',
+          dateOf(1914),
+          end: const HistoricalDate(
+            year: 1918,
+            precision: DatePrecision.month,
+            month: 11,
+          ),
+        );
+
+        final event = (await read()).single;
+
+        expect(event.end?.precision, DatePrecision.month);
+        expect(event.to, axisStartOfMonth(1918, 12));
+      },
+    );
+
+    test(
+      'el circa difumina por la precisión de la fecha, no por el tramo',
+      () async {
+        await seedItem('x');
+        await addFact(
+          'x',
+          'Hacia',
+          dateOf(1500, circa: true),
+          end: dateOf(1520),
+        );
+
+        final event = (await read()).single;
+
+        expect(event.fuzz, 0.5);
+      },
+    );
+
+    test('trae la cita y el texto, y los de la IA se distinguen', () async {
+      await seedItem('darwin');
+      await db
+          .into(db.renditions)
+          .insert(
+            RenditionsCompanion.insert(
+              id: 'texto',
+              itemId: 'darwin',
+              kind: RenditionKind.plainText,
+              content: const Value('En 1859 publicó su libro.'),
+              isPrimary: true,
+              createdAt: now,
+            ),
+          );
+      await db
+          .into(db.aiRuns)
+          .insert(
+            AiRunsCompanion.insert(
+              id: 'pasada',
+              itemId: 'darwin',
+              startedAt: now,
+            ),
+          );
+      await facts.addFromAi(
+        itemId: 'darwin',
+        runId: 'pasada',
+        drafts: [
+          DatedEventInput(
+            title: 'Publica',
+            date: dateOf(1859),
+            renditionId: 'texto',
+            startOffset: 0,
+            endOffset: 7,
+            excerpt: 'En 1859',
+          ),
+        ],
+      );
+
+      final event = (await read()).single;
+
+      expect(event.isAi, isTrue);
+      expect(event.renditionId, 'texto');
+      expect((event.startOffset, event.endOffset), (0, 7));
+      expect(event.excerpt, 'En 1859');
+      expect(event.hasAnchor, isTrue);
+    });
+
+    test('los filtros de la biblioteca valen para los dos orígenes', () async {
+      await seedItem('web', title: 'Imperio romano');
+      await seedItem(
+        'nota',
+        title: 'Imperio bizantino',
+        kind: SourceKind.manualNote,
+      );
+      await seedItem('otro', title: 'Revolución francesa');
+      await setDate('web', dateOf(476));
+      await setDate('nota', dateOf(1453));
+      await setDate('otro', dateOf(1789));
+      await addFact('web', 'Odoacro depone a Rómulo', dateOf(476));
+      await addFact('nota', 'Cae Constantinopla', dateOf(1453));
+      await addFact('otro', 'Toma de la Bastilla', dateOf(1789));
+
+      List<String> titles(List<TimelineEvent> events) => [
+        for (final e in events) e.title,
+      ];
+
+      expect(await read(), hasLength(6));
+      expect(
+        titles(await read(const LibraryQuery(searchText: 'Imperio'))),
+        unorderedEquals([
+          'Imperio romano',
+          'Odoacro depone a Rómulo',
+          'Imperio bizantino',
+          'Cae Constantinopla',
+        ]),
+      );
+      expect(
+        titles(
+          await read(const LibraryQuery(sourceKinds: {SourceKind.manualNote})),
+        ),
+        unorderedEquals(['Imperio bizantino', 'Cae Constantinopla']),
+      );
+      expect(
+        titles(await read(const LibraryQuery(ids: {'otro'}))),
+        unorderedEquals(['Revolución francesa', 'Toma de la Bastilla']),
+      );
+      expect(await read(const LibraryQuery(ids: {})), isEmpty);
+    });
+
+    test('lo de un elemento en la papelera no aparece, y vuelve al '
+        'restaurarlo', () async {
+      await seedItem('darwin');
+      await seedItem('otro');
+      await addFact('darwin', 'Nace', dateOf(1809));
+      await addFact('otro', 'Cae', dateOf(1789));
+      await trashItemRows(db, 'darwin');
+
+      expect((await read()).map((e) => e.title), ['Cae']);
+
+      await restoreItemRows(db, 'darwin');
+
+      expect((await read()).map((e) => e.title), ['Cae', 'Nace']);
+    });
+
+    test('dos hechos del mismo documento en la misma fecha salen siempre '
+        'en el mismo orden', () async {
+      await seedItem('x');
+      final first = await addFact('x', 'Uno', dateOf(1900));
+      final second = await addFact('x', 'Dos', dateOf(1900));
+
+      final events = await read();
+
+      expect(
+        events.map((e) => e.datedEventId),
+        ([first.id, second.id]..sort()),
+      );
+    });
+
+    test('agregar, editar y quitar un hecho emite de nuevo', () async {
+      await seedItem('darwin');
+      final seen = <List<String>>[];
+      final sub = timeline
+          .watchEvents(const LibraryQuery())
+          .listen((events) => seen.add([for (final e in events) e.title]));
+      addTearDown(sub.cancel);
+      await pumpEventQueue();
+
+      final fact = await addFact('darwin', 'Nace', dateOf(1809));
+      await pumpEventQueue();
+      await facts.update(
+        fact.id,
+        title: 'Nace en Shrewsbury',
+        date: dateOf(1809),
+      );
+      await pumpEventQueue();
+      await facts.remove(fact.id);
+      await pumpEventQueue();
+
+      expect(seen.first, isEmpty);
+      expect(seen, contains(equals(['Nace'])));
+      expect(seen, contains(equals(['Nace en Shrewsbury'])));
+      expect(seen.last, isEmpty);
+    });
+
+    test('diez mil hechos se leen sin trabarse', () async {
+      const items = 200;
+      for (var i = 0; i < items; i++) {
+        await insertItemRows(db, id: 'i$i', title: 'Documento $i');
+      }
+      await db.batch((batch) {
+        batch.insertAll(db.datedEvents, [
+          for (var i = 0; i < 10000; i++)
+            DatedEventsCompanion.insert(
+              id: 'e$i',
+              itemId: 'i${i % items}',
+              title: 'Hecho $i',
+              dateFromYear: 1 + (i * 7919) % 2000,
+              dateFromMonth: 1,
+              dateFromDay: 1,
+              datePrecision: DatePrecision.year,
+              createdAt: now,
+              updatedAt: now,
+            ),
+        ]);
+      });
+
+      final watch = Stopwatch()..start();
+      final events = await read();
+      watch.stop();
+
+      expect(events, hasLength(10000));
+      expect(events.first.from, lessThanOrEqualTo(events.last.from));
+      // Una cota holgada: es para que una consulta por hecho —en vez de una
+      // sola— no pase inadvertida, no una medida.
+      expect(watch.elapsed, lessThan(const Duration(seconds: 10)));
     });
   });
 }

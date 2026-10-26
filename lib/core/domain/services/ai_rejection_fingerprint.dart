@@ -1,3 +1,4 @@
+import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 
@@ -64,6 +65,23 @@ String flashcardRejectionFingerprint(String question) {
     question.replaceAll(_questionMarks, ' '),
   );
   return normalized.replaceAll(_trailingPunctuation, '');
+}
+
+/// La huella de un hecho fechado en un elemento (F40): su fecha de inicio y su
+/// cita, sin mayúsculas ni acentos ni espacios de más.
+///
+/// La fecha cuenta por el primer día que cubre y su precisión —«1914» y
+/// «agosto de 1914» son hechos distintos—, y no por el «circa» ni por el fin:
+/// si la persona dijo que una cita con esa fecha «no era», la IA no la tiene
+/// que volver a poner con otro fin o dudando de la fecha. Sin el título, que la
+/// IA redacta distinto cada vez: lo que la persona reconoce es la cita.
+String datedEventRejectionFingerprint({
+  required HistoricalDate date,
+  required String excerpt,
+}) {
+  final start = date.rangeStart;
+  return '${start.year}-${start.month}-${start.day}:${date.precision.name}'
+      '\u001f${normalizeVocabularyLabel(excerpt)}';
 }
 
 final _questionMarks = RegExp('[¿?¡!]');

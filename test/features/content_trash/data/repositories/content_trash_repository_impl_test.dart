@@ -5,6 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
+import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -399,6 +400,159 @@ void main() {
         );
       },
     );
+
+    test('los hechos fechados que citan el texto se van con él y vuelven con '
+        'él, con su fecha, su fin, su cita y su pasada (F40)', () async {
+      final id = await saveBook('libro');
+      await db
+          .into(db.aiRuns)
+          .insert(
+            AiRunsCompanion.insert(
+              id: 'pasada',
+              itemId: id,
+              startedAt: captured,
+            ),
+          );
+      await db
+          .into(db.datedEvents)
+          .insert(
+            DatedEventsCompanion.insert(
+              id: 'imperio',
+              itemId: id,
+              renditionId: const Value('libro-texto'),
+              title: 'Roma, imperio',
+              dateFromYear: 27,
+              dateFromMonth: 1,
+              dateFromDay: 1,
+              datePrecision: DatePrecision.year,
+              dateIsCirca: const Value(true),
+              dateEndYear: const Value(476),
+              dateEndMonth: const Value(1),
+              dateEndDay: const Value(1),
+              dateEndPrecision: const Value(DatePrecision.year),
+              startOffset: const Value(27),
+              endOffset: const Value(59),
+              excerpt: const Value('Tardó siglos en hacerse imperio.'),
+              origin: const Value(ContentOrigin.ai),
+              aiRunId: const Value('pasada'),
+              createdAt: captured,
+              updatedAt: captured.add(const Duration(days: 1)),
+            ),
+          );
+      // Uno sin cita no se mueve: no cuelga de ningún texto.
+      await db
+          .into(db.datedEvents)
+          .insert(
+            DatedEventsCompanion.insert(
+              id: 'suelto',
+              itemId: id,
+              title: 'Sin cita',
+              dateFromYear: 753,
+              dateFromMonth: 1,
+              dateFromDay: 1,
+              datePrecision: DatePrecision.year,
+              createdAt: captured,
+              updatedAt: captured,
+            ),
+          );
+
+      final trashed = (await trash.keepOnlyFile(
+        id,
+      )).getOrElse((f) => fail('$f'));
+      expect(
+        [for (final e in await db.select(db.datedEvents).get()) e.id],
+        ['suelto'],
+      );
+
+      await trash.restore(trashed.single.id);
+
+      final back = await (db.select(
+        db.datedEvents,
+      )..where((e) => e.id.equals('imperio'))).getSingle();
+      expect(back.itemId, id);
+      expect(back.renditionId, 'libro-texto');
+      expect(back.title, 'Roma, imperio');
+      expect((back.dateFromYear, back.dateIsCirca), (27, true));
+      expect(
+        (back.dateEndYear, back.dateEndMonth, back.dateEndDay),
+        (476, 1, 1),
+      );
+      expect(back.dateEndPrecision, DatePrecision.year);
+      expect((back.startOffset, back.endOffset), (27, 59));
+      expect(back.excerpt, 'Tardó siglos en hacerse imperio.');
+      expect((back.origin, back.aiRunId), (ContentOrigin.ai, 'pasada'));
+      expect(back.createdAt, captured);
+      expect(back.updatedAt, captured.add(const Duration(days: 1)));
+      expect(await db.select(db.datedEvents).get(), hasLength(2));
+    });
+
+    test(
+      'si la pasada se fue mientras tanto, el hecho vuelve sin ella',
+      () async {
+        final id = await saveBook('libro');
+        await db
+            .into(db.aiRuns)
+            .insert(
+              AiRunsCompanion.insert(
+                id: 'pasada',
+                itemId: id,
+                startedAt: captured,
+              ),
+            );
+        await db
+            .into(db.datedEvents)
+            .insert(
+              DatedEventsCompanion.insert(
+                id: 'imperio',
+                itemId: id,
+                renditionId: const Value('libro-texto'),
+                title: 'Roma',
+                dateFromYear: 27,
+                dateFromMonth: 1,
+                dateFromDay: 1,
+                datePrecision: DatePrecision.year,
+                startOffset: const Value(0),
+                endOffset: const Value(4),
+                excerpt: const Value('Roma'),
+                origin: const Value(ContentOrigin.ai),
+                aiRunId: const Value('pasada'),
+                createdAt: captured,
+                updatedAt: captured,
+              ),
+            );
+        final trashed = (await trash.keepOnlyFile(
+          id,
+        )).getOrElse((f) => fail('$f'));
+        await db.customStatement('DELETE FROM ai_runs');
+
+        final outcome = await trash.restore(trashed.single.id);
+
+        expect(outcome.isRight(), isTrue);
+        final back = await db.select(db.datedEvents).getSingle();
+        expect(back.origin, ContentOrigin.ai);
+        expect(back.aiRunId, isNull);
+      },
+    );
+
+    test('un texto sin hechos fechados no guarda nada de ellos', () async {
+      final id = await saveBook('libro');
+      await trash.keepOnlyFile(id);
+      expect(
+        (await db.select(db.trashedContents).getSingle()).datedEvents,
+        isNull,
+      );
+    });
+
+    test('lo soltado antes de F40, sin hechos fechados, vuelve sin ellos', () {
+      expect(
+        decodeTrashedDatedEvents(null, itemId: 'i', renditionId: 'r'),
+        isEmpty,
+      );
+      expect(
+        decodeTrashedDatedEvents('', itemId: 'i', renditionId: 'r'),
+        isEmpty,
+      );
+    });
 
     test('si el elemento ya volvió a tener texto, el recuperado entra al lado, '
         'sin sacarle el lugar al principal', () async {

@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/date_precision.dart';
+import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
 
@@ -72,6 +74,100 @@ void main() {
       expect(
         flashcardRejectionFingerprint('¿Qué es la entropía?'),
         isNot(flashcardRejectionFingerprint('¿Qué mide la entropía?')),
+      );
+    });
+  });
+
+  group('un hecho fechado (F40)', () {
+    HistoricalDate year(int y, {bool circa = false}) =>
+        HistoricalDate(year: y, precision: DatePrecision.year, isCirca: circa);
+
+    test('es la misma con la cita escrita con otras mayúsculas, acentos o '
+        'espacios', () {
+      expect(
+        datedEventRejectionFingerprint(
+          date: year(1831),
+          excerpt: 'En 1831  zarpó\n el Beagle',
+        ),
+        datedEventRejectionFingerprint(
+          date: year(1831),
+          excerpt: 'EN 1831 ZARPO EL BEAGLE',
+        ),
+      );
+    });
+
+    test('otra fecha o otra precisión es otra huella; el circa no', () {
+      final base = datedEventRejectionFingerprint(
+        date: year(1831),
+        excerpt: 'zarpó',
+      );
+
+      expect(
+        datedEventRejectionFingerprint(date: year(1832), excerpt: 'zarpó'),
+        isNot(base),
+      );
+      expect(
+        datedEventRejectionFingerprint(
+          date: const HistoricalDate(
+            year: 1831,
+            precision: DatePrecision.month,
+            month: 1,
+          ),
+          excerpt: 'zarpó',
+        ),
+        isNot(base),
+      );
+      expect(
+        datedEventRejectionFingerprint(
+          date: year(1831, circa: true),
+          excerpt: 'zarpó',
+        ),
+        base,
+      );
+    });
+
+    test('el mes y el día cuentan', () {
+      HistoricalDate on(int month, int day) => HistoricalDate(
+        year: 1831,
+        precision: DatePrecision.day,
+        month: month,
+        day: day,
+      );
+      final base = datedEventRejectionFingerprint(
+        date: on(3, 10),
+        excerpt: 'zarpó',
+      );
+
+      expect(
+        datedEventRejectionFingerprint(date: on(4, 10), excerpt: 'zarpó'),
+        isNot(base),
+      );
+      expect(
+        datedEventRejectionFingerprint(date: on(3, 11), excerpt: 'zarpó'),
+        isNot(base),
+      );
+    });
+
+    test('a.C. y d.C. son años distintos', () {
+      expect(
+        datedEventRejectionFingerprint(
+          date: const HistoricalDate(
+            year: 44,
+            precision: DatePrecision.year,
+            isBce: true,
+          ),
+          excerpt: 'x',
+        ),
+        isNot(datedEventRejectionFingerprint(date: year(44), excerpt: 'x')),
+      );
+    });
+
+    test('otra cita es otra huella', () {
+      expect(
+        datedEventRejectionFingerprint(date: year(1831), excerpt: 'zarpó'),
+        isNot(
+          datedEventRejectionFingerprint(date: year(1831), excerpt: 'volvió'),
+        ),
       );
     });
   });

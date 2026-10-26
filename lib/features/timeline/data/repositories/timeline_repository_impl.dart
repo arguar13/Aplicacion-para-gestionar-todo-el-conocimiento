@@ -30,9 +30,10 @@ class TimelineRepositoryImpl implements TimelineRepository {
   Stream<List<TimelineEvent>> watchEvents(LibraryQuery filter) {
     return watchQuery(
       db: _db,
-      // Las que componen un evento —el elemento, su fuente, su subtipo y el
-      // valor de fecha que tiene puesto— y las que usa la biblioteca para
-      // decidir qué elementos entran (el texto vive en las formas).
+      // Las que componen un evento —el elemento, su fuente, su subtipo, el
+      // valor de fecha que tiene puesto y los hechos fechados de su texto— y
+      // las que usa la biblioteca para decidir qué elementos entran (el texto
+      // vive en las formas).
       tables: [
         _db.knowledgeEntries,
         _db.knowledgeSources,
@@ -40,6 +41,7 @@ class TimelineRepositoryImpl implements TimelineRepository {
         _db.knowledgeNotes,
         _db.propertyValues,
         _db.itemPropertyValues,
+        _db.datedEvents,
       ],
       read: () => _read(filter),
       telemetry: _telemetry,
@@ -50,12 +52,20 @@ class TimelineRepositoryImpl implements TimelineRepository {
   Future<List<TimelineEvent>> _read(LibraryQuery filter) async {
     final allowed = await _allowedItemIds(filter);
     final rows = await _datedRows().get();
+    final facts = await _datedEventRows().get();
 
+    // Los dos orígenes pasan por el mismo filtro: qué elementos entran lo
+    // decide la biblioteca, sea cual sea el hecho.
     final events = <TimelineEvent>[];
     for (final row in rows) {
       final itemId = row.read(_db.knowledgeEntries.id)!;
       if (allowed != null && !allowed.contains(itemId)) continue;
       events.add(_toEvent(itemId, row));
+    }
+    for (final row in facts) {
+      final itemId = row.read(_db.datedEvents.itemId)!;
+      if (allowed != null && !allowed.contains(itemId)) continue;
+      events.add(_toDatedEvent(itemId, row));
     }
     return events..sort(compareTimelineEvents);
   }
@@ -118,6 +128,85 @@ class TimelineRepositoryImpl implements TimelineRepository {
             values.datePrecision.isNotNull() &
             items.isActive,
       );
+  }
+
+  /// Un renglón por cada hecho fechado dentro de un documento (F40), de un
+  /// elemento fuera de la papelera. Las mismas columnas mínimas que
+  /// [_datedRows], por lo mismo.
+  JoinedSelectStatement<HasResultSet, dynamic> _datedEventRows() {
+    final facts = _db.datedEvents;
+    final items = _db.knowledgeEntries;
+    final sources = _db.knowledgeSources;
+    final notes = _db.knowledgeNotes;
+
+    return _db.selectOnly(facts)
+      ..join([
+        innerJoin(items, items.id.equalsExp(facts.itemId)),
+        leftOuterJoin(sources, sources.itemId.equalsExp(items.id)),
+        leftOuterJoin(notes, notes.itemId.equalsExp(items.id)),
+      ])
+      ..addColumns([
+        facts.id,
+        facts.itemId,
+        facts.renditionId,
+        facts.title,
+        facts.dateFromYear,
+        facts.dateFromMonth,
+        facts.dateFromDay,
+        facts.datePrecision,
+        facts.dateIsCirca,
+        facts.dateEndYear,
+        facts.dateEndMonth,
+        facts.dateEndDay,
+        facts.dateEndPrecision,
+        facts.startOffset,
+        facts.endOffset,
+        facts.excerpt,
+        facts.origin,
+        items.title,
+        sources.sourceType,
+        notes.noteKind,
+      ])
+      ..where(items.isActive);
+  }
+
+  TimelineEvent _toDatedEvent(String itemId, TypedResult row) {
+    final facts = _db.datedEvents;
+    final isCirca = row.read(facts.dateIsCirca) ?? false;
+    final endYear = row.read(facts.dateEndYear);
+    final endPrecision = row.readWithConverter(facts.dateEndPrecision);
+    return TimelineEvent(
+      itemId: itemId,
+      title: row.read(facts.title)!,
+      itemTitle: row.read(_db.knowledgeEntries.title),
+      date: HistoricalDate.fromStored(
+        astronomicalYear: row.read(facts.dateFromYear)!,
+        precision: row.readWithConverter(facts.datePrecision)!,
+        month: row.read(facts.dateFromMonth),
+        day: row.read(facts.dateFromDay),
+        isCirca: isCirca,
+      ),
+      // Las cuatro del fin vienen juntas, o ninguna (lo hace cumplir la base).
+      end: endYear == null
+          ? null
+          : HistoricalDate.fromStored(
+              astronomicalYear: endYear,
+              precision: endPrecision!,
+              month: row.read(facts.dateEndMonth),
+              day: row.read(facts.dateEndDay),
+              isCirca: isCirca,
+            ),
+      sourceKind:
+          row.readWithConverter(_db.knowledgeSources.sourceType) ??
+          SourceKind.manualNote,
+      noteKind: row.readWithConverter(_db.knowledgeNotes.noteKind),
+      datedEventId: row.read(facts.id),
+      renditionId: row.read(facts.renditionId),
+      startOffset: row.read(facts.startOffset),
+      endOffset: row.read(facts.endOffset),
+      excerpt: row.read(facts.excerpt),
+      origin: row.readWithConverter(facts.origin),
+    );
   }
 
   TimelineEvent _toEvent(String itemId, TypedResult row) {

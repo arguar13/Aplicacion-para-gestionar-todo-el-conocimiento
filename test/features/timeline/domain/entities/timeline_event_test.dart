@@ -1,7 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 import 'package:sinapsis/features/timeline/domain/services/timeline_axis.dart';
+import 'package:sinapsis/features/timeline/domain/services/timeline_index.dart';
 
 import '../../timeline_fixtures.dart';
 
@@ -117,5 +121,116 @@ void main() {
 
     expect(founding, isNot(fall));
     expect(founding.itemId, fall.itemId);
+  });
+
+  group('un hecho fechado dentro de un documento (F40)', () {
+    TimelineEvent fact({
+      HistoricalDate? end,
+      HistoricalDate? date,
+      String? renditionId,
+      int? startOffset,
+      ContentOrigin? origin = ContentOrigin.user,
+    }) => TimelineEvent(
+      itemId: 'libro',
+      title: 'La Gran Guerra',
+      itemTitle: 'Historia del siglo XX',
+      date: date ?? dateOf(1914),
+      end: end,
+      sourceKind: SourceKind.document,
+      datedEventId: 'h1',
+      renditionId: renditionId,
+      startOffset: startOffset,
+      origin: origin,
+    );
+
+    test('sin fin es un momento como cualquier fecha', () {
+      final event = fact();
+
+      expect(event.isRange, isFalse);
+      expect(event.from, 1914.0);
+      expect(event.to, 1915.0);
+    });
+
+    test('con fin va de donde empieza el inicio a donde termina el fin', () {
+      final event = fact(end: dateOf(1918));
+
+      expect(event.isRange, isTrue);
+      expect(event.from, 1914.0);
+      expect(event.to, 1919.0);
+    });
+
+    test('el fin puede ser de otra precisión', () {
+      final event = fact(
+        end: const HistoricalDate(
+          year: 1918,
+          precision: DatePrecision.month,
+          month: 11,
+        ),
+      );
+
+      expect(event.to, axisStartOfMonth(1918, 12));
+    });
+
+    test('un tramo cruza el cero', () {
+      final event = fact(date: dateOf(10, bce: true), end: dateOf(10));
+
+      expect(event.from, -9.0);
+      expect(event.to, 11.0);
+    });
+
+    test('con fin ya no es un período: se sabe de cuándo a cuándo', () {
+      final century = dateOf(1900, precision: DatePrecision.century);
+
+      expect(fact(date: century).isPeriod, isTrue);
+      expect(fact(date: century, end: dateOf(1950)).isPeriod, isFalse);
+    });
+
+    test('el circa difumina por la precisión del inicio, no por el largo del '
+        'tramo', () {
+      final event = fact(date: dateOf(1500, circa: true), end: dateOf(1600));
+
+      expect(event.fuzz, 0.5);
+      expect(event.reachFrom, 1499.5);
+      expect(event.reachTo, 1601.5);
+    });
+
+    test('dos hechos del mismo documento en la misma fecha tienen un orden '
+        'total: el de su identificador', () {
+      TimelineEvent withId(String id) => TimelineEvent(
+        itemId: 'libro',
+        title: id,
+        date: dateOf(1900),
+        sourceKind: SourceKind.document,
+        datedEventId: id,
+      );
+      final a = withId('a');
+      final z = withId('z');
+
+      expect(compareTimelineEvents(a, z), isNegative);
+      expect(compareTimelineEvents(z, a), isPositive);
+      expect(compareTimelineEvents(a, withId('a')), isZero);
+    });
+
+    test('se distingue de la «Fecha del hecho» del elemento', () {
+      final own = eventAt('roma', dateOf(476));
+
+      expect(own.isDatedEvent, isFalse);
+      expect(own.documentTitle, own.title);
+      expect(own.isAi, isFalse);
+      expect(own.hasAnchor, isFalse);
+
+      final event = fact();
+      expect(event.isDatedEvent, isTrue);
+      expect(event.title, 'La Gran Guerra');
+      expect(event.documentTitle, 'Historia del siglo XX');
+    });
+
+    test('lo de la IA y la cita se leen de los campos', () {
+      expect(fact(origin: ContentOrigin.ai).isAi, isTrue);
+      expect(fact().isAi, isFalse);
+      expect(fact(renditionId: 'texto', startOffset: 4).hasAnchor, isTrue);
+      expect(fact(renditionId: 'texto').hasAnchor, isFalse);
+      expect(fact(startOffset: 4).hasAnchor, isFalse);
+    });
   });
 }

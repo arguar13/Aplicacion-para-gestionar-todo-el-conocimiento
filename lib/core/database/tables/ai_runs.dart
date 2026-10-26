@@ -5,8 +5,9 @@ import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 
 /// Una pasada de la IA sobre un elemento (F27): todo lo que aplicó sola en esa
-/// vuelta —vínculos, tarjetas, propiedades— lleva su [id] en `ai_run_id`, y
-/// por eso se puede deshacer entero, de un saque, sin tocar nada más.
+/// vuelta —vínculos, tarjetas, propiedades, hechos fechados— lleva su [id] en
+/// `ai_run_id`, y por eso se puede deshacer entero, de un saque, sin tocar
+/// nada más.
 ///
 /// Es el registro que «Lo que hizo la IA» muestra en orden de fecha. Lo que la
 /// IA creó se cuenta al terminar ([relationsCreated] y compañía) y queda así:
@@ -76,6 +77,10 @@ class AiRuns extends Table {
   /// marcha. 0 en las de antes, que no los guardaban.
   IntColumn get inputTokens => integer().withDefault(const Constant(0))();
   IntColumn get outputTokens => integer().withDefault(const Constant(0))();
+
+  /// Cuántos hechos fechados puso (v44, F40), contados al terminar. 0 en las de
+  /// antes, que no ponían ninguno.
+  IntColumn get datesCreated => integer().withDefault(const Constant(0))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

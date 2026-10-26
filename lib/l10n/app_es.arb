@@ -9546,5 +9546,14 @@
   "timelineMinimapLabel": "Dónde se juntan los hechos. Tocá o arrastrá para ir a esa época.",
   "@timelineMinimapLabel": {"description": "Lectura de accesibilidad del mini mapa de la línea de tiempo (F40): la franja de arriba del eje que muestra dónde hay más hechos y qué tramo se ve."},
   "detailOpenTimeline": "Ver en la línea de tiempo",
-  "@detailOpenTimeline": {"description": "Botón del detalle de un elemento con «Fecha del hecho» (F40): abre la línea de tiempo recortada a ese documento."}
+  "@detailOpenTimeline": {"description": "Botón del detalle de un elemento con «Fecha del hecho» (F40): abre la línea de tiempo recortada a ese documento."},
+  "aiTallyDates": "{count, plural, =1{1 fecha} other{{count} fechas}}",
+  "@aiTallyDates": {
+    "description": "Cuántos hechos fechados puso la IA en la línea de tiempo (F40).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -75,6 +75,11 @@ class TrashedContents extends Table {
   /// `encodeTrashedStudy`. Nulo si no se había analizado.
   TextColumn get studyMarks => text().nullable()();
 
+  /// Los hechos fechados que citaban la forma (F40, v44), en JSON: ver
+  /// `encodeTrashedDatedEvents`. Como los subrayados, cuelgan de la forma y al
+  /// soltarla se irían en cascada. Nulo si no había ninguno.
+  TextColumn get datedEvents => text().nullable()();
+
   /// Cuándo se soltó: a los 30 días se borra de verdad.
   DateTimeColumn get trashedAt => dateTime()();
 

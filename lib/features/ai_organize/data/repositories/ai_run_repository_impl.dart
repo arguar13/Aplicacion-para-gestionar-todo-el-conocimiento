@@ -181,6 +181,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
                 relationsCreated: Value(tally.relations),
                 flashcardsCreated: Value(tally.flashcards),
                 propertiesCreated: Value(tally.properties),
+                datesCreated: Value(tally.dates),
               ),
             );
         if (updated == 0) return left(_missingRun);
@@ -218,10 +219,12 @@ class AiRunRepositoryImpl implements AiRunRepository {
             SELECT r.id, r.item_id, r.model, r.started_at, r.finished_at,
                    r.undone_at, r.relations_created, r.flashcards_created,
                    r.properties_created, r.scope, r.work_millis,
-                   r.input_tokens, r.output_tokens, i.title AS item_title,
+                   r.input_tokens, r.output_tokens, r.dates_created,
+                   i.title AS item_title,
                    ${_remainingSql('relations', 'r.id')} AS relations_left,
                    ${_remainingSql('flashcards', 'r.id')} AS flashcards_left,
-                   ${_propertiesRemainingSql('r.id')} AS properties_left
+                   ${_propertiesRemainingSql('r.id')} AS properties_left,
+                   ${_remainingSql('dated_events', 'r.id')} AS dates_left
               FROM ai_runs r
               JOIN item i ON i.id = r.item_id
              WHERE ${activeItemSql('i')}
@@ -239,6 +242,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
               _db.relations,
               _db.flashcards,
               _db.itemPropertyValues,
+              _db.datedEvents,
               _db.aiFieldChanges,
             },
           )
@@ -273,6 +277,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
                   relations: row.read<int>('relations_created'),
                   flashcards: row.read<int>('flashcards_created'),
                   properties: row.read<int>('properties_created'),
+                  dates: row.read<int>('dates_created'),
                 ) +
                 (fieldsCreated[row.read<String>('id')] ?? const AiRunTally()) +
                 AiRunTally(
@@ -286,6 +291,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
                   relations: row.read<int>('relations_left'),
                   flashcards: row.read<int>('flashcards_left'),
                   properties: row.read<int>('properties_left'),
+                  dates: row.read<int>('dates_left'),
                 ) +
                 (fieldsLeft[row.read<String>('id')] ?? const AiRunTally()) +
                 AiRunTally(
@@ -732,6 +738,13 @@ class AiRunRepositoryImpl implements AiRunRepository {
                   f.origin.equalsValue(ContentOrigin.ai),
             ))
             .go();
+    final dates =
+        await (_db.delete(_db.datedEvents)..where(
+              (e) =>
+                  e.aiRunId.equals(run.id) &
+                  e.origin.equalsValue(ContentOrigin.ai),
+            ))
+            .go();
     final properties = mapNote?.adopted ?? false
         ? 0
         : await (_db.delete(_db.itemPropertyValues)..where(
@@ -755,6 +768,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
     return AiRunTally(
           relations: relations,
           flashcards: flashcards,
+          dates: dates,
           // El tema de una nota mapa va con ella: ya cuenta en `fields`.
           properties: mapNote == null ? properties : 0,
           topicPlacements: topicPlacements,
@@ -769,7 +783,8 @@ class AiRunRepositoryImpl implements AiRunRepository {
         .customSelect(
           'SELECT ${_remainingSql('relations', '?1')} AS relations_left, '
           '${_remainingSql('flashcards', '?1')} AS flashcards_left, '
-          '${_propertiesRemainingSql('?1')} AS properties_left',
+          '${_propertiesRemainingSql('?1')} AS properties_left, '
+          '${_remainingSql('dated_events', '?1')} AS dates_left',
           variables: [Variable.withString(runId)],
         )
         .getSingle();
@@ -777,11 +792,12 @@ class AiRunRepositoryImpl implements AiRunRepository {
       relations: row.read<int>('relations_left'),
       flashcards: row.read<int>('flashcards_left'),
       properties: row.read<int>('properties_left'),
+      dates: row.read<int>('dates_left'),
     );
   }
 
   /// Cuántas filas de [table] siguen siendo de la IA en la pasada [run] (una
-  /// expresión SQL). Las tres tablas guardan el origen de la IA como `ai`.
+  /// expresión SQL). Las tablas guardan el origen de la IA como `ai`.
   static String _remainingSql(String table, String run) =>
       '(SELECT COUNT(*) FROM $table x '
       "WHERE x.ai_run_id = $run AND x.origin = 'ai')";

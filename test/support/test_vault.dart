@@ -19,6 +19,7 @@ import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
+import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
@@ -440,6 +441,42 @@ class TestVault {
           endOffset: end,
           excerpt: 'extracto',
           createdAt: now,
+        ),
+      );
+
+  /// Un hecho fechado (F40) de [itemId]: [year] de inicio, con su título y,
+  /// si se pide, su cita sobre el texto del elemento (la forma de
+  /// `saveSource`) y de quién es.
+  Future<void> addDatedEvent(
+    String id,
+    String itemId, {
+    String title = 'Un hecho',
+    int year = 1859,
+    String? excerpt,
+    int? start,
+    int? end,
+    String? renditionId,
+    ContentOrigin origin = ContentOrigin.user,
+    String? aiRunId,
+  }) => db
+      .into(db.datedEvents)
+      .insert(
+        DatedEventsCompanion.insert(
+          id: id,
+          itemId: itemId,
+          renditionId: Value(renditionId),
+          title: title,
+          dateFromYear: year,
+          dateFromMonth: 1,
+          dateFromDay: 1,
+          datePrecision: DatePrecision.year,
+          startOffset: Value(start),
+          endOffset: Value(end),
+          excerpt: Value(excerpt),
+          origin: Value(origin),
+          aiRunId: Value(aiRunId),
+          createdAt: now,
+          updatedAt: now,
         ),
       );
 

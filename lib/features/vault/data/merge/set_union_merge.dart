@@ -18,6 +18,7 @@ class SetUnionResult {
     this.messages = 0,
     this.habitEvents = 0,
     this.studyMarks = 0,
+    this.datedEvents = 0,
   });
 
   final int relations;
@@ -40,6 +41,9 @@ class SetUnionResult {
 
   /// Lo resaltado para estudiar un documento (F36).
   final int studyMarks;
+
+  /// Los hechos fechados dentro de un documento (F40).
+  final int datedEvents;
 }
 
 /// Las columnas de cada tabla que se une, en el orden en que se copian. Un test
@@ -86,6 +90,28 @@ const kStudyAnalysisColumns = [
   'rendition_id',
   'analyzed_until',
   'completed_at',
+  'updated_at',
+];
+const kDatedEventColumns = [
+  'id',
+  'item_id',
+  'rendition_id',
+  'title',
+  'date_from_year',
+  'date_from_month',
+  'date_from_day',
+  'date_precision',
+  'date_is_circa',
+  'date_end_year',
+  'date_end_month',
+  'date_end_day',
+  'date_end_precision',
+  'start_offset',
+  'end_offset',
+  'excerpt',
+  'origin',
+  'ai_run_id',
+  'created_at',
   'updated_at',
 ];
 const kFlashcardColumns = [
@@ -452,6 +478,57 @@ class SetUnionMerge {
       select: {'rendition_id': renditionOf},
     );
 
+    // Los hechos fechados (F40). Un hecho es de un elemento, no de un texto: si
+    // el texto de su cita no llegó —entró como otro, o acá no está—, el hecho
+    // entra igual, con su fecha, su título y su fragmento, pero sin la
+    // posición, que es de UN texto. Es el mismo hecho si tiene el mismo id, o
+    // la misma fecha y la misma cita en el mismo elemento (dos dispositivos
+    // pudieron leerlo cada uno por su cuenta); sin cita, el mismo título. Uno
+    // de la IA que acá alguien dijo que «no era» no vuelve, y su pasada se
+    // conserva solo si llegó con él.
+    final datedEvents = await _union(
+      _db.datedEvents,
+      'dated_events',
+      kDatedEventColumns,
+      '''
+      FROM $_incoming.dated_events x
+      LEFT JOIN ${MergeWork.renditionMap} rm ON rm.incoming_id = x.rendition_id
+      LEFT JOIN main.renditions lr
+             ON lr.id = COALESCE(rm.local_id, x.rendition_id)
+            AND (rm.incoming_id IS NULL OR rm.local_id IS NOT NULL)
+     WHERE ${_itemExists('x.item_id')}
+       AND NOT ${AiProvenanceMerge.rejectedDatedEvent('x')}
+       AND NOT EXISTS (SELECT 1 FROM main.dated_events m WHERE m.id = x.id)
+       AND NOT EXISTS (
+         SELECT 1 FROM main.dated_events m
+          WHERE m.item_id = x.item_id
+            AND m.date_from_year = x.date_from_year
+            AND m.date_from_month = x.date_from_month
+            AND m.date_from_day = x.date_from_day
+            AND m.date_precision = x.date_precision
+            AND (m.excerpt = x.excerpt
+                 OR (x.excerpt IS NULL AND m.excerpt IS NULL
+                     AND m.title = x.title COLLATE NOCASE)))''',
+      select: {
+        'rendition_id': 'lr.id',
+        'start_offset': 'CASE WHEN lr.id IS NOT NULL THEN x.start_offset END',
+        'end_offset': 'CASE WHEN lr.id IS NOT NULL THEN x.end_offset END',
+        'ai_run_id': AiProvenanceMerge.runOrNull('x.ai_run_id'),
+      },
+    );
+
+    // Uno de la IA que en la copia la persona adoptó es suyo también acá, mismo
+    // motivo que los vínculos (F27). Su título y sus fechas no se tocan.
+    await _db.customUpdate(
+      '''
+      UPDATE main.dated_events SET origin = 'user', ai_run_id = NULL
+        FROM $_incoming.dated_events x
+       WHERE x.id = dated_events.id
+         AND x.origin = 'user' AND dated_events.origin = 'ai'
+      ''',
+      updates: {_db.datedEvents},
+    );
+
     return SetUnionResult(
       relations: relations,
       highlights: highlights,
@@ -464,6 +541,7 @@ class SetUnionMerge {
       messages: messages,
       habitEvents: habitEvents,
       studyMarks: studyMarks,
+      datedEvents: datedEvents,
     );
   }
 

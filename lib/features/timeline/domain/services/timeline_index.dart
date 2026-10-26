@@ -28,7 +28,10 @@ int compareTimelineEvents(TimelineEvent a, TimelineEvent b) {
   if (byEnd != 0) return byEnd;
   final byItem = a.itemId.compareTo(b.itemId);
   if (byItem != 0) return byItem;
-  return a.from.compareTo(b.from);
+  final byFrom = a.from.compareTo(b.from);
+  if (byFrom != 0) return byFrom;
+  // Dos hechos fechados del mismo documento en la misma fecha.
+  return (a.datedEventId ?? '').compareTo(b.datedEventId ?? '');
 }
 
 /// Un índice sobre todos los eventos que responde "qué cae en esta ventana"

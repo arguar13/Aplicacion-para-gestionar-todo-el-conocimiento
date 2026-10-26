@@ -1,7 +1,8 @@
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 
-/// Los hechos fechados de la bóveda.
+/// Los hechos de la bóveda sobre el eje: las fechas de los elementos y los
+/// hechos fechados dentro de los documentos.
 // ignore: one_member_abstracts
 abstract interface class TimelineRepository {
   /// Los eventos de los elementos que cumplen [filter], en orden cronológico
@@ -13,8 +14,15 @@ abstract interface class TimelineRepository {
   /// filtros; ordenar y paginar de [filter] no se usan, porque el eje ordena
   /// y muestra todo.
   ///
-  /// Solo cuentan las fechas de la categoría "Fecha del hecho": cuándo
-  /// ocurrió lo que cuenta un elemento, no cuándo se capturó. Un elemento sin
-  /// esa fecha no está en el eje, y uno con varias aparece una vez por fecha.
+  /// Hay dos orígenes (F40), y los dos pasan por [filter]:
+  ///
+  /// - las fechas de la categoría "Fecha del hecho": cuándo ocurrió lo que
+  ///   cuenta un elemento entero, no cuándo se capturó. Un elemento sin esa
+  ///   fecha no aporta, y uno con varias aparece una vez por fecha;
+  /// - los hechos fechados dentro de un documento (`DatedEvent`), cada uno
+  ///   con su título, su cita y, si es un tramo, su fin.
+  ///
+  /// Lo que está en la papelera no aparece, y cualquiera de las dos fuentes
+  /// que cambie hace emitir de nuevo.
   Stream<List<TimelineEvent>> watchEvents(LibraryQuery filter);
 }

@@ -41,6 +41,8 @@ List<({IconData icon, String label})> _tallyEntries(
   // El símbolo de la nota mapa en toda la app (`NoteKindPresentation`).
   if (tally.mapNotes > 0)
     (icon: Icons.hub, label: l10n.aiTallyMapNotes(tally.mapNotes)),
+  if (tally.dates > 0)
+    (icon: Icons.event_outlined, label: l10n.aiTallyDates(tally.dates)),
 ];
 
 /// Lo que dice una cuenta de la IA, parte por parte y sin los ceros: «4

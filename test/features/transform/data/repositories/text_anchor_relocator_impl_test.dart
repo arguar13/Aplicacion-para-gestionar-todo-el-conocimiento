@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
+import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -247,6 +248,110 @@ void main() {
       final row = await db.select(db.studyAnalyses).getSingle();
       expect(row.analyzedUntil, 0);
       expect(row.completedAt, isNull);
+    });
+  });
+
+  group('los hechos fechados (F40)', () {
+    setUp(() async {
+      await db
+          .into(db.renditions)
+          .insert(
+            RenditionsCompanion.insert(
+              id: 'texto',
+              itemId: 'libro',
+              kind: RenditionKind.plainText,
+              content: const Value(from),
+              isPrimary: true,
+              createdAt: now,
+            ),
+          );
+    });
+
+    Future<void> fact(String id, {String? excerpt, String? rendition}) {
+      final range = excerpt == null ? null : at(excerpt);
+      return db
+          .into(db.datedEvents)
+          .insert(
+            DatedEventsCompanion.insert(
+              id: id,
+              itemId: 'libro',
+              renditionId: Value(
+                rendition ?? (excerpt == null ? null : 'texto'),
+              ),
+              title: 'Un hecho',
+              dateFromYear: 1859,
+              dateFromMonth: 1,
+              dateFromDay: 1,
+              datePrecision: DatePrecision.year,
+              startOffset: Value(range?.$1),
+              endOffset: Value(range?.$2),
+              excerpt: Value(excerpt),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+    }
+
+    Future<void> relocateTo(String text) => TextAnchorRelocatorImpl(
+      db,
+    ).relocate(itemId: 'libro', renditionId: 'texto', from: from, to: text);
+
+    Future<DatedEventRow> row(String id) =>
+        (db.select(db.datedEvents)..where((e) => e.id.equals(id))).getSingle();
+
+    test('la cita de un hecho sigue en su lugar nuevo', () async {
+      await fact('h1', excerpt: 'Las explicaciones van aparte.');
+
+      await relocateTo(to);
+
+      final moved = await row('h1');
+      expect(
+        to.substring(moved.startOffset!, moved.endOffset),
+        'Las ex-\nplicaciones van aparte.',
+      );
+      expect(moved.renditionId, 'texto');
+    });
+
+    test('si la cita ya no está, el hecho se queda sin posición pero con su '
+        'fecha, su fragmento y su texto', () async {
+      await fact('h1', excerpt: 'Las explicaciones van aparte.');
+
+      await relocateTo('Uno. Otra cosa. Dos.');
+
+      final kept = await row('h1');
+      expect(kept.startOffset, isNull);
+      expect(kept.endOffset, isNull);
+      expect(kept.excerpt, 'Las explicaciones van aparte.');
+      expect(kept.dateFromYear, 1859);
+      expect(kept.renditionId, 'texto');
+    });
+
+    test('un hecho sin cita, o de otro texto, no se toca', () async {
+      await fact('suelto');
+      // Del texto, pero sin posición (ya se había perdido): tampoco se toca.
+      await fact('sin-posicion', rendition: 'texto');
+      await db
+          .into(db.renditions)
+          .insert(
+            RenditionsCompanion.insert(
+              id: 'otro',
+              itemId: 'libro',
+              kind: RenditionKind.plainText,
+              content: const Value(from),
+              isPrimary: false,
+              createdAt: now,
+            ),
+          );
+      await fact('ajeno', excerpt: 'Dos.', rendition: 'otro');
+      final loose = await row('suelto');
+      final unplaced = await row('sin-posicion');
+      final other = await row('ajeno');
+
+      await relocateTo('Un texto que no tiene nada que ver.');
+
+      expect(await row('suelto'), loose);
+      expect(await row('sin-posicion'), unplaced);
+      expect(await row('ajeno'), other);
     });
   });
 }

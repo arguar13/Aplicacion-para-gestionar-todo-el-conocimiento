@@ -106,6 +106,11 @@ class VaultCounts {
   /// todavía no existía cuando corrían.
   static const itemSpaceTables = <String>['item_spaces'];
 
+  /// Los hechos fechados dentro de un documento (F40, v44). Aparte por lo
+  /// mismo que las anteriores: los pasos hasta v44 cuentan las otras listas, y
+  /// esta tabla todavía no existía cuando corrían.
+  static const datedEventTables = <String>['dated_events'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

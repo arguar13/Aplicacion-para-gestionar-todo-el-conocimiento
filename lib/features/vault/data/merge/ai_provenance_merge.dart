@@ -34,6 +34,8 @@ const kAiRunColumns = [
   'work_millis',
   'input_tokens',
   'output_tokens',
+  // Cuántos hechos fechados puso (F40).
+  'dates_created',
 ];
 const kAiFieldChangeColumns = [
   'id',
@@ -151,6 +153,12 @@ class AiProvenanceMerge {
   /// una copia vieja trae el mismo id.
   static String rejectedFlashcard(String x) =>
       _rejectedIn('flashcard', 'j.subject_id = $x.id', origin: '$x.origin');
+
+  /// Que el hecho fechado de la copia, con el alias [x], sea uno de la IA que
+  /// la persona dijo que «no era». Por su id, como las tarjetas: la huella de
+  /// la cita pliega acentos y espacios, y no se puede armar en SQL.
+  static String rejectedDatedEvent(String x) =>
+      _rejectedIn('datedEvent', 'j.subject_id = $x.id', origin: '$x.origin');
 
   /// Que la propiedad de la copia, con el alias [x], sea una de la IA que la
   /// persona dijo que «no era» en ese elemento: por el valor de la copia o el

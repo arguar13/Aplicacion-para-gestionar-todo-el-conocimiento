@@ -16,6 +16,7 @@ import 'package:sinapsis/core/database/tables/attachment_downloads.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
 import 'package:sinapsis/core/database/tables/chunks.dart';
 import 'package:sinapsis/core/database/tables/conversations.dart';
+import 'package:sinapsis/core/database/tables/dated_events.dart';
 import 'package:sinapsis/core/database/tables/embeddings.dart';
 import 'package:sinapsis/core/database/tables/field_versions.dart';
 import 'package:sinapsis/core/database/tables/flashcard_options.dart';
@@ -136,6 +137,7 @@ part 'app_database.g.dart';
     StudyMarks,
     StudyAnalyses,
     ItemSpaces,
+    DatedEvents,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -180,7 +182,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 43;
+  static const currentSchemaVersion = 44;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -1117,6 +1119,56 @@ class AppDatabase extends _$AppDatabase {
             }
           }
           await _requireSameCounts(before, step: 'v43', tables: tables);
+        }
+
+        // Los hechos fechados dentro de un documento (F40, decisión C): la
+        // tabla `dated_events`, con la fecha de cada hecho, su fin si es un
+        // tramo y la cita del texto de la que sale; `ai_runs.dates_created`,
+        // cuántos puso una pasada de la IA; y `content_trash.dated_events`,
+        // los que citaban un texto soltado. Aditiva: una tabla nueva y vacía y
+        // dos columnas que en todo lo de antes dicen «ninguno». «Fecha del
+        // hecho» no se toca ni se migra nada. Los conteos de todo lo anterior
+        // son compuerta. Las columnas pueden existir ya: el paso v34 crea
+        // `ai_runs` y el v38 `content_trash` con su definición de hoy.
+        if (from < 44) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+            ...VaultCounts.studyTables,
+            ...VaultCounts.itemSpaceTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.createTable(datedEvents);
+          for (final index in [
+            idxDatedEventsItem,
+            idxDatedEventsRendition,
+            idxDatedEventsDate,
+            idxDatedEventsAiRun,
+          ]) {
+            await migrator.createIndex(index);
+          }
+          if (!await _columnExists('ai_runs', aiRuns.datesCreated.name)) {
+            await migrator.addColumn(aiRuns, aiRuns.datesCreated);
+          }
+          if (!await _columnExists(
+            'content_trash',
+            trashedContents.datedEvents.name,
+          )) {
+            await migrator.addColumn(
+              trashedContents,
+              trashedContents.datedEvents,
+            );
+          }
+          await _requireSameCounts(before, step: 'v44', tables: tables);
         }
       });
     },

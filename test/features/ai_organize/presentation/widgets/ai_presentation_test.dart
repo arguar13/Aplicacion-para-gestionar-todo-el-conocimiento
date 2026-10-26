@@ -17,6 +17,7 @@ void main() {
       referenceFields: 1,
       topicPlacements: 1,
       mapNotes: 1,
+      dates: 1,
     );
 
     expect(aiTallyParts(es, all), hasLength(all.total));
@@ -37,5 +38,14 @@ void main() {
 
   test('una nota mapa se dice entera', () {
     expect(aiTallyText(es, const AiRunTally(mapNotes: 1)), '1 nota mapa');
+  });
+
+  test('los hechos fechados que puso en la línea de tiempo se cuentan como '
+      'fechas (F40)', () {
+    expect(aiTallyText(es, const AiRunTally(dates: 1)), '1 fecha');
+    expect(
+      aiTallyText(es, const AiRunTally(flashcards: 2, dates: 12)),
+      '2 tarjetas · 12 fechas',
+    );
   });
 }
