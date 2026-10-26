@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:async/async.dart';
@@ -2251,7 +2252,9 @@ void main() {
       await withGenerator.runInTransaction(
         () => withGenerator.save(buildItem(sourceKind: SourceKind.manualNote)),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      // Se espera a que el generador termine, no un tiempo fijo: con la
+      // máquina cargada, unos milisegundos no alcanzan.
+      await generator.done;
 
       expect(generator.reads, 1);
       expect(failure, isNull);
@@ -2714,7 +2717,11 @@ class _ReadsDatabaseLater implements DuplicateSuggestionGenerator {
 
   final AppDatabase _db;
   final void Function(Object error) onError;
+  final _done = Completer<void>();
   int reads = 0;
+
+  /// Se completa cuando terminó de leer, haya podido o no.
+  Future<void> get done => _done.future;
 
   @override
   Future<void> generate(KnowledgeItem item) async {
@@ -2726,6 +2733,8 @@ class _ReadsDatabaseLater implements DuplicateSuggestionGenerator {
       // ignore: avoid_catches_without_on_clauses
     } catch (e) {
       onError(e);
+    } finally {
+      if (!_done.isCompleted) _done.complete();
     }
   }
 }
