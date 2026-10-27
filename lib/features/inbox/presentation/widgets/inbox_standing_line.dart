@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/inbox_status.dart';
-import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
@@ -19,8 +18,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Es la otra mitad de la sección «Bandeja» de los filtros: lo triado se
 /// encuentra filtrando, y al abrirlo se ve que se trió y se puede deshacer
 /// desde ahí, sin volver a la Bandeja a buscarlo. No dibuja nada —ni el
-/// espacio de arriba— en lo que no pasó por la Bandeja: una nota, o una
-/// fuente que todavía se procesa.
+/// espacio de arriba— en lo que no pasa por la Bandeja: una nota. Una fuente
+/// que todavía se procesa ya está «En la Bandeja» (F41).
 class InboxStandingLine extends ConsumerWidget {
   const InboxStandingLine({
     required this.itemId,
@@ -84,9 +83,9 @@ class InboxStandingLine extends ConsumerWidget {
               icon: const Icon(Icons.inbox_outlined, size: 18),
               label: Text(l10n.inboxTriageNow),
             )
-          // Sin texto no hay nada que triar de nuevo: a la Bandeja solo
-          // entra lo que lo tiene (F30, decisión 68).
-          else if (standing.hasText)
+          // Vuelve todo lo que entraría al guardarse, tenga texto o no
+          // (F41); una referencia sin texto, no (decisión E).
+          else if (standing.canReturn)
             TextButton.icon(
               onPressed: () => _backToInbox(context, ref),
               icon: const Icon(Icons.undo, size: 18),
@@ -131,7 +130,7 @@ class InboxStandingLine extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
     final result = await ref
         .read(inboxRepositoryProvider)
-        .transitionState(itemId: itemId, to: ItemState.processed);
+        .returnToInbox(itemId);
 
     messenger.hideCurrentSnackBar();
     result.match(

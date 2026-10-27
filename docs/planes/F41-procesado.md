@@ -231,4 +231,59 @@ agente. El 4 sigue al 3.
 
 ## Avance
 
-(Vacío hasta aprobarlo.)
+**Paso 3 (primera parte): lo que no depende del documento procesado.** La Bandeja quedó lista para
+recibir la hoja «¿Qué va a Procesado?» cuando lleguen los datos del paso 1.
+
+- **Todo lo nuevo entra apenas se guarda.** `InboxStatus.pending` pasa a ser `captured` o
+  `processed`: lo que todavía se procesa ya espera. Un solo criterio, en `_isPending`, para el mazo,
+  la lista, la insignia, el panel de salud y Filtros → «Por revisar»; `hasTextSql` dejó de decidir
+  quién entra y ahora solo dice si el texto llegó.
+- **Lo que espera su texto.** Un estado nuevo, `PendingText`, con cuatro valores: listo, llegando,
+  falló y sin texto. Sale de dos datos que ya existían (si hay texto y en qué está el
+  procesamiento), sin columnas nuevas. Lo leen la tarjeta (`watchPendingText`) y la lista
+  (`PendingSource.text`).
+  - La tarjeta muestra *«Transcribiendo…»*, *«Leyendo la foto…»* o *«Extrayendo el texto…»*, con la
+    barra si se sabe cuánto va.
+  - Si falló, muestra el motivo real y «Reintentar» o «Descargar el modelo», por el mismo camino
+    que el panel de la fuente.
+  - Si se procesó sin texto, lo dice y ofrece «Volver a extraer el texto» si el original se puede
+    releer.
+  - **`InboxActions`** decide en un solo lugar qué se puede hacer, para botones, gestos y teclas.
+    «Descartar» se puede siempre. Triar, vincular y revisar sugerencias necesitan texto, y extraer
+    necesita el del elemento. Mientras tanto quedan apagados, con su motivo, y se prenden solos, en
+    vivo. `SwipeCard` no decide hacia un sentido sin pista.
+- **El orden es el de llegada** (`createdAt`, con el `id` para desempatar), no `updatedAt`. Así la
+  tarjeta que se mira mientras espera sigue arriba cuando le llega el texto.
+- **Volver a la Bandeja** (`returnToInbox`) se usa para deshacer y para «Volver a la Bandeja».
+  Devuelve la fuente al estado de espera que le toca ahora, según su procesamiento, y no a uno fijo:
+  algo descartado mientras se transcribía pudo terminar antes del deshacer. `InboxStep` perdió
+  `previousState`. «Volver a la Bandeja» se ofrece tenga texto o no (`InboxStanding.canReturn`),
+  salvo en una referencia.
+- **Decisión E.**
+  - Una referencia sigue naciendo triada, porque no trae texto.
+  - Cuando se le adjunta el archivo, el espejo la hace entrar a la Bandeja como recién guardada.
+    `nextMirrorState` recibe el tipo anterior, y la regla aplica solo desde `triaged`.
+- **Sale la hoja de F30** (`inbox_keep_sheet.dart`, sus 11 textos, `InboxStep.trashedContentIds` y
+  la recuperación al deshacer). Triar ya no suelta nada. Lo ya soltado sigue en la papelera de la
+  app, recuperable. «Borrar archivo…» y «Borrar el texto…» de la hoja «Más» quedan, porque son a
+  mano y de a una fuente.
+- **Auditoría del principio:** no queda ningún camino automático que suelte el archivo o el texto de
+  una fuente. Quedan los explícitos, de a una fuente:
+  - la hoja «Más»;
+  - «Volver a extraer»;
+  - fusionar un duplicado confirmado;
+  - borrar y vaciar la papelera.
+
+  Quedan además, a decidir por el dueño:
+  - el barrido de los 30 días de lo ya soltado;
+  - la unión de bóvedas, que replica en este dispositivo un archivo que la otra copia soltó a mano.
+- **Para los pasos que siguen:** el criterio de la Bandeja es `kind == source`. Si el documento
+  procesado del paso 1 fuera una fuente, tiene que quedar afuera de `_isPending`.
+
+Verificación:
+
+- `flutter analyze`: 19.
+- 35 mutaciones, todas muertas. Tres se cuentan como muertas porque se colgaron: la de la tarjeta
+  que no escucha los textos, que espera un evento que no llega, y dos del rótulo de la tarjeta, que
+  fallan y dejan el temporizador de drift.
+- Sin probar en el emulador ni en el teléfono.

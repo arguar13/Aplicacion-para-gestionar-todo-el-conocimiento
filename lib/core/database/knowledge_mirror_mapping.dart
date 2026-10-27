@@ -53,23 +53,40 @@ ProcessingState processingStateFor(SourceProcessingStatus? status) =>
 /// El próximo `ItemState` del espejo, dado el estado actual (si ya
 /// existía fila) y el estado técnico del pipeline.
 ///
-/// El único avance automático es `captured → processed`. Nunca retrocede
-/// ni pisa una decisión de triaje ya tomada: sin esto, editar un elemento
-/// después de triarlo (cambiarle el título, por ejemplo) lo devolvería en
-/// silencio a `processed` en cada `save()` posterior —`ProcessItemUseCase`
-/// llama `save()` más de una vez por elemento, y nada distingue "esto es
-/// una edición" de "esto es el pipeline terminando" salvo esta regla—.
+/// El único avance automático es `captured → processed` —y la entrada a la
+/// Bandeja de una referencia que recibe su archivo, más abajo—. Nunca
+/// retrocede ni pisa una decisión de triaje ya tomada: sin esto, editar un
+/// elemento después de triarlo (cambiarle el título, por ejemplo) lo
+/// devolvería en silencio a `processed` en cada `save()` posterior
+/// —`ProcessItemUseCase` llama `save()` más de una vez por elemento, y nada
+/// distingue "esto es una edición" de "esto es el pipeline terminando" salvo
+/// esta regla—.
 ///
 /// Una referencia ([SourceKind.reference]) nace **triada**: se carga a
-/// propósito —a mano o desde un `.bib`— y no pasa por la Bandeja. Importar una
-/// bibliografía de 300 entradas no la inunda (F15).
+/// propósito —a mano o desde un `.bib`— y no pasa por la Bandeja, porque no
+/// trae texto que procesar (F41, decisión E). Importar una bibliografía de 300
+/// entradas no la inunda (F15).
+///
+/// **Cuando se le adjunta el archivo**, en cambio, entra a la Bandeja como
+/// cualquier fuente nueva: deja de ser una referencia —[previousSourceKind]
+/// lo era, [sourceKind] ya no— y trae el texto del libro. Solo desde
+/// `triaged`, que en una referencia es el estado con que nació y no una
+/// decisión de nadie: sin texto nunca estuvo en la Bandeja para que alguien la
+/// triara.
 ItemState nextMirrorState({
   required ItemState? current,
   required ProcessingState processingState,
   SourceKind? sourceKind,
+  SourceKind? previousSourceKind,
 }) {
   if (current == null) {
     if (sourceKind == SourceKind.reference) return ItemState.triaged;
+    return initialItemStateFor(processingState);
+  }
+  if (current == ItemState.triaged &&
+      previousSourceKind == SourceKind.reference &&
+      sourceKind != null &&
+      sourceKind != SourceKind.reference) {
     return initialItemStateFor(processingState);
   }
   if (current == ItemState.captured &&

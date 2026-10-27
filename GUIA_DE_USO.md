@@ -433,10 +433,10 @@ De arriba hacia abajo, vas a encontrar:
 2. **Título** y, si tiene, un subtítulo. Si es una fuente, debajo dice qué
    decidiste con ella en la Bandeja: **"Triado el 3 oct"** o **"Descartado
    el…"**, con el botón **"Volver a la Bandeja"** (la devuelve para decidir
-   de nuevo; solo si ya tiene texto); o **"En la Bandeja"**, con **"Triar
-   ahora"**, que abre la Bandeja con esa fuente arriba de todo. Una fuente
-   que todavía no tiene texto —un audio sin transcribir— no dice nada: no
-   está en la Bandeja.
+   de nuevo, tenga texto o no; una referencia bibliográfica sin texto no lo
+   ofrece); o **"En la Bandeja"**, con **"Triar ahora"**, que abre la Bandeja
+   con esa fuente arriba de todo. Una fuente que todavía no tiene texto —un
+   audio sin transcribir— ya dice **"En la Bandeja"**: espera ahí su texto.
 3. Si es una nota propia: chips para su **madurez** ("Semilla" / "En
    desarrollo" / "Madura" — más sobre esto en
    [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios))
@@ -1597,19 +1597,35 @@ de tipo fecha desde su detalle (sección Propiedades → "+ Agregar propiedad" �
 
 ### Bandeja de entrada
 
-Sirve para revisar, de a una, las fuentes que ya terminaron de procesarse (no
+Sirve para revisar, de a una, todo lo nuevo que guardás en la Biblioteca (no
 las notas que escribís vos) y decidir rápido qué hacer con cada una — como un
 mazo de tarjetas para ir descartando.
 
-**La Bandeja trabaja con texto.** Una fuente entra cuando ya tiene su texto:
-un audio o un video, cuando ya está su transcripción; una foto, cuando ya se
-leyó lo que dice. Mientras tanto sigue en la Biblioteca —con su reproductor y
-todo— pero no aparece en la Bandeja, ni cuenta en el *"N pendientes"*, ni en
-el número de la navegación, ni en **Filtros → "Bandeja" → "Por revisar"**; entra
-sola apenas tiene texto. En la Bandeja nunca vas a ver un reproductor: solo
-el texto y sus datos. Si una página o una publicación no tiene texto propio
-pero trae archivos con texto (una foto con un cartel, un PDF), la tarjeta
-muestra el de uno de ellos y dice de cuál es.
+**Entra todo apenas lo guardás**: documentos, libros, páginas, audios, videos y
+fotos, tengan ya su texto o no. Cuenta enseguida en el *"N pendientes"*, en el
+número de la navegación y en **Filtros → "Bandeja" → "Por revisar"**. Lo único
+que no entra es una **referencia bibliográfica sin texto** (no tiene
+información que procesar); si le adjuntás el PDF, entra como cualquier libro
+nuevo.
+
+**Mientras espera su texto**, la tarjeta dice qué le falta en lugar del texto:
+**"Transcribiendo…"** (un audio o un video), **"Leyendo la foto…"** o
+**"Extrayendo el texto…"** (un documento, un libro, una página), con la barra
+de avance si se sabe cuánto va. **"Descartar"** se puede de entrada; **"Triado"**,
+**"Extraer nota"**, **"Vincular a nota viva"** y **"Revisar sugerencias"** se ven
+apagados —al pasar el puntero o mantenerlos apretados dicen por qué— y **se
+prenden solos** cuando llega el texto, en la misma tarjeta, sin que tengas que
+hacer nada. Los gestos y las flechas del teclado respetan lo mismo. Si sacarle
+el texto **falló**, la tarjeta lo dice con el motivo y un botón **"Reintentar"**
+(o **"Descargar el modelo"**, si lo que falta es el modelo de transcripción);
+si se procesó y **no tenía texto** (una foto sin letras), lo dice y, si el
+original se puede volver a leer, ofrece **"Volver a extraer el texto"**. En la
+lista de *"N pendientes"* también se ve, junto al tipo, cuáles esperan su texto.
+
+En la Bandeja nunca vas a ver un reproductor: solo el texto y sus datos. Si una
+página o una publicación no tiene texto propio pero trae archivos con texto
+(una foto con un cartel, un PDF), la tarjeta muestra el de uno de ellos y dice
+de cuál es.
 
 **Cómo llegar:** ítem **"Bandeja"** en la navegación (en el celular, la
 primera de **"Organizar"**, que muestra el número de pendientes).
@@ -1632,21 +1648,14 @@ sepan. La podés resolver de tres formas:
 - **Con el teclado**, en computadora: flecha izquierda = Descartar, derecha =
   Triado, arriba = Extraer, Ctrl+Z = deshacer.
 
-**Libros y documentos: ¿con qué seguís?** Al tocar **"Triado"** en un EPUB,
-un PDF, un Word… se abre una hoja que pregunta qué pasa a la siguiente fase:
-
-- **Texto y libro**: se guardan los dos, como hasta ahora.
-- **Solo el texto**: el archivo va a la papelera de la app y se libera su
-  lugar (la hoja dice cuántos MB). Queda el texto.
-- **Solo el libro**: el texto va a la papelera de la app, con sus
-  subrayados, y queda el archivo. Sinapsis **no vuelve a extraer el texto
-  solo**; si lo querés de nuevo, usás **"Volver a extraer el texto"**.
-
-Si cerrás la hoja sin elegir, no pasa nada: la fuente sigue en la Bandeja.
-Lo que se suelta no se borra: espera 30 días en la
-[papelera de la app](#la-papelera-de-la-app) y **"Deshacer"** lo trae de
-vuelta. **"Extraer nota"** y **"Vincular a nota viva"** conservan siempre los
-dos.
+**Triar nunca borra nada de la fuente.** De la Biblioteca nada se borra: queda
+siempre entera, con su archivo y su texto, como base de consulta. Por eso
+triar un libro o un documento ya **no pregunta "Texto y libro / Solo el texto
+/ Solo el libro"**: esa hoja mandaba una de las dos mitades a la papelera de
+la app, y salió. Lo que ya se soltó así antes sigue en la
+[papelera de la app](#la-papelera-de-la-app), recuperable como siempre
+mientras no venzan sus 30 días. Si alguna vez querés soltar a mano el archivo
+o el texto de una fuente, sigue estando en su hoja **"Más"**, de a una.
 
 **Nada se pierde.** Lo triado y lo descartado no se borran: siguen en la
 Biblioteca, y los encontrás en **Filtros → "Bandeja"** (ver
@@ -1669,9 +1678,12 @@ Además:
   queda citando a la fuente. Lo mismo cuando buscás una que no existe.
 
 **Lo que queda por triar.** Arriba a la derecha dice cuántas fuentes esperan
-(por ejemplo, *"33 pendientes"*). Tocalo para ver la lista entera, con el tipo
-y la fecha en que guardaste cada una; tocá cualquiera para traerla arriba del
-mazo y decidir sobre esa primero.
+(por ejemplo, *"33 pendientes"*). Tocalo para ver la lista entera, con el tipo,
+si todavía espera su texto y la fecha en que guardaste cada una; tocá
+cualquiera para traerla arriba del mazo y decidir sobre esa primero. El mazo va
+en el orden en que las guardaste, de la más vieja a la más nueva, y ese orden
+no se mueve solo: cuando a la tarjeta que estás mirando le llega el texto,
+sigue arriba.
 
 Si la app sugirió alguna propiedad para esa fuente (por ejemplo, "Región:
 Roma"), la vas a ver como un chip debajo de la tarjeta: tocarlo la acepta.
@@ -1683,9 +1695,11 @@ hizo la IA". Aceptarlas o descartarlas en un lugar las resuelve en los dos.
 
 ### La papelera de la app
 
-Cuando al triar un libro elegís **"Solo el texto"** o **"Solo el libro"**, o
-usás **"Borrar archivo…"** / **"Borrar el texto…"** en **Más**, lo que
-soltás no se borra: va a la papelera de la app y espera **30 días**. Es
+Cuando usás **"Borrar archivo…"** / **"Borrar el texto…"** en **Más** —de a
+una fuente y solo si lo pedís vos—, lo que soltás no se borra: va a la
+papelera de la app y espera **30 días**. (Triar ya no suelta nada; lo que se
+soltó antes con la vieja hoja *"Solo el texto / Solo el libro"* de la Bandeja
+está acá, como siempre.) Es
 distinta de la [Papelera](#papelera) de los elementos: el elemento sigue en
 la Biblioteca, con lo que se quedó.
 

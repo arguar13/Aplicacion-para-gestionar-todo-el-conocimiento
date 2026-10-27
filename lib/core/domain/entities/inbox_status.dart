@@ -12,7 +12,10 @@ import 'package:sinapsis/core/domain/entities/item_state.dart';
 /// Solo las fuentes pasan por la Bandeja: una nota no se tría, su progreso se
 /// mide con su madurez.
 enum InboxStatus {
-  /// Esperando en la Bandeja que alguien decida qué hacer con ella.
+  /// Esperando en la Bandeja que alguien decida qué hacer con ella. Desde que
+  /// se guarda (F41): lo que todavía se procesa —`captured`— ya espera, con su
+  /// tarjeta y lo que le falta, igual que lo que ya terminó —`processed`—.
+  /// Los dos dicen lo mismo de la decisión humana: nadie la tomó todavía.
   pending,
 
   /// Ya se decidió que vale la pena —o se trabajó del todo—.
@@ -24,15 +27,13 @@ enum InboxStatus {
   /// Los estados de trabajo que cuentan como este. Destilar es triar y además
   /// sacarle las notas: para quien busca «lo triado», también es triado.
   Set<ItemState> get itemStates => switch (this) {
-    InboxStatus.pending => const {ItemState.processed},
+    InboxStatus.pending => const {ItemState.captured, ItemState.processed},
     InboxStatus.triaged => const {ItemState.triaged, ItemState.distilled},
     InboxStatus.discarded => const {ItemState.discarded},
   };
 
   /// Dónde está, respecto de la Bandeja, un elemento de tipo [kind] en el
-  /// estado [state]. `null` si no tiene nada que ver con la Bandeja: una nota,
-  /// o una fuente que todavía se está procesando —`captured`—, que llega a la
-  /// Bandeja recién cuando termina.
+  /// estado [state]. `null` si no tiene nada que ver con la Bandeja: una nota.
   static InboxStatus? of(ItemKind kind, ItemState state) {
     if (kind != ItemKind.source) return null;
     for (final status in values) {

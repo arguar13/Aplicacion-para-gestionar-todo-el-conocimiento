@@ -12,6 +12,7 @@ import 'package:sinapsis/features/inbox/data/repositories/inbox_repository_impl.
 import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
 import 'package:sinapsis/features/inbox/domain/entities/note_reference.dart';
 import 'package:sinapsis/features/inbox/domain/entities/pending_source.dart';
+import 'package:sinapsis/features/inbox/domain/entities/pending_text.dart';
 import 'package:sinapsis/features/inbox/domain/entities/source_extent.dart';
 import 'package:sinapsis/features/inbox/domain/repositories/inbox_repository.dart';
 
@@ -48,6 +49,14 @@ final inboxPendingProvider = StreamProvider.autoDispose<List<PendingSource>>((
 /// Bandeja —«Triar ahora»—, cuando todavía nadie la mira. Si esa fuente ya
 /// no está pendiente, el mazo la ignora y sigue con la primera.
 final inboxFocusedIdProvider = StateProvider<String?>((ref) => null);
+
+/// En qué está el texto de lo que espera en la Bandeja (F41): lo que la
+/// tarjeta dice mientras lo espera —«Transcribiendo…», un fallo con
+/// «Reintentar»— y lo que prende sus acciones, en vivo, cuando llega.
+final inboxPendingTextProvider = StreamProvider.autoDispose
+    .family<PendingText?, String>((ref, itemId) {
+      return ref.watch(inboxRepositoryProvider).watchPendingText(itemId);
+    });
 
 /// Dónde está un elemento respecto de la Bandeja, y desde cuándo (F28): el
 /// chip del detalle.

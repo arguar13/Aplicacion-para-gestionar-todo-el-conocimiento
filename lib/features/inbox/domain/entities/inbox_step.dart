@@ -1,5 +1,4 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:sinapsis/core/domain/entities/item_state.dart';
 
 part 'inbox_step.freezed.dart';
 
@@ -34,6 +33,15 @@ sealed class LinkedNote with _$LinkedNote {
 
 /// Una decisión tomada en la Bandeja, con lo que hace falta para revertirla
 /// (F28): el historial de «Deshacer» es una pila de estos.
+///
+/// Deshacer la devuelve a la Bandeja (`InboxRepository.returnToInbox`), al
+/// estado de espera que le corresponde **ahora** —`captured` si su texto
+/// todavía se está sacando, `processed` si ya terminó—, no al que tenía al
+/// decidir: una fuente descartada mientras se transcribía pudo terminar de
+/// transcribirse antes de que se deshiciera (F41).
+///
+/// Triar nunca suelta nada de la fuente (F41, decisión G): no hay archivo ni
+/// texto que recuperar al deshacer.
 @freezed
 sealed class InboxStep with _$InboxStep {
   const factory InboxStep({
@@ -41,15 +49,7 @@ sealed class InboxStep with _$InboxStep {
     required String title,
     required InboxStepKind kind,
 
-    /// El estado en que estaba antes: deshacer lo devuelve a ese, no a uno
-    /// supuesto.
-    required ItemState previousState,
-
     /// Con [InboxStepKind.linked], el vínculo que deshacer.
     LinkedNote? linkedNote,
-
-    /// Lo que se soltó del elemento al triarlo —su archivo o su texto, en la
-    /// papelera del contenido— (F30, decisión 68): deshacer lo recupera.
-    @Default(<String>[]) List<String> trashedContentIds,
   }) = _InboxStep;
 }

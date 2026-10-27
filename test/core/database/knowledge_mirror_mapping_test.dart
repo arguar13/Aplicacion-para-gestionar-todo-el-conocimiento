@@ -118,6 +118,69 @@ void main() {
       );
     });
 
+    test('una referencia que recibe su archivo entra a la Bandeja, como '
+        'recién guardada (F41, decisión E)', () {
+      for (final (processing, expected) in [
+        (ProcessingState.pending, ItemState.captured),
+        (ProcessingState.processing, ItemState.captured),
+        (ProcessingState.ready, ItemState.processed),
+      ]) {
+        expect(
+          nextMirrorState(
+            current: ItemState.triaged,
+            processingState: processing,
+            sourceKind: SourceKind.document,
+            previousSourceKind: SourceKind.reference,
+          ),
+          expected,
+          reason: processing.name,
+        );
+      }
+    });
+
+    test('solo desde triada, que en una referencia es como nació: no pisa '
+        'una decisión, ni mueve lo que ya era un documento o sigue siendo '
+        'una referencia', () {
+      for (final current in [ItemState.distilled, ItemState.discarded]) {
+        expect(
+          nextMirrorState(
+            current: current,
+            processingState: ProcessingState.pending,
+            sourceKind: SourceKind.document,
+            previousSourceKind: SourceKind.reference,
+          ),
+          current,
+          reason: current.name,
+        );
+      }
+      expect(
+        nextMirrorState(
+          current: ItemState.triaged,
+          processingState: ProcessingState.pending,
+          sourceKind: SourceKind.document,
+          previousSourceKind: SourceKind.document,
+        ),
+        ItemState.triaged,
+      );
+      expect(
+        nextMirrorState(
+          current: ItemState.triaged,
+          processingState: ProcessingState.ready,
+          sourceKind: SourceKind.reference,
+          previousSourceKind: SourceKind.reference,
+        ),
+        ItemState.triaged,
+      );
+      expect(
+        nextMirrorState(
+          current: ItemState.triaged,
+          processingState: ProcessingState.pending,
+          previousSourceKind: SourceKind.reference,
+        ),
+        ItemState.triaged,
+      );
+    });
+
     test('captured + ready avanza a processed', () {
       expect(
         nextMirrorState(

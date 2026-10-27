@@ -4,6 +4,7 @@ import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
+import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
 import 'package:sinapsis/core/database/text_presence.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/inbox_status.dart';
@@ -11,12 +12,15 @@ import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
 import 'package:sinapsis/features/inbox/domain/entities/note_reference.dart';
 import 'package:sinapsis/features/inbox/domain/entities/pending_source.dart';
+import 'package:sinapsis/features/inbox/domain/entities/pending_text.dart';
 import 'package:sinapsis/features/inbox/domain/entities/source_extent.dart';
 import 'package:sinapsis/features/inbox/domain/repositories/inbox_repository.dart';
 
@@ -37,27 +41,48 @@ class InboxRepositoryImpl implements InboxRepository {
   /// [KnowledgeEntryWriter].
   KnowledgeEntryWriter get _writer => KnowledgeEntryWriter(_db, clock: _clock);
 
-  /// Lo que espera en la Bandeja: una fuente en `processed`, fuera de la
-  /// papelera y que ya tiene texto (F30, decisión 68). Un solo criterio para
-  /// el mazo, la lista de la cola, la insignia y el contador: lo que todavía
-  /// no tiene texto —un audio sin transcribir— sigue en la Biblioteca y entra
-  /// solo cuando lo tenga. Ver [hasTextSql].
+  /// Lo que espera en la Bandeja: una fuente fuera de la papelera sobre la que
+  /// nadie decidió todavía (`InboxStatus.pending`). Desde F41, apenas se
+  /// guarda, tenga su texto o no —lo que todavía no lo tiene espera con su
+  /// tarjeta, ver [PendingText]—. Un solo criterio para el mazo, la lista de
+  /// la cola, la insignia, el panel de salud y el contador; la sección
+  /// «Bandeja» de los filtros dice lo mismo con `InboxStatus.itemStates`.
   Expression<bool> _isPending($KnowledgeEntriesTable e) =>
       e.kind.equalsValue(ItemKind.source) &
-      e.state.equalsValue(ItemState.processed) &
-      e.isActive &
-      CustomExpression<bool>(hasTextSql('item'));
+      e.state.isIn([
+        for (final state in InboxStatus.pending.itemStates) state.name,
+      ]) &
+      e.isActive;
+
+  /// El orden de la Bandeja: el de llegada, ver [watchPendingIds]. El `id`
+  /// desempata dos que se guardaron en el mismo instante —una importación—,
+  /// para que el mazo y la lista no las den vuelta entre una lectura y otra.
+  List<OrderingTerm> _arrivalOrder($KnowledgeEntriesTable e) => [
+    OrderingTerm(expression: e.createdAt),
+    OrderingTerm(expression: e.id),
+  ];
+
+  /// En qué está el texto de la fila: si tiene alguno ([hasTextSql]) y en qué
+  /// está su procesamiento. Ver [PendingText.of].
+  static PendingText _pendingTextOf({
+    required bool hasText,
+    required SourceProcessingStatus? status,
+  }) =>
+      PendingText.of(hasText: hasText, processing: processingStateFor(status));
 
   @override
   Stream<List<String>> watchPendingIds() {
     return watchQuery(
       db: _db,
-      tables: [_db.knowledgeEntries, _db.renditions],
+      tables: [_db.knowledgeEntries],
       read: () async {
         final rows =
             await (_db.select(_db.knowledgeEntries)
                   ..where(_isPending)
-                  ..orderBy([(e) => OrderingTerm(expression: e.updatedAt)]))
+                  ..orderBy([
+                    for (final term in _arrivalOrder(_db.knowledgeEntries))
+                      (_) => term,
+                  ]))
                 .get();
         return rows.map((row) => row.id).toList();
       },
@@ -70,6 +95,7 @@ class InboxRepositoryImpl implements InboxRepository {
   Stream<List<PendingSource>> watchPending() {
     final entries = _db.knowledgeEntries;
     final sources = _db.knowledgeSources;
+    final hasText = CustomExpression<bool>(hasTextSql('item'));
     return watchQuery(
       db: _db,
       tables: [entries, sources, _db.renditions],
@@ -81,8 +107,9 @@ class InboxRepositoryImpl implements InboxRepository {
             await (_db.select(entries).join([
                     innerJoin(sources, sources.itemId.equalsExp(entries.id)),
                   ])
+                  ..addColumns([hasText])
                   ..where(_isPending(entries))
-                  ..orderBy([OrderingTerm(expression: entries.updatedAt)]))
+                  ..orderBy(_arrivalOrder(entries)))
                 .get();
         return [
           for (final row in rows)
@@ -91,6 +118,10 @@ class InboxRepositoryImpl implements InboxRepository {
               title: row.readTable(entries).title,
               kind: row.readTable(sources).sourceType,
               capturedAt: row.readTable(sources).capturedAt,
+              text: _pendingTextOf(
+                hasText: row.read(hasText) ?? false,
+                status: row.readTable(sources).processingStatus,
+              ),
             ),
         ];
       },
@@ -100,32 +131,51 @@ class InboxRepositoryImpl implements InboxRepository {
   }
 
   @override
-  Stream<InboxStanding?> watchStanding(String itemId) {
+  Stream<PendingText?> watchPendingText(String itemId) {
+    final entries = _db.knowledgeEntries;
+    final sources = _db.knowledgeSources;
+    final hasText = CustomExpression<bool>(hasTextSql('item'));
     return watchQuery(
       db: _db,
-      tables: [_db.knowledgeEntries, _db.fieldVersions, _db.renditions],
+      tables: [sources, _db.renditions],
       read: () async {
-        final entry = await (_db.select(
-          _db.knowledgeEntries,
-        )..where((e) => e.id.equals(itemId) & e.isActive)).getSingleOrNull();
-        if (entry == null) return null;
+        // El mismo criterio que [watchPending], sobre una sola fuente: la
+        // tarjeta y la lista no pueden decir cosas distintas.
+        final row =
+            await (_db.select(entries).join([
+                    innerJoin(sources, sources.itemId.equalsExp(entries.id)),
+                  ])
+                  ..addColumns([hasText])
+                  ..where(entries.id.equals(itemId)))
+                .getSingleOrNull();
+        if (row == null) return null;
+        return _pendingTextOf(
+          hasText: row.read(hasText) ?? false,
+          status: row.readTable(sources).processingStatus,
+        );
+      },
+      telemetry: _telemetry,
+      hint: 'InboxRepositoryImpl.watchPendingText',
+    );
+  }
+
+  @override
+  Stream<InboxStanding?> watchStanding(String itemId) {
+    final entries = _db.knowledgeEntries;
+    final sources = _db.knowledgeSources;
+    return watchQuery(
+      db: _db,
+      tables: [entries, sources, _db.fieldVersions],
+      read: () async {
+        final row =
+            await (_db.select(entries).join([
+                  leftOuterJoin(sources, sources.itemId.equalsExp(entries.id)),
+                ])..where(entries.id.equals(itemId) & entries.isActive))
+                .getSingleOrNull();
+        if (row == null) return null;
+        final entry = row.readTable(entries);
         final status = InboxStatus.of(entry.kind, entry.state);
         if (status == null) return null;
-
-        // Si ya tiene texto (F30, decisión 68): lo que todavía no lo tiene no
-        // está en la Bandeja —no se cuenta ni se muestra—, y lo que ya se
-        // trió no puede volver a ella.
-        final hasText =
-            (await _db
-                    .customSelect(
-                      'SELECT ${hasTextSql('item')} AS has_text FROM item '
-                      'WHERE item.id = ?',
-                      variables: [Variable.withString(itemId)],
-                      readsFrom: {_db.knowledgeEntries, _db.renditions},
-                    )
-                    .getSingle())
-                .read<bool>('has_text');
-        if (status == InboxStatus.pending && !hasText) return null;
 
         // Desde cuándo: la última vez que se cambió el estado, que ya
         // registra la versión por campo (F11) —ver [InboxStanding.since]—.
@@ -139,7 +189,10 @@ class InboxRepositoryImpl implements InboxRepository {
         return InboxStanding(
           status: status,
           since: version?.updatedAt,
-          hasText: hasText,
+          // Una referencia bibliográfica no trae texto que procesar: no entra
+          // a la Bandeja, tampoco de vuelta (F41, decisión E).
+          canReturn:
+              row.readTableOrNull(sources)?.sourceType != SourceKind.reference,
         );
       },
       telemetry: _telemetry,
@@ -197,6 +250,36 @@ class InboxRepositoryImpl implements InboxRepository {
     } catch (e, stackTrace) {
       return left(
         _unexpected(e, stackTrace, 'InboxRepositoryImpl.transitionState'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> returnToInbox(String itemId) async {
+    try {
+      final source = await (_db.select(
+        _db.knowledgeSources,
+      )..where((s) => s.itemId.equals(itemId))).getSingleOrNull();
+      // El estado de espera con que nacería hoy: ver [returnToInbox].
+      final waiting = source == null
+          ? null
+          : initialItemStateFor(processingStateFor(source.processingStatus));
+      if (waiting == null || !await _writer.setState(itemId, waiting)) {
+        return left(
+          const Failure.unexpected(
+            message:
+                'La fuente ya no existe; puede que se haya borrado para '
+                'siempre.',
+          ),
+        );
+      }
+
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'InboxRepositoryImpl.returnToInbox'),
       );
     }
   }

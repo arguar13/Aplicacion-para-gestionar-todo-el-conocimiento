@@ -6,9 +6,11 @@ enum SwipeDirection { left, right, up }
 /// Una tarjeta que se arrastra: a la izquierda, a la derecha o hacia arriba, y
 /// al soltarla más allá del umbral decide.
 ///
-/// Solo esos tres sentidos significan algo: arrastrar hacia abajo no hace nada
-/// y la tarjeta vuelve a su lugar. Lo mismo si se suelta antes del umbral: no
-/// se decide por un roce. Mientras se arrastra, [hints] muestra qué pasaría al
+/// Solo esos tres sentidos significan algo, y de ellos solo los que tienen su
+/// pista en [hints]: arrastrar hacia abajo —o hacia uno que no se puede
+/// ahora, como triar lo que todavía no tiene texto (F41)— no hace nada y la
+/// tarjeta vuelve a su lugar. Lo mismo si se suelta antes del umbral: no se
+/// decide por un roce. Mientras se arrastra, [hints] muestra qué pasaría al
 /// soltar en cada sentido, con más fuerza cuanto más cerca del umbral.
 ///
 /// No decide nada por sí sola: avisa con [onSwipe] y quien la aloja actúa. Si
@@ -26,7 +28,7 @@ class SwipeCard extends StatefulWidget {
   final ValueChanged<SwipeDirection> onSwipe;
 
   /// El texto y el color que se muestran para cada sentido mientras se
-  /// arrastra.
+  /// arrastra. Un sentido sin pista no decide.
   final Map<SwipeDirection, ({String label, Color color})> hints;
 
   /// Cuánto hay que arrastrar, en píxeles, para que suelte y decida.
@@ -73,7 +75,7 @@ class _SwipeCardState extends State<SwipeCard>
 
   void _onPanEnd(DragEndDetails details) {
     final direction = _decide(_offset, details.velocity.pixelsPerSecond);
-    if (direction != null) {
+    if (direction != null && widget.hints.containsKey(direction)) {
       widget.onSwipe(direction);
     }
     _goBack();

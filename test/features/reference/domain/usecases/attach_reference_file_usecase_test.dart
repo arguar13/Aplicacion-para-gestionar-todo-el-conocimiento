@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
@@ -99,6 +100,19 @@ void main() {
       result.getRight().toNullable()!.processingState,
       ProcessingState.pending,
     );
+  });
+
+  test('una referencia sin texto nace triada y no espera en la Bandeja; con '
+      'su archivo, entra (F41, decisión E)', () async {
+    Future<ItemState> state(String id) async => (await (db.select(
+      db.knowledgeEntries,
+    )..where((e) => e.id.equals(id))).getSingle()).state;
+    final itemId = await aReference();
+    expect(await state(itemId), ItemState.triaged);
+
+    await useCase(itemId, CapturedFile(name: 'articulo.pdf', bytes: pdfBytes));
+
+    expect(await state(itemId), ItemState.captured);
   });
 
   test('no pierde el título ni la identidad del elemento', () async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
+import 'package:sinapsis/features/inbox/presentation/widgets/pending_text_status.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -10,6 +11,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// Tocar una fuente la pone arriba del mazo —[inboxFocusedIdProvider]— y
 /// cierra la lista: se elige qué triar sin tener que pasar las anteriores.
+/// Lo que todavía espera su texto lo dice junto al tipo —«Transcribiendo…»
+/// (F41)—, para elegir lo que ya se puede triar.
 Future<void> showInboxQueueSheet(
   BuildContext context, {
   required String? showingId,
@@ -82,6 +85,7 @@ class InboxQueueSheet extends ConsumerWidget {
                     final source = pending[index];
                     final showing = source.id == showingId;
                     final captured = date.format(source.capturedAt);
+                    final waiting = source.text.queueLabel(l10n, source.kind);
                     return ListTile(
                       selected: showing,
                       leading: Icon(
@@ -94,8 +98,11 @@ class InboxQueueSheet extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       subtitle: Text(
-                        '${source.kind.label(l10n)} · '
-                        '${l10n.inboxQueueCapturedOn(captured)}',
+                        [
+                          source.kind.label(l10n),
+                          if (waiting != null) waiting,
+                          l10n.inboxQueueCapturedOn(captured),
+                        ].join(' · '),
                       ),
                       trailing: showing ? Text(l10n.inboxQueueShowing) : null,
                       onTap: () {

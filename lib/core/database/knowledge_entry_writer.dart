@@ -164,6 +164,7 @@ class KnowledgeEntryWriter {
         current: existing?.state,
         processingState: item.processingState,
         sourceKind: item.source.kind,
+        previousSourceKind: existingSource?.sourceType,
       );
 
       // Lo que cambió, por campo. Contra «nada» —un elemento nuevo— cambia todo

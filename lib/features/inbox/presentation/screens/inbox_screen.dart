@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -13,18 +12,16 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
-import 'package:sinapsis/core/error/failures.dart';
-import 'package:sinapsis/core/storage/storage_providers.dart';
-import 'package:sinapsis/features/content_trash/domain/entities/trashed_content.dart';
-import 'package:sinapsis/features/content_trash/presentation/providers/content_trash_providers.dart';
+import 'package:sinapsis/features/inbox/domain/entities/inbox_actions.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_step.dart';
+import 'package:sinapsis/features/inbox/domain/entities/pending_text.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_history.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/inbox_intro_card.dart';
-import 'package:sinapsis/features/inbox/presentation/widgets/inbox_keep_sheet.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/inbox_queue_sheet.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/pending_excerpt.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/pending_facts.dart';
+import 'package:sinapsis/features/inbox/presentation/widgets/pending_text_status.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/pick_living_note_dialog.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/suggested_property_chips.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/swipe_card.dart';
@@ -32,7 +29,6 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
-import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/metadata_suggestion_banner.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
@@ -40,15 +36,27 @@ import 'package:sinapsis/features/suggestions/presentation/widgets/review_sugges
 import 'package:sinapsis/features/suggestions/presentation/widgets/suggestion_review_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// La Bandeja de entrada como un mazo de tarjetas: lo que el pipeline técnico
-/// ya terminó y nadie decidió todavía qué hacer con eso
-/// —`ItemState.processed`—, de a una fuente por vez.
+/// La Bandeja de entrada como un mazo de tarjetas: todo lo nuevo de la
+/// Biblioteca sobre lo que nadie decidió todavía qué hacer
+/// (`InboxStatus.pending`), de a una fuente por vez.
+///
+/// **Entra apenas se guarda** (F41), tenga su texto o no. Lo que todavía no lo
+/// tiene muestra qué le falta —«Transcribiendo…», «Leyendo la foto…»,
+/// «Extrayendo el texto…», o un fallo con «Reintentar», ver
+/// [PendingTextStatus]—: «Descartar» se puede de entrada, y lo que necesita
+/// el texto queda apagado, con su motivo, hasta que llega; entonces se prende
+/// solo, en vivo, sin tocar nada.
 ///
 /// Cada tarjeta se resuelve con un gesto —izquierda descarta, derecha la deja
 /// triada, arriba la abre para extraer notas— o con la tecla equivalente
-/// (flechas), o con su botón; los tres caminos hacen exactamente lo mismo. Las
-/// propiedades que el modelo sugirió son chips: tocar uno lo acepta, tocarlo de
-/// nuevo lo deshace.
+/// (flechas), o con su botón; los tres caminos hacen exactamente lo mismo, y
+/// los tres respetan lo que el texto todavía no permite. Las propiedades que
+/// el modelo sugirió son chips: tocar uno lo acepta, tocarlo de nuevo lo
+/// deshace.
+///
+/// Triar nunca suelta nada de la fuente (F41, decisión G): de la Biblioteca
+/// nada se borra. La hoja de F30 que preguntaba «texto y libro, solo el texto,
+/// solo el libro» y mandaba la otra mitad a la papelera ya no existe.
 ///
 /// Nada se pierde (F28): cada decisión deja un aviso con «Ver» y «Deshacer»;
 /// se deshace de a un paso con el botón, con Ctrl+Z o desde el aviso, y el
@@ -67,9 +75,11 @@ class InboxScreen extends ConsumerStatefulWidget {
 }
 
 class _InboxScreenState extends ConsumerState<InboxScreen> {
-  /// La fuente que se está viendo, para que las teclas sepan sobre cuál
-  /// actúan.
+  /// La fuente que se está viendo y lo que se puede hacer con ella, para que
+  /// las teclas sepan sobre cuál actúan y no hagan lo que su texto todavía no
+  /// permite.
   KnowledgeItem? _current;
+  InboxActions _currentActions = InboxActions.none;
 
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
@@ -80,15 +90,14 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   /// Pasa la fuente a [to], anota el paso en el historial y lo avisa con «Ver»
   /// y «Deshacer». Devuelve si salió bien.
   ///
-  /// Lo que está en el mazo está, por definición, en `processed`: es el estado
-  /// al que vuelve al deshacer.
+  /// Deshacer la devuelve a la Bandeja, al estado de espera que le toque en
+  /// ese momento: ver [InboxStep].
   Future<bool> _decide(
     KnowledgeItem item, {
     required InboxStepKind kind,
     required ItemState to,
     required String message,
     LinkedNote? linkedNote,
-    List<String> trashedContentIds = const [],
   }) async {
     final result = await ref
         .read(inboxRepositoryProvider)
@@ -105,9 +114,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       itemId: item.id,
       title: item.title,
       kind: kind,
-      previousState: ItemState.processed,
       linkedNote: linkedNote,
-      trashedContentIds: trashedContentIds,
     );
     ref.read(inboxHistoryProvider.notifier).record(step);
     // La elegida de la cola ya se resolvió: el mazo vuelve a su orden.
@@ -178,68 +185,19 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     message: AppLocalizations.of(context)!.inboxDiscardedSnack(item.title),
   );
 
-  /// Tría la fuente. En un libro o un documento, antes pregunta qué pasa a la
-  /// siguiente fase (F30, decisión 68): el texto y el libro, solo el texto
-  /// —el archivo va a la papelera de la app, y libera su lugar— o solo el
-  /// libro —el texto va a la papelera y no se vuelve a extraer solo—. Cerrar
-  /// la hoja sin elegir deja la fuente en la Bandeja.
-  Future<void> _triage(KnowledgeItem item) async {
-    final l10n = AppLocalizations.of(context)!;
-    final keep = await _askWhatToKeep(item);
-    if (keep == null || !mounted) return;
+  /// Tría la fuente: la deja para trabajarla. Nunca pregunta qué soltar ni
+  /// suelta nada —ni el archivo ni el texto—: la fuente queda entera en la
+  /// Biblioteca (F41, decisión G).
+  Future<void> _triage(KnowledgeItem item) => _decide(
+    item,
+    kind: InboxStepKind.triaged,
+    to: ItemState.triaged,
+    message: AppLocalizations.of(context)!.inboxTriagedSnack(item.title),
+  );
 
-    final trashing = ref.read(contentTrashRepositoryProvider);
-    final dropped = switch (keep) {
-      InboxKeep.both => right<Failure, List<TrashedContent>>(const []),
-      InboxKeep.onlyText => await trashing.keepOnlyText(item.id),
-      InboxKeep.onlyFile => await trashing.keepOnlyFile(item.id),
-    };
-    if (!mounted) return;
-    if (dropped.getLeft().toNullable() case final failure?) {
-      _showSnack(failure.localizedMessage(l10n));
-      return;
-    }
-    final trashedIds = [
-      for (final content in dropped.getRight().getOrElse(() => const []))
-        content.id,
-    ];
-
-    final decided = await _decide(
-      item,
-      kind: InboxStepKind.triaged,
-      to: ItemState.triaged,
-      message: switch (keep) {
-        InboxKeep.both => l10n.inboxTriagedSnack(item.title),
-        InboxKeep.onlyText => l10n.inboxTriagedOnlyTextSnack(item.title),
-        InboxKeep.onlyFile => l10n.inboxTriagedOnlyFileSnack(item.title),
-      },
-      trashedContentIds: trashedIds,
-    );
-    // Si no se pudo triar, lo soltado vuelve: la fuente queda como estaba.
-    if (!decided) {
-      for (final id in trashedIds) {
-        await trashing.restore(id);
-      }
-    }
-  }
-
-  /// Qué pasa a la siguiente fase: [InboxKeep.both] sin preguntar si la
-  /// fuente no es un libro o un documento con su archivo y su texto —no hay
-  /// una mitad que soltar—, o lo elegido en la hoja; `null` si se la cerró.
-  Future<InboxKeep?> _askWhatToKeep(KnowledgeItem item) async {
-    final path = item.source.originalFilePath;
-    if (item.source.kind != SourceKind.document ||
-        path == null ||
-        !(extractableRendition(item)?.content.trim().isNotEmpty ?? false)) {
-      return InboxKeep.both;
-    }
-    final size = await ref.read(fileStoreProvider).sizeOf(path);
-    if (!mounted) return null;
-    return showInboxKeepSheet(context, fileBytes: size);
-  }
-
-  /// Abre la fuente para sacarle notas: la deja triada y, si tiene texto,
-  /// abre la vista de lectura para destilar; si no, su detalle.
+  /// Abre la fuente para sacarle notas: la deja triada y abre la vista de
+  /// lectura para destilar. Solo se ofrece con el texto del que se sacan
+  /// —ver [InboxActions.extract]—.
   Future<void> _extract(KnowledgeItem item) async {
     final decided = await _decide(
       item,
@@ -249,10 +207,6 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     );
     if (!decided || !mounted) return;
 
-    if (extractableRendition(item) == null) {
-      await context.push(RoutePaths.itemDetail(item.id));
-      return;
-    }
     await Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => ReadingScreen(itemId: item.id)),
     );
@@ -388,16 +342,17 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         ],
       ),
       // Las teclas hacen lo mismo que los gestos y los botones, sobre la
-      // fuente que se está viendo. Ctrl+Z (o Cmd+Z) deshace lo último, y tiene
+      // fuente que se está viendo, y lo mismo que ellos no hacen lo que su
+      // texto todavía no permite. Ctrl+Z (o Cmd+Z) deshace lo último, y tiene
       // que andar también cuando eso dejó la Bandeja vacía.
       body: CallbackShortcuts(
         bindings: {
           const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
-              _withCurrent(_discard),
+              _withCurrent(_discard, allowed: (_) => true),
           const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
-              _withCurrent(_triage),
+              _withCurrent(_triage, allowed: (actions) => actions.triage),
           const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
-              _withCurrent(_extract),
+              _withCurrent(_extract, allowed: (actions) => actions.extract),
           const SingleActivator(LogicalKeyboardKey.keyZ, control: true): _undo,
           const SingleActivator(LogicalKeyboardKey.keyZ, meta: true): _undo,
         },
@@ -421,6 +376,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
 
     if (pendingIds.isEmpty) {
       _current = null;
+      _currentActions = InboxActions.none;
       return EmptyStateView(
         icon: Icons.inbox_outlined,
         title: l10n.inboxEmptyTitle,
@@ -435,10 +391,15 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         ? focused
         : pendingIds.first;
     final item = ref.watch(libraryItemProvider(currentId)).valueOrNull;
-    if (item == null) {
+    // En qué está su texto (F41), en vivo: cuando llega, la misma tarjeta lo
+    // muestra y prende lo que estaba apagado.
+    final text = ref.watch(inboxPendingTextProvider(currentId)).valueOrNull;
+    if (item == null || text == null) {
       return const Center(child: CircularProgressIndicator());
     }
+    final actions = InboxActions.of(item, text);
     _current = item;
+    _currentActions = actions;
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 180),
@@ -447,6 +408,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         // chips aceptados— no se hereda.
         key: ValueKey(item.id),
         item: item,
+        text: text,
+        actions: actions,
         onDiscard: () => _discard(item),
         onTriage: () => _triage(item),
         onExtract: () => _extract(item),
@@ -457,9 +420,12 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     );
   }
 
-  void _withCurrent(Future<void> Function(KnowledgeItem item) action) {
+  void _withCurrent(
+    Future<void> Function(KnowledgeItem item) action, {
+    required bool Function(InboxActions actions) allowed,
+  }) {
     final item = _current;
-    if (item != null) unawaited(action(item));
+    if (item != null && allowed(_currentActions)) unawaited(action(item));
   }
 }
 
@@ -485,8 +451,7 @@ class _InboxUndo {
   /// después.
   Future<void> call({InboxStep? only}) async {
     if (only != null && history.last != only) return;
-    final notRestored = <ContentRestoreOutcome>[];
-    final outcome = await history.undoLast(onNotRestored: notRestored.add);
+    final outcome = await history.undoLast();
     if (outcome == null) return;
 
     messenger.hideCurrentSnackBar();
@@ -502,19 +467,6 @@ class _InboxUndo {
             SnackBar(content: Text(l10n.inboxUndoneNoteTrashed(title))),
           );
         }
-        // Lo que ya no se pudo devolver de lo soltado al triar (F30).
-        for (final outcome in notRestored) {
-          final message = switch (outcome) {
-            ContentRestoreOutcome.fileMissing => l10n.contentTrashFileMissing,
-            ContentRestoreOutcome.alreadyHasFile =>
-              l10n.contentTrashAlreadyHasFile,
-            ContentRestoreOutcome.restored ||
-            ContentRestoreOutcome.gone => null,
-          };
-          if (message != null) {
-            messenger.showSnackBar(SnackBar(content: Text(message)));
-          }
-        }
       },
     );
   }
@@ -523,6 +475,8 @@ class _InboxUndo {
 class _PendingItemCard extends ConsumerWidget {
   const _PendingItemCard({
     required this.item,
+    required this.text,
+    required this.actions,
     required this.onDiscard,
     required this.onTriage,
     required this.onExtract,
@@ -532,6 +486,14 @@ class _PendingItemCard extends ConsumerWidget {
   });
 
   final KnowledgeItem item;
+
+  /// En qué está su texto (F41): con él, la tarjeta muestra su principio; sin
+  /// él, qué le falta —ver [PendingTextStatus]—.
+  final PendingText text;
+
+  /// Lo que se puede hacer según ese texto: ver [InboxActions].
+  final InboxActions actions;
+
   final VoidCallback onDiscard;
   final VoidCallback onTriage;
   final VoidCallback onExtract;
@@ -543,7 +505,8 @@ class _PendingItemCard extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final rendition = extractableRendition(item);
+    // Por qué está apagado lo que necesita el texto, mientras no llega.
+    final needsText = text.neededReason(l10n);
     final pending =
         ref.watch(pendingSuggestionsProvider(item.id)).valueOrNull ?? const [];
     // Un duplicado queda afuera del diálogo de revisión genérico (D4, F7):
@@ -576,19 +539,23 @@ class _PendingItemCard extends ConsumerWidget {
               SwipeDirection.right => onTriage(),
               SwipeDirection.up => onExtract(),
             },
+            // Solo los sentidos que se pueden: hacia uno apagado no se
+            // insinúa nada y la tarjeta vuelve a su lugar.
             hints: {
               SwipeDirection.left: (
                 label: l10n.inboxActionDiscard,
                 color: scheme.error,
               ),
-              SwipeDirection.right: (
-                label: l10n.inboxActionTriage,
-                color: scheme.tertiary,
-              ),
-              SwipeDirection.up: (
-                label: l10n.inboxActionExtract,
-                color: scheme.primary,
-              ),
+              if (actions.triage)
+                SwipeDirection.right: (
+                  label: l10n.inboxActionTriage,
+                  color: scheme.tertiary,
+                ),
+              if (actions.extract)
+                SwipeDirection.up: (
+                  label: l10n.inboxActionExtract,
+                  color: scheme.primary,
+                ),
             },
             // Una fuente y una nota no se ven igual: acá siempre es una fuente.
             child: Card(
@@ -634,9 +601,12 @@ class _PendingItemCard extends ConsumerWidget {
                     // decisión 68): lo que se sabe de lo que se va a triar.
                     PendingFactsLine(item: item),
                     const SizedBox(height: 12),
-                    // El texto como se lee, no su Markdown ni un reproductor:
-                    // la Bandeja trabaja con texto.
-                    PendingExcerpt(item: item),
+                    // El texto como se lee, no su Markdown ni un reproductor;
+                    // mientras no llega, qué le falta (F41).
+                    if (text.isReady)
+                      PendingExcerpt(item: item)
+                    else
+                      PendingTextStatus(item: item, text: text),
                     const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -662,31 +632,45 @@ class _PendingItemCard extends ConsumerWidget {
                           icon: const Icon(Icons.archive_outlined),
                           label: Text(l10n.inboxActionDiscard),
                         ),
-                        OutlinedButton.icon(
-                          onPressed: onTriage,
-                          icon: const Icon(Icons.check),
-                          label: Text(l10n.inboxActionTriage),
-                        ),
-                        Tooltip(
-                          message: rendition == null
-                              ? l10n.inboxActionExtractDisabledTooltip
-                              : '',
+                        _WhyOff(
+                          reason: actions.triage ? null : needsText,
                           child: OutlinedButton.icon(
-                            onPressed: rendition == null ? null : onExtract,
+                            onPressed: actions.triage ? onTriage : null,
+                            icon: const Icon(Icons.check),
+                            label: Text(l10n.inboxActionTriage),
+                          ),
+                        ),
+                        _WhyOff(
+                          // Con texto solo en su «Contenido»: la lectura para
+                          // destilar trabaja sobre el del elemento.
+                          reason: actions.extract
+                              ? null
+                              : needsText ??
+                                    l10n.inboxActionExtractDisabledTooltip,
+                          child: OutlinedButton.icon(
+                            onPressed: actions.extract ? onExtract : null,
                             icon: const Icon(Icons.content_cut),
                             label: Text(l10n.inboxActionExtract),
                           ),
                         ),
-                        FilledButton.icon(
-                          onPressed: onLink,
-                          icon: const Icon(Icons.link),
-                          label: Text(l10n.inboxActionLink),
+                        _WhyOff(
+                          reason: actions.link ? null : needsText,
+                          child: FilledButton.icon(
+                            onPressed: actions.link ? onLink : null,
+                            icon: const Icon(Icons.link),
+                            label: Text(l10n.inboxActionLink),
+                          ),
                         ),
                         if (suggestions.isNotEmpty)
-                          OutlinedButton.icon(
-                            onPressed: () => onReviewSuggestions(suggestions),
-                            icon: const Icon(Icons.auto_awesome_outlined),
-                            label: Text(l10n.inboxActionReviewSuggestions),
+                          _WhyOff(
+                            reason: actions.review ? null : needsText,
+                            child: OutlinedButton.icon(
+                              onPressed: actions.review
+                                  ? () => onReviewSuggestions(suggestions)
+                                  : null,
+                              icon: const Icon(Icons.auto_awesome_outlined),
+                              label: Text(l10n.inboxActionReviewSuggestions),
+                            ),
                           ),
                       ],
                     ),
@@ -706,4 +690,19 @@ class _PendingItemCard extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Una acción apagada dice por qué —al pasar el puntero o al mantenerla
+/// apretada—; prendida, no dice nada de más.
+class _WhyOff extends StatelessWidget {
+  const _WhyOff({required this.reason, required this.child});
+
+  final String? reason;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => switch (reason) {
+    final reason? => Tooltip(message: reason, child: child),
+    null => child,
+  };
 }

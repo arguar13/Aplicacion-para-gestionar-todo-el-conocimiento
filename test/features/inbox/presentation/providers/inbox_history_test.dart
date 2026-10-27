@@ -5,7 +5,6 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
-import 'package:sinapsis/features/content_trash/domain/entities/trashed_content.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_step.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_history.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
@@ -27,28 +26,29 @@ void main() {
   InboxHistory history() =>
       harness.container.read(inboxHistoryProvider.notifier);
 
-  Future<String> seedSource() async {
-    final n = counter++;
+  KnowledgeItem sourceItem(int n, ProcessingState processing) {
     final now = DateTime(2026, 9, 18, 10);
-    final id = 'item-$n';
-    await harness.container
-        .read(libraryRepositoryProvider)
-        .save(
-          KnowledgeItem(
-            id: id,
-            title: 'Fuente $n',
-            source: Source(
-              id: 'src-$n',
-              kind: SourceKind.webPage,
-              capturedAt: now,
-              url: 'https://ejemplo.org/$n',
-            ),
-            processingState: ProcessingState.ready,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-    return id;
+    return KnowledgeItem(
+      id: 'item-$n',
+      title: 'Fuente $n',
+      source: Source(
+        id: 'src-$n',
+        kind: SourceKind.webPage,
+        capturedAt: now,
+        url: 'https://ejemplo.org/$n',
+      ),
+      processingState: processing,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  Future<String> seedSource({
+    ProcessingState processing = ProcessingState.ready,
+  }) async {
+    final item = sourceItem(counter++, processing);
+    await harness.container.read(libraryRepositoryProvider).save(item);
+    return item.id;
   }
 
   Future<InboxStep> decide(String id, ItemState to) async {
@@ -61,7 +61,6 @@ void main() {
       kind: to == ItemState.discarded
           ? InboxStepKind.discarded
           : InboxStepKind.triaged,
-      previousState: ItemState.processed,
     );
     history().record(step);
     return step;
@@ -93,32 +92,27 @@ void main() {
     expect(history().last, isNull);
   });
 
-  test(
-    'deshacer un triaje que soltó el archivo o el texto los recupera '
-    '(F30, decisión 68); lo que ya venció no impide devolver el resto',
-    () async {
-      final id = await seedSource();
-      history().record(
-        InboxStep(
-          itemId: id,
-          title: id,
-          kind: InboxStepKind.triaged,
-          previousState: ItemState.processed,
-          trashedContentIds: const ['vencido-hace-rato'],
-        ),
-      );
-      await harness.container
-          .read(inboxRepositoryProvider)
-          .transitionState(itemId: id, to: ItemState.triaged);
-      final notRestored = <ContentRestoreOutcome>[];
+  test('deshacer devuelve a la espera que le toca ahora (F41): lo que se '
+      'descartó mientras se procesaba y después terminó vuelve listo; lo que '
+      'todavía se procesa, como recién guardado', () async {
+    final terminado = await seedSource(processing: ProcessingState.processing);
+    final sigue = await seedSource(processing: ProcessingState.processing);
+    expect(await stateOf(terminado), ItemState.captured);
+    await decide(sigue, ItemState.discarded);
+    await decide(terminado, ItemState.discarded);
+    // El procesamiento termina con la fuente ya descartada: el espejo no pisa
+    // la decisión.
+    await harness.container
+        .read(libraryRepositoryProvider)
+        .save(sourceItem(0, ProcessingState.ready));
+    expect(await stateOf(terminado), ItemState.discarded);
 
-      final undone = await history().undoLast(onNotRestored: notRestored.add);
+    await history().undoLast();
+    await history().undoLast();
 
-      expect(undone!.getRight().toNullable()!.itemId, id);
-      expect(await stateOf(id), ItemState.processed);
-      expect(notRestored, [ContentRestoreOutcome.gone]);
-    },
-  );
+    expect(await stateOf(terminado), ItemState.processed);
+    expect(await stateOf(sigue), ItemState.captured);
+  });
 
   test('recuerda hasta su capacidad: el más viejo se suelta', () async {
     for (var i = 0; i <= InboxHistory.capacity; i++) {
@@ -127,7 +121,6 @@ void main() {
           itemId: 'item-$i',
           title: 'Fuente $i',
           kind: InboxStepKind.triaged,
-          previousState: ItemState.processed,
         ),
       );
     }
@@ -147,7 +140,6 @@ void main() {
         itemId: 'borrada-para-siempre',
         title: 'Ya no existe',
         kind: InboxStepKind.discarded,
-        previousState: ItemState.processed,
       ),
     );
 

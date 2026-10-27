@@ -19,8 +19,9 @@ import '../../../../support/library_harness.dart';
 
 /// El chip de la Bandeja en el detalle (F28): lo triado se reencuentra, y
 /// desde ahí vuelve a la Bandeja.
-/// El texto que hace que una fuente esté en la Bandeja (F30, decisión 68): a
-/// ella entra solo lo que ya tiene texto.
+///
+/// El texto de una fuente lista para triar; desde F41 lo que todavía no lo
+/// tiene también está en la Bandeja, esperándolo.
 Rendition _text(String itemId, DateTime at) => Rendition.text(
   id: 'texto-$itemId',
   itemId: itemId,
@@ -107,24 +108,37 @@ void main() {
     );
   });
 
-  testWidgets('lo triado sin texto lo dice, pero no ofrece volver a la '
-      'Bandeja: a ella solo entra lo que tiene texto (F30, decisión 68)', (
-    tester,
-  ) async {
+  testWidgets('lo triado sin texto también vuelve a la Bandeja: ahí espera '
+      'su texto, como lo recién guardado (F41)', (tester) async {
     final id = await seed(state: ItemState.triaged, withText: false);
     await pumpDetail(tester, id);
 
     expect(find.text(es.inboxStandingTriagedOn(day(now))), findsOneWidget);
-    expect(find.text(es.inboxBackToInbox), findsNothing);
+
+    await tester.tap(find.text(es.inboxBackToInbox));
+    await tester.pumpAndSettle();
+
+    expect(await stateOf(id), ItemState.processed);
+    expect(find.text(es.inboxStandingPending), findsOneWidget);
   });
 
-  testWidgets('una fuente que todavía no tiene texto no está en la Bandeja: '
-      'sin chip ni «Triar ahora»', (tester) async {
+  testWidgets('una referencia bibliográfica no ofrece volver a la Bandeja: no '
+      'trae texto que procesar (decisión E)', (tester) async {
+    final id = await seed(kind: SourceKind.reference, withText: false);
+    await pumpDetail(tester, id);
+
+    expect(find.byKey(const Key('inbox-standing-chip')), findsOneWidget);
+    expect(find.text(es.inboxBackToInbox), findsNothing);
+    expect(find.text(es.inboxTriageNow), findsNothing);
+  });
+
+  testWidgets('una fuente que todavía no tiene texto ya está «En la Bandeja», '
+      'con «Triar ahora» (F41)', (tester) async {
     final id = await seed(withText: false);
     await pumpDetail(tester, id);
 
-    expect(find.byKey(const Key('inbox-standing-chip')), findsNothing);
-    expect(find.text(es.inboxTriageNow), findsNothing);
+    expect(find.text(es.inboxStandingPending), findsOneWidget);
+    expect(find.text(es.inboxTriageNow), findsOneWidget);
   });
 
   testWidgets('una descartada lo dice, también con la fecha', (tester) async {

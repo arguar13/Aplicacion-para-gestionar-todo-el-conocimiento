@@ -1,11 +1,15 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/inbox/domain/entities/pending_text.dart';
 
 part 'pending_source.freezed.dart';
 
 /// Una fuente que espera en la Bandeja, tal como se lista en «N pendientes»
 /// (F28): lo justo para reconocerla —su tipo, su título y cuándo se guardó—,
 /// no el `KnowledgeItem` entero. Mismo criterio que `NoteReference`.
+///
+/// [text] dice si ya tiene su texto o lo espera (F41): la lista dice
+/// «Transcribiendo…» en lo que todavía no se puede triar.
 @freezed
 sealed class PendingSource with _$PendingSource {
   const factory PendingSource({
@@ -13,5 +17,6 @@ sealed class PendingSource with _$PendingSource {
     required String title,
     required SourceKind kind,
     required DateTime capturedAt,
+    required PendingText text,
   }) = _PendingSource;
 }

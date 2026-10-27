@@ -57,8 +57,8 @@ void main() {
             processingState: ProcessingState.ready,
             createdAt: now,
             updatedAt: now,
-            // Con texto: es lo que la hace entrar a la Bandeja (F30,
-            // decisión 68).
+            // Con texto, lista para triar; desde F41 esperaría en la Bandeja
+            // igual sin él.
             renditions: [
               Rendition.text(
                 id: 'texto-$n',

@@ -1248,8 +1248,9 @@ void main() {
       String title, {
       ItemState? state,
       bool withText = true,
+      ProcessingState processing = ProcessingState.ready,
     }) async {
-      final base = buildItem(title: title);
+      final base = buildItem(title: title, state: processing);
       final item = withText
           ? base.copyWith(
               renditions: [textRendition(base.id, 'El texto de $title.')],
@@ -1290,17 +1291,26 @@ void main() {
       expect(await titlesOf({InboxStatus.pending}), ['Por revisar']);
     });
 
-    test('por revisar es solo lo que ya tiene texto (F30, decisión 68): '
-        'lo que no, sigue en la Biblioteca y entra cuando lo tenga', () async {
+    test('por revisar es todo lo que espera, tenga su texto o no (F41): lo '
+        'que todavía se transcribe ya está, igual que en el mazo', () async {
       await seed();
-      await seedSource('Sin transcribir', withText: false);
+      await seedSource(
+        'Sin transcribir',
+        withText: false,
+        processing: ProcessingState.processing,
+      );
+      await seedSource('Sin texto', withText: false);
       await seedSource(
         'Triada sin texto',
         state: ItemState.triaged,
         withText: false,
       );
 
-      expect(await titlesOf({InboxStatus.pending}), ['Por revisar']);
+      expect(await titlesOf({InboxStatus.pending}), [
+        'Por revisar',
+        'Sin texto',
+        'Sin transcribir',
+      ]);
       // Lo ya decidido no depende del texto.
       expect(await titlesOf({InboxStatus.triaged}), [
         'Destilada',
@@ -1313,8 +1323,10 @@ void main() {
       expect(await titlesOf(query.inboxStatuses), [
         'Descartada',
         'Por revisar',
+        'Sin texto',
+        'Sin transcribir',
       ]);
-      expect((await repository.count(query)).getRight().toNullable(), 2);
+      expect((await repository.count(query)).getRight().toNullable(), 4);
     });
 
     test('triado incluye lo destilado', () async {

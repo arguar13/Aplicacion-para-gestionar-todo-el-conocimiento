@@ -4239,7 +4239,7 @@
   "@inboxEmptyTitle": {
     "description": "Título del estado vacío de la Bandeja de entrada cuando no hay nada pendiente."
   },
-  "inboxEmptyBody": "Lo que termine de procesarse va a aparecer acá.",
+  "inboxEmptyBody": "Lo que guardes en la Biblioteca va a aparecer acá apenas lo guardes.",
   "@inboxEmptyBody": {
     "description": "Mensaje del estado vacío de la Bandeja de entrada cuando no hay nada pendiente."
   },
@@ -5827,7 +5827,7 @@
   "@inboxIntroTitle": {
     "description": "Bandeja: título de la tarjeta que explica el triaje, la primera vez."
   },
-  "inboxIntroBody": "Acá llega lo que guardás, ya procesado, de a una tarjeta. «Triado» la deja para trabajarla; «Descartar» la saca sin borrarla. Nada se pierde: todo sigue en la Biblioteca, y en Filtros › Bandeja lo encontrás por lo que decidiste.",
+  "inboxIntroBody": "Acá llega todo lo que guardás, apenas lo guardás, de a una tarjeta. Lo que todavía no tiene texto espera con lo que le falta —«Transcribiendo…», «Leyendo la foto…»— y se tría cuando llega. «Triado» la deja para trabajarla; «Descartar» la saca sin borrarla. Nada se pierde: todo sigue en la Biblioteca, y en Filtros › Bandeja lo encontrás por lo que decidiste.",
   "@inboxIntroBody": {
     "description": "Bandeja: texto de la tarjeta que explica el triaje, la primera vez."
   },
@@ -7043,65 +7043,6 @@
   "contentTrashAlreadyHasFile": "El elemento ya tiene otro archivo: el de la papelera sigue ahí",
   "@contentTrashAlreadyHasFile": {
     "description": "Aviso: no se recupera el archivo porque el elemento ya tiene otro. (F30)"
-  },
-  "inboxKeepTitle": "¿Con qué sigue este libro?",
-  "@inboxKeepTitle": {
-    "description": "Bandeja, al triar un libro o documento: qué pasa a la siguiente fase. (F30, decisión 68)"
-  },
-  "inboxKeepBody": "Se guardaron el archivo y el texto que se le sacó. Lo que no siga va a la papelera de la app por 30 días.",
-  "@inboxKeepBody": {
-    "description": "Bandeja, hoja de las tres opciones de un libro: qué significa elegir. (F30)"
-  },
-  "inboxKeepBoth": "Texto y libro",
-  "@inboxKeepBoth": {
-    "description": "Bandeja, hoja de un libro: seguir con los dos. (F30)"
-  },
-  "inboxKeepBothHint": "Quedan los dos, como hasta ahora",
-  "@inboxKeepBothHint": {
-    "description": "Bandeja, hoja de un libro: qué hace «Texto y libro». (F30)"
-  },
-  "inboxKeepOnlyText": "Solo el texto",
-  "@inboxKeepOnlyText": {
-    "description": "Bandeja, hoja de un libro: seguir con el texto y soltar el archivo. (F30)"
-  },
-  "inboxKeepOnlyTextHint": "El archivo va a la papelera y libera espacio",
-  "@inboxKeepOnlyTextHint": {
-    "description": "Bandeja, hoja de un libro: qué hace «Solo el texto», sin saber cuánto pesa. (F30)"
-  },
-  "inboxKeepOnlyTextSizeHint": "El archivo va a la papelera y libera {megabytes} MB",
-  "@inboxKeepOnlyTextSizeHint": {
-    "description": "Bandeja, hoja de un libro: qué hace «Solo el texto», con cuánto libera. (F30)",
-    "placeholders": {
-      "megabytes": {
-        "type": "String"
-      }
-    }
-  },
-  "inboxKeepOnlyFile": "Solo el libro",
-  "@inboxKeepOnlyFile": {
-    "description": "Bandeja, hoja de un libro: seguir con el archivo y soltar el texto. (F30)"
-  },
-  "inboxKeepOnlyFileHint": "El texto va a la papelera; el libro no se vuelve a leer solo",
-  "@inboxKeepOnlyFileHint": {
-    "description": "Bandeja, hoja de un libro: qué hace «Solo el libro». (F30)"
-  },
-  "inboxTriagedOnlyTextSnack": "Triado, solo el texto: {title}",
-  "@inboxTriagedOnlyTextSnack": {
-    "description": "Aviso tras triar un libro quedándose con el texto. (F30)",
-    "placeholders": {
-      "title": {
-        "type": "String"
-      }
-    }
-  },
-  "inboxTriagedOnlyFileSnack": "Triado, solo el libro: {title}",
-  "@inboxTriagedOnlyFileSnack": {
-    "description": "Aviso tras triar un libro quedándose con el archivo. (F30)",
-    "placeholders": {
-      "title": {
-        "type": "String"
-      }
-    }
   },
   "contentTrashTitle": "En la papelera de la app",
   "@contentTrashTitle": {
@@ -9918,5 +9859,49 @@
         "type": "String"
       }
     }
+  },
+  "inboxTextTranscribing": "Transcribiendo…",
+  "@inboxTextTranscribing": {
+    "description": "Tarjeta de la Bandeja: un audio o un video que todavía no tiene su transcripción (F41)."
+  },
+  "inboxTextReadingPhoto": "Leyendo la foto…",
+  "@inboxTextReadingPhoto": {
+    "description": "Tarjeta de la Bandeja: una foto a la que todavía se le está leyendo el texto (F41)."
+  },
+  "inboxTextExtracting": "Extrayendo el texto…",
+  "@inboxTextExtracting": {
+    "description": "Tarjeta de la Bandeja: un documento, un libro o una página que todavía no tiene su texto (F41)."
+  },
+  "inboxTextArrivingHint": "Ya se puede descartar. Lo demás se habilita solo cuando llegue el texto.",
+  "@inboxTextArrivingHint": {
+    "description": "Tarjeta de la Bandeja, debajo de «Transcribiendo…»: qué se puede hacer mientras tanto (F41)."
+  },
+  "inboxTextFailed": "No se pudo sacar el texto. Lo que guardaste sigue en la Biblioteca.",
+  "@inboxTextFailed": {
+    "description": "Tarjeta de la Bandeja: sacarle el texto falló y no se sabe por qué; se ofrece reintentar (F41)."
+  },
+  "inboxTextMissing": "Se procesó y no tiene texto que leer. Lo que guardaste sigue en la Biblioteca.",
+  "@inboxTextMissing": {
+    "description": "Tarjeta de la Bandeja: terminó de procesarse sin texto —una foto sin letras, un audio en silencio— (F41)."
+  },
+  "inboxTextNeededArriving": "Se habilita cuando llegue el texto",
+  "@inboxTextNeededArriving": {
+    "description": "Ayuda de una acción de la Bandeja apagada porque el texto todavía no llegó (F41)."
+  },
+  "inboxTextNeededFailed": "Necesita el texto: reintentá sacarlo",
+  "@inboxTextNeededFailed": {
+    "description": "Ayuda de una acción de la Bandeja apagada porque sacar el texto falló (F41)."
+  },
+  "inboxTextNeededMissing": "No hay texto con que trabajarla",
+  "@inboxTextNeededMissing": {
+    "description": "Ayuda de una acción de la Bandeja apagada porque la fuente no tiene texto (F41)."
+  },
+  "inboxQueueTextFailed": "No se pudo sacar el texto",
+  "@inboxQueueTextFailed": {
+    "description": "Lista de «N pendientes»: una fuente a la que sacarle el texto falló (F41)."
+  },
+  "inboxQueueTextMissing": "Sin texto",
+  "@inboxQueueTextMissing": {
+    "description": "Lista de «N pendientes»: una fuente que terminó de procesarse sin texto (F41)."
   }
 }

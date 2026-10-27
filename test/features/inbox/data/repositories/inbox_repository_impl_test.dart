@@ -16,6 +16,7 @@ import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/inbox/data/repositories/inbox_repository_impl.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
+import 'package:sinapsis/features/inbox/domain/entities/pending_text.dart';
 
 import '../../../../support/item_rows.dart';
 
@@ -69,6 +70,7 @@ void main() {
     ItemKind kind = ItemKind.source,
     ItemState state = ItemState.processed,
     String title = 'Un elemento',
+    DateTime? createdAt,
     DateTime? updatedAt,
     String? text = 'Un texto para leer.',
   }) async {
@@ -81,13 +83,13 @@ void main() {
             title: title,
             kind: kind,
             state: state,
-            createdAt: now,
+            createdAt: createdAt ?? now,
             updatedAt: updatedAt ?? now,
             deviceId: 'test',
           ),
         );
-    // Una fuente entra a la Bandeja cuando ya tiene texto (F30, decisión 68):
-    // las de estas pruebas lo traen, salvo que se pida otra cosa.
+    // Las fuentes de estas pruebas traen su texto, salvo que se pida otra
+    // cosa: lo que todavía lo espera tiene sus propias pruebas (F41).
     if (kind == ItemKind.source && text != null) await seedText(id, text);
     return id;
   }
@@ -109,34 +111,64 @@ void main() {
   }
 
   group('watchPendingIds', () {
-    test('solo trae fuentes en processed', () async {
-      final pending = await seedEntry();
+    test('trae las fuentes sobre las que nadie decidió: procesadas y las que '
+        'todavía se procesan (F41)', () async {
+      final processed = await seedEntry();
       final captured = await seedEntry(state: ItemState.captured);
       final triaged = await seedEntry(state: ItemState.triaged);
+      final distilled = await seedEntry(state: ItemState.distilled);
+      final discarded = await seedEntry(state: ItemState.discarded);
       final noteId = await seedEntry(kind: ItemKind.note);
       await seedNote(noteId);
 
       final ids = await repository.watchPendingIds().first;
 
-      expect(ids, [pending]);
-      expect(ids, isNot(contains(captured)));
+      expect(ids, unorderedEquals([processed, captured]));
       expect(ids, isNot(contains(triaged)));
+      expect(ids, isNot(contains(distilled)));
+      expect(ids, isNot(contains(discarded)));
       expect(ids, isNot(contains(noteId)));
     });
 
-    test('ordena de más vieja a más nueva por updatedAt', () async {
+    test('ordena por llegada: la que se guardó primero va primero', () async {
       final nueva = await seedEntry(
         title: 'Nueva',
-        updatedAt: now.add(const Duration(hours: 2)),
+        createdAt: now.add(const Duration(hours: 2)),
       );
       final vieja = await seedEntry(
         title: 'Vieja',
-        updatedAt: now.add(const Duration(hours: 1)),
+        createdAt: now.add(const Duration(hours: 1)),
       );
 
       final ids = await repository.watchPendingIds().first;
 
       expect(ids, [vieja, nueva]);
+    });
+
+    test('el orden no se mueve cuando la fuente se edita o le llega el texto: '
+        'la tarjeta que se mira sigue arriba', () async {
+      final esperando = await seedEntry(
+        title: 'Un audio',
+        text: null,
+        createdAt: now.add(const Duration(hours: 1)),
+        updatedAt: now.add(const Duration(hours: 9)),
+      );
+      final despues = await seedEntry(
+        title: 'Otra',
+        createdAt: now.add(const Duration(hours: 2)),
+        updatedAt: now.add(const Duration(hours: 3)),
+      );
+
+      expect(await repository.watchPendingIds().first, [esperando, despues]);
+    });
+
+    test('dos guardadas en el mismo instante salen siempre en el mismo '
+        'orden', () async {
+      final b = await seedEntry(title: 'B');
+      final a = await seedEntry(title: 'A');
+
+      // El `id` desempata: el mismo orden en cada lectura.
+      expect(await repository.watchPendingIds().first, [a, b]..sort());
     });
 
     test('se actualiza sola cuando un elemento cambia de estado', () async {
@@ -374,6 +406,7 @@ void main() {
     String itemId, {
     SourceKind kind = SourceKind.webPage,
     DateTime? capturedAt,
+    SourceProcessingStatus status = SourceProcessingStatus.done,
   }) => db
       .into(db.knowledgeSources)
       .insert(
@@ -382,7 +415,7 @@ void main() {
           sourceType: kind,
           capturedAt: capturedAt ?? now,
           contentHash: 'hash-$itemId',
-          processingStatus: SourceProcessingStatus.done,
+          processingStatus: status,
         ),
       );
 
@@ -391,12 +424,12 @@ void main() {
         'fecha', () async {
       final nueva = await seedEntry(
         title: 'Nueva',
-        updatedAt: now.add(const Duration(hours: 2)),
+        createdAt: now.add(const Duration(hours: 2)),
       );
       await seedSourceRow(nueva, kind: SourceKind.youtube);
       final vieja = await seedEntry(
         title: 'Vieja',
-        updatedAt: now.add(const Duration(hours: 1)),
+        createdAt: now.add(const Duration(hours: 1)),
       );
       await seedSourceRow(vieja, capturedAt: DateTime(2026, 8, 30));
       final triada = await seedEntry(state: ItemState.triaged);
@@ -464,73 +497,121 @@ void main() {
       );
     });
 
-    test('una nota, una fuente que se procesa o algo que no existe no '
-        'tienen nada que ver con la Bandeja', () async {
+    test('una nota o algo que no existe no tienen nada que ver con la '
+        'Bandeja', () async {
       final nota = await seedEntry(kind: ItemKind.note);
       await seedNote(nota);
-      final procesandose = await seedEntry(state: ItemState.captured);
 
       expect(await repository.watchStanding(nota).first, isNull);
-      expect(await repository.watchStanding(procesandose).first, isNull);
       expect(await repository.watchStanding('no-existe').first, isNull);
     });
 
+    test(
+      'una fuente que todavía se procesa ya está en la Bandeja (F41)',
+      () async {
+        final procesandose = await seedEntry(
+          state: ItemState.captured,
+          text: null,
+        );
+
+        expect(
+          (await repository.watchStanding(procesandose).first)!.status,
+          InboxStatus.pending,
+        );
+      },
+    );
+
     test('se actualiza sola al volver a la Bandeja', () async {
       final id = await seedEntry(state: ItemState.triaged);
+      await seedSourceRow(id);
       final queue = StreamQueue(repository.watchStanding(id));
       addTearDown(queue.cancel);
       expect((await queue.next)!.status, InboxStatus.triaged);
 
-      await repository.transitionState(itemId: id, to: ItemState.processed);
+      await repository.returnToInbox(id);
 
       expect((await queue.next)!.status, InboxStatus.pending);
     });
   });
 
-  group('solo lo que tiene texto (F30, decisión 68)', () {
-    test('un audio sin transcribir no espera en la Bandeja, ni cuenta, ni '
-        'figura en la cola; entra cuando tiene su transcripción', () async {
-      final audio = await seedEntry(title: 'Una clase', text: null);
-      await seedSourceRow(audio, kind: SourceKind.audio);
+  group('lo que espera su texto (F41)', () {
+    test('un audio sin transcribir ya espera en la Bandeja, cuenta y figura '
+        'en la cola como «llegando»; cuando llega su transcripción, la misma '
+        'fuente queda lista, sin moverse de lugar', () async {
+      final audio = await seedEntry(
+        title: 'Una clase',
+        state: ItemState.captured,
+        text: null,
+      );
+      await seedSourceRow(
+        audio,
+        kind: SourceKind.audio,
+        status: SourceProcessingStatus.running,
+      );
       final articulo = await seedEntry(title: 'Un artículo');
       await seedSourceRow(articulo);
-      final queue = StreamQueue(repository.watchPendingIds());
-      addTearDown(queue.cancel);
-      expect(await queue.next, [articulo]);
-      expect((await repository.watchPending().first).map((p) => p.id), [
-        articulo,
+
+      expect(await repository.watchPendingIds().first, [audio, articulo]);
+      final queue = await repository.watchPending().first;
+      expect(queue.map((p) => (p.id, p.text)), [
+        (audio, PendingText.arriving),
+        (articulo, PendingText.ready),
       ]);
-      expect(await repository.watchStanding(audio).first, isNull);
-
-      await seedText(audio, '[0:00] Buenas tardes a todos.');
-
-      expect(await queue.next, unorderedEquals([audio, articulo]));
       expect(
         (await repository.watchStanding(audio).first)!.status,
         InboxStatus.pending,
       );
+
+      final text = StreamQueue(repository.watchPendingText(audio));
+      addTearDown(text.cancel);
+      expect(await text.next, PendingText.arriving);
+
+      await seedText(audio, '[0:00] Buenas tardes a todos.');
+
+      expect(await text.next, PendingText.ready);
+      expect(await repository.watchPendingIds().first, [audio, articulo]);
     });
 
-    test(
-      'un texto en blanco no cuenta: se intentó leer y no tenía nada',
-      () async {
-        final foto = await seedEntry(title: 'Una foto', text: ' \n\t \r\n');
+    test('un fallo y lo que terminó sin texto se distinguen: uno se '
+        'reintenta, el otro no va a llegar solo', () async {
+      final fallo = await seedEntry(state: ItemState.captured, text: null);
+      await seedSourceRow(fallo, status: SourceProcessingStatus.failed);
+      final enEspera = await seedEntry(state: ItemState.captured, text: null);
+      await seedSourceRow(enEspera, status: SourceProcessingStatus.pending);
+      final foto = await seedEntry(title: 'Una foto', text: ' \n\t \r\n');
+      await seedSourceRow(foto, kind: SourceKind.image);
 
-        expect(await repository.watchPendingIds().first, isEmpty);
-        expect(await repository.watchStanding(foto).first, isNull);
-      },
-    );
+      expect(
+        await repository.watchPendingText(fallo).first,
+        PendingText.failed,
+      );
+      expect(
+        await repository.watchPendingText(enEspera).first,
+        PendingText.arriving,
+      );
+      // Un texto en blanco no cuenta: se intentó leer y no tenía nada.
+      expect(
+        await repository.watchPendingText(foto).first,
+        PendingText.missing,
+      );
+      expect(
+        await repository.watchPendingIds().first,
+        unorderedEquals([fallo, enEspera, foto]),
+      );
+    });
 
     test('una nota de bloques no es el texto de una fuente', () async {
       final id = await seedEntry(text: null);
+      await seedSourceRow(id);
       await seedText(id, '[]', kind: RenditionKind.blocks);
 
-      expect(await repository.watchPendingIds().first, isEmpty);
+      expect(await repository.watchPendingText(id).first, PendingText.missing);
     });
 
     test('el texto de un archivo del «Contenido» cuenta: la página no tiene '
         'cuerpo pero trae un PDF con texto', () async {
       final id = await seedEntry(title: 'Una publicación', text: null);
+      await seedSourceRow(id, kind: SourceKind.socialPost);
       await db
           .into(db.renditions)
           .insert(
@@ -545,25 +626,90 @@ void main() {
             ),
           );
       // El archivo solo, sin texto, no alcanza.
-      expect(await repository.watchPendingIds().first, isEmpty);
+      expect(await repository.watchPendingText(id).first, PendingText.missing);
 
       await seedText(id, 'El texto del PDF.', textOf: 'archivo');
 
-      expect(await repository.watchPendingIds().first, [id]);
+      expect(await repository.watchPendingText(id).first, PendingText.ready);
+      expect(
+        (await repository.watchPending().first).single.text,
+        PendingText.ready,
+      );
     });
 
-    test('lo ya triado o descartado sigue siendo lo que era, tenga texto o '
-        'no, pero «Volver a la Bandeja» solo con texto', () async {
+    test('con texto, lo que se vuelve a extraer sigue listo: el de antes '
+        'queda hasta que llega el nuevo', () async {
+      final id = await seedEntry();
+      await seedSourceRow(id, status: SourceProcessingStatus.running);
+
+      expect(await repository.watchPendingText(id).first, PendingText.ready);
+    });
+
+    test('una nota o algo que no existe no tienen texto que esperar', () async {
+      final nota = await seedEntry(kind: ItemKind.note);
+      await seedNote(nota);
+
+      expect(await repository.watchPendingText(nota).first, isNull);
+      expect(await repository.watchPendingText('no-existe').first, isNull);
+    });
+
+    test('«Volver a la Bandeja» se ofrece tenga texto o no; en una referencia '
+        'bibliográfica, no (decisión E)', () async {
       final sinTexto = await seedEntry(state: ItemState.triaged, text: null);
+      await seedSourceRow(sinTexto, kind: SourceKind.audio);
       final conTexto = await seedEntry(state: ItemState.discarded);
+      await seedSourceRow(conTexto);
+      final referencia = await seedEntry(state: ItemState.triaged, text: null);
+      await seedSourceRow(referencia, kind: SourceKind.reference);
 
       final a = (await repository.watchStanding(sinTexto).first)!;
       final b = (await repository.watchStanding(conTexto).first)!;
+      final c = (await repository.watchStanding(referencia).first)!;
 
-      expect(a.status, InboxStatus.triaged);
-      expect(a.hasText, isFalse);
-      expect(b.status, InboxStatus.discarded);
-      expect(b.hasText, isTrue);
+      expect((a.status, a.canReturn), (InboxStatus.triaged, true));
+      expect((b.status, b.canReturn), (InboxStatus.discarded, true));
+      expect((c.status, c.canReturn), (InboxStatus.triaged, false));
+    });
+  });
+
+  group('returnToInbox (F41)', () {
+    Future<ItemState> stateOf(String id) async => (await (db.select(
+      db.knowledgeEntries,
+    )..where((e) => e.id.equals(id))).getSingle()).state;
+
+    test('lo que ya terminó de procesarse vuelve a processed', () async {
+      final id = await seedEntry(state: ItemState.triaged);
+      await seedSourceRow(id);
+
+      expect((await repository.returnToInbox(id)).isRight(), isTrue);
+
+      expect(await stateOf(id), ItemState.processed);
+      expect(await repository.watchPendingIds().first, [id]);
+    });
+
+    test('lo que todavía se procesa, espera su turno o falló vuelve a '
+        'captured, como recién guardado', () async {
+      for (final status in [
+        SourceProcessingStatus.pending,
+        SourceProcessingStatus.running,
+        SourceProcessingStatus.failed,
+      ]) {
+        final id = await seedEntry(state: ItemState.discarded, text: null);
+        await seedSourceRow(id, status: status);
+
+        expect((await repository.returnToInbox(id)).isRight(), isTrue);
+
+        expect(await stateOf(id), ItemState.captured, reason: status.name);
+      }
+    });
+
+    test('una nota o algo que no existe: falla sin tocar nada', () async {
+      final nota = await seedEntry(kind: ItemKind.note);
+      await seedNote(nota);
+
+      expect((await repository.returnToInbox(nota)).isLeft(), isTrue);
+      expect((await repository.returnToInbox('no-existe')).isLeft(), isTrue);
+      expect(await stateOf(nota), ItemState.processed);
     });
   });
 
