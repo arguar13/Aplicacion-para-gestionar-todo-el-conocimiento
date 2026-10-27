@@ -131,6 +131,10 @@ class _LocalGraphBodyState extends ConsumerState<_LocalGraphBody> {
   bool _pendingFit = false;
   Size _lastViewportSize = Size.zero;
 
+  /// Hasta dónde se puede alejar: lo que hace falta para ver el grafo
+  /// entero, con cualquier grado (`zoomOutLimit`).
+  double _minScale = 0.1;
+
   @override
   void dispose() {
     _transformController.dispose();
@@ -254,6 +258,11 @@ class _LocalGraphBodyState extends ConsumerState<_LocalGraphBody> {
     };
     final bounds = _canvasBounds(positions);
     final renderPositions = _shiftPositions(positions, bounds.origin);
+    _minScale = zoomOutLimit(
+      positions: renderPositions,
+      viewportSize: viewportSize,
+      contentMargin: _kNodeMargin,
+    );
 
     if (_pendingFit) {
       _pendingFit = false;
@@ -263,6 +272,7 @@ class _LocalGraphBodyState extends ConsumerState<_LocalGraphBody> {
           positions: renderPositions,
           viewportSize: viewportSize,
           contentMargin: _kNodeMargin,
+          minScale: _minScale,
         );
       });
     }
@@ -276,7 +286,7 @@ class _LocalGraphBodyState extends ConsumerState<_LocalGraphBody> {
       // Sin tope: un layout de fuerzas sin límite necesita un paneo que
       // tampoco lo tenga.
       boundaryMargin: const EdgeInsets.all(double.infinity),
-      minScale: 0.1,
+      minScale: _minScale,
       maxScale: 3,
       child: SizedBox(
         width: bounds.size.width,
@@ -348,7 +358,7 @@ class _LocalGraphBodyState extends ConsumerState<_LocalGraphBody> {
 
     final current = _transformController.value;
     final currentScale = current.getMaxScaleOnAxis();
-    final targetScale = (currentScale * factor).clamp(0.1, 3.0);
+    final targetScale = (currentScale * factor).clamp(_minScale, 3.0);
     final effectiveFactor = targetScale / currentScale;
     if (effectiveFactor == 1) return;
 
@@ -378,6 +388,7 @@ class _LocalGraphBodyState extends ConsumerState<_LocalGraphBody> {
         positions: renderPositions,
         viewportSize: viewport,
         contentMargin: _kNodeMargin,
+        minScale: _minScale,
       );
     });
   }

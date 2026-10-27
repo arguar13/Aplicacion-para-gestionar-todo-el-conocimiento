@@ -81,6 +81,22 @@ void main() {
       expect(scale, closeTo(0.1, 0.001));
     });
 
+    test('con el piso que da zoomOutLimit, un grafo enorme entra entero', () {
+      const positions = {'a': Offset.zero, 'b': Offset(100000, 0)};
+      const viewport = Size(400, 400);
+
+      final matrix = computeFitTransform(
+        positions: positions,
+        viewportSize: viewport,
+        minScale: zoomOutLimit(positions: positions, viewportSize: viewport),
+      );
+
+      final left = matrix.transform3(Vector3(-70, 0, 0)).x;
+      final right = matrix.transform3(Vector3(100070, 0, 0)).x;
+      expect(left, greaterThanOrEqualTo(-0.001));
+      expect(right, lessThanOrEqualTo(400.001));
+    });
+
     test('un solo nodo no revienta por dividir entre un ancho cero', () {
       final matrix = computeFitTransform(
         positions: const {'a': Offset(50, 50)},
@@ -89,6 +105,61 @@ void main() {
       );
 
       expect(matrix, Matrix4.identity());
+    });
+  });
+
+  group('zoomOutLimit (F40)', () {
+    test('un grafo chico se puede alejar hasta el piso de siempre', () {
+      expect(
+        zoomOutLimit(
+          positions: const {'a': Offset.zero, 'b': Offset(300, 200)},
+          viewportSize: const Size(400, 800),
+        ),
+        0.1,
+      );
+    });
+
+    test('uno grande, hasta un poco más lejos de lo que lo encuadra', () {
+      // 10.140 de ancho con el margen: entra en 400 a 400 / 10140.
+      final limit = zoomOutLimit(
+        positions: const {'a': Offset.zero, 'b': Offset(10000, 0)},
+        viewportSize: const Size(400, 800),
+      );
+
+      expect(limit, closeTo(400 / 10140 * 0.8, 1e-9));
+    });
+
+    test('mira el lado que más aprieta', () {
+      final limit = zoomOutLimit(
+        positions: const {'a': Offset.zero, 'b': Offset(100, 20000)},
+        viewportSize: const Size(400, 800),
+        contentMargin: 0,
+        slack: 1,
+      );
+
+      expect(limit, closeTo(800 / 20000, 1e-9));
+    });
+
+    test('sin nada que encuadrar, el piso', () {
+      expect(
+        zoomOutLimit(positions: const {}, viewportSize: const Size(400, 800)),
+        0.1,
+      );
+      expect(
+        zoomOutLimit(
+          positions: const {'a': Offset(5, 5)},
+          viewportSize: const Size(400, 800),
+          contentMargin: 0,
+        ),
+        0.1,
+      );
+      expect(
+        zoomOutLimit(
+          positions: const {'a': Offset.zero, 'b': Offset(9000, 9000)},
+          viewportSize: Size.zero,
+        ),
+        0.1,
+      );
     });
   });
 }

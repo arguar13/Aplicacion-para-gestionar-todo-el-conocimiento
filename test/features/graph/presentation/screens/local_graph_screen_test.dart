@@ -154,4 +154,50 @@ void main() {
       expect(find.text('El vecino lejano'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'un grafo grande entra entero: se puede alejar más allá del piso de '
+    'siempre, y al abrir ya se ve todo (F40)',
+    (tester) async {
+      await harness.capture('La semilla');
+      final seedId = await idOf('La semilla');
+      final organize = harness.container.read(organizeRepositoryProvider);
+      for (var i = 0; i < 60; i++) {
+        await harness.capture('Vecino $i');
+        await organize.createRelation(
+          fromItemId: seedId,
+          toItemId: await idOf('Vecino $i'),
+          kind: RelationKind.relatedTo,
+        );
+      }
+
+      await pumpLocalGraph(tester, seedId);
+
+      final viewer = tester.widget<InteractiveViewer>(
+        find.byType(InteractiveViewer),
+      );
+      expect(viewer.minScale, lessThan(0.1));
+      final scale = viewer.transformationController!.value.getMaxScaleOnAxis();
+      expect(scale, greaterThanOrEqualTo(viewer.minScale));
+
+      final visible = tester.getRect(find.byType(InteractiveViewer));
+      for (final title in [
+        'La semilla',
+        for (var i = 0; i < 60; i++) 'Vecino $i',
+      ]) {
+        final center = tester.getCenter(find.text(title));
+        expect(visible.inflate(1).contains(center), isTrue, reason: title);
+      }
+
+      // El botón «−» también llega hasta ese piso, y no más allá.
+      for (var i = 0; i < 12; i++) {
+        await tester.tap(find.byIcon(Icons.remove));
+        await tester.pump();
+      }
+      expect(
+        viewer.transformationController!.value.getMaxScaleOnAxis(),
+        closeTo(viewer.minScale, 1e-9),
+      );
+    },
+  );
 }

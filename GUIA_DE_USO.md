@@ -1805,6 +1805,11 @@ detalle de cualquier elemento, justo debajo de su panel; tocarla o tocar el bot�
 pantalla completa, con un selector de "Grado" (cuántos saltos de distancia
 mostrar).
 
+En la pantalla completa, con cualquier grado —también **"Todos"**—, el grafo
+**se puede alejar hasta verlo entero**: pellizcando, con el botón **"−"** o
+con el de **encuadrar**, que lo muestra completo de una vez. Al abrir, o al
+cambiar de grado, ya arranca encuadrado.
+
 ### La vista previa del detalle
 
 Es una tarjeta titulada **«Mapa»** con el elemento en el medio y sus vecinos
