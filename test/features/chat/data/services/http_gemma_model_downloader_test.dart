@@ -238,10 +238,15 @@ void main() {
         .download(url: url, fileName: fileName)
         .handleError(errors.add)
         .drain<void>();
-    // Hasta que llega el pedido: antes hay disco de por medio.
-    for (var i = 0; i < 200 && server.requests.isEmpty; i++) {
+    // Hasta que llega el pedido: antes hay disco de por medio. El tope es de
+    // tiempo y generoso —no de vueltas de 5 ms, que con la máquina cargada se
+    // estiran—: solo corta si el pedido de verdad no llega nunca.
+    final deadline = Stopwatch()..start();
+    while (server.requests.isEmpty &&
+        deadline.elapsed < const Duration(seconds: 20)) {
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
+    expect(server.requests, isNotEmpty);
     expect(await downloader.isDownloading(fileName), isTrue);
 
     await downloader.cancel(fileName);

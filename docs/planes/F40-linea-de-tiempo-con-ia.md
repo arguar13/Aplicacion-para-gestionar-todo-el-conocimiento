@@ -277,3 +277,17 @@ carta de 1810). Un hecho fechado es una fecha **dentro** de un documento.
     tenga su cifra en la vista previa y en el resultado, o el motivo de por qué no.
   - **Pruebas:** 18 de paridad entre la vista previa y lo que la unión escribe; las 23 mutaciones
     mueren.
+
+- **Las pruebas que fallaban con la máquina cargada, deterministas — hecho.**
+  - **«El silencio vence»** (`cloud_http_test`) medía con el reloj real: 150 ms de silencio contra
+    pedazos cada 80 ms. Ahora el tiempo lo maneja un `FakeAsync`, que fija el borde exacto: a
+    149 ms sigue vivo y a 150 vence.
+  - **La bajada de Gemma** esperaba el pedido con vueltas de 5 ms. Ahora lo espera de verdad.
+  - **La compactación de la bóveda** medía la memoria del proceso entero, que se ensucia con lo
+    que corre al lado. Ahora mide dónde vive la copia de trabajo de `VACUUM`: el archivo temporal
+    en disco, que es justo lo que decide `temp_store = FILE`. El control, sin el PRAGMA, deja el
+    temporal en cero.
+  - **Estabilidad medida:** con 14 procesos quemando CPU y uno escribiendo en el disco, antes
+    fallaban 3 de 5 corridas y ahora pasan 5 de 5.
+  - **Mutaciones:** las 6 mueren. Entre ellas, sacar el PRAGMA y no reiniciar la cuenta del
+    silencio con cada pedazo.

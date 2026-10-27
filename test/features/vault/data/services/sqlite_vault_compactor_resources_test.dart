@@ -15,14 +15,26 @@ class _PlentyOfDisk implements FreeSpaceProbe {
   Future<int?> freeBytesAt(String path) async => 1 << 40;
 }
 
-/// Lo que cuesta compactar en memoria y en disco, medido con una base de
-/// decenas de MB para que la diferencia no se pierda en el ruido.
+/// Lo que cuesta compactar y DÓNDE vive la copia de trabajo, medido con una
+/// base de decenas de MB para que la diferencia no se pierda en el ruido.
 ///
 /// La base corre en un aislado aparte —como la de la app—: así este aislado
-/// puede mirar la memoria del proceso y la carpeta de temporales MIENTRAS
-/// SQLite trabaja. Es lo que sostiene la regla de `CompactionAssessment`
-/// (`requiredBytes`) y el `PRAGMA temp_store = FILE` de la compactación: ver la
-/// decisión 45 de docs/arquitectura.md.
+/// puede mirar la carpeta de temporales y el diario MIENTRAS SQLite trabaja. Es
+/// lo que sostiene la regla de `CompactionAssessment` (`requiredBytes`) y el
+/// `PRAGMA temp_store = FILE` de la compactación: ver la decisión 45 de
+/// docs/arquitectura.md.
+///
+/// Lo que se afirma no depende de la carga de la máquina: es dónde está la
+/// copia de trabajo —un archivo temporal del tamaño de lo útil, o ninguno—, que
+/// decide SQLite según `temp_store`. La memoria del proceso (`ProcessInfo`) NO
+/// se afirma: es de todo el proceso, la mueven el recolector, el sistema al
+/// recortar el conjunto de trabajo y cualquier otra cosa que corra a la vez, y
+/// con la máquina cargada daba falsos rojos. Se deja en el mensaje de falla
+/// como dato, no como condición.
+/// Armar y compactar decenas de MB lleva segundos; con la máquina ocupada, más.
+/// El tope por defecto de 30 s es contra un cuelgue, no contra la carga.
+const _heavy = Timeout(Duration(minutes: 3));
+
 void main() {
   const mib = 1024 * 1024;
   late Directory dir;
@@ -63,15 +75,18 @@ void main() {
     if (dir.existsSync()) await dir.delete(recursive: true);
   });
 
-  /// El pico de memoria del proceso y de disco extra —diario de reversión,
-  /// temporales y lo que crezca el archivo— mientras corre [work].
-  Future<({int rssGrowth, int diskPeak})> measure(
-    File file,
-    Future<void> Function() work,
-  ) async {
+  /// Lo más que llegó a pesar, mientras corre [work], cada cosa que SQLite
+  /// escribe aparte del archivo: los temporales (donde vive la copia de trabajo
+  /// de `VACUUM` si va a disco), el diario de reversión y lo que crezca el
+  /// archivo; más el pico de memoria del proceso, solo como dato para el
+  /// mensaje de falla.
+  Future<({int tempPeak, int journalPeak, int diskPeak, int rssGrowth})>
+  measure(File file, Future<void> Function() work) async {
     final rssBefore = ProcessInfo.currentRss;
     final sizeBefore = file.lengthSync();
     var rssPeak = rssBefore;
+    var tempPeak = 0;
+    var journalPeak = 0;
     var diskPeak = 0;
 
     int lengthOf(String path) {
@@ -90,11 +105,11 @@ void main() {
           .listSync()
           .whereType<File>()
           .fold<int>(0, (sum, f) => sum + lengthOf(f.path));
+      final journal = lengthOf('${file.path}-journal');
       final growth = lengthOf(file.path) - sizeBefore;
-      final extra =
-          (growth > 0 ? growth : 0) +
-          lengthOf('${file.path}-journal') +
-          temporales;
+      final extra = (growth > 0 ? growth : 0) + journal + temporales;
+      if (temporales > tempPeak) tempPeak = temporales;
+      if (journal > journalPeak) journalPeak = journal;
       if (extra > diskPeak) diskPeak = extra;
     });
     try {
@@ -102,7 +117,12 @@ void main() {
     } finally {
       sampler.cancel();
     }
-    return (rssGrowth: rssPeak - rssBefore, diskPeak: diskPeak);
+    return (
+      tempPeak: tempPeak,
+      journalPeak: journalPeak,
+      diskPeak: diskPeak,
+      rssGrowth: rssPeak - rssBefore,
+    );
   }
 
   test('compactar lleva la copia de trabajo al disco y no a la memoria, y el '
@@ -123,20 +143,26 @@ void main() {
 
     final cost = await measure(vault.file, compactor.compact);
 
-    // La memoria: sin `temp_store = FILE`, la copia de trabajo de VACUUM es del
-    // tamaño de todo lo útil (ver el control de abajo). Con él, casi nada.
+    final detail =
+        'útil ${vault.useful ~/ mib} MB; temporales ${cost.tempPeak ~/ mib} '
+        'MB, diario ${cost.journalPeak ~/ mib} MB, '
+        'disco ${cost.diskPeak ~/ mib} MB; '
+        'memoria del proceso +${cost.rssGrowth ~/ mib} MB (dato)';
+
+    // Dónde vive la copia de trabajo: sin `temp_store = FILE` es de memoria y
+    // no hay ningún temporal (ver el control de abajo). Con él, es un archivo
+    // temporal que llega a lo útil: la copia de todo lo que la bóveda tiene de
+    // verdad, en disco y no en RAM.
+    expect(cost.tempPeak, greaterThan(vault.useful ~/ 2), reason: detail);
+    // El disco: además del temporal, el diario —del tamaño de lo útil—; y no
+    // más de lo que el consejero le exige a quien compacta.
+    expect(cost.diskPeak, greaterThan(vault.useful ~/ 2), reason: detail);
     expect(
-      cost.rssGrowth,
-      lessThan(vault.useful ~/ 2),
-      reason:
-          'creció ${cost.rssGrowth ~/ mib} MB con ${vault.useful ~/ mib} MB '
-          'de contenido útil',
+      cost.diskPeak,
+      lessThanOrEqualTo(assessment.requiredBytes),
+      reason: detail,
     );
-    // El disco: trabajó de verdad en disco —como mínimo el diario, del tamaño
-    // de lo útil— y no más de lo que el consejero le exige a quien compacta.
-    expect(cost.diskPeak, greaterThan(vault.useful ~/ 2));
-    expect(cost.diskPeak, lessThanOrEqualTo(assessment.requiredBytes));
-  });
+  }, timeout: _heavy);
 
   test('CONTROL: un VACUUM sin `temp_store = FILE` sí carga en memoria lo útil '
       '(por eso la compactación lo pone)', () async {
@@ -151,12 +177,16 @@ void main() {
       () => vault.db.customStatement('VACUUM'),
     );
 
+    // La copia de trabajo no tiene dónde caer en disco: ningún temporal que se
+    // acerque a lo útil. Si apareciera uno, SQLite ya la manda a archivo sola.
     expect(
-      cost.rssGrowth,
-      greaterThan(vault.useful ~/ 2),
+      cost.tempPeak,
+      lessThan(vault.useful ~/ 10),
       reason:
-          'creció ${cost.rssGrowth ~/ mib} MB con ${vault.useful ~/ mib} MB '
-          'de contenido útil',
+          'apareció un temporal de ${cost.tempPeak ~/ mib} MB con '
+          '${vault.useful ~/ mib} MB de contenido útil',
     );
-  });
+    // Y sigue habiendo diario: lo único que trabajó en disco fue la reversión.
+    expect(cost.journalPeak, greaterThan(vault.useful ~/ 2));
+  }, timeout: _heavy);
 }

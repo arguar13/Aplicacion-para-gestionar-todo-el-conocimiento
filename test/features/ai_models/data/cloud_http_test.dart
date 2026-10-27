@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/ai_models/data/cloud/cloud_http.dart';
 import 'package:sinapsis/features/ai_models/data/cloud/cloud_model_backend.dart';
@@ -190,31 +191,65 @@ void main() {
       expect(out, isEmpty);
     });
 
+    // El tiempo es del test, no del reloj de la máquina: los temporizadores de
+    // `Stream.timeout` viven en un `FakeAsync` y avanzan solo cuando se les
+    // ordena, así que una máquina cargada no mueve el resultado.
+    //
+    // Se maneja el `FakeAsync` a mano, y no con `fakeAsync(...)`, por una
+    // trampa: el error de `Stream.timeout` llega a un `await for` por una
+    // continuación que corre en el ciclo de eventos de verdad, no en las
+    // microtareas falsas. Con `fakeAsync(...)`, que es síncrono, esa
+    // continuación no corre hasta salir. Por eso, tras cada avance se vacía el
+    // ciclo real (`pumpEventQueue`), que solo drena lo ya agendado: no espera
+    // ningún tiempo.
     test('el silencio vence: espera vencida, no red; y cada pedazo reinicia '
         'la cuenta', () async {
       const idle = Duration(milliseconds: 150);
-      final silent = StreamController<Uint8List>();
+      const gap = Duration(milliseconds: 80);
+      final fake = FakeAsync();
+      late StreamController<Uint8List> silent;
       final seen = <Uint8List>[];
-      final done = Completer<Object?>();
-      guardedCloudBody(silent.stream, idle: idle).listen(
-        seen.add,
-        onError: done.complete,
-        onDone: () {
-          if (!done.isCompleted) done.complete(null);
-        },
-      );
-      // Llega algo cada 80 ms: más que el silencio permitido en total, pero
-      // nunca seguido.
-      for (var i = 0; i < 4; i++) {
-        silent.add(Uint8List.fromList([i]));
-        await Future<void>.delayed(const Duration(milliseconds: 80));
+      Object? outcome;
+      var finished = false;
+      fake.run((_) {
+        silent = StreamController<Uint8List>();
+        guardedCloudBody(silent.stream, idle: idle).listen(
+          seen.add,
+          onError: (Object error) {
+            outcome = error;
+            finished = true;
+          },
+          onDone: () => finished = true,
+        );
+      });
+
+      Future<void> advance(Duration time) async {
+        fake
+          ..elapse(time)
+          ..flushMicrotasks();
+        await pumpEventQueue();
+        fake.flushMicrotasks();
       }
-      expect(done.isCompleted, isFalse);
+
+      // Llega algo cada 80 ms: en total pasan 320 ms, más que el silencio
+      // permitido (150), pero nunca seguido.
+      for (var i = 0; i < 4; i++) {
+        fake
+          ..run((_) => silent.add(Uint8List.fromList([i])))
+          ..flushMicrotasks();
+        await advance(gap);
+      }
+      expect(finished, isFalse);
       expect(seen, hasLength(4));
 
-      // Y después se calla.
+      // Y después se calla: a 1 ms de cumplirse el silencio sigue vivo...
+      await advance(idle - gap - const Duration(milliseconds: 1));
+      expect(finished, isFalse);
+      // ...y al cumplirse vence, como espera vencida y no como falta de red.
+      await advance(const Duration(milliseconds: 1));
+      expect(finished, isTrue);
       expect(
-        await done.future,
+        outcome,
         isA<CloudModelException>().having(
           (e) => e.failure,
           'failure',
