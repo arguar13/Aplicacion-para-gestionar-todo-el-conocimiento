@@ -1,7 +1,7 @@
 # F41 — «Procesado»: la información pura que elegís al triar
 
-> **Estado: PROPUESTO, segunda versión** (2026-10-27). Se aprueba escribiendo «aprobado» en el
-> chat.
+> **Estado: APROBADO, segunda versión** (2026-10-27, «Aprobado, y agregá más agentes para
+> avanzar más rápido» en el chat).
 >
 > La primera versión, aprobada el mismo día, entendía «Procesado» como una segunda Biblioteca con
 > lo triado y lo descartado. El dueño la corrigió antes de que se construyera nada: «tirar» era
