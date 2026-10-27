@@ -59,6 +59,7 @@ class CloudRequest {
     required this.instruction,
     required this.messages,
     required this.maxOutputTokens,
+    this.thinkMore = false,
   });
 
   final String model;
@@ -68,7 +69,19 @@ class CloudRequest {
   /// Lo que puede escribir la respuesta, como lo pide la tarea (sin contar lo
   /// que el modelo «piensa» antes: cada formato le suma su margen).
   final int maxOutputTokens;
+
+  /// Si la persona prendió «Pensar más» en el chat (F42): el modelo piensa lo
+  /// que haga falta en vez de lo menos posible. Solo lo traduce un
+  /// formato cuyo modelo tiene la perilla (`thinkMoreSupport`); en los demás
+  /// no cambia nada del pedido.
+  final bool thinkMore;
 }
+
+/// El margen para lo que piensa un modelo con «Pensar más» (F42): lo pensado
+/// cuenta dentro del tope de la respuesta, y pensando a fondo un modelo usa
+/// varios miles de tokens antes de escribir la primera palabra. Con el margen
+/// de siempre (2048) la respuesta llegaría cortada o vacía.
+const kCloudThinkMoreHeadroomTokens = 16384;
 
 /// Un pedazo de la respuesta.
 @immutable

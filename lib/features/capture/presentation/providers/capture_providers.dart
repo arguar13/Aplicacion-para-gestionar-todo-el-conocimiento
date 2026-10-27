@@ -11,10 +11,12 @@ import 'package:sinapsis/features/capture/data/services/pdf_document_scan_assemb
 import 'package:sinapsis/features/capture/data/services/receive_sharing_intent_listener.dart';
 import 'package:sinapsis/features/capture/data/services/system_camera_chooser.dart';
 import 'package:sinapsis/features/capture/data/services/system_file_chooser.dart';
+import 'package:sinapsis/features/capture/data/services/system_photo_library_chooser.dart';
 import 'package:sinapsis/features/capture/domain/adapters/source_adapter_registry.dart';
 import 'package:sinapsis/features/capture/domain/services/camera_chooser.dart';
 import 'package:sinapsis/features/capture/domain/services/document_scan_assembler.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
+import 'package:sinapsis/features/capture/domain/services/photo_library_chooser.dart';
 import 'package:sinapsis/features/capture/domain/services/shared_content_listener.dart';
 import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -88,6 +90,15 @@ final fileChooserProvider = Provider<FileChooser>(
 /// [fileChooserProvider]: abrirla de verdad necesita una cámara real detrás.
 final cameraChooserProvider = Provider<CameraChooser>(
   (ref) => const SystemCameraChooser(),
+);
+
+/// La galería de fotos del sistema operativo (F42): la tarjeta «Fotos» del
+/// chat.
+///
+/// Se sobreescribe en las pruebas, por la misma razón que
+/// [cameraChooserProvider].
+final photoLibraryChooserProvider = Provider<PhotoLibraryChooser>(
+  (ref) => const SystemPhotoLibraryChooser(),
 );
 
 /// Junta las páginas de un escaneo en un solo documento. Sin necesidad de

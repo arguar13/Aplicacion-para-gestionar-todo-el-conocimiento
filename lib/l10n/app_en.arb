@@ -3340,7 +3340,6 @@
   "chatNotebookScopeAll": "Whole vault",
   "chatNewConversationTooltip": "New conversation",
   "chatFreeModelRequired": "Free conversation needs the language model downloaded: there's no search fallback here, unlike the vault mode.",
-  "chatFreeEmptyExplanation": "Chat with the language model like with any assistant: it won't search your vault here, just talk.",
   "chatModelTooltip": "Language model",
   "@chatModelTooltip": {
     "description": "Tooltip del ícono que lleva a la pantalla de descarga del modelo de chat."
@@ -3348,14 +3347,6 @@
   "chatModelNotReadyBanner": "Without the language model downloaded, answers show the relevant sources without a written response.",
   "@chatModelNotReadyBanner": {
     "description": "Aviso persistente en el chat cuando el modelo todavía no está descargado."
-  },
-  "chatEmptyExplanation": "Ask something about what you saved. The answer will cite where each fact comes from.",
-  "@chatEmptyExplanation": {
-    "description": "Mensaje en el chat antes de la primera pregunta."
-  },
-  "chatInputHint": "Ask something…",
-  "@chatInputHint": {
-    "description": "Placeholder del campo de texto del chat."
   },
   "chatNoSourcesFound": "I couldn't find anything in your vault related to this.",
   "@chatNoSourcesFound": {
@@ -3599,30 +3590,9 @@
   "@chatHistoryDeleteTooltip": {
     "description": "Tooltip del botón para borrar una conversación del historial."
   },
-  "chatAttachTooltip": "Attach",
-  "@chatAttachTooltip": {
-    "description": "Tooltip del botón para adjuntar una imagen o un documento al mensaje."
-  },
-  "chatAttachImageAction": "Image",
-  "@chatAttachImageAction": {
-    "description": "Opción del menú de adjuntar para elegir una imagen."
-  },
-  "chatAttachDocumentAction": "Document",
-  "@chatAttachDocumentAction": {
-    "description": "Opción del menú de adjuntar para elegir un documento."
-  },
   "chatAttachRemoveTooltip": "Remove attachment",
   "@chatAttachRemoveTooltip": {
     "description": "Tooltip del botón para quitar un adjunto antes de enviar el mensaje."
-  },
-  "chatAttachReading": "Reading {name}…",
-  "@chatAttachReading": {
-    "description": "Mensaje mientras se extrae el texto de un documento adjunto.",
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
   },
   "chatAttachUnreadable": "Couldn't read {name}.",
   "@chatAttachUnreadable": {
@@ -10851,5 +10821,126 @@
   "ownerNameRemove": "Remove",
   "@ownerNameRemove": {"description": "Botón del diálogo del nombre que lo borra: el saludo vuelve a ser según la hora (F42)."},
   "ownerNameSave": "Save",
-  "@ownerNameSave": {"description": "Botón que guarda un nombre: el del saludo o el de una conversación (F42)."}
+  "@ownerNameSave": {"description": "Botón que guarda un nombre: el del saludo o el de una conversación (F42)."},
+  "chatGreetingNamed": "Hi, {name}.",
+  "@chatGreetingNamed": {
+    "description": "Primera línea del saludo del chat vacío, con el nombre de «Cómo te llamo» (F42).",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatGreetingMorning": "Good morning.",
+  "@chatGreetingMorning": {"description": "Primera línea del saludo del chat vacío sin nombre, de 5 a 12 (F42)."},
+  "chatGreetingAfternoon": "Good afternoon.",
+  "@chatGreetingAfternoon": {"description": "Primera línea del saludo del chat vacío sin nombre, de 12 a 20 (F42)."},
+  "chatGreetingEvening": "Good evening.",
+  "@chatGreetingEvening": {"description": "Primera línea del saludo del chat vacío sin nombre, de 20 a 5 (F42)."},
+  "chatGreetingVaultQuestion": "What do you want to know about your things?",
+  "@chatGreetingVaultQuestion": {"description": "Segunda línea del saludo del chat vacío, con la bóveda (F42)."},
+  "chatGreetingFreeQuestion": "What do you want to talk about?",
+  "@chatGreetingFreeQuestion": {"description": "Segunda línea del saludo del chat vacío, en conversación libre (F42)."},
+  "chatSuggestionsEmptyVault": "Once you save something, I'll suggest questions about it here.",
+  "@chatSuggestionsEmptyVault": {"description": "En el chat vacío con la bóveda, cuando todavía no hay nada guardado para armar sugerencias (F42)."},
+  "chatSuggestionSummarize": "Summarize “{title}”",
+  "@chatSuggestionSummarize": {
+    "description": "Sugerencia del chat vacío que se manda al tocarla: resumir lo último guardado (F42).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSuggestionQuizMe": "Quiz me on “{title}”",
+  "@chatSuggestionQuizMe": {
+    "description": "Sugerencia del chat vacío que se manda al tocarla: que el modelo haga preguntas sobre un elemento (F42).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSuggestionAskWhatItSays": "What does “{title}” say about ",
+  "@chatSuggestionAskWhatItSays": {
+    "description": "Sugerencia del chat vacío que llena el campo para completarla: termina con un espacio, y en la pantalla se ve con «…» (F42).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSuggestionExploreTopic": "What have I saved about {topic}?",
+  "@chatSuggestionExploreTopic": {
+    "description": "Sugerencia del chat vacío que se manda al tocarla: el tema con más elementos (F42).",
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSuggestionNotebookThemes": "Which ideas keep coming up in “{name}”?",
+  "@chatSuggestionNotebookThemes": {
+    "description": "Sugerencia del chat vacío acotado a un cuaderno, que se manda al tocarla (F42).",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSuggestionFreeExplain": "Explain simply ",
+  "@chatSuggestionFreeExplain": {"description": "Sugerencia del chat vacío en conversación libre que llena el campo para completarla; termina con un espacio (F42)."},
+  "chatSuggestionFreeBrainstorm": "Help me brainstorm ideas for ",
+  "@chatSuggestionFreeBrainstorm": {"description": "Sugerencia del chat vacío en conversación libre que llena el campo para completarla; termina con un espacio (F42)."},
+  "chatSuggestionFreeDraft": "Write a draft of ",
+  "@chatSuggestionFreeDraft": {"description": "Sugerencia del chat vacío en conversación libre que llena el campo para completarla; termina con un espacio (F42)."},
+  "chatSuggestionFillHint": "You finish it in the field",
+  "@chatSuggestionFillHint": {"description": "Para el lector de pantalla: tocar esta sugerencia la escribe en el campo para terminarla, no la manda (F42)."},
+  "chatComposerVaultHint": "Ask your vault…",
+  "@chatComposerVaultHint": {"description": "Lo que dice el campo del chat vacío, con la bóveda (F42)."},
+  "chatComposerFreeHint": "Write anything…",
+  "@chatComposerFreeHint": {"description": "Lo que dice el campo del chat vacío, en conversación libre (F42)."},
+  "chatComposerListeningHint": "Listening…",
+  "@chatComposerListeningHint": {"description": "Lo que dice el campo del chat mientras se dicta y todavía no se oyó nada (F42)."},
+  "chatAddTooltip": "Add to chat",
+  "@chatAddTooltip": {"description": "El botón «+» del campo del chat: fotos, archivos, cuaderno, modo y «Pensar más» (F42)."},
+  "chatSendTooltip": "Send",
+  "@chatSendTooltip": {"description": "El botón redondo que manda el mensaje del chat (F42)."},
+  "chatDictateTooltip": "Dictate",
+  "@chatDictateTooltip": {"description": "El 🎤 del campo del chat: pasa lo que se dice a texto (F42)."},
+  "chatDictateStopTooltip": "Stop dictating",
+  "@chatDictateStopTooltip": {"description": "El 🎤 del campo del chat mientras escucha (F42)."},
+  "chatDictationPermissionDenied": "Dictation needs the microphone. You can give Sinapsis permission in your phone settings.",
+  "@chatDictationPermissionDenied": {"description": "Aviso cuando no se dio permiso para el micrófono al tocar el 🎤 (F42)."},
+  "chatDictationNoNetwork": "This phone's speech recognition needs a connection. Try again online.",
+  "@chatDictationNoNetwork": {"description": "Aviso cuando el reconocedor de voz del sistema falla por falta de conexión (F42)."},
+  "chatDictationFailed": "Couldn't turn what you said into text. Try again.",
+  "@chatDictationFailed": {"description": "Aviso cuando el reconocedor de voz del sistema falla (F42)."},
+  "chatThinkMoreChip": "Think harder",
+  "@chatThinkMoreChip": {"description": "La pastilla del campo del chat que muestra que «Pensar más» está prendido; tocarla lo apaga (F42)."},
+  "chatThinkMoreTurnOffTooltip": "Turn off “Think harder”",
+  "@chatThinkMoreTurnOffTooltip": {"description": "Ayuda de la pastilla «Pensar más» del campo del chat (F42)."},
+  "chatAddSheetTitle": "Add to chat",
+  "@chatAddSheetTitle": {"description": "Título de la hoja que abre el «+» del campo del chat (F42)."},
+  "chatAddCamera": "Camera",
+  "@chatAddCamera": {"description": "Tarjeta de la hoja «Agregar al chat»: sacar una foto para el mensaje (F42)."},
+  "chatAddPhotos": "Photos",
+  "@chatAddPhotos": {"description": "Tarjeta de la hoja «Agregar al chat»: elegir una foto de la galería (F42)."},
+  "chatAddFiles": "Files",
+  "@chatAddFiles": {"description": "Tarjeta de la hoja «Agregar al chat»: adjuntar un documento —o una imagen— del teléfono (F42)."},
+  "chatAddThinkMore": "Think harder",
+  "@chatAddThinkMore": {"description": "Interruptor de la hoja «Agregar al chat»: el modelo piensa a fondo antes de contestar (F42)."},
+  "chatAddThinkMoreAvailable": "Thinks it through before answering: slower, and uses more of your quota.",
+  "@chatAddThinkMoreAvailable": {"description": "Explicación del interruptor «Pensar más» cuando el modelo lo permite (F42)."},
+  "chatAddThinkMoreOnDevice": "Gemma, on your phone, can't think harder. A reasoning cloud model can.",
+  "@chatAddThinkMoreOnDevice": {"description": "Por qué el interruptor «Pensar más» está apagado con Gemma (F42)."},
+  "chatAddThinkMoreNotThisModel": "{model} can't think harder.",
+  "@chatAddThinkMoreNotThisModel": {
+    "description": "Por qué el interruptor «Pensar más» está apagado con un modelo en la nube que no razona (F42).",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  }
 }

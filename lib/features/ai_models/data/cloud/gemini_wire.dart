@@ -8,6 +8,7 @@ import 'package:sinapsis/features/ai_models/data/cloud/sse.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_info.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_thinking.dart';
 import 'package:sinapsis/features/ai_models/domain/services/quota_day.dart';
 
 /// Lo que se le suma al tope de una respuesta cuando el modelo «piensa» antes
@@ -137,11 +138,20 @@ class GeminiWire implements CloudWire {
   /// Gemini 3 y 4 usan `thinkingLevel` (y no se apaga); 2.5 usa
   /// `thinkingBudget`, que en Flash y Flash-Lite se apaga con 0 y en Pro no se
   /// puede apagar. Mandar los dos juntos es un error 400.
-  static Map<String, Object>? thinkingFor(String model) {
-    final match = RegExp(r'^gemini-(\d+)(?:\.(\d+))?').firstMatch(model);
-    if (match == null) return null;
-    final major = int.parse(match.group(1)!);
-    final minor = int.tryParse(match.group(2) ?? '') ?? 0;
+  ///
+  /// Con [thinkMore] («Pensar más», F42), lo contrario: `thinkingLevel: high`
+  /// del 3 en adelante y, en el 2.5, `thinkingBudget: -1`, que deja pensar lo
+  /// que el modelo crea necesario.
+  static Map<String, Object>? thinkingFor(
+    String model, {
+    bool thinkMore = false,
+  }) {
+    final generation = geminiGeneration(model);
+    if (generation == null) return null;
+    final (major, minor) = generation;
+    if (thinkMore && geminiThinks(model)) {
+      return major >= 3 ? {'thinkingLevel': 'high'} : {'thinkingBudget': -1};
+    }
     if (major >= 3) return {'thinkingLevel': 'low'};
     if (major == 2 && minor >= 5 && !model.contains('-pro')) {
       return {'thinkingBudget': 0};
@@ -158,7 +168,8 @@ class GeminiWire implements CloudWire {
 
   /// El cuerpo del pedido, tal como se manda.
   static Map<String, Object> bodyOf(CloudRequest request) {
-    final thinking = thinkingFor(request.model);
+    final deep = request.thinkMore && geminiThinks(request.model);
+    final thinking = thinkingFor(request.model, thinkMore: deep);
     return {
       'systemInstruction': {
         'parts': [
@@ -184,7 +195,11 @@ class GeminiWire implements CloudWire {
       'generationConfig': {
         'maxOutputTokens':
             request.maxOutputTokens +
-            (thinksAnyway(request.model) ? kGeminiThinkingHeadroomTokens : 0),
+            (deep
+                ? kCloudThinkMoreHeadroomTokens
+                : thinksAnyway(request.model)
+                ? kGeminiThinkingHeadroomTokens
+                : 0),
         'thinkingConfig': ?thinking,
       },
     };

@@ -6,8 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
-import 'package:sinapsis/core/design/thumbnail_decode.dart';
-import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/chat_attachment.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
@@ -18,8 +16,10 @@ import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_thinking.dart';
 import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
+import 'package:sinapsis/features/capture/domain/services/camera_chooser.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
@@ -28,8 +28,15 @@ import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart'
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_selection.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_think_more_provider.dart';
+import 'package:sinapsis/features/chat/presentation/widgets/add_to_chat_sheet.dart';
+import 'package:sinapsis/features/chat/presentation/widgets/chat_ambient_glow.dart';
+import 'package:sinapsis/features/chat/presentation/widgets/chat_attachments.dart';
+import 'package:sinapsis/features/chat/presentation/widgets/chat_composer.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_conversations_panel.dart';
+import 'package:sinapsis/features/chat/presentation/widgets/chat_model_notice.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_top_bar.dart';
+import 'package:sinapsis/features/chat/presentation/widgets/chat_welcome.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
@@ -54,19 +61,9 @@ const _kAttachmentTextBudget = 1800;
 /// mensaje: menos que sin ellos, para que entre todo.
 const _kSourcesWithAttachments = 2;
 
-/// Un adjunto ya elegido y guardado, listo para mandarse con el próximo
-/// mensaje.
-///
-/// Guarda los bytes además de [attachment] —que ya tiene su
-/// [ChatAttachment.relativePath] en el almacén— para no tener que releerlos
-/// del disco al armar el mensaje multimodal ni al dibujar la miniatura en
-/// el compositor.
-class _PendingAttachment {
-  const _PendingAttachment({required this.attachment, required this.bytes});
-
-  final ChatAttachment attachment;
-  final Uint8List bytes;
-}
+/// De dónde viene lo que se adjunta: las tres tarjetas de «Agregar al chat»
+/// (F42).
+enum _AttachSource { camera, photos, files }
 
 /// El chat de la app, en dos modos, con historial persistente.
 ///
@@ -97,8 +94,9 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _controller = TextEditingController();
+  final _composerFocus = FocusNode();
   final _scrollController = ScrollController();
-  final List<_PendingAttachment> _pendingAttachments = [];
+  final List<PendingChatAttachment> _pendingAttachments = [];
 
   /// Si el modelo elegido puede contestar y, si no, qué le falta (F32):
   /// bajar Gemma, una clave, la cuota. `null` mientras se mira.
@@ -106,6 +104,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool get _modelReady => _modelStatus?.isReady ?? false;
   var _asking = false;
   var _attaching = false;
+
+  /// «Pensar más», prendido desde «Agregar al chat» (F42). Vale para lo que
+  /// se pregunte mientras el chat esté abierto, en los dos modos; no se
+  /// guarda, porque pensar a fondo tarda y gasta más cuota, y eso se elige
+  /// a sabiendas cada vez. Solo llega al modelo si el que escribe tiene cómo
+  /// ([_thinkingMore]).
+  var _thinkMore = false;
+
+  /// Si «Pensar más» vale ahora: prendido y con un modelo que lo permite.
+  bool get _thinkingMore =>
+      _thinkMore &&
+      ref.read(chatThinkMoreSupportProvider).support ==
+          ThinkMoreSupport.supported;
 
   /// Dónde está parado el chat —el modo, el cuaderno y la conversación
   /// abierta de cada modo— (F42): vive en [chatSelectionProvider], porque
@@ -209,6 +220,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ..removeListener(_followStreaming)
       ..dispose();
     _controller.dispose();
+    _composerFocus.dispose();
     _scrollController.dispose();
     unawaited(_conversation?.close());
     unawaited(_vaultConversation?.close());
@@ -285,49 +297,49 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _newConversation() =>
       ref.read(chatSelectionProvider.notifier).startNew();
 
-  Future<void> _pickAttachmentKind() async {
-    final l10n = AppLocalizations.of(context)!;
+  /// La hoja «Agregar al chat» del «+» (F42): adjuntar, dónde se pregunta
+  /// y «Pensar más». Lo que se cambia ahí vale en el acto.
+  Future<void> _openAddSheet() async {
+    FocusScope.of(context).unfocus();
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.image_outlined),
-              title: Text(l10n.chatAttachImageAction),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                unawaited(_addAttachment());
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.description_outlined),
-              title: Text(l10n.chatAttachDocumentAction),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                unawaited(_addAttachment());
-              },
-            ),
-          ],
-        ),
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (_) => AddToChatSheet(
+        thinkMore: _thinkMore,
+        hasImage: _pendingAttachments.any((a) => a.isImage),
+        onCamera: () => unawaited(_attachFrom(_AttachSource.camera)),
+        onPhotos: () => unawaited(_attachFrom(_AttachSource.photos)),
+        onFiles: () => unawaited(_attachFrom(_AttachSource.files)),
+        onThinkMoreChanged: (on) => setState(() => _thinkMore = on),
       ),
     );
   }
 
-  /// Trae un archivo del selector del sistema y lo clasifica **por sus
-  /// bytes**, no por cuál de las dos opciones del menú se tocó: los dos
-  /// caminos abren el mismo selector sin filtrar —igual que
+  /// Trae un archivo de [source] —la cámara, la galería o el selector de
+  /// archivos— y lo clasifica **por sus bytes**, no por la tarjeta que se
+  /// tocó: «Archivos» abre el selector sin filtrar —igual que
   /// `SystemFileChooser`, que tampoco confía en la extensión— y es
   /// `FileFormat.sourceKind` quien decide si es una imagen o un documento.
-  Future<void> _addAttachment() async {
+  Future<void> _attachFrom(_AttachSource source) async {
     final l10n = AppLocalizations.of(context)!;
 
     final CapturedFile? chosen;
     try {
-      chosen = await ref.read(fileChooserProvider).pickOne();
+      chosen = await switch (source) {
+        _AttachSource.camera => ref.read(cameraChooserProvider).takePhoto(),
+        _AttachSource.photos =>
+          ref.read(photoLibraryChooserProvider).pickPhoto(),
+        _AttachSource.files => ref.read(fileChooserProvider).pickOne(),
+      };
     } on FileAccessDeniedException {
       if (!mounted) return;
       _showSnack(l10n.captureFileAccessDenied);
+      return;
+    } on CameraAccessDeniedException {
+      if (!mounted) return;
+      _showSnack(l10n.captureCameraAccessDenied);
       return;
     }
     if (chosen == null || !mounted) return;
@@ -358,9 +370,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (format.sourceKind == SourceKind.image) {
       // El modelo mira una foto por mensaje (F30): es lo que le entra en la
       // ventana junto con el resto, y lo que el motor carga.
-      if (_pendingAttachments.any(
-        (a) => a.attachment.kind == ChatAttachmentKind.image,
-      )) {
+      if (_pendingAttachments.any((a) => a.isImage)) {
         _showSnack(l10n.chatAttachOneImage);
         return;
       }
@@ -371,7 +381,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (!mounted) return;
       setState(() {
         _pendingAttachments.add(
-          _PendingAttachment(
+          PendingChatAttachment(
             attachment: ChatAttachment(
               name: file.name,
               kind: ChatAttachmentKind.image,
@@ -405,7 +415,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (!mounted) return;
       setState(() {
         _pendingAttachments.add(
-          _PendingAttachment(
+          PendingChatAttachment(
             attachment: ChatAttachment(
               name: file.name,
               kind: ChatAttachmentKind.document,
@@ -426,8 +436,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  void _removeAttachment(_PendingAttachment attachment) {
+  void _removeAttachment(PendingChatAttachment attachment) {
     setState(() => _pendingAttachments.remove(attachment));
+  }
+
+  /// Una sugerencia del chat vacío (F42): la que es una pregunta entera se
+  /// manda; la que hay que completar queda en el campo, con el cursor al
+  /// final y el teclado abierto.
+  void _useSuggestion(ChatSuggestionPick pick) {
+    _controller.value = TextEditingValue(
+      text: pick.text,
+      selection: TextSelection.collapsed(offset: pick.text.length),
+    );
+    if (pick.send) {
+      unawaited(_send());
+    } else {
+      _composerFocus.requestFocus();
+    }
   }
 
   void _showSnack(String message) {
@@ -438,7 +463,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _send() async {
     final text = _controller.text.trim();
-    final attachments = List<_PendingAttachment>.of(_pendingAttachments);
+    final attachments = List<PendingChatAttachment>.of(_pendingAttachments);
     if ((text.isEmpty && attachments.isEmpty) || _asking) return;
 
     final l10n = AppLocalizations.of(context)!;
@@ -581,7 +606,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// y se muestra en pantalla es solo [text], sin este agregado: la persona
   /// que preguntó no necesita releer el documento entero que ella misma
   /// adjuntó.
-  String _buildPrompt(String text, List<_PendingAttachment> attachments) {
+  String _buildPrompt(String text, List<PendingChatAttachment> attachments) {
     final docs = [
       for (final a in attachments)
         if (a.attachment.kind == ChatAttachmentKind.document &&
@@ -681,6 +706,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           message: promptText,
           sources: sources,
           images: images,
+          thinkMore: _thinkingMore,
         ),
       );
       return _replyMessage(
@@ -738,7 +764,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           .startConversation();
 
       final reply = await _follow(
-        conversation.send(promptText, images: images),
+        conversation.send(promptText, images: images, thinkMore: _thinkingMore),
       );
       return _replyMessage(
         reply,
@@ -772,12 +798,53 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
+  /// Lo que le falta al modelo para contestar, con el botón que lo resuelve
+  /// (F42; antes, una franja arriba de todo): en el vacío, una tarjeta
+  /// debajo de las sugerencias; en una conversación, [compact], una línea
+  /// arriba del campo. `null` si ya puede contestar o todavía se está
+  /// mirando.
+  Widget? _modelNotice({required bool compact}) {
+    final status = _modelStatus;
+    if (status == null || status.isReady) return null;
+    final l10n = AppLocalizations.of(context)!;
+    final isFree = _mode == ChatConversationMode.free;
+    final action = languageModelMissingAction(
+      l10n,
+      status,
+      downloadLabel: l10n.chatModelDownloadAction,
+    );
+    return ChatModelNotice(
+      compact: compact,
+      icon: switch (status) {
+        LanguageModelNeedsDownload() => Icons.download_rounded,
+        LanguageModelOutOfQuota() => Icons.hourglass_bottom_rounded,
+        _ => Icons.key_rounded,
+      },
+      message: switch (status) {
+        LanguageModelNeedsDownload() =>
+          isFree ? l10n.chatFreeModelRequired : l10n.chatModelNotReadyBanner,
+        // Con la nube, lo que falta (F32); en el modo con la bóveda, además,
+        // que mientras se ven las fuentes.
+        _ => [
+          languageModelMissingMessage(context, status),
+          if (!isFree) l10n.chatSourcesMeanwhile,
+        ].join(' '),
+      },
+      actionLabel: action.label,
+      onAction: () => unawaited(_openModelScreen(action.route)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final selection = ref.watch(chatSelectionProvider);
     final isFree = selection.isFree;
     final conversationId = selection.conversationId;
+    final thinkingMore =
+        _thinkMore &&
+        ref.watch(chatThinkMoreSupportProvider).support ==
+            ThinkMoreSupport.supported;
     // Elegir otra cuenta o proveedor, cargar una clave o quedarse sin cuota
     // cambia lo que el chat puede hacer sin salir de él (F32).
     ref.listen(languageModelStatusProvider, (_, next) {
@@ -793,67 +860,62 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         onNewConversation: conversationId == null ? null : _newConversation,
         onOpenRoute: (route) => unawaited(_openModelScreen(route)),
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (_modelStatus case final status? when !status.isReady)
-              _ModelBanner(
-                message: switch (status) {
-                  LanguageModelNeedsDownload() =>
-                    isFree
-                        ? l10n.chatFreeModelRequired
-                        : l10n.chatModelNotReadyBanner,
-                  // Con la nube, lo que falta (F32); en el modo con la
-                  // bóveda, además, que mientras se ven las fuentes.
-                  _ => [
-                    languageModelMissingMessage(context, status),
-                    if (!isFree) l10n.chatSourcesMeanwhile,
-                  ].join(' '),
-                },
-                action: languageModelMissingAction(
-                  l10n,
-                  status,
-                  downloadLabel: l10n.chatModelDownloadAction,
+      body: Stack(
+        children: [
+          // El brillo del vacío va detrás de todo, también del campo: sube
+          // desde abajo (F42).
+          if (conversationId == null)
+            const Positioned.fill(child: ChatAmbientGlow()),
+          SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: conversationId == null
+                      ? ChatWelcome(
+                          mode: selection.mode,
+                          notebookId: isFree ? null : selection.notebookId,
+                          onSuggestion: _useSuggestion,
+                          notice: _modelNotice(compact: false),
+                        )
+                      : _MessagesList(
+                          conversationId: conversationId,
+                          mode: selection.mode,
+                          asking:
+                              _asking &&
+                              _askingConversationId == conversationId,
+                          streaming: _streamingText,
+                          scrollController: _scrollController,
+                        ),
                 ),
-                onDownload: _openModelScreen,
-              ),
-            Expanded(
-              child: conversationId == null
-                  ? _EmptyState(
-                      explanation: isFree
-                          ? l10n.chatFreeEmptyExplanation
-                          : l10n.chatEmptyExplanation,
-                    )
-                  : _MessagesList(
-                      conversationId: conversationId,
-                      mode: _mode,
-                      asking:
-                          _asking && _askingConversationId == conversationId,
-                      streaming: _streamingText,
-                      scrollController: _scrollController,
-                    ),
+                // En una conversación, lo que le falta al modelo sigue a la
+                // vista, en una línea arriba del campo.
+                if (conversationId != null) ?_modelNotice(compact: true),
+                // El lector flotante se para encima del campo, no sobre
+                // "Enviar" (F25).
+                ReadAloudClearance(
+                  child: ChatComposer(
+                    controller: _controller,
+                    focusNode: _composerFocus,
+                    hintText: isFree
+                        ? l10n.chatComposerFreeHint
+                        : l10n.chatComposerVaultHint,
+                    attachments: _pendingAttachments,
+                    onRemoveAttachment: _removeAttachment,
+                    onSend: () => unawaited(_send()),
+                    onStop: _stopReply == null
+                        ? null
+                        : () => unawaited(_stopReply?.call()),
+                    onAdd: _attaching ? null : _openAddSheet,
+                    asking: _asking,
+                    attaching: _attaching,
+                    thinkMore: thinkingMore,
+                    onThinkMoreOff: () => setState(() => _thinkMore = false),
+                  ),
+                ),
+              ],
             ),
-            if (_pendingAttachments.isNotEmpty)
-              _AttachmentChips(
-                attachments: _pendingAttachments,
-                onRemove: _removeAttachment,
-              ),
-            // El lector flotante se para encima de la caja, no sobre
-            // "Enviar" (F25).
-            ReadAloudClearance(
-              child: _Composer(
-                controller: _controller,
-                enabled: !_asking,
-                attaching: _attaching,
-                onSend: _send,
-                onStop: _stopReply == null
-                    ? null
-                    : () => unawaited(_stopReply?.call()),
-                onAttach: _attaching ? null : _pickAttachmentKind,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -924,13 +986,7 @@ class _MessagesList extends ConsumerWidget {
 
     return messagesAsync.when(
       data: (messages) {
-        if (messages.isEmpty && !asking) {
-          return _EmptyState(
-            explanation: mode == ChatConversationMode.free
-                ? l10n.chatFreeEmptyExplanation
-                : l10n.chatEmptyExplanation,
-          );
-        }
+        if (messages.isEmpty && !asking) return ChatWelcome(mode: mode);
         return ReadableRegion(
           document: ref.watch(
             _readableProvider((
@@ -959,51 +1015,6 @@ class _MessagesList extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, stackTrace) => Center(child: Text(l10n.globalErrorUnexpected)),
     );
-  }
-}
-
-class _ModelBanner extends StatelessWidget {
-  const _ModelBanner({
-    required this.message,
-    required this.action,
-    required this.onDownload,
-  });
-
-  final String message;
-
-  /// Qué dice el botón y adónde lleva.
-  final ({String label, String route}) action;
-  final void Function(String route) onDownload;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      color: theme.colorScheme.surfaceContainerHigh,
-      child: Row(
-        children: [
-          Expanded(child: Text(message, style: theme.textTheme.bodySmall)),
-          TextButton(
-            onPressed: () => onDownload(action.route),
-            child: Text(action.label),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.explanation});
-
-  final String explanation;
-
-  @override
-  Widget build(BuildContext context) {
-    return EmptyStateView(icon: Icons.chat_bubble_outline, title: explanation);
   }
 }
 
@@ -1071,7 +1082,7 @@ class _MessageBubble extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     for (final attachment in message.attachments)
-                      _AttachmentPreview(attachment: attachment),
+                      ChatAttachmentTile(attachment: attachment),
                   ],
                 ),
               ),
@@ -1143,83 +1154,6 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
-class _AttachmentPreview extends ConsumerWidget {
-  const _AttachmentPreview({required this.attachment});
-
-  final ChatAttachment attachment;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-
-    if (attachment.kind == ChatAttachmentKind.image) {
-      final bytesAsync = ref.watch(
-        chatAttachmentBytesProvider(attachment.relativePath),
-      );
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: bytesAsync.maybeWhen(
-          data: (bytes) => bytes == null
-              ? _AttachmentPlaceholder(theme: theme)
-              : Image.memory(
-                  bytes,
-                  width: 96,
-                  height: 96,
-                  fit: BoxFit.cover,
-                  // Una foto adjunta son millones de píxeles: se decodifica
-                  // al tamaño de la miniatura, no entera.
-                  cacheWidth: thumbnailDecodeWidth(context, 96),
-                  // Bytes corruptos o truncados no deberían tirar abajo el
-                  // mensaje entero: un ícono genérico es peor que una
-                  // miniatura, pero mucho mejor que una pantalla roja.
-                  errorBuilder: (context, error, stackTrace) =>
-                      _AttachmentPlaceholder(theme: theme),
-                ),
-          orElse: () => _AttachmentPlaceholder(theme: theme),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.description_outlined, size: 18),
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 160),
-            child: Text(attachment.name, overflow: TextOverflow.ellipsis),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AttachmentPlaceholder extends StatelessWidget {
-  const _AttachmentPlaceholder({required this.theme});
-
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 96,
-      height: 96,
-      color: theme.colorScheme.surfaceContainerHigh,
-      child: Icon(
-        Icons.image_outlined,
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
-    );
-  }
-}
-
 class _SourceCard extends StatelessWidget {
   const _SourceCard({required this.source});
 
@@ -1260,119 +1194,6 @@ class _SourceCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _AttachmentChips extends StatelessWidget {
-  const _AttachmentChips({required this.attachments, required this.onRemove});
-
-  final List<_PendingAttachment> attachments;
-  final void Function(_PendingAttachment) onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final pending in attachments)
-            InputChip(
-              avatar: pending.attachment.kind == ChatAttachmentKind.image
-                  ? ClipOval(
-                      child: Image.memory(
-                        pending.bytes,
-                        width: 24,
-                        height: 24,
-                        fit: BoxFit.cover,
-                        cacheWidth: thumbnailDecodeWidth(context, 24),
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.image_outlined, size: 18),
-                      ),
-                    )
-                  : const Icon(Icons.description_outlined, size: 18),
-              label: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 140),
-                child: Text(
-                  pending.attachment.name,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              deleteButtonTooltipMessage: l10n.chatAttachRemoveTooltip,
-              onDeleted: () => onRemove(pending),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Composer extends StatelessWidget {
-  const _Composer({
-    required this.controller,
-    required this.enabled,
-    required this.attaching,
-    required this.onSend,
-    required this.onStop,
-    required this.onAttach,
-  });
-
-  final TextEditingController controller;
-  final bool enabled;
-  final bool attaching;
-  final VoidCallback onSend;
-
-  /// Corta la respuesta que se está escribiendo; `null` si no hay ninguna.
-  /// Mientras haya una, el botón de enviar es el de detener (F30).
-  final VoidCallback? onStop;
-  final VoidCallback? onAttach;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          IconButton(
-            icon: attaching
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.attach_file),
-            tooltip: l10n.chatAttachTooltip,
-            onPressed: onAttach,
-          ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              enabled: enabled,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => onSend(),
-              decoration: InputDecoration(hintText: l10n.chatInputHint),
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (onStop case final stop?)
-            IconButton.filledTonal(
-              icon: const Icon(Icons.stop),
-              tooltip: l10n.chatStopTooltip,
-              onPressed: stop,
-            )
-          else
-            IconButton.filled(
-              icon: const Icon(Icons.send),
-              onPressed: enabled ? onSend : null,
-            ),
-        ],
       ),
     );
   }

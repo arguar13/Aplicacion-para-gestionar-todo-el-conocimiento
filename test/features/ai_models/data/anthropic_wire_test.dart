@@ -139,6 +139,27 @@ void main() {
       }
     });
 
+    test('con «Pensar más» (F42), los 5.x piensan a fondo con el margen '
+        'grande; los 4.x, igual que siempre', () {
+      Map<String, Object> body(String model) => AnthropicWire.bodyOf(
+        CloudRequest(
+          model: model,
+          instruction: 'x',
+          messages: const [],
+          maxOutputTokens: 48,
+          thinkMore: true,
+        ),
+      );
+      expect(body('claude-opus-5-5')['output_config'], {'effort': 'high'});
+      expect(body('claude-opus-5-5').containsKey('thinking'), isFalse);
+      expect(
+        body('claude-opus-5-5')['max_tokens'],
+        48 + kCloudThinkMoreHeadroomTokens,
+      );
+      expect(body('claude-opus-4-8').containsKey('output_config'), isFalse);
+      expect(body('claude-opus-4-8')['max_tokens'], 48);
+    });
+
     test('los 4.x, ni `effort` ni margen', () {
       final body = AnthropicWire.bodyOf(
         const CloudRequest(

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
@@ -7,6 +6,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../support/chat_actions.dart';
 import '../../support/library_harness.dart';
 
 /// Un cuaderno funciona como buscador acotado del chat SIN el modelo de
@@ -27,22 +27,13 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> send(WidgetTester tester, String text) async {
-    await tester.enterText(find.byType(TextField), text);
-    await tester.tap(find.byIcon(Icons.send));
-    await tester.pumpAndSettle();
-  }
+  Future<void> send(WidgetTester tester, String text) =>
+      sendChatMessage(tester, text);
 
   /// El cuaderno se elige en la hoja «Dónde pregunto», que abre la línea
-  /// debajo del modelo (F42); elegirlo la cierra.
-  Future<void> selectScope(WidgetTester tester, String label) async {
-    await tester.tap(find.byKey(const Key('chat-scope-line')));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(of: find.byType(BottomSheet), matching: find.text(label)),
-    );
-    await tester.pumpAndSettle();
-  }
+  /// debajo del modelo (F42).
+  Future<void> selectScope(WidgetTester tester, String label) =>
+      chooseChatScope(tester, label);
 
   testWidgets(
     'sin el modelo descargado, elegir un cuaderno igual acota la búsqueda',

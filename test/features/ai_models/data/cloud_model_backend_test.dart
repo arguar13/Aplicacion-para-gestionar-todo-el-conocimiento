@@ -982,6 +982,24 @@ void main() {
       await chat.close();
     });
 
+    test('«Pensar más» (F42) llega al pedido de ese mensaje y no a los '
+        'demás', () async {
+      wire.scripts['clave-1'] = [
+        ['Uno.'],
+        ['Dos.'],
+      ];
+      final chat = await backend.openConversation(
+        instruction: 'Charlá',
+        maxOutputTokens: 512,
+      );
+
+      await chat.send(prompt: 'A', said: 'A', thinkMore: true).toList();
+      await chat.send(prompt: 'B', said: 'B').toList();
+
+      expect(wire.calls.map((call) => call.request.thinkMore), [true, false]);
+      await chat.close();
+    });
+
     test('un error llega a quien escucha', () async {
       wire
         ..scripts['clave-1'] = [_quota()]

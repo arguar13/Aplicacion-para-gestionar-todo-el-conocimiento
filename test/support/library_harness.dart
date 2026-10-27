@@ -23,6 +23,8 @@ import 'package:sinapsis/features/capture/presentation/providers/capture_provide
 import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/chat/presentation/providers/dictation_providers.dart';
+import 'package:sinapsis/features/chat/presentation/widgets/chat_ambient_glow.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
@@ -38,6 +40,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'fake_camera_chooser.dart';
 import 'fake_chat_model.dart';
 import 'fake_chat_model_manager.dart';
+import 'fake_dictation.dart';
 import 'fake_directory_chooser.dart';
 import 'fake_directory_writer.dart';
 import 'fake_embedding_model_manager.dart';
@@ -46,6 +49,7 @@ import 'fake_file_chooser.dart';
 import 'fake_file_opener.dart';
 import 'fake_file_saver.dart';
 import 'fake_id_generator.dart';
+import 'fake_photo_library_chooser.dart';
 import 'fake_property_suggestion_service.dart';
 import 'fake_relation_suggestion_service.dart';
 import 'fake_shared_content_listener.dart';
@@ -87,6 +91,8 @@ class LibraryHarness {
     this.summarizationService,
     this.propertySuggestionService,
     this.textToSpeechService,
+    this.photoLibraryChooser,
+    this.dictation,
   );
 
   /// Prepara todo y programa la limpieza. Llamar desde `setUp`.
@@ -121,6 +127,19 @@ class LibraryHarness {
 
     /// Si está, la cámara lanza esto en vez de devolver.
     Object? cameraChooserError,
+
+    /// Lo que devuelve la galería de fotos (F42). `null` —el valor por
+    /// defecto— simula cerrarla sin elegir ninguna.
+    CapturedFile? chosenGalleryPhoto,
+
+    /// Si hay reconocimiento de voz para dictar en el chat (F42). Sin él
+    /// —el valor por defecto— el 🎤 no aparece.
+    bool dictationAvailable = false,
+
+    /// Cuántas veces respira el brillo del chat vacío (F42). Quieto por
+    /// defecto: respirando, cada `pumpAndSettle` sobre el chat pasaría medio
+    /// minuto de cuadros con el reloj simulado. Su prueba lo hace respirar.
+    int chatGlowBreaths = 0,
 
     /// La carpeta que "elige" quien prueba el paquete de NotebookLM. `null`
     /// —el valor por defecto, igual que con el archivo elegido más arriba—
@@ -200,6 +219,8 @@ class LibraryHarness {
       photo: chosenPhoto,
       error: cameraChooserError,
     );
+    final gallery = FakePhotoLibraryChooser(photo: chosenGalleryPhoto);
+    final dictation = FakeDictation(available: dictationAvailable);
     final files = InMemoryFileStore();
     final opener = FakeFileOpener();
     final saver = FakeFileSaver();
@@ -239,6 +260,10 @@ class LibraryHarness {
         // Mismo motivo: abrir la cámara de verdad necesita una cámara real
         // detrás.
         cameraChooserProvider.overrideWithValue(camera),
+        photoLibraryChooserProvider.overrideWithValue(gallery),
+        // El micrófono de verdad necesita un teléfono (F42).
+        dictationProvider.overrideWithValue(dictation),
+        chatGlowBreathsProvider.overrideWithValue(chatGlowBreaths),
         // El almacén real escribe en la carpeta de documentos de la app, y
         // esa ruta la resuelve un canal de plataforma que en un test no
         // existe: la llamada nunca contesta y la prueba se cuelga. Además,
@@ -360,6 +385,8 @@ class LibraryHarness {
       summarizationService,
       propertySuggestionService,
       textToSpeechService,
+      gallery,
+      dictation,
     );
   }
 
@@ -373,6 +400,12 @@ class LibraryHarness {
   /// La cámara de mentira, para comprobar que se abrió y controlar qué foto
   /// "saca".
   final FakeCameraChooser cameraChooser;
+
+  /// La galería de fotos de mentira (F42).
+  final FakePhotoLibraryChooser photoLibraryChooser;
+
+  /// El reconocimiento de voz de mentira (F42): la prueba habla por acá.
+  final FakeDictation dictation;
 
   /// El almacén en memoria, para comprobar qué archivo quedó guardado.
   final InMemoryFileStore files;

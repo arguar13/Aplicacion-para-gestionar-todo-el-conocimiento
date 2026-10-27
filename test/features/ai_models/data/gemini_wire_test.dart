@@ -198,6 +198,38 @@ void main() {
         48 + kGeminiThinkingHeadroomTokens,
       );
     });
+
+    test('con «Pensar más» (F42), lo contrario: `high` del 3 en adelante, '
+        'sin tope en el 2.5, y el margen grande; el 2.0 no cambia', () {
+      Map<dynamic, dynamic> config(String model) =>
+          GeminiWire.bodyOf(
+                CloudRequest(
+                  model: model,
+                  instruction: 'x',
+                  messages: const [],
+                  maxOutputTokens: 48,
+                  thinkMore: true,
+                ),
+              )['generationConfig']!
+              as Map;
+
+      for (final model in ['gemini-3.8-flash', 'gemini-4-argon']) {
+        expect(config(model)['thinkingConfig'], {'thinkingLevel': 'high'});
+        expect(
+          config(model)['maxOutputTokens'],
+          48 + kCloudThinkMoreHeadroomTokens,
+        );
+      }
+      for (final model in ['gemini-2.5-flash', 'gemini-2.5-pro']) {
+        expect(config(model)['thinkingConfig'], {'thinkingBudget': -1});
+        expect(
+          config(model)['maxOutputTokens'],
+          48 + kCloudThinkMoreHeadroomTokens,
+        );
+      }
+      expect(config('gemini-2.0-flash').containsKey('thinkingConfig'), isFalse);
+      expect(config('gemini-2.0-flash')['maxOutputTokens'], 48);
+    });
   });
 
   group('la respuesta', () {

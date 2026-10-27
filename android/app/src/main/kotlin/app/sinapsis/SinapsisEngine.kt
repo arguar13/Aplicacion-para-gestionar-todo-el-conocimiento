@@ -11,6 +11,7 @@ import android.provider.Settings
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.FlutterShellArgs
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
@@ -157,6 +158,12 @@ object SinapsisEngine {
         // la app cerrada (F29): "Inicio automático" y el ahorro de batería.
         MethodChannel(messenger, BackgroundSettingsChannel.CHANNEL)
             .setMethodCallHandler(BackgroundSettingsChannel(context))
+
+        // Dictar en el chat (F42): el reconocedor de voz del sistema. Uno solo
+        // atiende los dos canales: el de las preguntas y el de lo que se oye.
+        val dictation = DictationChannel(context)
+        MethodChannel(messenger, DictationChannel.CHANNEL).setMethodCallHandler(dictation)
+        EventChannel(messenger, DictationChannel.EVENTS).setStreamHandler(dictation)
 
         // El encendido del teléfono, para que la bóveda pida la clave una
         // vez por encendido: el contador de arranques del sistema, que sube

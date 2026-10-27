@@ -80,6 +80,10 @@ class FakeFreeConversation implements FreeConversation {
   /// [sent].
   final sentImages = <List<Uint8List>>[];
 
+  /// Si cada mensaje se mandó con «Pensar más» (F42), en el mismo orden que
+  /// [sent].
+  final sentThinkMore = <bool>[];
+
   bool closed = false;
 
   /// Si es `true`, cada respuesta queda abierta en [replies] para que la
@@ -90,9 +94,14 @@ class FakeFreeConversation implements FreeConversation {
   final replies = <StreamController<String>>[];
 
   @override
-  ChatReplyStream send(String message, {List<Uint8List> images = const []}) {
+  ChatReplyStream send(
+    String message, {
+    List<Uint8List> images = const [],
+    bool thinkMore = false,
+  }) {
     sent.add(message);
     sentImages.add(images);
+    sentThinkMore.add(thinkMore);
     return _reply(response, error, manual ? replies : null);
   }
 
@@ -122,6 +131,9 @@ class FakeVaultConversation implements VaultConversation {
   /// [sent].
   final sentImages = <List<Uint8List>>[];
 
+  /// Ver [FakeFreeConversation.sentThinkMore].
+  final sentThinkMore = <bool>[];
+
   bool closed = false;
 
   /// Ver [FakeFreeConversation.manual].
@@ -135,10 +147,12 @@ class FakeVaultConversation implements VaultConversation {
     required String message,
     required List<ChatSource> sources,
     List<Uint8List> images = const [],
+    bool thinkMore = false,
   }) {
     sent.add(message);
     sentSources.add(sources);
     sentImages.add(images);
+    sentThinkMore.add(thinkMore);
     return _reply(response, error, manual ? replies : null);
   }
 

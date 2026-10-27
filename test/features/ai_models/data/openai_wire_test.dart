@@ -126,6 +126,29 @@ void main() {
       }
     });
 
+    test('con «Pensar más» (F42), los que razonan piensan a fondo, con el '
+        'margen grande; los que no, igual que siempre', () {
+      Map<String, Object> body(String model) => OpenAiWire.bodyOf(
+        CloudRequest(
+          model: model,
+          instruction: 'x',
+          messages: const [],
+          maxOutputTokens: 48,
+          thinkMore: true,
+        ),
+      );
+      for (final model in ['gpt-5.2', 'o3']) {
+        expect(body(model)['reasoning_effort'], 'high', reason: model);
+        expect(
+          body(model)['max_completion_tokens'],
+          48 + kCloudThinkMoreHeadroomTokens,
+          reason: model,
+        );
+      }
+      expect(body('gpt-4o-mini').containsKey('reasoning_effort'), isFalse);
+      expect(body('gpt-4o-mini')['max_completion_tokens'], 48);
+    });
+
     test('los que no razonan: `system`, sin `reasoning_effort` ni '
         'margen', () {
       for (final model in ['gpt-4.1', 'gpt-4o-mini', 'gpt-5-chat-latest']) {

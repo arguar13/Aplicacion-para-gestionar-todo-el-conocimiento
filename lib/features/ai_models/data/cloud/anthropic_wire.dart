@@ -8,6 +8,7 @@ import 'package:sinapsis/features/ai_models/data/cloud/sse.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_info.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_thinking.dart';
 
 /// Lo que se le suma al tope de una respuesta en los modelos que siempre
 /// piensan antes de escribir (los 5.x): lo pensado cuenta dentro de
@@ -107,11 +108,10 @@ class AnthropicWire implements CloudWire {
     return winner ?? models.first.id;
   }
 
-  /// Si [model] es de la familia 5 (Opus, Sonnet, Haiku, Fable, Mythos):
-  /// siempre piensa, y lo que piensa se regula con `effort`.
-  static bool isFifthGeneration(String model) => RegExp(
-    r'^claude-(opus|sonnet|haiku|fable|mythos)-5(?:$|-)',
-  ).hasMatch(model);
+  /// Si [model] es de la familia 5: ver [anthropicFifthGeneration], que es
+  /// también lo que dice si puede «pensar más» (F42).
+  static bool isFifthGeneration(String model) =>
+      anthropicFifthGeneration(model);
 
   /// Los modelos que aceptan `fallbacks: "default"`: si el filtro de
   /// seguridad rechaza el pedido, lo reintenta otro modelo de Claude en el
@@ -126,11 +126,17 @@ class AnthropicWire implements CloudWire {
   /// El cuerpo del pedido, tal como se manda.
   static Map<String, Object> bodyOf(CloudRequest request) {
     final fifth = isFifthGeneration(request.model);
+    // «Pensar más» (F42): la misma perilla, al otro extremo.
+    final deep = fifth && request.thinkMore;
     return {
       'model': request.model,
       'max_tokens':
           request.maxOutputTokens +
-          (fifth ? kAnthropicThinkingHeadroomTokens : 0),
+          (deep
+              ? kCloudThinkMoreHeadroomTokens
+              : fifth
+              ? kAnthropicThinkingHeadroomTokens
+              : 0),
       if (request.instruction.isNotEmpty) 'system': request.instruction,
       'messages': [
         for (final message in request.messages)
@@ -151,9 +157,10 @@ class AnthropicWire implements CloudWire {
             ],
           },
       ],
-      // Pensar lo menos posible, que es lo más rápido. Sin `thinking`: en
-      // Opus 5.5 apagarlo es un error; `effort` es lo que lo regula.
-      if (fifth) 'output_config': {'effort': 'low'},
+      // Pensar lo menos posible, que es lo más rápido, salvo con «Pensar
+      // más». Sin `thinking`: en Opus 5.5 apagarlo es un error; `effort` es
+      // lo que lo regula.
+      if (fifth) 'output_config': {'effort': deep ? 'high' : 'low'},
       if (fallbackModels.contains(request.model)) 'fallbacks': 'default',
       'stream': true,
     };

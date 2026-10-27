@@ -1125,8 +1125,16 @@ class _FreeConversation implements FreeConversation {
   final ModelConversation _session;
 
   @override
-  ChatReplyStream send(String message, {List<Uint8List> images = const []}) =>
-      _session.send(prompt: message, said: message, images: images);
+  ChatReplyStream send(
+    String message, {
+    List<Uint8List> images = const [],
+    bool thinkMore = false,
+  }) => _session.send(
+    prompt: message,
+    said: message,
+    images: images,
+    thinkMore: thinkMore,
+  );
 
   @override
   Future<void> close() => _session.close();
@@ -1148,10 +1156,12 @@ class _VaultConversation implements VaultConversation {
     required String message,
     required List<ChatSource> sources,
     List<Uint8List> images = const [],
+    bool thinkMore = false,
   }) => _session.send(
     prompt: _buildVaultPrompt(message, sources),
     said: message,
     images: images,
+    thinkMore: thinkMore,
   );
 
   @override

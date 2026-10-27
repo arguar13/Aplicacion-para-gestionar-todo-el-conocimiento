@@ -16,6 +16,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/chat_actions.dart';
 import '../../../../support/library_harness.dart';
 
 /// Firma PNG mínima: ocho bytes alcanzan para que `detectFileFormat`
@@ -51,11 +52,8 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> send(WidgetTester tester, String text) async {
-    await tester.enterText(find.byType(TextField), text);
-    await tester.tap(find.byIcon(Icons.send));
-    await tester.pumpAndSettle();
-  }
+  Future<void> send(WidgetTester tester, String text) =>
+      sendChatMessage(tester, text);
 
   /// Busca solo dentro del panel de conversaciones: mientras está abierto, la
   /// conversación de fondo sigue montada detrás y puede repetir el mismo
@@ -78,20 +76,9 @@ void main() {
   }
 
   /// Elige [label] —un modo o un cuaderno— en la hoja «Dónde pregunto», que
-  /// se abre tocando la línea debajo del modelo (F42). Si la hoja queda
-  /// abierta —elegir la bóveda la deja para acotarla—, la cierra.
-  Future<void> chooseScope(WidgetTester tester, String label) async {
-    await tester.tap(find.byKey(const Key('chat-scope-line')));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(of: find.byType(BottomSheet), matching: find.text(label)),
-    );
-    await tester.pumpAndSettle();
-    if (find.byType(BottomSheet).evaluate().isNotEmpty) {
-      await tester.tapAt(const Offset(20, 20));
-      await tester.pumpAndSettle();
-    }
-  }
+  /// se abre tocando la línea debajo del modelo (F42).
+  Future<void> chooseScope(WidgetTester tester, String label) =>
+      chooseChatScope(tester, label);
 
   group('la pantalla a la vista retiene el modelo para la charla (F27)', () {
     testWidgets('lo dice mientras se ve, deja de decirlo si otra pantalla la '
@@ -169,13 +156,11 @@ void main() {
   });
 
   group('modo con mi bóveda (por defecto)', () {
-    testWidgets('arranca en este modo, con su explicación propia', (
-      tester,
-    ) async {
+    testWidgets('arranca en este modo, con su saludo propio', (tester) async {
       await pumpChat(tester);
 
-      expect(find.text(es.chatEmptyExplanation), findsOneWidget);
-      expect(find.text(es.chatFreeEmptyExplanation), findsNothing);
+      expect(find.text(es.chatGreetingVaultQuestion), findsOneWidget);
+      expect(find.text(es.chatGreetingFreeQuestion), findsNothing);
     });
 
     testWidgets('sin el modelo descargado y sin nada guardado, dice que no '
@@ -249,7 +234,7 @@ void main() {
 
       expect(harness.chatModel.vaultConversations.single.closed, isTrue);
       expect(find.text('algo'), findsNothing);
-      expect(find.text(es.chatEmptyExplanation), findsOneWidget);
+      expect(find.text(es.chatGreetingVaultQuestion), findsOneWidget);
     });
   });
 
@@ -257,14 +242,14 @@ void main() {
     Future<void> switchToFreeMode(WidgetTester tester) =>
         chooseScope(tester, es.chatModeFree);
 
-    testWidgets('tiene su propia explicación, sin nada de la bóveda', (
+    testWidgets('tiene su propio saludo, sin nada de la bóveda', (
       tester,
     ) async {
       await pumpChat(tester);
       await switchToFreeMode(tester);
 
-      expect(find.text(es.chatFreeEmptyExplanation), findsOneWidget);
-      expect(find.text(es.chatEmptyExplanation), findsNothing);
+      expect(find.text(es.chatGreetingFreeQuestion), findsOneWidget);
+      expect(find.text(es.chatGreetingVaultQuestion), findsNothing);
     });
 
     testWidgets('sin el modelo descargado, no hay red de contención: '
@@ -274,8 +259,8 @@ void main() {
 
       await send(tester, 'hola');
 
-      // Aparece dos veces: el aviso persistente de arriba y el error del
-      // propio intercambio.
+      // Aparece dos veces: el aviso que sigue a la vista arriba del campo y
+      // el error del propio intercambio.
       expect(find.text(es.chatFreeModelRequired), findsNWidgets(2));
       // Y no le pide nada al modelo: no hay con qué.
       expect(harness.chatModel.conversations, isEmpty);
@@ -322,7 +307,7 @@ void main() {
 
       expect(harness.chatModel.conversations.single.closed, isTrue);
       expect(find.text('algo'), findsNothing);
-      expect(find.text(es.chatFreeEmptyExplanation), findsOneWidget);
+      expect(find.text(es.chatGreetingFreeQuestion), findsOneWidget);
 
       await send(tester, 'otra cosa');
 
@@ -372,14 +357,20 @@ void main() {
       chosenFile: CapturedFile(name: 'foto.png', bytes: _pngBytes),
     );
 
-    for (var i = 0; i < 2; i++) {
-      await tester.tap(find.byIcon(Icons.attach_file));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(es.chatAttachImageAction));
-      await tester.pumpAndSettle();
-    }
+    await attachFrom(tester, 'chat-add-files');
+    expect(find.byKey(const Key('chat-pending-attachment')), findsOneWidget);
 
-    expect(find.byType(InputChip), findsOneWidget);
+    // Con una foto ya adjunta, las tarjetas de fotos se apagan y lo dicen.
+    await openAddToChat(tester);
+    expect(find.text(es.chatAttachOneImage), findsOneWidget);
+    await tester.tap(find.byKey(const Key('chat-add-photos')));
+    await tester.pumpAndSettle();
+    expect(harness.photoLibraryChooser.timesOpened, 0);
+
+    // Y si llega otra imagen por «Archivos», no se adjunta y lo dice.
+    await tester.tap(find.byKey(const Key('chat-add-files')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('chat-pending-attachment')), findsOneWidget);
     expect(find.text(es.chatAttachOneImage), findsOneWidget);
   });
 
@@ -391,8 +382,7 @@ void main() {
       await pumpChat(tester, chatModelReady: true);
       harness.chatModel.manualReplies = true;
       await chooseScope(tester, es.chatModeFree);
-      await tester.enterText(find.byType(TextField), text);
-      await tester.tap(find.byIcon(Icons.send));
+      await typeAndSend(tester, text);
       await tester.pump();
       await tester.pump();
       return harness.chatModel.conversations.single.replies.single;
@@ -420,7 +410,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('chat-streaming-reply')), findsNothing);
       expect(find.text('Roma fue una república.'), findsOneWidget);
-      expect(find.byIcon(Icons.send), findsOneWidget);
+      expect(find.byTooltip(es.chatSendTooltip), findsOneWidget);
     });
 
     testWidgets('detenerla corta al modelo y guarda lo que alcanzó a '
@@ -447,7 +437,7 @@ void main() {
       await startNew(tester);
 
       expect(reply.hasListener, isFalse);
-      expect(find.text(es.chatFreeEmptyExplanation), findsOneWidget);
+      expect(find.text(es.chatGreetingFreeQuestion), findsOneWidget);
       await openPanel(tester);
       await tester.tap(inPanel(find.text('Contame de Roma')));
       await tester.pumpAndSettle();
@@ -493,12 +483,12 @@ void main() {
   });
 
   group('adjuntos', () {
-    Future<void> openAttachMenu(WidgetTester tester) async {
-      await tester.tap(find.byIcon(Icons.attach_file));
-      await tester.pumpAndSettle();
-    }
+    Future<void> attachFile(WidgetTester tester) =>
+        attachFrom(tester, 'chat-add-files');
 
-    testWidgets('adjuntar una imagen la muestra como chip en el compositor', (
+    final pendingAttachment = find.byKey(const Key('chat-pending-attachment'));
+
+    testWidgets('adjuntar una imagen la muestra en miniatura en el campo', (
       tester,
     ) async {
       await pumpChat(
@@ -506,17 +496,21 @@ void main() {
         chosenFile: CapturedFile(name: 'foto.png', bytes: _pngBytes),
       );
 
-      await openAttachMenu(tester);
-      await tester.tap(find.text(es.chatAttachImageAction));
-      await tester.pumpAndSettle();
+      await attachFile(tester);
 
-      expect(find.byType(InputChip), findsOneWidget);
-      expect(find.text('foto.png'), findsOneWidget);
+      expect(pendingAttachment, findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is Image && widget.semanticLabel == 'foto.png',
+        ),
+        findsOneWidget,
+      );
     });
 
-    // Una foto adjunta son millones de píxeles; el chip es de 24×24 puntos.
-    testWidgets('el chip de la imagen la decodifica al tamaño de su recuadro, '
-        'no entera', (tester) async {
+    // Una foto adjunta son millones de píxeles; la miniatura es de 64×64
+    // puntos.
+    testWidgets('la miniatura de la imagen la decodifica al tamaño de su '
+        'recuadro, no entera', (tester) async {
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
       await pumpChat(
@@ -524,18 +518,16 @@ void main() {
         chosenFile: CapturedFile(name: 'foto.png', bytes: _pngBytes),
       );
 
-      await openAttachMenu(tester);
-      await tester.tap(find.text(es.chatAttachImageAction));
-      await tester.pumpAndSettle();
+      await attachFile(tester);
 
-      final chip = find.descendant(
-        of: find.byType(InputChip),
+      final thumbnail = find.descendant(
+        of: pendingAttachment,
         matching: find.byType(Image),
       );
-      final image = tester.widget<Image>(chip).image;
+      final image = tester.widget<Image>(thumbnail).image;
       expect(image, isA<ResizeImage>());
-      // 24 puntos × 3 de densidad × 2.
-      expect((image as ResizeImage).width, 144);
+      // 64 puntos × 3 de densidad × 2.
+      expect((image as ResizeImage).width, 384);
     });
 
     testWidgets(
@@ -552,9 +544,7 @@ void main() {
           ),
         );
 
-        await openAttachMenu(tester);
-        await tester.tap(find.text(es.chatAttachDocumentAction));
-        await tester.pumpAndSettle();
+        await attachFile(tester);
 
         expect(find.text('notas.txt'), findsOneWidget);
 
@@ -578,9 +568,7 @@ void main() {
         chosenFile: CapturedFile(name: 'foto.png', bytes: _pngBytes),
       );
 
-      await openAttachMenu(tester);
-      await tester.tap(find.text(es.chatAttachImageAction));
-      await tester.pumpAndSettle();
+      await attachFile(tester);
 
       await send(tester, 'qué ves acá');
 
@@ -597,15 +585,13 @@ void main() {
         chosenFile: CapturedFile(name: 'foto.png', bytes: _pngBytes),
       );
 
-      await openAttachMenu(tester);
-      await tester.tap(find.text(es.chatAttachImageAction));
-      await tester.pumpAndSettle();
-      expect(find.byType(InputChip), findsOneWidget);
+      await attachFile(tester);
+      expect(pendingAttachment, findsOneWidget);
 
       await tester.tap(find.byTooltip(es.chatAttachRemoveTooltip));
       await tester.pumpAndSettle();
 
-      expect(find.byType(InputChip), findsNothing);
+      expect(pendingAttachment, findsNothing);
     });
 
     testWidgets('un documento que no se puede leer avisa y no se adjunta', (
@@ -619,12 +605,10 @@ void main() {
         ),
       );
 
-      await openAttachMenu(tester);
-      await tester.tap(find.text(es.chatAttachDocumentAction));
-      await tester.pumpAndSettle();
+      await attachFile(tester);
 
       expect(find.text(es.chatAttachUnreadable('archivo.bin')), findsOneWidget);
-      expect(find.byType(InputChip), findsNothing);
+      expect(pendingAttachment, findsNothing);
     });
   });
 
@@ -659,7 +643,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('chat-panel')), findsNothing);
-      expect(find.text(es.chatEmptyExplanation), findsOneWidget);
+      expect(find.text(es.chatGreetingVaultQuestion), findsOneWidget);
 
       await openPanel(tester);
       expect(inPanel(find.text('mi primera pregunta')), findsOneWidget);
@@ -741,13 +725,13 @@ void main() {
         inPanel(find.text(es.chatPanelDeleted('mi primera pregunta'))),
         findsOneWidget,
       );
-      expect(find.text(es.chatEmptyExplanation), findsOneWidget);
+      expect(find.text(es.chatGreetingVaultQuestion), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('chat-panel-undo')));
       await tester.pumpAndSettle();
 
       expect(inPanel(find.text('mi primera pregunta')), findsOneWidget);
-      expect(find.text(es.chatEmptyExplanation), findsNothing);
+      expect(find.text(es.chatGreetingVaultQuestion), findsNothing);
 
       // Pasado el tiempo del «Deshacer», sigue ahí: no se borró.
       await tester.pump(kChatDeleteUndoWindow * 2);
@@ -770,7 +754,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(inPanel(find.text(es.chatPanelEmpty)), findsOneWidget);
-      expect(find.text(es.chatEmptyExplanation), findsOneWidget);
+      expect(find.text(es.chatGreetingVaultQuestion), findsOneWidget);
     });
 
     testWidgets('cerrar el panel con un borrado pendiente lo confirma', (

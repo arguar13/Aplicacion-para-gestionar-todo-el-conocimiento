@@ -160,3 +160,73 @@ armazón en main.
   lector de pantalla y el contraste AA en los nueve temas.
 - **Para el paso 2**: con letra muy grande, el cuerpo del chat de hoy (el aviso del modelo, el
   vacío y el campo) se desborda; es de su zona y lo resuelve el campo nuevo.
+
+### Paso 2 — el vacío y el campo (construido)
+
+**El vacío que recibe.**
+- El saludo grande: *«Hola, {nombre}.»* con el degradé del tema (liso con «alto contraste») y
+  debajo *«¿Qué querés saber de lo tuyo?»* —*«¿De qué querés hablar?»* en conversación libre—.
+  Sin nombre, según la hora: «Buen día» de 5 a 12, «Buenas tardes» de 12 a 20, «Buenas noches»
+  el resto. El nombre es el de «Cómo te llamo» (`ownerNameProvider` del paso 1) y cambia en el
+  acto si se edita en Ajustes.
+- El brillo: dos manchas de luz del primario y el terciario del tema, pintadas una sola vez en su
+  capa; respira la opacidad y la escala de esa capa, que se resuelven al componer, sin repintar.
+  **Respira tres veces y queda quieto** (y vuelve a respirar la próxima vez que aparece el vacío):
+  una animación sin fin hace dibujar al motor 60 cuadros por segundo con el chat sobre la mesa.
+  Quieto con «sin animaciones»; sin brillo con «alto contraste».
+- Las sugerencias, de lo último guardado **y ya procesado** (lo pendiente no tiene texto que
+  resumir), en el alcance elegido: «Resumime «…»», «Preguntame sobre «…»», «¿Qué dice «…»
+  sobre…?» y el tema con más cosas —o el cuaderno elegido—. Las preguntas enteras se mandan al
+  tocarlas; las que terminan en «…» quedan en el campo. En conversación libre, tres comienzos.
+- El aviso del modelo no se perdió: una tarjeta tranquila debajo de las sugerencias y, ya en una
+  conversación, una línea arriba del campo.
+
+**El campo flotante.** Una cápsula con «+», el texto (hasta seis líneas), 🎤 y el botón redondo
+de enviar, que se prende con algo que mandar y es «Detener» mientras el modelo escribe; se puede
+ir escribiendo el próximo mensaje. Las fotos y documentos adjuntos, adentro de la cápsula, con su
+✕. Enter manda y Shift+Enter es un salto de línea **en la computadora**; en el teléfono algunos
+teclados de pantalla mandan el Enter como una tecla, y ahí tiene que ser el salto de línea que
+muestran. Mientras un método de entrada compone, Enter no manda.
+
+**«Agregar al chat».** Cámara (solo donde hay una: no en Windows) · Fotos (la galería del
+sistema, `PhotoLibraryChooser` sobre `image_picker`, que ya estaba) · Archivos (el selector de
+siempre: documento o imagen, clasificado por sus bytes). Una foto por mensaje: con una adjunta,
+las tarjetas de fotos se apagan y lo dicen. Debajo, **Dónde pregunto** —con lo elegido a la
+vista, «Con tu bóveda · Tesis»— y **Pensar más**; lo que se cambia vale en el acto.
+- **El modo y el cuaderno se eligen de una sola forma** (decisión C, sin dos versiones): la fila
+  «Dónde pregunto» del «+» y la línea debajo de la píldora abren **la misma hoja**
+  (`showChatScopeSheet`, con `ChatScopeOptions` y `ChatNotebookScopeList` del paso 1) y cambian
+  el mismo estado (`chatSelectionProvider`). La línea sigue siendo el resumen siempre a la vista;
+  tocarla no abre «Agregar al chat», porque ahí manda adjuntar —cámara, fotos, archivos— y quien
+  toca «dónde pregunto» quiere cambiar justo eso. El interruptor «Con mi bóveda» y la fila
+  «Cuaderno» que el plan ponía en el «+» quedaron en esa fila: dos interruptores propios habrían
+  sido una segunda forma, distinta, de hacer lo mismo.
+
+**«Pensar más», de punta a punta.** Los tres clientes de la nube ya regulaban cuánto piensa el
+modelo, siempre al mínimo; «Pensar más» es la misma perilla en el otro extremo: `thinkingLevel:
+high` en Gemini 3 y 4, `thinkingBudget: -1` en 2.5, `reasoning_effort: high` en los de OpenAI
+que razonan y `effort: high` en Claude 5, con 16.384 tokens de margen. Quién la tiene vive en un
+solo lugar (`thinkMoreSupport`), que usan la hoja y los formatos. Gemma no tiene un modo para
+pensar más: el interruptor se ve apagado y lo dice; el gancho queda en
+`ModelConversation.send(thinkMore:)`. Vale mientras el chat está abierto y no se guarda: pensar a
+fondo gasta más cuota, y se elige a sabiendas.
+
+**🎤 Dictar, sin dependencias nuevas.** Un canal propio (`DictationChannel`, Kotlin) sobre el
+`SpeechRecognizer` del sistema, como los otros canales de la app. Ningún paquete de habla a texto
+deja preguntar si hay reconocedor sin pedir el permiso del micrófono —lo piden al inicializarse,
+o sea al abrir el chat—; el canal propio pregunta sin permiso (el 🎤 aparece solo si hay) y lo
+pide la primera vez que se toca. Lo oído se escribe mientras se dice, después de lo que había; un
+anillo late con la voz. En iOS, Windows y la web no hay reconocedor (`NullDictation`): el botón no
+aparece.
+
+**Pruebas.** Con dobles en todo: el saludo con y sin nombre, la hora, el brillo que respira y se
+queda quieto, «sin animaciones» y «alto contraste»; las sugerencias que se mandan y las que se
+completan, en la bóveda, en un cuaderno y en conversación libre; el aviso del modelo en el vacío
+y en la conversación; enviar apagado sin texto, escribir mientras el modelo escribe, Detener;
+Enter y Shift+Enter en la computadora y en el teléfono; Cámara, Fotos, Archivos y sus permisos;
+el modo y el cuaderno desde el «+»; «Pensar más» con Gemma, con un modelo que no razona y con uno
+que sí, hasta el pedido de cada proveedor; dictar, con sus errores; el contraste en los nueve
+temas; y **la pantalla entera —barra, vacío con el aviso, campo y la hoja del «+»— con letra al
+doble en una pantalla chica, sin desbordes** (lo que el paso 1 dejó avisado). Lo que hace la
+persona —mandar, elegir dónde se pregunta por la línea o por el «+», adjuntar— está una sola vez
+en `test/support/chat_actions.dart`, que usan todas las pruebas del chat.

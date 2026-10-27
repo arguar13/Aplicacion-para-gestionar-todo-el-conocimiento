@@ -223,12 +223,14 @@ class CloudModelBackend implements ModelBackend {
   }) async => _CloudConversation(this, instruction, maxOutputTokens);
 
   /// La respuesta a [messages], con la cuenta que toque (ver la clase).
+  /// [thinkMore] es «Pensar más» (F42): ver `CloudRequest.thinkMore`.
   Stream<CloudDelta> run({
     required String instruction,
     required List<CloudMessage> messages,
     required int maxOutputTokens,
     required LanguageModelReplyKind kind,
     CancelToken? cancel,
+    bool thinkMore = false,
   }) async* {
     final tried = <String>{};
     // El intento de ahora con esta cuenta (1 es el primero).
@@ -257,6 +259,7 @@ class CloudModelBackend implements ModelBackend {
             instruction: instruction,
             messages: messages,
             maxOutputTokens: maxOutputTokens,
+            thinkMore: thinkMore,
           ),
           key: pick.key,
           cancel: cancel,
@@ -615,11 +618,13 @@ class _CloudConversation implements ModelConversation {
     required String prompt,
     required String said,
     List<Uint8List> images = const [],
+    bool thinkMore = false,
   }) {
     final cancel = CancelToken();
     late final StreamController<String> out;
     out = StreamController<String>(
-      onListen: () => unawaited(_write(prompt, said, images, out, cancel)),
+      onListen: () =>
+          unawaited(_write(prompt, said, images, thinkMore, out, cancel)),
       onCancel: cancel.cancel,
     );
     return out.stream;
@@ -629,6 +634,7 @@ class _CloudConversation implements ModelConversation {
     String prompt,
     String said,
     List<Uint8List> images,
+    bool thinkMore,
     StreamController<String> out,
     CancelToken cancel,
   ) async {
@@ -659,6 +665,7 @@ class _CloudConversation implements ModelConversation {
             maxOutputTokens: _maxOutputTokens,
             kind: LanguageModelReplyKind.chat,
             cancel: cancel,
+            thinkMore: thinkMore,
           )) {
             if (delta.restart) text.clear();
             if (delta.text.isEmpty) continue;

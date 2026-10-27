@@ -64,7 +64,15 @@ abstract interface class FreeConversation {
   /// primera foto vuelve a cargar el modelo con la parte que mira imágenes,
   /// que no se carga si no hace falta. Si no se puede, la respuesta termina
   /// con [ChatImagesUnsupportedException], nunca sin la foto.
-  ChatReplyStream send(String message, {List<Uint8List> images = const []});
+  ///
+  /// [thinkMore] es «Pensar más» (F42): el modelo piensa a fondo antes de
+  /// contestar, si el que escribe tiene cómo (`thinkMoreSupport`); si no,
+  /// no cambia nada.
+  ChatReplyStream send(
+    String message, {
+    List<Uint8List> images = const [],
+    bool thinkMore = false,
+  });
 
   /// Libera lo que haya quedado abierto. Después de esto, [send] no vuelve
   /// a llamarse sobre esta instancia.
@@ -81,11 +89,13 @@ abstract interface class VaultConversation {
   /// honestamente que no encontró nada específico y seguir charlando, en
   /// vez de negarse a contestar.
   ///
-  /// [images] son fotos adjuntas al mensaje —ver [FreeConversation.send]—.
+  /// [images] son fotos adjuntas al mensaje y [thinkMore], «Pensar más» —ver
+  /// [FreeConversation.send]—.
   ChatReplyStream send({
     required String message,
     required List<ChatSource> sources,
     List<Uint8List> images = const [],
+    bool thinkMore = false,
   });
 
   /// Libera lo que haya quedado abierto.

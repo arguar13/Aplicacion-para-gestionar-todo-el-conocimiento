@@ -149,11 +149,16 @@ class GemmaChatSession implements ModelConversation {
   /// Manda [prompt] —lo que [said] la persona, con lo que lo acompañe— y da
   /// la respuesta a medida que se escribe ([ChatReplyStream]). Cuenta como
   /// uso al mandarlo y al terminar.
+  ///
+  /// [thinkMore] no cambia nada: el motor de Gemma no tiene un modo para
+  /// pensar más (F42, `ThinkMoreSupport.onDevice`), y el chat ya muestra el
+  /// interruptor apagado con su motivo.
   @override
   ChatReplyStream send({
     required String prompt,
     required String said,
     List<Uint8List> images = const [],
+    bool thinkMore = false,
   }) {
     late final StreamController<String> out;
     var stopped = false;

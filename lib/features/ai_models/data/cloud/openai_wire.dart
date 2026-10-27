@@ -9,6 +9,7 @@ import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_info.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_label.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_thinking.dart';
 
 /// Lo que se le suma al tope de una respuesta en los modelos que razonan
 /// antes de escribir: lo razonado cuenta dentro de `max_completion_tokens`, y
@@ -102,18 +103,16 @@ class OpenAiWire implements CloudWire {
     return winner ?? models.first.id;
   }
 
-  /// Si [model] razona antes de escribir: la serie «o» y GPT-5 en adelante,
-  /// salvo los `-chat`, que contestan directo.
-  static bool reasons(String model) {
-    if (RegExp(r'^o\d').hasMatch(model)) return true;
-    final gpt = RegExp(r'^gpt-(\d+)').firstMatch(model);
-    if (gpt == null) return false;
-    return int.parse(gpt.group(1)!) >= 5 && !model.contains('-chat');
-  }
+  /// Si [model] razona antes de escribir: ver [openAiReasons], que es también
+  /// lo que dice si puede «pensar más» (F42).
+  static bool reasons(String model) => openAiReasons(model);
 
   /// El cuerpo del pedido, tal como se manda.
   static Map<String, Object> bodyOf(CloudRequest request) {
     final reasoning = reasons(request.model);
+    // «Pensar más» (F42) sube la misma perilla al otro extremo, con margen
+    // para lo que razona.
+    final deep = reasoning && request.thinkMore;
     return {
       'model': request.model,
       'messages': [
@@ -148,10 +147,14 @@ class OpenAiWire implements CloudWire {
       ],
       'max_completion_tokens':
           request.maxOutputTokens +
-          (reasoning ? kOpenAiReasoningHeadroomTokens : 0),
-      // Razonar lo menos posible, que es lo más rápido. En los que no razonan
-      // mandarlo es un error 400.
-      if (reasoning) 'reasoning_effort': 'low',
+          (deep
+              ? kCloudThinkMoreHeadroomTokens
+              : reasoning
+              ? kOpenAiReasoningHeadroomTokens
+              : 0),
+      // Razonar lo menos posible, que es lo más rápido, salvo con «Pensar
+      // más». En los que no razonan mandarlo es un error 400.
+      if (reasoning) 'reasoning_effort': deep ? 'high' : 'low',
       'stream': true,
       'stream_options': {'include_usage': true},
     };

@@ -70,10 +70,14 @@ abstract interface class ModelConversation {
   /// contexto de la bóveda— y da la respuesta mientras se escribe
   /// ([ChatReplyStream]). En lo conversado queda [said], no [prompt]: el
   /// contexto se vuelve a buscar en cada mensaje.
+  ///
+  /// [thinkMore] es «Pensar más» (F42): el modelo piensa a fondo antes de
+  /// escribir, si tiene cómo (`thinkMoreSupport`). Gemma no tiene: lo ignora.
   ChatReplyStream send({
     required String prompt,
     required String said,
     List<Uint8List> images = const [],
+    bool thinkMore = false,
   });
 
   /// Termina la charla y libera lo que tenga abierto.

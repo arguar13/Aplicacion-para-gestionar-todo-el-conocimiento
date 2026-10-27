@@ -25,6 +25,11 @@
          borra las alarmas, y esto deja volver a programar la de la persona.
          Es un permiso normal: no se le pregunta nada. Ver `StudyReminder`. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Dictar en el chat (F42): el reconocedor de voz del sistema escucha el
+         micrófono. Se pide la primera vez que se toca el 🎤, no al abrir la
+         app. Ver `DictationChannel`. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-feature android:name="android.hardware.microphone" android:required="false"/>
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
@@ -101,6 +106,13 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Desde Android 11 una app solo ve los servicios que declara buscar:
+             sin esto, `SpeechRecognizer.isRecognitionAvailable` dice que no
+             hay reconocedor aunque el teléfono lo tenga, y el 🎤 del chat no
+             aparece (F42). -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>

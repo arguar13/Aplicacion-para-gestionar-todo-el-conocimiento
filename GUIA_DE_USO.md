@@ -1864,7 +1864,9 @@ equivocaste.
 
 ## Chat con la IA
 
-Sirve para hacerle preguntas a una Inteligencia Artificial. Tiene dos modos:
+Sirve para hacerle preguntas a una Inteligencia Artificial. Tiene dos modos
+—se ven y se cambian en la línea debajo del modelo, o desde el **"+"** del
+campo—:
 
 - **"Con mi bóveda"**: busca en lo que vos guardaste y redacta una respuesta
   citando de dónde sacó cada dato.
@@ -1937,15 +1939,84 @@ afuera, con "atrás" o deslizándolo hacia la izquierda.
 ### Cómo se usa
 
 1. Mirá debajo de la píldora dónde estás preguntando; si querés otro modo
-   u otro cuaderno, tocá esa línea.
-2. Escribí tu pregunta donde dice **"Preguntá algo…"** y tocá el botón de
-   enviar. También podés tocar el clip para adjuntar una imagen o un
-   documento antes de preguntar.
+   u otro cuaderno, tocá esa línea (o la fila **"Dónde pregunto"** del
+   **"+"**: abren la misma hoja).
+2. Escribí tu pregunta en el campo de abajo —dice **"Preguntale a tu
+   bóveda…"**, o **"Escribí lo que quieras…"** en conversación libre— y tocá
+   el **botón redondo con la flecha**. O tocá una de las sugerencias del
+   chat vacío. Con el **"+"** podés adjuntar una foto o un documento y
+   prender **"Pensar más"** (ver [El campo y "Agregar al chat"](#el-campo-y-agregar-al-chat)).
 3. Si la respuesta cita fuentes, cada una se ve como una tarjeta —
    **tocarla abre el elemento original**, para que puedas comprobar el dato
    vos mismo.
 4. Para volver a una conversación vieja, empezar otra o borrar una, abrí
    el panel con **☰**.
+
+### El chat vacío: el saludo y las sugerencias
+
+- Al abrir el chat, sin conversación, te recibe un **saludo grande**: *"Hola,
+  Armando. ¿Qué querés saber de lo tuyo?"* con el nombre que pongas en
+  **Ajustes › Cómo te llamo**. Sin nombre, saluda según la hora: *"Buen
+  día"* (de 5 a 12), *"Buenas tardes"* (de 12 a 20) o *"Buenas noches"*. En
+  conversación libre pregunta *"¿De qué querés hablar?"*.
+- **El fondo tiene un brillo suave** con los colores de tu tema, que sube
+  desde abajo y respira despacio unas veces al aparecer; después queda
+  quieto, para no gastar batería. Con "Quitar animaciones" del teléfono no se
+  mueve, y con "Alto contraste" el fondo queda liso.
+- **Sugerencias tocables**, armadas con lo tuyo: *"Resumime «…»"* con lo
+  último que guardaste (ya procesado), *"Preguntame sobre «…»"*, *"¿Qué dice
+  «…» sobre…?"* y *"¿Qué tengo guardado sobre…?"* con el tema que más cosas
+  tiene. Si acotaste la pregunta a un Cuaderno, salen de ese cuaderno, con
+  *"¿Qué ideas se repiten en «…»?"*. Las que son una pregunta entera **se
+  mandan al tocarlas**; las que terminan en "…" **quedan escritas en el
+  campo** para que las completes. En conversación libre son tres comienzos
+  (*"Explicame de forma simple…"*, *"Ayudame a pensar ideas para…"*,
+  *"Escribí un borrador de…"*). Con la bóveda vacía, te dice que van a
+  aparecer cuando guardes algo.
+- **Si el modelo todavía no puede contestar** (falta bajarlo, una clave o
+  cuota), lo dice en una tarjeta debajo de las sugerencias, con el botón que
+  lo resuelve. Ya en una conversación, el mismo aviso queda en una línea
+  arriba del campo.
+
+### El campo y "Agregar al chat"
+
+- **El campo es una cápsula que flota abajo**: el **"+"** a la izquierda, el
+  texto en el medio —crece hasta seis líneas— y a la derecha el **micrófono**
+  y el **botón redondo de enviar**, que se prende cuando hay algo que mandar.
+  Mientras el modelo escribe, enviar se vuelve **"Detener"** (un cuadrado), y
+  podés ir escribiendo tu próximo mensaje.
+- **Las fotos y documentos adjuntos** se ven arriba del texto, dentro de la
+  cápsula: la foto en miniatura y el documento con su nombre, cada uno con
+  su **✕** para sacarlo antes de mandar.
+- **El "+" abre "Agregar al chat"**:
+  - **Cámara · Fotos · Archivos**, en tarjetas. *Cámara* saca una foto en el
+    momento (solo en el teléfono); *Fotos* abre la galería; *Archivos* trae
+    un documento —o una imagen— del teléfono. **Una foto por mensaje**: con
+    una ya adjunta, las tarjetas de fotos se apagan y lo dicen.
+  - **Dónde pregunto**: muestra el modo y el cuaderno elegidos ("Con tu
+    bóveda · Toda la bóveda", "Conversación libre"). Tocala y se abre la
+    misma hoja **"Dónde pregunto"** que la línea de debajo del modelo (ver
+    [La barra de arriba](#la-barra-de-arriba)).
+  - **Pensar más**: el modelo piensa a fondo antes de contestar —tarda más y
+    gasta más de la cuota—. Se puede con los modelos en la nube que razonan
+    (Gemini 2.5 en adelante, los de OpenAI que razonan, Claude 5). Con Gemma
+    en el teléfono, o con un modelo que no razona, se ve apagado y dice por
+    qué. Prendido, se ve una pastilla **"Pensar más"** arriba del texto:
+    tocala para apagarlo. Vale mientras el chat esté abierto; no queda
+    guardado.
+
+  Lo que cambiás ahí vale en el acto; la hoja se cierra al elegir algo para
+  adjuntar.
+- **🎤 Dictar**: tocá el micrófono y hablá; lo que decís se escribe en el
+  campo mientras lo decís, después de lo que ya había. Al hacer una pausa,
+  termina solo (o tocalo de nuevo para cortar). La primera vez el teléfono
+  pide permiso para el micrófono. Usa el reconocimiento de voz del teléfono:
+  si no tiene, el botón no aparece (en la computadora, por ahora, no está).
+  Algunos teléfonos necesitan conexión para reconocer la voz: si falta, te
+  lo dice.
+- **Con teclado de computadora**: **Enter** manda y **Shift+Enter** hace un
+  salto de línea. En el teléfono, el Enter del teclado es un salto de línea y
+  se manda con el botón.
 
 ### La respuesta, a medida que se escribe
 

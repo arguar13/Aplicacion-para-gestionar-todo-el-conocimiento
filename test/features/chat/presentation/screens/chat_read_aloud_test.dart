@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
@@ -6,6 +5,7 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_c
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/chat_actions.dart';
 import '../../../../support/library_harness.dart';
 import '../../../../support/read_aloud_test_support.dart';
 
@@ -31,8 +31,7 @@ void main() {
   Future<void> chat(WidgetTester tester, String question) async {
     await tester.pumpWidget(harness.wrap(const ChatScreen()));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), question);
-    await tester.tap(find.byIcon(Icons.send));
+    await typeAndSend(tester, question);
     await tester.pumpAndSettle();
   }
 
@@ -42,8 +41,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(offered(), isNull);
 
-    await tester.enterText(find.byType(TextField), '¿Qué tal?');
-    await tester.tap(find.byIcon(Icons.send));
+    await typeAndSend(tester, '¿Qué tal?');
     await tester.pumpAndSettle();
 
     final document = offered()!;
