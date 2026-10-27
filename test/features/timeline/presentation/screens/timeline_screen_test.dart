@@ -329,8 +329,8 @@ void main() {
       expect(find.byKey(const ValueKey('timeline-tip')), findsOneWidget);
       expect(find.textContaining('Caída de Roma\n476'), findsOneWidget);
 
-      // Y se va sola.
-      await tester.pump(const Duration(seconds: 4));
+      // Y se va sola, a los seis segundos: tiempo de leer una cita.
+      await tester.pump(const Duration(seconds: 7));
       expect(find.byKey(const ValueKey('timeline-tip')), findsNothing);
     });
 
@@ -1624,6 +1624,44 @@ void main() {
       expect(built, greaterThan(0));
       expect(built, lessThan(400));
       expect(find.text(es.timelineEventCount(10000)), findsOneWidget);
+    });
+
+    testWidgets('diez mil hechos, uno de cada tres un tramo, también se '
+        'dibujan solo los que se ven (F40)', (tester) async {
+      final mixed = [
+        for (final (i, event) in tenThousand().indexed)
+          if (i % 3 == 0)
+            event.copyWith(
+              datedEventId: 'h$i',
+              end: event.date.copyWith(
+                precision: DatePrecision.century,
+                month: null,
+                day: null,
+                isCirca: false,
+              ),
+            )
+          else
+            event,
+      ];
+      await pumpWith(tester, mixed, size: const Size(900, 900));
+
+      final boxes = frameOf(tester).boxes;
+      expect(boxes.length, greaterThan(0));
+      expect(boxes.length, lessThan(400));
+      expect(
+        boxes.any((box) => box.event.barStyle == TimelineBarStyle.range),
+        isTrue,
+      );
+      expect(find.text(es.timelineEventCount(10000)), findsOneWidget);
+
+      // Y acercar y mover sigue igual de liviano.
+      for (var i = 0; i < 4; i++) {
+        await tester.tap(find.byTooltip(es.timelineZoomIn));
+        await tester.pump();
+      }
+      await tester.drag(find.byType(TimelineCanvas), const Offset(-300, 0));
+      await tester.pumpAndSettle();
+      expect(frameOf(tester).boxes.length, lessThan(400));
     });
 
     testWidgets('acercar y mover con diez mil hechos sigue dibujando poco', (

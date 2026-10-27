@@ -17,9 +17,14 @@ import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_edit_dialog.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlight_note_dialog.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/timeline/domain/entities/dated_event_seed.dart';
+import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart';
+import 'package:sinapsis/features/timeline/presentation/timeline_navigation.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/dated_event_form.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 // Resaltar a mano sobre el texto extraído (F38): lo que comparten
@@ -214,6 +219,63 @@ Future<void> createFlashcardFromRange(
   );
 }
 
+/// Convierte `[start, end)` de [content] en un hecho de la línea de tiempo
+/// (F40): abre el formulario con la cita ya puesta —la forma de texto, las
+/// posiciones y el fragmento, como las de un resaltado o una tarjeta— y, si lo
+/// seleccionado trae una fecha («en 1859», «siglo XV»), con la fecha cargada
+/// (y su fin, si es un rango): solo falta confirmar el título. Si no trae
+/// fecha, el formulario abre vacío en ella.
+///
+/// Al guardar avisa, con un «Ver» que abre la línea de tiempo en ese documento.
+Future<void> addRangeToTimeline(
+  BuildContext context,
+  WidgetRef ref, {
+  required String itemId,
+  required String renditionId,
+  required String content,
+  required int start,
+  required int end,
+}) async {
+  if (start < 0 || end <= start || end > content.length) return;
+  final seed = DatedEventSeed.fromQuote(
+    itemId: itemId,
+    renditionId: renditionId,
+    content: content,
+    start: start,
+    end: end,
+  );
+  final l10n = AppLocalizations.of(context)!;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final saved = await showDatedEventForm(context, seed: seed);
+  if (!saved || !context.mounted) return;
+  final title = await _documentTitle(ref, itemId);
+  if (!context.mounted) return;
+  messenger
+    ?..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(l10n.timelineFactAdded),
+        action: SnackBarAction(
+          label: l10n.timelineFactAddedSee,
+          onPressed: () {
+            if (!context.mounted) return;
+            showInTimeline(
+              context,
+              ref,
+              TimelineScope.document(itemId: itemId, label: title),
+            );
+          },
+        ),
+      ),
+    );
+}
+
+/// El título de [itemId], para rotular el chip de la línea de tiempo.
+Future<String> _documentTitle(WidgetRef ref, String itemId) async {
+  final item = await ref.read(libraryItemProvider(itemId).future);
+  return item?.title ?? '';
+}
+
 /// Abre la ficha de [highlight] (F38): cambiarle el color o el estilo,
 /// escribirle la nota o quitarlo.
 Future<void> openHighlightCard(
@@ -293,7 +355,7 @@ List<HandMark> handMarks(
 /// La barrita de resaltado de un texto seleccionable (F38): la de
 /// [HighlightToolbar] puesta junto a la selección de [editable], con Copiar,
 /// Compartir, Seleccionar todo y Buscar en la Web de siempre, y lo propio de
-/// cada texto en los callbacks.
+/// cada texto en los callbacks (también «A la línea de tiempo», F40).
 ///
 /// Cada botón cierra la barrita antes de actuar, como las opciones de
 /// Flutter. Sin nada seleccionado, el menú común de la app.
@@ -307,6 +369,7 @@ Widget buildHighlightMenu(
   VoidCallback? onNote,
   VoidCallback? onExtract,
   VoidCallback? onCreateFlashcard,
+  VoidCallback? onAddToTimeline,
 }) {
   final value = editable.textEditingValue;
   final selected = value.selection.isValid
@@ -347,6 +410,7 @@ Widget buildHighlightMenu(
     onNote: closingOrNull(onNote),
     onExtract: closingOrNull(onExtract),
     onCreateFlashcard: closingOrNull(onCreateFlashcard),
+    onAddToTimeline: closingOrNull(onAddToTimeline),
     moreActions: [
       for (final type in const [
         ContextMenuButtonType.share,

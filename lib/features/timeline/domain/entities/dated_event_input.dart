@@ -29,9 +29,21 @@ sealed class DatedEventInput with _$DatedEventInput {
 
   /// Por qué esto no se puede guardar, o `null` si está bien. Es lo mismo que
   /// después hace cumplir la base con sus `CHECK`, dicho para quien lo
-  /// escribió.
-  String? get problem {
-    if (title.trim().isEmpty) return 'El hecho necesita un título.';
+  /// escribió. El texto es para diagnóstico y registros: quien se lo muestra a
+  /// una persona usa [problemKind] y lo dice en su idioma.
+  String? get problem => problemKind?.message;
+
+  /// Si [title] sirve de título: lo que el formulario pregunta antes de tener
+  /// la fecha completa, con la misma regla con que después se valida todo.
+  static DatedEventProblem? titleProblem(String title) =>
+      title.trim().isEmpty ? DatedEventProblem.titleMissing : null;
+
+  /// Lo primero que impide guardar esto, o `null` si está bien. Es lo que le
+  /// sirve al formulario para decir **dónde** está el problema (el título, el
+  /// fin) y en el idioma de la app.
+  DatedEventProblem? get problemKind {
+    final titleProblem = DatedEventInput.titleProblem(title);
+    if (titleProblem != null) return titleProblem;
     final dateProblem = _dateProblem(date);
     if (dateProblem != null) return dateProblem;
     if (end case final end?) {
@@ -40,46 +52,63 @@ sealed class DatedEventInput with _$DatedEventInput {
       // Un tramo no termina antes de que termine su inicio: «agosto de 1914
       // a 1914» está bien, «1918 a 1914» no.
       if (_compare(end.rangeEnd, date.rangeEnd) < 0) {
-        return 'El hecho no puede terminar antes de empezar.';
+        return DatedEventProblem.endsBeforeStart;
       }
     }
     final start = startOffset;
     final stop = endOffset;
     if ((start == null) != (stop == null)) {
-      return 'La cita necesita dónde empieza y dónde termina.';
+      return DatedEventProblem.quoteHalfPositioned;
     }
     if (start != null && stop != null) {
-      if (renditionId == null) {
-        return 'La posición de la cita necesita el texto del que sale.';
-      }
+      if (renditionId == null) return DatedEventProblem.quoteWithoutText;
       if (start < 0 || stop <= start) {
-        return 'La posición de la cita no es un tramo del texto.';
+        return DatedEventProblem.quoteNotARange;
       }
       if ((excerpt ?? '').trim().isEmpty) {
-        return 'La cita necesita el fragmento del texto.';
+        return DatedEventProblem.quoteWithoutFragment;
       }
     }
     return null;
   }
 }
 
+/// Qué impide guardar un [DatedEventInput] (F40). Cada uno trae su texto de
+/// diagnóstico en [message]; lo que se le muestra a una persona se traduce
+/// aparte, según el lugar donde se dice.
+enum DatedEventProblem {
+  titleMissing('El hecho necesita un título.'),
+  yearNotPositive('El año tiene que ser positivo.'),
+  monthOutOfRange('El mes tiene que estar entre 1 y 12.'),
+  dayNotInMonth('Ese día no existe en ese mes.'),
+  endsBeforeStart('El hecho no puede terminar antes de empezar.'),
+  quoteHalfPositioned('La cita necesita dónde empieza y dónde termina.'),
+  quoteWithoutText('La posición de la cita necesita el texto del que sale.'),
+  quoteNotARange('La posición de la cita no es un tramo del texto.'),
+  quoteWithoutFragment('La cita necesita el fragmento del texto.');
+
+  const DatedEventProblem(this.message);
+
+  final String message;
+}
+
 /// Por qué [date] no es una fecha: un año que no existe, un mes de más, un día
 /// que el mes no tiene, o la falta del mes o del día que su precisión pide.
-String? _dateProblem(HistoricalDate date) {
-  if (date.year < 1) return 'El año tiene que ser positivo.';
+DatedEventProblem? _dateProblem(HistoricalDate date) {
+  if (date.year < 1) return DatedEventProblem.yearNotPositive;
   final usesMonth =
       date.precision == DatePrecision.day ||
       date.precision == DatePrecision.month;
   final month = date.month;
   if (usesMonth && (month == null || month < 1 || month > 12)) {
-    return 'El mes tiene que estar entre 1 y 12.';
+    return DatedEventProblem.monthOutOfRange;
   }
   if (date.precision == DatePrecision.day) {
     final day = date.day;
     if (day == null ||
         day < 1 ||
         day > daysInMonth(date.astronomicalYear, month!)) {
-      return 'Ese día no existe en ese mes.';
+      return DatedEventProblem.dayNotInMonth;
     }
   }
   return null;

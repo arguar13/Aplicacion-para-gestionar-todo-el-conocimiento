@@ -26,6 +26,19 @@ class HistoricalDateController extends ChangeNotifier {
   int _month = 1;
   bool _isCirca = false;
 
+  /// Carga [date] en el formulario: el año, la era, la precisión, el mes, el
+  /// día y el «circa». Para editar una fecha que ya existe o partir de la que
+  /// encontró el detector.
+  void load(HistoricalDate date) {
+    _isBce = date.isBce;
+    _precision = date.precision;
+    _month = date.month ?? 1;
+    _isCirca = date.isCirca;
+    yearController.text = '${date.year}';
+    dayController.text = '${date.day ?? 1}';
+    notifyListeners();
+  }
+
   bool get isBce => _isBce;
   set isBce(bool value) {
     if (value == _isBce) return;
@@ -125,24 +138,34 @@ class HistoricalDateController extends ChangeNotifier {
 ///
 /// Escribe en un [HistoricalDateController]; quien lo aloja lo crea, lo lee y
 /// lo descarta.
+///
+/// Con [showCirca] en `false` no ofrece «aproximada»: para el fin de un tramo,
+/// cuyo «circa» es el del hecho entero y no se elige aparte.
 class HistoricalDateForm extends StatelessWidget {
-  const HistoricalDateForm({required this.controller, super.key});
+  const HistoricalDateForm({
+    required this.controller,
+    this.showCirca = true,
+    super.key,
+  });
 
   final HistoricalDateController controller;
+  final bool showCirca;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: controller,
-      builder: (context, _) => _Fields(controller: controller),
+      builder: (context, _) =>
+          _Fields(controller: controller, showCirca: showCirca),
     );
   }
 }
 
 class _Fields extends StatelessWidget {
-  const _Fields({required this.controller});
+  const _Fields({required this.controller, required this.showCirca});
 
   final HistoricalDateController controller;
+  final bool showCirca;
 
   @override
   Widget build(BuildContext context) {
@@ -284,15 +307,17 @@ class _Fields extends StatelessWidget {
             ],
           ),
         ],
-        const SizedBox(height: 8),
-        CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          controlAffinity: ListTileControlAffinity.leading,
-          value: controller.isCirca,
-          title: Text(l10n.datePickerCirca),
-          onChanged: (value) => controller.isCirca = value ?? false,
-        ),
+        if (showCirca) ...[
+          const SizedBox(height: 8),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+            value: controller.isCirca,
+            title: Text(l10n.datePickerCirca),
+            onChanged: (value) => controller.isCirca = value ?? false,
+          ),
+        ],
         if (date != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),

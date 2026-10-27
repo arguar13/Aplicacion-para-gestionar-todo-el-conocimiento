@@ -24,7 +24,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// en el lugar donde se dibuja la barrita.
 ///
 /// Lo que se hace con lo elegido es en el texto extraído [text]: ahí se
-/// guardan los resaltados, y de ahí salen la nota extraída y la tarjeta. Lo
+/// guardan los resaltados, y de ahí salen la nota extraída, la tarjeta y el
+/// hecho de la línea de tiempo (F40). Lo
 /// que no se pudo ubicar ahí —una página escaneada, un texto que se volvió a
 /// extraer— se avisa y no se hace. Copiar y Escuchar usan lo que se ve, así
 /// que andan igual.
@@ -101,6 +102,21 @@ Widget documentHighlightToolbar(
         context,
         ref,
         itemId: text.itemId,
+        content: text.content,
+        start: range.start,
+        end: range.end,
+      );
+    }()),
+    onAddToTimeline: () => unawaited(() async {
+      final range = await _located(context, selection);
+      if (range == null || !context.mounted) return;
+      await selection.clear();
+      if (!context.mounted) return;
+      await addRangeToTimeline(
+        context,
+        ref,
+        itemId: text.itemId,
+        renditionId: text.renditionId,
         content: text.content,
         start: range.start,
         end: range.end,

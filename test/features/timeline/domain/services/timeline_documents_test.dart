@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 import 'package:sinapsis/features/timeline/domain/services/timeline_documents.dart';
 
 import '../../timeline_fixtures.dart';
@@ -89,5 +91,69 @@ void main() {
 
     expect(documents, hasLength(1000));
     expect(documents.every((d) => d.eventCount == 10), isTrue);
+  });
+
+  group('hechos fechados dentro de un documento', () {
+    TimelineEvent fact(
+      String id,
+      HistoricalDate date, {
+      HistoricalDate? end,
+      String document = 'Historia del siglo XX',
+    }) => TimelineEvent(
+      itemId: 'libro',
+      title: 'Hecho $id',
+      itemTitle: document,
+      date: date,
+      end: end,
+      sourceKind: SourceKind.document,
+      datedEventId: id,
+    );
+
+    test(
+      'el documento se llama como el documento y no como su primer hecho',
+      () {
+        final [libro] = groupTimelineDocuments([
+          fact('a', dateOf(1914)),
+          fact('b', dateOf(1939)),
+        ]);
+
+        expect(libro.title, 'Historia del siglo XX');
+        expect(libro.eventCount, 2);
+      },
+    );
+
+    test('se ordenan por el título del documento, no por el del hecho', () {
+      final documents = groupTimelineDocuments([
+        TimelineEvent(
+          itemId: 'z',
+          title: 'Aaa un hecho',
+          itemTitle: 'Zeta',
+          date: dateOf(1),
+          sourceKind: SourceKind.document,
+          datedEventId: 'x',
+        ),
+        TimelineEvent(
+          itemId: 'a',
+          title: 'Zzz otro hecho',
+          itemTitle: 'Alfa',
+          date: dateOf(2),
+          sourceKind: SourceKind.document,
+          datedEventId: 'y',
+        ),
+      ]);
+
+      expect(documents.map((d) => d.title), ['Alfa', 'Zeta']);
+    });
+
+    test('hasta cuándo llega es donde termina el último tramo', () {
+      final [libro] = groupTimelineDocuments([
+        fact('a', dateOf(1900)),
+        fact('b', dateOf(1914), end: dateOf(1918)),
+      ]);
+
+      expect(libro.firstDate, '1900');
+      expect(libro.lastDate, '1918');
+      expect(libro.range, '1900 – 1918');
+    });
   });
 }

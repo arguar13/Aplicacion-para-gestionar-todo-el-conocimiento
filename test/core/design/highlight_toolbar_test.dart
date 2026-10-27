@@ -27,6 +27,7 @@ void main() {
     VoidCallback? onNote,
     VoidCallback? onExtract,
     VoidCallback? onCreateFlashcard,
+    VoidCallback? onAddToTimeline,
     List<HighlightToolbarAction> moreActions = const [],
     Size size = const Size(400, 800),
     double systemToolbarExtent = 0,
@@ -50,6 +51,7 @@ void main() {
             onNote: onNote,
             onExtract: onExtract,
             onCreateFlashcard: onCreateFlashcard,
+            onAddToTimeline: onAddToTimeline,
             moreActions: moreActions,
           ),
         ),
@@ -328,6 +330,85 @@ void main() {
       );
 
       expect(bar(tester).top, greaterThanOrEqualTo(60 + system));
+    });
+  });
+
+  group('«A la línea de tiempo» (F40)', () {
+    testWidgets('el botón llama a lo suyo y se llama por su nombre', (
+      tester,
+    ) async {
+      final called = <String>[];
+      await pump(
+        tester,
+        onCopy: () => called.add('copiar'),
+        onAddToTimeline: () => called.add('línea'),
+      );
+
+      expect(find.byTooltip(es.highlightAddToTimeline), findsOneWidget);
+      await tester.tap(find.byKey(const Key('highlight-add-to-timeline')));
+
+      expect(called, ['línea']);
+    });
+
+    testWidgets('sin su callback no se dibuja', (tester) async {
+      await pump(tester, onCopy: () {});
+
+      expect(find.byKey(const Key('highlight-add-to-timeline')), findsNothing);
+      expect(find.byTooltip(es.highlightAddToTimeline), findsNothing);
+    });
+
+    testWidgets('con todas las acciones mide lo que un dedo necesita y entra '
+        'en un teléfono de 360', (tester) async {
+      await pump(
+        tester,
+        size: const Size(360, 640),
+        onCopy: () {},
+        onReadAloud: () {},
+        onNote: () {},
+        onExtract: () {},
+        onCreateFlashcard: () {},
+        onAddToTimeline: () {},
+        moreActions: [HighlightToolbarAction(label: 'x', onPressed: () {})],
+      );
+
+      final size = tester.getSize(
+        find.byKey(const Key('highlight-add-to-timeline')),
+      );
+      expect(size.width, greaterThanOrEqualTo(48));
+      expect(size.height, greaterThanOrEqualTo(48));
+      final bar = tester.getRect(
+        find.byKey(const Key('highlight-toolbar-card')),
+      );
+      expect(bar.left, greaterThanOrEqualTo(0));
+      expect(bar.right, lessThanOrEqualTo(360));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('en una pantalla de 320 se achican en vez de salirse', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        size: const Size(320, 640),
+        onCopy: () {},
+        onReadAloud: () {},
+        onNote: () {},
+        onExtract: () {},
+        onCreateFlashcard: () {},
+        onAddToTimeline: () {},
+        moreActions: [HighlightToolbarAction(label: 'x', onPressed: () {})],
+      );
+
+      final bar = tester.getRect(
+        find.byKey(const Key('highlight-toolbar-card')),
+      );
+      expect(bar.left, greaterThanOrEqualTo(0));
+      expect(bar.right, lessThanOrEqualTo(320));
+      // Hasta el último botón queda dentro de la barrita.
+      final last = tester.getRect(find.byTooltip(es.highlightMore));
+      expect(last.right, lessThanOrEqualTo(bar.right));
+      expect(last.left, greaterThanOrEqualTo(bar.left));
+      expect(tester.takeException(), isNull);
     });
   });
 }

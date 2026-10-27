@@ -233,4 +233,72 @@ void main() {
       expect(notifications, 5);
     });
   });
+
+  group('cargar una fecha que ya existe (F40)', () {
+    test('un día se carga entero y da la misma fecha', () {
+      const date = HistoricalDate(
+        year: 1809,
+        precision: DatePrecision.day,
+        month: 2,
+        day: 12,
+      );
+
+      controller.load(date);
+
+      expect(controller.date, date);
+      expect(controller.yearController.text, '1809');
+      expect(controller.month, 2);
+      expect(controller.dayController.text, '12');
+    });
+
+    test('un mes, con su era y su «circa»', () {
+      const date = HistoricalDate(
+        year: 44,
+        precision: DatePrecision.month,
+        month: 3,
+        isBce: true,
+        isCirca: true,
+      );
+
+      controller.load(date);
+
+      expect(controller.date, date);
+      expect(controller.isBce, isTrue);
+      expect(controller.isCirca, isTrue);
+      expect(controller.precision, DatePrecision.month);
+    });
+
+    test('un siglo, sin mes ni día', () {
+      const date = HistoricalDate(year: 1901, precision: DatePrecision.century);
+
+      controller.load(date);
+
+      expect(controller.date, date);
+      expect(controller.usesMonth, isFalse);
+      expect(controller.month, 1);
+      expect(controller.dayController.text, '1');
+    });
+
+    test('pisa lo que había y avisa', () {
+      controller
+        ..precision = DatePrecision.day
+        ..isBce = true
+        ..isCirca = true
+        ..month = 7
+        ..dayController.text = '9'
+        ..yearController.text = '5';
+      var notifications = 0;
+      controller
+        ..addListener(() => notifications++)
+        ..load(const HistoricalDate(year: 1859, precision: DatePrecision.year));
+
+      expect(
+        controller.date,
+        const HistoricalDate(year: 1859, precision: DatePrecision.year),
+      );
+      expect(controller.isBce, isFalse);
+      expect(controller.isCirca, isFalse);
+      expect(notifications, greaterThan(0));
+    });
+  });
 }

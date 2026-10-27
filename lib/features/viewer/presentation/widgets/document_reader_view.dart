@@ -580,6 +580,20 @@ class _ReaderPage extends ConsumerWidget {
                       ),
                     );
                   },
+                  onAddToTimeline: () {
+                    final (start, end) = textRange();
+                    unawaited(
+                      addRangeToTimeline(
+                        context,
+                        ref,
+                        itemId: study.itemId,
+                        renditionId: study.renditionId,
+                        content: study.content,
+                        start: start,
+                        end: end,
+                      ),
+                    );
+                  },
                 );
               },
             ),

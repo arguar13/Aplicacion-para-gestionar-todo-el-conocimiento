@@ -328,6 +328,21 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
     );
   }
 
+  /// Convierte el fragmento seleccionado en un hecho de la línea de tiempo
+  /// (F40): con la cita puesta y, si trae una fecha, la fecha cargada.
+  Future<void> _addToTimeline(TextSelection selection) {
+    final (start, end) = _rawRange(selection);
+    return addRangeToTimeline(
+      context,
+      ref,
+      itemId: widget.itemId,
+      renditionId: widget.renditionId,
+      content: widget.content,
+      start: start,
+      end: end,
+    );
+  }
+
   /// La barrita de resaltado —ver [buildHighlightMenu]—, con lo que este
   /// texto agrega: leer lo seleccionado en voz alta, ponerle una nota,
   /// extraerlo como nota o hacer una tarjeta. Flutter la posiciona sola junto
@@ -346,6 +361,7 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
       onExtract: () => unawaited(_extractSelection(selection)),
       onCreateFlashcard: () =>
           unawaited(_createFlashcardFromSelection(selection)),
+      onAddToTimeline: () => unawaited(_addToTimeline(selection)),
     );
   }
 

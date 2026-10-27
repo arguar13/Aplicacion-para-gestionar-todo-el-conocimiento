@@ -6,9 +6,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// La barrita que aparece sobre un texto seleccionado para resaltarlo a mano
 /// (F38): una grilla de colores para resaltar de fondo —nueve, en dos filas—,
 /// «Subrayar» con una línea del color elegido al final de la grilla, y debajo
-/// Copiar, Escuchar, Nota, Extraer como nota y Hacer tarjeta. Lo que no
-/// entra —Compartir, Seleccionar todo, Buscar en la Web— queda detrás de «Más
-/// opciones».
+/// Copiar, Escuchar, Nota, Extraer como nota, Hacer tarjeta y A la línea de
+/// tiempo (F40). Lo que no entra —Compartir, Seleccionar todo, Buscar en la
+/// Web— queda detrás de «Más opciones».
 ///
 /// **API, para quien la pone sobre cualquier documento**
 ///
@@ -57,6 +57,7 @@ class HighlightToolbar extends StatelessWidget {
     this.onNote,
     this.onExtract,
     this.onCreateFlashcard,
+    this.onAddToTimeline,
     this.moreActions = const [],
     super.key,
   });
@@ -71,6 +72,9 @@ class HighlightToolbar extends StatelessWidget {
   final VoidCallback? onNote;
   final VoidCallback? onExtract;
   final VoidCallback? onCreateFlashcard;
+
+  /// Convierte lo seleccionado en un hecho de la línea de tiempo (F40).
+  final VoidCallback? onAddToTimeline;
   final List<HighlightToolbarAction> moreActions;
 
   /// Cuántas muestras de color hay por fila (F39: nueve colores en una grilla
@@ -174,6 +178,13 @@ class HighlightToolbar extends StatelessWidget {
           tooltip: l10n.flashcardsFromSelection,
           onPressed: onCreateFlashcard!,
         ),
+      if (onAddToTimeline != null)
+        _ActionButton(
+          key: const Key('highlight-add-to-timeline'),
+          icon: Icons.timeline,
+          tooltip: l10n.highlightAddToTimeline,
+          onPressed: onAddToTimeline!,
+        ),
       if (moreActions.isNotEmpty)
         PopupMenuButton<HighlightToolbarAction>(
           icon: const Icon(Icons.more_horiz),
@@ -247,9 +258,14 @@ class HighlightToolbar extends StatelessWidget {
                         height: 1,
                         color: theme.colorScheme.outlineVariant,
                       ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: actions,
+                      // Con los siete botones, en una pantalla de 320 de
+                      // ancho no entran a 48: se achican en vez de salirse.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: actions,
+                        ),
                       ),
                     ],
                   ],
@@ -337,6 +353,7 @@ class _ActionButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
+    super.key,
   });
 
   final IconData icon;

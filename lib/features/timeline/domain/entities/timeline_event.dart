@@ -86,6 +86,11 @@ sealed class TimelineEvent with _$TimelineEvent {
   /// El título del elemento del que sale, sea cual sea el origen.
   String get documentTitle => itemTitle ?? title;
 
+  /// Cuándo pasó, tal como se escribe: la fecha y, si es un tramo, su fin
+  /// después de un guion largo («1914 – 1918»).
+  String get dateLabel =>
+      end == null ? date.label : '${date.label} – ${end!.label}';
+
   /// `true` si la fecha es de década o siglo: se sabe el tramo en que
   /// ocurrió, no el momento. Se dibuja distinto de un año exacto, que es un
   /// dato. Un tramo con fin propio es otra cosa: se sabe de cuándo a cuándo.

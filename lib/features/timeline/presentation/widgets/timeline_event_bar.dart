@@ -32,15 +32,31 @@ enum TimelineBarStyle {
 
   /// Un período aproximado: el contorno tenue y los bordes que se desvanecen.
   approximatePeriod,
+
+  /// Un tramo con principio y fin propios («1914–1918»): el cuerpo tenue de
+  /// punta a punta y, en cada extremo, una marca firme que dice dónde
+  /// empieza y dónde termina. No es un período —del que solo se sabe que
+  /// ocurrió *en algún lugar* del tramo—: acá los dos extremos son datos.
+  range,
 }
 
+/// Lo que miden de ancho las marcas de los extremos de un tramo.
+const kTimelineRangeCapWidth = 3.0;
+
+/// Cuánto sobresalen de la barra, arriba y abajo, las marcas de un tramo.
+const kTimelineRangeCapOverhang = 2.0;
+
 extension TimelineEventStyle on TimelineEvent {
-  TimelineBarStyle get barStyle => switch ((isPeriod, date.isCirca)) {
-    (false, false) => TimelineBarStyle.exact,
-    (false, true) => TimelineBarStyle.approximate,
-    (true, false) => TimelineBarStyle.period,
-    (true, true) => TimelineBarStyle.approximatePeriod,
-  };
+  /// Un tramo con fin propio se dibuja como tramo, sea cual sea la precisión de
+  /// sus extremos; el «circa» sigue viéndose en los bordes difusos.
+  TimelineBarStyle get barStyle => isRange
+      ? TimelineBarStyle.range
+      : switch ((isPeriod, date.isCirca)) {
+          (false, false) => TimelineBarStyle.exact,
+          (false, true) => TimelineBarStyle.approximate,
+          (true, false) => TimelineBarStyle.period,
+          (true, true) => TimelineBarStyle.approximatePeriod,
+        };
 
   /// `true` si los extremos se dibujan difusos.
   bool get hasFuzzyEdges => fuzz > 0;
@@ -108,6 +124,31 @@ void paintTimelineBar(
             ..strokeWidth = 1.5
             ..color = color,
         );
+    case TimelineBarStyle.range:
+      // El cuerpo, más tenue que un hecho exacto, para que las dos marcas
+      // sean lo que se lee: dónde empieza y dónde termina.
+      canvas.drawRRect(
+        rounded,
+        paint
+          ..style = PaintingStyle.fill
+          ..shader = null
+          ..color = color.withValues(alpha: 0.4),
+      );
+      paint.color = color;
+      for (final left in [core.left, core.right - kTimelineRangeCapWidth]) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+              left,
+              core.top - kTimelineRangeCapOverhang,
+              kTimelineRangeCapWidth,
+              height + kTimelineRangeCapOverhang * 2,
+            ),
+            const Radius.circular(kTimelineRangeCapWidth / 2),
+          ),
+          paint,
+        );
+      }
   }
 }
 

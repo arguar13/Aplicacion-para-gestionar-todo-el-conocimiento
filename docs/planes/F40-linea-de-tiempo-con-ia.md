@@ -337,3 +337,44 @@ carta de 1810). Un hecho fechado es una fecha **dentro** de un documento.
   - **Pruebas nuevas:** qué año elige la década (el de después si está más cerca, el de antes si
     empatan, el último de varios) y el borde de 1.500 caracteres de cada lado. Las 8 mutaciones
     mueren, entre ellas volver al recorrido viejo.
+
+- **Pasos 4 (resto) y 5 — hecho.** La ficha del hecho, los colores por documento con su leyenda,
+  los tramos, la cita al mantener apretado, «Agregar un hecho» y «A la línea de tiempo» en la
+  barrita de resaltar.
+  - **La ficha del hecho:** tocar un hecho fechado abre una hoja, sin salir de la línea.
+    - Fecha, título, ✨ si lo puso la IA, y la cita con la fecha resaltada (en negrita y con fondo,
+      no solo por color). La ubica `locateEventDate`: la expresión de la cita que lee lo mismo que
+      el hecho; si la cita no la escribe, no resalta nada.
+    - De qué documento sale; tocarlo abre su detalle.
+    - **«Abrir en el documento»** va al lector justo en la cita, por el mismo camino de las
+      tarjetas y las notas extraídas. Sin ancla no se ofrece, y si el texto cambió la ficha lo dice.
+    - **Editar** abre el formulario y guardar adopta el hecho. **Quitar** avisa con «Deshacer», que
+      lo devuelve con su pasada y olvida el «no era».
+    - Una «Fecha del hecho» sigue abriendo el elemento.
+  - **Colores por documento:** con varios documentos a la vista, cada uno tiene su color (24 en la
+    paleta), siempre el mismo, porque sale solo del id. Se ajusta a cada tema hasta 3:1 de
+    contraste contra el fondo y la superficie. La leyenda «Documentos» arranca plegada, ordena por
+    cantidad de hechos, resume el resto en «y N más», y tocar una fila recorta la línea.
+  - **Tramos:** un hecho con fin va de punta a punta, con el cuerpo tenue y las dos puntas firmes,
+    en el mismo `CustomPaint`. 10.000 hechos, un tercio tramos, siguen dibujando menos de 400 cajas.
+  - **Mantener apretado:** título, fecha, cita y documento, sin abrir la ficha; dura 6 s con el
+    dedo y va arriba si debajo no entra.
+  - **El formulario** (alta y edición): documento, qué pasó, la fecha con el formulario de siempre
+    y un interruptor de tramo con «Hasta», que no ofrece «aproximada». Valida con `DatedEventInput`
+    (`problemKind`, traducido por campo).
+    - **Sin documento:** `item_id` sigue obligatorio, porque todo cuelga del elemento (papelera,
+      copia, unión de bóvedas, deshacer). El hecho va a la nota viva «Hechos sueltos», que se crea
+      al guardar la primera vez y se reutiliza.
+  - **«Agregar un hecho»** en la barra de arriba (con texto desde 420 dp, ícono en un teléfono
+    angosto) y en el estado vacío; el documento del recorte viene elegido.
+  - **«A la línea de tiempo» en la barrita**, en el texto extraído, el lector, el PDF y la página
+    web: la cita queda con su forma de texto y sus posiciones del contenido crudo, como los
+    resaltados. Si trae fecha, viene cargada (con su fin si es un rango); sin fecha, el formulario
+    abre vacío. El aviso trae «Ver», a la línea recortada a ese documento.
+  - **De paso se corrigió:** la lista de «Documento» usaba el título del hecho y no el del
+    documento; dos hechos del mismo documento y fecha compartían clave de semántica; el hover
+    comparaba solo por elemento y fecha; `AnimatedSize` con duración cero tiraba una excepción.
+  - **Pruebas:** más de 300 nuevas. De 101 mutaciones mueren 100; la otra es equivalente (cerrar
+    la barrita antes del formulario, que el modal ya cierra).
+  - **Integración con el paso 6:** en la barra conviven ✨ «Organizar con IA» y «Agregar un
+    hecho»; la franja de avance y la leyenda de documentos, cada una en su lugar.

@@ -34,9 +34,10 @@ class TimelineDocument {
       firstDate == lastDate ? firstDate : '$firstDate – $lastDate';
 }
 
-/// Agrupa [events] por elemento, ordenados por título (sin distinguir
-/// mayúsculas ni acentos, como el vocabulario): quien busca un documento lo
-/// busca por su nombre.
+/// Agrupa [events] por elemento —con el título del **documento**, no el del
+/// hecho: un hecho fechado se llama como lo que pasó—, ordenados por título
+/// (sin distinguir mayúsculas ni acentos, como el vocabulario): quien busca un
+/// documento lo busca por su nombre.
 ///
 /// Un solo recorrido sobre los hechos, no uno por documento: con diez mil
 /// hechos la hoja se arma de una vez.
@@ -53,18 +54,18 @@ List<TimelineDocument> groupTimelineDocuments(Iterable<TimelineEvent> events) {
 
   final sortKey = <String, String>{
     for (final entry in byItem.entries)
-      entry.key: normalizeVocabularyLabel(entry.value.first.title),
+      entry.key: normalizeVocabularyLabel(entry.value.first.documentTitle),
   };
   return [
     for (final entry in byItem.entries)
       TimelineDocument(
         itemId: entry.key,
-        title: entry.value.first.title,
+        title: entry.value.first.documentTitle,
         sourceKind: entry.value.first.sourceKind,
         noteKind: entry.value.first.noteKind,
         eventCount: entry.value.count,
         firstDate: entry.value.earliest.date.label,
-        lastDate: entry.value.latest.date.label,
+        lastDate: (entry.value.latest.end ?? entry.value.latest.date).label,
       ),
   ]..sort((a, b) {
     final byTitle = sortKey[a.itemId]!.compareTo(sortKey[b.itemId]!);

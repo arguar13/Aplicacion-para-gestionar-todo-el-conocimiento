@@ -233,4 +233,36 @@ void main() {
       expect(fact(startOffset: 4).hasAnchor, isFalse);
     });
   });
+
+  group('cómo se escribe cuándo pasó', () {
+    test('un hecho solo es su fecha', () {
+      expect(eventAt('a', dateOf(1859)).dateLabel, '1859');
+    });
+
+    test('un tramo es su fecha, un guion largo y su fin', () {
+      final event = TimelineEvent(
+        itemId: 'libro',
+        title: 'La Gran Guerra',
+        date: dateOf(1914),
+        end: dateOf(1918),
+        sourceKind: SourceKind.document,
+        datedEventId: 'h',
+      );
+
+      expect(event.dateLabel, '1914 – 1918');
+    });
+
+    test('un tramo a.C. escribe los dos extremos', () {
+      final event = TimelineEvent(
+        itemId: 'roma',
+        title: 'La República',
+        date: dateOf(509, bce: true),
+        end: dateOf(27, bce: true),
+        sourceKind: SourceKind.document,
+        datedEventId: 'h',
+      );
+
+      expect(event.dateLabel, '509 a.C. – 27 a.C.');
+    });
+  });
 }

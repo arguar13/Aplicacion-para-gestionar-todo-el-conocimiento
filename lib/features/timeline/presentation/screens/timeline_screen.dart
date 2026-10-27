@@ -5,8 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/timeline/domain/entities/dated_event_seed.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
+import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart';
+import 'package:sinapsis/features/timeline/domain/services/timeline_documents.dart';
 import 'package:sinapsis/features/timeline/presentation/providers/timeline_providers.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/dated_event_form.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/dated_event_sheet.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/document_colors.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/document_legend.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_ai_action.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_ai_progress.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_canvas.dart';
@@ -15,6 +22,11 @@ import 'package:sinapsis/features/timeline/presentation/widgets/timeline_filter_
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_scope_bar.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
+/// Desde qué ancho de pantalla el botón de agregar un hecho dice lo que hace
+/// con palabras; en una más angosta es un botón con ícono, para no robarle el
+/// lugar al título.
+const _addLabelMinWidth = 420.0;
+
 /// Cuánto se espera después de la última tecla antes de buscar: cada consulta
 /// vuelve a leer todos los hechos, y hacerlo por letra sería trabajo tirado.
 const _searchDelay = Duration(milliseconds: 300);
@@ -22,9 +34,12 @@ const _searchDelay = Duration(milliseconds: 300);
 /// La línea de tiempo (F9): los hechos con fecha de la bóveda sobre un eje
 /// que se mueve y se acerca. Un destino de «Organizar», arriba del Atlas (F40).
 ///
-/// Los eventos son las "Fecha del hecho" puestas en los elementos. Lo que se
-/// sabe con menos precisión —un siglo, un "circa"— se ve distinto de una fecha
-/// exacta, y tocar un hecho abre el elemento.
+/// Los eventos son las "Fecha del hecho" puestas en los elementos y los hechos
+/// fechados dentro de los documentos. Lo que se sabe con menos precisión —un
+/// siglo, un "circa"— se ve distinto de una fecha exacta, y un tramo se ve de
+/// punta a punta. Tocar un hecho fechado abre su ficha; tocar una «Fecha del
+/// hecho» abre el elemento. Cuando se ven varios documentos, cada uno lleva su
+/// color, con la leyenda de abajo.
 ///
 /// No recibe filtro: lo que se ve lo dice `timelineFilterProvider`, que es el
 /// único dueño. La pantalla vive en una rama del shell, así que no se vuelve a
@@ -51,6 +66,18 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   /// hechos** y no la del filtro actual: si no, encuadraría los viejos.
   ({LibraryQuery query, List<TimelineEvent> events})? _shown;
 
+  /// Lo que se deduce de los hechos que se ven —los documentos, y si son
+  /// varios—, calculado una vez por lista y no en cada cuadro: con diez mil
+  /// hechos, recorrerlos al reconstruir sería trabajo tirado.
+  List<TimelineEvent>? _derivedFrom;
+  List<TimelineDocument> _documents = const [];
+  bool _coloredByDocument = false;
+
+  /// Los colores de los documentos, para el tema que se está viendo: cambian de
+  /// tema, no de documento.
+  DocumentColors? _colors;
+  ThemeData? _colorsTheme;
+
   @override
   void dispose() {
     _searchTimer?.cancel();
@@ -73,6 +100,53 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     _searchController.clear();
     ref.read(timelineFilterProvider.notifier).search('');
     setState(() {});
+  }
+
+  /// Los documentos de [events] y si conviene pintar cada uno de su color.
+  void _derive(List<TimelineEvent> events) {
+    if (identical(_derivedFrom, events)) return;
+    _derivedFrom = events;
+    _coloredByDocument = showsSeveralDocuments(events);
+    _documents = _coloredByDocument
+        ? legendDocuments(groupTimelineDocuments(events))
+        : const [];
+  }
+
+  DocumentColors _colorsFor(ThemeData theme) {
+    if (_colors == null || _colorsTheme != theme) {
+      _colorsTheme = theme;
+      _colors = DocumentColors(theme);
+    }
+    return _colors!;
+  }
+
+  /// Un hecho fechado abre su ficha, sin salir de la línea; una «Fecha del
+  /// hecho» es de un elemento entero y abre el elemento.
+  void _open(TimelineEvent event) {
+    if (event.isDatedEvent) {
+      unawaited(showDatedEventSheet(context, event));
+    } else {
+      unawaited(context.push(RoutePaths.itemDetail(event.itemId)));
+    }
+  }
+
+  /// Abre el formulario de un hecho nuevo. Con un documento elegido como
+  /// recorte, viene preseleccionado: lo más probable es que se quiera agregar
+  /// un hecho a eso que se está mirando.
+  Future<void> _addFact() async {
+    final scope = ref.read(timelineFilterProvider).scope;
+    final seed = scope?.kind == TimelineScopeKind.document
+        ? DatedEventSeed(itemId: scope!.id)
+        : null;
+    final saved = await showDatedEventForm(context, seed: seed);
+    if (!saved || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.timelineFactAdded),
+        ),
+      );
   }
 
   void _clearAll() {
@@ -107,12 +181,29 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       _shown = (query: query, events: loaded);
     }
     final shown = _shown;
+    if (shown != null) _derive(shown.events);
+    final colors = _coloredByDocument ? _colorsFor(Theme.of(context)) : null;
+    final wide = MediaQuery.sizeOf(context).width >= _addLabelMinWidth;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.timelineTitle),
         actions: [
           const TimelineAiAction(),
+          if (wide)
+            FilledButton.tonalIcon(
+              key: const ValueKey('timeline-add-fact'),
+              onPressed: _addFact,
+              icon: const Icon(Icons.add),
+              label: Text(l10n.timelineAddFact),
+            )
+          else
+            IconButton.filledTonal(
+              key: const ValueKey('timeline-add-fact'),
+              tooltip: l10n.timelineAddFact,
+              onPressed: _addFact,
+              icon: const Icon(Icons.add),
+            ),
           IconButton(
             tooltip: l10n.timelineFiltersTooltip,
             icon: Badge(
@@ -161,6 +252,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               _ when shown.events.isEmpty => _Empty(
                 filtered: filter.activeCount > 0,
                 onClearFilters: _clearAll,
+                onAdd: _addFact,
               ),
               _ => Column(
                 children: [
@@ -170,10 +262,25 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       // Otra consulta: el eje se encuadra de nuevo sobre lo
                       // que quedó.
                       frameKey: shown.query,
-                      onOpen: (event) =>
-                          context.push(RoutePaths.itemDetail(event.itemId)),
+                      colorOf: colors == null
+                          ? null
+                          : (event) => colors.of(event.itemId),
+                      onOpen: _open,
                     ),
                   ),
+                  if (colors != null)
+                    TimelineDocumentLegend(
+                      documents: _documents,
+                      colors: colors,
+                      onPick: (document) => ref
+                          .read(timelineFilterProvider.notifier)
+                          .setScope(
+                            TimelineScope.document(
+                              itemId: document.itemId,
+                              label: document.title,
+                            ),
+                          ),
+                    ),
                   _Legend(count: shown.events.length),
                 ],
               ),
@@ -186,10 +293,15 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 }
 
 class _Empty extends StatelessWidget {
-  const _Empty({required this.filtered, required this.onClearFilters});
+  const _Empty({
+    required this.filtered,
+    required this.onClearFilters,
+    required this.onAdd,
+  });
 
   final bool filtered;
   final VoidCallback onClearFilters;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -227,6 +339,13 @@ class _Empty extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              key: const ValueKey('timeline-empty-add-fact'),
+              onPressed: onAdd,
+              icon: const Icon(Icons.add),
+              label: Text(l10n.timelineAddFact),
+            ),
           ],
         ),
       ),
@@ -310,6 +429,7 @@ class _Legend extends StatelessWidget {
               fuzz: 10,
             ),
             sample(TimelineBarStyle.period, l10n.timelineLegendPeriod),
+            sample(TimelineBarStyle.range, l10n.timelineLegendRange),
           ],
         ),
       ),

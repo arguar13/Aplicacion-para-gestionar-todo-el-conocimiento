@@ -20,18 +20,21 @@ import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/timeline/presentation/providers/dated_event_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/memory_study_repository.dart';
 import '../../../../support/read_aloud_test_support.dart';
+import '../../../../support/recording_dated_events.dart';
 
 class _MockOrganizeRepository extends Mock implements OrganizeRepository {}
 
@@ -80,6 +83,7 @@ void main() {
     List<Highlight> highlights = const [],
     bool withStudy = true,
     DocumentStudy? study,
+    List<Override> extra = const [],
   }) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -95,6 +99,7 @@ void main() {
         ),
         organizeRepositoryProvider.overrideWithValue(repository),
         captureItemUseCaseProvider.overrideWithValue(captureUseCase),
+        ...extra,
       ],
     );
     addTearDown(container.dispose);
@@ -323,6 +328,48 @@ void main() {
 
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(find.text('Primera'), findsOneWidget);
+    });
+
+    testWidgets('A la línea de tiempo abre el formulario con la cita, en '
+        'posiciones del texto entero (F40)', (tester) async {
+      final dated = RecordingDatedEvents();
+      await pumpReader(
+        tester,
+        extra: [
+          datedEventRepositoryProvider.overrideWithValue(dated),
+          libraryItemProvider.overrideWith((ref, id) => Stream.value(null)),
+        ],
+      );
+      await nextPage(tester);
+      await select(tester, 3, 13);
+
+      await tester.tap(find.byTooltip(es.highlightAddToTimeline));
+      await tester.pumpAndSettle();
+
+      // La cita puesta, la fecha vacía (la selección no trae ninguna) y el
+      // título propuesto: la propia cita, que es corta.
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('dated-event-form-quote')),
+          matching: find.text('revolución'),
+        ),
+        findsOneWidget,
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, es.datePickerYear),
+        '1850',
+      );
+      await tester.tap(find.byKey(const ValueKey('dated-event-form-save')));
+      await tester.pumpAndSettle();
+
+      final saved = dated.added.single;
+      expect(saved.itemId, 'item-1');
+      expect(saved.input.title, 'revolución');
+      expect(saved.input.date.year, 1850);
+      expect(saved.input.renditionId, 'r1');
+      expect(saved.input.startOffset, twoStart + 3);
+      expect(saved.input.endOffset, twoStart + 13);
+      expect(saved.input.excerpt, 'revolución');
     });
 
     testWidgets('sin el texto de un elemento —un adjunto— no hay dónde '

@@ -52,6 +52,13 @@ class TimelineLabelCache {
   }
 }
 
+/// Qué identifica a [event] entre los demás del eje: un hecho fechado, su
+/// propio identificador; una «Fecha del hecho», su elemento y la fecha —un
+/// elemento puede tener varias—. Dos hechos de un mismo documento con la misma
+/// fecha son dos cosas distintas.
+String timelineEventKey(TimelineEvent event) =>
+    event.datedEventId ?? '${event.itemId}-${event.date.label}';
+
 /// Dibuja todos los eventos de un [TimelineFrame] en un solo lienzo: cada
 /// barra según la precisión de su fecha y, debajo, su rótulo.
 ///
@@ -125,11 +132,11 @@ class TimelineEventsPainter extends CustomPainter {
       (size) => [
         for (final box in frame.boxes)
           CustomPainterSemantics(
-            key: ValueKey('${box.event.itemId}-${box.event.date.label}'),
+            key: ValueKey(timelineEventKey(box.event)),
             rect: box.rect,
             properties: SemanticsProperties(
               button: true,
-              label: '${box.event.title}, ${box.event.date.label}',
+              label: '${box.event.title}, ${box.event.dateLabel}',
               textDirection: TextDirection.ltr,
               onTap: () => onOpen(box.event),
             ),

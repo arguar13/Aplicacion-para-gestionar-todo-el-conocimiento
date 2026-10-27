@@ -10640,5 +10640,122 @@
   "sourcePanelFindDates": "Find dates with AI",
   "@sourcePanelFindDates": {"description": "Hoja «Más» del panel de la fuente (F40): pide que la IA busque las fechas del texto para la línea de tiempo."},
   "sourcePanelFindDatesHint": "Puts the dates the text mentions on the timeline, each with its quote",
-  "@sourcePanelFindDatesHint": {"description": "Explicación de «Buscar fechas con IA» en la hoja «Más» del panel de la fuente (F40)."}
+  "@sourcePanelFindDatesHint": {"description": "Explicación de «Buscar fechas con IA» en la hoja «Más» del panel de la fuente (F40)."},
+  "timelineFactMadeByAi": "Fact added by the AI",
+  "@timelineFactMadeByAi": {"description": "Tooltip de la marca ✨ en la ficha de un hecho fechado que puso la IA (F40)."},
+  "timelineFactQuoteLost": "The text changed and the quote is no longer in it: the date and the title are kept.",
+  "@timelineFactQuoteLost": {"description": "Aviso de la ficha de un hecho cuya cita ya no se encuentra en el texto, porque se volvió a extraer (F40)."},
+  "timelineFactRemove": "Remove",
+  "@timelineFactRemove": {"description": "Botón de la ficha de un hecho fechado que lo quita de la línea de tiempo (F40)."},
+  "timelineFactEdit": "Edit",
+  "@timelineFactEdit": {"description": "Botón de la ficha de un hecho fechado que abre el formulario para editarlo (F40)."},
+  "timelineFactOpenInDocument": "Open in the document",
+  "@timelineFactOpenInDocument": {"description": "Botón de la ficha de un hecho fechado que abre el documento justo en su cita (F40)."},
+  "timelineFactRemoved": "Removed “{title}”",
+  "@timelineFactRemoved": {
+    "description": "Aviso al quitar un hecho fechado de la línea de tiempo; lleva «Deshacer» (F40).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "timelineFactUndo": "Undo",
+  "@timelineFactUndo": {"description": "Acción del aviso de un hecho fechado quitado: lo devuelve (F40)."},
+  "timelineFactFromDocument": "Document: {title}",
+  "@timelineFactFromDocument": {
+    "description": "Lo que lee un lector de pantalla en la fila del documento de la ficha de un hecho (F40).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "timelineFormAddTitle": "Add a fact",
+  "@timelineFormAddTitle": {"description": "Título del formulario para agregar un hecho fechado a mano (F40)."},
+  "timelineFormEditTitle": "Edit the fact",
+  "@timelineFormEditTitle": {"description": "Título del formulario para editar un hecho fechado (F40)."},
+  "timelineFormDocumentLabel": "Document",
+  "@timelineFormDocumentLabel": {"description": "Rótulo del campo del documento en el formulario de un hecho fechado (F40)."},
+  "timelineFormDocumentNone": "No document",
+  "@timelineFormDocumentNone": {"description": "Opción del formulario de un hecho: no es de ningún documento, va a la nota de los hechos sueltos (F40)."},
+  "timelineFormDocumentOne": "A document",
+  "@timelineFormDocumentOne": {"description": "Opción del formulario de un hecho: elegir de qué documento es (F40)."},
+  "timelineFormPickDocument": "Choose a document",
+  "@timelineFormPickDocument": {"description": "Botón del formulario de un hecho que abre la lista de documentos, y título de esa lista (F40)."},
+  "timelineFormDocumentLoose": "It is saved in the note “{title}”, where the facts that belong to no document are kept.",
+  "@timelineFormDocumentLoose": {
+    "description": "Explicación de «Sin documento» en el formulario de un hecho (F40).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "timelineFormLooseNoteTitle": "Loose facts",
+  "@timelineFormLooseNoteTitle": {"description": "Título de la nota donde se guardan los hechos fechados sin documento; se crea la primera vez que hace falta (F40)."},
+  "timelineFormDocumentRequired": "Choose a document, or tap “No document”.",
+  "@timelineFormDocumentRequired": {"description": "Error del formulario de un hecho cuando se eligió «Un documento» y no se eligió ninguno (F40)."},
+  "timelineFormDocumentFixed": "It can't be changed: the fact and its quote belong to this document.",
+  "@timelineFormDocumentFixed": {"description": "Nota bajo el documento del formulario de un hecho que se edita o que viene de una cita (F40)."},
+  "timelineFormQuoteLabel": "Quote from the text",
+  "@timelineFormQuoteLabel": {"description": "Lo que lee un lector de pantalla en la cita que acompaña al formulario de un hecho (F40)."},
+  "timelineFormTitleLabel": "What happened",
+  "@timelineFormTitleLabel": {"description": "Rótulo del campo del título en el formulario de un hecho fechado (F40)."},
+  "timelineFormTitleHint": "For example: Publishes On the Origin of Species",
+  "@timelineFormTitleHint": {"description": "Ayuda del campo del título en el formulario de un hecho fechado (F40)."},
+  "timelineFormTitleRequired": "Write what happened.",
+  "@timelineFormTitleRequired": {"description": "Error del formulario de un hecho cuando falta el título (F40)."},
+  "timelineFormWhen": "When",
+  "@timelineFormWhen": {"description": "Encabezado de la fecha en el formulario de un hecho fechado (F40)."},
+  "timelineFormDateMissing": "The date is missing: write the year.",
+  "@timelineFormDateMissing": {"description": "Error del formulario de un hecho cuando falta la fecha (F40)."},
+  "timelineFormRangeSwitch": "It is a span: it has a start and an end",
+  "@timelineFormRangeSwitch": {"description": "Interruptor del formulario de un hecho que agrega la fecha de fin (F40)."},
+  "timelineFormUntil": "Until",
+  "@timelineFormUntil": {"description": "Encabezado de la fecha de fin en el formulario de un hecho (F40)."},
+  "timelineFormEndMissing": "The end is missing: write the year.",
+  "@timelineFormEndMissing": {"description": "Error del formulario de un hecho cuando se pidió un fin y no se escribió (F40)."},
+  "timelineFormEndBeforeStart": "The fact can't end before it starts.",
+  "@timelineFormEndBeforeStart": {"description": "Error del formulario de un hecho cuando el fin es anterior al comienzo (F40)."},
+  "timelineFormInvalid": "It can't be saved like this: check the date.",
+  "@timelineFormInvalid": {"description": "Error general del formulario de un hecho cuando los datos no son válidos (F40)."},
+  "timelineFormSave": "Save",
+  "@timelineFormSave": {"description": "Botón que guarda el formulario de un hecho fechado (F40)."},
+  "timelineAddFact": "Add a fact",
+  "@timelineAddFact": {"description": "Botón de la línea de tiempo que abre el formulario para agregar un hecho a mano (F40)."},
+  "timelineFactAdded": "Added to the timeline",
+  "@timelineFactAdded": {"description": "Aviso al guardar un hecho desde lo seleccionado en un texto (F40)."},
+  "timelineFactAddedSee": "View",
+  "@timelineFactAddedSee": {"description": "Acción del aviso de un hecho agregado: abre la línea de tiempo en su documento (F40)."},
+  "highlightAddToTimeline": "Add to timeline",
+  "@highlightAddToTimeline": {"description": "Botón de la barrita de resaltar: convierte lo seleccionado en un hecho de la línea de tiempo (F40)."},
+  "timelineLegendRange": "Span (with a start and an end)",
+  "@timelineLegendRange": {"description": "Leyenda de la línea de tiempo: cómo se dibuja un hecho que dura de una fecha a otra (F40)."},
+  "timelineDocsLegendTitle": "Documents",
+  "@timelineDocsLegendTitle": {"description": "Título de la leyenda de colores por documento de la línea de tiempo (F40)."},
+  "timelineDocsLegendCount": "{count, plural, =1{1 document} other{{count} documents}}",
+  "@timelineDocsLegendCount": {
+    "description": "Cuántos documentos hay a la vista, en la leyenda de colores de la línea de tiempo (F40).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timelineDocsLegendExpand": "Show the document colors",
+  "@timelineDocsLegendExpand": {"description": "Botón que despliega la leyenda de colores por documento (F40)."},
+  "timelineDocsLegendCollapse": "Hide the document colors",
+  "@timelineDocsLegendCollapse": {"description": "Botón que pliega la leyenda de colores por documento (F40)."},
+  "timelineDocsLegendRowTooltip": "Show only this document",
+  "@timelineDocsLegendRowTooltip": {"description": "Ayuda de cada fila de la leyenda de colores: tocarla recorta la línea de tiempo a ese documento (F40)."},
+  "timelineDocsLegendMore": "{count, plural, =1{and 1 more document} other{and {count} more documents}}",
+  "@timelineDocsLegendMore": {
+    "description": "Cuántos documentos no entran en la leyenda de colores; se ven recortando por documento (F40).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

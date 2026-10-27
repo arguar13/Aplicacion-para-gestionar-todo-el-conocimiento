@@ -184,4 +184,121 @@ void main() {
       expect(cited(excerpt: '  ').problem, isNotNull);
     });
   });
+
+  group('qué es lo que falla (para decirlo en el campo y en el idioma)', () {
+    test('cada problema tiene su clase, y el texto es el de siempre', () {
+      DatedEventProblem? kindOf(DatedEventInput input) => input.problemKind;
+
+      expect(
+        kindOf(DatedEventInput(title: ' ', date: year(1809))),
+        DatedEventProblem.titleMissing,
+      );
+      expect(
+        kindOf(
+          const DatedEventInput(
+            title: 'x',
+            date: HistoricalDate(year: 0, precision: DatePrecision.year),
+          ),
+        ),
+        DatedEventProblem.yearNotPositive,
+      );
+      expect(
+        kindOf(DatedEventInput(title: 'x', date: month(1900, 13))),
+        DatedEventProblem.monthOutOfRange,
+      );
+      expect(
+        kindOf(DatedEventInput(title: 'x', date: day(2023, 4, 31))),
+        DatedEventProblem.dayNotInMonth,
+      );
+      expect(
+        kindOf(DatedEventInput(title: 'x', date: year(1918), end: year(1914))),
+        DatedEventProblem.endsBeforeStart,
+      );
+      expect(
+        kindOf(
+          DatedEventInput(
+            title: 'x',
+            date: year(1914),
+            startOffset: 0,
+            renditionId: 'r',
+          ),
+        ),
+        DatedEventProblem.quoteHalfPositioned,
+      );
+      expect(
+        kindOf(
+          DatedEventInput(
+            title: 'x',
+            date: year(1914),
+            startOffset: 0,
+            endOffset: 3,
+          ),
+        ),
+        DatedEventProblem.quoteWithoutText,
+      );
+      expect(
+        kindOf(
+          DatedEventInput(
+            title: 'x',
+            date: year(1914),
+            renditionId: 'r',
+            startOffset: 3,
+            endOffset: 3,
+            excerpt: 'abc',
+          ),
+        ),
+        DatedEventProblem.quoteNotARange,
+      );
+      expect(
+        kindOf(
+          DatedEventInput(
+            title: 'x',
+            date: year(1914),
+            renditionId: 'r',
+            startOffset: 0,
+            endOffset: 3,
+          ),
+        ),
+        DatedEventProblem.quoteWithoutFragment,
+      );
+      expect(kindOf(DatedEventInput(title: 'x', date: year(1914))), isNull);
+    });
+
+    test('el texto de diagnóstico de cada clase es el de `problem`', () {
+      final input = DatedEventInput(title: '', date: year(1809));
+
+      expect(input.problem, DatedEventProblem.titleMissing.message);
+      expect(input.problem, 'El hecho necesita un título.');
+      expect(
+        DatedEventInput(title: 'x', date: year(1918), end: year(1914)).problem,
+        'El hecho no puede terminar antes de empezar.',
+      );
+    });
+
+    test('con varios problemas, el primero en el orden del formulario: el '
+        'título, la fecha, el fin', () {
+      final both = DatedEventInput(
+        title: '',
+        date: month(1900, 13),
+        end: year(1800),
+      );
+      expect(both.problemKind, DatedEventProblem.titleMissing);
+
+      final dateAndEnd = DatedEventInput(
+        title: 'x',
+        date: month(1900, 13),
+        end: year(1800),
+      );
+      expect(dateAndEnd.problemKind, DatedEventProblem.monthOutOfRange);
+    });
+
+    test('el título se puede preguntar antes de tener la fecha', () {
+      expect(DatedEventInput.titleProblem(''), DatedEventProblem.titleMissing);
+      expect(
+        DatedEventInput.titleProblem('  \n'),
+        DatedEventProblem.titleMissing,
+      );
+      expect(DatedEventInput.titleProblem('Nace'), isNull);
+    });
+  });
 }

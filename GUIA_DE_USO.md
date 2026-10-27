@@ -607,7 +607,14 @@ seleccionar aparece en cambio una barrita sobre la selección:
 - **Subrayar**: lo marca con una línea del último color que elegiste (el
   amarillo, si todavía no elegiste ninguno).
 - **Copiar**, **Escuchar** (lee en voz alta lo seleccionado), **Nota** (resalta
-  y te deja escribir por qué), **Extraer como nota** y **Crear tarjeta**.
+  y te deja escribir por qué), **Extraer como nota**, **Crear tarjeta** y
+  **A la línea de tiempo** (ver
+  [Línea de tiempo](#línea-de-tiempo)): convierte lo seleccionado en un hecho
+  fechado, con la cita ya puesta. Si lo seleccionado trae una fecha («en
+  1859», «siglo XV», «de 1914 a 1918»), el formulario se abre con la fecha
+  cargada —y su fin, si es un rango—, y solo te falta confirmar el título; si
+  no trae fecha, la fecha queda vacía para que la pongas. En un teléfono de
+  320 de ancho los botones de la barrita se achican un poco para entrar.
 - Detrás de **Más opciones** quedan Compartir, Seleccionar todo y Buscar en la
   Web.
 
@@ -1465,16 +1472,49 @@ dedos (pellizco), con la rueda del mouse o con los botones de acercar/alejar.
 **Doble toque** en un lugar vacío acerca justo ahí, igual que el botón de
 acercar. Al cambiar el filtro, al tocar **"Mostrar todo"** o al tocar el mini
 mapa, la vista no salta: se desliza hasta su lugar (si tenés desactivadas las
-animaciones del sistema, cambia de golpe). Tocar un hecho abre su detalle.
+animaciones del sistema, cambia de golpe).
+
+**Tocar un hecho.** Si es un **hecho fechado** (una fecha *dentro* de un
+documento), se abre su **ficha** sin salir de la línea de tiempo:
+
+- la fecha y el título (con ✨ si lo puso la IA);
+- la **cita** del texto, con la fecha resaltada en negrita y con fondo;
+- de qué **documento** sale (tocarlo abre su detalle);
+- **"Abrir en el documento"**, que te lleva al lector justo en esa cita. Si el
+  hecho no tiene cita, o el texto se volvió a extraer y la cita ya no está
+  (la ficha lo avisa), el botón no aparece;
+- **"Editar"**, que abre el formulario con el título y las fechas (el documento
+  y la cita no se cambian; si el hecho era de la IA, editarlo lo vuelve tuyo);
+- **"Quitar"**, que lo saca y avisa con **"Deshacer"**. Si era de la IA, queda
+  anotado como «no era» para que no vuelva a ponerlo, y deshacer también lo
+  olvida.
+
+Una **"Fecha del hecho"** (la de un elemento entero) se abre como siempre: te
+lleva al detalle del elemento.
+
+**Mantener apretado un hecho** (o apoyar el mouse un momento) muestra un
+globito con su título, su fecha, su **cita** y su documento, sin abrir la ficha;
+con el dedo se queda unos segundos para que alcances a leerla.
+
+**Los tramos.** Un hecho con fin («1914–1918») se dibuja **de punta a punta**,
+con el cuerpo más tenue y una marca firme en cada extremo: dónde empieza y dónde
+termina. Es distinto de un período (una década o un siglo), del que solo se sabe
+que pasó *en algún lugar* del tramo.
+
+**Un color por documento.** Cuando se ven hechos de **varios documentos**, cada
+documento tiene su color, y el mismo siempre: no cambia al filtrar ni al
+volver a abrir. Se ajusta a cada tema (claro, oscuro, Sepia…) para que se lea
+sobre el fondo. Con un solo documento a la vista, se usa el color de siempre.
+Abajo, la **leyenda de colores** (**"Documentos"**) está plegada: tocala para
+ver cada documento con su color y cuántos hechos tiene (los de más hechos
+primero; si son muchos, el resto se resume en «y N más»). **Tocar una fila**
+recorta la línea de tiempo a ese documento. Abajo de todo, la leyenda de
+siempre también explica cómo se ve un tramo.
 
 **El mini mapa:** la franja de arriba del eje muestra dónde se juntan los
 hechos a lo largo de todo el rango —cuanto más alta la barra, más hechos— y
 un recuadro marca el tramo que estás viendo. Tocarla te lleva a esa época sin
 cambiar el zoom, y arrastrarla mueve la vista con el dedo.
-
-Para que algo aparezca acá, primero tenés que ponerle una propiedad de tipo
-fecha desde su detalle (sección Propiedades → "+ Agregar propiedad" →
-"Fecha del hecho"), o dejar que lo haga la IA con **"Organizar con IA"**.
 
 **Organizar con IA.** El botón ✨ de la barra de arriba le pide a la IA que
 lea los textos y ponga en la línea las fechas que cuentan (un libro tiene
@@ -1501,6 +1541,35 @@ podés deshacerlo; lo que la IA pone lleva la marca ✨ y se puede revisar en la
 propia línea. Para que lo nuevo ya salga con sus fechas, prendé **"Fechas para
 la línea de tiempo"** en [los interruptores](#los-interruptores-ajustes--ia-y-modelos)
 (viene prendido).
+
+**Agregar un hecho a mano.** Arriba a la derecha está **"Agregar un hecho"**
+(en un teléfono angosto, un botón con un **+**; con la línea vacía, también
+en el centro). Se abre un formulario con:
+
+- **Documento**: **"Sin documento"** (de entrada) o **"Un documento"**, que
+  abre la lista de la biblioteca para elegir de cuál. Si en la línea de tiempo
+  tenías elegido un documento, viene ya elegido. Todo hecho cuelga de un
+  elemento —así viaja a la papelera, a la copia y a la unión de bóvedas—, por
+  eso un hecho **sin documento** se guarda en una nota llamada **«Hechos
+  sueltos»**, que se crea la primera vez y después se reutiliza;
+- **Qué pasó**: el título;
+- **Cuándo**: el mismo formulario de fecha de siempre (año con su era,
+  precisión, mes y día, «aproximada»);
+- **Es un tramo**: un interruptor que agrega la fecha de **Hasta**, el fin.
+
+Si falta el título o la fecha, el formulario lo dice en el campo al guardar; un
+fin anterior al comienzo se avisa apenas lo escribís. Al guardar, el hecho
+aparece en la línea (si el filtro puesto lo deja ver).
+
+**Desde un texto.** Seleccioná algo en el texto extraído, en el lector, en un
+PDF o en una página web y tocá **"A la línea de tiempo"** en la barrita (ver
+[Resaltar a mano](#resaltar-a-mano-la-barrita)): el formulario abre con la
+cita puesta y, si trae fecha, con la fecha cargada. El aviso de abajo tiene
+**"Ver"**, que abre la línea de tiempo en ese documento.
+
+Para que un elemento entero aparezca acá también podés ponerle una propiedad
+de tipo fecha desde su detalle (sección Propiedades → "+ Agregar propiedad" →
+"Fecha del hecho").
 
 ---
 

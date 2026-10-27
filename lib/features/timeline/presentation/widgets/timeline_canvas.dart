@@ -117,11 +117,15 @@ class _TimelineCanvasState extends State<TimelineCanvas>
   /// Los rótulos ya medidos: arrastrar repinta los mismos con el mismo ancho.
   final _labels = TimelineLabelCache();
 
-  // La ayuda de un evento —su título y su fecha completa—: con el mouse, un
-  // momento después de apoyarse; con el dedo, al mantener apretado. Es una sola
-  // para todo el lienzo, no una por evento.
+  // La ayuda de un evento —su título, su fecha completa y, si lo tiene, su
+  // cita—: con el mouse, un momento después de apoyarse; con el dedo, al
+  // mantener apretado. Es una sola para todo el lienzo, no una por evento.
   static const _tipDelay = Duration(milliseconds: 500);
-  static const _touchTipDuration = Duration(seconds: 3);
+  static const _touchTipDuration = Duration(seconds: 6);
+
+  /// Lo que se reserva de alto para la ayuda al decidir si entra debajo de un
+  /// evento: el título, la fecha, cuatro renglones de cita y el documento.
+  static const _tipRoom = 150.0;
   TimelineBox? _hovered;
   TimelineBox? _tip;
   Timer? _tipTimer;
@@ -155,8 +159,11 @@ class _TimelineCanvasState extends State<TimelineCanvas>
 
   /// Con el mouse encima de un evento, su ayuda aparece a los [_tipDelay].
   void _onHover(TimelineBox? box) {
-    if (box?.event.itemId == _hovered?.event.itemId &&
-        box?.event.date.label == _hovered?.event.date.label) {
+    final hovered = _hovered;
+    if (box == null
+        ? hovered == null
+        : hovered != null &&
+              timelineEventKey(box.event) == timelineEventKey(hovered.event)) {
       return;
     }
     _tipTimer?.cancel();
@@ -489,7 +496,7 @@ class _TimelineCanvasState extends State<TimelineCanvas>
                               label: Text(l10n.timelineHidden(layout.hidden)),
                             ),
                           ),
-                        if (_tip case final tip?) _tipFor(tip, width),
+                        if (_tip case final tip?) _tipFor(tip, width, height),
                       ],
                     ),
                   ),
@@ -518,19 +525,26 @@ class _TimelineCanvasState extends State<TimelineCanvas>
     );
   }
 
-  /// La ayuda de un evento: su título y su fecha completa, debajo de su caja.
-  Widget _tipFor(TimelineBox box, double canvasWidth) {
+  /// La ayuda de un evento, debajo de su caja: el título y la fecha, la cita
+  /// del texto de donde sale —si tiene— y el documento. Mantener apretado un
+  /// hecho la muestra sin abrir su ficha. Si debajo no entra, va arriba.
+  Widget _tipFor(TimelineBox box, double canvasWidth, double canvasHeight) {
     final theme = Theme.of(context);
     final event = box.event;
-    const maxWidth = 260.0;
+    final quote = event.excerpt?.replaceAll(RegExp(r'\s+'), ' ').trim();
+    const maxWidth = 280.0;
     final left = box.rect.left
         .clamp(8, math.max(8, canvasWidth - maxWidth - 8))
         .toDouble();
+    final onTip = theme.colorScheme.onInverseSurface;
+    final base = theme.textTheme.bodySmall?.copyWith(color: onTip);
+    final below = box.rect.bottom + 4 + _tipRoom <= canvasHeight;
 
     return Positioned(
       key: const ValueKey('timeline-tip'),
       left: left,
-      top: box.rect.bottom + 4,
+      top: below ? box.rect.bottom + 4 : null,
+      bottom: below ? null : canvasHeight - box.rect.top + 4,
       child: IgnorePointer(
         child: Material(
           elevation: 3,
@@ -540,11 +554,34 @@ class _TimelineCanvasState extends State<TimelineCanvas>
             constraints: const BoxConstraints(maxWidth: maxWidth),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Text(
-                '${event.title}\n${event.date.label}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onInverseSurface,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${event.title}\n${event.dateLabel}', style: base),
+                  if (quote != null && quote.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      '«$quote»',
+                      key: const ValueKey('timeline-tip-quote'),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: base?.copyWith(fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                  if (event.isDatedEvent) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      event.documentTitle,
+                      key: const ValueKey('timeline-tip-document'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: base?.copyWith(
+                        color: onTip.withValues(alpha: 0.75),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
