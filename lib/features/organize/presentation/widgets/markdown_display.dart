@@ -188,6 +188,9 @@ class RenderedMarkdown {
   ///
   /// [activeRange] es lo que se está diciendo mientras suena el audio (F23):
   /// se pinta en amarillo, por encima de todo.
+  ///
+  /// [codeStyle] se suma al código en línea, encima de su letra de ancho
+  /// fijo: el chat le pone un fondo apenas marcado, como un rótulo (F42).
   TextSpan buildSpans(
     ThemeData theme,
     List<(int startOffset, int endOffset)> highlightRanges, {
@@ -196,6 +199,7 @@ class RenderedMarkdown {
     (int startOffset, int endOffset)? activeRange,
     List<PaintedRange> paints = const [],
     List<HandMark> marks = const [],
+    TextStyle? codeStyle,
   }) {
     final resolvedBaseStyle =
         baseStyle ??
@@ -260,6 +264,9 @@ class RenderedMarkdown {
 
     TextStyle? styleFor(_Segment segment, List<int> painted) {
       var style = segment.style.toTextStyle(theme, resolvedBaseStyle);
+      if (segment.style.code && codeStyle != null) {
+        style = style?.merge(codeStyle);
+      }
       for (final index in painted) {
         final layer = layers[index];
         style = style?.copyWith(

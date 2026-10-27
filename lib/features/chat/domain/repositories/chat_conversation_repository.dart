@@ -41,4 +41,8 @@ abstract interface class ChatConversationRepository {
 
   /// Borra una conversación entera, con todos sus mensajes.
   Future<void> deleteConversation(String id);
+
+  /// Borra un solo mensaje (F42): la respuesta que se vuelve a generar. La
+  /// conversación queda, con su título y su lugar en el historial.
+  Future<void> deleteMessage(String id);
 }

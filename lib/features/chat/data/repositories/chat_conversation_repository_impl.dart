@@ -152,13 +152,19 @@ class ChatConversationRepositoryImpl implements ChatConversationRepository {
 
   @override
   Future<void> renameConversation(String id, String title) async {
-    await (_db.update(_db.conversations)..where((c) => c.id.equals(id)))
-        .write(ConversationsCompanion(title: Value(title)));
+    await (_db.update(_db.conversations)..where((c) => c.id.equals(id))).write(
+      ConversationsCompanion(title: Value(title)),
+    );
   }
 
   @override
   Future<void> deleteConversation(String id) async {
     await (_db.delete(_db.conversations)..where((c) => c.id.equals(id))).go();
+  }
+
+  @override
+  Future<void> deleteMessage(String id) async {
+    await (_db.delete(_db.chatMessages)..where((m) => m.id.equals(id))).go();
   }
 
   String _autoTitle(String text) {

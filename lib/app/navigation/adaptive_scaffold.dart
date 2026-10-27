@@ -16,6 +16,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// número inventado para esta app.
 const kNavRailBreakpoint = 600.0;
 
+/// El alto de `NavigationBar` cuando el tema no dice otro: el de Material 3.
+const _kNavigationBarHeight = 80.0;
+
 /// El shell de navegación principal: biblioteca, bandeja, línea de tiempo,
 /// atlas, mapa, chat, cuadernos, repaso y ajustes, cada uno con su propio
 /// `Navigator` —vía `StatefulShellRoute.indexedStack` en `app_router.dart`—
@@ -104,27 +107,43 @@ class AdaptiveScaffold extends ConsumerWidget {
 
     return Scaffold(
       body: StudyDayWatcher(child: navigationShell),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: groupIndex < 0 ? 0 : groupIndex,
-        onDestinationSelected: (index) {
-          final group = groups[index];
-          if (group.hasList) {
-            unawaited(_showStep(context, group, current, goToBranch));
-          } else {
-            goToBranch(group.destinations.single.branchIndex);
-          }
-        },
-        destinations: [
-          for (final g in groups)
-            NavigationDestination(
-              key: ValueKey('nav-step-${g.step.name}'),
-              icon: g.icon,
-              selectedIcon: g.selectedIcon,
-              label: g.label,
+      // Con el teclado abierto, la barra se va (F42): queda debajo de él, no
+      // se puede tocar, y el lector de pantalla no tiene por qué pasar por
+      // ella; la pantalla —el chat, sobre todo— usa toda la altura. Se va
+      // recién cuando el teclado ya la tapa entera, y vuelve apenas asoma:
+      // así lo de arriba no salta mientras el teclado sube o baja.
+      bottomNavigationBar: _keyboardCoversBar(context)
+          ? null
+          : NavigationBar(
+              selectedIndex: groupIndex < 0 ? 0 : groupIndex,
+              onDestinationSelected: (index) {
+                final group = groups[index];
+                if (group.hasList) {
+                  unawaited(_showStep(context, group, current, goToBranch));
+                } else {
+                  goToBranch(group.destinations.single.branchIndex);
+                }
+              },
+              destinations: [
+                for (final g in groups)
+                  NavigationDestination(
+                    key: ValueKey('nav-step-${g.step.name}'),
+                    icon: g.icon,
+                    selectedIcon: g.selectedIcon,
+                    label: g.label,
+                  ),
+              ],
             ),
-        ],
-      ),
     );
+  }
+
+  /// Si el teclado tapa la barra de abajo entera: su alto de Material 3 más el
+  /// borde del sistema que todavía quede a la vista.
+  static bool _keyboardCoversBar(BuildContext context) {
+    final bar =
+        (NavigationBarTheme.of(context).height ?? _kNavigationBarHeight) +
+        MediaQuery.paddingOf(context).bottom;
+    return MediaQuery.viewInsetsOf(context).bottom >= bar;
   }
 
   /// La lista de un paso: sus destinos de arriba abajo en orden de uso, cada

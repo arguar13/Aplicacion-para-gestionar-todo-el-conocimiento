@@ -229,6 +229,55 @@ void main() {
       },
     );
 
+    testWidgets(
+      'con el teclado abierto la barra se va y el chat usa toda la altura; '
+      'vuelve al cerrarlo (F42)',
+      (tester) async {
+        setLogicalWidth(tester, 400);
+        addTearDown(tester.view.resetViewInsets);
+        await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('nav-step-ask')));
+        await tester.pumpAndSettle();
+        final withBar = tester.getRect(find.byType(ChatScreen));
+
+        // El teclado sube: mientras todavía no la tapa entera, la barra
+        // sigue, y lo de arriba no salta.
+        tester.view.viewInsets = const FakeViewPadding(bottom: 40);
+        await tester.pump();
+        expect(find.byType(NavigationBar), findsOneWidget);
+        expect(tester.getRect(find.byType(ChatScreen)), withBar);
+
+        // Ya la tapa: la barra se va y el chat llega hasta el teclado.
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pump();
+        expect(find.byType(NavigationBar), findsNothing);
+        expect(find.byType(ChatScreen), findsOneWidget);
+        expect(tester.getRect(find.byType(ChatScreen)).bottom, 800 - 300);
+
+        tester.view.resetViewInsets();
+        await tester.pumpAndSettle();
+        expect(find.byType(NavigationBar), findsOneWidget);
+        expect(tester.getRect(find.byType(ChatScreen)), withBar);
+      },
+    );
+
+    testWidgets('justo cuando el teclado llega al alto de la barra, se va', (
+      tester,
+    ) async {
+      setLogicalWidth(tester, 400);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 79);
+      await tester.pump();
+      expect(find.byType(NavigationBar), findsOneWidget);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 80);
+      await tester.pump();
+      expect(find.byType(NavigationBar), findsNothing);
+    });
+
     for (final d in listed) {
       testWidgets(
         'elegir la rama ${d.branch} de «${d.step}» abre ${d.screen}, cierra '

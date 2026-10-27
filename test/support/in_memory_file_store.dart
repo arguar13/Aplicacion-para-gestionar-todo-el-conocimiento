@@ -24,6 +24,11 @@ class InMemoryFileStore implements FileStore {
   /// resiste.
   Object? deleteError;
 
+  /// Si está, leer espera a que se complete: el disco de verdad tarda, y hay
+  /// pruebas de lo que pasa mientras tanto (F42: un segundo toque mientras se
+  /// relee la foto de un mensaje).
+  Future<void>? readGate;
+
   /// Qué hay guardado ahora mismo.
   Iterable<String> get paths => _contents.keys;
 
@@ -63,7 +68,10 @@ class InMemoryFileStore implements FileStore {
   }
 
   @override
-  Future<Uint8List?> read(String relativePath) async => _contents[relativePath];
+  Future<Uint8List?> read(String relativePath) async {
+    await readGate;
+    return _contents[relativePath];
+  }
 
   @override
   Future<Uint8List?> readHead(

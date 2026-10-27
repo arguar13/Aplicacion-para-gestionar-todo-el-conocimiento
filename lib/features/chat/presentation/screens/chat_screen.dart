@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -34,16 +34,14 @@ import 'package:sinapsis/features/chat/presentation/widgets/chat_ambient_glow.da
 import 'package:sinapsis/features/chat/presentation/widgets/chat_attachments.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_composer.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_conversations_panel.dart';
+import 'package:sinapsis/features/chat/presentation/widgets/chat_message_list.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_model_notice.dart';
+import 'package:sinapsis/features/chat/presentation/widgets/chat_stage_transition.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_top_bar.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_welcome.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
-import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
-import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
-import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -141,6 +139,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// La respuesta que el modelo está escribiendo, para mostrarla mientras
   /// llega (F30); `null` si no hay ninguna o todavía no escribió nada.
   final _streamingText = ValueNotifier<String?>(null);
+
+  /// Las fuentes de la respuesta que se está escribiendo, en el modo con la
+  /// bóveda: las que se le dieron al modelo para esta vuelta.
+  List<ChatSource> _streamingSources = const [];
 
   /// En qué conversación se está escribiendo la respuesta: la burbuja que
   /// crece se muestra solo ahí, no en la del otro modo.
@@ -466,17 +468,96 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final attachments = List<PendingChatAttachment>.of(_pendingAttachments);
     if ((text.isEmpty && attachments.isEmpty) || _asking) return;
 
+    setState(() {
+      _controller.clear();
+      _pendingAttachments.clear();
+    });
+    await _ask(text, attachments);
+  }
+
+  /// «Editar y reenviar» (F42): [text] corregido, con los mismos adjuntos
+  /// que [original], como un mensaje nuevo al final de la conversación.
+  Future<void> _resend(PersistedChatMessage original, String text) async {
+    if (_asking) return;
+    final attachments = await _reloadingAttachments(original);
+    if (attachments == null) return;
+    await _ask(text, attachments);
+  }
+
+  /// «Volver a generar» la última respuesta (F42): se borra y se vuelve a
+  /// pedir con la pregunta que la originó, sin repetir la pregunta en el
+  /// historial. La sesión del modelo sigue: lo conversado antes no se pierde.
+  Future<void> _regenerate(PersistedChatMessage answer) async {
+    if (_asking) return;
+    final messages =
+        ref.read(chatMessagesProvider(answer.conversationId)).valueOrNull ??
+        const <PersistedChatMessage>[];
+    final at = messages.indexWhere((m) => m.id == answer.id);
+    final question = at <= 0 ? null : messages[at - 1];
+    if (question == null || !question.isUser) return;
+
+    final attachments = await _reloadingAttachments(question);
+    if (attachments == null) return;
+    await ref.read(chatConversationRepositoryProvider).deleteMessage(answer.id);
+    if (!mounted) return;
+    await _ask(question.text, attachments, repeating: true);
+  }
+
+  /// Los adjuntos de un mensaje ya guardado, listos para mandarse otra vez:
+  /// las fotos se vuelven a leer del almacén; un documento ya trae su texto.
+  ///
+  /// `null` —y un aviso— si una foto ya no está: el modelo nunca contesta
+  /// como si la foto no estuviera (F30).
+  ///
+  /// El chat queda ocupado desde que empieza a releerlos —antes de esperar
+  /// nada—: un segundo toque en ese rato no arma otra pregunta. Si no se
+  /// puede seguir, vuelve a estar libre.
+  Future<List<PendingChatAttachment>?> _reloadingAttachments(
+    PersistedChatMessage message,
+  ) async {
+    setState(() => _asking = true);
+    final reloaded = await _reloadAttachments(message);
+    if (!mounted) return null;
+    if (reloaded == null) setState(() => _asking = false);
+    return reloaded;
+  }
+
+  Future<List<PendingChatAttachment>?> _reloadAttachments(
+    PersistedChatMessage message,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final store = ref.read(fileStoreProvider);
+    final reloaded = <PendingChatAttachment>[];
+    for (final attachment in message.attachments) {
+      final bytes = attachment.kind == ChatAttachmentKind.image
+          ? await store.read(attachment.relativePath)
+          : Uint8List(0);
+      if (bytes == null) {
+        if (mounted) _showSnack(l10n.globalErrorUnexpected);
+        return null;
+      }
+      reloaded.add(PendingChatAttachment(attachment: attachment, bytes: bytes));
+    }
+    return reloaded;
+  }
+
+  /// Pregunta [text], con [attachments], en la conversación abierta —o en una
+  /// nueva— y guarda la respuesta. Con [repeating], la pregunta ya está en el
+  /// historial: no se vuelve a guardar.
+  Future<void> _ask(
+    String text,
+    List<PendingChatAttachment> attachments, {
+    bool repeating = false,
+  }) async {
     final l10n = AppLocalizations.of(context)!;
     final repo = ref.read(chatConversationRepositoryProvider);
     final ids = ref.read(idGeneratorProvider);
     final clock = ref.read(clockProvider);
     final mode = _mode;
 
-    setState(() {
-      _asking = true;
-      _controller.clear();
-      _pendingAttachments.clear();
-    });
+    setState(() => _asking = true);
+    // Una vibración corta, si el teléfono la tiene: salió (F42).
+    unawaited(HapticFeedback.lightImpact());
     _scrollToEnd();
 
     var conversationId = _currentConversationId;
@@ -492,16 +573,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
     _askingConversationId = conversationId;
 
-    await repo.addMessage(
-      PersistedChatMessage(
-        id: ids.next(),
-        conversationId: conversationId,
-        isUser: true,
-        text: text,
-        createdAt: clock(),
-        attachments: [for (final a in attachments) a.attachment],
-      ),
-    );
+    if (!repeating) {
+      await repo.addMessage(
+        PersistedChatMessage(
+          id: ids.next(),
+          conversationId: conversationId,
+          isUser: true,
+          text: text,
+          createdAt: clock(),
+          attachments: [for (final a in attachments) a.attachment],
+        ),
+      );
+    }
     _scrollToEnd();
 
     final promptText = _buildPrompt(text, attachments);
@@ -538,7 +621,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     setState(() {
       _asking = false;
       _askingConversationId = null;
+      _streamingSources = const [];
     });
+    // Y otra al terminar (F42).
+    unawaited(HapticFeedback.lightImpact());
     _scrollToEnd();
   }
 
@@ -701,6 +787,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           .read(chatModelProvider)
           .startVaultConversation();
 
+      // Las citas de lo que se escribe ya son chips (F42).
+      if (mounted) setState(() => _streamingSources = sources);
       final reply = await _follow(
         conversation.send(
           message: promptText,
@@ -788,14 +876,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _scrollToEnd() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
-    });
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(scrollChatToEnd(_scrollController, animate: true)),
+    );
   }
 
   /// Lo que le falta al modelo para contestar, con el botón que lo resuelve
@@ -864,28 +947,51 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         children: [
           // El brillo del vacío va detrás de todo, también del campo: sube
           // desde abajo (F42).
-          if (conversationId == null)
-            const Positioned.fill(child: ChatAmbientGlow()),
+          Positioned.fill(
+            child: ChatStageTransition(
+              inConversation: conversationId != null,
+              slide: false,
+              child: conversationId == null
+                  ? const ChatAmbientGlow()
+                  : const SizedBox.shrink(),
+            ),
+          ),
           SafeArea(
             child: Column(
               children: [
                 Expanded(
-                  child: conversationId == null
-                      ? ChatWelcome(
-                          mode: selection.mode,
-                          notebookId: isFree ? null : selection.notebookId,
-                          onSuggestion: _useSuggestion,
-                          notice: _modelNotice(compact: false),
-                        )
-                      : _MessagesList(
-                          conversationId: conversationId,
-                          mode: selection.mode,
-                          asking:
-                              _asking &&
-                              _askingConversationId == conversationId,
-                          streaming: _streamingText,
-                          scrollController: _scrollController,
-                        ),
+                  // Del vacío a la conversación, con un fundido (F42).
+                  child: ChatStageTransition(
+                    inConversation: conversationId != null,
+                    child: conversationId == null
+                        ? ChatWelcome(
+                            mode: selection.mode,
+                            notebookId: isFree ? null : selection.notebookId,
+                            onSuggestion: _useSuggestion,
+                            notice: _modelNotice(compact: false),
+                          )
+                        // La conversación (F42, paso 3): sus piezas viven en
+                        // `chat_message_list.dart`.
+                        : ChatMessageList(
+                            conversationId: conversationId,
+                            mode: selection.mode,
+                            asking:
+                                _asking &&
+                                _askingConversationId == conversationId,
+                            streaming: _streamingText,
+                            streamingSources: _streamingSources,
+                            scrollController: _scrollController,
+                            // Una conversación abierta, todavía sin mensajes.
+                            empty: ChatWelcome(mode: selection.mode),
+                            onRegenerate: _asking
+                                ? null
+                                : (answer) => unawaited(_regenerate(answer)),
+                            onResend: _asking
+                                ? null
+                                : (original, text) =>
+                                      unawaited(_resend(original, text)),
+                          ),
+                  ),
                 ),
                 // En una conversación, lo que le falta al modelo sigue a la
                 // vista, en una línea arriba del campo.
@@ -916,284 +1022,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Lo que se lee en voz alta de una conversación (F25): los mensajes, en
-/// orden —los del usuario y las respuestas—, cada uno con su resaltado. Sin
-/// los avisos de error ni los mensajes que son solo adjuntos. Se arma de
-/// nuevo solo cuando llega un mensaje.
-final _readableProvider = Provider.autoDispose
-    .family<ReadableDocument?, ({String conversationId, String title})>((
-      ref,
-      chat,
-    ) {
-      final messages = ref
-          .watch(chatMessagesProvider(chat.conversationId))
-          .valueOrNull;
-      if (messages == null) return null;
-      return documentFrom('chat:${chat.conversationId}', chat.title, [
-        for (final message in messages)
-          if (message.error == null && message.text.isNotEmpty)
-            (
-              sourceKey: _messageKey(message.id),
-              text: message.text,
-              markdown: false,
-              transcript: false,
-            ),
-      ]);
-    });
-
-/// Con qué nombre conoce el lector flotante a un mensaje (F25).
-String _messageKey(String messageId) => 'chat:$messageId';
-
-class _MessagesList extends ConsumerWidget {
-  const _MessagesList({
-    required this.conversationId,
-    required this.mode,
-    required this.asking,
-    required this.streaming,
-    required this.scrollController,
-  });
-
-  final String conversationId;
-  final ChatConversationMode mode;
-
-  /// Si en esta conversación se está esperando una respuesta.
-  final bool asking;
-
-  /// La respuesta mientras se escribe (F30).
-  final ValueListenable<String?> streaming;
-  final ScrollController scrollController;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final messagesAsync = ref.watch(chatMessagesProvider(conversationId));
-
-    ref.listen(chatMessagesProvider(conversationId), (previous, next) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!scrollController.hasClients) return;
-        scrollController.animateTo(
-          scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-        );
-      });
-    });
-
-    return messagesAsync.when(
-      data: (messages) {
-        if (messages.isEmpty && !asking) return ChatWelcome(mode: mode);
-        return ReadableRegion(
-          document: ref.watch(
-            _readableProvider((
-              conversationId: conversationId,
-              title: l10n.chatTitle,
-            )),
-          ),
-          child: ListView.builder(
-            controller: scrollController,
-            padding: const EdgeInsets.all(16),
-            itemCount: messages.length + (asking ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index >= messages.length) {
-                return ValueListenableBuilder<String?>(
-                  valueListenable: streaming,
-                  builder: (context, text, _) => text == null || text.isEmpty
-                      ? const _TypingBubble()
-                      : _StreamingBubble(text: text),
-                );
-              }
-              return _MessageBubble(message: messages[index]);
-            },
-          ),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, stackTrace) => Center(child: Text(l10n.globalErrorUnexpected)),
-    );
-  }
-}
-
-class _TypingBubble extends StatelessWidget {
-  const _TypingBubble();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(bottom: 24),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      ),
-    );
-  }
-}
-
-/// La respuesta mientras el modelo la escribe (F30): crece palabra por
-/// palabra. Las fuentes aparecen al terminar, con el mensaje guardado.
-class _StreamingBubble extends StatelessWidget {
-  const _StreamingBubble({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      key: const Key('chat-streaming-reply'),
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(text, style: Theme.of(context).textTheme.bodyLarge),
-      ),
-    );
-  }
-}
-
-class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message});
-
-  final PersistedChatMessage message;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-
-    if (message.isUser) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            if (message.attachments.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final attachment in message.attachments)
-                      ChatAttachmentTile(attachment: attachment),
-                  ],
-                ),
-              ),
-            if (message.text.isNotEmpty)
-              Align(
-                alignment: Alignment.centerRight,
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ReadAloudText(
-                    message.text,
-                    sourceKey: _messageKey(message.id),
-                    style: TextStyle(
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-
-    final error = message.error;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (message.text.isNotEmpty) ...[
-            ReadAloudText(
-              message.text,
-              sourceKey: _messageKey(message.id),
-              style: theme.textTheme.bodyLarge,
-            ),
-            // Lo que alcanzó a escribir antes de un error se muestra igual,
-            // con el aviso debajo (F30).
-            if (error != null) ...[
-              const SizedBox(height: 8),
-              Text(error, style: TextStyle(color: theme.colorScheme.error)),
-            ],
-            if (message.sources.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              for (final source in message.sources) _SourceCard(source: source),
-            ],
-          ] else if (error != null)
-            Text(error, style: TextStyle(color: theme.colorScheme.error))
-          else if (message.sources.isNotEmpty) ...[
-            Text(
-              l10n.chatSourcesOnlyExplanation,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 8),
-            for (final source in message.sources) _SourceCard(source: source),
-          ] else
-            Text(l10n.chatNoSourcesFound, style: theme.textTheme.bodyMedium),
-        ],
-      ),
-    );
-  }
-}
-
-class _SourceCard extends StatelessWidget {
-  const _SourceCard({required this.source});
-
-  final ChatSource source;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => context.push(RoutePaths.itemDetail(source.itemId)),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(source.itemTitle, style: theme.textTheme.titleSmall),
-              const SizedBox(height: 4),
-              Text(
-                source.excerpt,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

@@ -205,6 +205,10 @@ void main() {
       await send(tester, 'fotosíntesis');
 
       expect(find.text('la respuesta redactada'), findsOneWidget);
+      // Las tarjetas de las fuentes, debajo, en «Fuentes» plegado (F42).
+      expect(find.text('Un artículo sobre fotosíntesis'), findsNothing);
+      await tester.tap(find.text(es.chatSourcesHeader(1)));
+      await tester.pumpAndSettle();
       expect(find.text('Un artículo sobre fotosíntesis'), findsOneWidget);
     });
 

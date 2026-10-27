@@ -2040,9 +2040,10 @@ afuera, con "atrás" o deslizándolo hacia la izquierda.
    el **botón redondo con la flecha**. O tocá una de las sugerencias del
    chat vacío. Con el **"+"** podés adjuntar una foto o un documento y
    prender **"Pensar más"** (ver [El campo y "Agregar al chat"](#el-campo-y-agregar-al-chat)).
-3. Si la respuesta cita fuentes, cada una se ve como una tarjeta —
-   **tocarla abre el elemento original**, para que puedas comprobar el dato
-   vos mismo.
+3. Si la respuesta cita fuentes, las citas se ven como **chips numerados**
+   dentro del texto y, debajo, en **"Fuentes"**: **tocar cualquiera abre el
+   elemento original en el pasaje citado**, para que puedas comprobar el
+   dato vos mismo (ver [La conversación](#la-conversación)).
 4. Para volver a una conversación vieja, empezar otra o borrar una, abrí
    el panel con **☰**.
 
@@ -2112,19 +2113,75 @@ afuera, con "atrás" o deslizándolo hacia la izquierda.
   salto de línea. En el teléfono, el Enter del teclado es un salto de línea y
   se manda con el botón.
 
+### La conversación
+
+- **Lo tuyo va en una burbuja a la derecha; la respuesta, a todo lo ancho y
+  sin burbuja**, como un texto: con **títulos, listas (también numeradas y
+  una dentro de otra), negritas, cursivas, citas, código y tablas**. El
+  código va en un recuadro con su lenguaje arriba y **"Copiar el código"**;
+  si una línea no entra, se desliza de costado (lo mismo una tabla ancha).
+  En una tableta o en la computadora, la conversación se centra en una
+  columna cómoda de leer.
+- **Al mandar el primer mensaje**, el saludo se desvanece y la conversación
+  aparece con un fundido suave; con **✎**, al revés.
+- **Las citas de la bóveda son chips numerados** dentro del texto —el
+  **[1]** que escribe el modelo se ve como un **1** en una pastilla—. Tocar
+  uno abre esa fuente **en el pasaje que se le dio al modelo** (la lectura
+  baja hasta ahí y lo marca un momento); una nota que no tiene pasajes abre
+  su detalle. Si el modelo nombra un número que no existe, queda como lo
+  escribió.
+- **Debajo de la respuesta, "N fuentes"** con una flechita: tocalo y se
+  despliegan sus **tarjetas numeradas**, con el título y el pasaje; tocá una
+  para abrirla en su lugar. Sin el modelo descargado, las fuentes son la
+  respuesta: se ven desplegadas.
+- **Debajo de cada respuesta, íconos discretos**:
+  - **Copiar**: copia la respuesta tal cual, con su formato (se pega bien en
+    una nota).
+  - **Escuchar**: la lee en voz alta con el lector de siempre —lo que suena
+    se pinta en amarillo— y se detiene al terminarla. Mientras la lee, el
+    mismo botón dice **"Dejar de escuchar"**.
+  - **Volver a generar** (solo en la última): la borra y se la vuelve a
+    pedir con la misma pregunta —y la misma foto, si tenía—. Lo conversado
+    antes sigue valiendo para el modelo. Sirve también para reintentar una
+    que falló, o para tener una respuesta redactada después de bajar el
+    modelo.
+  - **👍 / 👎**: tu opinión de la respuesta. **Queda guardada solo en este
+    teléfono y no se manda a nadie** —ni a Gemini, ni a OpenAI, ni a
+    Claude—. Tocar otra vez el marcado lo desmarca.
+- **Mantener apretado un mensaje** abre sus opciones:
+  - **Copiar**;
+  - **Seleccionar texto**: el mensaje en una hoja, para elegir con el dedo
+    solo una parte y copiarla;
+  - en los tuyos, **Editar y reenviar**: la burbuja se vuelve un campo con
+    tu texto; corregilo y tocá **"Reenviar"** (o **"Cancelar"**). Se manda
+    como un mensaje nuevo al final, con los mismos adjuntos; lo de antes
+    queda como pasó. Mientras el modelo escribe no se puede reenviar.
+- **"↓"**: si subís a releer, aparece abajo un botón redondo con una flecha
+  que te lleva al final de la conversación.
+- **Inmersivo**: con el teclado abierto, la barra de abajo de la app se va y
+  el chat usa toda la altura; vuelve al cerrar el teclado.
+- **Una vibración corta** al mandar y al terminar la respuesta, si el
+  teléfono la tiene (y la tenés prendida).
+- Con "Quitar animaciones" del teléfono, nada se funde ni se mueve: todo
+  aparece de una.
+
 ### La respuesta, a medida que se escribe
 
-- **Las palabras aparecen mientras el modelo las escribe**: no hace falta
-  esperar la respuesta entera. Lo que más tarda es la primera palabra —el
-  modelo lee tu mensaje y las fuentes antes de empezar—; después sigue
-  solo. Si estás mirando el final de la charla, la pantalla baja con la
-  respuesta; si subiste a releer algo, te deja ahí.
+- **Las palabras aparecen mientras el modelo las escribe**, ya con formato,
+  y **entran con un fundido suave**: no hace falta esperar la respuesta
+  entera. Lo que más tarda es la primera palabra —el modelo lee tu mensaje y
+  las fuentes antes de empezar—: mientras tanto se ve **un punto de luz que
+  respira** con los colores de tu tema y la frase **"Buscando en tu
+  bóveda…"** (o **"Pensando…"** en conversación libre). Las citas ya son
+  chips mientras se escribe. Si estás mirando el final de la charla, la
+  pantalla baja con la respuesta; si subiste a releer algo, te deja ahí.
 - **Detener**: mientras escribe, el botón de enviar se vuelve un cuadrado.
   Tocalo y para en el acto; queda guardado lo que alcanzó a escribir. Salir
   del chat, abrir otra conversación, empezar una nueva, elegir otro cuaderno
   o borrarla también la detiene y la guarda. Cambiar de modo no: sigue
   escribiendo en su conversación, y la ves al volver.
-- Si algo falla a mitad, queda lo que escribió y un aviso debajo.
+- Si algo falla a mitad, queda lo que escribió y un aviso debajo, en un
+  recuadro.
 - **Cada respuesta tiene un largo máximo** (unas 350 palabras): si querés
   más, pedile que siga.
 - **El modelo se carga al abrir el chat**, mientras escribís tu pregunta: la

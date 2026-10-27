@@ -230,3 +230,87 @@ temas; y **la pantalla entera —barra, vacío con el aviso, campo y la hoja del
 doble en una pantalla chica, sin desbordes** (lo que el paso 1 dejó avisado). Lo que hace la
 persona —mandar, elegir dónde se pregunta por la línea o por el «+», adjuntar— está una sola vez
 en `test/support/chat_actions.dart`, que usan todas las pruebas del chat.
+
+### Paso 3 — la conversación (construido)
+
+**Dónde vive.** La conversación salió de `chat_screen.dart` a sus piezas, en
+`chat/presentation/widgets/`: `chat_message_list.dart` (la lista, «↓», lo que se ofrece al lector),
+`chat_user_bubble.dart` (la burbuja, editar y reenviar), `chat_answer_message.dart` (la respuesta
+guardada), `chat_answer.dart` (el texto con formato y el fundido), `chat_markdown_blocks.dart` (los
+bloques), `chat_answer_actions.dart`, `chat_citations.dart` (chips, «Fuentes», tarjetas),
+`chat_message_menu.dart` (mantener apretado), `chat_typing_indicator.dart` y
+`chat_stage_transition.dart`. En la pantalla quedan la llamada y lo que es suyo: preguntar,
+volver a generar y reenviar —que comparten un solo `_ask`—, las vibraciones y las fuentes de la
+respuesta que se escribe.
+
+**La respuesta, con tipografía y sin paquetes nuevos.** Hasta acá el chat mostraba el Markdown
+crudo. No se sumó un paquete de Markdown: el texto de la respuesta tiene que seguir siendo el de
+las posiciones que pinta el lector en voz alta (F25), y eso ya lo resuelve `RenderedMarkdown`, el
+de toda la app. Lo nuevo es la capa de bloques (`parseChatBlocks`): títulos de seis niveles,
+párrafos con sus saltos, listas con viñetas o números y anidadas, citas, código entre cercas con
+su lenguaje, separadores y tablas, cada bloque con sus posiciones en el texto crudo; lo de adentro
+lo sigue leyendo `RenderedMarkdown`, que suma un `codeStyle` para el fondo del código en línea. El
+cuerpo va a 1,55 de interlineado, los títulos en peso 700, el código en un recuadro con «Copiar el
+código», las tablas y el código deslizables de costado, y en pantallas anchas la conversación se
+centra en 760 px.
+
+**Mientras escribe, sin costo cuadrático.** Cada evento del modelo es todo el texto hasta ahí:
+leerlo entero con cada palabra cuesta el largo al cuadrado. `ChatBlockStream` retoma desde el
+anteúltimo bloque —el único, con el último, que el renglón que se escribe puede cambiar— y deja
+los asentados como los mismos objetos; la pantalla guarda el widget de cada bloque armado
+(`Expando`) y solo rearma los que todavía cambian, los que se están fundiendo y el que toca el
+amarillo del lector. Una prueba mide que cuatro veces más texto cueste cerca de cuatro veces más,
+y otra que el primer párrafo sea el mismo widget mientras crece el último. El fundido es un
+`Ticker` que corre solo mientras algo se está fundiendo (320 ms, con su propio reloj de cuadros) y
+se apaga solo; con «sin animaciones» no corre. Antes de la primera palabra, un punto de luz que
+respira con los colores del tema y «Buscando en tu bóveda…» o «Pensando…», con un brillo que la
+recorre; quieto con «sin animaciones», y región viva para el lector de pantalla.
+
+**Citas y fuentes.** El «[1]» del modelo —también «[1, 2]»— es un chip numerado con su propio
+nodo para el lector de pantalla («Fuente 1: …»); un número que no existe queda como texto. Tocar
+un chip o una tarjeta abre la fuente en su pasaje (`RoutePaths.reading` con el rango, el mismo
+salto de las tarjetas de F11); sin pasaje, su detalle. Los chips están desde que se escribe: la
+pantalla le pasa a la lista las fuentes de esa vuelta. «Fuentes» se pliega; sin el modelo, cuando
+las fuentes son la respuesta, se ven desplegadas.
+
+**Acciones.** Copiar; escuchar con el lector flotante (`readSelectionAloud` sobre todo el mensaje,
+y el mismo botón lo cierra); volver a generar, solo en la última y nunca mientras se escribe:
+borra la respuesta (`ChatConversationRepository.deleteMessage`, sin migración) y la vuelve a
+pedir con la misma pregunta y sus adjuntos releídos del almacén, sin repetir la pregunta en el
+historial —si la foto ya no está, lo dice y no toca nada—; 👍/👎 en las preferencias del teléfono
+(`chatFeedbackProvider`, las últimas mil), que nunca salen de ahí. Las respuestas se ofrecen al
+lector como Markdown, así no se dicen los `**`.
+
+**Mantener apretado.** Copiar, seleccionar texto (lo que se ve, sin marcas, en una hoja con
+`SelectableText`) y, en los mensajes propios, editar y reenviar: la burbuja se vuelve un campo y
+«Reenviar» lo manda corregido, con sus adjuntos, como un mensaje nuevo al final. No se reescribe
+el historial: la sesión del modelo no puede olvidar una vuelta, y lo conversado queda como pasó.
+
+**Inmersivo.** `AdaptiveScaffold` saca la barra de abajo cuando el teclado ya la tapa entera
+(su alto de Material 3 más el borde que quede): antes no, para que lo de arriba no salte mientras
+el teclado sube. «↓» aparece al alejarse 240 px del final y lleva al final de verdad
+(`scrollChatToEnd`): la lista arma solo lo que se ve y el largo que conoce es una estimación, así
+que después de ir se corrige hasta que el final deja de moverse —también al abrir una
+conversación, que antes podía quedar unos renglones antes del final—, y para si la persona agarra
+la lista. Vibración corta (`HapticFeedback.lightImpact`) al mandar y al terminar.
+
+**Transiciones.** El vacío y la conversación se funden y la conversación sube apenas al entrar
+(`ChatStageTransition`, 360 ms); el brillo del fondo se va con el mismo fundido. Pasar de una
+conversación a otra no es un cambio de escena: la lista es la misma. El panel ya entraba
+deslizándose desde el paso 1. Todo respeta «sin animaciones».
+
+**Ninguna función se perdió (decisión D).** Lo de siempre, en su lugar nuevo y con su prueba: la
+respuesta que crece y se guarda, Detener, lo escrito antes de un error con su aviso (ahora en un
+recuadro con su fondo: el rojo del tema sobre el papel no llegaba a AA en un tema claro), el
+buscador sin modelo con su explicación, «no encontré nada», la foto del mensaje
+(`ChatAttachmentTile`, del paso 2), el amarillo del lector en preguntas y respuestas, y las
+tarjetas de las fuentes —que ahora se despliegan—.
+
+**Pruebas.** Con dobles en todo: los bloques letra por letra y palabra por palabra contra leerlos
+enteros, el costo lineal, la tipografía de cada bloque, los chips y adónde llevan, el amarillo en
+cada pedazo, el fundido y que se apague, «sin animaciones», que los bloques asentados no se
+rearmen; las acciones, el 👍/👎 en las preferencias, mantener apretado, editar y reenviar (con
+foto), volver a generar (con foto, y sin ella), «↓», las vibraciones, la transición, la barra con
+el teclado; el contraste AA de cada par de colores en los nueve temas, la conversación dibujada en
+cada uno, y una respuesta con todo con letra al doble sin desbordes. Las mutaciones van en el
+informe del paso.
