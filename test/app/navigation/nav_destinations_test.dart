@@ -42,8 +42,8 @@ void main() {
         NavStep.save: at([ShellBranch.library]),
         NavStep.organize: at([
           ShellBranch.inbox,
-          ShellBranch.timeline,
           ShellBranch.atlas,
+          ShellBranch.timeline,
           ShellBranch.graph,
           ShellBranch.notebooks,
         ]),
@@ -103,8 +103,8 @@ void main() {
     );
   });
 
-  test('la línea de tiempo (F40) va en «Organizar», arriba del Atlas, con su '
-      'nombre y su ícono', () {
+  test('la línea de tiempo (F40) va en «Organizar», debajo del Atlas (pedido '
+      'del dueño), con su nombre y su ícono', () {
     final organize = groups()[1];
     final labels = [for (final d in organize.destinations) d.label];
     final timeline = organize.destinations.singleWhere(
@@ -113,8 +113,8 @@ void main() {
 
     expect(labels, [
       es.navInbox,
-      es.navTimeline,
       es.navAtlas,
+      es.navTimeline,
       es.navMap,
       es.navNotebooks,
     ]);

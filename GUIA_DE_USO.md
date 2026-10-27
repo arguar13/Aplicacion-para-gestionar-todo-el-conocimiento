@@ -85,9 +85,9 @@ En el celular, la barra tiene **cinco botones fijos, que son los pasos del
 trabajo en el orden en que los usás**, de izquierda a derecha:
 
 1. **Biblioteca**: guardás y encontrás todo. Se abre directo.
-2. **Organizar**: una lista con **Bandeja**, **Línea de tiempo**, **Atlas**,
+2. **Organizar**: una lista con **Bandeja**, **Atlas**, **Línea de tiempo**,
    **Mapa** y **Cuadernos**, en ese orden. Primero revisás lo que entró,
-   después lo ves sobre un eje de fechas, ves qué sabés y qué te falta, lo
+   después ves qué sabés y qué te falta, lo ves sobre un eje de fechas, lo
    conectás y, en un cuaderno, juntás un grupo para acotar el chat a él.
    El número de pendientes de la Bandeja se ve en el mismo botón. (El **Explorador** ya no está en la lista: repetía la
    Biblioteca. Lo suyo, el material de un tema, se abre desde el Atlas y el

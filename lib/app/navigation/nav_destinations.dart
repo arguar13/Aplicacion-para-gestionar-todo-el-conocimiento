@@ -94,7 +94,7 @@ enum ShellBranch {
 }
 
 /// Arma la lista de destinos principales, en el orden de uso en que se ven
-/// (F34): biblioteca; bandeja de entrada, línea de tiempo, atlas, mapa y
+/// (F34): biblioteca; bandeja de entrada, atlas, línea de tiempo, mapa y
 /// cuadernos; chat; repaso; ajustes. Cada uno sabe su rama
 /// ([NavDestinationSpec.branchIndex]) y su paso ([NavDestinationSpec.step]).
 ///
@@ -137,7 +137,19 @@ List<NavDestinationSpec> buildNavDestinations({
       hint: l10n.navInboxHint,
       badgeCount: pendingInboxCount,
     ),
-    // Los hechos con fecha sobre un eje (F9, F40): arriba del Atlas, que la
+    // El índice dinámico de lo que se sabe y de lo que falta (F13): justo
+    // después de lo que entra y arriba de la Línea de tiempo (pedido del
+    // dueño), que es una vista más del mismo saber. `account_tree` porque es un
+    // árbol de temas; ningún otro destino usa ese ícono.
+    NavDestinationSpec(
+      branchIndex: ShellBranch.atlas.index,
+      step: NavStep.organize,
+      icon: const Icon(Icons.account_tree_outlined),
+      selectedIcon: const Icon(Icons.account_tree),
+      label: l10n.navAtlas,
+      hint: l10n.navAtlasHint,
+    ),
+    // Los hechos con fecha sobre un eje (F9, F40): debajo del Atlas, que la
     // abre filtrada por una rama. `timeline` en los dos estados: no tiene
     // variante rellena, y el riel marca el elegido con su cápsula.
     NavDestinationSpec(
@@ -147,17 +159,6 @@ List<NavDestinationSpec> buildNavDestinations({
       selectedIcon: const Icon(Icons.timeline),
       label: l10n.navTimeline,
       hint: l10n.navTimelineHint,
-    ),
-    // El índice dinámico de lo que se sabe y de lo que falta (F13): después de
-    // lo que entra y antes de lo vinculado. `account_tree` porque es un
-    // árbol de temas; ningún otro destino usa ese ícono.
-    NavDestinationSpec(
-      branchIndex: ShellBranch.atlas.index,
-      step: NavStep.organize,
-      icon: const Icon(Icons.account_tree_outlined),
-      selectedIcon: const Icon(Icons.account_tree),
-      label: l10n.navAtlas,
-      hint: l10n.navAtlasHint,
     ),
     // Sin el Explorador (F36): repetía la Biblioteca con otros filtros. Lo
     // que tenía de propio —el material de un tema y sus subtemas— se abre

@@ -141,8 +141,8 @@ void main() {
     // posición del paso en la barra.
     final listed = [
       (step: 'organize', branch: inbox, screen: InboxScreen, barIndex: 1),
-      (step: 'organize', branch: timeline, screen: TimelineScreen, barIndex: 1),
       (step: 'organize', branch: atlas, screen: AtlasScreen, barIndex: 1),
+      (step: 'organize', branch: timeline, screen: TimelineScreen, barIndex: 1),
       (step: 'organize', branch: graph, screen: MapScreen, barIndex: 1),
       (
         step: 'organize',
@@ -153,7 +153,7 @@ void main() {
     ];
 
     testWidgets(
-      '«Organizar» abre su lista: Bandeja, Línea de tiempo, Atlas, Mapa y '
+      '«Organizar» abre su lista: Bandeja, Atlas, Línea de tiempo, Mapa y '
       'Cuadernos, en ese orden y con para qué sirve cada uno —el Explorador '
       'ya no está (F36)—',
       (tester) async {
@@ -177,14 +177,14 @@ void main() {
         expect(
           [for (final t in tiles) (t.key! as ValueKey<String>).value],
           [
-            for (final branch in [inbox, timeline, atlas, graph, notebooks])
+            for (final branch in [inbox, atlas, timeline, graph, notebooks])
               'nav-step-item-$branch',
           ],
         );
         for (final hint in [
           es.navInboxHint,
-          es.navTimelineHint,
           es.navAtlasHint,
+          es.navTimelineHint,
           es.navMapHint,
           es.navNotebooksHint,
         ]) {
@@ -319,8 +319,8 @@ void main() {
       expect(labels, [
         es.navLibrary,
         es.navInbox,
-        es.navTimeline,
         es.navAtlas,
+        es.navTimeline,
         es.navMap,
         es.navNotebooks,
         es.navChat,
@@ -342,10 +342,10 @@ void main() {
 
       expect(find.byType(AtlasScreen), findsOneWidget);
       final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
-      expect(rail.selectedIndex, 3);
+      expect(rail.selectedIndex, 2);
     });
 
-    testWidgets('en el riel, tocar la línea de tiempo (F40) la abre, arriba '
+    testWidgets('en el riel, tocar la línea de tiempo (F40) la abre, debajo '
         'del Atlas, y la marca', (tester) async {
       setLogicalWidth(tester, 1200);
 
@@ -357,7 +357,7 @@ void main() {
 
       expect(find.byType(TimelineScreen), findsOneWidget);
       final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
-      expect(rail.selectedIndex, 2);
+      expect(rail.selectedIndex, 3);
     });
 
     testWidgets('justo en el punto de quiebre ya es el riel, no la barra', (
