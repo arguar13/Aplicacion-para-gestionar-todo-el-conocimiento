@@ -452,11 +452,16 @@ void main() {
       expect(reader.calls, isEmpty);
     });
 
-    testWidgets('sin texto propio, «Todo» queda apagado', (tester) async {
+    testWidgets('con el texto plegado, «Todo» queda apagado', (tester) async {
       await pump(
         tester,
         initial: ReadAloudState(
-          document: studied.withoutText(),
+          document: ReadableDocument(
+            id: studied.id,
+            title: studied.title,
+            segments: const [],
+            scopes: studied.scopes,
+          ),
           scope: ReadScope.summary,
           playing: true,
           panel: ReadAloudPanel.expanded,
@@ -483,9 +488,28 @@ void main() {
       );
     });
 
-    testWidgets('tocar el botón redondo de un texto estudiado sin texto '
-        'visible empieza por lo estudiado', (tester) async {
-      await pump(tester, offered: studied.withoutText());
+    testWidgets('con su propio audio, «Todo» se puede elegir y lee la '
+        'transcripción (F40)', (tester) async {
+      await pump(
+        tester,
+        initial: ReadAloudState(
+          document: studied.withOwnAudio(),
+          scope: ReadScope.summary,
+          playing: true,
+          panel: ReadAloudPanel.expanded,
+        ),
+      );
+
+      expect(enabled(tester, ReadScope.all), isTrue);
+      await tester.tap(chip(ReadScope.all));
+      await tester.pumpAndSettle();
+
+      expect(reader.calls, ['scope all']);
+    });
+
+    testWidgets('tocar el botón redondo de un texto estudiado con su propio '
+        'audio empieza por lo estudiado', (tester) async {
+      await pump(tester, offered: studied.withOwnAudio());
 
       await tester.tap(button);
       await tester.pumpAndSettle();

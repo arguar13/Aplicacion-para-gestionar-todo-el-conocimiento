@@ -79,6 +79,7 @@ class ReadableDocument {
     required this.title,
     required this.segments,
     this.scopes = const {},
+    this.ownAudio = false,
   });
 
   /// Qué es: lo mismo que se ofrece dos veces —la pantalla se reconstruyó—
@@ -95,10 +96,20 @@ class ReadableDocument {
   /// [ReadScope.all], que es [segments].
   final Map<ReadScope, List<ReadableSegment>> scopes;
 
+  /// Si el texto ya suena en su propio audio —un audio, un video— (F23). El
+  /// lector en voz alta no arranca por él: sería un segundo audio de lo
+  /// mismo. Sin nada estudiado no lo ofrece; con algo estudiado, «Todo» se
+  /// puede elegir, y se empieza por la primera capa con algo (F40, pedido
+  /// del dueño: «Todo» estaba apagado en la transcripción de un audio).
+  final bool ownAudio;
+
   /// Los pedazos que se leen con [scope]; ninguno si no se ofrece.
-  List<ReadableSegment> segmentsOf(ReadScope scope) => scope == ReadScope.all
-      ? segments
-      : scopes[scope] ?? const <ReadableSegment>[];
+  List<ReadableSegment> segmentsOf(ReadScope scope) => switch (scope) {
+    ReadScope.all when ownAudio && !_studiedAnything =>
+      const <ReadableSegment>[],
+    ReadScope.all => segments,
+    _ => scopes[scope] ?? const <ReadableSegment>[],
+  };
 
   /// Si hay algo que leer con [scope].
   bool offers(ReadScope scope) => segmentsOf(scope).isNotEmpty;
@@ -107,23 +118,28 @@ class ReadableDocument {
   /// algo estudiado todavía.
   bool get hasScopes => scopes.isNotEmpty;
 
+  /// Si alguna capa de lo estudiado tiene algo.
+  bool get _studiedAnything => scopes.values.any((s) => s.isNotEmpty);
+
   /// Con qué parte empieza a leer quien no eligió: todo, y si no hay —el
-  /// texto está plegado, o ya suena en su propio audio—, la primera capa
-  /// estudiada que tenga algo.
+  /// texto está plegado— la primera capa estudiada que tenga algo. Con
+  /// [ownAudio], siempre la primera capa estudiada con algo.
   ReadScope get defaultScope {
     for (final scope in ReadScope.values) {
+      if (ownAudio && scope == ReadScope.all) continue;
       if (offers(scope)) return scope;
     }
     return ReadScope.all;
   }
 
-  /// Sin [segments]: solo lo estudiado. Lo que se ofrece cuando el texto
-  /// entero ya suena por otro lado.
-  ReadableDocument withoutText() => ReadableDocument(
+  /// El mismo documento, con el texto que ya suena en su propio audio
+  /// ([ownAudio]).
+  ReadableDocument withOwnAudio() => ReadableDocument(
     id: id,
     title: title,
-    segments: const [],
+    segments: segments,
     scopes: scopes,
+    ownAudio: true,
   );
 
   /// Con [scopes] en lugar de los que traía.
@@ -133,6 +149,7 @@ class ReadableDocument {
         title: title,
         segments: segments,
         scopes: scopes,
+        ownAudio: ownAudio,
       );
 
   /// Si no hay nada que leer, con ninguna parte.
@@ -144,6 +161,7 @@ class ReadableDocument {
       other is ReadableDocument &&
       other.id == id &&
       other.title == title &&
+      other.ownAudio == ownAudio &&
       listEquals(other.segments, segments) &&
       _sameScopes(other.scopes, scopes);
 
@@ -151,6 +169,7 @@ class ReadableDocument {
   int get hashCode => Object.hash(
     id,
     title,
+    ownAudio,
     Object.hashAll(segments),
     Object.hashAll([
       for (final scope

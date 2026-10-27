@@ -57,7 +57,6 @@ class StudyDocumentCard extends ConsumerWidget {
     this.extractedTextController,
     this.photoCount = 0,
     this.photos,
-    this.listenToText = true,
     super.key,
   });
 
@@ -91,12 +90,6 @@ class StudyDocumentCard extends ConsumerWidget {
   /// Las fotos, armadas recién al desplegar su fila.
   final WidgetBuilder? photos;
 
-  /// Si «Extraer texto» trae «Escuchar» (F39). Es `false` cuando el texto ya
-  /// suena en su propio audio —un audio, un video—: leerlo con la voz del
-  /// lector sería un segundo audio de lo mismo. El resumen, la síntesis y las
-  /// palabras clave siempre se escuchan con la voz del lector.
-  final bool listenToText;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
@@ -110,7 +103,6 @@ class StudyDocumentCard extends ConsumerWidget {
       study: study,
       title: item?.title ?? '',
       transcript: item != null && isTranscriptSource(item!.source),
-      includeText: listenToText,
     );
 
     return Material(
@@ -192,14 +184,13 @@ class StudyDocumentCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (listenToText)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: _ListenButton(
-                          listening: listening,
-                          scope: ReadScope.all,
-                        ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _ListenButton(
+                        listening: listening,
+                        scope: ReadScope.all,
                       ),
+                    ),
                     Builder(builder: builder),
                   ],
                 ),
@@ -771,14 +762,12 @@ class _Listening {
     required this.study,
     required this.title,
     required this.transcript,
-    required this.includeText,
   });
 
   final StudyText text;
   final DocumentStudy study;
   final String title;
   final bool transcript;
-  final bool includeText;
 
   String get documentId => studyReadableId(text.renditionId);
 
@@ -794,7 +783,6 @@ class _Listening {
       markdown: text.markdown,
     ),
     transcript: transcript,
-    includeText: includeText,
   );
 }
 

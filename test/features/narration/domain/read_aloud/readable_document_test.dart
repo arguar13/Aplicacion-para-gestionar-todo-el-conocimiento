@@ -74,20 +74,60 @@ void main() {
       expect(document(scopes: const {}).isEmpty, isFalse);
     });
 
-    test('sin el texto conserva lo estudiado, y con otras capas conserva el '
-        'texto', () {
-      final d = document();
-
-      final onlyStudied = d.withoutText();
-      expect(onlyStudied.segments, isEmpty);
-      expect(onlyStudied.scopes, d.scopes);
-      expect(onlyStudied.id, d.id);
-
+    test('con otras capas conserva el texto y si suena en su propio audio', () {
       final other = {ReadScope.keywords: summary};
-      final changed = d.withScopes(other);
+
+      final changed = document().withScopes(other);
       expect(changed.segments, whole);
       expect(changed.scopes, other);
-      expect(changed.title, d.title);
+      expect(changed.title, document().title);
+      expect(changed.ownAudio, isFalse);
+
+      expect(document().withOwnAudio().withScopes(other).ownAudio, isTrue);
+    });
+  });
+
+  group('un texto con su propio audio (F23, F40)', () {
+    test('con lo estudiado, «Todo» se ofrece y se puede elegir', () {
+      final d = document().withOwnAudio();
+
+      expect(d.ownAudio, isTrue);
+      expect(d.id, document().id);
+      expect(d.offers(ReadScope.all), isTrue);
+      expect(d.segmentsOf(ReadScope.all), whole);
+      expect(d.segmentsOf(ReadScope.summary), summary);
+    });
+
+    test('quien no eligió empieza por lo estudiado, no por el texto', () {
+      expect(document().withOwnAudio().defaultScope, ReadScope.summary);
+      expect(document().defaultScope, ReadScope.all);
+    });
+
+    test('sin nada estudiado no ofrece el texto: sería un segundo audio de '
+        'lo mismo', () {
+      for (final scopes in <Map<ReadScope, List<ReadableSegment>>>[
+        const {},
+        {ReadScope.summary: <ReadableSegment>[], ReadScope.keywords: []},
+      ]) {
+        final d = document(scopes: scopes).withOwnAudio();
+
+        expect(d.offers(ReadScope.all), isFalse, reason: '$scopes');
+        expect(d.isEmpty, isTrue, reason: '$scopes');
+        expect(
+          document(scopes: scopes).offers(ReadScope.all),
+          isTrue,
+          reason: '$scopes',
+        );
+      }
+    });
+
+    test('es parte de la igualdad', () {
+      expect(document().withOwnAudio(), isNot(document()));
+      expect(document().withOwnAudio(), document().withOwnAudio());
+      expect(
+        document().withOwnAudio().hashCode,
+        document().withOwnAudio().hashCode,
+      );
     });
 
     test('dos documentos son iguales si traen lo mismo, capas incluidas', () {

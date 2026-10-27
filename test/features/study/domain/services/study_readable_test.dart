@@ -201,16 +201,15 @@ void main() {
       expect(document.scopes, scopes);
     });
 
-    test('con el texto en su propio audio, solo lo estudiado', () {
+    test('la transcripción de un audio también se ofrece entera (F40)', () {
       final document = studyReadableDocument(
         text: text,
         title: 'Un audio',
         scopes: scopes,
-        includeText: false,
+        transcript: true,
       );
 
-      expect(document.segments, isEmpty);
-      expect(document.offers(ReadScope.all), isFalse);
+      expect(document.offers(ReadScope.all), isTrue);
       expect(document.offers(ReadScope.summary), isTrue);
     });
   });

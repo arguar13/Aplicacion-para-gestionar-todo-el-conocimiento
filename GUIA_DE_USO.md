@@ -1935,12 +1935,16 @@ y el repaso de tarjetas. No aparece en la Biblioteca, la Bandeja, el Mapa,
 el Atlas, Ajustes ni la Papelera.
 
 En un audio o un video que tiene su propio audio (también un reel, un TikTok
-o un YouTube con el audio ya bajado) el texto entero no se lee con este
-lector: ya se escucha con la voz original y se resalta solo (ver
-[El texto sigue al audio](#el-texto-sigue-al-audio)). Lo que sí ofrece es lo
-estudiado: el resumen, la síntesis y las palabras clave, con la voz del
-lector. Si un video de YouTube no pudo bajar su audio, el botón lee también el
-texto entero, porque es la única forma de escucharlo.
+o un YouTube con el audio ya bajado) el texto ya se escucha con la voz
+original y se resalta solo (ver
+[El texto sigue al audio](#el-texto-sigue-al-audio)). Por eso este lector
+**empieza por lo estudiado**: el resumen, la síntesis y las palabras clave,
+con la voz del lector. Si querés la transcripción entera con la voz del
+lector, elegí **"Todo"** en la fila **"Leer:"** del reproductor, o tocá
+**"Escuchar"** en **"Extraer transcripción"**. Sin nada estudiado todavía, el
+botón no aparece: sería un segundo audio de lo mismo. Si un video de YouTube
+no pudo bajar su audio, el botón lee el texto entero, porque es la única forma
+de escucharlo.
 
 1. **Tocalo** y la app empieza a leer el texto de esa pantalla en voz alta.
    La **línea que está leyendo se ve en amarillo**. Lee el texto tal cual se

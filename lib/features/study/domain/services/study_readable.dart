@@ -48,30 +48,25 @@ Map<ReadScope, List<ReadableSegment>> studyReadScopes({
 /// para escuchar el texto de la forma [renditionId] (F39).
 String studyReadableId(String renditionId) => 'study:$renditionId';
 
-/// Lo que la tarjeta de estudiar ofrece para escuchar (F39): el texto [text]
-/// —con [ReadScope.all], si [includeText]— y [scopes], lo estudiado. Es el
-/// mismo texto, con los mismos pedazos y posiciones, que ofrece el detalle: lo
-/// que suena se resalta en su lugar.
-///
-/// [includeText] es `false` cuando el texto ya suena en su propio audio —un
-/// audio, un video—: leerlo con la voz del lector sería un segundo audio de lo
-/// mismo, y lo estudiado sí se lee con la voz del lector (decisión B).
+/// Lo que la tarjeta de estudiar ofrece para escuchar (F39): el texto [text],
+/// con [ReadScope.all], y [scopes], lo estudiado. Es el mismo texto, con los
+/// mismos pedazos y posiciones, que ofrece el detalle: lo que suena se
+/// resalta en su lugar. También la transcripción de un audio o un video, que
+/// se escucha entera con la voz del lector si se elige (F40, pedido del
+/// dueño).
 ReadableDocument studyReadableDocument({
   required StudyText text,
   required String title,
   required Map<ReadScope, List<ReadableSegment>> scopes,
   bool transcript = false,
-  bool includeText = true,
 }) => ReadableDocument(
   id: studyReadableId(text.renditionId),
   title: title,
-  segments: includeText
-      ? buildReadableSegments(
-          text.content,
-          sourceKey: text.renditionId,
-          transcript: transcript,
-          markdown: text.markdown,
-        )
-      : const [],
+  segments: buildReadableSegments(
+    text.content,
+    sourceKey: text.renditionId,
+    transcript: transcript,
+    markdown: text.markdown,
+  ),
   scopes: scopes,
 );

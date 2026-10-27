@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
@@ -69,7 +70,7 @@ void main() {
   Future<void> pump(
     WidgetTester tester, {
     DocumentStudy study = DocumentStudy.notStarted,
-    bool listenToText = true,
+    SourceKind kind = SourceKind.document,
     bool withText = true,
   }) async {
     SharedPreferences.setMockInitialValues({});
@@ -99,7 +100,7 @@ void main() {
             body: SingleChildScrollView(
               child: StudyDocumentCard(
                 text: text,
-                listenToText: listenToText,
+                kind: kind,
                 extractedText: withText
                     ? (_) => const Text('el texto entero')
                     : null,
@@ -164,14 +165,14 @@ void main() {
       expect(find.byKey(const Key('study-listen-keywords')), findsNothing);
     });
 
-    testWidgets('el texto de un audio o un video, que ya suena en su propio '
-        'audio, no la trae; lo estudiado sí', (tester) async {
-      await pump(tester, study: analyzed, listenToText: false);
+    testWidgets('la transcripción de un audio o un video también trae '
+        '«Escuchar», como lo estudiado (F40)', (tester) async {
+      await pump(tester, study: analyzed, kind: SourceKind.audio);
 
       await unfold(tester, 'study-extract-text');
       await unfold(tester, 'study-extract-summary');
 
-      expect(find.byKey(const Key('study-listen-all')), findsNothing);
+      expect(find.byKey(const Key('study-listen-all')), findsOneWidget);
       expect(find.byKey(const Key('study-listen-summary')), findsOneWidget);
     });
   });
@@ -322,15 +323,17 @@ void main() {
       expect(document.offers(ReadScope.keywords), isTrue);
     });
 
-    testWidgets('el texto de un audio, sin su propia voz, no se ofrece en el '
-        'documento; lo estudiado sí', (tester) async {
-      await pump(tester, study: analyzed, listenToText: false);
+    testWidgets('al escuchar lo estudiado de un audio, la transcripción '
+        'entera también se ofrece: «Todo» se puede elegir (F40)', (
+      tester,
+    ) async {
+      await pump(tester, study: analyzed, kind: SourceKind.audio);
       await unfold(tester, 'study-extract-summary');
 
       await listen(tester, 'summary');
 
       final document = state().document!;
-      expect(document.segments, isEmpty);
+      expect(document.offers(ReadScope.all), isTrue);
       expect(document.offers(ReadScope.summary), isTrue);
     });
   });

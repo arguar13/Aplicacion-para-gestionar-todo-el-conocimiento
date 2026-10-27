@@ -287,15 +287,16 @@ class _DetailBodyState extends State<_DetailBody> {
       children: [
         // Con su propio audio —un audio, un video, un reel, el de YouTube ya
         // bajado—, el texto ya se escucha con la voz original y se resalta
-        // solo (F23): el lector en voz alta sería un segundo audio de lo
-        // mismo (pedido del usuario). Se ofrece cuando no hay qué escuchar:
-        // un documento, una nota, o un YouTube cuyo audio no se pudo bajar.
-        // Mientras se averigua, no se ofrece —así el botón no aparece para
-        // irse enseguida—; si averiguarlo falla, no hay qué escuchar y sí.
+        // solo (F23): el lector en voz alta no arranca por él, que sería un
+        // segundo audio de lo mismo (pedido del usuario), y sin nada
+        // estudiado no lo ofrece. Mientras se averigua si tiene audio, se
+        // trata como si lo tuviera —así el botón no aparece para irse
+        // enseguida—; si averiguarlo falla, no hay audio propio y se ofrece
+        // tal cual.
         //
-        // Lo estudiado —el resumen, la síntesis, las palabras clave— se ofrece
-        // siempre, también con su propio audio: se escucha con la voz del
-        // lector, no con el audio original (F39).
+        // Lo estudiado —el resumen, la síntesis, las palabras clave— se
+        // ofrece siempre (F39), y con él «Todo» también se puede elegir (F40,
+        // pedido del dueño). Ver `ReadableDocument.ownAudio`.
         Consumer(
           builder: (context, ref, child) {
             return ReadableRegion(
@@ -457,9 +458,6 @@ class _DetailBodyState extends State<_DetailBody> {
                         context,
                       )!.detailExtractedTextSubtitle,
                       extractedTextController: _textFold,
-                      listenToText: _readsTextAloud(
-                        ref.watch(itemPlaybackPathProvider(item)),
-                      ),
                       photoCount: ref.watch(itemPhotosProvider(item.id)).length,
                       photos: (context) => ItemPhotosGrid(itemId: item.id),
                     ),
@@ -560,17 +558,17 @@ bool _readsTextAloud(AsyncValue<String?> playback) => switch (playback) {
   _ => false,
 };
 
-/// Lo que de [document] se ofrece leer en voz alta en [item]: todo, o, con su
-/// propio audio, solo lo estudiado (F39, decisión B). Una sola regla para
-/// cada región que ofrece el texto de [item]: el detalle entero y el texto
-/// desplegado adentro.
+/// Lo que de [document] se ofrece leer en voz alta en [item]: tal cual, o,
+/// con su propio audio, marcado así ([ReadableDocument.ownAudio]). Una sola
+/// regla para cada región que ofrece el texto de [item]: el detalle entero y
+/// el texto desplegado adentro.
 ReadableDocument _offeredAloud(
   WidgetRef ref,
   KnowledgeItem item,
   ReadableDocument document,
 ) => _readsTextAloud(ref.watch(itemPlaybackPathProvider(item)))
     ? document
-    : document.withoutText();
+    : document.withOwnAudio();
 
 /// [document] con lo que se lee de cada capa de lo estudiado de [study] (F39),
 /// al día con los cambios; sin [study], tal cual.

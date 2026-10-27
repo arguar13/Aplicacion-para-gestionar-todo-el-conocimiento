@@ -462,8 +462,8 @@ void main() {
       );
     });
 
-    testWidgets('con su propio audio no se lee el texto con la voz del '
-        'lector, pero el resumen sí (decisión B)', (tester) async {
+    testWidgets('con su propio audio, el lector empieza por lo estudiado, y '
+        '«Todo» también se puede elegir (F23, F40)', (tester) async {
       await pumpStudied(
         tester,
         kind: SourceKind.audio,
@@ -471,23 +471,22 @@ void main() {
         notes: 'Mi nota.',
       );
 
-      // Ni siquiera la nota: con su propio audio, lo único que se ofrece es
-      // lo estudiado.
+      // El texto ya suena en su propio audio: quien no elige empieza por el
+      // resumen, no por un segundo audio de lo mismo.
       final document = offered()!;
-      expect(document.segments, isEmpty);
-      expect(document.offers(ReadScope.all), isFalse);
+      expect(document.ownAudio, isTrue);
+      expect(document.offers(ReadScope.all), isTrue);
       expect(document.offers(ReadScope.summary), isTrue);
       expect(document.offers(ReadScope.keywords), isTrue);
       expect(document.defaultScope, ReadScope.summary);
 
-      // En la tarjeta, el texto no trae «Escuchar»; el resumen sí. Y
-      // desplegado, la transcripción tampoco se ofrece entera: es la misma
-      // regla que en el detalle.
+      // Desplegada, la transcripción se ofrece entera y trae «Escuchar», como
+      // el resumen: es la misma regla que en el detalle.
       await unfoldText(tester);
-      expect(offered()!.segments, isEmpty);
-      expect(offered()!.offers(ReadScope.all), isFalse);
-      expect(offered()!.offers(ReadScope.summary), isTrue);
-      expect(find.byKey(const Key('study-listen-all')), findsNothing);
+      expect(offered()!.ownAudio, isTrue);
+      expect(offered()!.offers(ReadScope.all), isTrue);
+      expect(offered()!.defaultScope, ReadScope.summary);
+      expect(find.byKey(const Key('study-listen-all')), findsOneWidget);
       final summary = find.byKey(const Key('study-extract-summary'));
       await tester.ensureVisible(summary);
       await tester.tap(summary);
