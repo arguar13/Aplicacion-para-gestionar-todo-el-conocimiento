@@ -10753,5 +10753,9 @@
         "type": "int"
       }
     }
-  }
+  },
+  "readAloudBackToReading": "Back to reading",
+  "@readAloudBackToReading": {"description": "Pastilla arriba de un visor —el libro, el PDF, la página web— cuando la persona se movió y lo que se lee en voz alta quedó fuera de la vista: tocarla lleva hasta ahí y el visor vuelve a seguir la lectura."},
+  "readAloudBackToReadingHint": "Go to what is being read aloud",
+  "@readAloudBackToReadingHint": {"description": "Ayuda de la pastilla «Volver a la lectura» de un visor."}
 }

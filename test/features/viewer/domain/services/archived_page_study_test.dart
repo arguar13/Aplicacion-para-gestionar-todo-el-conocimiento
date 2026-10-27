@@ -292,6 +292,88 @@ void main() {
     expect(page.querySelector('#sinapsis-study'), isNull);
   });
 
+  group('lo que se lee en voz alta', () {
+    Map<String, Object?> reading(String script) =>
+        jsonDecode(RegExp(r'reading\((.*)\);$').firstMatch(script)!.group(1)!)
+            as Map<String, Object?>;
+
+    test('sus tramos en la página, su color y cómo seguirlo', () {
+      final script = archivedPageReadingScript(
+        const [(start: 3, end: 9), (start: 12, end: 20)],
+        color: 0xFFFFE066,
+        follow: true,
+        report: true,
+        smooth: false,
+        bandTop: 0.05,
+        bandBottom: 0.7,
+        landing: 0.2,
+      );
+
+      expect(script, startsWith('window.sinapsis && window.sinapsis.reading('));
+      expect(reading(script), {
+        'ranges': [
+          [3, 9],
+          [12, 20],
+        ],
+        'color': '#ffe066',
+        'follow': true,
+        'report': true,
+        'smooth': false,
+        'top': 0.05,
+        'bottom': 0.7,
+        'landing': 0.2,
+      });
+    });
+
+    test('sin nada que suene, ningún tramo: se borra lo pintado', () {
+      final script = archivedPageReadingScript(
+        const [],
+        color: 0xFFFFE066,
+        follow: false,
+        report: false,
+        smooth: true,
+        bandTop: 0.05,
+        bandBottom: 0.7,
+        landing: 0.2,
+      );
+
+      expect(reading(script)['ranges'], isEmpty);
+      expect(reading(script)['follow'], isFalse);
+      expect(reading(script)['smooth'], isTrue);
+    });
+
+    test('una oración de lo estudiado cae en sus tramos de la página, como '
+        'se pinta lo estudiado', () {
+      const content = 'Una oración del artículo. Otra más.';
+      final shown = showArchivedPage(
+        '<html><body><p>Una oración <b>del</b> artículo.</p> '
+        '<p>Otra más.</p></body></html>',
+        study: (content: content, colors: colors),
+      );
+      final ranges = shown.alignment!.pageRangesOf(0, 25);
+
+      final painted =
+          reading(
+                archivedPageReadingScript(
+                  ranges,
+                  color: 0xFFFFE066,
+                  follow: true,
+                  report: true,
+                  smooth: true,
+                  bandTop: 0.05,
+                  bandBottom: 0.7,
+                  landing: 0.2,
+                ),
+              )['ranges']!
+              as List<Object?>;
+
+      expect(painted, isNotEmpty);
+      expect(painted, [
+        for (final range in ranges) [range.start, range.end],
+      ]);
+    });
+  });
+
   test('lo que se le pide a la página: qué se prende —cada uno por su '
       'lado (F39)— y si tocar elige', () {
     Map<String, Object?> state(String script) =>

@@ -38,7 +38,7 @@ class _RecordingReadAloud extends FakeReadAloudController {
   @override
   Future<void> open(
     ReadableDocument document, {
-    int fromSegment = 0,
+    int? fromSegment,
     ReadScope? scope,
   }) async {
     opened = document;

@@ -63,6 +63,10 @@ enum ReadScope {
   keywords,
 }
 
+/// Un lugar de un texto en pantalla: el texto ([ReadableSegment.sourceKey]) y
+/// una posición en él, tal cual se guarda.
+typedef ReadablePlace = ({String sourceKey, int offset});
+
 /// Lo que una pantalla ofrece para leer en voz alta (F25): su texto, ya
 /// partido en lo que se lee de una vez.
 ///
@@ -80,6 +84,7 @@ class ReadableDocument {
     required this.segments,
     this.scopes = const {},
     this.ownAudio = false,
+    this.startAt,
   });
 
   /// Qué es: lo mismo que se ofrece dos veces —la pantalla se reconstruyó—
@@ -102,6 +107,31 @@ class ReadableDocument {
   /// puede elegir, y se empieza por la primera capa con algo (F40, pedido
   /// del dueño: «Todo» estaba apagado en la transcripción de un audio).
   final bool ownAudio;
+
+  /// Por dónde va la vista de la pantalla que lo ofrece, o `null` si se lee
+  /// desde el principio: un libro abierto en la página 300 empieza a leer
+  /// ahí, no en la portada. Se pregunta en el momento de empezar —ver
+  /// [startIndexOf]—, porque la vista se mueve sin que el documento cambie:
+  /// es una función, y no un lugar fijo. Que sea la misma —el mismo método
+  /// del mismo objeto— es parte de ser el mismo documento.
+  final ReadablePlace? Function()? startAt;
+
+  /// Desde qué pedazo de [scope] empieza a leer quien no eligió: el primero
+  /// que termina después del lugar de [startAt] en su texto. Sin [startAt],
+  /// o si ya no queda ninguno después —la vista está en la última página y
+  /// el resumen terminó antes—, el primero.
+  int startIndexOf(ReadScope scope) {
+    final place = startAt?.call();
+    if (place == null) return 0;
+    final segments = segmentsOf(scope);
+    for (var i = 0; i < segments.length; i++) {
+      final segment = segments[i];
+      if (segment.sourceKey == place.sourceKey && segment.end > place.offset) {
+        return i;
+      }
+    }
+    return 0;
+  }
 
   /// Los pedazos que se leen con [scope]; ninguno si no se ofrece.
   List<ReadableSegment> segmentsOf(ReadScope scope) => switch (scope) {
@@ -140,6 +170,7 @@ class ReadableDocument {
     segments: segments,
     scopes: scopes,
     ownAudio: true,
+    startAt: startAt,
   );
 
   /// Con [scopes] en lugar de los que traía.
@@ -150,6 +181,18 @@ class ReadableDocument {
         segments: segments,
         scopes: scopes,
         ownAudio: ownAudio,
+        startAt: startAt,
+      );
+
+  /// Con [startAt] en lugar del que traía.
+  ReadableDocument withStartAt(ReadablePlace? Function()? startAt) =>
+      ReadableDocument(
+        id: id,
+        title: title,
+        segments: segments,
+        scopes: scopes,
+        ownAudio: ownAudio,
+        startAt: startAt,
       );
 
   /// Si no hay nada que leer, con ninguna parte.
@@ -162,6 +205,7 @@ class ReadableDocument {
       other.id == id &&
       other.title == title &&
       other.ownAudio == ownAudio &&
+      other.startAt == startAt &&
       listEquals(other.segments, segments) &&
       _sameScopes(other.scopes, scopes);
 
@@ -170,6 +214,7 @@ class ReadableDocument {
     id,
     title,
     ownAudio,
+    startAt,
     Object.hashAll(segments),
     Object.hashAll([
       for (final scope

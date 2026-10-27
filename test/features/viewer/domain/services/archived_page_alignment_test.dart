@@ -468,6 +468,25 @@ void main() {
       expect((tap! as ArchivedPageMarkTapped).id, 'h-1');
     });
 
+    test('lo que avisa para seguir lo que se lee en voz alta: que la '
+        'persona la movió, que lo que suena llegó solo a la vista y por dónde '
+        'va la vista', () {
+      expect(
+        parseArchivedPageEvent(jsonEncode({'t': 'moved'})),
+        isA<ArchivedPageMoved>(),
+      );
+      expect(
+        parseArchivedPageEvent(jsonEncode({'t': 'seen'})),
+        isA<ArchivedPageReadingSeen>(),
+      );
+      final view = parseArchivedPageEvent(jsonEncode({'t': 'view', 'at': 42}));
+      expect((view! as ArchivedPageViewed).position, 42);
+      expect(
+        parseArchivedPageEvent(jsonEncode({'t': 'view', 'at': 'x'})),
+        isNull,
+      );
+    });
+
     test('lo que no se entiende se ignora', () {
       expect(parseArchivedPageEvent('no es json'), isNull);
       expect(parseArchivedPageEvent('[1,2]'), isNull);
@@ -521,6 +540,43 @@ void main() {
       expect(script, contains("t: 'tap'"));
       expect(script, contains('SinapsisMarks'));
       expect(archivedPageMarksChannel, 'SinapsisMarks');
+    });
+
+    test('lo que se lee en voz alta va en una capa aparte, por encima de '
+        'todo, y se vuelve a pintar después de cada repintada', () {
+      final shown = showableArchivedPage(
+        '<html><head></head><body><p>Hola mundo largo.</p></body></html>',
+        study: (
+          content: 'Hola mundo largo.',
+          colors: (summary: 0, synthesis: 0, keyword: 0),
+        ),
+      );
+      final script = html_parser
+          .parse(shown)
+          .getElementById('sinapsis-study-script')!
+          .text;
+
+      expect(script, contains('reading: function (state)'));
+      // Un resaltado del navegador, sin tocar la página; donde no lo hay, una
+      // marca que va adentro de todo lo demás.
+      expect(script, contains("CSS.highlights.set('sn-reading', highlight)"));
+      expect(script, contains('::highlight(sn-reading){background-color:'));
+      expect(script, contains("paint(each(reading.ranges), markOf('r'))"));
+      expect(script, contains('mark.sn-r{background:'));
+      final repaint = script.substring(script.indexOf('function repaint()'));
+      expect(
+        repaint.indexOf('paintReading();'),
+        greaterThan(
+          repaint.indexOf("paint(each(study.keyword), markOf('k'));"),
+        ),
+      );
+      // Sigue con lo que se ve de verdad —con zoom— y avisa lo que la
+      // persona hace.
+      expect(script, contains('window.visualViewport'));
+      expect(script, contains("behavior: reading.smooth ? 'smooth' : 'auto'"));
+      expect(script, contains("post({t: 'moved'})"));
+      expect(script, contains("post({t: 'seen'})"));
+      expect(script, contains("post({t: 'view', at:"));
     });
   });
 }

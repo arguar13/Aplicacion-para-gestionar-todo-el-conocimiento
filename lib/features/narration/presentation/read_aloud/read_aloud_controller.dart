@@ -76,18 +76,21 @@ class ReadAloudState {
   }
 
   /// Cuánto leyó, de 0 a 1, por caracteres dichos: el anillo del botón.
+  ///
+  /// Se pregunta con cada palabra dicha: no recorre el documento —un libro
+  /// entero son decenas de miles de pedazos—, sino lo dicho antes de cada
+  /// pedazo, que se cuenta una vez por lista (ver [_spokenBefore]).
   double get progress {
     final segments = this.segments;
     if (segments.isEmpty) return 0;
-    var total = 0;
-    var done = 0;
-    for (var i = 0; i < segments.length; i++) {
-      final length = segments[i].spoken.length;
-      total += length;
-      if (i < segmentIndex) done += length;
-      if (i == segmentIndex) done += charInSegment.clamp(0, length);
-    }
-    return total == 0 ? 0 : done / total;
+    final before = _spokenBefore[segments] ??= _countSpokenBefore(segments);
+    final total = before.last;
+    if (total == 0) return 0;
+    if (segmentIndex >= segments.length) return 1;
+    final done =
+        before[segmentIndex] +
+        charInSegment.clamp(0, segments[segmentIndex].spoken.length);
+    return done / total;
   }
 
   ReadAloudState copyWith({
@@ -113,6 +116,19 @@ class ReadAloudState {
     voice: clearVoice ? null : voice ?? this.voice,
     failed: failed ?? this.failed,
   );
+}
+
+/// Cuántos caracteres de `spoken` hay antes de cada pedazo de una lista, y al
+/// final el total: lo que cuenta [ReadAloudState.progress], una vez por lista
+/// de pedazos y no con cada palabra.
+final _spokenBefore = Expando<List<int>>('lo dicho antes de cada pedazo');
+
+List<int> _countSpokenBefore(List<ReadableSegment> segments) {
+  final before = List<int>.filled(segments.length + 1, 0);
+  for (var i = 0; i < segments.length; i++) {
+    before[i + 1] = before[i] + segments[i].spoken.length;
+  }
+  return before;
 }
 
 /// El lector flotante: lee un [ReadableDocument] en voz alta, pedazo por
@@ -185,11 +201,12 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   /// Abre el reproductor sobre [document] y empieza a leer desde el pedazo
   /// [fromSegment] de [scope] —sin decirlo, el que ya se leía de ese
   /// documento, o todo; y si no hay, la primera capa estudiada que tenga
-  /// algo—. Si ya se estaba leyendo eso mismo, sigue donde iba y solo abre el
-  /// reproductor.
+  /// algo—. Sin [fromSegment], desde lo que se ve en la pantalla que lo
+  /// ofrece —ver [ReadableDocument.startAt]—, o desde el principio. Si ya se
+  /// estaba leyendo eso mismo, sigue donde iba y solo abre el reproductor.
   Future<void> open(
     ReadableDocument document, {
-    int fromSegment = 0,
+    int? fromSegment,
     ReadScope? scope,
   }) async {
     if (document.isEmpty) return;
@@ -219,19 +236,30 @@ class ReadAloudController extends Notifier<ReadAloudState> {
       return;
     }
     if (!document.offers(target)) return;
-    await _start(document, target, fromSegment: fromSegment);
+    await _start(
+      document,
+      target,
+      fromSegment: fromSegment ?? document.startIndexOf(target),
+    );
   }
 
   /// Cambia qué parte del documento se lee (F39) —todo, o solo el resumen, la
   /// síntesis o las palabras clave— y empieza a leerla desde el principio:
   /// cada parte es otra lista de pedazos, y la posición de una no es la de
-  /// la otra. Una parte sin nada que leer no cambia nada.
+  /// la otra. En un documento que dice por dónde va su vista —un libro, un
+  /// PDF—, desde ahí: el resumen de lo que se está mirando. Una parte sin
+  /// nada que leer no cambia nada.
   Future<void> setScope(ReadScope scope) async {
     final document = state.document;
     if (document == null || scope == state.scope || !document.offers(scope)) {
       return;
     }
-    await _start(document, scope, panel: state.panel);
+    await _start(
+      document,
+      scope,
+      fromSegment: document.startIndexOf(scope),
+      panel: state.panel,
+    );
   }
 
   /// Lee [scope] de [document] desde el pedazo [fromSegment], cortando lo que

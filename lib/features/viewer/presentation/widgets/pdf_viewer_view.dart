@@ -8,9 +8,16 @@ import 'package:sinapsis/core/design/highlight_toolbar.dart';
 import 'package:sinapsis/core/design/reading_scroll_physics.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_follow.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_text_provider.dart';
 import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_highlight_toolbar.dart';
@@ -46,13 +53,34 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// resaltado abre su ficha; con palabras clave en elección, el toque es de
 /// ellas.
 ///
+/// **Se escucha entero, y la lectura se sigue en la página.** También con
+/// [text], ofrece al lector flotante el texto extraído del PDF de punta a
+/// punta —el mismo documento que «Escuchar» de la tarjeta de estudiar, ver
+/// `studyReadableDocument`—, con «Leer: Todo · Resumen · Síntesis · Palabras
+/// clave», y empieza a leer en la página que se ve. Lo que suena se pinta en
+/// amarillo sobre las letras del PDF —la línea u oración, o con «Palabras
+/// clave», la palabra—, por encima de todo lo demás (ver
+/// [PdfStudyOverlay.setReading]). Mientras la persona no lo mueva, el visor
+/// sigue la lectura: cuando la línea sale de la parte cómoda de la vista, la
+/// trae cerca de arriba, como quien da vuelta la hoja (ver `ReadAloudBand`).
+/// Si la persona desplaza o hace zoom, la deja tranquila y ofrece «Volver a la
+/// lectura» (ver `ReadAloudFollow`).
+///
 /// Sin `Scaffold` propio a propósito: `PdfViewerScreen` lo envuelve para
-/// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
-/// dentro de un marco acotado en el detalle del elemento.
+/// mostrarlo a pantalla completa. En el detalle del elemento se ve su primera
+/// página fija —ver `PdfFirstPagePreview`—, no este visor.
 class PdfViewerView extends ConsumerStatefulWidget {
-  const PdfViewerView({required this.path, this.text, super.key});
+  const PdfViewerView({
+    required this.path,
+    this.text,
+    this.title = '',
+    super.key,
+  });
 
   final String path;
+
+  /// El nombre del documento: lo que muestra el lector flotante.
+  final String title;
 
   /// El texto extraído del PDF y su forma: de ahí sale lo estudiado y es
   /// donde se resalta.
@@ -74,6 +102,165 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
   late final DocumentSelection _selection = _PdfSelection(this);
 
   bool _picking = false;
+
+  /// Si el visor sigue lo que se lee en voz alta o la persona se movió.
+  final _follow = ReadAloudFollow();
+
+  /// Cuántas veces cambió lo que suena: ubicarlo en el PDF lleva un rato, y
+  /// lo que se ubicó de una línea que ya pasó no mueve la vista.
+  var _followed = 0;
+
+  ProviderSubscription<(int, int)?>? _reading;
+
+  /// Lo que se ofrece para leer: el mismo documento mientras no cambie el
+  /// texto partido ni lo estudiado.
+  (ReadableDocument, Map<ReadScope, List<ReadableSegment>>, ReadableDocument)?
+  _offered;
+
+  @override
+  void initState() {
+    super.initState();
+    _follow.addListener(_onFollowChanged);
+    _listenToReading();
+  }
+
+  @override
+  void didUpdateWidget(PdfViewerView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text?.renditionId != widget.text?.renditionId) {
+      _reading?.close();
+      _listenToReading();
+    }
+  }
+
+  @override
+  void dispose() {
+    _reading?.close();
+    _follow.dispose();
+    super.dispose();
+  }
+
+  /// Lo que suena del texto, desde ya: abrir el PDF mientras se lee lo pinta
+  /// y va hasta ahí.
+  void _listenToReading() {
+    final text = widget.text;
+    _reading = text == null
+        ? null
+        : ref.listenManual(
+            readAloudHighlightProvider(text.renditionId),
+            (previous, next) => _onReading(next),
+            fireImmediately: true,
+          );
+  }
+
+  void _onReading((int, int)? range) {
+    _study.setReading(range == null ? null : (start: range.$1, end: range.$2));
+    if (range != null) unawaited(_showReading(range));
+  }
+
+  /// Lleva la vista hasta [range] si el visor sigue la lectura y la línea
+  /// salió de la parte cómoda de la vista. Si no la sigue, y la línea llegó
+  /// sola a lo que la persona está mirando, vuelve a seguirla.
+  Future<void> _showReading((int, int) range) async {
+    final followed = ++_followed;
+    if (!_controller.isReady) return;
+    final place = await _study.placeOf((
+      start: range.$1,
+      end: range.$2,
+    ), _controller.pages);
+    if (!mounted ||
+        followed != _followed ||
+        place == null ||
+        !_controller.isReady) {
+      return;
+    }
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 350);
+    final letters = place.rect;
+    if (letters == null) {
+      // Una página escaneada: no tiene letras donde ver la línea, pero sí
+      // dónde está.
+      if (_follow.following && _controller.pageNumber != place.pageNumber) {
+        await _controller.goToPage(
+          pageNumber: place.pageNumber,
+          duration: duration,
+        );
+      }
+      return;
+    }
+    final view = _controller.visibleRect;
+    final line = _controller.calcRectForRectInsidePage(
+      pageNumber: place.pageNumber,
+      rect: letters,
+    );
+    if (!_follow.shouldMoveTo(
+      comfortable: ReadAloudBand.contains(view, line),
+    )) {
+      return;
+    }
+    await _controller.goTo(
+      _controller.calcMatrixFor(ReadAloudBand.centerFor(view, line)),
+      duration: duration,
+    );
+  }
+
+  /// La persona desplazó o hizo zoom: el visor deja de seguir la lectura.
+  void _onInteractionStart(ScaleStartDetails details) => _follow.release();
+
+  /// El PDF terminó de abrirse: si ya se estaba leyendo, va hasta ahí.
+  void _onViewerReady(PdfDocument document, PdfViewerController controller) {
+    final text = widget.text;
+    if (text == null) return;
+    final range = ref.read(readAloudHighlightProvider(text.renditionId));
+    if (range != null) unawaited(_showReading(range));
+  }
+
+  /// Volvió a seguir la lectura —«Volver a la lectura», otra lectura—: va
+  /// hasta lo que suena.
+  void _onFollowChanged() {
+    final text = widget.text;
+    if (!_follow.following || text == null) return;
+    final range = ref.read(readAloudHighlightProvider(text.renditionId));
+    if (range != null) unawaited(_showReading(range));
+  }
+
+  /// Por dónde va la vista: el comienzo de la página que se ve —ver
+  /// [ReadableDocument.startAt]—. Cerrado el visor, o sin saber todavía
+  /// dónde empieza cada página, `null`: se lee desde el principio.
+  ReadablePlace? _placeInView() {
+    final text = widget.text;
+    if (!mounted || text == null || !_controller.isReady) return null;
+    final page = _controller.pageNumber;
+    if (page == null) return null;
+    final start = _study.pageStart(page, _controller.pageCount);
+    return start == null ? null : (sourceKey: text.renditionId, offset: start);
+  }
+
+  /// El texto del PDF para el lector flotante, con lo estudiado y desde
+  /// dónde se empieza; `null` mientras se parte.
+  ReadableDocument? _readable(StudyText text) {
+    final whole = ref.watch(
+      readableTextProvider((
+        id: studyReadableId(text.renditionId),
+        title: widget.title,
+        sourceKey: text.renditionId,
+        content: text.content,
+        markdown: text.markdown,
+      )),
+    );
+    final studied = ref.watch(studyReadScopesProvider(text));
+    if (whole == null) return null;
+    final cached = _offered;
+    if (cached != null &&
+        identical(cached.$1, whole) &&
+        identical(cached.$2, studied)) {
+      return cached.$3;
+    }
+    final document = whole.withScopes(studied).withStartAt(_placeInView);
+    _offered = (whole, studied, document);
+    return document;
+  }
 
   /// Eligiendo palabras clave, un toque sobre una letra la agrega o la saca;
   /// cualquier otro toque sigue a la selección de siempre.
@@ -156,6 +343,7 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
   @override
   Widget build(BuildContext context) {
     final text = widget.text;
+    _follow.resumeOnNewReadings(ref);
     if (text != null) {
       _picking = ref.watch(studyViewProvider(text.renditionId)).picking;
       _study.update(
@@ -176,7 +364,7 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
       );
     }
     final drag = _dragSelection;
-    return PdfrxMaterialBridge(
+    final viewer = PdfrxMaterialBridge(
       child: Listener(
         onPointerDown: drag.onPointerDown,
         onPointerMove: drag.onPointerMove,
@@ -198,6 +386,8 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
               parent: PdfViewerParams.getScrollPhysics(context),
             ),
             onGeneralTap: _onGeneralTap,
+            onInteractionStart: _onInteractionStart,
+            onViewerReady: _onViewerReady,
             pagePaintCallbacks: _paintCallbacks,
             // Sin el texto del documento no hay dónde guardar un resaltado:
             // el menú de `pdfrx`, Copiar y Seleccionar todo.
@@ -211,6 +401,27 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
             ),
           ),
         ),
+      ),
+    );
+    if (text == null) return viewer;
+    return ReadableRegion(
+      document: _readable(text),
+      child: Stack(
+        children: [
+          Positioned.fill(child: viewer),
+          Positioned(
+            top: 12,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: ReadAloudBackToReading(
+                sourceKey: text.renditionId,
+                follow: _follow,
+                onPressed: _follow.resume,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

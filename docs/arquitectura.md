@@ -6788,6 +6788,79 @@ clave» para un libro enorme.
     corte de la respuesta es la causa en el teléfono, se verá al analizar un libro nuevo.
   - Los tiempos en el teléfono (las cifras de arriba son de la PC, sin compilar en release).
 
+### 86. Escuchar dentro del documento: el original entero, lo que suena en amarillo sobre él y un visor que sigue la lectura
+
+**Pedido** (2026-10-27): *"cuando entro al libro, al PDF, al EPUB, al Word … no aparece el botón
+de dictado de voz dentro … Hacé que se pueda escuchar todo el documento, el resumen, la síntesis,
+las palabras clave, y que además tenga el resaltado amarillo en la línea que se está leyendo … (en
+palabras clave resaltaría la palabra que se lee)"*. Había: el lector de libros ofrecía veinte
+páginas desde la que se veía, con su propio id y un `sourceKey` por página; el PDF y la página web
+no ofrecían nada ni pintaban lo que sonaba.
+
+- **Un solo documento para escuchar un texto que se estudia, en todos lados.** El lector de libros,
+  el PDF y la página web a pantalla completa ofrecen el texto extraído entero con el id de
+  «Escuchar» de la tarjeta de estudiar (`studyReadableId`), los mismos pedazos
+  (`buildReadableSegments` del texto que se estudia) y lo estudiado de `studyReadScopesProvider`.
+  Lo que se empezó en la tarjeta sigue en el visor sin volver a empezar, y al revés. Las posiciones
+  son siempre las del texto entero, con el `sourceKey` de la forma: es la misma base que ya usan
+  los resaltados a mano (F38) y lo estudiado (F39) en las cuatro superficies, así que lo que suena
+  se pinta en cada una sin traducir nada. Un adjunto que no se estudia usa un `sourceKey` propio
+  del contenido, con las mismas reglas.
+  - No se comparte el id del detalle (`item:<id>`): ese documento trae la nota del usuario y, con
+    la tarjeta, el texto plegado; con el mismo id y otros pedazos, `open` retomaría en un índice
+    que no es el suyo.
+- **El libro se parte fuera del hilo de la pantalla** (`readableTextProvider`, sobre
+  `buildReadableSegmentsOff` del arreglo de libros largos): partir «Don Quijote» (2 MB) lleva más
+  de medio segundo en una computadora. Mientras tanto no se ofrece nada y el botón aparece cuando
+  está listo; el mismo texto en dos lugares a la vez es una sola cuenta. Nada proporcional al
+  libro en `build`, ni por cuadro: con palabras clave en todas las oraciones (decisión 85) un libro
+  tiene decenas de miles. Por eso el anillo del botón (`ReadAloudState.progress`) ya no recorre
+  todos los pedazos con cada palabra: cuenta lo dicho antes de cada uno una vez por lista
+  (`Expando`). Lo ofrecido se arma una vez por libro y por cambio de lo estudiado, y empezar busca
+  el pedazo una sola vez.
+- **El texto largo del detalle** (más de `kPagedTextChars`, que se lee con el mismo lector, sin sus
+  botones de estudiar) ofrece también el libro entero con el id de la tarjeta, y por encima de lo
+  que ofrece el detalle: el texto plegado de corrido no está en lo del detalle. Ahí también resalta
+  y sigue la lectura dentro de su marco, sin mover el detalle.
+- **Empieza por lo que se ve** (`ReadableDocument.startAt`): una función, no un lugar, porque la
+  vista se mueve sin que el documento cambie; se pregunta al empezar y al elegir otra parte. El
+  libro da el comienzo de la página; el PDF, el de la página que se ve (por los separadores del
+  texto extraído); la página web, la letra de arriba de lo que se ve, que avisa al quedar quieta.
+  Sin `startAt`, todo sigue como antes (desde el principio).
+- **El amarillo de lo que suena, encima de todo y en su lugar.** El mismo `playingColor` de toda la
+  app, con la letra negra. En el libro, cada página pregunta solo por lo suyo
+  (`readAloudSpanProvider`): pasar de línea no reconstruye las demás. En el PDF va en
+  `PdfStudyOverlay.setReading`: se ubican solo las letras de lo que suena y las capas de abajo se
+  recortan ahí (`ClipOp.difference`), así que el verde o el rosa no se mezclan con el amarillo y no
+  hay que rearmar nada. En la página web va en una capa aparte —el resaltado del navegador (CSS
+  Custom Highlight API) o, donde no lo hay, una marca adentro de todo— que no vuelve a envolver lo
+  estudiado con cada línea. Con «Palabras clave» cada pedazo es una palabra: se resalta la palabra.
+- **El visor sigue la lectura, sin pelear con la persona** (`ReadAloudFollow`, `ReadAloudBand`).
+  Mientras la línea esté en la franja cómoda (del 5 % al 70 % del alto: abajo la tapa el
+  reproductor), no se mueve; cuando sale, la lleva al 20 %, como quien da vuelta la hoja. El libro
+  da vuelta la página y, con la letra grande, se desplaza dentro de ella. Si la persona pasa de
+  página, desplaza o hace zoom, deja de seguir y aparece «Volver a la lectura». Vuelve a seguir al
+  tocarla, al volver a mano a la página de lo que suena, cuando lo que suena entra solo en la
+  franja y con cada lectura nueva. Con las animaciones apagadas en el sistema, salta.
+  - Es la idea de «Volver al audio» (F23), con una diferencia a propósito: el audio de un video no
+    mueve la pantalla (decisión B de F23), y un visor de lectura sí, porque es lo que hace un lector
+    de libros con voz.
+- **Embebida en el detalle, la página web solo pinta.** El que ofrece ahí es el detalle; el PDF y
+  el libro embebidos son su primera página fija, que no lleva lo que suena (F39).
+- **`ReadAloudController.open` toma `fromSegment` opcional**: sin decirlo, empieza por `startAt`.
+  `readerPageSegments` sale, porque el libro ya no se ofrece de a páginas.
+- **Se descartó:**
+  - Seguir ofreciendo veinte páginas por vez: «Todo» no era todo y cada página cambiaba de id.
+  - Un overlay de rectángulos sobre el `WebView` calculados en Flutter: la página se arma sola y
+    con zoom, y la propia página sabe mejor dónde está cada letra.
+  - Mover la vista con cada línea: la vista no paraba de moverse.
+- **Lo que no quedó probado:**
+  - El `WebView` de verdad: se prueba lo que se le pide (el pedido, los avisos, el programa), como en
+    F38 y F39. Falta ver en el teléfono el resaltado del navegador y el desplazamiento suave.
+  - El desplazamiento del PDF real con `pdfrx` en pantalla: se prueba dónde está lo que suena (con
+    PDFium real), la franja y qué se pinta; no hay una prueba de widget que mueva el visor.
+  - La voz real: las pruebas usan un motor falso.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -7270,6 +7343,11 @@ clave» para un libro enorme.
   IA, que elige las palabras más raras del documento; lo ya analizado se completa solo al prender
   «Palabras clave» o abrir «Descargar», sin pagar la IA ni migrar nada. De paso, un índice de
   renglones sin puntos y una enumeración larguísima se parten en oraciones. Ver la decisión 85.
+- **Escuchar dentro del documento** (decisión 86). El lector de libros, el PDF y la página web a
+  pantalla completa ofrecen el documento entero para escuchar, con «Leer: Todo · Resumen ·
+  Síntesis · Palabras clave», empiezan por lo que se ve, pintan lo que suena en amarillo sobre el
+  original (la palabra, con palabras clave) y siguen la lectura con «Volver a la lectura» si la
+  persona se mueve. También el texto largo del detalle, que se lee con el mismo lector.
 
 ### Por construir
 

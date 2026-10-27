@@ -139,6 +139,26 @@ class ArchivedPageMarkTapped extends ArchivedPageEvent {
   final String id;
 }
 
+/// La persona empezó a mover la página con el dedo —o la rueda del ratón—:
+/// un visor que seguía lo que se lee en voz alta la deja tranquila.
+class ArchivedPageMoved extends ArchivedPageEvent {
+  const ArchivedPageMoved();
+}
+
+/// Lo que se lee en voz alta entró solo en la parte cómoda de lo que se ve
+/// (ver [archivedPageReadingScript], con `report`).
+class ArchivedPageReadingSeen extends ArchivedPageEvent {
+  const ArchivedPageReadingSeen();
+}
+
+/// La persona dejó la página quieta, y lo primero que se ve arriba está en
+/// [position] del texto corrido de la página: por dónde va la vista.
+class ArchivedPageViewed extends ArchivedPageEvent {
+  const ArchivedPageViewed(this.position);
+
+  final int position;
+}
+
 /// [message], lo que llegó por [archivedPageMarksChannel], o `null` si no es
 /// algo que se entienda.
 ArchivedPageEvent? parseArchivedPageEvent(String message) {
@@ -163,6 +183,12 @@ ArchivedPageEvent? parseArchivedPageEvent(String message) {
         );
       case 'tap':
         return ArchivedPageMarkTapped(data['id'] as String);
+      case 'moved':
+        return const ArchivedPageMoved();
+      case 'seen':
+        return const ArchivedPageReadingSeen();
+      case 'view':
+        return ArchivedPageViewed(data['at'] as int);
     }
     return null;
     // Lo que manda una página es lo que dice el programa de la app, pero un
@@ -216,6 +242,48 @@ String archivedPageStudyScript(
     }
   }
   return 'window.sinapsis && window.sinapsis.study(${jsonEncode(layers)});';
+}
+
+/// Lo que se le pide a la página para pintar lo que se lee en voz alta: sus
+/// [ranges] en el texto corrido de la página —ver
+/// [ArchivedPageAlignment.pageRangesOf]—, ninguno si no se lee nada de ella,
+/// en [color] (`0xAARRGGBB`), por encima de todo lo demás.
+///
+/// Con [follow], si lo que suena salió de la parte cómoda de lo que se ve —la
+/// franja entre [bandTop] y [bandBottom], fracciones del alto—, la página se
+/// desplaza para dejarlo a la altura de [landing]: con [smooth], de a poco;
+/// sin él, de un salto (la persona apagó las animaciones). Con [report] y sin
+/// [follow], la página avisa si lo que suena llegó solo a esa franja
+/// ([ArchivedPageReadingSeen]), y además avisa cuando la persona la mueve
+/// ([ArchivedPageMoved]) y por dónde va la vista cuando la deja quieta
+/// ([ArchivedPageViewed]).
+///
+/// No toca lo pintado: lo que suena va en una capa aparte —un resaltado del
+/// navegador, sin cambiar la página—, así que pasar de una línea a la otra no
+/// vuelve a envolver nada.
+String archivedPageReadingScript(
+  List<PageRange> ranges, {
+  required int color,
+  required bool follow,
+  required bool report,
+  required bool smooth,
+  required double bandTop,
+  required double bandBottom,
+  required double landing,
+}) {
+  final reading = jsonEncode({
+    'ranges': [
+      for (final range in ranges) [range.start, range.end],
+    ],
+    'color': _hex(color),
+    'follow': follow,
+    'report': report,
+    'smooth': smooth,
+    'top': bandTop,
+    'bottom': bandBottom,
+    'landing': landing,
+  });
+  return 'window.sinapsis && window.sinapsis.reading($reading);';
 }
 
 /// La posición en el texto extraído de lo que se tocó en la página (F39):
@@ -739,6 +807,149 @@ const _script = r'''
   function each(ranges) {
     return ranges.map(function (range) { return {range: range, k: 0}; });
   }
+
+  // Lo que se lee en voz alta: una capa aparte, por encima de todo. Donde el
+  // navegador sabe resaltar sin tocar la página (CSS Custom Highlight), así;
+  // si no, envolviendo cada tramo en una marca, la de más adentro.
+  var reading = {ranges: [], report: false};
+  var highlights = !!(window.CSS && CSS.highlights && window.Highlight);
+  var readingColor = null;
+
+  function setReadingColor(color) {
+    if (color === readingColor) return;
+    readingColor = color;
+    var style = document.getElementById('sn-reading-style');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'sn-reading-style';
+      (document.head || document.documentElement).appendChild(style);
+    }
+    style.textContent =
+      '::highlight(sn-reading){background-color:' + color + ';color:#000}' +
+      'mark.sn-r{background:' + color + '!important;color:#000!important}';
+  }
+  // Los tramos [a, b) del texto corrido de la página, como rangos del DOM.
+  function domRanges(ranges) {
+    var texts = textNodes();
+    var starts = [];
+    var total = 0;
+    for (var i = 0; i < texts.length; i++) {
+      starts.push(total);
+      total += texts[i].data.length;
+    }
+    function at(position, end) {
+      var low = 0;
+      var high = texts.length - 1;
+      while (low < high) {
+        var mid = (low + high + 1) >> 1;
+        if (starts[mid] < position || (!end && starts[mid] === position)) low = mid;
+        else high = mid - 1;
+      }
+      var node = texts[low];
+      if (!node) return null;
+      return {node: node, offset: Math.max(0, Math.min(position - starts[low], node.data.length))};
+    }
+    var out = [];
+    ranges.forEach(function (range) {
+      var a = at(range[0], false);
+      var b = at(range[1], true);
+      if (!a || !b) return;
+      var dom = document.createRange();
+      dom.setStart(a.node, a.offset);
+      dom.setEnd(b.node, b.offset);
+      if (!dom.collapsed) out.push(dom);
+    });
+    return out;
+  }
+  function unwrapReading() {
+    var painted = document.querySelectorAll('mark.sn-r');
+    for (var i = painted.length - 1; i >= 0; i--) {
+      var element = painted[i];
+      var parent = element.parentNode;
+      if (!parent) continue;
+      while (element.firstChild) parent.insertBefore(element.firstChild, element);
+      parent.removeChild(element);
+      parent.normalize();
+    }
+  }
+  // Pinta lo que suena y devuelve sus rangos del DOM.
+  function paintReading() {
+    if (highlights) {
+      var found = domRanges(reading.ranges);
+      if (found.length) {
+        var highlight = new Highlight();
+        found.forEach(function (range) { highlight.add(range); });
+        CSS.highlights.set('sn-reading', highlight);
+      } else {
+        CSS.highlights.delete('sn-reading');
+      }
+      return found;
+    }
+    unwrapReading();
+    paint(each(reading.ranges), markOf('r'));
+    return domRanges(reading.ranges);
+  }
+  // Lo que se ve de la página: el visor visual, con zoom incluido.
+  function viewBox() {
+    var view = window.visualViewport;
+    return view
+      ? {top: view.offsetTop, height: view.height}
+      : {top: 0, height: window.innerHeight};
+  }
+  function followReading(found) {
+    if (!found.length) return;
+    var box = found[0].getBoundingClientRect();
+    if (!box.width && !box.height) return;
+    var view = viewBox();
+    var comfortable = box.top >= view.top + view.height * reading.top &&
+      box.bottom <= view.top + view.height * reading.bottom;
+    if (reading.follow) {
+      if (comfortable) return;
+      window.scrollBy({
+        top: box.top - (view.top + view.height * reading.landing),
+        left: 0,
+        behavior: reading.smooth ? 'smooth' : 'auto'
+      });
+    } else if (reading.report && comfortable) {
+      post({t: 'seen'});
+    }
+  }
+  // Por dónde va la vista: la letra que está arriba, a la izquierda de lo
+  // que se ve.
+  function reportView() {
+    if (!reading.report) return;
+    var view = viewBox();
+    var y = view.top + view.height * 0.1;
+    for (var x = 24; x < window.innerWidth; x += 48) {
+      var caret = caretAt(x, y);
+      if (caret) {
+        post({t: 'view', at: position(textNodes(), caret.node, caret.offset)});
+        return;
+      }
+    }
+  }
+  // La persona mueve la página: se avisa una vez por gesto.
+  var touching = false;
+  var wheeling = null;
+  function moved() {
+    if (reading.report) post({t: 'moved'});
+  }
+  document.addEventListener('touchstart', function () { touching = true; }, {passive: true});
+  document.addEventListener('touchmove', function () {
+    if (!touching) return;
+    touching = false;
+    moved();
+  }, {passive: true});
+  window.addEventListener('wheel', function () {
+    if (!wheeling) moved();
+    clearTimeout(wheeling);
+    wheeling = setTimeout(function () { wheeling = null; }, 400);
+  }, {passive: true});
+  var viewTimer = null;
+  window.addEventListener('scroll', function () {
+    clearTimeout(viewTimer);
+    viewTimer = setTimeout(reportView, 250);
+  }, {passive: true});
   // De afuera hacia adentro, y lo de adentro se ve encima: el resumen, la
   // síntesis, los resaltados de la persona —el último de la lista, arriba—
   // y las palabras clave.
@@ -752,6 +963,9 @@ const _script = r'''
     });
     paint(marked, function (k) { return spanOf(hand[k]); });
     paint(each(study.keyword), markOf('k'));
+    // Lo que suena va encima de todo; envuelto en una marca, se lo llevó
+    // unwrap.
+    paintReading();
   }
 
   // Dónde cae el cursor en (x, y): el texto y el lugar en él.
@@ -782,6 +996,20 @@ const _script = r'''
         keyword: layers.keyword || []
       };
       repaint();
+    },
+    reading: function (state) {
+      reading = {
+        ranges: state.ranges || [],
+        follow: !!state.follow,
+        report: !!state.report,
+        smooth: !!state.smooth,
+        top: state.top,
+        bottom: state.bottom,
+        landing: state.landing
+      };
+      setReadingColor(state.color);
+      followReading(paintReading());
+      if (reading.report && !reading.ranges.length) reportView();
     },
     clearSelection: function () {
       var selection = window.getSelection();

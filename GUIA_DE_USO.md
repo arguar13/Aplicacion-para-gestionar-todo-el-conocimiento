@@ -1954,8 +1954,10 @@ claramente en vez de inventarlo.
 
 En las pantallas que muestran texto aparece, abajo a la derecha, un **botón
 redondo con el ícono de una voz**. Está en el detalle de un elemento, el
-modo lectura, el lector de libros y documentos, el editor de notas, el chat
-y el repaso de tarjetas. No aparece en la Biblioteca, la Bandeja, el Mapa,
+modo lectura, **dentro de cada documento abierto a pantalla completa** —el
+libro de un Word, un EPUB o un texto («Leer como libro»), el **PDF** y la
+**página web guardada** («Ver la página»)—, el editor de notas, el chat y el
+repaso de tarjetas. No aparece en la Biblioteca, la Bandeja, el Mapa,
 el Atlas, Ajustes ni la Papelera.
 
 En un audio o un video que tiene su propio audio (también un reel, un TikTok
@@ -1984,7 +1986,8 @@ de escucharlo.
      oraciones, **Palabras clave** las lee una tras otra, y **Todo** el
      texto. Lo que suena se resalta en amarillo en su lugar del texto, y
      siempre en el orden del texto. Las partes que todavía no tienen nada
-     aparecen apagadas; elegir una empieza a leerla desde el principio.
+     aparecen apagadas; elegir una empieza a leerla desde el principio
+     —dentro de un documento abierto, desde lo que estás mirando—.
    - **La velocidad**, de 0,5× a 2×.
    - **Voz y acento**: el acento es el idioma y la región (Español de
      Argentina, de España, inglés de Estados Unidos…), según las voces
@@ -1992,14 +1995,56 @@ de escucharlo.
    - **Minimizar**: vuelve al botón redondo, que muestra con un anillo
      cuánto leyó, y sigue leyendo aunque cambies de pantalla.
    - **Cerrar**: deja de leer.
-3. En el lector de libros, lee la página que ves y sigue con las
-   siguientes, pasando de página solo.
+3. Dentro de un documento abierto, ver
+   [Escuchar dentro del documento](#escuchar-dentro-del-documento).
 
 Si suena un audio o un video y empezás a leer, el audio se pausa, y al
 revés: nunca suenan los dos a la vez.
 
 También podés leer solo un pedazo: seleccionalo y elegí **"Leer en voz
 alta"** en el menú (ver [Seleccionar texto: el menú](#seleccionar-texto-el-menú)).
+
+### Escuchar dentro del documento
+
+Abrí el documento a pantalla completa —**«Leer como libro»** en un Word, un
+EPUB o un texto; el **PDF**; **«Ver la página»** en una página web— y tocá el
+botón redondo. Se escucha **el documento entero**, con la fila **"Leer: Todo ·
+Resumen · Síntesis · Palabras clave"** del reproductor, igual que en el
+detalle:
+
+- **Empieza por lo que estás mirando**: abierto en la página 300, lee desde la
+  página 300, no desde la portada. Lo mismo al elegir **Resumen**,
+  **Síntesis** o **Palabras clave**: lee lo de ahí en adelante (si ya no queda
+  nada después, desde el principio).
+- **Lo que suena se resalta en amarillo sobre el original**: la línea u
+  oración con **Todo**, **Resumen** y **Síntesis**; **solo la palabra** con
+  **Palabras clave**. En el PDF va sobre las letras de la página real, en la
+  página web sobre la página tal como se guardó, y en el libro sobre su
+  página. El amarillo va **por encima de todo** —del verde del resumen, el
+  celeste de la síntesis, el rosa de las palabras clave y lo que resaltaste
+  vos—, y donde suena los aparta un momento para que la letra se lea negra
+  sobre el amarillo; al pasar a la línea siguiente vuelven.
+- **El documento sigue la lectura**: el libro da vuelta la página solo (y,
+  con la letra grande, baja dentro de la página hasta la línea); el PDF y la
+  página web se desplazan cuando la línea sale de la parte de arriba de la
+  pantalla, dejándola cerca de arriba para que el reproductor no la tape. Si
+  en Ajustes del teléfono apagaste las animaciones, salta en vez de
+  deslizarse.
+- **Si te movés vos, no te pelea**: si pasás de página, desplazás o hacés
+  zoom, el documento se queda donde lo dejaste y sigue sonando. Arriba aparece
+  **«Volver a la lectura»**: tocala y te lleva a lo que suena, y vuelve a
+  seguirlo. También vuelve a seguirlo solo si lo que suena llega a lo que
+  estás mirando, si volvés a mano a la página donde suena, o si empezás otra
+  lectura (otra parte, otro documento).
+- **Es la misma lectura que en el detalle**: lo que empezaste con
+  **"Escuchar"** en la tarjeta de estudiar sigue en el documento, en el mismo
+  lugar, y al revés. Si abrís el documento mientras suena, va directo hasta
+  ahí.
+- En un libro muy largo el botón tarda una fracción de segundo en aparecer: el
+  libro se prepara aparte, sin trabar la pantalla.
+- Lo mismo pasa en el **texto largo desplegado por páginas** de «Extraer
+  texto», en el detalle: suena el libro entero, en amarillo sobre su página, y
+  ese marco da vuelta la página solo.
 
 ---
 

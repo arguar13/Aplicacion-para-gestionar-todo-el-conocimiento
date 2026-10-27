@@ -1,4 +1,4 @@
-import 'dart:ui' show Paragraph;
+import 'dart:ui' show ClipOp, Paragraph;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -721,6 +721,224 @@ void main() {
       expect(page.loads, 1);
     });
   });
+  group('lo que se lee en voz alta', () {
+    const yellow = RenderedMarkdown.playingColor;
+
+    test('va encima de todo, en el amarillo de lo que suena, y aparta lo de '
+        'abajo: el verde no se mezcla con el amarillo', () async {
+      final page = addPage('Hola mundo');
+      overlay
+        ..update(
+          content: 'Hola mundo',
+          paints: const [PaintedRange(0, 10, background: green)],
+          scannedNotice: '',
+        )
+        ..setReading((start: 5, end: 10));
+
+      paint(page);
+      await pumpEventQueue();
+      final canvas = paint(page);
+
+      expect(canvas.steps, ['guarda', 'recorta', 'pinta', 'vuelve', 'pinta']);
+      expect(canvas.clips, [
+        (const Rect.fromLTRB(50, 100, 100, 110), ClipOp.difference),
+      ]);
+      final (greenRect, greenPaint) = canvas.rects.first;
+      expect(greenRect, const Rect.fromLTRB(0, 100, 100, 110));
+      expect(greenPaint.color.toARGB32(), green.toARGB32());
+      final (readingRect, readingPaint) = canvas.rects.last;
+      expect(readingRect, const Rect.fromLTRB(50, 100, 100, 110));
+      expect(readingPaint.color.toARGB32(), yellow.toARGB32());
+      expect(readingPaint.blendMode, BlendMode.multiply);
+    });
+
+    test('sin nada estudiado también se pinta, leyendo la página una '
+        'vez', () async {
+      final page = addPage('Hola mundo');
+      overlay
+        ..update(content: 'Hola mundo', paints: const [], scannedNotice: '')
+        ..setReading((start: 0, end: 4));
+
+      paint(page);
+      await pumpEventQueue();
+      final canvas = paint(page);
+      paint(page);
+
+      expect(page.loads, 1);
+      expect(
+        [for (final (rect, _) in canvas.rects) rect],
+        const [Rect.fromLTRB(0, 100, 40, 110)],
+      );
+    });
+
+    test('en una página que no es la suya no pinta ni recorta nada', () async {
+      final first = addPage('Portada');
+      addPage('Hola mundo');
+      overlay
+        ..update(
+          content: 'Portada${sep}Hola mundo',
+          paints: const [PaintedRange(0, 7, background: green)],
+          scannedNotice: '',
+        )
+        ..setReading((start: 7 + sep.length, end: 7 + sep.length + 4));
+
+      paint(first);
+      await pumpEventQueue();
+      final canvas = paint(first);
+
+      expect(canvas.clips, isEmpty);
+      expect(
+        [for (final (_, p) in canvas.rects) p.color.toARGB32()],
+        [green.toARGB32()],
+      );
+    });
+
+    test('cambiar lo que suena pide volver a dibujar, y se pinta lo nuevo; '
+        'sin nada, se va', () async {
+      var repaints = 0;
+      overlay = PdfStudyOverlay.fixed(onRepaint: () => repaints++);
+      final page = addPage('Hola mundo');
+      overlay
+        ..update(content: 'Hola mundo', paints: const [], scannedNotice: '')
+        ..setReading((start: 0, end: 4));
+      paint(page);
+      await pumpEventQueue();
+
+      final asked = repaints;
+      overlay.setReading((start: 0, end: 4));
+      expect(repaints, asked, reason: 'lo mismo no pide nada');
+      expect(
+        [for (final (r, _) in paint(page).rects) r],
+        const [Rect.fromLTRB(0, 100, 40, 110)],
+      );
+
+      overlay.setReading((start: 5, end: 10));
+      expect(repaints, asked + 1);
+      expect(
+        [for (final (r, _) in paint(page).rects) r],
+        const [Rect.fromLTRB(50, 100, 100, 110)],
+      );
+
+      overlay.setReading(null);
+      expect(paint(page).rects, isEmpty);
+    });
+
+    group('dónde está, para ir hasta ahí', () {
+      test('la página y el rectángulo de sus letras, sin haberla '
+          'pintado', () async {
+        addPage('Portada');
+        final second = addPage('Hola mundo');
+        overlay.update(
+          content: 'Portada${sep}Hola mundo',
+          paints: const [],
+          scannedNotice: '',
+        );
+        const start = 7 + sep.length;
+
+        final place = await overlay.placeOf((
+          start: start + 5,
+          end: start + 10,
+        ), document.pages);
+
+        expect(place?.pageNumber, 2);
+        expect(place?.rect, const PdfRect(50, 100, 100, 90));
+        expect(second.loads, 1);
+
+        // Lo leído queda.
+        await overlay.placeOf((start: start, end: start + 4), document.pages);
+        expect(second.loads, 1);
+      });
+
+      test('lo que cruza de un renglón al otro: el rectángulo que cubre los '
+          'dos', () async {
+        final rects = [
+          for (var i = 0; i < 4; i++) PdfRect(i * 10.0, 100, i * 10.0 + 10, 90),
+          PdfRect.empty,
+          for (var i = 0; i < 5; i++) PdfRect(i * 10.0, 80, i * 10.0 + 10, 70),
+        ];
+        document.pages.add(
+          _FakePage(document, 1, PdfPageRawText('Hola\nmundo', rects)),
+        );
+        overlay.update(
+          content: 'Hola\nmundo',
+          paints: const [],
+          scannedNotice: '',
+        );
+
+        final place = await overlay.placeOf((start: 2, end: 8), document.pages);
+
+        expect(place?.rect, const PdfRect(0, 100, 40, 70));
+      });
+
+      test('en una página escaneada, la página sin rectángulo', () async {
+        addPage('');
+        overlay.update(
+          content: 'texto reconocido',
+          paints: const [],
+          scannedNotice: '',
+        );
+
+        final place = await overlay.placeOf((start: 0, end: 5), document.pages);
+
+        expect(place, (pageNumber: 1, rect: null));
+      });
+
+      test('entre páginas —en el separador— o fuera del texto, en '
+          'ninguna', () async {
+        addPage('Portada');
+        addPage('Hola mundo');
+        overlay.update(
+          content: 'Portada${sep}Hola mundo',
+          paints: const [],
+          scannedNotice: '',
+        );
+
+        expect(
+          await overlay.placeOf((start: 7, end: 8), document.pages),
+          isNull,
+        );
+        expect(
+          await overlay.placeOf((start: 500, end: 501), document.pages),
+          isNull,
+        );
+      });
+
+      test('sin texto, o sin páginas, nada', () async {
+        addPage('Hola');
+        expect(
+          await overlay.placeOf((start: 0, end: 1), document.pages),
+          isNull,
+        );
+        overlay.update(content: 'Hola', paints: const [], scannedNotice: '');
+        expect(await overlay.placeOf((start: 0, end: 1), const []), isNull);
+      });
+    });
+
+    test('dónde empieza cada página, por los separadores y sin leer '
+        'ninguna', () {
+      overlay.update(
+        content: 'Portada${sep}Hola mundo',
+        paints: const [],
+        scannedNotice: '',
+      );
+
+      expect(overlay.pageStart(1, 2), 0);
+      expect(overlay.pageStart(2, 2), 7 + sep.length);
+      expect(overlay.pageStart(3, 2), isNull);
+      expect(overlay.pageStart(0, 2), isNull);
+    });
+
+    test('si los separadores no dan la cuenta, no se sabe sin '
+        'recorrerlas', () {
+      overlay.update(
+        content: 'Portada${sep}Hola mundo',
+        paints: const [],
+        scannedNotice: '',
+      );
+
+      expect(overlay.pageStart(1, 3), isNull);
+    });
+  });
 }
 
 class _FakeDocument implements PdfDocument {
@@ -762,13 +980,35 @@ class _FakePage implements PdfPage {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// Anota lo que se pinta: los rectángulos de color y los avisos.
+/// Anota lo que se pinta: los rectángulos de color, los recortes y los
+/// avisos, y en qué orden.
 class _Canvas implements Canvas {
   final rects = <(Rect, Paint)>[];
+  final clips = <(Rect, ClipOp)>[];
+  final steps = <String>[];
   int notices = 0;
 
   @override
-  void drawRect(Rect rect, Paint paint) => rects.add((rect, paint));
+  void drawRect(Rect rect, Paint paint) {
+    rects.add((rect, paint));
+    steps.add('pinta');
+  }
+
+  @override
+  void save() => steps.add('guarda');
+
+  @override
+  void restore() => steps.add('vuelve');
+
+  @override
+  void clipRect(
+    Rect rect, {
+    ClipOp clipOp = ClipOp.intersect,
+    bool doAntiAlias = true,
+  }) {
+    clips.add((rect, clipOp));
+    steps.add('recorta');
+  }
 
   @override
   void drawRRect(RRect rrect, Paint paint) => notices++;

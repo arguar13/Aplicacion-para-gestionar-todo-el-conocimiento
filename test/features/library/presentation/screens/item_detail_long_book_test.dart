@@ -7,17 +7,21 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
+import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/viewer/domain/services/reader_pagination.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/read_aloud_test_support.dart';
 import '../../../../support/time_growth.dart';
 
 /// El detalle de un libro de millones de caracteres: desplegar «Extraer texto»
@@ -133,29 +137,84 @@ void main() {
     expect(find.byKey(const Key('study-toggle-summary')), findsOneWidget);
   });
 
-  testWidgets('el texto largo se ofrece al lector flotante página por página: '
-      'el libro entero no se parte en líneas', (tester) async {
+  testWidgets('el texto largo ofrece el libro entero para escuchar, partido '
+      'en otro hilo: el mismo documento que «Escuchar» de la tarjeta, y por '
+      'encima de lo del detalle', (tester) async {
     final content = book(kPagedTextChars + 200000);
-    final whole = buildReadableSegments(content, sourceKey: 'r1').length;
     final harness = await pumpItem(tester, content);
 
     await unfold(tester);
-
-    final offered = harness.container.read(readableRegistryProvider);
-    expect(offered, isNotEmpty);
-    for (final document in offered) {
-      expect(
-        document.segments.length,
-        lessThan(whole ~/ 2),
-        reason: '${document.id} ofrece el libro entero',
+    // Se parte aparte: hasta tenerlo, el lector no lo ofrece.
+    ReadableDocument? offered;
+    for (var i = 0; i < 400; i++) {
+      offered = harness.container.read(currentReadableProvider);
+      if (offered?.id == studyReadableId('r1')) break;
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 25)),
       );
+      await tester.pump();
     }
+
+    expect(offered?.id, studyReadableId('r1'));
+    final markdown = extractedTextIsMarkdown(
+      Source(id: 'src-1', kind: SourceKind.document, capturedAt: now),
+    );
     expect(
-      offered.where((document) => document.id == 'item:item-1'),
+      offered!.segments,
+      buildReadableSegments(content, sourceKey: 'r1', markdown: markdown),
+    );
+    // Lo del detalle no trae el texto: lo ofrece el lector.
+    expect(
+      harness.container
+          .read(readableRegistryProvider)
+          .where((document) => document.id == 'item:item-1'),
       everyElement(
         isA<ReadableDocument>().having((d) => d.segments, 'pedazos', isEmpty),
       ),
     );
+  });
+
+  testWidgets('en el marco del detalle también se escucha dentro: lo que suena '
+      'va en amarillo en su página, y el marco la da vuelta solo', (
+    tester,
+  ) async {
+    final content = book(kPagedTextChars + 20000);
+    final harness = await pumpItem(tester, content);
+    await unfold(tester);
+    ReadableDocument? offered;
+    for (var i = 0; i < 400; i++) {
+      offered = harness.container.read(currentReadableProvider);
+      if (offered?.id == studyReadableId('r1')) break;
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 25)),
+      );
+      await tester.pump();
+    }
+    final pages = readerPageRanges(content);
+    // El primer renglón de la tercera página.
+    final third = offered!.segments.indexWhere(
+      (segment) => segment.start >= pages[2].start,
+    );
+
+    await harness.container
+        .read(readAloudControllerProvider.notifier)
+        .open(offered, fromSegment: third);
+    await tester.pumpAndSettle();
+
+    expect(find.text(es.documentReaderPageOf(3, pages.length)), findsOneWidget);
+    expect(
+      readAloudHighlights(
+        tester,
+        within: find.byKey(const Key('detail-paged-text')),
+      ),
+      [
+        content.substring(
+          offered.segments[third].start,
+          offered.segments[third].end,
+        ),
+      ],
+    );
+    await harness.container.read(readAloudControllerProvider.notifier).close();
   });
 
   testWidgets('la transcripción larga de un audio sigue al audio: no se pasa '

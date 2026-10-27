@@ -12,11 +12,19 @@ import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_follow.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_text_provider.dart';
 import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
+import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
+import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_alignment.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_study.dart';
@@ -94,11 +102,30 @@ String webPageStudyState(StudyView view) => archivedPageStateScript(
 /// sin taparse (F39). La de la app suma Compartir, Seleccionar todo y Buscar
 /// en la Web, como sobre cualquier otro texto.
 ///
+/// **Lo que se lee en voz alta.** También con [text], lo que suena del
+/// artículo se pinta en la página en amarillo —la línea u oración, o con
+/// «Palabras clave», la palabra—, por encima de lo estudiado y de lo
+/// resaltado, en una capa aparte que no vuelve a envolver nada (ver
+/// `archivedPageReadingScript`). Embebida en el detalle solo lo pinta: lo que
+/// se ofrece para leer ahí es el detalle. A pantalla completa —con
+/// [readAloud]— además ofrece el artículo entero al lector flotante —el mismo
+/// documento que «Escuchar» de la tarjeta de estudiar—, empieza a leer por lo
+/// que se ve y **sigue la lectura**, desplazándose cuando la línea sale de la
+/// parte cómoda de la vista; si la persona mueve la página, la deja tranquila
+/// y ofrece «Volver a la lectura» (ver `ReadAloudFollow`).
+///
 /// Sin `Scaffold` propio a propósito: `WebPageViewerScreen` lo envuelve para
 /// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
 /// dentro de un marco acotado en el detalle del elemento.
 class WebPageViewerView extends ConsumerStatefulWidget {
-  const WebPageViewerView({required this.path, this.url, this.text, super.key});
+  const WebPageViewerView({
+    required this.path,
+    this.url,
+    this.text,
+    this.title = '',
+    this.readAloud = false,
+    super.key,
+  });
 
   final String path;
 
@@ -109,6 +136,13 @@ class WebPageViewerView extends ConsumerStatefulWidget {
   /// El artículo extraído de la página y su forma: de ahí sale lo estudiado y
   /// es donde se resalta.
   final StudyText? text;
+
+  /// El nombre de la página: lo que muestra el lector flotante.
+  final String title;
+
+  /// Si ofrece el artículo para leer en voz alta y sigue la lectura: a
+  /// pantalla completa sí; embebida en el detalle, que ofrece lo suyo, no.
+  final bool readAloud;
 
   @override
   ConsumerState<WebPageViewerView> createState() => _WebPageViewerViewState();
@@ -174,6 +208,71 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
 
   late final DocumentSelection _selection = _WebSelection(this);
 
+  /// Lo que se lee en voz alta del artículo, en posiciones del texto
+  /// extraído; el pedido para pintarlo y seguirlo, y cuál se le mandó.
+  (int, int)? _reading;
+  String? _readingScript;
+  String? _appliedReading;
+  ProviderSubscription<(int, int)?>? _readingSubscription;
+
+  /// Si la página sigue lo que se lee o la persona la movió.
+  final _follow = ReadAloudFollow();
+
+  /// Si la persona apagó las animaciones en el sistema: la página salta en
+  /// vez de deslizarse.
+  var _still = false;
+
+  /// Por dónde va la vista, en el texto extraído: lo que la página avisó la
+  /// última vez que quedó quieta.
+  int? _viewOffset;
+
+  /// Lo que se ofrece para leer: el mismo documento mientras no cambie el
+  /// texto partido ni lo estudiado.
+  (ReadableDocument, Map<ReadScope, List<ReadableSegment>>, ReadableDocument)?
+  _offered;
+
+  @override
+  void initState() {
+    super.initState();
+    // Dejar de seguir o volver a seguir —«Volver a la lectura»— cambia lo que
+    // se le pide a la página: siguiendo, ella misma va hasta lo que suena.
+    _follow.addListener(_updateReading);
+    _listenToReading();
+  }
+
+  @override
+  void didUpdateWidget(WebPageViewerView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text?.renditionId != widget.text?.renditionId) {
+      _readingSubscription?.close();
+      _listenToReading();
+    } else if (oldWidget.readAloud != widget.readAloud) {
+      _updateReading();
+    }
+  }
+
+  @override
+  void dispose() {
+    _readingSubscription?.close();
+    _follow
+      ..removeListener(_updateReading)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _listenToReading() {
+    final text = widget.text;
+    _readingSubscription = text == null
+        ? null
+        : ref.listenManual(readAloudHighlightProvider(text.renditionId), (
+            previous,
+            next,
+          ) {
+            _reading = next;
+            _updateReading();
+          }, fireImmediately: true);
+  }
+
   Future<bool> _load() async {
     if (_webView == null) return false;
     try {
@@ -206,6 +305,7 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     _alignment = shown.alignment;
     _updateStudy(force: true);
     _updateMarks(force: true);
+    _updateReading();
     await _controller.loadHtmlString(shown.html, baseUrl: widget.url);
   }
 
@@ -268,6 +368,12 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
             unawaited(openHighlightCard(context, ref, highlight));
           }
         }
+      case ArchivedPageMoved():
+        _follow.release();
+      case ArchivedPageReadingSeen():
+        _follow.resume();
+      case ArchivedPageViewed(:final position):
+        _viewOffset = _alignment?.contentOffsetAt(position);
       case null:
         break;
     }
@@ -290,6 +396,11 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
       if (marks != null && marks != _appliedMarks) {
         _appliedMarks = marks;
         await _controller.runJavaScript(marks);
+      }
+      final reading = _readingScript;
+      if (reading != null && reading != _appliedReading) {
+        _appliedReading = reading;
+        await _controller.runJavaScript(reading);
       }
       // Una página que se está cambiando por otra no tiene dónde correrlo:
       // lo recibe la siguiente al terminar de cargar.
@@ -338,6 +449,63 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     unawaited(_apply());
   }
 
+  /// Arma el pedido para pintar lo que se lee en voz alta y, a pantalla
+  /// completa, seguirlo; lo manda si cambió.
+  void _updateReading() {
+    final alignment = _alignment;
+    if (alignment == null) return;
+    final reading = _reading;
+    final script = archivedPageReadingScript(
+      reading == null
+          ? const []
+          : alignment.pageRangesOf(reading.$1, reading.$2),
+      color: RenderedMarkdown.playingColor.toARGB32(),
+      follow: widget.readAloud && _follow.following,
+      report: widget.readAloud,
+      smooth: !_still,
+      bandTop: ReadAloudBand.top,
+      bandBottom: ReadAloudBand.bottom,
+      landing: ReadAloudBand.landing,
+    );
+    if (script == _readingScript) return;
+    _readingScript = script;
+    unawaited(_apply());
+  }
+
+  /// Por dónde va la vista —ver [ReadableDocument.startAt]—; sin saberlo, o
+  /// cerrada la página, `null`: se lee desde el principio.
+  ReadablePlace? _placeInView() {
+    final text = widget.text;
+    final offset = _viewOffset;
+    if (!mounted || text == null || offset == null) return null;
+    return (sourceKey: text.renditionId, offset: offset);
+  }
+
+  /// El artículo para el lector flotante, con lo estudiado y desde dónde se
+  /// empieza; `null` mientras se parte.
+  ReadableDocument? _readable(StudyText text) {
+    final whole = ref.watch(
+      readableTextProvider((
+        id: studyReadableId(text.renditionId),
+        title: widget.title,
+        sourceKey: text.renditionId,
+        content: text.content,
+        markdown: text.markdown,
+      )),
+    );
+    final studied = ref.watch(studyReadScopesProvider(text));
+    if (whole == null) return null;
+    final cached = _offered;
+    if (cached != null &&
+        identical(cached.$1, whole) &&
+        identical(cached.$2, studied)) {
+      return cached.$3;
+    }
+    final document = whole.withScopes(studied).withStartAt(_placeInView);
+    _offered = (whole, studied, document);
+    return document;
+  }
+
   /// La página es la del sitio, sobre su fondo: los colores claros, en los
   /// dos modos.
   ArchivedPageColors _colors() {
@@ -349,7 +517,7 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     );
   }
 
-  void _follow(StudyText text) {
+  void _followStudy(StudyText text) {
     final study = ref
         .watch(documentStudyProvider(text.renditionId))
         .valueOrNull;
@@ -379,7 +547,37 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
   @override
   Widget build(BuildContext context) {
     final text = widget.text;
-    if (text != null) _follow(text);
+    if (text != null) _followStudy(text);
+    final still = MediaQuery.disableAnimationsOf(context);
+    if (still != _still) {
+      _still = still;
+      _updateReading();
+    }
+    if (text == null || !widget.readAloud) return _buildPage();
+    _follow.resumeOnNewReadings(ref);
+    return ReadableRegion(
+      document: _readable(text),
+      child: Stack(
+        children: [
+          Positioned.fill(child: _buildPage()),
+          Positioned(
+            top: 12,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: ReadAloudBackToReading(
+                sourceKey: text.renditionId,
+                follow: _follow,
+                onPressed: _follow.resume,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPage() {
     return FutureBuilder<bool>(
       future: _loaded,
       builder: (context, snapshot) {

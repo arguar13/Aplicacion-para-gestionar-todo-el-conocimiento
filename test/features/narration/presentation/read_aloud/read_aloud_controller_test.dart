@@ -720,6 +720,124 @@ void main() {
     });
   });
 
+  group('empezar por lo que se ve (escuchar dentro del documento)', () {
+    /// Diez líneas de "_words"; la vista está donde diga [place].
+    ReadablePlace? place;
+    ReadablePlace? whereLooking() => place;
+    ReadableDocument looking() => ReadableDocument(
+      id: 'libro',
+      title: 'Un libro',
+      segments: _words.segments,
+      scopes: {
+        ReadScope.summary: [_words.segments[2], _words.segments[7]],
+      },
+      startAt: whereLooking,
+    );
+
+    setUp(() => place = null);
+
+    test('sin decir desde dónde, empieza por la línea que se ve', () async {
+      place = (sourceKey: 'palabras', offset: _words.segments[4].start);
+
+      await controller().open(looking());
+
+      expect(state().segmentIndex, 4);
+      expect(tts.spoken, [_words.segments[4].spoken]);
+    });
+
+    test('a mitad de una línea, empieza por esa línea', () async {
+      place = (sourceKey: 'palabras', offset: _words.segments[4].end - 1);
+
+      await controller().open(looking());
+
+      expect(state().segmentIndex, 4);
+    });
+
+    test('desde dónde, dicho, manda', () async {
+      place = (sourceKey: 'palabras', offset: _words.segments[4].start);
+
+      await controller().open(looking(), fromSegment: 1);
+
+      expect(state().segmentIndex, 1);
+    });
+
+    test('en otro texto, o pasado el final, desde el principio', () async {
+      place = (sourceKey: 'otro', offset: _words.segments[4].start);
+      await controller().open(looking());
+      expect(state().segmentIndex, 0);
+      await controller().close();
+
+      place = (sourceKey: 'palabras', offset: 1 << 20);
+      await controller().open(looking());
+      expect(state().segmentIndex, 0);
+    });
+
+    test('elegir otra parte la empieza por lo que se ve ahora, no por lo que '
+        'se veía al abrir', () async {
+      await controller().open(looking());
+      expect(state().segmentIndex, 0);
+
+      place = (sourceKey: 'palabras', offset: _words.segments[5].start);
+      await controller().setScope(ReadScope.summary);
+
+      expect(state().scope, ReadScope.summary);
+      expect(state().segmentIndex, 1);
+      expect(tts.spoken.last, _words.segments[7].spoken);
+    });
+
+    test('el mismo documento que ya se lee sigue donde iba', () async {
+      await controller().open(looking(), fromSegment: 2);
+
+      place = (sourceKey: 'palabras', offset: _words.segments[8].start);
+      await controller().open(looking());
+
+      expect(state().segmentIndex, 2);
+    });
+
+    test('es parte de ser el mismo documento', () {
+      expect(looking(), looking());
+      expect(looking().hashCode, looking().hashCode);
+      expect(looking(), isNot(looking().withStartAt(null)));
+      expect(looking().withScopes(const {}).startAt, whereLooking);
+      expect(looking().withOwnAudio().startAt, whereLooking);
+    });
+  });
+
+  group('el avance', () {
+    test('cuenta lo dicho de cada pedazo y lo de antes, sin recorrer '
+        'todo', () async {
+      // Cada línea de "_words" dice 39 caracteres.
+      await controller().open(_words, fromSegment: 3);
+      tts.emitProgress(8);
+      await pumpEventQueue();
+
+      expect(state().progress, closeTo((3 * 39 + 8) / 390, 1e-9));
+    });
+
+    test('pasado el último pedazo, todo', () {
+      expect(ReadAloudState(document: _words, segmentIndex: 10).progress, 1);
+      expect(
+        ReadAloudState(
+          document: _words,
+          segmentIndex: 9,
+          charInSegment: 99,
+        ).progress,
+        1,
+      );
+    });
+
+    test('sin nada que decir, nada', () {
+      const silent = ReadableDocument(
+        id: 'mudo',
+        title: 'Mudo',
+        segments: [
+          ReadableSegment(sourceKey: 'x', start: 0, end: 0, spoken: ''),
+        ],
+      );
+      expect(const ReadAloudState(document: silent).progress, 0);
+    });
+  });
+
   group('readAloudHighlightProvider', () {
     test('resalta el pedazo de ahora solo en su texto', () async {
       final chat = documentFrom('chat', 'Chat', [

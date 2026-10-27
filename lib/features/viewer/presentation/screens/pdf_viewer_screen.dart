@@ -32,7 +32,7 @@ class PdfViewerScreen extends StatelessWidget {
         children: [
           if (text case final text?) StudyBar(text: text),
           Expanded(
-            child: PdfViewerView(path: path, text: text),
+            child: PdfViewerView(path: path, text: text, title: title),
           ),
         ],
       ),

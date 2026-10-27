@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -223,6 +224,56 @@ void _tests() {
           await select(document, 'mundo'),
         ], document.pages);
         expect(text.found, isTrue);
+      },
+    );
+  });
+
+  test('lo que se lee en voz alta se ubica en su página, sobre sus letras: '
+      'el rectángulo es el de la selección de esas mismas letras', () async {
+    await withPdf(
+      buildPdf(pageTexts: ['Hola mundo cruel', 'Segunda pagina aqui']),
+      (document) async {
+        final content = await extractedText(document);
+        final overlay = overlayFor(content);
+        final start = content.indexOf('pagina');
+
+        final place = await overlay.placeOf((
+          start: start,
+          end: start + 'pagina'.length,
+        ), document.pages);
+
+        expect(place?.pageNumber, 2);
+        final rect = place!.rect!;
+        final selected = await select(document, 'pagina', pageNumber: 2);
+        final letters = selected.pageText.charRects.sublist(
+          selected.start,
+          selected.end,
+        );
+        final left = letters.map((r) => r.left).reduce(min);
+        final right = letters.map((r) => r.right).reduce(max);
+        expect(rect.left, closeTo(left, 0.5));
+        expect(rect.right, closeTo(right, 0.5));
+        expect(rect.width, lessThan(document.pages[1].width));
+      },
+    );
+  });
+
+  test('en una página escaneada, solo la página', () async {
+    await withPdf(
+      buildPdf(pageTexts: ['Hola mundo cruel', ''], scannedPages: {1}),
+      (document) async {
+        const content =
+            'Hola mundo cruel$pdfPageSeparator'
+            'texto reconocido por el OCR';
+        final overlay = overlayFor(content);
+        final start = content.indexOf('texto');
+
+        final place = await overlay.placeOf((
+          start: start,
+          end: start + 5,
+        ), document.pages);
+
+        expect(place, (pageNumber: 2, rect: null));
       },
     );
   });

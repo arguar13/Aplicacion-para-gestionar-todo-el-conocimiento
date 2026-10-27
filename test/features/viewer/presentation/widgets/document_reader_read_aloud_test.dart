@@ -6,9 +6,11 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
+import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -17,9 +19,11 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 import '../../../../support/memory_study_repository.dart';
 import '../../../../support/read_aloud_test_support.dart';
 
-/// El lector de libros con el lector flotante (F25): ofrece la página que
-/// se ve y las que siguen, resalta lo que se lee y da vuelta la página
-/// cuando el lector pasa a la siguiente.
+/// El lector de libros con el lector flotante (F25, y el pedido del dueño de
+/// escuchar dentro del documento): ofrece el libro entero —con lo estudiado,
+/// el mismo documento que «Escuchar» de la tarjeta—, empieza a leer en la
+/// página que se ve, resalta lo que suena y sigue la lectura mientras la
+/// persona no se mueva.
 void main() {
   final es = AppLocalizationsEs();
   late ProviderContainer container;
@@ -36,14 +40,19 @@ void main() {
     container = ProviderContainer(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
-        readAloudControllerProvider.overrideWith(FakeReadAloudController.new),
+        readAloudControllerProvider.overrideWith(_RecordingReadAloud.new),
         studyRepositoryProvider.overrideWithValue(studies),
       ],
     );
     addTearDown(container.dispose);
   });
 
-  Future<void> pumpReader(WidgetTester tester, {bool withStudy = false}) async {
+  Future<void> pumpReader(
+    WidgetTester tester, {
+    bool withStudy = false,
+    String? content,
+  }) async {
+    final text = content ?? book;
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -53,12 +62,12 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           home: DocumentReaderScreen(
             title: 'Un libro',
-            content: book,
+            content: text,
             study: withStudy
                 ? (
                     itemId: 'item-1',
                     renditionId: 'r1',
-                    content: book,
+                    content: text,
                     markdown: true,
                   )
                 : null,
@@ -84,30 +93,40 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  FakeReadAloudController reader() =>
+  _RecordingReadAloud reader() =>
       container.read(readAloudControllerProvider.notifier)
-          as FakeReadAloudController;
+          as _RecordingReadAloud;
 
-  testWidgets('ofrece la página que se ve y las que siguen, cada línea con '
-      'su página y su lugar en ella', (tester) async {
+  Finder pageLabel(int page) => find.text(es.documentReaderPageOf(page, 3));
+  final backToReading = find.text(es.readAloudBackToReading);
+
+  bool pillShown(WidgetTester tester) =>
+      tester
+          .widget<AnimatedOpacity>(
+            find.ancestor(
+              of: backToReading,
+              matching: find.byType(AnimatedOpacity),
+            ),
+          )
+          .opacity ==
+      1;
+
+  testWidgets('ofrece el libro entero, con las posiciones del texto: no solo '
+      'la página que se ve', (tester) async {
     await pumpReader(tester);
 
     final document = offered()!;
     expect(document.title, 'Un libro');
-    expect(document.id, endsWith(':from:0'));
-    final book = document.id.substring(
-      0,
-      document.id.length - ':from:0'.length,
+    final key = document.segments.first.sourceKey;
+    expect(document.id, key);
+    expect(
+      document.segments,
+      buildReadableSegments(book, sourceKey: key, markdown: true),
     );
-    expect(document.segments, [
-      for (var i = 0; i < 3; i++)
-        ReadableSegment(
-          sourceKey: '$book:page:$i',
-          start: 0,
-          end: 16,
-          spoken: 'Página número $i.',
-        ),
+    expect(document.segments.map((s) => s.spoken), [
+      for (var i = 0; i < 3; i++) 'Página número $i.',
     ]);
+    expect(document.segments[2].start, book.indexOf('Página número 2'));
 
     await closeReader(tester);
   });
@@ -123,28 +142,246 @@ void main() {
 
     reader().readAt(document, 1);
     await tester.pumpAndSettle();
-    expect(find.text(es.documentReaderPageOf(2, 3)), findsOneWidget);
+    expect(pageLabel(2), findsOneWidget);
     expect(readAloudHighlights(tester), ['Página número 1.']);
-    // Lo que se ofrece ahora empieza en la página que se ve.
-    expect(offered()!.id, endsWith(':from:1'));
-    expect(offered()!.segments.first.spoken, 'Página número 1.');
+
+    // Más lejos, de un salto.
+    reader().readAt(document, 0);
+    await tester.pumpAndSettle();
+    reader().readAt(document, 2);
+    await tester.pumpAndSettle();
+    expect(pageLabel(3), findsOneWidget);
 
     await closeReader(tester);
   });
 
-  testWidgets('pasar de página a mano ofrece desde esa página; sin la '
-      'pantalla, nada', (tester) async {
+  testWidgets('abierto mientras se lee, va a la página de lo que suena', (
+    tester,
+  ) async {
+    reader().readAt(
+      ReadableDocument(
+        id: 'otro',
+        title: 'Otro',
+        segments: [
+          ReadableSegment(
+            sourceKey: 'reader:${book.hashCode}',
+            start: book.indexOf('Página número 2'),
+            end: book.length,
+            spoken: 'Página número 2.',
+          ),
+        ],
+      ),
+      0,
+    );
     await pumpReader(tester);
+
+    expect(pageLabel(3), findsOneWidget);
+    expect(readAloudHighlights(tester), ['Página número 2.']);
+
+    await closeReader(tester);
+  });
+
+  testWidgets('empieza a leer en la página que se ve, no en la portada', (
+    tester,
+  ) async {
+    await pumpReader(tester);
+    expect(offered()!.startIndexOf(ReadScope.all), 0);
 
     await tester.tap(find.byIcon(Icons.chevron_right));
     await tester.pumpAndSettle();
-    expect(offered()!.segments.map((s) => s.spoken), [
-      'Página número 1.',
-      'Página número 2.',
-    ]);
+    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.pumpAndSettle();
+
+    // El mismo documento: la vista se pregunta al empezar.
+    expect(offered()!.startIndexOf(ReadScope.all), 2);
 
     await closeReader(tester);
-    expect(offered(), isNull);
+  });
+
+  group('sigue la lectura mientras la persona no se mueva', () {
+    testWidgets('pasar de página a mano lo deja tranquilo, con «Volver a la '
+        'lectura»; tocarla vuelve a lo que suena', (tester) async {
+      await pumpReader(tester);
+      final document = offered()!;
+      reader().readAt(document, 0);
+      await tester.pumpAndSettle();
+      expect(pillShown(tester), isFalse);
+
+      // A la última página, a mano.
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pumpAndSettle();
+      expect(pillShown(tester), isTrue);
+
+      // Lo que suena pasa a la segunda página: el lector no se mueve.
+      reader().readAt(document, 1);
+      await tester.pumpAndSettle();
+      expect(pageLabel(3), findsOneWidget);
+
+      await tester.tap(backToReading);
+      await tester.pumpAndSettle();
+      expect(pageLabel(2), findsOneWidget);
+      expect(pillShown(tester), isFalse);
+
+      // Y vuelve a seguir.
+      reader().readAt(document, 2);
+      await tester.pumpAndSettle();
+      expect(pageLabel(3), findsOneWidget);
+
+      await closeReader(tester);
+    });
+
+    testWidgets('volver a mano a la página de lo que suena también lo '
+        'retoma', (tester) async {
+      await pumpReader(tester);
+      final document = offered()!;
+      reader().readAt(document, 0);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pumpAndSettle();
+      expect(pillShown(tester), isTrue);
+      await tester.tap(find.byIcon(Icons.chevron_left));
+      await tester.pumpAndSettle();
+      expect(pillShown(tester), isFalse);
+
+      reader().readAt(document, 1);
+      await tester.pumpAndSettle();
+      expect(pageLabel(2), findsOneWidget);
+
+      await closeReader(tester);
+    });
+
+    testWidgets('otra lectura —otra parte, otro documento— lo retoma', (
+      tester,
+    ) async {
+      await pumpReader(tester);
+      final document = offered()!;
+      reader().readAt(document, 0);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pumpAndSettle();
+      expect(pillShown(tester), isTrue);
+
+      reader().readAt(
+        ReadableDocument(
+          id: 'otra lectura',
+          title: 'Un libro',
+          segments: document.segments,
+        ),
+        0,
+      );
+      await tester.pumpAndSettle();
+
+      expect(pillShown(tester), isFalse);
+      expect(pageLabel(1), findsOneWidget);
+
+      await closeReader(tester);
+    });
+
+    testWidgets('sin nada que suene, pasar de página no ofrece volver', (
+      tester,
+    ) async {
+      await pumpReader(tester);
+
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pumpAndSettle();
+
+      expect(pillShown(tester), isFalse);
+
+      await closeReader(tester);
+    });
+
+    testWidgets('dentro de una página más alta que la pantalla, se desplaza '
+        'hasta la línea; desplazarla a mano lo deja tranquilo', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      // Lugar de sobra arriba y abajo de lo que suena: nada lo acota.
+      final long = [for (var i = 0; i < 120; i++) 'Renglón $i.'].join('\n');
+      await pumpReader(tester, content: long);
+      final document = offered()!;
+      // La de la página: el texto tiene la suya, de un renglón.
+      final page = find
+          .descendant(
+            of: find.byType(SingleChildScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      ScrollPosition position() => tester.state<ScrollableState>(page).position;
+      expect(position().maxScrollExtent, greaterThan(0));
+
+      reader().readAt(document, 3);
+      await tester.pumpAndSettle();
+      expect(position().pixels, 0, reason: 'el renglón 3 ya se ve');
+
+      reader().readAt(document, 50);
+      await tester.pumpAndSettle();
+      final followed = position().pixels;
+      expect(followed, greaterThan(0));
+      expect(readAloudHighlights(tester), ['Renglón 50.']);
+
+      // La línea quedó cerca de arriba, con lugar de los dos lados: la de
+      // antes y las que siguen se leen sin mover nada.
+      for (final line in [49, 51, 52]) {
+        reader().readAt(document, line);
+        await tester.pumpAndSettle();
+        expect(position().pixels, followed, reason: 'renglón $line');
+      }
+
+      await tester.drag(page, const Offset(0, 300));
+      await tester.pumpAndSettle();
+      final byHand = position().pixels;
+      expect(byHand, lessThan(followed));
+      expect(pillShown(tester), isTrue);
+
+      reader().readAt(document, 55);
+      await tester.pumpAndSettle();
+      expect(position().pixels, byHand, reason: 'no pelea con la persona');
+
+      await tester.tap(backToReading);
+      await tester.pumpAndSettle();
+      expect(position().pixels, greaterThan(byHand));
+      expect(pillShown(tester), isFalse);
+
+      await closeReader(tester);
+    });
+  });
+
+  group('escuchar lo seleccionado', () {
+    testWidgets('en otra página, lee esas líneas, con sus posiciones del '
+        'texto entero', (tester) async {
+      await pumpReader(tester);
+      final book = offered()!;
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pumpAndSettle();
+
+      final editable = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      editable
+        ..userUpdateTextEditingValue(
+          editable.textEditingValue.copyWith(
+            selection: const TextSelection(baseOffset: 0, extentOffset: 6),
+          ),
+          SelectionChangedCause.tap,
+        )
+        ..showToolbar();
+      await tester.pumpAndSettle();
+      // Va en «Más»: no entra en la barra.
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.readAloudTooltip));
+      await tester.pumpAndSettle();
+
+      final opened = reader().opened!;
+      expect(opened.segments, [book.segments[1]]);
+      expect(opened.segments.single.start, book.segments[1].start);
+
+      await closeReader(tester);
+    });
   });
 
   group('lo estudiado (F39)', () {
@@ -175,30 +412,33 @@ void main() {
       ),
     );
 
-    testWidgets('el resumen y las palabras clave se ofrecen con la página y '
-        'el lugar de cada una en ella', (tester) async {
+    testWidgets('es el mismo documento que «Escuchar» de la tarjeta de '
+        'estudiar: el mismo id, los mismos pedazos y lo estudiado en sus '
+        'posiciones del texto', (tester) async {
       study();
       await pumpReader(tester, withStudy: true);
 
       final document = offered()!;
-      final pageKey = document.segments.first.sourceKey.replaceFirst(
-        RegExp(r'0$'),
-        '',
+      expect(document.id, studyReadableId('r1'));
+      expect(
+        document.segments,
+        buildReadableSegments(book, sourceKey: 'r1', markdown: true),
       );
-      expect(document.scopes.keys, containsAll(ReadScope.values.skip(1)));
+      final start = book.indexOf('Página número 1');
       expect(document.segmentsOf(ReadScope.summary), [
         ReadableSegment(
-          sourceKey: '${pageKey}1',
-          start: 0,
-          end: 16,
+          sourceKey: 'r1',
+          start: start,
+          end: start + 16,
           spoken: 'Página número 1.',
         ),
       ]);
+      final keyword = book.indexOf('número', book.indexOf('Página número 2'));
       expect(document.segmentsOf(ReadScope.keywords), [
         ReadableSegment(
-          sourceKey: '${pageKey}2',
-          start: 7,
-          end: 13,
+          sourceKey: 'r1',
+          start: keyword,
+          end: keyword + 6,
           spoken: 'número',
         ),
       ]);
@@ -207,34 +447,39 @@ void main() {
       await closeReader(tester);
     });
 
-    testWidgets('ofrecido desde otra página, solo trae lo de las páginas que '
-        'siguen', (tester) async {
-      study();
-      await pumpReader(tester, withStudy: true);
-
-      for (var i = 0; i < 2; i++) {
-        await tester.tap(find.byIcon(Icons.chevron_right));
-        await tester.pumpAndSettle();
-      }
-
-      final document = offered()!;
-      expect(document.id, endsWith(':from:2'));
-      expect(document.offers(ReadScope.summary), isFalse);
-      expect(document.offers(ReadScope.keywords), isTrue);
-
-      await closeReader(tester);
-    });
-
     testWidgets('lo estudiado se lee en su página: la da vuelta y resalta '
-        'la oración', (tester) async {
+        'la oración; una palabra clave, solo la palabra', (tester) async {
       study();
       await pumpReader(tester, withStudy: true);
 
       reader().readAt(offered()!, 0, scope: ReadScope.summary);
       await tester.pumpAndSettle();
-
-      expect(find.text(es.documentReaderPageOf(2, 3)), findsOneWidget);
+      expect(pageLabel(2), findsOneWidget);
       expect(readAloudHighlights(tester), ['Página número 1.']);
+
+      reader().readAt(offered()!, 0, scope: ReadScope.keywords);
+      await tester.pumpAndSettle();
+      expect(pageLabel(3), findsOneWidget);
+      expect(readAloudHighlights(tester), ['número']);
+
+      await closeReader(tester);
+    });
+
+    testWidgets('el resumen empieza por lo que sigue a la página que se ve', (
+      tester,
+    ) async {
+      study();
+      await pumpReader(tester, withStudy: true);
+      expect(offered()!.startIndexOf(ReadScope.keywords), 0);
+
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pumpAndSettle();
+
+      // Pasado el resumen, que está en la segunda: desde el principio.
+      expect(offered()!.startIndexOf(ReadScope.summary), 0);
+      expect(offered()!.startIndexOf(ReadScope.all), 2);
 
       await closeReader(tester);
     });
@@ -262,4 +507,17 @@ void main() {
       await closeReader(tester);
     });
   });
+}
+
+/// Un lector flotante sin motor de voz que además anota qué se le pidió leer
+/// con el botón o desde una selección.
+class _RecordingReadAloud extends FakeReadAloudController {
+  ReadableDocument? opened;
+
+  @override
+  Future<void> open(
+    ReadableDocument document, {
+    int? fromSegment,
+    ReadScope? scope,
+  }) async => opened = document;
 }

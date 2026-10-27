@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui' show ClipOp;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -30,8 +31,15 @@ import 'package:sinapsis/features/viewer/presentation/widgets/document_hand_mark
 /// encima de las oraciones del resumen o la síntesis y debajo de las palabras
 /// clave, que son las últimas en pintarse. Uno de fondo toma el lugar de lo
 /// que tenga abajo, como una palabra clave sobre su oración; uno subrayado es
-/// una línea debajo de las letras y no tapa nada. Lo que se lee en voz alta se
-/// pinta aparte y por encima de todo: no pasa por acá.
+/// una línea debajo de las letras y no tapa nada.
+///
+/// **Lo que se lee en voz alta** —ver [setReading]— va por encima de todo, en
+/// el amarillo de lo que suena en toda la app, y **toma el lugar** de lo que
+/// tenga abajo: donde suena, el verde del resumen o el rosa de una palabra
+/// clave se apartan y queda el amarillo solo sobre el papel, con la letra
+/// negra, igual que en el texto extraído. Al terminar esa línea vuelven.
+/// Pintarlo no cuesta rearmar las capas: se ubican solo sus letras, y las
+/// capas de abajo se recortan donde está.
 ///
 /// Además de pintar, sabe el camino de vuelta: de una selección sobre el PDF
 /// al tramo del texto extraído ([locateSelection]) y de un toque al
@@ -77,6 +85,11 @@ class PdfStudyOverlay {
   final Map<int, _PageBoxes> _boxes = {};
   final Set<int> _loading = {};
 
+  /// Lo que se está leyendo en voz alta, en posiciones del texto extraído, y
+  /// sus rectángulos en cada página donde ya se pintó.
+  TextSlice? _reading;
+  final Map<int, List<PdfPaintBox>> _readingBoxes = {};
+
   /// Cambia con cada texto nuevo: lo que llega leído de antes se descarta.
   var _generation = 0;
 
@@ -97,6 +110,7 @@ class PdfStudyOverlay {
       _walkDone = null;
       _pages.clear();
       _loading.clear();
+      _readingBoxes.clear();
       _generation++;
       changed = true;
     }
@@ -146,9 +160,21 @@ class PdfStudyOverlay {
     _lineRanges = [for (final l in lines) (start: l.start, end: l.end)];
   }
 
+  /// Lo que se lee en voz alta ahora —un tramo del texto extraído—, o `null`
+  /// si nada: se pinta por encima de todo, en el amarillo de lo que suena en
+  /// toda la app (`RenderedMarkdown.playingColor`), que sobre el papel se lee
+  /// con la letra negra.
+  void setReading(TextSlice? reading) {
+    if (reading == _reading) return;
+    _reading = reading;
+    _readingBoxes.clear();
+    _repaintSoon();
+  }
+
   /// Para [PdfViewerParams.pagePaintCallbacks].
   void paintPage(Canvas canvas, Rect pageRect, PdfPage page) {
-    if (_fill.isEmpty && _lines.isEmpty) return;
+    final reading = _reading;
+    if (_fill.isEmpty && _lines.isEmpty && reading == null) return;
     final studied = _studied(page);
     if (studied == null) return;
 
@@ -162,6 +188,37 @@ class PdfStudyOverlay {
       fill: studied.boxes(_fillRanges),
       lines: studied.boxes(_lineRanges),
     );
+    final readingBoxes = reading == null || !studied.touches([reading])
+        ? const <PdfPaintBox>[]
+        : _readingBoxes[page.pageNumber] ??= studied.boxes([reading]);
+    final readingRects = [
+      for (final box in readingBoxes)
+        box.rect.toRectInDocument(page: page, pageRect: pageRect),
+    ];
+    // Lo de abajo se aparta donde suena: el amarillo queda solo sobre el
+    // papel, sin mezclarse con el color de la oración o de la palabra.
+    canvas.save();
+    for (final rect in readingRects) {
+      canvas.clipRect(rect, clipOp: ClipOp.difference);
+    }
+    _paintLayers(canvas, pageRect, page, boxes);
+    canvas.restore();
+    for (final rect in readingRects) {
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..color = RenderedMarkdown.playingColor
+          ..blendMode = BlendMode.multiply,
+      );
+    }
+  }
+
+  void _paintLayers(
+    Canvas canvas,
+    Rect pageRect,
+    PdfPage page,
+    _PageBoxes boxes,
+  ) {
     for (final box in boxes.fill) {
       canvas.drawRect(
         box.rect.toRectInDocument(page: page, pageRect: pageRect),
@@ -185,6 +242,66 @@ class PdfStudyOverlay {
           ..blendMode = BlendMode.multiply,
       );
     }
+  }
+
+  /// Dónde está [range] —un tramo del texto extraído— en el PDF de [pages]:
+  /// en qué página y, si la página tiene esas letras, el rectángulo que las
+  /// cubre, en coordenadas del PDF; `null` si no cae en ninguna página.
+  ///
+  /// Lee lo que haga falta —cómo se reparte el texto entre las páginas, el
+  /// texto de esa página—, con lo mismo que se usa para pintar: un visor que
+  /// sigue lo que se lee en voz alta sabe así adónde ir, aunque esa página no
+  /// se haya pintado nunca. Lo leído queda: pintarla después no lo vuelve a
+  /// leer.
+  Future<PdfReadingPlace?> placeOf(TextSlice range, List<PdfPage> pages) async {
+    final content = _content;
+    if (content == null || pages.isEmpty) return null;
+    final slices = await _slicesFor(pages, content);
+    if (slices == null || !identical(content, _content)) return null;
+    final index = _sliceAt(slices, range.start);
+    if (index == null || index >= pages.length) return null;
+    final studied = await _studyPage(pages[index]);
+    if (studied == null || !studied.onLetters) {
+      return (pageNumber: index + 1, rect: null);
+    }
+    PdfRect? rect;
+    for (final box in studied.boxes([range])) {
+      rect = rect == null ? box.rect : rect.merge(box.rect);
+    }
+    return (pageNumber: index + 1, rect: rect);
+  }
+
+  /// Dónde empieza en el texto extraído la página [pageNumber], si ya se sabe
+  /// cómo se reparte el texto entre las [pageCount] páginas —por los
+  /// separadores, sin leer ninguna—; `null` si no.
+  int? pageStart(int pageNumber, int pageCount) {
+    final content = _content;
+    if (content == null || _walking) return null;
+    final slices = _slices ??= pdfPageSlicesBySeparator(content, pageCount);
+    if (slices == null || pageNumber < 1 || pageNumber > slices.length) {
+      return null;
+    }
+    return slices[pageNumber - 1].start;
+  }
+
+  /// La página de [slices] donde cae la posición [offset]: la última que
+  /// empieza ahí o antes, si [offset] no queda después de su final —en el
+  /// separador que la sigue—, porque ahí no hay nada que se lea.
+  static int? _sliceAt(List<TextSlice> slices, int offset) {
+    var low = 0;
+    var high = slices.length - 1;
+    int? found;
+    while (low <= high) {
+      final middle = (low + high) >> 1;
+      if (slices[middle].start <= offset) {
+        found = middle;
+        low = middle + 1;
+      } else {
+        high = middle - 1;
+      }
+    }
+    if (found == null || offset >= slices[found].end) return null;
+    return found;
   }
 
   /// La posición del texto extraído de la letra en [documentPosition] —en
@@ -373,6 +490,7 @@ class PdfStudyOverlay {
     _slices = null;
     _pages.clear();
     _boxes.clear();
+    _readingBoxes.clear();
     // Lo que se estaba leyendo con el reparto por separadores ya no vale.
     final generation = ++_generation;
     final walker = PdfPageWalker(content);
@@ -449,6 +567,11 @@ Highlight? highlightAtOffset(List<Highlight> stacked, int offset) {
   }
   return null;
 }
+
+/// Dónde está en el PDF lo que se lee en voz alta (ver
+/// [PdfStudyOverlay.placeOf]): la página y, si tiene esas letras, el
+/// rectángulo que las cubre, en coordenadas del PDF.
+typedef PdfReadingPlace = ({int pageNumber, PdfRect? rect});
 
 /// Una capa de color sobre un tramo del texto extraído.
 class _Layer {

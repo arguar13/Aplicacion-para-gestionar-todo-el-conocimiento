@@ -36,7 +36,13 @@ class WebPageViewerScreen extends StatelessWidget {
         children: [
           if (text case final text?) StudyBar(text: text),
           Expanded(
-            child: WebPageViewerView(path: path, url: url, text: text),
+            child: WebPageViewerView(
+              path: path,
+              url: url,
+              text: text,
+              title: title,
+              readAloud: true,
+            ),
           ),
         ],
       ),
