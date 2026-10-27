@@ -1,6 +1,6 @@
 # F41 — «Procesado»: todo lo que ya pasó por la Bandeja, como una Biblioteca
 
-> **Estado: PROPUESTO** (2026-10-27). Se aprueba escribiendo «aprobado» en el chat.
+> **Estado: APROBADO** (2026-10-27, «Aprobado» en el chat).
 >
 > Pedido del dueño, con una captura de «Organizar»: *"En la pestaña Organizar, vamos a crear otra
 > interfaz, debajo de la Bandeja y arriba de la Línea de tiempo, que sea igual a la Biblioteca pero
