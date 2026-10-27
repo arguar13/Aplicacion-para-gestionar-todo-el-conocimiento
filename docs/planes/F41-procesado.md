@@ -47,6 +47,19 @@
 >
 > Y un principio que el dueño fijó después: *"Recordá que de la Biblioteca nada se borra, debe
 > permanecer siempre como una base de datos de consulta, para eso está lo procesado"*.
+>
+> **Ajuste del dueño, con el paso 1 ya construido** (2026-10-27):
+> - *"Cuando se trate de documento de texto o una página web, me gustaría que además de texto
+>   también pudiera dejar elegir que pase también el documento original o página original"* →
+>   **una copia propia del archivo** (respuesta a la pregunta: no verlo desde la Biblioteca, sino
+>   copiarlo).
+> - *"En el caso de texto yo podría elegir resumen, síntesis o palabras claves o que pasen los tres
+>   o lo que yo elija"* → las **palabras clave entran**, y se ven **de las dos formas**: la lista
+>   compacta arriba y, plegables, las oraciones con la clave marcada.
+> - *"En el caso de resumen o síntesis … en el caso de conservar el documento original, que también
+>   se marquen en el documento original en Procesado"* → la copia del original muestra marcado lo
+>   que se eligió.
+> - Y el Atlas va **arriba** de la Línea de tiempo en «Organizar».
 
 ## Lo que hay hoy
 
@@ -71,14 +84,19 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
 
 ### 1. El documento procesado
 
-- **Uno por fuente.** Es una copia propia, editable, que guarda **solo texto**: nunca audio,
-  video, archivos ni la ficha bibliográfica.
+- **Uno por fuente.** Es una copia propia, editable, que guarda **texto**, y, si lo elegís, la
+  copia del documento o la página original. Nunca audio, video ni la ficha bibliográfica.
 - **Tiene secciones**, cada una con su origen:
   - **Texto**: el texto extraído entero, o la transcripción.
   - **Resumen** y **Síntesis**: las oraciones elegidas, en el orden del texto.
   - **Notas**: lo que antes era «Extraer nota».
   - **Fragmentos**: los pasajes que cortaste a mano, cada uno con su ancla en el original.
-  - Las palabras clave **no** van.
+  - **Palabras clave** (ajuste del dueño): la lista compacta, en el orden del texto, y debajo,
+    plegables, las oraciones con su clave marcada. Cada una lleva a su lugar.
+  - **Original** (ajuste del dueño), solo para documentos de texto —PDF, Word, EPUB, texto— y
+    páginas web: **una copia propia del archivo** o de la página guardada, que se abre en el
+    mismo visor de siempre. Sobre esa copia se ve marcado lo que se eligió: el resumen, la
+    síntesis y las palabras clave, con los colores de estudiar, y los fragmentos.
 - **Un enlace «Ver el original en la Biblioteca»** lleva a la fuente. Cada fragmento lleva además
   «Abrir en el original», justo en su lugar, por el mismo camino de las tarjetas y las citas.
 - **Es un elemento de la bóveda**, así que viaja en la papelera, la copia y la unión de bóvedas, y
@@ -87,7 +105,7 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
 
 ### 2. La pantalla «Procesado», en Organizar
 
-- El orden queda **Bandeja · Procesado · Línea de tiempo · Atlas · Mapa · Cuadernos**, con su
+- El orden queda **Bandeja · Procesado · Atlas · Línea de tiempo · Mapa · Cuadernos**, con su
   ícono y su línea: *«La información que sacaste de cada fuente»*.
 - Se ve como la Biblioteca y reusa sus piezas: buscador, filtros (tema, tipo de fuente de origen,
   qué partes tiene), orden y selección múltiple. Cada fila tiene:
@@ -107,7 +125,10 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
     de texto se habilitan solas cuando llega, y «Descartar» se puede de entrada.
   - Una referencia bibliográfica sin texto no entra: no tiene información que procesar.
 - **«Triado» abre la hoja «¿Qué va a Procesado?»:**
-  - **Texto extraído**, **Resumen**, **Síntesis**: se prende cada uno. Si todavía no hay resumen o
+  - **Texto extraído**, **Resumen**, **Síntesis**, **Palabras clave**: se prende cada uno, en
+    cualquier combinación.
+  - **El original** (documentos de texto y páginas web): se prende aparte, y avisa cuánto ocupa la
+    copia. Si todavía no hay resumen o
     síntesis, ofrece **«Resumir con <modelo>»** o **«Elegir a mano»**, como la tarjeta de estudiar.
   - **Notas**: «Extraer nota», de siempre, ahora cae en la sección Notas del documento procesado.
   - **Fragmentos a mano**: **«Cortar del original»** abre el texto en modo cortar. Seleccionás
@@ -190,6 +211,10 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
   tablas de hoy, colgados del documento procesado en vez de la fuente. Por eso la papelera, la
   copia, la unión de bóvedas y el deshacer de pasadas siguen sirviendo sin rehacerse. Lo de las
   fuentes queda guardado y fuera de las tres pantallas.
+- **H. El original en Procesado es una copia propia del archivo** (ajuste del dueño). Ocupa su
+  espacio y viaja con el documento procesado en la papelera, la copia y la unión de bóvedas. Como
+  el texto de la copia es el mismo, las marcas de resumen, síntesis y palabras clave usan las
+  mismas posiciones. Soltar el archivo de la fuente a mano no toca la copia, y al revés.
 - **G. Triar nunca borra ni suelta nada de la fuente** (el principio de arriba). La hoja de F30
   sale de la Bandeja. Cualquier otro camino que hoy suelte el archivo o el texto de una fuente se
   revisa en el paso 3, y queda solo si lo pide el dueño a mano y de a uno.
@@ -203,8 +228,12 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
    - El caso de uso «procesar», con agregar, actualizar, reemplazar y quitar por parte.
    - Fuera de la Biblioteca, dentro de la búsqueda y el chat.
    - Todo probado aparte, con mutaciones.
+1b. **Los datos del ajuste del dueño** (esquema v46):
+   - la sección Palabras clave y la copia del original, con sus marcas;
+   - sus censos de papelera, copia y unión de bóvedas;
+   - y, en la misma versión de esquema, el vaciado de los cuadernos del paso 5, con su marca.
 2. **La pantalla Procesado y el documento:**
-   - el destino entre Bandeja y Línea de tiempo;
+   - el destino entre Bandeja y Atlas;
    - la lista como la Biblioteca;
    - el documento con sus secciones editables y el enlace al original;
    - el vacío.
@@ -226,8 +255,8 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
    - la suite entera y `verify_commit`;
    - la APK al teléfono si la pedís.
 
-Una vez que el paso 1 esté en main, los pasos 2, 3, 5 y 6 van **en paralelo**, cada uno con su
-agente. El 4 sigue al 3.
+Una vez que el paso 1 esté en main, los pasos 1b, 2, 3, 5 y 6 van **en paralelo**, cada uno con su
+agente. Los pasos 2, 3 y 5 suman lo del 1b cuando entre. El 4 sigue al 3.
 
 ## Avance
 
