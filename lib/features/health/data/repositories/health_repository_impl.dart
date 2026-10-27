@@ -44,7 +44,12 @@ class HealthRepositoryImpl implements HealthRepository {
     final notes = _db.knowledgeNotes;
     final count = notes.itemId.count();
 
-    final alive = itemIsActive(_db, notes.itemId);
+    // Un documento procesado (F41) no es una nota que madure: es lo que se
+    // sacó de una fuente, y contarlo como semilla diría que la bóveda está más
+    // verde de lo que está.
+    final alive =
+        itemIsActive(_db, notes.itemId) &
+        notes.noteKind.equalsValue(NoteKind.processed).not();
 
     final kindRows =
         await (_db.selectOnly(notes)

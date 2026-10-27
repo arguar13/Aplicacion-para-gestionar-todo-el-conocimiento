@@ -11,9 +11,10 @@ import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 const _chunksPerSource = 6;
 
 /// [VaultRetriever] que busca los PASAJES de la bóveda que hablan de lo
-/// preguntado (F30), con una sola consulta a los dos índices de texto: el de
-/// los fragmentos de las fuentes (`chunk_search`) y el de los títulos y las
-/// notas (`item_search`).
+/// preguntado (F30), con una sola consulta a los tres índices de texto: el de
+/// los fragmentos de las fuentes (`chunk_search`), el de los títulos y las
+/// notas (`item_search`) y el de las partes de los documentos procesados
+/// (`processed_part_search`, F41).
 ///
 /// Reemplaza a `LibraryVaultRetriever`, que hacía una búsqueda por cada
 /// palabra de la pregunta —también «de» o «qué»—, en serie, armando cada
@@ -29,6 +30,13 @@ const _chunksPerSource = 6;
 ///   empieza y termina en el texto de la fuente —la cita apunta justo ahí—.
 ///   Una nota, que no se fragmenta, da su pasaje sin posición; una fuente
 ///   que coincide solo por el título, el principio de su texto.
+/// - **Lo procesado** (F41): cada parte es un fragmento, y da su pasaje sin
+///   posición —un procesado no tiene forma propia a la que anclar una cita—.
+///   Sin alcance, las páginas del texto copiadas tal cual de una fuente que
+///   sigue a la vista no entran: son el mismo pasaje que ya da el fragmento de
+///   la fuente, con su página o su minuto, y repetirlo gastaría un lugar de
+///   [kChatMaxSources]. Acotado —un cuaderno de procesados (paso 5)—, entran
+///   todas, que es lo único que hay para leer.
 /// - **Lo que entra**: como mucho [kChatMaxSources] fuentes de
 ///   [kChatPassageChars] caracteres.
 class ChunkPassageRetriever implements VaultRetriever {
@@ -61,6 +69,9 @@ class ChunkPassageRetriever implements VaultRetriever {
     final itemsInScope = scopeList == null
         ? ''
         : 'AND item_search.item_id IN ($scopeList) ';
+    final partsInScope = scopeList == null
+        ? 'AND $_notACopyOfAVisibleSource '
+        : 'AND fp.document_id IN ($scopeList) ';
 
     final rows = await _db
         .customSelect(
@@ -95,7 +106,21 @@ class ChunkPassageRetriever implements VaultRetriever {
           '$itemsInScope'
           'ORDER BY item_search.rank LIMIT ?3) topi '
           'JOIN item_search ts ON ts.rowid = topi.rid '
-          'JOIN item i ON i.id = ts.item_id) '
+          'JOIN item i ON i.id = ts.item_id '
+          'UNION ALL '
+          // Las partes de lo procesado (F41): cada una, un fragmento sin
+          // posición en una forma.
+          'SELECT pp.document_id, i.title, pp.content, NULL, topp.s, 0 FROM ( '
+          'SELECT processed_part_search.rowid AS rid, '
+          'processed_part_search.rank AS s '
+          'FROM processed_part_search '
+          'JOIN processed_parts fp ON fp.row_key = processed_part_search.rowid '
+          'WHERE processed_part_search MATCH ?1 '
+          'AND $kProcessedPartOutsideTrashSql '
+          '$partsInScope'
+          'ORDER BY processed_part_search.rank LIMIT ?2) topp '
+          'JOIN processed_parts pp ON pp.row_key = topp.rid '
+          'JOIN item i ON i.id = pp.document_id) '
           'ORDER BY score',
           variables: [
             Variable.withString(match),
@@ -157,6 +182,13 @@ class ChunkPassageRetriever implements VaultRetriever {
       sourceCharEnd: base == null ? null : base + end,
     );
   }
+
+  /// Que la parte `fp` no sea una página del texto copiada tal cual de una
+  /// fuente que sigue viva: ver la documentación de la clase.
+  static const _notACopyOfAVisibleSource =
+      "NOT (fp.section = 'text' AND fp.edited = 0 AND EXISTS ( "
+      'SELECT 1 FROM renditions sr JOIN item si ON si.id = sr.item_id '
+      'WHERE sr.id = fp.source_rendition_id AND si.deleted_at IS NULL)) ';
 
   static bool _isSpace(int unit) =>
       unit == 0x20 || unit == 0x0A || unit == 0x0D || unit == 0x09;

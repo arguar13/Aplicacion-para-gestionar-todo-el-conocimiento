@@ -36,6 +36,11 @@ void main() {
     'study_marks': (preview: 'newStudyMarks', result: 'studyMarksAdded'),
     'study_analyses': (preview: null, result: null),
     'dated_events': (preview: 'newDatedEvents', result: 'datedEventsAdded'),
+    'processed_documents': (preview: null, result: 'processedDocumentsAdded'),
+    'processed_parts': (
+      preview: 'newProcessedParts',
+      result: 'processedPartsAdded',
+    ),
   };
 
   /// Las tablas que la vista previa no cuenta aparte, y por qué. Una tabla
@@ -52,6 +57,9 @@ void main() {
     'study_analyses':
         'el análisis de un texto viaja con sus marcas de estudio: se cuenta '
         'en las marcas, y no devuelve su propia cifra',
+    'processed_documents':
+        'un procesado nuevo entra con su elemento: se cuenta en los elementos '
+        'nuevos (y sus partes, aparte)',
   };
 
   /// Campos de la vista previa que no entran en «hay algo nuevo» ni son un

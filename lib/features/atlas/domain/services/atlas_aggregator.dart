@@ -138,6 +138,9 @@ int _kindOf(AtlasItemFacts item) {
     NoteKind.map => _maps,
     NoteKind.living =>
       item.maturity == NoteMaturity.mature ? _matureLiving : _growingLiving,
-    null => -1,
+    // Un documento procesado (F41) no es una fuente ni una nota que la persona
+    // haga crecer: cuenta como elemento de la rama, y solo eso, hasta que el
+    // Atlas se arme con lo procesado (paso 6).
+    NoteKind.processed || null => -1,
   };
 }

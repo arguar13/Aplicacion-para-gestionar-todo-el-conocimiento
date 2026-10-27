@@ -111,6 +111,14 @@ class VaultCounts {
   /// esta tabla todavía no existía cuando corrían.
   static const datedEventTables = <String>['dated_events'];
 
+  /// Los documentos procesados y sus partes (F41, v45). Aparte por lo mismo
+  /// que las anteriores: los pasos hasta v45 cuentan las otras listas, y estas
+  /// tablas todavía no existían cuando corrían.
+  static const processedTables = <String>[
+    'processed_documents',
+    'processed_parts',
+  ];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

@@ -63,6 +63,14 @@ const kChunkOutsideTrashSql =
     'SELECT tc.row_key FROM chunks tc WHERE tc.item_id IN ( '
     'SELECT ti.id FROM item ti WHERE ti.deleted_at IS NOT NULL))';
 
+/// Lo mismo que [kChunkOutsideTrashSql] para el índice de las partes de los
+/// documentos procesados (`processed_part_search`, F41): deja afuera las de un
+/// procesado que está en la papelera ANTES de cortar en los mejores N.
+const kProcessedPartOutsideTrashSql =
+    'processed_part_search.rowid NOT IN ( '
+    'SELECT tp.row_key FROM processed_parts tp WHERE tp.document_id IN ( '
+    'SELECT ti.id FROM item ti WHERE ti.deleted_at IS NOT NULL))';
+
 extension ActiveEntries on $KnowledgeEntriesTable {
   /// El predicado de drift: el elemento no está en la papelera.
   Expression<bool> get isActive => deletedAt.isNull();

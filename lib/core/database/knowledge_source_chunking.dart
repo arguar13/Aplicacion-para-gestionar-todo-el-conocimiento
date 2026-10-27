@@ -188,13 +188,54 @@ bool _isPdf(String? originalPath) =>
 
 /// Se prefiere la rendition marcada como principal; sin ninguna marcada, la
 /// primera que se guardó.
-RenditionRow _pickPrimaryOrOldest(List<RenditionRow> renditions) {
+RenditionRow _pickPrimaryOrOldest(List<RenditionRow> renditions) =>
+    _primaryOrOldest(
+      renditions,
+      isPrimary: (r) => r.isPrimary,
+      createdAt: (r) => r.createdAt,
+    );
+
+/// La regla de [_pickPrimaryOrOldest] sobre cualquier fila.
+T _primaryOrOldest<T>(
+  List<T> renditions, {
+  required bool Function(T) isPrimary,
+  required DateTime Function(T) createdAt,
+}) {
   for (final rendition in renditions) {
-    if (rendition.isPrimary) return rendition;
+    if (isPrimary(rendition)) return rendition;
   }
   final sorted = [...renditions]
-    ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    ..sort((a, b) => createdAt(a).compareTo(createdAt(b)));
   return sorted.first;
+}
+
+/// Qué forma de [itemId] es la de [sourceTextRendition] —la misma regla— y
+/// cuántos caracteres tiene, SIN traer su texto: lo que necesita quien solo
+/// quiere saber si hay texto y cuánto, como la hoja de procesar (F41). Un libro
+/// de millones de caracteres no cruza a la interfaz para eso. `null` si no
+/// tiene texto.
+Future<({String id, int length})?> sourceTextRenditionInfo(
+  AppDatabase db,
+  String itemId,
+) async {
+  final r = db.renditions;
+  final length = r.content.length;
+  final rows =
+      await (db.selectOnly(r)
+            ..addColumns([r.id, r.isPrimary, r.createdAt, r.textOf, length])
+            ..where(r.itemId.equals(itemId) & r.content.isNotNull()))
+          .get();
+  final texts = [
+    for (final row in rows)
+      if (row.read(r.textOf) == null) row,
+  ];
+  if (texts.isEmpty) return null;
+  final chosen = _primaryOrOldest(
+    texts,
+    isPrimary: (row) => row.read(r.isPrimary)!,
+    createdAt: (row) => row.read(r.createdAt)!,
+  );
+  return (id: chosen.read(r.id)!, length: chosen.read(length)!);
 }
 
 Future<void> _reportIssue(

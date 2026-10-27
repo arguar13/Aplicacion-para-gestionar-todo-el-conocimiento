@@ -81,6 +81,10 @@ sealed class VaultMergeResult with _$VaultMergeResult {
     @Default(0) int studyMarksAdded,
     @Default(0) int datedEventsAdded,
 
+    /// Los documentos procesados (F41) y sus partes.
+    @Default(0) int processedDocumentsAdded,
+    @Default(0) int processedPartsAdded,
+
     /// Las pasadas de la IA y lo que la persona dijo que «no era» (F27).
     @Default(0) int aiRunsAdded,
     @Default(0) int aiRejectionsAdded,
@@ -115,6 +119,8 @@ sealed class VaultMergeResult with _$VaultMergeResult {
       habitEventsAdded == 0 &&
       studyMarksAdded == 0 &&
       datedEventsAdded == 0 &&
+      processedDocumentsAdded == 0 &&
+      processedPartsAdded == 0 &&
       aiRunsAdded == 0 &&
       aiRejectionsAdded == 0;
 }

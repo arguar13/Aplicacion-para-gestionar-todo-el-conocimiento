@@ -108,6 +108,12 @@ class ContentTrashRepositoryImpl implements ContentTrashRepository {
         final datedEvents = await (_db.select(
           _db.datedEvents,
         )..where((e) => e.renditionId.equals(text.id))).get();
+        final processedParts =
+            await (_db.selectOnly(_db.processedParts)
+                  ..addColumns([_db.processedParts.id])
+                  ..where(_db.processedParts.sourceRenditionId.equals(text.id)))
+                .map((row) => row.read(_db.processedParts.id)!)
+                .get();
         final id = _ids.next();
         await _db
             .into(_trash)
@@ -127,12 +133,17 @@ class ContentTrashRepositoryImpl implements ContentTrashRepository {
                   encodeTrashedStudy(studyMarks, studyAnalysis),
                 ),
                 datedEvents: Value(encodeTrashedDatedEvents(datedEvents)),
+                processedParts: Value(
+                  encodeTrashedProcessedParts(processedParts),
+                ),
                 trashedAt: now,
               ),
             );
         ids.add(id);
         // Los subrayados, lo resaltado para estudiar y los hechos fechados que
-        // la citan se van con la forma, en cascada: ya están copiados.
+        // la citan se van con la forma, en cascada: ya están copiados. Las
+        // partes de lo procesado que la anclaban se quedan —son una copia
+        // propia, con su texto y sus posiciones—: solo pierden el enlace.
         await (_db.delete(
           _db.renditions,
         )..where((r) => r.id.equals(text.id))).go();
@@ -257,6 +268,16 @@ class ContentTrashRepositoryImpl implements ContentTrashRepository {
               runExists ? event : event.copyWith(aiRunId: const Value(null)),
               mode: InsertMode.insertOrIgnore,
             );
+      }
+      // Las partes de lo procesado que anclaban este texto vuelven a abrirse
+      // en él (F41). Solo las que siguen sin enlace: una que mientras tanto se
+      // volvió a anclar en otro texto no se toca.
+      final parts = decodeTrashedProcessedParts(row.processedParts);
+      for (var start = 0; start < parts.length; start += 400) {
+        final slice = parts.skip(start).take(400).toList();
+        await (_db.update(_db.processedParts)
+              ..where((p) => p.id.isIn(slice) & p.sourceRenditionId.isNull()))
+            .write(ProcessedPartsCompanion(sourceRenditionId: Value(id)));
       }
       await (_db.delete(_trash)..where((t) => t.id.equals(row.id))).go();
       await _writer.setOnlyFile(row.itemId, onlyFile: false);
@@ -516,6 +537,18 @@ decodeTrashedStudy(String? stored, {required String renditionId}) {
           ),
   );
 }
+
+/// Las partes de los documentos procesados que anclaban una forma de texto
+/// (F41), para devolverles el enlace al recuperarla: su id basta, porque
+/// conservan su texto y sus posiciones. `null` si ninguna la anclaba.
+String? encodeTrashedProcessedParts(List<String> partIds) =>
+    partIds.isEmpty ? null : jsonEncode(partIds);
+
+/// Lo guardado por [encodeTrashedProcessedParts].
+List<String> decodeTrashedProcessedParts(String? stored) =>
+    stored == null || stored.isEmpty
+    ? const []
+    : (jsonDecode(stored) as List).cast<String>();
 
 /// Los hechos fechados que citaban una forma de texto (F40), para guardarlos
 /// en la papelera con ella: en la base cuelgan de la forma, y al soltarla se

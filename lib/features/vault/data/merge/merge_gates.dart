@@ -63,6 +63,8 @@ class MergeGates {
     ...VaultCounts.studyTables,
     // Los hechos fechados dentro de un documento (F40): una fusión solo suma.
     ...VaultCounts.datedEventTables,
+    // Los documentos procesados y sus partes (F41): una fusión solo suma.
+    ...VaultCounts.processedTables,
   ];
 
   /// Las tablas donde una referencia rota puede venir de la fusión.
@@ -98,6 +100,9 @@ class MergeGates {
     'study_analyses',
     // Los hechos fechados dentro de un documento (F40).
     'dated_events',
+    // Los documentos procesados y sus partes (F41).
+    'processed_documents',
+    'processed_parts',
   ];
 
   /// Lo que se cuenta de una tabla cuando no es toda: el espejo de las

@@ -233,6 +233,8 @@ class VaultMerger {
       habitEventsAdded: unions.habitEvents,
       studyMarksAdded: unions.studyMarks,
       datedEventsAdded: unions.datedEvents,
+      processedDocumentsAdded: unions.processedDocuments,
+      processedPartsAdded: unions.processedParts,
       aiRunsAdded: ai.runs,
       aiRejectionsAdded: ai.rejections,
     );

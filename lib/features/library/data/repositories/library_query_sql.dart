@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
+import 'package:sinapsis/core/database/processed_entries.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -198,8 +199,11 @@ class LibraryQuerySql {
     }
 
     // Lo que está en la papelera no es de la biblioteca, sea cual sea el resto
-    // de la consulta.
-    _where.add(kActiveItemSql);
+    // de la consulta. Un documento procesado tampoco (F41): vive en
+    // «Procesado», y la Biblioteca queda como la base de consulta.
+    _where
+      ..add(kActiveItemSql)
+      ..add(_notProcessed);
     if (query.sourceKinds.isNotEmpty) {
       _where.add('$_kindSql IN (${_marks(query.sourceKinds.length)})');
       _args.addAll(query.sourceKinds.map((k) => Variable.withString(k.name)));
@@ -287,6 +291,9 @@ class LibraryQuerySql {
   /// `true` si hay palabras sueltas para buscar elementos que las tienen todas
   /// en fragmentos distintos.
   bool get hasEveryWordBranch => _termMatches.isNotEmpty;
+
+  /// Lo que no es un documento procesado (F41): ver `notProcessedSql`.
+  static final _notProcessed = notProcessedSql('item.id');
 
   /// Un elemento con su fuente, si la tiene: una nota no tiene fila en
   /// `source`.
@@ -429,7 +436,7 @@ class LibraryQuerySql {
         ') cand GROUP BY cand.item_id) cands '
         'LEFT JOIN best ON best.item_id = cands.item_id '
         'JOIN item ON item.id = cands.item_id '
-        'WHERE $kActiveItemSql '
+        'WHERE $kActiveItemSql AND $_notProcessed '
         'ORDER BY cands.t DESC, (best.s IS NULL), best.s LIMIT ? OFFSET ?';
 
     return (

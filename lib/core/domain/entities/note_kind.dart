@@ -17,4 +17,14 @@ enum NoteKind {
   /// Una nota índice: solo estructura y enlaces, sin contenido propio.
   /// Da puntos de entrada al grafo.
   map,
+
+  /// Un documento procesado (F41, decisión A): la información pura que la
+  /// persona sacó de UNA fuente al triarla —su texto, su resumen, su síntesis,
+  /// sus notas y sus fragmentos—, con el enlace a esa fuente
+  /// (`processed_documents`). Vive en «Procesado», no en la Biblioteca.
+  ///
+  /// Se pone solo al nacer (`KnowledgeEntryWriter.upsert` con `noteKind`) y
+  /// nunca cambia: ni un procesado pasa a ser otra nota ni otra nota pasa a
+  /// ser un procesado —un procesado sin su fuente no es un procesado—.
+  processed,
 }

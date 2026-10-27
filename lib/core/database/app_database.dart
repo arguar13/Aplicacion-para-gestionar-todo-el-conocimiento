@@ -34,6 +34,7 @@ import 'package:sinapsis/core/database/tables/migration_issues.dart';
 import 'package:sinapsis/core/database/tables/note_templates.dart';
 import 'package:sinapsis/core/database/tables/notebook_items.dart';
 import 'package:sinapsis/core/database/tables/notebooks.dart';
+import 'package:sinapsis/core/database/tables/processed_documents.dart';
 import 'package:sinapsis/core/database/tables/processing_checkpoints.dart';
 import 'package:sinapsis/core/database/tables/properties.dart';
 import 'package:sinapsis/core/database/tables/relations.dart';
@@ -72,6 +73,7 @@ import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/publication_date.dart';
@@ -138,6 +140,8 @@ part 'app_database.g.dart';
     StudyAnalyses,
     ItemSpaces,
     DatedEvents,
+    ProcessedDocuments,
+    ProcessedParts,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -182,7 +186,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 44;
+  static const currentSchemaVersion = 45;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -197,6 +201,7 @@ class AppDatabase extends _$AppDatabase {
       await migrator.createAll();
       await _createSearchIndex();
       await _createChunkSearchIndex();
+      await _createProcessedPartSearchIndex();
       await _createVocabularyHierarchyTriggers();
       await _createReferenceTriggers();
       await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
@@ -1170,6 +1175,55 @@ class AppDatabase extends _$AppDatabase {
           }
           await _requireSameCounts(before, step: 'v44', tables: tables);
         }
+
+        // Los documentos procesados (F41, decisiones A y B):
+        // `processed_documents` —uno por fuente, con su enlace—,
+        // `processed_parts` —sus secciones, cada parte con su origen y su
+        // ancla— y su índice de texto; y `content_trash.processed_parts`, las
+        // partes que anclaban un texto soltado. Aditiva: dos tablas nuevas y
+        // vacías y una columna que en todo lo de antes dice «ninguna». No se
+        // procesa nada solo (decisión D): lo triado antes sigue en la
+        // Biblioteca, y la fuente no se toca. Los conteos de todo lo anterior
+        // son compuerta. La columna puede existir ya: el paso v38 crea
+        // `content_trash` con su definición de hoy.
+        if (from < 45) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+            ...VaultCounts.studyTables,
+            ...VaultCounts.itemSpaceTables,
+            ...VaultCounts.datedEventTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.createTable(processedDocuments);
+          await migrator.createTable(processedParts);
+          for (final index in [
+            idxProcessedPartsDocument,
+            idxProcessedPartsRendition,
+          ]) {
+            await migrator.createIndex(index);
+          }
+          await _createProcessedPartSearchIndex();
+          if (!await _columnExists(
+            'content_trash',
+            trashedContents.processedParts.name,
+          )) {
+            await migrator.addColumn(
+              trashedContents,
+              trashedContents.processedParts,
+            );
+          }
+          await _requireSameCounts(before, step: 'v45', tables: tables);
+        }
       });
     },
     beforeOpen: (details) async {
@@ -1249,6 +1303,16 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(createChunkSearchTable);
     await customStatement(createChunkVocabTable);
     for (final trigger in chunkSearchTriggers) {
+      await customStatement(trigger);
+    }
+  }
+
+  /// Crea el índice de texto de las partes de los documentos procesados (F41)
+  /// y los triggers que lo mantienen: ver `createProcessedPartSearchTable`.
+  Future<void> _createProcessedPartSearchIndex() async {
+    await customStatement(createProcessedPartSearchTextView);
+    await customStatement(createProcessedPartSearchTable);
+    for (final trigger in processedPartSearchTriggers) {
       await customStatement(trigger);
     }
   }

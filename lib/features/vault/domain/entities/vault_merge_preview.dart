@@ -50,6 +50,11 @@ sealed class VaultMergePreview with _$VaultMergePreview {
     @Default(0) int newStudyMarks,
     @Default(0) int newDatedEvents,
 
+    /// Las partes de documentos procesados (F41) que acá no están —páginas del
+    /// texto, oraciones, notas, fragmentos—, con la regla de la unión. Un
+    /// procesado nuevo se cuenta además en los elementos nuevos.
+    @Default(0) int newProcessedParts,
+
     /// Archivos originales de la copia que esta bóveda no tiene, con cuánto
     /// pesan; y los que la copia dice tener y no trae.
     @Default(0) int newFiles,
@@ -76,5 +81,6 @@ sealed class VaultMergePreview with _$VaultMergePreview {
       newConversations == 0 &&
       newStudyMarks == 0 &&
       newDatedEvents == 0 &&
+      newProcessedParts == 0 &&
       newFiles == 0;
 }

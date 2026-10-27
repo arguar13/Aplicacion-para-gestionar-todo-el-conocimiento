@@ -754,6 +754,18 @@ void main() {
       expect(kStudyAnalysisColumns.toSet(), await columnsOf('study_analyses'));
       // Los hechos fechados dentro de un documento (F40).
       expect(kDatedEventColumns.toSet(), await columnsOf('dated_events'));
+      // Los documentos procesados y sus partes (F41). De una parte se copian
+      // las columnas menos su clave local del índice de texto, que cada base
+      // numera.
+      expect(
+        kProcessedDocumentColumns.toSet(),
+        await columnsOf('processed_documents'),
+      );
+      expect({
+        ...kProcessedPartColumns,
+        'row_key',
+      }, await columnsOf('processed_parts'));
+      expect(kProcessedPartColumns, isNot(contains('row_key')));
       // Las pasadas de la IA, lo que «no era» y las asignaciones de
       // propiedades, que ahora llevan su pasada (F27).
       expect(kAiRunColumns.toSet(), await columnsOf('ai_runs'));

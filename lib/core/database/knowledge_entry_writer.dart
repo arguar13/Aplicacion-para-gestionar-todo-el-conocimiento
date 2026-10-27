@@ -141,9 +141,15 @@ class KnowledgeEntryWriter {
   /// guardado crea o cambia. El texto en sí lo escribe quien guarda las formas
   /// (que es también quien puede compararlo con lo que había): acá solo se
   /// versiona, para que el `rev` suba UNA vez por guardado y no una por forma.
+  ///
+  /// [noteKind] es el tipo con el que NACE una nota —una que ya existe conserva
+  /// el suyo—. Es la única forma de que nazca un documento procesado
+  /// (`NoteKind.processed`, F41), que después nunca cambia de tipo
+  /// ([setNoteKind]).
   Future<void> upsert(
     KnowledgeItem item, {
     Iterable<String> changedRenditions = const [],
+    NoteKind noteKind = NoteKind.living,
   }) async {
     await _db.transaction(() async {
       final now = _clock();
@@ -216,7 +222,7 @@ class KnowledgeEntryWriter {
         );
       }
 
-      await _writeTypedRow(item, kind, existingSource);
+      await _writeTypedRow(item, kind, existingSource, noteKind: noteKind);
       if (spacesChanged) {
         await _replaceSpaces(item.id, existingSpaces, item.spaceIds);
       }
@@ -651,7 +657,9 @@ class KnowledgeEntryWriter {
     });
   }
 
-  /// Cambia el subtipo de la nota [itemId]. Devuelve `false` si no existe.
+  /// Cambia el subtipo de la nota [itemId]. Devuelve `false` si no existe, o si
+  /// el cambio entra o sale de un documento procesado (F41): ese tipo se pone
+  /// solo al nacer ([upsert]) y no cambia nunca.
   Future<bool> setNoteKind(String itemId, NoteKind kind) async {
     return _db.transaction(() async {
       final note = await (_db.select(
@@ -659,6 +667,9 @@ class KnowledgeEntryWriter {
       )..where((n) => n.itemId.equals(itemId))).getSingleOrNull();
       if (note == null) return false;
       if (note.noteKind == kind) return true;
+      if (note.noteKind == NoteKind.processed || kind == NoteKind.processed) {
+        return false;
+      }
       await (_db.update(_db.knowledgeNotes)
             ..where((n) => n.itemId.equals(itemId)))
           .write(KnowledgeNotesCompanion(noteKind: Value(kind)));
@@ -719,6 +730,25 @@ class KnowledgeEntryWriter {
         );
       }
       await _touch(itemId, EntryField.rendition(renditionId), now);
+      return true;
+    });
+  }
+
+  /// Anota que cambió el contenido de [itemId] que no vive en sus formas —las
+  /// partes de un documento procesado (F41)—: le pone `updatedAt` en ahora y
+  /// sube su `rev` con el dispositivo de acá, como cualquier modificación.
+  ///
+  /// No registra ninguna versión de campo: las partes no son un campo del
+  /// elemento, se unen por conjuntos en la fusión de bóvedas (no hay «la de acá
+  /// o la de allá» que decidir). Devuelve `false` si el elemento no existe.
+  Future<bool> markContentChanged(String itemId) async {
+    return _db.transaction(() async {
+      final row = await _entry(itemId);
+      if (row == null) return false;
+      await _writeEntry(
+        row,
+        KnowledgeEntriesCompanion(updatedAt: Value(_clock())),
+      );
       return true;
     });
   }
@@ -1110,15 +1140,16 @@ class KnowledgeEntryWriter {
   Future<void> _writeTypedRow(
     KnowledgeItem item,
     ItemKind kind,
-    KnowledgeSourceRow? existingSource,
-  ) async {
+    KnowledgeSourceRow? existingSource, {
+    required NoteKind noteKind,
+  }) async {
     if (kind == ItemKind.note) {
       await _db
           .into(_db.knowledgeNotes)
           .insert(
             KnowledgeNotesCompanion.insert(
               itemId: item.id,
-              noteKind: NoteKind.living,
+              noteKind: noteKind,
               maturity: NoteMaturity.seed,
             ),
             mode: InsertMode.insertOrIgnore,

@@ -136,6 +136,11 @@ class VaultMergeReader {
         'SELECT COUNT(*) ${SetUnionRules.datedEventsFrom(dryRun: true)}',
         [renditionMap],
       ),
+      newProcessedParts: await _scalar(
+        '${SetUnionRules.dryRunRenditionMapCte} '
+        'SELECT COUNT(*) ${SetUnionRules.processedPartsFrom(dryRun: true)}',
+        [renditionMap],
+      ),
       newConversations: await _scalar(
         '''
         SELECT COUNT(*) FROM $_incoming.conversations c

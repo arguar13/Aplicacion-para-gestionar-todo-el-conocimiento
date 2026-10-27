@@ -231,6 +231,75 @@ agente. El 4 sigue al 3.
 
 ## Avance
 
+### Paso 1 (hecho): los datos, esquema v45
+
+- **El documento procesado es un elemento de la bóveda** (decisión A): una fila de `item` con su
+  `note` de un tipo nuevo, `NoteKind.processed`, y su fila en `processed_documents` con el enlace
+  a la fuente (`source_item_id`, **único**: uno por fuente lo garantiza la base) y el tipo de la
+  fuente. No tiene formas, ni archivo, ni ficha: solo texto. El tipo se pone al nacer y no cambia
+  nunca (`KnowledgeEntryWriter.setNoteKind` lo rechaza en los dos sentidos).
+  - **Su id sale de la fuente** (`processedDocumentIdFor`, un UUID v5): dos dispositivos que
+    procesan la misma fuente llegan al mismo elemento, y la unión de bóvedas lo junta en vez de
+    chocar con la restricción.
+  - **De la Biblioteca nada se borra**: si alguien vacía la papelera con la fuente adentro, el
+    procesado queda con su texto y su enlace pasa a `null`. Una prueba fija que procesar —crear,
+    agregar, actualizar, reemplazar, quitar, editar, deshacer— no cambia ninguna fila de la fuente
+    (elemento, fuente, formas, marcas, versiones, chunks, temas, propiedades).
+- **Sus secciones son partes con origen y ancla** (decisión B, `processed_parts`): Texto
+  (páginas), Resumen y Síntesis (oraciones en el orden del texto), Notas y Fragmentos. Cada parte
+  dice si es copiada de la fuente o escrita por la persona, si se editó, y dónde estaba en el
+  original (forma + posiciones del texto entero, como `study_marks`/`dated_events`). Si la forma de
+  la fuente se va, la parte conserva su texto y sus posiciones, y pierde solo el enlace.
+- **Cómo se guarda un libro entero** (medido con 3 millones de caracteres, flutter test en la PC,
+  la base en su propio hilo como en la app; el teléfono es varias veces más lento):
+
+  | guardado          | guardar | corregir 1 letra | leer 1 página | buscar |
+  |-------------------|--------:|-----------------:|--------------:|-------:|
+  | una sola fila     |  170 ms |           280 ms |         50 ms |   2 ms |
+  | páginas de 2.000  |  340 ms |             8 ms |          9 ms |   3 ms |
+  | páginas de 8.000  |  151 ms |             8 ms |          4 ms |   2 ms |
+  | páginas de 32.000 |  124 ms |            11 ms |          2 ms |   2 ms |
+
+  Se eligieron **páginas de 8.000** (`kProcessedTextPageChars`): un libro son 390 filas, guardarlo
+  cuesta lo mismo que una fila y corregir o leer cuesta lo que mide una página. Paginar y comparar
+  un texto largo corre en otro hilo (`compute`, desde 60.000 caracteres, el umbral de `1d4cf338`);
+  la lista y el documento abierto nunca traen el texto (las partes se piden por sección y de a
+  tramos). Pruebas de crecimiento: la fila de la lista y una página cuestan lo mismo con un libro
+  cuatro veces más largo.
+- **El caso de uso «procesar»** (`ProcessSourceUseCase`): crear con las partes elegidas, «pasar
+  todo sin modificar» (solo el texto entero) y, por sección, agregar (sin repetir: el mismo tramo o
+  el mismo texto), actualizar, reemplazar y quitar, con vista previa (partes y palabras) y
+  «Deshacer». **La regla de «Actualizar»**: lo editado a mano se queda siempre; lo copiado sin
+  editar se queda si la fuente lo sigue trayendo igual (la misma parte, sin reescribir nada) y si
+  no se va; de la versión de ahora entra lo demás, salvo lo que se superpone con algo editado —ahí
+  gana la edición—. En el texto, lo de la fuente se pagina alrededor de las páginas editadas, así
+  que «Actualizar» sobre un texto que no cambió no cambia nada. Procesar uno que está en la
+  papelera lo saca de ahí con lo que tenía; deshacer lo devuelve.
+- **Fuera de la Biblioteca, dentro de la búsqueda y el chat**: la consulta de la Biblioteca deja
+  afuera lo procesado (`notProcessedSql`); la papelera lo muestra. Las partes tienen su propio
+  índice de texto (`processed_part_search`, por parte), que leen la lista de Procesado y el chat;
+  sin alcance, el chat no repite una página copiada tal cual de una fuente que está a la vista.
+  La salud de las notas no lo cuenta como semilla.
+- **Los censos**: los conteos de todas las tablas como compuerta de la migración; la papelera del
+  contenido guarda qué partes anclaban un texto soltado y se lo devuelve al recuperarlo
+  (`content_trash.processed_parts`); al volver a extraer, el ancla se reubica por el pasaje que
+  marcaba (con un solo buscador para todo el texto, `ExcerptLocator`); la unión de bóvedas suma
+  documentos y partes sin repetir, con el texto uno solo, re-apunta el ancla a la forma que guardó
+  ese texto y vuelve a enlazar una fuente que regresa; vista previa y resultado cuentan las partes,
+  y las tablas nuevas están en «nunca se achica» y en las referencias rotas.
+- **La API para los pasos que siguen**: `ProcessedRepository` (lista con `ProcessedQuery`,
+  `matchingIds`, `watchDocument`, `watchForSource`, `watchParts` de a tramos, `partsOf`,
+  `materialOf`, `editPart`/`removePart`/`restorePart`), `ProcessSourceUseCase` (`call`,
+  `passUnchanged`, `preview`, `undo`) y sus providers en `processed_providers.dart`.
+- **Fuera de la Bandeja por su tipo**: es una nota, no una fuente, así que no entra a la Bandeja,
+  a su contador ni a «Por revisar», que miran solo fuentes. No hace falta ningún filtro aparte.
+- Pruebas: 100 en `test/features/processed`, 6 de la unión, 5 de la migración, 1 del buscador de
+  pasajes y los censos (columnas de la unión, cifras de la vista previa y del resultado, lecturas
+  de `item`). Pasan 5.259 en `test/core`, bóveda, Biblioteca, cuadernos, chat, estudiar, línea de
+  tiempo, Bandeja, procesado, papelera del contenido, transformación, salud, Atlas y enlaces.
+  Mutación 76/77: la que sobrevive es equivalente —que el buscador arme el texto sin cortes de
+  renglón una sola vez y no una por fragmento da el mismo resultado; solo cuesta menos—.
+
 **Paso 3 (primera parte): lo que no depende del documento procesado.** La Bandeja quedó lista para
 recibir la hoja «¿Qué va a Procesado?» cuando lleguen los datos del paso 1.
 

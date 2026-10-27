@@ -31,6 +31,8 @@ List<String> vaultMergePreviewLines(
     l10n.vaultMergePreviewStudyMarks(preview.newStudyMarks),
   if (preview.newDatedEvents > 0)
     l10n.vaultMergePreviewDatedEvents(preview.newDatedEvents),
+  if (preview.newProcessedParts > 0)
+    l10n.vaultMergePreviewProcessedParts(preview.newProcessedParts),
   if (preview.newFiles > 0)
     l10n.vaultMergePreviewFiles(
       preview.newFiles,

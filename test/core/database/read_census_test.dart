@@ -62,6 +62,10 @@ void main() {
         'solo comprueba que el elemento exista —vivo o en la papelera— antes '
         'de colgarle un vínculo, una tarjeta o una procedencia: no hay '
         'pantalla que lo muestre',
+    'lib/features/vault/data/merge/set_union_rules.dart':
+        'solo comprueba que la fuente o el elemento de un documento procesado '
+        'exista —vivo o en la papelera— antes de enlazarlo (F41): un '
+        'procesado no pierde su fuente porque esté en la papelera',
     'lib/features/vault/data/merge/ai_provenance_merge.dart':
         'solo comprueba que el elemento exista —vivo o en la papelera— antes '
         'de colgarle una pasada de la IA o lo que «no era» (F27): lo de un '

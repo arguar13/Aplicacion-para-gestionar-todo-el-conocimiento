@@ -327,3 +327,57 @@ List<({String term, String match})> searchTerms(String rawInput) {
   // cualquiera de ellas.
   return terms;
 }
+
+/// El índice de texto de las PARTES de los documentos procesados (F41).
+///
+/// Como `chunk_search`: un FTS5 de contenido externo que guarda solo el índice
+/// invertido y vuelve a `processed_parts` por su clave entera (`row_key`). Va
+/// por parte y no por documento a propósito: el texto de un libro procesado son
+/// cientos de páginas, y un índice por documento —como `item_search`— lo
+/// reindexaría entero por cada corrección (medido: 140–280 ms por una letra en
+/// un libro de 3 millones de caracteres, contra 6–8 ms por página) y no sabría
+/// decir en qué parte está lo encontrado.
+///
+/// Indexa [chunkSearchText] del texto, como los chunks: las páginas copiadas de
+/// un PDF conservan sus guiones de corte.
+const createProcessedPartSearchTable = '''
+CREATE VIRTUAL TABLE IF NOT EXISTS processed_part_search USING fts5(
+  content,
+  content = 'processed_part_search_text',
+  content_rowid = 'row_key',
+  tokenize = "unicode61 remove_diacritics 2"
+)''';
+
+/// De dónde lee `processed_part_search` al reconstruirse: las partes, con
+/// [chunkSearchText]. Ver [createChunkSearchTextView].
+final createProcessedPartSearchTextView = '''
+CREATE VIEW IF NOT EXISTS processed_part_search_text AS
+SELECT row_key, ${chunkSearchText('content')} AS content FROM processed_parts''';
+
+/// Triggers que mantienen `processed_part_search` al día: cualquier escritura
+/// sobre `processed_parts` —también el borrado en cascada de un documento—,
+/// como los de [chunkSearchTriggers].
+final processedPartSearchTriggers = <String>[
+  '''
+CREATE TRIGGER IF NOT EXISTS processed_parts_search_ai
+AFTER INSERT ON processed_parts BEGIN
+  INSERT INTO processed_part_search (rowid, content)
+  VALUES (NEW.row_key, ${chunkSearchText('NEW.content')});
+END''',
+
+  '''
+CREATE TRIGGER IF NOT EXISTS processed_parts_search_ad
+AFTER DELETE ON processed_parts BEGIN
+  INSERT INTO processed_part_search (processed_part_search, rowid, content)
+  VALUES ('delete', OLD.row_key, ${chunkSearchText('OLD.content')});
+END''',
+
+  '''
+CREATE TRIGGER IF NOT EXISTS processed_parts_search_au
+AFTER UPDATE OF content ON processed_parts BEGIN
+  INSERT INTO processed_part_search (processed_part_search, rowid, content)
+  VALUES ('delete', OLD.row_key, ${chunkSearchText('OLD.content')});
+  INSERT INTO processed_part_search (rowid, content)
+  VALUES (NEW.row_key, ${chunkSearchText('NEW.content')});
+END''',
+];

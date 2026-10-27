@@ -80,6 +80,13 @@ class TrashedContents extends Table {
   /// soltarla se irían en cascada. Nulo si no había ninguno.
   TextColumn get datedEvents => text().nullable()();
 
+  /// Las partes de los documentos procesados que anclaban la forma (F41, v45),
+  /// en JSON: ver `encodeTrashedProcessedParts`. A diferencia de lo de arriba,
+  /// no se van con la forma —son una copia propia, y conservan su texto y sus
+  /// posiciones—: solo pierden el enlace, y recuperar la forma se lo devuelve.
+  /// Nulo si ninguna la anclaba.
+  TextColumn get processedParts => text().nullable()();
+
   /// Cuándo se soltó: a los 30 días se borra de verdad.
   DateTimeColumn get trashedAt => dateTime()();
 

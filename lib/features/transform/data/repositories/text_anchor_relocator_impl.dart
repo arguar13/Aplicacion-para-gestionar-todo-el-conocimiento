@@ -8,9 +8,9 @@ import 'package:sinapsis/features/transform/domain/usecases/reextraction.dart';
 /// [TextAnchorRelocator] sobre la base (F22).
 ///
 /// Escribe directo en `highlights`, `flashcards`, `flashcard_options`,
-/// `relations`, `study_marks` y `dated_events`: no hay otra forma de mover una
-/// posición, y es un ajuste del mismo dato —dónde está ese fragmento—, no una
-/// edición del usuario.
+/// `relations`, `study_marks`, `dated_events` y el ancla de `processed_parts`
+/// (F41): no hay otra forma de mover una posición, y es un ajuste del mismo
+/// dato —dónde está ese fragmento—, no una edición del usuario.
 class TextAnchorRelocatorImpl implements TextAnchorRelocator {
   const TextAnchorRelocatorImpl(this._db);
 
@@ -23,11 +23,14 @@ class TextAnchorRelocatorImpl implements TextAnchorRelocator {
     required String from,
     required String to,
   }) async {
-    ({int start, int end})? find(String excerpt, int oldStart) => locateExcerpt(
-      to,
-      excerpt,
-      near: from.isEmpty ? 0 : oldStart * to.length ~/ from.length,
-    );
+    // Un solo buscador para todo lo que se reubica: el texto nuevo sin cortes
+    // de renglón se arma una vez, no una por cada cosa (F41).
+    final locator = ExcerptLocator(to);
+    ({int start, int end})? find(String excerpt, int oldStart) =>
+        locator.locate(
+          excerpt,
+          near: from.isEmpty ? 0 : oldStart * to.length ~/ from.length,
+        );
 
     // El fragmento que marcaba una posición del texto viejo, si la posición
     // todavía tiene sentido en él.
@@ -61,6 +64,11 @@ class TextAnchorRelocatorImpl implements TextAnchorRelocator {
 
     await _relocateStudy(renditionId, from: from, to: to, find: find);
     await _relocateDatedEvents(renditionId, find: find);
+    await _relocateProcessedParts(
+      renditionId,
+      excerptAt: excerptAt,
+      find: find,
+    );
 
     final cards =
         await (_db.select(_db.flashcards)..where(
@@ -220,6 +228,38 @@ class TextAnchorRelocatorImpl implements TextAnchorRelocator {
           startOffset: Value(range?.start),
           endOffset: Value(range?.end),
         ),
+      );
+    }
+  }
+
+  /// Las partes de los documentos procesados que anclan el texto (F41): cada
+  /// una, por el pasaje que su ancla marcaba en el texto viejo —su propio
+  /// texto puede estar editado, y no es lo que hay que buscar—. La que ya no
+  /// se encuentra NO se va: es una copia propia, con su texto. Pierde el enlace
+  /// («Abrir en el original» ya no tiene dónde) y conserva sus posiciones.
+  Future<void> _relocateProcessedParts(
+    String renditionId, {
+    required String? Function(int? start, int? end) excerptAt,
+    required ({int start, int end})? Function(String excerpt, int oldStart)
+    find,
+  }) async {
+    final parts = await (_db.select(
+      _db.processedParts,
+    )..where((p) => p.sourceRenditionId.equals(renditionId))).get();
+    for (final part in parts) {
+      final start = part.sourceStart;
+      final range = start == null
+          ? null
+          : _relocated(excerptAt(start, part.sourceEnd), start, find);
+      await (_db.update(
+        _db.processedParts,
+      )..where((p) => p.id.equals(part.id))).write(
+        range == null
+            ? const ProcessedPartsCompanion(sourceRenditionId: Value(null))
+            : ProcessedPartsCompanion(
+                sourceStart: Value(range.start),
+                sourceEnd: Value(range.end),
+              ),
       );
     }
   }

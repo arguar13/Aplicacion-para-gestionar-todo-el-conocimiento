@@ -33,14 +33,16 @@ class NoteKindChips extends StatelessWidget {
         spacing: 8,
         runSpacing: 4,
         children: [
+          // Un documento procesado (F41) nace al triar, nunca desde acá.
           for (final kind in NoteKind.values)
-            ChoiceChip(
-              avatar: Icon(kind.icon, size: 18),
-              label: Text(kind.label(l10n)),
-              selected: selected == kind,
-              showCheckmark: false,
-              onSelected: onChanged == null ? null : (_) => onChanged(kind),
-            ),
+            if (kind != NoteKind.processed)
+              ChoiceChip(
+                avatar: Icon(kind.icon, size: 18),
+                label: Text(kind.label(l10n)),
+                selected: selected == kind,
+                showCheckmark: false,
+                onSelected: onChanged == null ? null : (_) => onChanged(kind),
+              ),
         ],
       ),
     );

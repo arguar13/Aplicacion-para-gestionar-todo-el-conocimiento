@@ -141,12 +141,14 @@ extension NoteKindPresentation on NoteKind {
     NoteKind.atomic => Icons.content_cut,
     NoteKind.living => Icons.spa_outlined,
     NoteKind.map => Icons.hub,
+    NoteKind.processed => Icons.article_outlined,
   };
 
   String label(AppLocalizations l10n) => switch (this) {
     NoteKind.atomic => l10n.noteKindAtomic,
     NoteKind.living => l10n.noteKindLiving,
     NoteKind.map => l10n.noteKindMap,
+    NoteKind.processed => l10n.noteKindProcessed,
   };
 
   /// `map` con un tono propio —`tertiary`—, mismo criterio que las
@@ -155,6 +157,7 @@ extension NoteKindPresentation on NoteKind {
   Color color(ColorScheme scheme) => switch (this) {
     NoteKind.atomic || NoteKind.living => scheme.onSurfaceVariant,
     NoteKind.map => scheme.tertiary,
+    NoteKind.processed => scheme.secondary,
   };
 }
 

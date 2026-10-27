@@ -17,24 +17,40 @@
   String text,
   String excerpt, {
   int near = 0,
-}) {
-  if (excerpt.isEmpty) return null;
+}) => ExcerptLocator(text).locate(excerpt, near: near);
 
-  final exact = _nearest(_allIndexes(text, excerpt), near);
-  if (exact != null) return (start: exact, end: exact + excerpt.length);
+/// [locateExcerpt] sobre UN texto para muchos fragmentos: el texto sin cortes
+/// de renglón —lo que cuesta lo que mide el texto— se arma una sola vez, la
+/// primera que un fragmento no aparece tal cual, y no una por fragmento. Es lo
+/// que deja reubicar las cientos de páginas de un libro procesado (F41) sin
+/// recorrer el libro una vez por página.
+class ExcerptLocator {
+  ExcerptLocator(this.text);
 
-  final haystack = _Normalized(text);
-  final needle = _Normalized(excerpt).text.trim();
-  if (needle.isEmpty) return null;
-  final found = _nearest(
-    _allIndexes(haystack.text, needle),
-    haystack.normalizedIndexOf(near),
-  );
-  if (found == null) return null;
-  return (
-    start: haystack.rawStart(found),
-    end: haystack.rawEnd(found + needle.length - 1),
-  );
+  final String text;
+
+  late final _Normalized _haystack = _Normalized(text);
+
+  /// Ver [locateExcerpt].
+  ({int start, int end})? locate(String excerpt, {int near = 0}) {
+    if (excerpt.isEmpty) return null;
+
+    final exact = _nearest(_allIndexes(text, excerpt), near);
+    if (exact != null) return (start: exact, end: exact + excerpt.length);
+
+    final needle = _Normalized(excerpt).text.trim();
+    if (needle.isEmpty) return null;
+    final haystack = _haystack;
+    final found = _nearest(
+      _allIndexes(haystack.text, needle),
+      haystack.normalizedIndexOf(near),
+    );
+    if (found == null) return null;
+    return (
+      start: haystack.rawStart(found),
+      end: haystack.rawEnd(found + needle.length - 1),
+    );
+  }
 }
 
 List<int> _allIndexes(String text, String pattern) {

@@ -110,4 +110,62 @@ abstract final class SetUnionRules {
             AND (m.excerpt = x.excerpt
                  OR (x.excerpt IS NULL AND m.excerpt IS NULL
                      AND m.title = x.title COLLATE NOCASE)))''';
+
+  /// La fuente de un documento procesado de la copia (F41), si puede quedar
+  /// enlazado a ella acá: la fuente existe —viva o en la papelera— y ningún
+  /// procesado de acá es el de esa fuente (uno por fuente). Si no, entra sin
+  /// enlace: su texto es suyo y no se pierde. Con los ids que salen de la
+  /// fuente (`processedDocumentIdFor`) el choque no ocurre; queda cubierto por
+  /// si una copia lo trae igual. El propio documento nunca cuenta como «otro»:
+  /// al entrar todavía no está acá, y al re-enlazarse no tiene fuente.
+  static const processedSourceOf =
+      'CASE WHEN EXISTS (SELECT 1 FROM main.item i '
+      'WHERE i.id = x.source_item_id) '
+      'AND NOT EXISTS (SELECT 1 FROM main.processed_documents m '
+      'WHERE m.source_item_id = x.source_item_id) '
+      'THEN x.source_item_id END';
+
+  /// Los documentos procesados (F41) que entran: los de la copia que acá no
+  /// están. Su elemento ya entró con los demás —o ya estaba: el mismo id es el
+  /// mismo procesado—.
+  static const processedDocumentsFrom =
+      '''
+      FROM $_incoming.processed_documents x
+     WHERE EXISTS (SELECT 1 FROM main.item i WHERE i.id = x.item_id)
+       AND NOT EXISTS (
+         SELECT 1 FROM main.processed_documents m WHERE m.item_id = x.item_id)''';
+
+  /// Las partes de documentos procesados (F41) que entran —con `lr` como la
+  /// forma de texto de acá donde cae su ancla, si cae—.
+  ///
+  /// - Es la misma parte si tiene el mismo id, o el mismo texto en la misma
+  ///   sección del mismo documento: dos dispositivos pudieron copiar lo mismo
+  ///   cada uno por su cuenta.
+  /// - El texto de un documento es uno solo: si acá ya tiene su sección
+  ///   «Texto», la de la copia no entra —sumarla lo repetiría entero, o
+  ///   mezclaría dos versiones página por página—. Lo demás se suma.
+  /// - El ancla va a la forma que le toca, como la cita de un hecho fechado; si
+  ///   no llegó, la parte entra igual, con su texto y sus posiciones, sin el
+  ///   enlace.
+  ///
+  /// [dryRun] es para contar sin escribir: los documentos nuevos todavía no
+  /// están acá, así que «el documento existe» se lee de la copia.
+  static String processedPartsFrom({bool dryRun = false}) =>
+      '''
+      FROM $_incoming.processed_parts x
+      LEFT JOIN ${_map(dryRun)} rm ON rm.incoming_id = x.source_rendition_id
+      LEFT JOIN main.renditions lr
+             ON lr.id = COALESCE(rm.local_id, x.source_rendition_id)
+            AND (rm.incoming_id IS NULL OR rm.local_id IS NOT NULL)
+     WHERE EXISTS (
+             SELECT 1 FROM ${dryRun ? _incoming : 'main'}.processed_documents d
+              WHERE d.item_id = x.document_id)
+       AND NOT EXISTS (SELECT 1 FROM main.processed_parts m WHERE m.id = x.id)
+       AND NOT EXISTS (
+         SELECT 1 FROM main.processed_parts m
+          WHERE m.document_id = x.document_id AND m.section = x.section
+            AND m.content = x.content)
+       AND (x.section <> 'text' OR NOT EXISTS (
+         SELECT 1 FROM main.processed_parts m
+          WHERE m.document_id = x.document_id AND m.section = 'text'))''';
 }

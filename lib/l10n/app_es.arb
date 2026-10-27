@@ -9903,5 +9903,18 @@
   "inboxQueueTextMissing": "Sin texto",
   "@inboxQueueTextMissing": {
     "description": "Lista de «N pendientes»: una fuente que terminó de procesarse sin texto (F41)."
+  },
+  "noteKindProcessed": "Procesado",
+  "@noteKindProcessed": {
+    "description": "Etiqueta del tipo de nota de un documento procesado (F41): la información pura que se sacó de una fuente al triarla."
+  },
+  "vaultMergePreviewProcessedParts": "{count, plural, =1{1 parte de un documento procesado} other{{count} partes de documentos procesados}}",
+  "@vaultMergePreviewProcessedParts": {
+    "description": "Renglón del resumen de unir bóvedas: partes de documentos procesados (F41) —páginas del texto, oraciones, notas o fragmentos— que la copia trae y esta bóveda no tiene.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

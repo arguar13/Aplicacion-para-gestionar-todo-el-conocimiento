@@ -20,6 +20,8 @@ class SetUnionResult {
     this.habitEvents = 0,
     this.studyMarks = 0,
     this.datedEvents = 0,
+    this.processedDocuments = 0,
+    this.processedParts = 0,
   });
 
   final int relations;
@@ -45,6 +47,10 @@ class SetUnionResult {
 
   /// Los hechos fechados dentro de un documento (F40).
   final int datedEvents;
+
+  /// Los documentos procesados (F41) y sus partes.
+  final int processedDocuments;
+  final int processedParts;
 }
 
 /// Las columnas de cada tabla que se une, en el orden en que se copian. Un test
@@ -112,6 +118,29 @@ const kDatedEventColumns = [
   'excerpt',
   'origin',
   'ai_run_id',
+  'created_at',
+  'updated_at',
+];
+const kProcessedDocumentColumns = [
+  'item_id',
+  'source_item_id',
+  'source_kind',
+  'created_at',
+];
+
+/// Todas menos `row_key`: es la clave local que usa el índice de texto, y una
+/// parte que entra recibe la suya.
+const kProcessedPartColumns = [
+  'id',
+  'document_id',
+  'section',
+  'position',
+  'content',
+  'origin',
+  'edited',
+  'source_rendition_id',
+  'source_start',
+  'source_end',
   'created_at',
   'updated_at',
 ];
@@ -496,6 +525,48 @@ class SetUnionMerge {
       updates: {_db.datedEvents},
     );
 
+    // Los documentos procesados (F41): el elemento de cada uno ya entró con los
+    // demás. El mismo id es el mismo procesado —sale de su fuente—, así que dos
+    // dispositivos que procesaron la misma fuente se juntan acá en vez de
+    // chocar con «uno por fuente».
+    final processedDocuments = await _union(
+      _db.processedDocuments,
+      'processed_documents',
+      kProcessedDocumentColumns,
+      SetUnionRules.processedDocumentsFrom,
+      select: {'source_item_id': SetUnionRules.processedSourceOf},
+    );
+    // Uno que acá perdió su fuente —se borró de verdad— y que en la copia la
+    // tiene vuelve a enlazarse, si la fuente volvió con la fusión.
+    await _db.customUpdate(
+      '''
+      UPDATE main.processed_documents
+         SET source_item_id = ${SetUnionRules.processedSourceOf}
+        FROM $_incoming.processed_documents x
+       WHERE x.item_id = processed_documents.item_id
+         AND processed_documents.source_item_id IS NULL
+         AND x.source_item_id IS NOT NULL
+      ''',
+      updates: {_db.processedDocuments},
+    );
+
+    // Sus partes, sumadas sin repetir: lo de la copia, después de lo de acá en
+    // cada sección, en su orden. El ancla va a la forma que le toca, o se
+    // queda sin enlace (con sus posiciones) si esa forma no llegó.
+    final processedParts = await _union(
+      _db.processedParts,
+      'processed_parts',
+      kProcessedPartColumns,
+      SetUnionRules.processedPartsFrom(),
+      select: {
+        'source_rendition_id': 'lr.id',
+        'position':
+            'x.position + COALESCE((SELECT MAX(m.position) + 1 '
+            'FROM main.processed_parts m WHERE m.document_id = x.document_id '
+            'AND m.section = x.section), 0)',
+      },
+    );
+
     return SetUnionResult(
       relations: relations,
       highlights: highlights,
@@ -509,6 +580,8 @@ class SetUnionMerge {
       habitEvents: habitEvents,
       studyMarks: studyMarks,
       datedEvents: datedEvents,
+      processedDocuments: processedDocuments,
+      processedParts: processedParts,
     );
   }
 

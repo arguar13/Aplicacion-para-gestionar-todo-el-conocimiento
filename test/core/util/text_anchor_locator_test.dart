@@ -52,4 +52,28 @@ void main() {
   test('las mayúsculas y las tildes sí cuentan: es otro texto', () {
     expect(locateExcerpt('Canción', 'cancion'), isNull);
   });
+
+  test('un buscador para muchos fragmentos del mismo texto encuentra lo '
+      'mismo que buscarlos de a uno (F41)', () {
+    const text =
+        'Una ex-\nplicación larga. Otra frase   partida\nen dos. '
+        'Aleluya. Santo. Aleluya.';
+    final locator = ExcerptLocator(text);
+    for (final (excerpt, near) in [
+      ('explicación larga', 0),
+      ('Otra frase partida en dos.', 0),
+      ('Aleluya', 60),
+      ('Aleluya', 0),
+      ('no está', 0),
+      ('', 0),
+      ('   ', 0),
+    ]) {
+      expect(
+        locator.locate(excerpt, near: near),
+        locateExcerpt(text, excerpt, near: near),
+        reason: excerpt,
+      );
+    }
+    expect(locator.text, text);
+  });
 }
