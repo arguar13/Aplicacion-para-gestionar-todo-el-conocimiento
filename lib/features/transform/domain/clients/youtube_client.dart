@@ -26,17 +26,24 @@ sealed class YouTubeVideoData with _$YouTubeVideoData {
     Duration? duration,
     String? description,
 
-    /// Vacía si el video no tiene subtítulos de ninguna clase.
+    /// Vacía si el video no tiene subtítulos de ninguna clase, o ninguno en
+    /// un idioma de fiar.
     ///
     /// Que esté vacía no es un fallo: hay videos sin subtítulos, y para esos
-    /// el camino es transcribir el audio (fase posterior). Mientras tanto, el
-    /// título y el autor ya valen la pena.
+    /// el camino es transcribir el audio. Mientras tanto, el título y el
+    /// autor ya valen la pena.
     @Default(<TranscriptLine>[]) List<TranscriptLine> transcript,
 
-    /// El idioma de [transcript], como código de dos letras ("es", "en"):
-    /// el idioma en que se habla, salvo que no hubiera subtítulos en ese
-    /// idioma. Nulo si no hay transcripción (F22).
+    /// El idioma de [transcript], como código de dos letras ("es", "en"): el
+    /// idioma en que se habla o el que eligió el usuario, nunca otro. Nulo
+    /// si no hay transcripción (F22).
     String? transcriptLanguage,
+
+    /// El idioma en que se habla el video, como código de dos letras, si se
+    /// pudo saber: el de su audio original, el de su pista automática o el
+    /// del título y la descripción. Con él se transcribe el audio en el
+    /// teléfono cuando no hay subtítulos de fiar (F22). Nulo si no se sabe.
+    String? spokenLanguage,
   }) = _YouTubeVideoData;
 }
 
@@ -51,9 +58,10 @@ abstract interface class YouTubeClient {
   /// Los subtítulos son los del idioma en que se HABLA en el video, hechos
   /// por una persona si los hay y si no los automáticos: nunca una
   /// traducción teniendo el original (F22). [preferredLanguages] —los que
-  /// eligió el usuario para este elemento— pasan adelante de eso. Sin pista
-  /// en el idioma hablado, se recorren español e inglés, y si no la primera
-  /// que haya: más vale una transcripción en otro idioma que ninguna.
+  /// eligió el usuario para este elemento— pasan adelante de eso. Si no se
+  /// sabe qué se habla, los del idioma de quien usa la app. **Sin pista en
+  /// un idioma de fiar, la transcripción viene vacía** —no se baja una de
+  /// otro idioma—, y quien llama transcribe el audio.
   Future<YouTubeVideoData> fetchVideo(
     String videoId, {
     List<String> preferredLanguages,

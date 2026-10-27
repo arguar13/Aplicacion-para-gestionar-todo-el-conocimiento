@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -23,6 +24,25 @@ bool canReextractText(KnowledgeItem item) {
     SourceKind.image => item.source.originalFilePath != null,
     _ => false,
   };
+}
+
+/// El idioma con que se abre el diálogo de volver a extraer el texto de
+/// [source] (F22).
+///
+/// El que tiene guardado, salvo en un video de YouTube cuyo idioma no es de
+/// los que se ofrecen: ese idioma no lo eligió nadie, lo puso la app al
+/// guardar la pista de subtítulos que bajó, y si la pista era de otro idioma
+/// que el que se habla —un video en español con subtítulos en árabe— dejarlo
+/// elegido volvía a bajar la misma. Sin idioma guardado, el de quien usa la
+/// app.
+String reextractInitialLanguage(Source source) {
+  final saved = source.language;
+  if (saved == null) return defaultTranscriptionLanguage;
+  if (source.kind == SourceKind.youtube &&
+      !transcriptionLanguages.contains(saved)) {
+    return defaultTranscriptionLanguage;
+  }
+  return saved;
 }
 
 /// Los idiomas que se ofrecen para un audio, por su nombre en su propio
@@ -56,7 +76,7 @@ Future<void> reextractText(
     context: context,
     builder: (context) => _ReextractDialog(
       asksLanguage: asksLanguage,
-      initialLanguage: item.source.language ?? defaultTranscriptionLanguage,
+      initialLanguage: reextractInitialLanguage(item.source),
     ),
   );
   if (chosen == null) return;

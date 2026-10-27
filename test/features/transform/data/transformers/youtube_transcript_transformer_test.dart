@@ -221,6 +221,63 @@ void main() {
       expect(temp.listSync(), isEmpty);
     });
 
+    group('en qué idioma se transcribe el audio', () {
+      Future<List<String>> transcribedLanguages({
+        String? spoken,
+        String? chosen,
+      }) async {
+        final temp = Directory.systemTemp.createTempSync('yt_audio');
+        addTearDown(() => temp.deleteSync(recursive: true));
+        final transcriber = FakeAudioTranscriber(text: '[0:00] Hola');
+
+        await YouTubeTranscriptTransformer(
+          client: FakeYouTubeClient(
+            // Sin subtítulos de fiar: aunque el video tenga en árabe, el
+            // cliente no los baja (F22).
+            data: YouTubeVideoData(title: 'Un video', spokenLanguage: spoken),
+          ),
+          ids: ids,
+          clock: () => now,
+          transcriber: transcriber,
+          temporaryDirectory: () async => temp,
+        ).transform(videoItem(language: chosen));
+        return transcriber.languages;
+      }
+
+      test('el que se sabe que se habla en el video', () async {
+        expect(await transcribedLanguages(spoken: 'en'), ['en']);
+      });
+
+      test('el que eligió el usuario pasa adelante', () async {
+        expect(await transcribedLanguages(spoken: 'en', chosen: 'pt'), ['pt']);
+      });
+
+      test('sin saber qué se habla, el de quien usa la app', () async {
+        expect(await transcribedLanguages(), ['es']);
+      });
+
+      test('y el idioma queda guardado: el transcrito, no el de unos '
+          'subtítulos que no se bajaron', () async {
+        final temp = Directory.systemTemp.createTempSync('yt_audio');
+        addTearDown(() => temp.deleteSync(recursive: true));
+
+        final result = await YouTubeTranscriptTransformer(
+          client: FakeYouTubeClient(
+            data: const YouTubeVideoData(
+              title: 'A talk about the universe',
+              spokenLanguage: 'en',
+            ),
+          ),
+          ids: ids,
+          clock: () => now,
+          transcriber: FakeAudioTranscriber(text: '[0:00] Hola'),
+          temporaryDirectory: () async => temp,
+        ).transform(videoItem());
+
+        expect(result.source.language, 'en');
+      });
+    });
+
     test('el audio bajado para transcribir queda como el audio del video, '
         'para escucharlo debajo de su vista previa sin bajarlo de nuevo '
         '(F24)', () async {

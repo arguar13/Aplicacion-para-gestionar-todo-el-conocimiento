@@ -501,7 +501,15 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
        su cita (ver [Buscar fechas con IA, a pedido](#buscar-fechas-con-ia-a-pedido)).
        Aparece cuando el elemento ya está listo y tiene algo escrito.
      - **Volver a extraer el texto**: vuelve a leer el original (podés
-       elegir el idioma en que se habla, si es un audio o video).
+       elegir el idioma en que se habla, si es un audio o video). En un
+       video de YouTube, la transcripción es siempre **en el idioma en que se
+       habla**: se baja la pista de subtítulos de ese idioma (la automática
+       de YouTube dice cuál es, y si el video tiene audio doblado se mira el
+       original). Si el video solo trae subtítulos en otros idiomas —una
+       traducción al árabe, por ejemplo, en un video hablado en español—, no
+       se guarda ninguno: la app transcribe el audio en el teléfono, que dice
+       lo que se dijo de verdad. Si un video te quedó con la transcripción en
+       otro idioma, **volver a extraer el texto** lo arregla.
      - **Quitar marcas de tiempo**: saca las marcas "[3:15]" de una
        transcripción.
      - **Borrar archivo, quedarme con el texto**: libera espacio en un

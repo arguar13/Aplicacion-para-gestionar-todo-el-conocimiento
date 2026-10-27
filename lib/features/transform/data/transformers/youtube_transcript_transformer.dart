@@ -97,16 +97,24 @@ class YouTubeTranscriptTransformer implements Transformer {
     );
     final now = _clock();
 
-    // Sin subtítulos de ninguna clase: lo dicho se saca del audio (F22).
+    // Sin subtítulos en un idioma de fiar —ninguno, o solo traducciones a
+    // otro idioma que el que se habla—: lo dicho se saca del audio (F22).
     var renditions = _renditionsFor(item.id, data, now);
     var language = data.transcriptLanguage ?? item.source.language;
     String? audioPath;
     if (data.transcript.isEmpty) {
+      // En el idioma que eligió el usuario; si no, en el que se sabe que se
+      // habla en el video; si no, en el de quien usa la app.
+      final audioLanguage =
+          item.source.language ??
+          data.spokenLanguage ??
+          defaultTranscriptionLanguage;
       final transcribed = await _transcribeAudio(
         videoId,
         item,
         context,
         title: data.title,
+        language: audioLanguage,
       );
       audioPath = transcribed?.audioPath;
       final spoken = transcribed?.transcript;
@@ -122,7 +130,7 @@ class YouTubeTranscriptTransformer implements Transformer {
             wordTimings: spoken.words,
           ),
         ];
-        language = item.source.language ?? defaultTranscriptionLanguage;
+        language = audioLanguage;
       }
     }
 
@@ -157,6 +165,7 @@ class YouTubeTranscriptTransformer implements Transformer {
     KnowledgeItem item,
     TransformContext context, {
     required String title,
+    required String language,
   }) async {
     final transcriber = _transcriber;
     final temporaryDirectory = _temporaryDirectory;
@@ -178,7 +187,7 @@ class YouTubeTranscriptTransformer implements Transformer {
       final checkpoints = _checkpoints;
       final transcript = await transcriber.transcribe(
         audioPath,
-        language: item.source.language ?? defaultTranscriptionLanguage,
+        language: language,
         session: TranscriptionSession(
           context: context,
           workKey: item.id,
