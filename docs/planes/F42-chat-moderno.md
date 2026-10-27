@@ -1,6 +1,6 @@
 # F42 — Un chat moderno, inmersivo y elegante
 
-> **Estado: PROPUESTO** (2026-10-27). Se aprueba escribiendo «aprobado» en el chat.
+> **Estado: APROBADO** (2026-10-27, «Aprobado» en el chat).
 >
 > Pedido del dueño, con una captura del chat actual y cinco de apps reales (Gemini, Copilot,
 > Claude y ChatGPT) como guía de estilo, no para copiarlas: *"La interfaz de nuestro chat está
