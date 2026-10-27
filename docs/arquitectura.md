@@ -6614,6 +6614,99 @@ arreglos pedidos en el chat. Plan, con el «Avance» de cada paso:
   - Falta mirarlo en el teléfono, en especial el viewport ancho y las dos barritas en el `WebView`
     de Android.
 
+### 84. F40: la línea de tiempo con IA, interactiva y dentro de Organizar
+
+**Pedido** (2026-10-26): *"que esa pestaña también tenga una opción para que se organice con IA
+(además de manualmente) … que detecte de un texto, archivo, audio o lo que fuere fechas o años y
+los ponga ahí, que sea inteligente y la línea de tiempo muy interactiva elegante y se pueda filtrar
+por un documento en específico o un tema en específico o que aparezca todo ahí por defecto"*, y
+ubicarla en Organizar, arriba del Atlas. Durante el encargo se sumó el detalle en blanco desde el
+Atlas. Plan, con el «Avance» de cada paso: `docs/planes/F40-linea-de-tiempo-con-ia.md`.
+
+- **Un hecho fechado es una fecha dentro de un documento** (`dated_events`, esquema v44): título,
+  fecha, fin opcional, la cita en el texto (`renditionId` y posiciones del texto entero, como
+  `study_marks`) y quién lo puso (`ContentOrigin`, `aiRunId`).
+  - **Decisión C**: «Fecha del hecho» sigue siendo la fecha del elemento entero y no se migra. La
+    línea lee los dos orígenes con los mismos filtros y la papelera (`watchEvents`), y
+    `TimelineEvent` dice de cuál viene cada uno.
+  - El hecho se va con su elemento y con su texto. Viaja en la papelera del contenido, en la copia
+    y en la unión de bóvedas, que lo re-apunta al texto que guardó la cita. Al volver a extraer, la
+    cita se reubica por su fragmento; si ya no está, el hecho conserva fecha y título sin ancla.
+  - Quitar un hecho de la IA lo anota en la memoria de «no era» (`AiRejectionKind.datedEvent`:
+    elemento, fecha de inicio y cita normalizada). Editarlo lo vuelve de la persona.
+- **En Organizar, con un solo dueño del filtro.** La línea es la rama `ShellBranch.timeline`
+  (Bandeja · Línea de tiempo · Atlas · Mapa), sumada al final del enum y del router para no correr
+  índices. **Decisión A**: sale el ícono de la Biblioteca.
+  - La pantalla vive en el `IndexedStack` y no se vuelve a construir, así que el recorte no puede
+    viajar por el constructor ni por la dirección. Por eso `timelineFilterProvider` (un
+    `TimelineFilter`: recorte, búsqueda y panel) es el único dueño: el Atlas y el detalle lo fijan
+    con `focusOn` antes de navegar.
+- **El detector, en dos tiempos, y nada inventado.** Primero sin IA: `findTemporalExpressions`
+  marca las expresiones de tiempo en español e inglés, y `selectDatedParts` arma solo los pasajes
+  fechados, al tamaño del modelo. Después la IA, con una línea `HECHO` por hecho. Así un libro no se
+  manda entero y Gemma alcanza.
+  - `parseDatedEventsReply` descarta lo que el texto no dice: la cita tiene que ubicarse en el
+    texto entero, y la fecha (y su fin) tienen que ser la lectura de una expresión de la cita.
+  - `parseNormalizedDate` rechaza lo ambiguo: un año con signo, décadas a.C., `1900s`.
+  - **Decisión D**: sin año no se toma; «los años 20» solo con un año cerca que diga el siglo.
+- **Decisión B: la IA pone los hechos directo**, con ✨, sin pasar por la Bandeja. Cada uno trae su
+  cita y se revisa en la propia línea. Deshacer la pasada los saca, y «Lo que hizo la IA» cuenta
+  «N fechas» (`dates_created`).
+- **El detalle, en el `Navigator` de la raíz** (`parentNavigatorKey`, una llave por router). Desde
+  una ruta de la raíz que está encima del shell (el material de un tema, la lectura, el mapa
+  local), empujar una subruta del shell apilaba un segundo `StatefulShellRoute` con la misma clave
+  de página, y el detalle salía en blanco. Ahora es un solo destino, igual desde todos lados, y va
+  a pantalla completa.
+- **La IA busca las fechas en su propia fila de la cola** (`AutoDatesStep`, `AiRunScope.dates`).
+  - El paso lee el mismo texto que abre la lectura, arma los pedidos al tamaño del modelo de ese
+    momento y guarda al terminar cada pedido, así que los hechos aparecen mientras se leen.
+  - Un texto sin fechas no llama al modelo ni deja pasada: «Todo» sobre miles de elementos no llena
+    «Lo que hizo la IA» de pasadas vacías.
+  - **Retomable sin pagar dos veces:** si el modelo se corta a mitad de un libro, la cola retoma en
+    la misma pasada desde el pasaje donde quedó. Es memoria de sesión, que vale mientras el texto
+    y su forma no cambien; si se pierde, `addFromAi` no duplica.
+  - La fila no depende de los interruptores de tipo, del modelo de vínculos ni del cargador, y una
+    pasada de solo fechas no cuenta como haber organizado el elemento. Respeta la pausa y los
+    cortes de F39.
+  - **El interruptor «Fechas para la línea de tiempo» viene prendido**, como todos (F27): es
+    barato donde no hay fechas, y lo que pone lleva su cita y se deshace. A pedido, «Organizar con
+    IA» en la línea (Todo · Tema · Documento, cualquier documento listo) y «Buscar fechas con IA»
+    en el detalle.
+- **La ficha del hecho no sale de la línea.** Muestra la cita con la fecha resaltada, que ubica
+  `locateEventDate` (la expresión que lee lo mismo que el hecho), y «Abrir en el documento» va al
+  lector por el mismo camino de las tarjetas. Quitar se deshace y olvida el «no era».
+- **Un color por documento que sale solo del id** (FNV-1a sobre `itemId`, 24 colores): no cambia
+  al filtrar ni al volver a abrir. Se ajusta a cada tema hasta 3:1 de contraste, y solo se pinta
+  así con dos documentos o más a la vista. Los tramos van en el mismo `CustomPaint`, sin pasar de
+  400 cajas con 10.000 hechos.
+- **Un hecho sin documento va a la nota viva «Hechos sueltos».** `dated_events.item_id` sigue
+  obligatorio: la papelera, la copia, la unión de bóvedas, el deshacer y el «no era» cuelgan del
+  elemento, y una columna que admitiera nulo rompía esos censos. La nota se crea al guardar el
+  primero, no al elegir la opción.
+- **«A la línea de tiempo» en la barrita de resaltar**, en las cuatro superficies. La cita se
+  guarda en posiciones del contenido crudo, como los resaltados de F38, y la fecha que trae viene
+  cargada.
+- **El detector recorre una sola vez.** Para el siglo de «los años 20» solo hay dos candidatos, el
+  último año de antes y el primero de después, porque los años vienen en orden y sin solapes.
+  Compararla con todos los años del texto tardaba al cuadrado en un libro con muchas décadas. La
+  prueba mide cómo crece el tiempo y no cuánto tarda, así que no falla con la máquina cargada.
+- **Cuadernos pasa a «Organizar», debajo del Mapa, y «Preguntar» es el chat solo** (pedido del
+  dueño durante F40). Un cuaderno junta un grupo de elementos, que es una forma de ordenarlos. Con
+  un solo destino, el botón del medio sigue la regla de F34 (decisión 76): se ve como el chat y lo
+  abre directo, sin lista. La clave `navStepAsk` sale, y `NavStep.ask` pasa a los pasos de un
+  destino solo, que fallan si se les suma otro sin decidir antes cómo se ven. En la web, sin chat,
+  la barra queda con cuatro pasos.
+- **Se descartó:**
+  - Migrar «Fecha del hecho» a hechos fechados (decisión C).
+  - Mandar el texto entero al modelo.
+  - Una revisión previa de a uno en la Bandeja (decisión B).
+  - Llevar el recorte por la dirección: la rama no se reconstruye.
+  - Un hecho con `item_id` nulo para «Sin documento».
+- **Lo que no quedó probado:**
+  - Falta mirarla en el teléfono: el ancho de la barra con sus dos botones, los gestos sobre el
+    eje y la barrita con siete acciones.
+  - Las fechas con un modelo real (Gemma o la nube): las pruebas usan un modelo falso.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -7080,6 +7173,17 @@ arreglos pedidos en el chat. Plan, con el «Avance» de cada paso:
   - la página web guardada se ve igual a la original.
 
   Ver la decisión 83.
+- **F40, la línea de tiempo con IA, dentro de Organizar.** Va arriba del Atlas y se filtra por
+  Todo, Tema o Documento. Además de la «Fecha del hecho» de cada elemento, guarda los hechos
+  fechados dentro de un documento, con su cita (v44):
+  - la IA los busca sola con cada elemento nuevo, o a pedido sobre todo, un tema o un documento,
+    sin inventar fechas ni mandar el texto entero;
+  - se agregan a mano o desde la barrita de resaltar;
+  - cada hecho tiene su ficha, que abre el documento en la cita;
+  - hay un color por documento, tramos de punta a punta y la cita al mantener apretado.
+
+  De paso, el detalle sale igual desde todos lados (antes, en blanco desde el Atlas), los
+  Cuadernos pasan a «Organizar» y el botón del medio abre el chat directo. Ver la decisión 84.
 
 ### Por construir
 

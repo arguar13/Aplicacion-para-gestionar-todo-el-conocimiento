@@ -203,6 +203,21 @@ desde F13):
     - hay nueve temas con su muestra y nueve colores para resaltar;
     - la vista previa del mapa no encima nada y la del documento queda fija en la página 1;
     - la página web guardada se ve igual a la original.
+- **F40** — **la línea de tiempo con IA, dentro de Organizar** (decisión 84).
+  - **En Organizar, arriba del Atlas**, filtrada por Todo, Tema o Documento con un solo dueño del
+    filtro. El Atlas y el detalle la abren recortada.
+  - **Los hechos fechados dentro de un documento** (esquema v44), con su cita y quién los puso.
+    Viajan en la papelera, la copia y la unión de bóvedas.
+  - **La IA busca las fechas**: un detector sin IA arma solo los pasajes con fechas, y el modelo
+    devuelve hechos que se verifican contra el texto. Va sola con lo nuevo («Fechas para la línea
+    de tiempo», prendido) o a pedido sobre todo, un tema o un documento. Es retomable y se deshace.
+  - **A mano**: «Agregar un hecho» y «A la línea de tiempo» en la barrita de resaltar.
+  - **La línea**: ficha del hecho con «Abrir en el documento», un color por documento con su
+    leyenda, tramos y la cita al mantener apretado.
+  - **Además**:
+    - el detalle sale igual desde todos lados (antes, en blanco desde el Atlas);
+    - la vista previa de unir bóvedas cuenta lo estudiado y los hechos;
+    - Cuadernos va en «Organizar» y el botón del medio abre el chat directo.
 
 ## 5. Estado actual
 
@@ -231,11 +246,12 @@ desde F13):
 > en vivo, más temas) está construida** (2026-10-26):
 > `docs/planes/F39-tarjeta-en-todo-y-escuchar-lo-estudiado.md`. Esquema v43.
 >
-> **F40 (la línea de tiempo con IA, dentro de Organizar) está en curso**:
-> `docs/planes/F40-linea-de-tiempo-con-ia.md`.
+> **F40 (la línea de tiempo con IA, dentro de Organizar) está construida** (2026-10-26):
+> `docs/planes/F40-linea-de-tiempo-con-ia.md`. Esquema v44. Falta mirarla en el teléfono y probar
+> las fechas con un modelo real; la APK se instala solo si el dueño la pide.
 
 
-- `origin/main` = el commit «docs: cierre de F39». **Suite: 9.536 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre).
+- `origin/main` = el commit «docs: cierre de F40». **Suite: 10.331 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre).
   **Analizador: 19 avisos.** Es la línea base de `tool/verify_commit.ps1` y **no puede crecer**.
 - Hay cinco archivos con cambios de solo formato que no son de este trabajo y no se commitean:
   - `lib/core/database/tables/suggestions.dart`

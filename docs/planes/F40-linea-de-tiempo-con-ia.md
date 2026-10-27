@@ -1,7 +1,9 @@
 # F40 — La línea de tiempo, organizada con IA, interactiva y dentro de Organizar
 
-> **Estado: APROBADO** (2026-10-26, *«Apruebo ese futuro plan»* en el chat, antes de escribirlo).
-> Las decisiones de abajo van como se proponen. Se pueden cambiar mientras no se llegue a su paso.
+> **Estado: CONSTRUIDO** (2026-10-26): los siete pasos y los pedidos sumados, cada uno con su
+> commit; ver «Avance» y la decisión 84. Falta solo mirarlo en el teléfono, si el dueño lo pide.
+>
+> Aprobado el 2026-10-26 (*«Apruebo ese futuro plan»* en el chat, antes de escribirlo).
 > Pedido del mismo día, en el chat:
 >
 > - *"que esa pestaña también tenga una opción para que se organice con IA (además de
@@ -389,3 +391,12 @@ carta de 1810). Un hecho fechado es una fecha **dentro** de un documento.
   - Pruebas de la lista, de la barra, del riel y de la web. De las mutaciones mueren las dos
     observables; la tercera, darle aspecto propio a «Preguntar», es código que con un solo destino
     no se ejecuta.
+
+- **Paso 7, el cierre — hecho.** La decisión 84 en `docs/arquitectura.md` (y F40 en «Construido»),
+  CONTEXTO al día y la GUÍA de cada paso.
+  - **Suite entera** sobre los pasos 1 a 6 integrados (`f18a8f28`): 10.331 pruebas pasan, 0 fallas,
+    46 omitidas (las de siempre), con PDFium real. El cambio de navegación posterior pasó las 396
+    de `test/app`, los cuadernos y el chat.
+  - `verify_commit` en cada commit; el analizador queda en 19.
+  - **Falta, a pedido:** mirarla en el teléfono (la barra con sus dos botones, los gestos sobre el
+    eje, la barrita con siete acciones) y probar las fechas con un modelo real.
