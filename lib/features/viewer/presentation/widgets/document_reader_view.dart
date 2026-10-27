@@ -81,6 +81,7 @@ class DocumentReaderView extends ConsumerStatefulWidget {
     this.showFontControls = false,
     this.controlsAtBottom = false,
     this.study,
+    this.showStudyBar = true,
     super.key,
   });
 
@@ -105,6 +106,10 @@ class DocumentReaderView extends ConsumerStatefulWidget {
   /// adjunto, que no se estudia—, no se pinta nada.
   final StudyText? study;
 
+  /// Si abajo van los botones de estudiar. Dentro de la tarjeta de estudiar
+  /// del detalle, que ya los tiene arriba, no: se repetirían.
+  final bool showStudyBar;
+
   @override
   ConsumerState<DocumentReaderView> createState() => _DocumentReaderViewState();
 }
@@ -116,11 +121,21 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
   /// [splitIntoReaderPages]—; así cuesta lo mismo que unas pocas páginas.
   static const _readAheadPages = 20;
 
-  late final _ranges = readerPageRanges(widget.content);
-  late final _pages = [
-    for (final range in _ranges)
-      widget.content.substring(range.start, range.end),
-  ];
+  /// Dónde está cada página, o `null` mientras se parte el libro. Uno largo
+  /// se parte en otro hilo —recorre todo el texto—, y entretanto se ve un
+  /// indicador; uno corto, en el momento.
+  List<({int start, int end})>? _ranges;
+
+  /// Cuántas páginas tiene el libro; 0 mientras se parte.
+  int get _pageCount => _ranges?.length ?? 0;
+
+  /// El texto de la página [index], cortado recién cuando se pide: copiar las
+  /// mil páginas de un libro al abrirlo costaría lo que no cuesta mostrarlo.
+  String _pageText(int index) {
+    final range = _ranges![index];
+    return widget.content.substring(range.start, range.end);
+  }
+
   late final _controller = PageController();
   var _pageIndex = 0;
 
@@ -163,14 +178,14 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
     if (cached != null && cached.$1 == from && identical(cached.$2, studied)) {
       return cached.$3;
     }
-    final until = (from + _readAheadPages).clamp(0, _pages.length);
+    final until = (from + _readAheadPages).clamp(0, _pageCount);
     final document = ReadableDocument(
       id: '$_book:from:$from',
       title: widget.title,
       segments: [
         for (var page = from; page < until; page++)
           ...(_pageSegments[page] ??= buildReadableSegments(
-            _pages[page],
+            _pageText(page),
             sourceKey: _pageKey(page),
             markdown: widget.markdown,
           )),
@@ -179,7 +194,7 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
         for (final MapEntry(:key, :value) in studied.entries)
           key: readerPageSegments(
             value,
-            _ranges,
+            _ranges!,
             from: from,
             until: until,
             keyOf: _pageKey,
@@ -196,13 +211,30 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
   /// anterior—, de un salto, sin armar las del medio.
   void _followReader(String? sourceKey) {
     final page = _pageOf(sourceKey);
-    if (page == null || page == _pageIndex || page >= _pages.length) return;
+    if (page == null || page == _pageIndex || page >= _pageCount) return;
     if (!_controller.hasClients) return;
     if ((page - _pageIndex).abs() == 1) {
       _goTo(page);
     } else {
       _controller.jumpToPage(page);
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.content.length <= kReaderInlineChars) {
+      _ranges = readerPageRanges(widget.content);
+    } else {
+      unawaited(_paginate());
+    }
+  }
+
+  Future<void> _paginate() async {
+    final content = widget.content;
+    final ranges = await readerPageRangesOff(content);
+    if (!mounted) return;
+    setState(() => _ranges = ranges);
   }
 
   @override
@@ -223,7 +255,7 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
     final chosen = await showDialog<int>(
       context: context,
       builder: (context) =>
-          _PagePickerDialog(current: _pageIndex, total: _pages.length),
+          _PagePickerDialog(current: _pageIndex, total: _pageCount),
     );
     if (chosen != null) _goTo(chosen);
   }
@@ -241,7 +273,10 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
       (previous, next) => _followReader(next),
     );
 
-    if (_pages.isEmpty) return const SizedBox.shrink();
+    if (_ranges == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_pageCount == 0) return const SizedBox.shrink();
 
     final studied = switch (widget.study) {
       final study? => ref.watch(studyReadScopesProvider(study)),
@@ -258,8 +293,8 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_pages.length > 1)
-          LinearProgressIndicator(value: (_pageIndex + 1) / _pages.length),
+        if (_pageCount > 1)
+          LinearProgressIndicator(value: (_pageIndex + 1) / _pageCount),
         if (widget.showFontControls)
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
@@ -290,10 +325,10 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
         Expanded(
           child: PageView.builder(
             controller: _controller,
-            itemCount: _pages.length,
+            itemCount: _pageCount,
             onPageChanged: (index) => setState(() => _pageIndex = index),
             itemBuilder: (context, index) => _ReaderPage(
-              content: _pages[index],
+              content: _pageText(index),
               fontScale: fontScale,
               markdown: widget.markdown,
               sourceKey: _pageKey(index),
@@ -303,7 +338,7 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
                   renditionId: study.renditionId,
                   content: widget.content,
                   markdown: study.markdown,
-                  start: _ranges[index].start,
+                  start: _ranges![index].start,
                 ),
                 null => null,
               },
@@ -321,25 +356,28 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     if (widget.study case final study?)
-                      Expanded(
-                        child: StudyBar(text: study, padding: EdgeInsets.zero),
-                      )
+                      if (widget.showStudyBar)
+                        Expanded(
+                          child: StudyBar(
+                            text: study,
+                            padding: EdgeInsets.zero,
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink()
                     else
-                      SummarizeButton(content: _pages[_pageIndex]),
+                      SummarizeButton(content: _pageText(_pageIndex)),
                   ],
                 ),
               ),
-              if (_pages.length > 1)
+              if (_pageCount > 1)
                 _PageControls(
-                  label: l10n.documentReaderPageOf(
-                    _pageIndex + 1,
-                    _pages.length,
-                  ),
+                  label: l10n.documentReaderPageOf(_pageIndex + 1, _pageCount),
                   onLabelTap: () => _openPagePicker(l10n),
                   onPrevious: _pageIndex > 0
                       ? () => _goTo(_pageIndex - 1)
                       : null,
-                  onNext: _pageIndex < _pages.length - 1
+                  onNext: _pageIndex < _pageCount - 1
                       ? () => _goTo(_pageIndex + 1)
                       : null,
                 ),

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Corta el contenido de un documento en páginas para el modo de lectura,
 /// para que `DocumentReaderScreen` nunca tenga que ponerle formato ni
 /// dibujar el libro entero de una sola vez.
@@ -165,4 +167,56 @@ void _hardSplit(
     e--;
   }
   return s < e ? (start: s, end: e) : null;
+}
+
+/// Hasta cuántos caracteres de [readerPageRanges] se calculan directo, sin
+/// pasar a otro hilo: más largo es un libro, y partirlo entero lleva segundos
+/// en un teléfono.
+const kReaderInlineChars = 40000;
+
+/// La primera página de [content] —la misma que `readerPageRanges(content)
+/// .first`— sin partir el libro entero: mirando solo el comienzo.
+///
+/// Una vista previa necesita una hoja, no las mil del libro. Se parte un
+/// tramo del comienzo, de unas ocho páginas; si ahí salen al menos tres, la
+/// primera es la de siempre: lo que corta el final del tramo —un párrafo, un
+/// separador— solo toca a la última página. Si no salen —un comienzo de
+/// renglones en blanco, una primera página larguísima— se parte el texto
+/// entero, que es raro y da lo mismo.
+({int start, int end})? firstReaderPageRange(
+  String content, {
+  int targetPageLength = 2400,
+}) {
+  final window = targetPageLength * 8;
+  if (content.length > window) {
+    final head = readerPageRanges(
+      content.substring(0, window),
+      targetPageLength: targetPageLength,
+    );
+    if (head.length >= 3) return head.first;
+  }
+  return readerPageRanges(
+    content,
+    targetPageLength: targetPageLength,
+  ).firstOrNull;
+}
+
+/// [readerPageRanges] como números sueltos —`inicio, fin, inicio, fin…`—,
+/// para mandarlos de otro hilo sin armar un objeto por página.
+List<int> readerPageBounds(String content) => [
+  for (final page in readerPageRanges(content)) ...[page.start, page.end],
+];
+
+/// Las páginas que dan los [bounds] de [readerPageBounds].
+List<({int start, int end})> readerPagesFromBounds(List<int> bounds) => [
+  for (var i = 0; i < bounds.length; i += 2)
+    (start: bounds[i], end: bounds[i + 1]),
+];
+
+/// Las páginas de [content] sin trabar la interfaz: un libro largo se parte en
+/// otro hilo —`readerPageRanges` recorre todo el texto—; uno corto, acá, que
+/// mandarlo a otro hilo costaría más que partirlo.
+Future<List<({int start, int end})>> readerPageRangesOff(String content) async {
+  if (content.length <= kReaderInlineChars) return readerPageRanges(content);
+  return readerPagesFromBounds(await compute(readerPageBounds, content));
 }

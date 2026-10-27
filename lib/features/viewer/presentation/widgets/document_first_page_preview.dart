@@ -59,10 +59,11 @@ class _DocumentFirstPagePreviewState
   /// volver a cortar el libro.
   late ({String text, int start}) _page = _firstPage();
 
+  /// Solo el comienzo del libro se parte: abrir el detalle de uno de millones
+  /// de caracteres cuesta lo mismo que el de uno corto.
   ({String text, int start}) _firstPage() {
-    final ranges = readerPageRanges(widget.content);
-    if (ranges.isEmpty) return (text: '', start: 0);
-    final first = ranges.first;
+    final first = firstReaderPageRange(widget.content);
+    if (first == null) return (text: '', start: 0);
     return (
       text: widget.content.substring(first.start, first.end),
       start: first.start,

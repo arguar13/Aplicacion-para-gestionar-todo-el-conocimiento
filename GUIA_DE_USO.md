@@ -794,7 +794,12 @@ qué hacer, y **«Reintentar»** sigue desde donde quedó.
 
 - **Extraer texto**: el texto extraído de siempre, con todo lo de antes
   —leer en voz alta, subrayar, seleccionar— y lo que prendas en la tarjeta
-  resaltado encima. Va plegado para no ocupar la pantalla entera.
+  resaltado encima. Va plegado para no ocupar la pantalla entera. **Un libro
+  o un texto muy largo** (más de unas veinte páginas) se despliega **por
+  páginas**, como en «Leer como libro»: con «Anterior», «Siguiente» y el
+  número de página para saltar, y todo lo demás igual (subrayar, escuchar, lo
+  estudiado). Si no, la app se quedaba sin responder al dibujar el libro
+  entero de una vez.
 - **Fotos**, en una página o una publicación que trae fotos: plegada, con
   cuántas son. Al desplegarla se ven en grilla, y tocar una ofrece verla,
   abrirla o leer lo que dice, como en «Contenido».
@@ -821,7 +826,9 @@ voz del lector (ver [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz
   «Leer como libro».
 - En **Extraer palabras clave**, se leen una tras otra; la que suena se
   resalta en amarillo.
-- En **Extraer texto**, lee el texto entero. En un audio o un video no está:
+- En **Extraer texto**, lee el texto entero (el de un libro tarda unos
+  segundos en prepararse: mientras tanto el botón muestra un círculo girando).
+  En un audio o un video no está:
   el texto ya se escucha con el audio original. El resumen, la síntesis y las
   palabras clave sí se escuchan, con la voz del lector.
 - Mientras suena, el botón dice **Pausar**; en pausa, vuelve a decir

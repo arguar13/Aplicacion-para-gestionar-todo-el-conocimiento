@@ -772,8 +772,9 @@ class _Listening {
   String get documentId => studyReadableId(text.renditionId);
 
   /// El mismo texto, con los mismos pedazos y posiciones que ofrece el
-  /// detalle: lo que suena cae en su lugar.
-  ReadableDocument document() => studyReadableDocument(
+  /// detalle: lo que suena cae en su lugar. Se parte sin trabar la interfaz:
+  /// el texto de un libro entero son segundos en un teléfono.
+  Future<ReadableDocument> document() => studyReadableDocumentOff(
     text: text,
     title: title,
     scopes: studyReadScopes(
@@ -789,38 +790,66 @@ class _Listening {
 /// «Escuchar» (F39): lee en voz alta con el lector flotante solo lo de la
 /// fila —el texto entero, las oraciones del resumen o de la síntesis, o las
 /// palabras clave—. Mientras suena dice «Pausar»; en pausa, vuelve a leer.
-class _ListenButton extends ConsumerWidget {
+class _ListenButton extends ConsumerStatefulWidget {
   const _ListenButton({required this.listening, required this.scope});
 
   final _Listening listening;
   final ReadScope scope;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ListenButton> createState() => _ListenButtonState();
+}
+
+class _ListenButtonState extends ConsumerState<_ListenButton> {
+  /// Mientras se arma lo que se va a leer —el de un libro entero tarda unos
+  /// segundos—: el botón espera en vez de dejar tocar de nuevo.
+  var _preparing = false;
+
+  Future<void> _open(ReadAloudController controller) async {
+    setState(() => _preparing = true);
+    try {
+      final document = await widget.listening.document();
+      if (!mounted) return;
+      await controller.open(document, scope: widget.scope);
+    } finally {
+      if (mounted) setState(() => _preparing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final scope = widget.scope;
     final run = ref.watch(
-      readAloudRunProvider((documentId: listening.documentId, scope: scope)),
+      readAloudRunProvider((
+        documentId: widget.listening.documentId,
+        scope: scope,
+      )),
     );
     final playing = run == ReadAloudRun.playing;
 
     return TextButton.icon(
       key: Key('study-listen-${scope.name}'),
-      icon: Icon(
-        playing ? Icons.pause_outlined : Icons.volume_up_outlined,
-        size: 18,
-      ),
+      icon: _preparing
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(
+              playing ? Icons.pause_outlined : Icons.volume_up_outlined,
+              size: 18,
+            ),
       label: Text(playing ? l10n.mediaPlayerPause : l10n.studyListen),
-      onPressed: () {
-        final controller = ref.read(readAloudControllerProvider.notifier);
-        unawaited(switch (run) {
-          ReadAloudRun.playing => controller.pause(),
-          ReadAloudRun.paused => controller.play(),
-          ReadAloudRun.none => controller.open(
-            listening.document(),
-            scope: scope,
-          ),
-        });
-      },
+      onPressed: _preparing
+          ? null
+          : () {
+              final controller = ref.read(readAloudControllerProvider.notifier);
+              unawaited(switch (run) {
+                ReadAloudRun.playing => controller.pause(),
+                ReadAloudRun.paused => controller.play(),
+                ReadAloudRun.none => _open(controller),
+              });
+            },
     );
   }
 }

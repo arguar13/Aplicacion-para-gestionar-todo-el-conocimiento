@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 
 /// Hasta cuánto mide una línea que se lee y se resalta entera (F25). Más
@@ -147,6 +148,45 @@ List<ReadableSegment> buildReadableSegments(
   }
   return segments;
 }
+
+/// Hasta cuántos caracteres [buildReadableSegmentsOff] parte sin pasar a otro
+/// hilo: partir un libro entero lleva segundos en un teléfono; uno corto, nada,
+/// y mandarlo a otro hilo costaría más que partirlo.
+const kSegmentsInlineChars = 40000;
+
+/// Lo mismo que [buildReadableSegments], sin trabar la interfaz: un texto largo
+/// se parte en otro hilo. Con [raw] corto responde en el momento, con el mismo
+/// resultado.
+Future<List<ReadableSegment>> buildReadableSegmentsOff(
+  String raw, {
+  required String sourceKey,
+  bool transcript = false,
+  bool markdown = false,
+}) async {
+  if (raw.length <= kSegmentsInlineChars) {
+    return buildReadableSegments(
+      raw,
+      sourceKey: sourceKey,
+      transcript: transcript,
+      markdown: markdown,
+    );
+  }
+  return compute(_segmentsIn, (
+    raw: raw,
+    sourceKey: sourceKey,
+    transcript: transcript,
+    markdown: markdown,
+  ));
+}
+
+List<ReadableSegment> _segmentsIn(
+  ({String raw, String sourceKey, bool transcript, bool markdown}) job,
+) => buildReadableSegments(
+  job.raw,
+  sourceKey: job.sourceKey,
+  transcript: job.transcript,
+  markdown: job.markdown,
+);
 
 /// Lo mismo que [buildReadableSegments] para el tramo `[from, to)` de [raw],
 /// con las posiciones de [raw] (F39): lo que se lee de una oración del

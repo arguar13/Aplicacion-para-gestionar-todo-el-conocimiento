@@ -48,6 +48,26 @@ Map<ReadScope, List<ReadableSegment>> studyReadScopes({
 /// para escuchar el texto de la forma [renditionId] (F39).
 String studyReadableId(String renditionId) => 'study:$renditionId';
 
+/// Lo mismo que [studyReadableDocument], sin trabar la interfaz: el texto de
+/// un libro entero se parte en otro hilo (ver [buildReadableSegmentsOff]). Es
+/// el mismo documento, con los mismos pedazos y posiciones.
+Future<ReadableDocument> studyReadableDocumentOff({
+  required StudyText text,
+  required String title,
+  required Map<ReadScope, List<ReadableSegment>> scopes,
+  bool transcript = false,
+}) async => ReadableDocument(
+  id: studyReadableId(text.renditionId),
+  title: title,
+  segments: await buildReadableSegmentsOff(
+    text.content,
+    sourceKey: text.renditionId,
+    transcript: transcript,
+    markdown: text.markdown,
+  ),
+  scopes: scopes,
+);
+
 /// Lo que la tarjeta de estudiar ofrece para escuchar (F39): el texto [text],
 /// con [ReadScope.all], y [scopes], lo estudiado. Es el mismo texto, con los
 /// mismos pedazos y posiciones, que ofrece el detalle: lo que suena se

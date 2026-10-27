@@ -64,6 +64,7 @@ import 'package:sinapsis/features/study/presentation/widgets/study_document_card
 import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/item_timeline_link.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -604,7 +605,11 @@ ReadableDocument _readableOf(KnowledgeItem item, {bool unfolded = false}) {
         transcript: false,
       ),
     if (textsShown)
-      for (final rendition in item.renditions.whereType<TextRendition>())
+      // El texto largo se lee por páginas y cada página se ofrece sola: partir
+      // el libro entero en líneas llevaría segundos.
+      for (final rendition in item.renditions.whereType<TextRendition>().where(
+        (rendition) => !_readsByPages(item, rendition),
+      ))
         if (rendition.kind == RenditionKind.blocks)
           for (final (index, block) in decodeContentBlocks(
             rendition.content,
@@ -624,6 +629,24 @@ ReadableDocument _readableOf(KnowledgeItem item, {bool unfolded = false}) {
           ),
   ]);
 }
+
+/// Desde cuántos caracteres el texto extraído de lo que se estudia se lee por
+/// páginas, como en «Leer como libro», y no de corrido en un solo bloque.
+///
+/// Un bloque de texto se mide y se dibuja entero: el de un libro son decenas
+/// de segundos con la interfaz congelada, y la app deja de responder. A esta
+/// altura son unas veinte páginas; un artículo, una transcripción corta, no
+/// llegan.
+const kPagedTextChars = 60000;
+
+/// Si el texto de [rendition] se lee por páginas: el que se estudia, cuando es
+/// largo. La transcripción de un audio o un video sigue al audio mientras
+/// suena —ver `PlaybackSyncedText`— y queda como siempre.
+bool _readsByPages(KnowledgeItem item, TextRendition rendition) =>
+    rendition.kind != RenditionKind.blocks &&
+    rendition.content.length > kPagedTextChars &&
+    studyRendition(item)?.id == rendition.id &&
+    !(isTranscriptSource(item.source) && rendition.isPrimary);
 
 /// Con qué nombre conoce el lector flotante a la nota del usuario (F25).
 String _userNoteKey(String itemId) => 'note:$itemId';
@@ -898,6 +921,9 @@ class _TextRenditionView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final studied = studyRendition(item)?.id == rendition.id;
+    if (_readsByPages(item, rendition)) {
+      return _PagedText(item: item, rendition: rendition);
+    }
     // La transcripción de un audio o un video sigue al audio mientras
     // suena: la palabra que se dice, en amarillo (F23), con lo estudiado
     // debajo (F39).
@@ -950,6 +976,36 @@ class _TextRenditionView extends ConsumerWidget {
               ),
             )
           : null,
+    );
+  }
+}
+
+/// El texto largo de lo que se estudia, por páginas (ver [kPagedTextChars]): el
+/// mismo lector de «Leer como libro», en un marco del alto de la pantalla,
+/// sin sus botones de estudiar —la tarjeta ya los tiene arriba—. Subrayar a
+/// mano, lo estudiado y escuchar caen en la página que se ve.
+class _PagedText extends StatelessWidget {
+  const _PagedText({required this.item, required this.rendition});
+
+  final KnowledgeItem item;
+  final TextRendition rendition;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = (MediaQuery.sizeOf(context).height * 0.7).clamp(
+      360.0,
+      760.0,
+    );
+    return SizedBox(
+      key: const Key('detail-paged-text'),
+      height: height,
+      child: DocumentReaderView(
+        title: item.title,
+        content: rendition.content,
+        markdown: extractedTextIsMarkdown(item.source),
+        study: studyTextOf(item),
+        showStudyBar: false,
+      ),
     );
   }
 }
