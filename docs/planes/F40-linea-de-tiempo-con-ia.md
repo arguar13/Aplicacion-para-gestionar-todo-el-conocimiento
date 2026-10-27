@@ -378,3 +378,14 @@ carta de 1810). Un hecho fechado es una fecha **dentro** de un documento.
     la barrita antes del formulario, que el modal ya cierra).
   - **Integración con el paso 6:** en la barra conviven ✨ «Organizar con IA» y «Agregar un
     hecho»; la franja de avance y la leyenda de documentos, cada una en su lugar.
+
+- **Cuadernos, en «Organizar» debajo del Mapa; «Preguntar», el chat directo — hecho.** Pedido del
+  dueño durante F40, con dos capturas: el botón del medio abría una lista con Chat y Cuadernos.
+  - Un cuaderno junta un grupo de elementos, que es una forma de ordenarlos: va al final de
+    «Organizar» (Bandeja · Línea de tiempo · Atlas · Mapa · Cuadernos).
+  - Con el chat solo, el botón del medio sigue la regla de F34: se ve como el chat («Chat», su
+    ícono) y lo abre directo, sin lista. La clave `navStepAsk` sale, y `NavStep.ask` pasa a los
+    pasos de un destino solo. En la web, sin chat, la barra queda con cuatro pasos.
+  - Pruebas de la lista, de la barra, del riel y de la web. De las mutaciones mueren las dos
+    observables; la tercera, darle aspecto propio a «Preguntar», es código que con un solo destino
+    no se ejecuta.

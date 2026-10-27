@@ -85,13 +85,14 @@ En el celular, la barra tiene **cinco botones fijos, que son los pasos del
 trabajo en el orden en que los usás**, de izquierda a derecha:
 
 1. **Biblioteca**: guardás y encontrás todo. Se abre directo.
-2. **Organizar**: una lista con **Bandeja**, **Línea de tiempo**, **Atlas** y
-   **Mapa**, en ese orden. Primero revisás lo que entró, después lo ves sobre
-   un eje de fechas, ves qué sabés y qué te falta, y por último lo conectás.
+2. **Organizar**: una lista con **Bandeja**, **Línea de tiempo**, **Atlas**,
+   **Mapa** y **Cuadernos**, en ese orden. Primero revisás lo que entró,
+   después lo ves sobre un eje de fechas, ves qué sabés y qué te falta, lo
+   conectás y, en un cuaderno, juntás un grupo para acotar el chat a él.
    El número de pendientes de la Bandeja se ve en el mismo botón. (El **Explorador** ya no está en la lista: repetía la
    Biblioteca. Lo suyo, el material de un tema, se abre desde el Atlas y el
    Mapa: ver [El material de un tema](#el-material-de-un-tema).)
-3. **Preguntar**: una lista con **Chat** y **Cuadernos**.
+3. **Chat**: te lleva directo al chat con la IA, sin lista.
 4. **Repasar**: tarjetas y cuestionarios, con el número de lo que toca hoy. Se
    abre directo.
 5. **Ajustes**: siempre a la derecha. Se abre directo.
@@ -1343,7 +1344,7 @@ para poder acotar cosas a solo ese grupo (por ejemplo, para que el Chat con la
 IA busque únicamente ahí adentro).
 
 **Cómo llegar:** ítem **"Cuadernos"** en la navegación (en el celular,
-dentro de **"Preguntar"**).
+dentro de **"Organizar"**, debajo de **"Mapa"**).
 
 ### Crear un cuaderno
 
@@ -1847,8 +1848,8 @@ elegidos con un selector arriba:
 - **"Conversación libre"**: charla con el modelo como con cualquier
   asistente, sin tocar tu bóveda para nada.
 
-**Cómo llegar:** ítem **"Chat"** en la navegación (en el celular, dentro
-de **"Preguntar"**).
+**Cómo llegar:** ítem **"Chat"** en la navegación (en el celular, el botón
+del medio de la barra, que lo abre directo).
 
 ### Cómo se usa
 

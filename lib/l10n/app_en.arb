@@ -3715,11 +3715,7 @@
   },
   "navStepOrganize": "Organize",
   "@navStepOrganize": {
-    "description": "Paso de la barra del celular (F34) que agrupa Bandeja, Línea de tiempo, Atlas y Mapa; tocarlo abre su lista."
-  },
-  "navStepAsk": "Ask",
-  "@navStepAsk": {
-    "description": "Paso de la barra del celular (F34) que agrupa Chat y Cuadernos; tocarlo abre su lista."
+    "description": "Paso de la barra del celular (F34) que agrupa Bandeja, Línea de tiempo, Atlas, Mapa y Cuadernos; tocarlo abre su lista."
   },
   "navLibraryHint": "Everything you saved, and where you save something new",
   "@navLibraryHint": {
@@ -3739,11 +3735,11 @@
   },
   "navChatHint": "Ask the AI about your material",
   "@navChatHint": {
-    "description": "Para qué sirve el Chat, en una línea: debajo de su nombre en la lista del paso «Preguntar» (F34)."
+    "description": "Para qué sirve el Chat, en una línea (F34). Desde F40 «Preguntar» es solo el chat y se abre directo, sin lista."
   },
   "navNotebooksHint": "Group items together and narrow the chat to them",
   "@navNotebooksHint": {
-    "description": "Para qué sirven los Cuadernos, en una línea: debajo de su nombre en la lista del paso «Preguntar» (F34)."
+    "description": "Para qué sirven los Cuadernos, en una línea: debajo de su nombre en la lista del paso «Organizar» (F34, F40)."
   },
   "navReviewHint": "Cards and quizzes so you do not forget",
   "@navReviewHint": {

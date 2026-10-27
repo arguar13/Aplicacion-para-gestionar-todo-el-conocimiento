@@ -39,7 +39,6 @@ void main() {
   final timeline = ShellBranch.timeline.index;
   final atlas = ShellBranch.atlas.index;
   final graph = ShellBranch.graph.index;
-  final chat = ShellBranch.chat.index;
   final notebooks = ShellBranch.notebooks.index;
   final es = AppLocalizationsEs();
   late SharedPreferences prefs;
@@ -130,7 +129,7 @@ void main() {
         expect(labels, [
           es.navLibrary,
           es.navStepOrganize,
-          es.navStepAsk,
+          es.navChat,
           es.navReview,
           es.navSettings,
         ]);
@@ -145,14 +144,18 @@ void main() {
       (step: 'organize', branch: timeline, screen: TimelineScreen, barIndex: 1),
       (step: 'organize', branch: atlas, screen: AtlasScreen, barIndex: 1),
       (step: 'organize', branch: graph, screen: MapScreen, barIndex: 1),
-      (step: 'ask', branch: chat, screen: ChatScreen, barIndex: 2),
-      (step: 'ask', branch: notebooks, screen: NotebooksScreen, barIndex: 2),
+      (
+        step: 'organize',
+        branch: notebooks,
+        screen: NotebooksScreen,
+        barIndex: 1,
+      ),
     ];
 
     testWidgets(
-      '«Organizar» abre su lista: Bandeja, Línea de tiempo, Atlas y Mapa, en '
-      'ese orden y con para qué sirve cada uno —el Explorador ya no está '
-      '(F36)—',
+      '«Organizar» abre su lista: Bandeja, Línea de tiempo, Atlas, Mapa y '
+      'Cuadernos, en ese orden y con para qué sirve cada uno —el Explorador '
+      'ya no está (F36)—',
       (tester) async {
         setLogicalWidth(tester, 400);
 
@@ -174,7 +177,7 @@ void main() {
         expect(
           [for (final t in tiles) (t.key! as ValueKey<String>).value],
           [
-            for (final branch in [inbox, timeline, atlas, graph])
+            for (final branch in [inbox, timeline, atlas, graph, notebooks])
               'nav-step-item-$branch',
           ],
         );
@@ -183,6 +186,7 @@ void main() {
           es.navTimelineHint,
           es.navAtlasHint,
           es.navMapHint,
+          es.navNotebooksHint,
         ]) {
           expect(
             find.descendant(of: sheet, matching: find.text(hint)),
@@ -192,29 +196,22 @@ void main() {
       },
     );
 
-    testWidgets('«Preguntar» abre su lista: Chat y Cuadernos, en ese orden', (
-      tester,
-    ) async {
-      setLogicalWidth(tester, 400);
+    testWidgets(
+      '«Preguntar» abre el chat directo, sin lista, y queda marcado',
+      (tester) async {
+        setLogicalWidth(tester, 400);
 
-      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('nav-step-ask')));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('nav-step-ask')));
+        await tester.pumpAndSettle();
 
-      final tiles = tester
-          .widgetList<ListTile>(
-            find.descendant(
-              of: find.byType(BottomSheet),
-              matching: find.byType(ListTile),
-            ),
-          )
-          .toList();
-      expect(
-        [for (final t in tiles) (t.key! as ValueKey<String>).value],
-        ['nav-step-item-$chat', 'nav-step-item-$notebooks'],
-      );
-    });
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(find.byType(ChatScreen), findsOneWidget);
+        final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+        expect(bar.selectedIndex, 2);
+      },
+    );
 
     for (final d in listed) {
       testWidgets(
@@ -279,7 +276,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final selected = {
-        for (final branch in [inbox, timeline, atlas, graph])
+        for (final branch in [inbox, timeline, atlas, graph, notebooks])
           branch: tester
               .widget<ListTile>(find.byKey(ValueKey('nav-step-item-$branch')))
               .selected,
@@ -289,6 +286,7 @@ void main() {
         timeline: false,
         atlas: true,
         graph: false,
+        notebooks: false,
       });
     });
   });
@@ -324,8 +322,8 @@ void main() {
         es.navTimeline,
         es.navAtlas,
         es.navMap,
-        es.navChat,
         es.navNotebooks,
+        es.navChat,
         es.navReview,
         es.navSettings,
       ]);

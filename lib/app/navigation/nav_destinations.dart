@@ -94,8 +94,8 @@ enum ShellBranch {
 }
 
 /// Arma la lista de destinos principales, en el orden de uso en que se ven
-/// (F34): biblioteca; bandeja de entrada, línea de tiempo, atlas y mapa; chat
-/// y cuadernos; repaso; ajustes. Cada uno sabe su rama
+/// (F34): biblioteca; bandeja de entrada, línea de tiempo, atlas, mapa y
+/// cuadernos; chat; repaso; ajustes. Cada uno sabe su rama
 /// ([NavDestinationSpec.branchIndex]) y su paso ([NavDestinationSpec.step]).
 ///
 /// El riel de escritorio los muestra todos; la barra del celular, agrupados
@@ -170,6 +170,17 @@ List<NavDestinationSpec> buildNavDestinations({
       label: l10n.navMap,
       hint: l10n.navMapHint,
     ),
+    // Al final de «Organizar», debajo del Mapa (pedido del dueño, F40): un
+    // cuaderno junta un grupo de elementos, que es una forma de ordenarlos.
+    // Así «Preguntar» se queda con el chat solo y lo abre directo, sin lista.
+    NavDestinationSpec(
+      branchIndex: ShellBranch.notebooks.index,
+      step: NavStep.organize,
+      icon: const Icon(Icons.auto_stories_outlined),
+      selectedIcon: const Icon(Icons.auto_stories),
+      label: l10n.navNotebooks,
+      hint: l10n.navNotebooksHint,
+    ),
     // Sin web a propósito: el chat necesita flutter_gemma corriendo en el
     // dispositivo, y esta función solo se validó en Android y Windows —
     // decisión 6 y 20 en docs/arquitectura.md—. La rama sigue existiendo en
@@ -183,16 +194,6 @@ List<NavDestinationSpec> buildNavDestinations({
         label: l10n.navChat,
         hint: l10n.navChatHint,
       ),
-    // Justo después del chat (F16): un cuaderno acota el chat a un
-    // subconjunto, así que va al lado de lo que acota.
-    NavDestinationSpec(
-      branchIndex: ShellBranch.notebooks.index,
-      step: NavStep.ask,
-      icon: const Icon(Icons.auto_stories_outlined),
-      selectedIcon: const Icon(Icons.auto_stories),
-      label: l10n.navNotebooks,
-      hint: l10n.navNotebooksHint,
-    ),
     NavDestinationSpec(
       branchIndex: ShellBranch.review.index,
       step: NavStep.review,
@@ -252,14 +253,12 @@ NavStepGroup _groupOf(
       Icons.workspaces_outlined,
       Icons.workspaces,
     ),
-    NavStep.ask => (
-      l10n.navStepAsk,
-      Icons.question_answer_outlined,
-      Icons.question_answer,
-    ),
     // Pasos de un destino solo: un segundo pide decidir antes cómo se ve el
     // paso, no heredar en silencio el aspecto del primero.
-    NavStep.save || NavStep.review || NavStep.settings => throw StateError(
+    NavStep.save ||
+    NavStep.ask ||
+    NavStep.review ||
+    NavStep.settings => throw StateError(
       'El paso $step tiene ${inStep.length} destinos y no tiene aspecto '
       'propio',
     ),

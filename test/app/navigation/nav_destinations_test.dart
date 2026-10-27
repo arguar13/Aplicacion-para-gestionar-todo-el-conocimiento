@@ -45,15 +45,16 @@ void main() {
           ShellBranch.timeline,
           ShellBranch.atlas,
           ShellBranch.graph,
+          ShellBranch.notebooks,
         ]),
-        NavStep.ask: at([ShellBranch.chat, ShellBranch.notebooks]),
+        NavStep.ask: at([ShellBranch.chat]),
         NavStep.review: at([ShellBranch.review]),
         NavStep.settings: at([ShellBranch.settings]),
       },
     );
     expect(
       [for (final g in result) g.hasList],
-      [false, true, true, false, false],
+      [false, true, false, false, false],
     );
   });
 
@@ -76,8 +77,19 @@ void main() {
     expect(review.selectedIcon, same(only.selectedIcon));
   });
 
+  test('«Preguntar» es el chat solo: se ve como el chat y lo abre directo', () {
+    final ask = groups()[2];
+    final chat = ask.destinations.single;
+
+    expect(ask.hasList, isFalse);
+    expect(chat.branchIndex, ShellBranch.chat.index);
+    expect(ask.label, es.navChat);
+    expect(ask.icon, same(chat.icon));
+    expect(ask.selectedIcon, same(chat.selectedIcon));
+  });
+
   test('un paso con lista tiene su nombre y su ícono propios', () {
-    final [_, organize, ask, _, _] = groups();
+    final organize = groups()[1];
 
     expect(organize.label, es.navStepOrganize);
     expect(badgeOf(organize.icon).child, isA<Icon>());
@@ -89,15 +101,6 @@ void main() {
       (badgeOf(organize.selectedIcon).child! as Icon).icon,
       Icons.workspaces,
     );
-    expect(ask.label, es.navStepAsk);
-    expect(
-      (badgeOf(ask.icon).child! as Icon).icon,
-      Icons.question_answer_outlined,
-    );
-    expect(
-      (badgeOf(ask.selectedIcon).child! as Icon).icon,
-      Icons.question_answer,
-    );
   });
 
   test('la línea de tiempo (F40) va en «Organizar», arriba del Atlas, con su '
@@ -108,7 +111,13 @@ void main() {
       (d) => d.branchIndex == ShellBranch.timeline.index,
     );
 
-    expect(labels, [es.navInbox, es.navTimeline, es.navAtlas, es.navMap]);
+    expect(labels, [
+      es.navInbox,
+      es.navTimeline,
+      es.navAtlas,
+      es.navMap,
+      es.navNotebooks,
+    ]);
     expect(timeline.step, NavStep.organize);
     expect((timeline.icon as Icon).icon, Icons.timeline);
     expect(timeline.hint, es.navTimelineHint);
@@ -143,14 +152,27 @@ void main() {
     expect(badgeOf(organize.icon).isLabelVisible, isFalse);
   });
 
-  test('sin chat (la web), «Preguntar» es Cuadernos, directo', () {
-    final result = groups(includeChat: false);
-    final ask = result.firstWhere((g) => g.step == NavStep.ask);
+  test('los cuadernos van al final de «Organizar», debajo del Mapa', () {
+    final notebooks = groups()[1].destinations.last;
 
-    expect(result, hasLength(5));
-    expect(ask.hasList, isFalse);
-    expect(ask.label, es.navNotebooks);
-    expect(ask.destinations.single.branchIndex, ShellBranch.notebooks.index);
+    expect(notebooks.branchIndex, ShellBranch.notebooks.index);
+    expect(notebooks.step, NavStep.organize);
+    expect(notebooks.label, es.navNotebooks);
+    expect(notebooks.hint, es.navNotebooksHint);
+  });
+
+  test('sin chat (la web) no hay «Preguntar», y los cuadernos siguen en '
+      '«Organizar»', () {
+    final result = groups(includeChat: false);
+
+    expect(
+      [for (final g in result) g.step],
+      [NavStep.save, NavStep.organize, NavStep.review, NavStep.settings],
+    );
+    expect(
+      result[1].destinations.last.branchIndex,
+      ShellBranch.notebooks.index,
+    );
   });
 
   test('cada destino dice para qué sirve', () {
