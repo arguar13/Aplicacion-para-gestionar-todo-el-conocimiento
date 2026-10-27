@@ -19,6 +19,9 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_run_usage_saver
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_study_repository_impl.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/study/data/repositories/keyed_study_repository.dart';
 import 'package:sinapsis/features/study/data/repositories/study_repository_impl.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/repositories/study_repository.dart';
@@ -27,12 +30,22 @@ import 'package:sinapsis/features/study/domain/usecases/analyze_for_study.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 
-final studyRepositoryProvider = Provider<StudyRepository>(
-  (ref) => StudyRepositoryImpl(
-    database: ref.watch(appDatabaseProvider),
-    telemetry: ref.watch(telemetryServiceProvider),
-  ),
-);
+/// Dónde se guarda lo estudiado: el texto de una forma de la Biblioteca, en
+/// `study_marks`; el texto propio de un documento procesado (F41, decisión I),
+/// en sus partes —por su clave `procesado:…`—.
+final studyRepositoryProvider = Provider<StudyRepository>((ref) {
+  final database = ref.watch(appDatabaseProvider);
+  final telemetry = ref.watch(telemetryServiceProvider);
+  return KeyedStudyRepository(
+    fallback: StudyRepositoryImpl(database: database, telemetry: telemetry),
+    byPrefix: {
+      kProcessedStudyKeyPrefix: ProcessedStudyRepositoryImpl(
+        database: database,
+        telemetry: telemetry,
+      ),
+    },
+  );
+});
 
 /// Lo estudiado del texto de una forma (F36), y cada cambio: lo que se
 /// resalta en el documento y lo que se extrae.

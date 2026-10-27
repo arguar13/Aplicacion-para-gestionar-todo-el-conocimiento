@@ -562,7 +562,7 @@ class _WholeSection extends ConsumerWidget {
             ? l10n.processedTriageWordCount(sheet.material.textWords)
             : '',
       0 => l10n.processedTriageNothingYet,
-      final count => l10n.processedTriageSentenceCount(count),
+      final count => triageStudiedCountText(l10n, section, count),
     };
     return [
       if (existing > 0) l10n.processedTriageExisting(existing),

@@ -142,6 +142,7 @@ part 'app_database.g.dart';
     DatedEvents,
     ProcessedDocuments,
     ProcessedParts,
+    ProcessedOriginals,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -186,7 +187,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 45;
+  static const currentSchemaVersion = 46;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -1224,6 +1225,77 @@ class AppDatabase extends _$AppDatabase {
           }
           await _requireSameCounts(before, step: 'v45', tables: tables);
         }
+
+        // El ajuste del dueño a F41 (decisiones H e I) y el vaciado de los
+        // cuadernos del paso 5:
+        //
+        // - `processed_parts` gana el ancla en el texto propio del procesado
+        //   (`text_start`, `text_end`), los tramos de las
+        //   palabras clave (`spans`) y los orígenes de lo estudiado en el
+        //   procesado: sus reglas cambian, así que la tabla se rehace con sus
+        //   filas y su `row_key` —el índice de texto vuelve a armarse entero—;
+        // - `processed_documents` gana hasta dónde se estudió su texto;
+        // - `processed_originals`, la copia del original, y
+        //   `content_trash.processed_original`, la que se soltó;
+        // - los cuadernos se vacían: de acá en más se arman con documentos
+        //   procesados. Sale de `notebook_item` todo lo que no lo es, y el
+        //   cuaderno que tenía algo —un elemento, o una consulta sobre la
+        //   Biblioteca— queda marcado (`emptied_for_processed_at`) para
+        //   explicar por qué está vacío.
+        //
+        // Los conteos de todo lo demás son compuerta, y los de los cuadernos se
+        // comprueban contra lo que se sacó a propósito.
+        if (from < 46) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+            ...VaultCounts.studyTables,
+            ...VaultCounts.itemSpaceTables,
+            ...VaultCounts.datedEventTables,
+            'processed_documents',
+            'processed_parts',
+            'notebook',
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await _rebuildProcessedParts(rebuildTable: from >= 45);
+          for (final column in [
+            processedDocuments.studyAnalyzedUntil,
+            processedDocuments.studyCompletedAt,
+          ]) {
+            if (!await _columnExists('processed_documents', column.name)) {
+              await migrator.addColumn(processedDocuments, column);
+            }
+          }
+          if (!await _columnExists(
+            'content_trash',
+            trashedContents.processedOriginal.name,
+          )) {
+            await migrator.addColumn(
+              trashedContents,
+              trashedContents.processedOriginal,
+            );
+          }
+          if (!await _columnExists(
+            'notebook',
+            notebooks.emptiedForProcessedAt.name,
+          )) {
+            await migrator.addColumn(
+              notebooks,
+              notebooks.emptiedForProcessedAt,
+            );
+          }
+          await migrator.createTable(processedOriginals);
+          await _emptyNotebooksForProcessed();
+          await _requireSameCounts(before, step: 'v46', tables: tables);
+        }
       });
     },
     beforeOpen: (details) async {
@@ -1304,6 +1376,67 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(createChunkVocabTable);
     for (final trigger in chunkSearchTriggers) {
       await customStatement(trigger);
+    }
+  }
+
+  /// Rehace `processed_parts` con su definición de hoy (v46) —con
+  /// [rebuildTable]; sin él, la tabla ya nació así en este mismo paso— y su
+  /// índice de texto entero. El índice es derivado: rehacerlo no toca ningún
+  /// dato, y al final tiene que haber una entrada por parte.
+  Future<void> _rebuildProcessedParts({required bool rebuildTable}) async {
+    for (final trigger in processedPartSearchTriggerNames) {
+      await customStatement('DROP TRIGGER IF EXISTS $trigger');
+    }
+    await customStatement('DROP TABLE IF EXISTS processed_part_search');
+    await customStatement('DROP VIEW IF EXISTS processed_part_search_text');
+    if (rebuildTable) {
+      await createMigrator().alterTable(
+        TableMigration(
+          processedParts,
+          newColumns: [
+            processedParts.textStart,
+            processedParts.textEnd,
+            processedParts.spans,
+          ],
+        ),
+      );
+    }
+    await _createProcessedPartSearchIndex();
+    await customStatement(rebuildProcessedPartSearch);
+    final indexed = await _count('processed_part_search_docsize');
+    final parts = await _count('processed_parts');
+    if (indexed != parts) {
+      throw StateError(
+        'El índice de texto de las partes quedó con $indexed entradas y hay '
+        '$parts partes.',
+      );
+    }
+  }
+
+  /// Vacía los cuadernos para F41 (v46): de `notebook_item` sale todo lo que
+  /// no es un documento procesado, y cada cuaderno que tenía algo —un elemento
+  /// así, o una consulta, que de acá en más solo mira lo procesado— queda
+  /// marcado con la hora. Lanza si sale otra cosa que lo que tenía que salir.
+  Future<void> _emptyNotebooksForProcessed() async {
+    const outside = 'item_id NOT IN (SELECT item_id FROM processed_documents)';
+    final items = await _count('notebook_item');
+    final leaving = (await customSelect(
+      'SELECT COUNT(*) AS n FROM notebook_item WHERE $outside',
+    ).getSingle()).read<int>('n');
+    await customUpdate(
+      'UPDATE notebook SET emptied_for_processed_at = ? '
+      "WHERE mode = 'query' OR id IN ( "
+      'SELECT notebook_id FROM notebook_item WHERE $outside)',
+      variables: [Variable.withDateTime(DateTime.now())],
+      updates: {notebooks},
+    );
+    await customStatement('DELETE FROM notebook_item WHERE $outside');
+    final left = await _count('notebook_item');
+    if (left != items - leaving) {
+      throw StateError(
+        'Vaciar los cuadernos dejó $left elementos y tenían que quedar '
+        '${items - leaving}.',
+      );
     }
   }
 

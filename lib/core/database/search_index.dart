@@ -382,10 +382,16 @@ AFTER UPDATE OF content ON processed_parts BEGIN
 END''',
 ];
 
-/// Los nombres de [processedPartSearchTriggers], como
-/// [chunkSearchTriggerNames].
+/// Los nombres de [processedPartSearchTriggers], para soltarlos al rehacer la
+/// tabla de las partes (v46).
 const processedPartSearchTriggerNames = [
   'processed_parts_search_ai',
   'processed_parts_search_ad',
   'processed_parts_search_au',
 ];
+
+/// Reconstruye `processed_part_search` desde las partes, como
+/// [rebuildChunkSearch].
+const rebuildProcessedPartSearch =
+    'INSERT INTO processed_part_search (processed_part_search) '
+    "VALUES ('rebuild')";

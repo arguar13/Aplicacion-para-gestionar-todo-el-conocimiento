@@ -1,12 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_source_material.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_study_text.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_section_planner.dart';
 
 /// Un texto de una fuente, para copiar de él (F41).
@@ -18,6 +21,58 @@ class ProcessedSourceText {
   final String text;
 }
 
+/// La copia del original de una fuente, ya hecha y todavía sin guardar en la
+/// base (decisión H): lo que deja [ProcessedRepository.stageOriginal]. Si el
+/// guardado no llega, [ProcessedRepository.discardStagedOriginal] la borra.
+@immutable
+class StagedOriginal {
+  const StagedOriginal({
+    required this.relativePath,
+    required this.sizeBytes,
+    required this.kind,
+    required this.sourceFilePath,
+    required this.sourceFileSize,
+    this.mimeType,
+    this.textHash,
+  });
+
+  /// Dónde quedó la copia.
+  final String relativePath;
+  final int sizeBytes;
+  final RenditionKind kind;
+  final String? mimeType;
+
+  /// El archivo de la fuente que se copió, y cuánto pesaba.
+  final String sourceFilePath;
+  final int sourceFileSize;
+
+  /// El `content_hash` de la fuente en ese momento.
+  final String? textHash;
+}
+
+/// Qué se le hace a la copia del original al guardar.
+sealed class ProcessedOriginalPlan {
+  const ProcessedOriginalPlan();
+}
+
+/// Poner [staged] como el original —la que había, si había, se va a la
+/// papelera del contenido—.
+final class PutOriginal extends ProcessedOriginalPlan {
+  const PutOriginal(this.staged);
+  final StagedOriginal staged;
+}
+
+/// Mandar el original a la papelera del contenido.
+final class RemoveOriginal extends ProcessedOriginalPlan {
+  const RemoveOriginal();
+}
+
+/// El archivo es el mismo: solo anotar con qué texto de la fuente se
+/// corresponde ahora —se volvió a extraer, por ejemplo—.
+final class RefreshOriginal extends ProcessedOriginalPlan {
+  const RefreshOriginal();
+}
+
 /// Lo que [ProcessedRepository.commit] guarda de una vez.
 @immutable
 class ProcessedCommit {
@@ -25,6 +80,7 @@ class ProcessedCommit {
     required this.sourceItemId,
     required this.plans,
     required this.expectedStatus,
+    this.original,
   });
 
   /// La fuente: de ella salen el id, el título y el tipo del documento si
@@ -37,6 +93,9 @@ class ProcessedCommit {
   /// En qué estaba el documento cuando se armaron los planes: si cambió
   /// mientras tanto, no se guarda nada.
   final ProcessedDocumentStatus expectedStatus;
+
+  /// Qué se le hace a la copia del original; `null`, nada.
+  final ProcessedOriginalPlan? original;
 }
 
 /// Los documentos procesados (F41): la información pura que la persona sacó de
@@ -91,6 +150,36 @@ abstract interface class ProcessedRepository {
     String documentId, {
     Set<ProcessedSection>? sections,
   });
+
+  // --- La copia del original (decisión H) ---------------------------------
+
+  /// La copia del original de [documentId], o `null` si no tiene, y cada
+  /// cambio.
+  Stream<ProcessedOriginal?> watchOriginal(String documentId);
+
+  /// Lo mismo, de una vez.
+  Future<Either<Failure, ProcessedOriginal?>> originalOf(String documentId);
+
+  /// Lo que se pinta sobre la copia del original —lo elegido del procesado—,
+  /// o `null` si no hay qué pintar: no tiene copia, o el texto de la fuente ya
+  /// no es el de la copia (mejor nada que marcas corridas). Y cada cambio.
+  Stream<ProcessedOriginalMarks?> watchOriginalMarks(String documentId);
+
+  /// Copia el original de la fuente [sourceItemId] a la carpeta de su
+  /// procesado, en otro hilo y sin traerlo a memoria, sin tocar la base. Falla
+  /// si la fuente no ofrece un original (`ProcessedSourceMaterial.original`).
+  Future<Either<Failure, StagedOriginal>> stageOriginal(String sourceItemId);
+
+  /// Borra una copia que no llegó a guardarse.
+  Future<void> discardStagedOriginal(StagedOriginal staged);
+
+  // --- Estudiar el procesado (decisión I) ----------------------------------
+
+  /// El texto propio de [documentId] para estudiarlo, o `null` si no tiene
+  /// texto que estudiar: ni sección «Texto» ni copia del original con un texto
+  /// de la fuente que se corresponda. Lo pesado —juntar las páginas de un
+  /// libro— se hace en otro hilo.
+  Future<Either<Failure, ProcessedStudyText?>> studyTextOf(String documentId);
 
   // --- La fuente, solo para leer -------------------------------------------
 

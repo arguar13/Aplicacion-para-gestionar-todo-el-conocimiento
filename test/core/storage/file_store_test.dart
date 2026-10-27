@@ -400,4 +400,68 @@ void main() {
       expect(await store.exists(path), isFalse);
     });
   });
+
+  group('copiar sin traer el archivo a memoria (F41, decisión H)', () {
+    test(
+      'copia a la carpeta pedida con el mismo nombre, sin pisar otra',
+      () async {
+        final path = await store.save(
+          bytes: bytes('el libro entero'),
+          suggestedName: 'libro.pdf',
+          id: 'fuente',
+        );
+
+        final first = await store.copy(
+          path,
+          id: 'procesado',
+          folder: 'original',
+        );
+        final second = await store.copy(
+          path,
+          id: 'procesado',
+          folder: 'original',
+        );
+
+        expect(first, 'originales/procesado/original/libro.pdf');
+        expect(second, 'originales/procesado/original/libro-2.pdf');
+        expect(utf8.decode((await store.read(first!))!), 'el libro entero');
+        expect(utf8.decode((await store.read(second!))!), 'el libro entero');
+        // El de la fuente sigue donde estaba.
+        expect(await store.exists(path), isTrue);
+      },
+    );
+
+    test('lo que ya no está no se copia', () async {
+      expect(await store.copy('originales/x/nada.pdf', id: 'p'), isNull);
+    });
+
+    test('por partes, donde no hay disco, da lo mismo', () async {
+      final big = Uint8List.fromList([
+        for (var i = 0; i < kFileCopyChunkBytes * 2 + 17; i++) i % 251,
+      ]);
+      final path = await store.save(
+        bytes: big,
+        suggestedName: 'grande.bin',
+        id: 'fuente',
+      );
+
+      final copy = await copyInChunks(
+        store,
+        path,
+        id: 'procesado',
+        suggestedName: 'grande.bin',
+      );
+
+      expect(await store.read(copy!), big);
+      expect(
+        await copyInChunks(
+          store,
+          'originales/x/nada.bin',
+          id: 'p',
+          suggestedName: 'nada.bin',
+        ),
+        isNull,
+      );
+    });
+  });
 }

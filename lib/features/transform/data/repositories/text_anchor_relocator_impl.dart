@@ -69,6 +69,20 @@ class TextAnchorRelocatorImpl implements TextAnchorRelocator {
       excerptAt: excerptAt,
       find: find,
     );
+    // Un procesado sin sección «Texto» se estudia sobre el texto de su fuente
+    // (F41, decisión I): si ese texto cambió, lo estudiado se vuelve a
+    // analizar desde el principio —lo hecho queda, con sus anclas ya
+    // reubicadas—.
+    await _db.customUpdate(
+      'UPDATE processed_documents '
+      'SET study_analyzed_until = 0, study_completed_at = NULL '
+      'WHERE source_item_id = ? AND NOT EXISTS ( '
+      'SELECT 1 FROM processed_parts p '
+      'WHERE p.document_id = processed_documents.item_id '
+      "AND p.section = 'text')",
+      variables: [Variable.withString(itemId)],
+      updates: {_db.processedDocuments},
+    );
 
     final cards =
         await (_db.select(_db.flashcards)..where(

@@ -192,4 +192,29 @@ class LocalFileStore implements FileStore {
     final file = File(await resolve(relativePath));
     if (file.existsSync()) await file.delete();
   }
+
+  @override
+  Future<String?> copy(
+    String relativePath, {
+    required String id,
+    String? folder,
+  }) async {
+    final source = File(await resolve(relativePath));
+    if (!source.existsSync()) return null;
+    final (copyPath, file) = await _reserve(
+      [_folder, id, if (folder != null) sanitizeFileName(folder)],
+      sanitizeFileName(p.basename(relativePath)),
+      true,
+    );
+    try {
+      // La copia la hace el sistema, sin traer el archivo a este hilo.
+      await source.copy(file.path);
+      // Una copia a medias —el disco lleno— no puede quedar como si nada.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      if (file.existsSync()) await file.delete();
+      rethrow;
+    }
+    return p.posix.joinAll(p.split(copyPath));
+  }
 }

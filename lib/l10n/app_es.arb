@@ -10468,5 +10468,13 @@
   "inboxActionPassUnchangedDisabledTooltip": "Este elemento no tiene texto propio que pasar entero.",
   "@inboxActionPassUnchangedDisabledTooltip": {
     "description": "Por qué «Pasar todo sin modificar» está apagado: el elemento no tiene texto propio."
+  },
+  "processedSectionKeywords": "Palabras clave",
+  "@processedSectionKeywords": {
+    "description": "Sección de un documento procesado: las oraciones con sus palabras clave marcadas (F41)."
+  },
+  "processedTriageSectionKeywords": "Palabras clave",
+  "@processedTriageSectionKeywords": {
+    "description": "Sección del documento procesado: las oraciones con sus palabras clave."
   }
 }

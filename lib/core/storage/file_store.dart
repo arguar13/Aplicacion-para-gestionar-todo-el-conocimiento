@@ -106,6 +106,64 @@ abstract interface class FileStore {
 
   /// Borra lo guardado. No falla si no estaba.
   Future<void> delete(String relativePath);
+
+  /// Copia lo guardado en [relativePath] a la carpeta de [id] —en su
+  /// subcarpeta [folder], como [saveStream]— con el mismo nombre, sin pisar
+  /// uno que ya esté («nombre-2.ext»…), y devuelve la **ruta relativa** de la
+  /// copia; `null` si [relativePath] ya no está.
+  ///
+  /// Sin pasar el archivo por memoria: en el disco lo copia el sistema, fuera
+  /// del hilo de la interfaz, y donde no hay disco se copia por partes. Es lo
+  /// que guarda la copia del original de un documento procesado (F41,
+  /// decisión H): un libro de cientos de megas.
+  Future<String?> copy(
+    String relativePath, {
+    required String id,
+    String? folder,
+  });
+}
+
+/// Cuánto se lee de una vez al copiar por partes ([copyInChunks]).
+const kFileCopyChunkBytes = 1 << 20;
+
+/// [FileStore.copy] para un almacén sin copia propia: lee [relativePath] de a
+/// [kFileCopyChunkBytes] y lo escribe con `saveStream`, así que lo que ocupa en
+/// memoria es una parte, no el archivo.
+Future<String?> copyInChunks(
+  FileStore store,
+  String relativePath, {
+  required String id,
+  required String suggestedName,
+  String? folder,
+}) async {
+  final size = await store.sizeOf(relativePath);
+  if (size == null) return null;
+  Stream<List<int>> chunks() async* {
+    for (var start = 0; start < size; start += kFileCopyChunkBytes) {
+      final remaining = size - start;
+      final chunk = await store.readRange(
+        relativePath,
+        start: start,
+        length: remaining < kFileCopyChunkBytes
+            ? remaining
+            : kFileCopyChunkBytes,
+      );
+      if (chunk == null) {
+        throw StateError(
+          'El archivo $relativePath dejó de estar a mitad de copiarlo.',
+        );
+      }
+      yield chunk;
+    }
+  }
+
+  return store.saveStream(
+    bytes: chunks(),
+    suggestedName: suggestedName,
+    id: id,
+    folder: folder,
+    unique: true,
+  );
 }
 
 /// Deja un nombre de archivo en algo seguro de escribir en el disco.

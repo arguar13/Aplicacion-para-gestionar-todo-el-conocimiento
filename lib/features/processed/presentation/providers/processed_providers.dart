@@ -3,12 +3,15 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_source_material.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_study_text.dart';
 import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
 import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 
@@ -17,6 +20,7 @@ final processedRepositoryProvider = Provider<ProcessedRepository>(
   (ref) => ProcessedRepositoryImpl(
     database: ref.watch(appDatabaseProvider),
     telemetry: ref.watch(telemetryServiceProvider),
+    files: ref.watch(fileStoreProvider),
   ),
 );
 
@@ -77,6 +81,34 @@ final processedPartsProvider = StreamProvider.autoDispose
             offset: key.offset,
             limit: key.limit,
           ),
+    );
+
+/// La copia del original de un documento procesado, o `null` si no tiene
+/// (decisión H).
+final processedOriginalProvider = StreamProvider.autoDispose
+    .family<ProcessedOriginal?, String>(
+      (ref, documentId) =>
+          ref.watch(processedRepositoryProvider).watchOriginal(documentId),
+    );
+
+/// Lo que se pinta sobre la copia del original —lo elegido del procesado, con
+/// las posiciones del texto de la fuente—, o `null` si no hay qué pintar. El
+/// visor de la copia lo usa en lugar de lo estudiado de la fuente:
+/// `documentStudyProvider(marks.sourceKey).overrideWith(...)` con
+/// `marks.study`, en el `ProviderScope` del visor.
+final processedOriginalMarksProvider = StreamProvider.autoDispose
+    .family<ProcessedOriginalMarks?, String>(
+      (ref, documentId) =>
+          ref.watch(processedRepositoryProvider).watchOriginalMarks(documentId),
+    );
+
+/// El texto propio de un documento procesado para estudiarlo en él (decisión
+/// I) —o por qué no—; `null` adentro si no tiene texto que estudiar. Su
+/// `asStudyText` va a la tarjeta de estudiar de siempre.
+final processedStudyTextProvider = FutureProvider.autoDispose
+    .family<Either<Failure, ProcessedStudyText?>, String>(
+      (ref, documentId) =>
+          ref.watch(processedRepositoryProvider).studyTextOf(documentId),
     );
 
 /// Lo que una fuente ofrece para procesar —o por qué no se puede—: la hoja

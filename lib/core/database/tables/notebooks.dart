@@ -19,6 +19,13 @@ class Notebooks extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
+  /// Cuándo se vació por F41 (v46): los cuadernos se arman solo con documentos
+  /// procesados, y los que tenían algo de antes —elementos de la Biblioteca, o
+  /// una consulta sobre ella— quedaron vacíos al actualizar la app. Con esto
+  /// el cuaderno explica por qué está vacío y cómo volver a llenarlo. `null`
+  /// en los que nacieron después o no tenían nada.
+  DateTimeColumn get emptiedForProcessedAt => dateTime().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

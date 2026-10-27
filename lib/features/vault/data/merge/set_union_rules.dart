@@ -135,6 +135,30 @@ abstract final class SetUnionRules {
        AND NOT EXISTS (
          SELECT 1 FROM main.processed_documents m WHERE m.item_id = x.item_id)''';
 
+  /// [column] —el lugar de una parte de la copia en el texto propio de su
+  /// procesado (v46)— si vale acá: es una página, o el procesado no tenía
+  /// sección «Texto» y entra la de la copia, así que el texto es el mismo. Se
+  /// mira antes de escribir nada: `INSERT … SELECT` arma lo que inserta
+  /// primero.
+  static String processedTextPlaceOf(String column) =>
+      "CASE WHEN x.section = 'text' OR NOT EXISTS ( "
+      'SELECT 1 FROM main.processed_parts mt '
+      "WHERE mt.document_id = x.document_id AND mt.section = 'text') "
+      'THEN $column END';
+
+  /// La copia del original de los procesados (v46) que entra: la de la copia,
+  /// si su forma está acá y el procesado todavía no tiene una.
+  static const processedOriginalsFrom =
+      '''
+      FROM $_incoming.processed_originals x
+     WHERE EXISTS (
+             SELECT 1 FROM main.processed_documents d
+              WHERE d.item_id = x.document_id)
+       AND EXISTS (SELECT 1 FROM main.renditions r WHERE r.id = x.rendition_id)
+       AND NOT EXISTS (
+         SELECT 1 FROM main.processed_originals m
+          WHERE m.document_id = x.document_id OR m.rendition_id = x.rendition_id)''';
+
   /// Las partes de documentos procesados (F41) que entran —con `lr` como la
   /// forma de texto de acá donde cae su ancla, si cae—.
   ///

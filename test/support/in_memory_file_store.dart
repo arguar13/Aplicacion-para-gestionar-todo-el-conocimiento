@@ -114,6 +114,19 @@ class InMemoryFileStore implements FileStore {
   Future<String> resolve(String relativePath) async => '/memoria/$relativePath';
 
   @override
+  Future<String?> copy(
+    String relativePath, {
+    required String id,
+    String? folder,
+  }) => copyInChunks(
+    this,
+    relativePath,
+    id: id,
+    folder: folder,
+    suggestedName: relativePath.split('/').last,
+  );
+
+  @override
   Future<void> delete(String relativePath) async {
     if (deleteError != null) throw deleteError!;
 

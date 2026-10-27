@@ -421,6 +421,84 @@ sigue al 5 y al 6.
   Mutación 76/77: la que sobrevive es equivalente —que el buscador arme el texto sin cortes de
   renglón una sola vez y no una por fragmento da el mismo resultado; solo cuesta menos—.
 
+### Paso 1b (hecho): el ajuste del dueño en los datos, esquema v46
+
+- **Palabras clave** (`ProcessedSection.keywords`, entre Síntesis y Notas): cada parte es una
+  oración con sus palabras adentro (`ProcessedPart.spans`, guardadas en `processed_parts.spans`).
+  Las oraciones son las que corta `splitStudySentences` y las palabras, las marcas `keyword` de
+  la fuente (F36, F39, decisión 85), en las mismas posiciones. Con eso salen las dos vistas: la
+  lista compacta (`part.keywords`, en el orden del texto) y la oración con su clave marcada.
+  Agregar, actualizar, reemplazar y quitar siguen las reglas del resumen. «Actualizar» renueva
+  una oración si cambiaron sus palabras.
+- **La copia del original** (decisión H) es una **forma propia del procesado**: un `rendition`
+  con su archivo, en `originales/<procesado>/original/`, y su fila en `processed_originals`.
+  Se eligió así porque una forma ya la cuentan, sin tocarlos, `isFileReferenced`, la copia de la
+  bóveda (la carpeta `originales/`), la unión (`OriginalFilesMerge`) y el borrado de verdad.
+  - **Qué se copia:** solo documentos de texto (PDF, Word, EPUB, texto) y páginas web
+    archivadas. `ProcessedSourceMaterial.original` dice si la fuente lo ofrece, cuánto ocupa y en
+    qué visor se abre: `pdf`, `html` o `document`, que es el lector.
+  - **Cómo se copia:** la copia la hace el sistema (`FileStore.copy`), sin pasar por la memoria
+    ni por el hilo de la interfaz. Donde no hay disco se copia por partes de 1 MB. Si guardar no
+    llega, la copia se borra.
+  - **Cada pedido:** agregar copia, una sola vez. Reemplazar copia de nuevo. Actualizar vuelve a
+    copiar solo si el archivo de la fuente es otro (otra ruta o tamaño: un original de la
+    Biblioteca no se reescribe). Si es el mismo, solo anota con qué texto se corresponde.
+  - **Lo que sale:** quitar o reemplazar mandan la copia de antes a la papelera del contenido
+    del procesado, de donde se recupera, y deshacer la devuelve.
+  - **Independencia:** soltar el archivo de la fuente no toca la copia, y al revés.
+  - **Su id sale del procesado**, como el del procesado sale de su fuente. Así la unión de
+    bóvedas no trae una segunda copia.
+- **Lo elegido, marcado sobre la copia** (`watchOriginalMarks`): el resumen, la síntesis y las
+  palabras clave son marcas de estudiar (`DocumentStudy`), y los fragmentos van aparte.
+  - Todo va en las posiciones del texto de la fuente y con su `sourceKey`, el mismo de los
+    overlays.
+  - Solo se pinta mientras el texto de la fuente siga siendo el de la copia (`content_hash`). Si
+    no, no se pinta nada, y tampoco lo que se editó.
+- **El procesado se estudia solo** (decisión I).
+  - **El texto:** su texto propio son las páginas de «Texto» o, sin ellas, con la copia del
+    original, el texto de la fuente (`studyTextOf`). Cada parte sabe dónde está en él
+    (`text_start`/`text_end`), y corregir una página corre lo que le sigue sin traer el libro.
+  - **La máquina:** la de siempre (resumir con modelo, elegir a mano, el respaldo local de las
+    palabras clave) corre sobre ese texto con la clave `procesado:<id>`. `KeyedStudyRepository`
+    manda esa clave a `ProcessedStudyRepositoryImpl`, que guarda en el procesado (`studied` lo de
+    la IA, `chosen` lo de la persona) y no en `study_marks` de la fuente.
+  - **Lo propio:** lo estudiado ahí es propio. «Actualizar» desde la fuente no lo pisa, solo
+    «Reemplazar». Si su página es la de la fuente, también lleva a la fuente (`sourceOffsetOf`) y
+    se marca sobre la copia.
+- **Los cuadernos se vacían** en la migración. De `notebook_item` sale todo lo que no es un
+  procesado (al migrar no hay ninguno). El cuaderno que tenía algo queda marcado con
+  `notebooks.emptied_for_processed_at`: el que tenía un elemento o el que era por consulta. Los
+  cuadernos no viajan en la unión de bóvedas, así que una copia vieja no los vuelve a llenar.
+- **Los censos:**
+  - la migración es aditiva: rehace `processed_parts` con sus filas y su clave del índice, y el
+    índice entero;
+  - los conteos de todo lo demás son compuerta, y los de los cuadernos se comprueban contra lo
+    que se sacó a propósito;
+  - la unión suma `processed_originals`, con el lugar en el texto solo si el texto es el que
+    entra;
+  - la vista previa y el resultado cuentan la copia del original;
+  - las tablas nuevas están en «nunca se achica» y en las referencias rotas.
+- **En las pantallas de los pasos 2 y 3**, las palabras clave entran por los mismos `switch`
+  exhaustivos: en la hoja «¿Qué va a Procesado?» se eligen enteras, como el resumen, con
+  «Resumir con el modelo» o «Elegir a mano» mientras la fuente no tiene ninguna, y lo que trae
+  la fuente se cuenta en palabras clave; en el documento abierto son una sección más, con su
+  ícono (la llave de estudiar), sus oraciones y «Copiar». «Escuchar» no tiene capa propia
+  para ellas —`ReadScope.keywords` lee las palabras sueltas, y acá cada parte es la oración
+  entera—: se escuchan con el botón flotante.
+- Pruebas: 63 nuevas —la copia del original 22, estudiar el procesado 13, palabras clave 7, la
+  correspondencia entre el texto propio y el de la fuente 5, la migración a v46 6, copiar un
+  archivo 3, la unión de bóvedas 3 y el planificador 4—. La suite amplia (núcleo, bóveda, Biblioteca, cuadernos, chat,
+  estudiar, línea, Bandeja, Procesado, papelera, transformar, salud, Atlas, enlaces, visores y
+  narración): 5.985 pruebas. Las pruebas de la hoja y de la Bandeja que contaban las secciones
+  de la fuente o esperaban ver arriba lo que una sección más empuja hacia abajo dicen ahora lo
+  que miran; dos que dependen del tiempo (la medición del modelo del chat y una de escala)
+  fallaron con la máquina cargada y pasan solas.
+  `flutter analyze`: 19, la línea base.
+- Mutación 48/48: las que sobrevivieron la primera vez (borrar la copia si guardar falla,
+  correr lo que sigue a una página corregida, buscar una palabra repetida después de la
+  anterior, el avance del estudio, recuperar de la papelera sin pisar la copia de ahora y la
+  vista previa del original) tienen ahora su prueba.
+
 **Paso 3 (primera parte): lo que no depende del documento procesado.** La Bandeja quedó lista para
 recibir la hoja «¿Qué va a Procesado?» cuando lleguen los datos del paso 1.
 

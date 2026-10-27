@@ -6,7 +6,8 @@ import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 /// Cómo se elige una sección en la hoja «¿Qué va a Procesado?» (F41).
 enum TriageSectionShape {
   /// Entera, de la fuente: se prende o se apaga —el texto extraído, el
-  /// resumen, la síntesis—. Lo que trae lo decide la fuente, no la persona.
+  /// resumen, la síntesis, las palabras clave—. Lo que trae lo decide la
+  /// fuente, no la persona.
   whole,
 
   /// Una lista que arma la persona, de a un pasaje: las notas y los
@@ -15,12 +16,12 @@ enum TriageSectionShape {
 }
 
 /// La forma de [section] en la hoja. Es el único lugar que lo decide: una
-/// sección nueva (las palabras clave, el original) entra con su caso y la
-/// hoja ya sabe mostrarla.
+/// sección nueva entra con su caso y la hoja ya sabe mostrarla.
 TriageSectionShape triageShapeOf(ProcessedSection section) => switch (section) {
   ProcessedSection.text ||
   ProcessedSection.summary ||
-  ProcessedSection.synthesis => TriageSectionShape.whole,
+  ProcessedSection.synthesis ||
+  ProcessedSection.keywords => TriageSectionShape.whole,
   ProcessedSection.notes ||
   ProcessedSection.fragments => TriageSectionShape.clips,
 };

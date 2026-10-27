@@ -46,6 +46,17 @@ class ProcessedDocuments extends Table {
 
   DateTimeColumn get createdAt => dateTime()();
 
+  /// Hasta dónde se estudió SU propio texto (decisión I, v46): la posición del
+  /// texto que se estudia (`ProcessedStudyText`) hasta la que llegó el
+  /// análisis, como `study_analyses.analyzed_until`. Vuelve a 0 cuando ese
+  /// texto cambia —se edita, se reemplaza o se quita una página—: las
+  /// posiciones ya no son las mismas.
+  IntColumn get studyAnalyzedUntil =>
+      integer().withDefault(const Constant(0))();
+
+  /// Cuándo terminó de estudiarse su texto; `null` si falta.
+  DateTimeColumn get studyCompletedAt => dateTime().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {itemId};
 
@@ -56,8 +67,67 @@ class ProcessedDocuments extends Table {
   ];
 }
 
+/// La copia del original de un documento procesado (F41, v46, decisión H):
+/// el PDF, el Word, el EPUB, el texto o la página web archivada de su fuente,
+/// copiado como un archivo propio.
+///
+/// El archivo es una forma (`renditions`) del procesado —con su ruta, su tipo y
+/// su peso—, así que viaja como cualquier archivo de la bóveda: lo cuentan
+/// `isFileReferenced`, la copia de la bóveda (vive en `originales/`), la unión
+/// (`OriginalFilesMerge` copia lo que referencia una forma) y el borrado de
+/// verdad. Esta fila le agrega lo que lo hace la copia de un original:
+///
+/// - de qué archivo de la fuente salió y cuánto pesaba ([sourceFilePath],
+///   [sourceFileSize]): «Actualizar» vuelve a copiar solo si cambió. Un
+///   original de la Biblioteca se escribe una vez y no se reescribe: otro
+///   archivo es otra ruta;
+/// - con qué texto de la fuente se corresponde ([textHash], el
+///   `source.content_hash` de ese momento): las marcas de lo elegido se pintan
+///   sobre la copia solo mientras el texto de la fuente siga siendo ese. Si no,
+///   no se pinta nada —mejor nada que marcas corridas—.
+///
+/// Su id de forma sale del documento (`processedOriginalRenditionIdFor`): dos
+/// dispositivos que copian el original del mismo procesado llegan a la misma
+/// forma. Se va con su forma; soltar el archivo de la fuente no la toca, y al
+/// revés.
+@DataClassName('ProcessedOriginalRow')
+class ProcessedOriginals extends Table {
+  @override
+  String get tableName => 'processed_originals';
+
+  TextColumn get documentId => text().references(
+    ProcessedDocuments,
+    #itemId,
+    onDelete: KeyAction.cascade,
+  )();
+
+  /// La forma del procesado con el archivo copiado.
+  TextColumn get renditionId => text().unique().references(
+    Renditions,
+    #id,
+    onDelete: KeyAction.cascade,
+  )();
+
+  /// El archivo de la fuente que se copió, y cuánto pesaba.
+  TextColumn get sourceFilePath => text()();
+  IntColumn get sourceFileSize => integer()();
+
+  /// El `content_hash` de la fuente cuando se copió; `null` si todavía no
+  /// tenía texto.
+  TextColumn get textHash => text().nullable()();
+
+  DateTimeColumn get copiedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {documentId};
+
+  @override
+  List<String> get customConstraints => ['CHECK (source_file_size >= 0)'];
+}
+
 /// Una parte de un documento procesado (F41, v45, decisión B): una página del
-/// texto, una oración del resumen o de la síntesis, una nota o un fragmento.
+/// texto, una oración del resumen, de la síntesis o con palabras clave (v46),
+/// una nota o un fragmento.
 ///
 /// Cada una sabe de dónde salió ([origin], [edited]) y dónde estaba en el
 /// original ([sourceRenditionId], [sourceStart], [sourceEnd]: posiciones del
@@ -131,6 +201,20 @@ class ProcessedParts extends Table {
   IntColumn get sourceStart => integer().nullable()();
   IntColumn get sourceEnd => integer().nullable()();
 
+  /// Dónde está en el texto PROPIO del procesado (decisión I, v46): el tramo
+  /// `[textStart, textEnd)` de su sección «Texto» —sus páginas, una detrás de
+  /// la otra—. Una página lo lleva siempre: es su lugar en ese texto. Una
+  /// oración lo lleva mientras se sepa dónde está: lo estudiado en el
+  /// procesado siempre, y lo copiado de la fuente mientras su página sea
+  /// todavía la de la fuente. Corregir una página corre lo que le sigue.
+  IntColumn get textStart => integer().nullable()();
+  IntColumn get textEnd => integer().nullable()();
+
+  /// En una parte de las palabras clave, los tramos de cada palabra dentro de
+  /// [content], en JSON (`encodeProcessedSpans`): `[[inicio, fin], …]`, en
+  /// orden. Nulo en las demás secciones.
+  TextColumn get spans => text().nullable()();
+
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -144,8 +228,19 @@ class ProcessedParts extends Table {
     // Lo copiado sabe siempre de dónde salió; lo editado es solo lo copiado.
     "CHECK (origin <> 'copied' OR source_start IS NOT NULL)",
     "CHECK (origin = 'copied' OR edited = 0)",
-    // Las páginas del texto, las oraciones y los fragmentos son de la fuente:
-    // la persona solo escribe notas.
-    "CHECK (origin = 'copied' OR section = 'notes')",
+    // La persona escribe de cero solo notas; lo estudiado en el procesado es
+    // resumen, síntesis o palabras clave, y sabe dónde está (decisión I).
+    "CHECK (origin <> 'user' OR section = 'notes')",
+    // Una sola línea a propósito: drift solo lee el texto de una restricción
+    // si es un literal entero, y uno de varios renglones cambiaría con el fin
+    // de línea de cada copia del repositorio.
+    // ignore: lines_longer_than_80_chars
+    "CHECK (origin NOT IN ('studied', 'chosen') OR section IN ('summary', 'synthesis', 'keywords'))",
+
+    'CHECK ((text_start IS NULL) = (text_end IS NULL))',
+    'CHECK (text_start IS NULL OR text_start >= 0)',
+    'CHECK (text_start IS NULL OR text_end > text_start)',
+    // Las palabras clave llevan sus tramos, y solo ellas.
+    "CHECK ((spans IS NOT NULL) = (section = 'keywords'))",
   ];
 }

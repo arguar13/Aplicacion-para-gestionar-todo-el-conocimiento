@@ -62,6 +62,10 @@ void main() {
         'solo comprueba que el elemento exista —vivo o en la papelera— antes '
         'de colgarle un vínculo, una tarjeta o una procedencia: no hay '
         'pantalla que lo muestre',
+    'lib/features/processed/data/repositories/processed_rows.dart':
+        'lee la fuente de un documento procesado por su clave solo para saber '
+        'si su texto es Markdown (F41): viva o en la papelera, su texto es '
+        'el mismo; no lista nada',
     'lib/features/vault/data/merge/set_union_rules.dart':
         'solo comprueba que la fuente o el elemento de un documento procesado '
         'exista —vivo o en la papelera— antes de enlazarlo (F41): un '

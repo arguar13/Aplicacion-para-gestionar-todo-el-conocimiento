@@ -3,6 +3,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/core/storage/local_file_store.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_text.dart';
@@ -16,10 +17,11 @@ class _SilentTelemetry extends Mock implements TelemetryService {}
 /// Una bóveda de prueba con su repositorio de procesados y el caso de uso
 /// (F41), sobre SQLite real.
 class ProcessedHarness {
-  ProcessedHarness._(this.vault, {ProcessedWorker? worker})
+  ProcessedHarness._(this.vault, this.files, {ProcessedWorker? worker})
     : repository = ProcessedRepositoryImpl(
         database: vault.db,
         telemetry: _SilentTelemetry(),
+        files: files,
         ids: FakeIdGenerator(prefix: 'parte-${vault.deviceId}'),
         clock: () => vault.now,
       ) {
@@ -35,12 +37,24 @@ class ProcessedHarness {
     String deviceId = 'tel',
     ProcessedWorker? worker,
     QueryExecutor? executor,
-  }) async => ProcessedHarness._(
-    await TestVault.create(deviceId: deviceId, executor: executor),
-    worker: worker,
-  );
+  }) async {
+    final vault = await TestVault.create(
+      deviceId: deviceId,
+      executor: executor,
+    );
+    return ProcessedHarness._(
+      vault,
+      // Los archivos de verdad, en la carpeta de documentos de la bóveda: la
+      // misma que usa su copia y la unión.
+      LocalFileStore(rootDirectory: () async => vault.docs),
+      worker: worker,
+    );
+  }
 
   final TestVault vault;
+
+  /// El almacén de los archivos de la bóveda.
+  final LocalFileStore files;
   final ProcessedRepositoryImpl repository;
   late final ProcessSourceUseCase process;
 

@@ -33,6 +33,9 @@ sealed class ProcessedDocumentSummary with _$ProcessedDocumentSummary {
 
     /// Sus temas (F37), como los de cualquier elemento.
     @Default(<String>{}) Set<String> spaceIds,
+
+    /// Si tiene la copia del original (decisión H): el chip «Original».
+    @Default(false) bool hasOriginal,
   }) = _ProcessedDocumentSummary;
 
   const ProcessedDocumentSummary._();
@@ -43,8 +46,8 @@ sealed class ProcessedDocumentSummary with _$ProcessedDocumentSummary {
       if ((partCounts[section] ?? 0) > 0) section,
   ];
 
-  /// Si no le queda ninguna parte.
-  bool get isEmpty => sections.isEmpty;
+  /// Si no le queda nada: ni partes ni la copia del original.
+  bool get isEmpty => sections.isEmpty && !hasOriginal;
 }
 
 /// Cuánto hay en una sección de un documento procesado.

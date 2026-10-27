@@ -189,10 +189,14 @@ void main() {
     await tester.tap(find.byKey(const Key('processed-cut-done')));
     await tester.pumpAndSettle();
 
-    // De vuelta en la hoja, con lo cortado en sus listas.
+    // De vuelta en la hoja, con lo cortado en sus listas (más abajo, quizás
+    // fuera de la vista: las listas van después de lo de la fuente).
     expect(triageSheet, findsOneWidget);
-    expect(find.text('La primera idea.'), findsOneWidget);
-    expect(find.text('La segunda idea es larga.'), findsOneWidget);
+    expect(find.text('La primera idea.', skipOffstage: false), findsOneWidget);
+    expect(
+      find.text('La segunda idea es larga.', skipOffstage: false),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const Key('triage-done')));
     await tester.pumpAndSettle();
 

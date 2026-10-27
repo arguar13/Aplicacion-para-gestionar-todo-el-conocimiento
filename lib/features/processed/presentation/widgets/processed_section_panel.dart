@@ -97,6 +97,7 @@ class ProcessedSectionPanel extends StatelessWidget {
             ),
             ProcessedSection.summary ||
             ProcessedSection.synthesis ||
+            ProcessedSection.keywords ||
             ProcessedSection.notes ||
             ProcessedSection.fragments => _PartsList(
               documentId: document.id,
@@ -112,13 +113,17 @@ class ProcessedSectionPanel extends StatelessWidget {
 }
 
 /// Qué se lee al tocar «Escuchar» en [section], o `null` si no tiene una
-/// lectura propia —las notas y los fragmentos se escuchan con el botón
-/// flotante, que lee todo—.
+/// lectura propia —las palabras clave, las notas y los fragmentos se escuchan
+/// con el botón flotante, que lee todo—. Las palabras clave no van con
+/// `ReadScope.keywords`: esa capa lee las palabras sueltas, y acá cada parte
+/// es la oración entera que las lleva.
 ReadScope? _listenScopeOf(ProcessedSection section) => switch (section) {
   ProcessedSection.text => ReadScope.all,
   ProcessedSection.summary => ReadScope.summary,
   ProcessedSection.synthesis => ReadScope.synthesis,
-  ProcessedSection.notes || ProcessedSection.fragments => null,
+  ProcessedSection.keywords ||
+  ProcessedSection.notes ||
+  ProcessedSection.fragments => null,
 };
 
 /// Si «Copiar» copia la sección entera: el texto de un libro no —se copia
@@ -127,6 +132,7 @@ bool _copiesWhole(ProcessedSection section) => switch (section) {
   ProcessedSection.text => false,
   ProcessedSection.summary ||
   ProcessedSection.synthesis ||
+  ProcessedSection.keywords ||
   ProcessedSection.notes ||
   ProcessedSection.fragments => true,
 };

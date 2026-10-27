@@ -22,6 +22,7 @@ class SetUnionResult {
     this.datedEvents = 0,
     this.processedDocuments = 0,
     this.processedParts = 0,
+    this.processedOriginals = 0,
   });
 
   final int relations;
@@ -48,9 +49,10 @@ class SetUnionResult {
   /// Los hechos fechados dentro de un documento (F40).
   final int datedEvents;
 
-  /// Los documentos procesados (F41) y sus partes.
+  /// Los documentos procesados (F41), sus partes y la copia de su original.
   final int processedDocuments;
   final int processedParts;
+  final int processedOriginals;
 }
 
 /// Las columnas de cada tabla que se une, en el orden en que se copian. Un test
@@ -126,6 +128,10 @@ const kProcessedDocumentColumns = [
   'source_item_id',
   'source_kind',
   'created_at',
+  // Hasta dónde se estudió su texto (v46): viaja con el documento que entra,
+  // que entra con su texto.
+  'study_analyzed_until',
+  'study_completed_at',
 ];
 
 /// Todas menos `row_key`: es la clave local que usa el índice de texto, y una
@@ -141,8 +147,23 @@ const kProcessedPartColumns = [
   'source_rendition_id',
   'source_start',
   'source_end',
+  // Su lugar en el texto propio y los tramos de sus palabras clave (v46).
+  'text_start',
+  'text_end',
+  'spans',
   'created_at',
   'updated_at',
+];
+
+/// La copia del original de un procesado (v46): su forma —con el archivo— ya
+/// entró con las formas de los elementos.
+const kProcessedOriginalColumns = [
+  'document_id',
+  'rendition_id',
+  'source_file_path',
+  'source_file_size',
+  'text_hash',
+  'copied_at',
 ];
 const kFlashcardColumns = [
   'id',
@@ -564,7 +585,22 @@ class SetUnionMerge {
             'x.position + COALESCE((SELECT MAX(m.position) + 1 '
             'FROM main.processed_parts m WHERE m.document_id = x.document_id '
             'AND m.section = x.section), 0)',
+        // Su lugar en el texto propio es el del texto de la copia: vale acá
+        // solo si ese texto es el que entra —acá no había—. Si no, la parte
+        // entra sin lugar y se vuelve a ubicar la próxima vez que se procese.
+        'text_start': SetUnionRules.processedTextPlaceOf('x.text_start'),
+        'text_end': SetUnionRules.processedTextPlaceOf('x.text_end'),
       },
+    );
+
+    // La copia del original de un procesado (decisión H): su forma, con el
+    // archivo, ya entró —o no, si acá se había soltado—; sin su forma no hay
+    // copia que anotar. Un procesado tiene una sola.
+    final processedOriginals = await _union(
+      _db.processedOriginals,
+      'processed_originals',
+      kProcessedOriginalColumns,
+      SetUnionRules.processedOriginalsFrom,
     );
 
     return SetUnionResult(
@@ -582,6 +618,7 @@ class SetUnionMerge {
       datedEvents: datedEvents,
       processedDocuments: processedDocuments,
       processedParts: processedParts,
+      processedOriginals: processedOriginals,
     );
   }
 

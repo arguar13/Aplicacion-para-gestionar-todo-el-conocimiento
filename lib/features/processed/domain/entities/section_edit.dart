@@ -27,11 +27,14 @@ enum ProcessedChange {
 @freezed
 sealed class SectionInput with _$SectionInput {
   /// La versión de ahora en la fuente: el texto entero, o todas las oraciones
-  /// de su resumen o de su síntesis. Solo para esas tres secciones.
+  /// de su resumen, de su síntesis o con palabras clave. Solo para esas
+  /// cuatro secciones.
   const factory SectionInput.fromSource() = FromSource;
 
   /// Algunas oraciones del resumen o de la síntesis, por el id de su marca de
-  /// estudio (`study_marks`): lo que la persona eligió en la hoja.
+  /// estudio (`study_marks`): lo que la persona eligió en la hoja. En las
+  /// palabras clave, los ids son los de las palabras elegidas: entra cada
+  /// oración que tiene alguna, con solo esas.
   const factory SectionInput.sentences(Set<String> studyMarkIds) =
       FromSentences;
 
@@ -89,12 +92,8 @@ sealed class SectionEdit with _$SectionEdit {
     }
     return switch ((section, input)) {
       (ProcessedSection.text, FromSource()) => null,
-      (ProcessedSection.summary || ProcessedSection.synthesis, FromSource()) =>
-        null,
-      (
-        ProcessedSection.summary || ProcessedSection.synthesis,
-        FromSentences(:final studyMarkIds),
-      ) =>
+      (_, FromSource()) when section.isStudy => null,
+      (_, FromSentences(:final studyMarkIds)) when section.isStudy =>
         studyMarkIds.isEmpty ? 'No se eligió ninguna oración.' : null,
       (ProcessedSection.notes, FromDrafts(:final drafts)) => _draftsProblem(
         drafts,

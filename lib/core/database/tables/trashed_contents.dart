@@ -87,6 +87,12 @@ class TrashedContents extends Table {
   /// Nulo si ninguna la anclaba.
   TextColumn get processedParts => text().nullable()();
 
+  /// Si lo soltado es la copia del original de un documento procesado (F41,
+  /// v46): lo que tenía su fila de `processed_originals`, en JSON
+  /// (`encodeTrashedProcessedOriginal`), para volver a ser su original al
+  /// recuperarla. Nulo en todo lo demás.
+  TextColumn get processedOriginal => text().nullable()();
+
   /// Cuándo se soltó: a los 30 días se borra de verdad.
   DateTimeColumn get trashedAt => dateTime()();
 

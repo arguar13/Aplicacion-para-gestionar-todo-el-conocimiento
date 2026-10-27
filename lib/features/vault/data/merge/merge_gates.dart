@@ -103,6 +103,7 @@ class MergeGates {
     // Los documentos procesados y sus partes (F41).
     'processed_documents',
     'processed_parts',
+    'processed_originals',
   ];
 
   /// Lo que se cuenta de una tabla cuando no es toda: el espejo de las

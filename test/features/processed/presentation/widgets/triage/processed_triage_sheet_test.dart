@@ -358,7 +358,9 @@ void main() {
     await tester.tap(find.byKey(const Key('triage-done')));
     await tester.pumpAndSettle();
 
-    expect(find.text(es.processedTriageTitle), findsOneWidget);
+    // La hoja sigue abierta: su título puede haber quedado arriba, fuera de
+    // la vista, después de bajar hasta el interruptor.
+    expect(find.byKey(const Key('processed-triage-sheet')), findsOneWidget);
     expect(find.byKey(const Key('triage-error')), findsOneWidget);
     expect(switchOf(tester, ProcessedSection.text).value, isTrue);
     expect(closedWith, isNull);
@@ -379,7 +381,11 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
     await tester.pumpAndSettle();
     expect(switchOf(tester, ProcessedSection.synthesis).value, isFalse);
-    expect(find.text(es.processedTriageKeysHint(3)), findsOneWidget);
+    // Las palabras clave tampoco: la fuente todavía no tiene ninguna.
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit4);
+    await tester.pumpAndSettle();
+    expect(switchOf(tester, ProcessedSection.keywords).value, isFalse);
+    expect(find.text(es.processedTriageKeysHint(4)), findsOneWidget);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);

@@ -26,6 +26,7 @@ void main() {
           ProcessedSection.text: TriageSectionShape.whole,
           ProcessedSection.summary: TriageSectionShape.whole,
           ProcessedSection.synthesis: TriageSectionShape.whole,
+          ProcessedSection.keywords: TriageSectionShape.whole,
           ProcessedSection.notes: TriageSectionShape.clips,
           ProcessedSection.fragments: TriageSectionShape.clips,
         },

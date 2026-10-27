@@ -1663,11 +1663,14 @@ pura que sacás de esa fuente; la fuente queda entera en la Biblioteca). Arriba
 dice el nombre de la fuente, y debajo hay dos grupos:
 
 - **De la fuente**: **Texto extraído** (o **Transcripción**, en un audio o un
-  video), **Resumen** y **Síntesis**. Cada uno tiene su interruptor y se
-  prenden en cualquier combinación. Apagados dicen lo que trae la fuente
-  (*"2.340 palabras"*, *"14 oraciones"*); prendidos, cuánto va a quedar.
-  - Si todavía **no hay resumen o síntesis**, debajo aparecen los mismos dos
-    caminos de la tarjeta de estudiar: **"Resumir con Gemini 2.5 Flash"** (o el
+  video), **Resumen**, **Síntesis** y **Palabras clave**. Cada uno tiene su
+  interruptor y se prenden en cualquier combinación. Apagados dicen lo que trae
+  la fuente (*"2.340 palabras"*, *"14 oraciones"*, *"9 palabras clave"*);
+  prendidos, cuánto va a quedar. Las palabras clave llegan **con su oración**:
+  cada una va dentro de la oración de la fuente donde está, para leerla en su
+  contexto.
+  - Si todavía **no hay resumen, síntesis o palabras clave**, debajo aparecen
+    los mismos dos caminos de la tarjeta de estudiar: **"Resumir con Gemini 2.5 Flash"** (o el
     modelo que elegiste) y **"Elegir a mano"**. Con la IA, la franja muestra cómo
     va (*"Analizando el documento… parte 3 de 12"*, con **"Parar"**) y las
     oraciones se van sumando solas. A mano, se abre el texto (ver "Cortar del
@@ -1850,7 +1853,8 @@ Se ve y se maneja como la [Biblioteca](#la-biblioteca):
   fuente no se toca nada).
 
 Cada fila muestra el ícono del tipo de fuente de la que salió, el título, las
-partes que tiene —**Texto · Resumen · Síntesis · Notas · Fragmentos**— y cuándo
+partes que tiene —**Texto · Resumen · Síntesis · Palabras clave · Notas ·
+Fragmentos**— y cuándo
 se actualizó por última vez.
 
 **Vacío:** *"Todavía no procesaste nada. Triá una fuente en la Bandeja."*, con
@@ -1869,7 +1873,8 @@ el documento conserva lo que sacaste de ella. Al lado, **"Volver a triar"**.
 
 Debajo, **sus secciones**, cada una plegable con su nombre y cuánto tiene (por
 ejemplo *"12 páginas"* o *"8 oraciones"*, y *"2 con cambios tuyos"* si editaste
-algo). Lo elegido —resumen, síntesis, notas, fragmentos— se abre desplegado; el
+algo). Lo elegido —resumen, síntesis, palabras clave, notas, fragmentos— se
+abre desplegado; el
 **texto entero** se abre plegado si hay algo más, para no tapar el resto.
 
 - **El texto** se lee **de a una página**, sin cargar el libro entero: arriba
@@ -1886,7 +1891,9 @@ algo). Lo elegido —resumen, síntesis, notas, fragmentos— se abre desplegado
   las notas que salieron de un pasaje lo tienen en su menú. Si la fuente está en
   la papelera, no aparece.
 - **"Copiar"** copia una sección entera (menos el texto, que se copia
-  seleccionándolo), y **"Escuchar"** lee el texto, el resumen o la síntesis.
+  seleccionándolo), y **"Escuchar"** lee el texto, el resumen o la síntesis
+  (las palabras clave, las notas y los fragmentos se escuchan con el botón
+  redondo, que lee todo).
 - Arriba a la derecha, **"Eliminar"** lo manda a la papelera, con
   "Deshacer". Un documento procesado que está en la papelera se puede abrir y
   leer igual: lo dice arriba, con **"Restaurar"**.

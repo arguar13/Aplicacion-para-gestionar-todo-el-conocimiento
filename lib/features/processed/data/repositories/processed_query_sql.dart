@@ -43,12 +43,21 @@ class ProcessedQuerySql {
       _where.add('pd.source_kind IN (${_marks(query.sourceKinds.length)})');
       _args.addAll(query.sourceKinds.map((k) => Variable.withString(k.name)));
     }
-    if (query.sections.isNotEmpty) {
-      _where.add(
+    // Qué partes tiene: cualquiera de las secciones pedidas, o la copia del
+    // original (decisión H).
+    final inSections =
         'EXISTS (SELECT 1 FROM processed_parts ps '
         'WHERE ps.document_id = item.id '
-        'AND ps.section IN (${_marks(query.sections.length)}))',
-      );
+        'AND ps.section IN (${_marks(query.sections.length)}))';
+    const withOriginal =
+        'EXISTS (SELECT 1 FROM processed_originals po '
+        'WHERE po.document_id = item.id)';
+    final has = [
+      if (query.sections.isNotEmpty) inSections,
+      if (query.withOriginal) withOriginal,
+    ];
+    if (has.isNotEmpty) {
+      _where.add('(${has.join(' OR ')})');
       _args.addAll(query.sections.map((s) => Variable.withString(s.name)));
     }
     final ids = query.ids;

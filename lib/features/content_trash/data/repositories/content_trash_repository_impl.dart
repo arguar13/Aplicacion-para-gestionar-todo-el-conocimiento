@@ -22,6 +22,7 @@ import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/content_trash/domain/entities/trashed_content.dart';
 import 'package:sinapsis/features/content_trash/domain/repositories/content_trash_repository.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_original_trash.dart';
 
 /// [ContentTrashRepository] sobre la base (`content_trash`, v38) y el
 /// almacén de archivos.
@@ -174,6 +175,7 @@ class ContentTrashRepositoryImpl implements ContentTrashRepository {
 
   Future<ContentRestoreOutcome> _restoreFile(TrashedContentRow row) async {
     final path = row.relativePath!;
+    if (row.processedOriginal != null) return _restoreProcessedOriginal(row);
     final source = await _sourceOf(row.itemId);
     final current = source?.originalBlobPath;
     if (current != null && current != path) {
@@ -196,6 +198,23 @@ class ContentTrashRepositoryImpl implements ContentTrashRepository {
       await (_db.delete(_trash)..where((t) => t.id.equals(row.id))).go();
     });
     return ContentRestoreOutcome.restored;
+  }
+
+  /// La copia del original de un documento procesado (F41, decisión H) vuelve
+  /// a ser su original, si el documento no consiguió otro mientras tanto.
+  Future<ContentRestoreOutcome> _restoreProcessedOriginal(
+    TrashedContentRow row,
+  ) async {
+    if (!await _files.exists(row.relativePath!)) {
+      await (_db.delete(_trash)..where((t) => t.id.equals(row.id))).go();
+      return ContentRestoreOutcome.fileMissing;
+    }
+    final restored = await _db.transaction(
+      () => restoreTrashedProcessedOriginal(_db, row),
+    );
+    return restored
+        ? ContentRestoreOutcome.restored
+        : ContentRestoreOutcome.alreadyHasFile;
   }
 
   Future<ContentRestoreOutcome> _restoreText(TrashedContentRow row) async {

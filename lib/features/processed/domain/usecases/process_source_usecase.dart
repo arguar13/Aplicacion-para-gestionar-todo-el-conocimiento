@@ -3,6 +3,7 @@ import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/text_parts.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_source_material.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
@@ -36,26 +37,48 @@ class ProcessSourceUseCase {
   final ProcessedWorker _worker;
 
   /// Procesa [sourceItemId] con [edits]: una entrada por sección que se toca;
-  /// las demás quedan como están.
+  /// las demás quedan como están. Con [original], también la copia del
+  /// original (decisión H): agregar o reemplazar la copian, actualizar la
+  /// vuelve a copiar solo si el archivo de la fuente cambió, quitar la manda a
+  /// la papelera del contenido.
+  ///
+  /// La copia del archivo se hace antes de guardar, en el disco y en otro
+  /// hilo; si guardar no llega, la copia se borra.
   ///
   /// Falla, sin escribir nada, si algún pedido no vale para su sección
   /// (`SectionEdit.problemFor`), si la fuente no es una fuente viva, si un
   /// corte no cae dentro de un texto de la fuente o si una oración elegida no
-  /// es de ella; y, para un documento que todavía no existe, si no queda nada
-  /// que guardar.
+  /// es de ella, si se pide copiar un original que la fuente no ofrece; y,
+  /// para un documento que todavía no existe, si no queda nada que guardar.
   Future<Either<Failure, ProcessOutcome>> call(
     String sourceItemId,
-    Map<ProcessedSection, SectionEdit> edits,
-  ) async {
-    final planned = await _plan(sourceItemId, edits);
+    Map<ProcessedSection, SectionEdit> edits, {
+    OriginalEdit? original,
+  }) async {
+    final planned = await _plan(sourceItemId, edits, original);
     return planned.match(left, (planned) async {
+      StagedOriginal? staged;
+      if (planned.original == _OriginalStep.copy) {
+        final copy = await _repository.stageOriginal(sourceItemId);
+        if (copy.isLeft()) return left(copy.getLeft().toNullable()!);
+        staged = copy.getRight().toNullable();
+      }
       final committed = await _repository.commit(
         ProcessedCommit(
           sourceItemId: sourceItemId,
           plans: planned.plans.values.toList(),
           expectedStatus: planned.status,
+          original: switch (planned.original) {
+            _OriginalStep.none => null,
+            _OriginalStep.copy => PutOriginal(staged!),
+            _OriginalStep.refresh => const RefreshOriginal(),
+            _OriginalStep.remove => const RemoveOriginal(),
+          },
         ),
       );
+      if (committed.isLeft() && staged != null) {
+        await _repository.discardStagedOriginal(staged);
+      }
       return committed.map(
         (undo) => ProcessOutcome(
           documentId: planned.documentId,
@@ -69,8 +92,48 @@ class ProcessSourceUseCase {
               ),
           },
           undo: undo,
+          original: switch (undo.original) {
+            null => OriginalOutcome.untouched,
+            ProcessedOriginalUndo(refreshed: true) => OriginalOutcome.refreshed,
+            ProcessedOriginalUndo(copiedPath: _?) => OriginalOutcome.copied,
+            _ => OriginalOutcome.removed,
+          },
         ),
       );
+    });
+  }
+
+  /// Qué pasaría con la copia del original si se procesa [sourceItemId] con
+  /// [original], sin copiar nada: la línea «el original ocupa …» de la hoja.
+  Future<Either<Failure, OriginalPreview>> previewOriginal(
+    String sourceItemId,
+    OriginalEdit original,
+  ) async {
+    final material = await _repository.materialOf(
+      sourceItemId,
+      countWords: false,
+    );
+    return material.match(left, (material) async {
+      final documentId = processedDocumentIdFor(sourceItemId);
+      final current = await _repository.originalOf(documentId);
+      return current.match(left, (current) {
+        final step = _originalStepFor(original, material, current);
+        return step.map(
+          (step) => OriginalPreview(
+            outcome: switch (step) {
+              _OriginalStep.none => OriginalOutcome.untouched,
+              _OriginalStep.copy => OriginalOutcome.copied,
+              _OriginalStep.refresh => OriginalOutcome.refreshed,
+              _OriginalStep.remove => OriginalOutcome.removed,
+            },
+            sizeBytes: switch (step) {
+              _OriginalStep.copy => material.original!.sizeBytes,
+              _OriginalStep.remove => 0,
+              _ => current?.sizeBytes ?? 0,
+            },
+          ),
+        );
+      });
     });
   }
 
@@ -89,7 +152,7 @@ class ProcessSourceUseCase {
     String sourceItemId,
     Map<ProcessedSection, SectionEdit> edits,
   ) async {
-    final planned = await _plan(sourceItemId, edits);
+    final planned = await _plan(sourceItemId, edits, null);
     return planned.match(left, (planned) async {
       final previews = <ProcessedSection, SectionPreview>{};
       for (final plan in planned.plans.values) {
@@ -115,11 +178,50 @@ class ProcessSourceUseCase {
 
   // ---------------------------------------------------------------------
 
+  /// Qué hacer con la copia del original, según lo pedido, lo que la fuente
+  /// ofrece y la que ya hay.
+  static Either<Failure, _OriginalStep> _originalStepFor(
+    OriginalEdit? edit,
+    ProcessedSourceMaterial material,
+    ProcessedOriginal? current,
+  ) {
+    if (edit == null) return right(_OriginalStep.none);
+    final offer = material.original;
+    const notOffered = Failure.validation(
+      message: 'Esta fuente no tiene un original que copiar.',
+    );
+    switch (edit.change) {
+      case ProcessedChange.remove:
+        return right(
+          current == null ? _OriginalStep.none : _OriginalStep.remove,
+        );
+      case ProcessedChange.add:
+        if (current != null) return right(_OriginalStep.none);
+        return offer == null ? left(notOffered) : right(_OriginalStep.copy);
+      case ProcessedChange.replace:
+        return offer == null ? left(notOffered) : right(_OriginalStep.copy);
+      case ProcessedChange.update:
+        if (offer == null) {
+          // La fuente ya no tiene su archivo: la copia es propia y se queda.
+          return current == null ? left(notOffered) : right(_OriginalStep.none);
+        }
+        if (current == null) return right(_OriginalStep.copy);
+        // Un original de la Biblioteca no se reescribe: otro archivo es otra
+        // ruta. El mismo archivo con el mismo peso es el mismo: solo puede
+        // haber cambiado su texto extraído.
+        final same =
+            current.sourceFilePath == offer.relativePath &&
+            current.sizeBytes == offer.sizeBytes;
+        return right(same ? _OriginalStep.refresh : _OriginalStep.copy);
+    }
+  }
+
   Future<Either<Failure, _Planned>> _plan(
     String sourceItemId,
     Map<ProcessedSection, SectionEdit> edits,
+    OriginalEdit? original,
   ) async {
-    if (edits.isEmpty) {
+    if (edits.isEmpty && original == null) {
       return left(const Failure.validation(message: 'No se pidió nada.'));
     }
     for (final MapEntry(key: section, value: edit) in edits.entries) {
@@ -135,6 +237,14 @@ class ProcessSourceUseCase {
       final documentId = processedDocumentIdFor(sourceItemId);
       final status = await _repository.statusOf(documentId);
       return status.match(left, (status) async {
+        final current = status == ProcessedDocumentStatus.absent
+            ? null
+            : (await _repository.originalOf(documentId)).getOrElse((_) => null);
+        final originalStep = _originalStepFor(original, material, current);
+        if (originalStep.isLeft()) {
+          return left(originalStep.getLeft().toNullable()!);
+        }
+        final step = originalStep.getRight().toNullable()!;
         final existing = status == ProcessedDocumentStatus.absent
             ? const <ProcessedPart>[]
             : await _repository
@@ -166,6 +276,7 @@ class ProcessSourceUseCase {
           );
         }
         if (status == ProcessedDocumentStatus.absent &&
+            step != _OriginalStep.copy &&
             plans.values.every((plan) => plan.parts.isEmpty)) {
           return left(
             const Failure.validation(
@@ -174,7 +285,12 @@ class ProcessSourceUseCase {
           );
         }
         return right(
-          _Planned(documentId: documentId, status: status, plans: plans),
+          _Planned(
+            documentId: documentId,
+            status: status,
+            plans: plans,
+            original: step,
+          ),
         );
       });
     });
@@ -220,8 +336,24 @@ class ProcessSourceUseCase {
                 ),
           ]);
         });
+      case FromSource() when section == ProcessedSection.keywords:
+        return right(_keywordCandidates(material.keywords));
       case FromSource():
         return right(_sentences(_sentencesOf(section, material)));
+      case FromSentences(:final studyMarkIds)
+          when section == ProcessedSection.keywords:
+        final offered = {
+          for (final sentence in material.keywords)
+            for (final keyword in sentence.keywords) keyword.studyMarkId,
+        };
+        if (!offered.containsAll(studyMarkIds)) {
+          return left(
+            const Failure.validation(
+              message: 'Una palabra clave elegida ya no está en esta fuente.',
+            ),
+          );
+        }
+        return right(_keywordCandidates(material.keywords, only: studyMarkIds));
       case FromSentences(:final studyMarkIds):
         final offered = {
           for (final sentence in _sentencesOf(section, material))
@@ -305,6 +437,33 @@ class ProcessSourceUseCase {
       ? material.summary
       : material.synthesis;
 
+  /// Las oraciones con palabras clave de la fuente, cada una con los tramos de
+  /// sus palabras adentro; con [only], solo esas palabras —y solo las
+  /// oraciones que tienen alguna—.
+  static List<ProcessedCandidate> _keywordCandidates(
+    List<ProcessedKeywordSentence> sentences, {
+    Set<String>? only,
+  }) => [
+    for (final sentence in sentences)
+      if ([
+            for (final keyword in sentence.keywords)
+              if (only == null || only.contains(keyword.studyMarkId)) keyword,
+          ]
+          case final keywords when keywords.isNotEmpty)
+        ProcessedCandidate(
+          content: sentence.content,
+          origin: ProcessedPartOrigin.copied,
+          anchor: sentence.anchor,
+          spans: [
+            for (final keyword in keywords)
+              ProcessedSpan(
+                start: keyword.start - sentence.anchor.start,
+                end: keyword.end - sentence.anchor.start,
+              ),
+          ],
+        ),
+  ];
+
   static List<ProcessedCandidate> _sentences(List<ProcessedSentence> list) => [
     for (final sentence in list)
       ProcessedCandidate(
@@ -368,12 +527,17 @@ class _Planned {
     required this.documentId,
     required this.status,
     required this.plans,
+    required this.original,
   });
 
   final String documentId;
   final ProcessedDocumentStatus status;
   final Map<ProcessedSection, SectionPlan> plans;
+  final _OriginalStep original;
 }
+
+/// Qué se le va a hacer a la copia del original.
+enum _OriginalStep { none, copy, refresh, remove }
 
 class _PlanRequest {
   const _PlanRequest(this.section, this.existing, this.change, this.fresh);

@@ -766,6 +766,10 @@ void main() {
         'row_key',
       }, await columnsOf('processed_parts'));
       expect(kProcessedPartColumns, isNot(contains('row_key')));
+      expect(
+        kProcessedOriginalColumns.toSet(),
+        await columnsOf('processed_originals'),
+      );
       // Las pasadas de la IA, lo que «no era» y las asignaciones de
       // propiedades, que ahora llevan su pasada (F27).
       expect(kAiRunColumns.toSet(), await columnsOf('ai_runs'));

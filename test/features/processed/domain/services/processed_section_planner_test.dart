@@ -276,6 +276,103 @@ void main() {
     });
   });
 
+  group('lo propio del procesado y las palabras clave (decisión I)', () {
+    test('lo estudiado o elegido en el procesado se queda al actualizar, y lo '
+        'de la fuente que se le superpone no entra', () {
+      final studied = part(
+        'Mía de la IA.',
+        anchor: a(0, 13),
+        origin: ProcessedPartOrigin.studied,
+      );
+      final chosen = part(
+        'Elegida.',
+        anchor: a(20, 28),
+        origin: ProcessedPartOrigin.chosen,
+      );
+
+      final plan = planSectionChange(
+        section: ProcessedSection.summary,
+        existing: [studied, chosen],
+        change: ProcessedChange.update,
+        fresh: [copy('Choca.', a(5, 15)), copy('Nueva.', a(40, 46))],
+      );
+
+      expect(contents(plan), ['Mía de la IA.', 'Elegida.', 'Nueva.']);
+      expect(plan.removed, isEmpty);
+    });
+
+    test('«Reemplazar» sí lo pisa', () {
+      final studied = part(
+        'Mía.',
+        anchor: a(0, 4),
+        origin: ProcessedPartOrigin.studied,
+      );
+
+      final plan = planSectionChange(
+        section: ProcessedSection.summary,
+        existing: [studied],
+        change: ProcessedChange.replace,
+        fresh: [copy('De la fuente.', a(0, 13))],
+      );
+
+      expect(plan.removed, [studied]);
+      expect(contents(plan), ['De la fuente.']);
+    });
+
+    test('una oración de palabras clave con otras palabras se renueva; con '
+        'las mismas, es la misma', () {
+      const spans = [ProcessedSpan(start: 0, end: 4)];
+      final same = part(
+        'Roma cae.',
+        anchor: a(0, 9),
+      ).copyWith(section: ProcessedSection.keywords, spans: spans);
+      final other = part(
+        'Fin de algo.',
+        anchor: a(10, 22),
+      ).copyWith(section: ProcessedSection.keywords, spans: spans);
+
+      final plan = planSectionChange(
+        section: ProcessedSection.keywords,
+        existing: [same, other],
+        change: ProcessedChange.update,
+        fresh: [
+          ProcessedCandidate(
+            content: 'Roma cae.',
+            origin: ProcessedPartOrigin.copied,
+            anchor: a(0, 9),
+            spans: spans,
+          ),
+          ProcessedCandidate(
+            content: 'Fin de algo.',
+            origin: ProcessedPartOrigin.copied,
+            anchor: a(10, 22),
+            spans: const [ProcessedSpan(start: 7, end: 11)],
+          ),
+        ],
+      );
+
+      expect((plan.parts.first as KeptPart).part, same);
+      expect(plan.removed, [other]);
+      expect(plan.added, 1);
+    });
+
+    test('una copiada con una palabra elegida a mano ya es propia', () {
+      final copied = part('Roma cae.', anchor: a(0, 9)).copyWith(
+        section: ProcessedSection.keywords,
+        spans: const [ProcessedSpan(start: 0, end: 4, chosen: true)],
+      );
+
+      expect(copied.isPristineCopy, isFalse);
+      expect(copied.isVerbatim, isTrue);
+      final plan = planSectionChange(
+        section: ProcessedSection.keywords,
+        existing: [copied],
+        change: ProcessedChange.update,
+      );
+      expect(plan.parts.single, isA<KeptPart>());
+    });
+  });
+
   test('una parte que solo cambia de lugar también es un cambio', () {
     final plan = planSectionChange(
       section: ProcessedSection.summary,

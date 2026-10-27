@@ -34,8 +34,13 @@ sealed class ProcessedQuery with _$ProcessedQuery {
     /// De qué tipo era la fuente: un libro, un video, una página.
     @Default(<SourceKind>{}) Set<SourceKind> sourceKinds,
 
-    /// Qué partes tiene: basta con una de estas.
+    /// Qué partes tiene: basta con una de estas —o con la copia del original,
+    /// si [withOriginal]—.
     @Default(<ProcessedSection>{}) Set<ProcessedSection> sections,
+
+    /// Que tenga la copia del original (decisión H). Con [sections], vale
+    /// cualquiera de las dos cosas, como dentro de un filtro.
+    @Default(false) bool withOriginal,
 
     /// Limitar a estos documentos. `null` es «sin límite»; vacío no deja pasar
     /// nada.

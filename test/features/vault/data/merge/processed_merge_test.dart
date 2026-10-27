@@ -4,6 +4,8 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
@@ -140,6 +142,94 @@ void main() {
     expect(fragment.content, 'El Senado');
     expect(fragment.anchor?.renditionId, 'rend-libro');
   });
+
+  test('la copia del original viaja con su archivo, y las palabras clave con '
+      'sus tramos y su lugar en el texto', () async {
+    await tel.vault.saveSource(
+      'pagina',
+      text: text,
+      originalName: 'pagina.html',
+      originalContent: '<html>la página</html>',
+    );
+    final start = text.indexOf('Senado');
+    await tel.addSentence(
+      'k1',
+      'pagina',
+      text,
+      start: start,
+      end: start + 'Senado'.length,
+      kind: StudyMarkKind.keyword,
+    );
+    final result = await tel.process('pagina', {
+      ProcessedSection.text: SectionEdit.update(),
+      ProcessedSection.keywords: SectionEdit.add(
+        const SectionInput.fromSource(),
+      ),
+    }, original: const OriginalEdit(ProcessedChange.add));
+    expect(result.isRight(), isTrue, reason: '$result');
+    final id = processedDocumentIdFor('pagina');
+    final copy = (await tel.repository.originalOf(id)).getRight().toNullable()!;
+
+    final merged = await pc.vault.mergeFrom(tel.vault);
+
+    expect(merged.processedOriginalsAdded, 1);
+    final here = (await pc.repository.originalOf(id)).getRight().toNullable()!;
+    expect(here.relativePath, copy.relativePath);
+    expect(pc.vault.hasOriginal(copy.relativePath), isTrue);
+    final keyword = (await pc.repository.partsOf(
+      id,
+      sections: {ProcessedSection.keywords},
+    )).getRight().toNullable()!.single;
+    expect(keyword.keywords, ['Senado']);
+    expect(keyword.textRange, isNotNull);
+
+    // Una segunda vez no trae otra.
+    final again = await pc.vault.mergeFrom(tel.vault);
+    expect(again.processedOriginalsAdded, 0);
+  });
+
+  test('si acá ya tenía su texto, lo estudiado de la copia entra sin lugar en '
+      'él', () async {
+    await process(tel);
+    await process(pc);
+    final pcPage = (await pc.repository.partsOf(
+      docId,
+      sections: {ProcessedSection.text},
+    )).getRight().toNullable()!.single;
+    await pc.repository.editPart(pcPage.id, 'Otro texto en pc.');
+    await tel.addSentence('m1', 'libro', text, start: 0, end: 29);
+    await tel.process('libro', {
+      ProcessedSection.summary: SectionEdit.add(
+        const SectionInput.fromSource(),
+      ),
+    });
+
+    await pc.vault.mergeFrom(tel.vault);
+
+    final summary = (await pc.repository.partsOf(
+      docId,
+      sections: {ProcessedSection.summary},
+    )).getRight().toNullable()!.single;
+    expect(summary.content, 'El Senado y el pueblo romano.');
+    expect(summary.textRange, isNull);
+  });
+
+  test(
+    'los cuadernos no viajan: una copia vieja no vuelve a llenarlos',
+    () async {
+      await tel.vault.addNotebook('nb');
+      await tel.db
+          .into(tel.db.notebookItems)
+          .insert(
+            NotebookItemsCompanion.insert(notebookId: 'nb', itemId: 'libro'),
+          );
+      await pc.vault.addNotebook('nb');
+
+      await pc.vault.mergeFrom(tel.vault);
+
+      expect(await pc.db.select(pc.db.notebookItems).get(), isEmpty);
+    },
+  );
 
   test('si acá no tenía texto, el de la copia entra', () async {
     await process(tel);

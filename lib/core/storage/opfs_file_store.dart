@@ -258,6 +258,19 @@ class OpfsFileStore implements FileStore {
   }
 
   @override
+  Future<String?> copy(
+    String relativePath, {
+    required String id,
+    String? folder,
+  }) => copyInChunks(
+    this,
+    relativePath,
+    id: id,
+    folder: folder,
+    suggestedName: relativePath.split('/').last,
+  );
+
+  @override
   Future<void> delete(String relativePath) async {
     final segments = relativePath.split('/');
     final fileName = segments.removeLast();

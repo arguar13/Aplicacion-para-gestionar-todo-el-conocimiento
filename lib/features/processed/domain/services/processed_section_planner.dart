@@ -13,21 +13,28 @@ class ProcessedCandidate {
     required this.content,
     required this.origin,
     this.anchor,
+    this.spans = const [],
   });
 
   final String content;
   final ProcessedPartOrigin origin;
   final ProcessedAnchor? anchor;
 
+  /// En una oración con palabras clave, dónde está cada una dentro de
+  /// [content].
+  final List<ProcessedSpan> spans;
+
   @override
   bool operator ==(Object other) =>
       other is ProcessedCandidate &&
       other.content == content &&
       other.origin == origin &&
-      other.anchor == anchor;
+      other.anchor == anchor &&
+      listEquals(other.spans, spans);
 
   @override
-  int get hashCode => Object.hash(content, origin, anchor);
+  int get hashCode =>
+      Object.hash(content, origin, anchor, Object.hashAll(spans));
 }
 
 /// Una parte de cómo va a quedar una sección.
@@ -115,14 +122,17 @@ bool _ordersByText(ProcessedSection section) =>
 ///   pedazo.
 /// - **Actualizar** trae la versión de ahora ([fresh]) y conserva lo editado a
 ///   mano donde no choca:
-///   - lo que la persona editó se queda siempre, tal como lo dejó;
+///   - lo propio del procesado se queda siempre, tal como está: lo que la
+///     persona editó o escribió, y lo estudiado o elegido en el procesado
+///     (decisión I) —eso solo lo saca «Reemplazar»—;
 ///   - lo copiado sin editar se queda si la versión de ahora lo trae igual —el
-///     mismo tramo con el mismo texto: no se reescribe nada—, y si no, se va;
+///     mismo tramo con el mismo texto y, en las palabras clave, las mismas
+///     palabras: no se reescribe nada—, y si no, se va;
 ///   - de la versión de ahora entra lo demás, salvo lo que **choca** con algo
 ///     editado: lo que se superpone, en el mismo texto, con una parte que la
-///     persona editó. Ahí gana la edición —es más nueva que la fuente y es
-///     suya—, y por eso «Actualizar» nunca duplica un pasaje con dos
-///     versiones.
+///     persona editó o que estudió en el procesado. Ahí gana lo propio —es más
+///     nuevo que la fuente y es suyo—, y por eso «Actualizar» nunca duplica un
+///     pasaje con dos versiones.
 ///
 /// Lo nuevo se ubica en el orden del texto de la fuente, entre lo que se queda:
 /// justo antes de la primera parte con ancla, en el mismo texto, que empieza
@@ -181,7 +191,9 @@ SectionPlan _update(
       continue;
     }
     final same = part.anchor == null ? null : freshByAnchor[part.anchor];
-    if (same != null && same.content == part.content) {
+    if (same != null &&
+        same.content == part.content &&
+        listEquals(same.spans, part.spans)) {
       kept.add(KeptPart(part));
       consumed.add(same);
     } else {

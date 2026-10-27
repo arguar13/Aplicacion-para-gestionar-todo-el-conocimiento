@@ -27,6 +27,9 @@ class ProcessUndo {
     required this.documentId,
     required this.previousStatus,
     required this.previous,
+    this.textRanges = const {},
+    this.study,
+    this.original,
   });
 
   final String documentId;
@@ -37,6 +40,55 @@ class ProcessUndo {
 
   /// Las secciones tocadas, tal como estaban —vacías si no tenían nada—.
   final Map<ProcessedSection, List<ProcessedPart>> previous;
+
+  /// Si se tocó el texto: dónde estaba, en el texto propio, cada parte de las
+  /// otras secciones —volver a ubicarlas es parte de deshacer—.
+  final Map<String, ProcessedSpan?> textRanges;
+
+  /// Si se tocó el texto: hasta dónde estaba estudiado (decisión I).
+  final ({int analyzedUntil, DateTime? completedAt})? study;
+
+  /// Si se tocó la copia del original (decisión H).
+  final ProcessedOriginalUndo? original;
+}
+
+/// Cómo deshacer lo que se hizo con la copia del original.
+@immutable
+class ProcessedOriginalUndo {
+  const ProcessedOriginalUndo({
+    this.copiedPath,
+    this.trashedId,
+    this.previousTextHash,
+    this.refreshed = false,
+  });
+
+  /// El archivo que copió este procesado: deshacer lo borra.
+  final String? copiedPath;
+
+  /// La fila de la papelera del contenido adonde fue la copia que había:
+  /// deshacer la vuelve a poner como el original.
+  final String? trashedId;
+
+  /// Con [refreshed], el texto con que se correspondía antes la copia.
+  final String? previousTextHash;
+
+  /// Si solo se puso al día con qué texto de la fuente se corresponde.
+  final bool refreshed;
+}
+
+/// Lo que pasó con la copia del original (decisión H).
+enum OriginalOutcome {
+  /// No se pidió nada, o lo pedido ya estaba.
+  untouched,
+
+  /// Se copió el archivo de la fuente.
+  copied,
+
+  /// El archivo era el mismo: solo se anotó con qué texto se corresponde.
+  refreshed,
+
+  /// La copia se fue a la papelera del contenido.
+  removed,
 }
 
 /// Cuánto cambió una sección.
@@ -64,6 +116,7 @@ class ProcessOutcome {
     required this.created,
     required this.sections,
     required this.undo,
+    this.original = OriginalOutcome.untouched,
   });
 
   /// El documento procesado.
@@ -78,9 +131,13 @@ class ProcessOutcome {
   /// Para «Deshacer».
   final ProcessUndo undo;
 
+  /// Lo que pasó con la copia del original.
+  final OriginalOutcome original;
+
   /// Si no cambió nada: todo lo pedido ya estaba.
   bool get unchanged =>
       !created &&
+      original == OriginalOutcome.untouched &&
       sections.values.every((tally) => tally.added == 0 && tally.removed == 0);
 }
 
@@ -102,4 +159,16 @@ class SectionPreview {
 
   /// Cuánto cambia respecto de lo que hay.
   final SectionChangeTally tally;
+}
+
+/// Qué pasaría con la copia del original, para la vista previa: sin copiar
+/// nada.
+@immutable
+class OriginalPreview {
+  const OriginalPreview({required this.outcome, required this.sizeBytes});
+
+  final OriginalOutcome outcome;
+
+  /// Cuánto ocupa la copia que quedaría (0 si no queda ninguna).
+  final int sizeBytes;
 }
