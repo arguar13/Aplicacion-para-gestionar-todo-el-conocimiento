@@ -291,3 +291,34 @@ carta de 1810). Un hecho fechado es una fecha **dentro** de un documento.
     fallaban 3 de 5 corridas y ahora pasan 5 de 5.
   - **Mutaciones:** las 6 mueren. Entre ellas, sacar el PRAGMA y no reiniciar la cuenta del
     silencio con cada pedazo.
+
+- **Paso 6 — hecho.** La IA busca las fechas de los textos y las pone directo en la línea, con su
+  cita y su ✨, sin pasar por la Bandeja (decisión B).
+  - **El paso de la cola** (`AutoDatesStep`) lee el mismo texto que abre la lectura y arma los
+    pedidos al tamaño del modelo elegido en ese momento.
+    - Un texto sin fechas no usa el modelo ni deja una pasada vacía en «Lo que hizo la IA».
+    - Guarda al terminar cada pedido: los hechos aparecen a medida que se leen.
+    - Dice cuántas partes lleva, para el porcentaje y los tokens de «Ahora».
+    - **Retomable:** si el modelo se corta a mitad de un libro, la cola retoma en la misma pasada
+      desde el pasaje donde quedó, sin volver a pagar lo leído. Si el texto o la forma cambiaron
+      mientras esperaba, empieza de cero. Es memoria de la sesión, y `addFromAi` no duplica si se
+      perdió.
+    - Un libro largo (40.000 caracteres o más) se parte en otro hilo con `compute`, para no trabar
+      la interfaz.
+  - **La cola tiene su fila de fechas** (`AiRunScope.dates`, `findDates`): sin interruptores de
+    tipo, sin el modelo de vínculos, sin cargador. Cada elemento es una pasada de solo fechas, que
+    se deshace y no cuenta como haberlo organizado. Respeta la pausa y los cortes del paso 5 de F39.
+  - **El interruptor «Fechas para la línea de tiempo»** (`ai_organize_dates`) viene prendido, como
+    los demás: todo lo nuevo se organiza ya con sus fechas. Apagado, igual se pueden pedir a mano.
+  - **«Organizar con IA» en la línea:** una hoja elige **Todo · Tema · Documento** (cualquier
+    documento listo, tenga fechas o no). El recorte puesto viene preelegido, y una rama del Atlas es
+    una opción más. La franja de debajo de los chips dice cuántos elementos van y cuántas fechas
+    salieron, se puede cancelar, y los hechos aparecen solos. Sin modelo, clave o cuota, el aviso
+    dice qué falta, como las otras acciones de la IA.
+  - **«Buscar fechas con IA»** en «Más» del panel del elemento, solo si está listo y tiene texto.
+    Las notas de bloques no pasan por «Más» y quedan cubiertas por el interruptor y por la línea.
+    - **Arreglo de raíz:** la hoja «Más» ahora se desplaza; con la fila nueva se desbordaba 30 px
+      en pantallas bajas.
+  - **Pruebas:** del paso, la cola, Ajustes, «Más», la hoja, la franja y el cableado, todas con un
+    modelo falso. Las 106 + 7 mutaciones mueren; tres equivalentes se sacaron del código. La tanda
+    amplia de la integración: 4.748 pruebas en verde.

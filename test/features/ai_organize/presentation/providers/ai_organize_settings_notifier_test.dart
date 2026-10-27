@@ -15,6 +15,15 @@ void main() {
     }
   });
 
+  test('las fechas cuentan al comparar dos juegos de interruptores', () {
+    const off = AiOrganizeSettings(dates: false);
+
+    expect(off, isNot(const AiOrganizeSettings()));
+    expect(off.hashCode, isNot(const AiOrganizeSettings().hashCode));
+    expect(const AiOrganizeSettings().copyWith(dates: false), off);
+    expect(off.copyWith(dates: true), const AiOrganizeSettings());
+  });
+
   test('cada interruptor se guarda y se recuerda solo, sin tocar los '
       'demás', () async {
     SharedPreferences.setMockInitialValues({});

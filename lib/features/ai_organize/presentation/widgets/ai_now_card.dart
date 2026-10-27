@@ -20,7 +20,7 @@ AiTask? primaryAiTask(List<AiTask> tasks) {
   int rank(AiTask task) => switch (task.kind) {
     AiTaskKind.studyAnalysis => 0,
     AiTaskKind.review => 1,
-    AiTaskKind.flashcards => 2,
+    AiTaskKind.flashcards || AiTaskKind.dates => 2,
     AiTaskKind.organize => 3,
   };
   final sorted = [...tasks]
@@ -110,7 +110,8 @@ class _NowCardState extends ConsumerState<_NowCard> {
     final pending =
         queue is AiQueueWorkingView &&
             (task.kind == AiTaskKind.organize ||
-                task.kind == AiTaskKind.flashcards)
+                task.kind == AiTaskKind.flashcards ||
+                task.kind == AiTaskKind.dates)
         ? queue.pending
         : null;
     final model = task.model;

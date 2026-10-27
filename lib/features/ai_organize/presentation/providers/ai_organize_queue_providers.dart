@@ -16,6 +16,7 @@ import 'package:sinapsis/features/ai_organize/data/services/battery_charging_pro
 import 'package:sinapsis/features/ai_organize/data/services/prefs_ai_organize_memory.dart';
 import 'package:sinapsis/features/ai_organize/data/services/vocabulary_candidates.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_atlas_step.dart';
+import 'package:sinapsis/features/ai_organize/data/steps/auto_dates_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_flashcards_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_properties_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_reference_step.dart';
@@ -23,6 +24,7 @@ import 'package:sinapsis/features/ai_organize/data/steps/auto_relate_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_space_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/review_flashcards_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/review_things_step.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_dates_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
@@ -42,6 +44,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
+import 'package:sinapsis/features/timeline/presentation/providers/dated_event_providers.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 
@@ -70,9 +73,10 @@ final aiOrganizeBacklogProvider = Provider<AiOrganizeBacklog>(
 );
 
 /// Lo que hace la IA con cada elemento, en orden (F27): primero lo barato
-/// —la referencia, que no usa el modelo—, después lo que más tarda —las
-/// tarjetas, varias llamadas al modelo en un texto largo— y al final el
-/// Atlas, que necesita los temas ya puestos. Todo con el modelo
+/// —la referencia, que no usa el modelo—, después las fechas de la línea de
+/// tiempo, que no llaman al modelo si el texto no trae ninguna, lo que más
+/// tarda —las tarjetas, varias llamadas al modelo en un texto largo— y al final
+/// el Atlas, que necesita los temas ya puestos. Todo con el modelo
 /// en el turno de la cola (`backgroundLanguageModelProvider`): le cede el
 /// paso a la persona.
 final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
@@ -108,6 +112,10 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
       suggestions: suggestions,
       runs: runs,
     ),
+    AutoDatesStep(
+      extractor: model,
+      events: ref.watch(datedEventRepositoryProvider),
+    ),
     AutoFlashcardsStep(
       generator: model,
       flashcards: ref.watch(flashcardRepositoryProvider),
@@ -138,6 +146,10 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
 final aiFlashcardsBatchProvider = StateProvider<AiFlashcardsBatch?>(
   (ref) => null,
 );
+
+/// Cómo va el pedido de «Organizar con IA» de la línea de tiempo (F40), o
+/// `null` si no hay ninguno a la vista. Lo publica la cola.
+final aiDatesBatchProvider = StateProvider<AiDatesBatch?>((ref) => null);
 
 /// La cola de la IA que organiza sola (F27). Deliberadamente sin
 /// `autoDispose` y sin `ref.watch`, mismo criterio que
@@ -172,6 +184,8 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
         .keeperFor(LongWorkOwner.aiOrganize),
     onFlashcardsBatch: (batch) =>
         ref.read(aiFlashcardsBatchProvider.notifier).state = batch,
+    onDatesBatch: (batch) =>
+        ref.read(aiDatesBatchProvider.notifier).state = batch,
     tasks: ref.read(aiTaskTrackerProvider),
   );
   ref

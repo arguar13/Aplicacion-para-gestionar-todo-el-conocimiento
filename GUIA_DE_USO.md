@@ -495,6 +495,10 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
      opción con una línea que explica qué hace:
      - **Organizar con IA**: que la IA lo organice ahora, antes que lo
        demás (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
+     - **Buscar fechas con IA**: que la IA lea el texto y ponga en la
+       [Línea de tiempo](#línea-de-tiempo) las fechas que cuenta, cada una con
+       su cita (ver [Buscar fechas con IA, a pedido](#buscar-fechas-con-ia-a-pedido)).
+       Aparece cuando el elemento ya está listo y tiene algo escrito.
      - **Volver a extraer el texto**: vuelve a leer el original (podés
        elegir el idioma en que se habla, si es un audio o video).
      - **Quitar marcas de tiempo**: saca las marcas "[3:15]" de una
@@ -1049,6 +1053,19 @@ elegir otra cuenta o cambiar de modelo la destraba en el acto.
 - **Los datos de la referencia.** Completa el autor, el año, la editorial y
   los demás datos que falten, con lo que lee del archivo o de la página.
   Solo los vacíos: nunca pisa lo que escribiste.
+- **Las fechas de la línea de tiempo.** Lee el texto de cada cosa —un libro,
+  una transcripción, lo que se reconoció en una foto, una página— y pone en la
+  [Línea de tiempo](#línea-de-tiempo) los hechos fechados que cuenta
+  ("Publica *El origen de las especies*", 1859), cada uno con la frase de la
+  que sale. Primero un buscador sin IA marca las oraciones que traen un año,
+  un siglo, una década o un rango; solo esas, con la oración anterior de
+  contexto, van al modelo. Un texto sin fechas no usa el modelo ni deja nada
+  en "Lo que hizo la IA". **No inventa:** la frase tiene que estar en el
+  texto, y la fecha tiene que ser la que esa frase escribe; sin año ("el
+  martes siguiente") no la toma. La pone directo, marcada con ✨ y sin pasar
+  por la Bandeja: se revisa en la propia línea de tiempo, y **"Deshacer"** la
+  pasada saca todas. Lo que quitás a mano lo recuerda, para no volver a
+  ponerlo.
 - **El Atlas.** Ubica cada etiqueta nueva debajo de su etiqueta padre en el
   árbol de etiquetas (por ejemplo, "Roma" debajo de "Historia antigua") y,
   cuando una etiqueta junta material suficiente, le arma su **nota mapa**:
@@ -1242,13 +1259,35 @@ la línea del elemento dice **"Deshiciste lo que hizo la IA"** y ofrece
 hacer en un momento o qué está esperando (que la reanudes, o que bajes un
 modelo).
 
+### Buscar fechas con IA, a pedido
+
+Hay dos formas de pedirle a la IA que busque fechas para la
+[Línea de tiempo](#línea-de-tiempo), sin hacer nada más:
+
+- **Un elemento:** en la hoja **"Más"** del [panel del elemento](#el-panel-del-elemento),
+  **"Buscar fechas con IA"**.
+- **Muchos:** **"Organizar con IA"** en la barra de la línea de tiempo (ver
+  [Línea de tiempo](#línea-de-tiempo)).
+
+No hace vínculos, tarjetas ni etiquetas, no espera al cargador y no depende
+del interruptor de las fechas: lo pediste vos. Como siempre, un aviso te dice
+si lo va a hacer en un momento o qué está esperando (que reanudes la IA, que
+bajes un modelo, que cargues una clave o que vuelva la cuota). Si el modelo
+se corta a mitad de un libro, lo retoma en el pasaje donde quedó, sin volver
+a leer lo anterior. Cada elemento queda como una pasada de **solo fechas** en
+"Lo que hizo la IA" ("12 fechas"), con su **"Deshacer"**; no cuenta como
+haberlo organizado, así que lo demás sigue pendiente para la IA.
+
 ### Los interruptores (Ajustes → "IA y modelos")
 
 - **"Organizar con IA"**: el general. Apagado, la IA queda en pausa: no
   toma nada nuevo, y lo que ya hizo sigue ahí.
 - Uno por cada cosa que hace: **"Vínculos"**, **"Tarjetas"**, **"Etiquetas y
-  propiedades"**, **"Tema de cada elemento"**, **"Datos de la referencia"**
-  y **"Atlas"**. Apagar uno no deshace lo hecho: solo deja de hacer más.
+  propiedades"**, **"Tema de cada elemento"**, **"Datos de la referencia"**,
+  **"Atlas"** y **"Fechas para la línea de tiempo"**. Todos arrancan
+  prendidos. Apagar uno no deshace lo hecho: solo deja de hacer más. Con el de
+  las fechas apagado, lo nuevo se organiza sin buscarle fechas; igual podés
+  pedirlas a mano.
 - **"Ordenar la biblioteca existente mientras carga"**: lo que ya tenías
   guardado antes de que la IA empezara a organizar sola lo recorre de a
   poco, del más nuevo al más viejo, **solo con el teléfono enchufado**, para
@@ -1435,7 +1474,33 @@ cambiar el zoom, y arrastrarla mueve la vista con el dedo.
 
 Para que algo aparezca acá, primero tenés que ponerle una propiedad de tipo
 fecha desde su detalle (sección Propiedades → "+ Agregar propiedad" →
-"Fecha del hecho").
+"Fecha del hecho"), o dejar que lo haga la IA con **"Organizar con IA"**.
+
+**Organizar con IA.** El botón ✨ de la barra de arriba le pide a la IA que
+lea los textos y ponga en la línea las fechas que cuentan (un libro tiene
+muchas: 1809, 1831, 1859…), cada una con su frase. Una hoja te deja elegir qué
+recorre:
+
+- **Todo**: toda la biblioteca que ya está lista.
+- **Tema**: todo lo que está en un tema, que elegís con su buscador.
+- **Documento**: un solo elemento, que elegís entre **todos** los de tu
+  biblioteca (no solo los que ya tienen fechas: justamente para eso sirve).
+
+Si la línea ya estaba recortada a un tema, un documento o una rama del Atlas,
+la hoja arranca con eso elegido. **"Buscar fechas"** lo pone en la cola de la
+IA y un aviso te dice si arranca ya o qué espera (la IA en pausa, un modelo
+que bajar, una clave, la cuota).
+
+Mientras trabaja, una franja discreta debajo de los chips dice cuántos
+elementos van, cuántas fechas nuevas salieron y tiene una barra fina; podés
+**"Cancelar"** lo que falta (lo ya puesto queda). Los hechos aparecen en el eje
+**solos**, a medida que se leen. Al terminar, la franja queda con el
+resultado hasta que la cerrás. Con la IA en pausa lo dice y ofrece
+**"Reanudar la IA"**. Todo queda en "Lo que hizo la IA" ("12 fechas"), donde
+podés deshacerlo; lo que la IA pone lleva la marca ✨ y se puede revisar en la
+propia línea. Para que lo nuevo ya salga con sus fechas, prendé **"Fechas para
+la línea de tiempo"** en [los interruptores](#los-interruptores-ajustes--ia-y-modelos)
+(viene prendido).
 
 ---
 
@@ -2489,7 +2554,7 @@ Hugging Face que el modelo de relaciones.
   - **"Lo que hizo la IA"**, con una línea que dice en qué anda y cuántas
     cosas esperan revisión (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
   - El interruptor **"Organizar con IA"** y, debajo, uno por cada cosa que
-    organiza, con **"Ordenar la biblioteca existente mientras carga"** y
+    organiza (también **"Fechas para la línea de tiempo"**), con **"Ordenar la biblioteca existente mientras carga"** y
     cuántos le quedan.
   - Los accesos a los tres modelos: el de lenguaje, el de transcripción y
     el del motor de relaciones (ver sección anterior).

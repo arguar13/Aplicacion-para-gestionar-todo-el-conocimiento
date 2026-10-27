@@ -288,6 +288,37 @@ void main() {
       expect(toggleTile(tester, AiOrganizeToggle.flashcards).value, isFalse);
     });
 
+    testWidgets('«Fechas para la línea de tiempo» (F40) arranca prendido, '
+        'dice qué hace y se guarda', (tester) async {
+      await pumpSettings(tester);
+
+      final tile = find.byKey(const Key('ai-toggle-dates'));
+      expect(
+        find.descendant(of: tile, matching: find.text(es.settingsAiDates)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: tile,
+          matching: find.text(es.settingsAiDatesSubtitle),
+        ),
+        findsOneWidget,
+      );
+      expect(toggleTile(tester, AiOrganizeToggle.dates).value, isTrue);
+
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+
+      expect(harness.container.read(aiOrganizeSettingsProvider).dates, isFalse);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('ai_organize_dates'), isFalse);
+      // Apagar las fechas no toca los demás pasos.
+      expect(
+        harness.container.read(aiOrganizeSettingsProvider),
+        const AiOrganizeSettings(dates: false),
+      );
+    });
+
     testWidgets('con el general apagado, los de cada tipo se apagan y '
         'conservan lo elegido', (tester) async {
       await pumpSettings(tester);

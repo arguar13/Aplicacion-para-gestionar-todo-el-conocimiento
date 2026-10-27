@@ -350,6 +350,29 @@ void main() {
         ])?.id,
         'tar',
       );
+      // Buscar fechas (F40) lo pidió la persona: va como las tarjetas, antes
+      // que lo de fondo y después de revisar.
+      expect(
+        primaryAiTask([
+          task('org', AiTaskKind.organize, 0),
+          task('fec', AiTaskKind.dates, 1),
+        ])?.id,
+        'fec',
+      );
+      expect(
+        primaryAiTask([
+          task('fec', AiTaskKind.dates, 0),
+          task('rev', AiTaskKind.review, 1),
+        ])?.id,
+        'rev',
+      );
+      expect(
+        primaryAiTask([
+          task('fec', AiTaskKind.dates, 2),
+          task('tar', AiTaskKind.flashcards, 1),
+        ])?.id,
+        'tar',
+      );
       expect(
         primaryAiTask([
           task('segunda', AiTaskKind.organize, 5),

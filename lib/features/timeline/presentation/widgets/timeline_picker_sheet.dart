@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart';
@@ -41,6 +44,26 @@ Future<TimelineScope?> showTimelineDocumentPicker(BuildContext context) {
   );
 }
 
+/// Lo mismo para un documento, pero **cualquiera de la biblioteca**, tenga o no
+/// fechas: es la hoja de «Organizar con IA», que busca fechas justamente en lo
+/// que todavía no las tiene.
+Future<TimelineScope?> showTimelineAnyDocumentPicker(BuildContext context) {
+  return showModalBottomSheet<TimelineScope>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) =>
+        const _PickerSheet(kind: TimelineScopeKind.document, onlyDated: false),
+  );
+}
+
+/// Los documentos listos de la biblioteca, por título.
+const _readyDocumentsQuery = LibraryQuery(
+  processingStates: {ProcessingState.ready},
+  sortBy: LibrarySort.title,
+  descending: false,
+);
+
 /// La hoja de elección de un tema o de un documento: un buscador y la lista
 /// filtrada por lo que se escribe, sin distinguir mayúsculas ni acentos, igual
 /// que el vocabulario.
@@ -49,9 +72,13 @@ Future<TimelineScope?> showTimelineDocumentPicker(BuildContext context) {
 /// lista sigue viva mientras está abierta: un documento que se fecha en otra
 /// parte aparece sin cerrarla.
 class _PickerSheet extends ConsumerStatefulWidget {
-  const _PickerSheet({required this.kind});
+  const _PickerSheet({required this.kind, this.onlyDated = true});
 
   final TimelineScopeKind kind;
+
+  /// Con un documento: si son solo los que tienen fechas (el recorte de la
+  /// línea) o cualquiera de la biblioteca (el de «Organizar con IA»).
+  final bool onlyDated;
 
   @override
   ConsumerState<_PickerSheet> createState() => _PickerSheetState();
@@ -84,6 +111,19 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
           _PickerEntry(
             scope: TimelineScope.topic(spaceId: space.id, label: space.name),
             icon: Icons.folder_outlined,
+          ),
+      ];
+    }
+    if (!widget.onlyDated) {
+      final items = ref
+          .watch(libraryItemsProvider(_readyDocumentsQuery))
+          .valueOrNull;
+      if (items == null) return null;
+      return [
+        for (final item in items)
+          _PickerEntry(
+            scope: TimelineScope.document(itemId: item.id, label: item.title),
+            icon: item.source.kind.icon,
           ),
       ];
     }
@@ -184,7 +224,9 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
           nothingAtAll
               ? (_topics
                     ? l10n.timelineTopicsEmpty
-                    : l10n.timelineDocumentsEmpty)
+                    : widget.onlyDated
+                    ? l10n.timelineDocumentsEmpty
+                    : l10n.timelineAiDocumentsEmpty)
               : l10n.timelinePickerNoMatch,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(

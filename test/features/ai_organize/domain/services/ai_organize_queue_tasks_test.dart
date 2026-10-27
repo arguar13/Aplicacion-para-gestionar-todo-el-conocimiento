@@ -11,6 +11,7 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batc
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_dates_finder.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_flashcard_maker.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
@@ -28,7 +29,7 @@ import '../../../../support/spy_ai_run_repository.dart';
 /// Un paso que "habla con el modelo": al correr, anota en el medidor las
 /// respuestas que da, como lo hace el motor de verdad, y deja que la prueba
 /// mire la tarea mientras tanto.
-class _TalkingStep implements AiOrganizeStep, AiFlashcardMaker {
+class _TalkingStep implements AiOrganizeStep, AiFlashcardMaker, AiDatesFinder {
   _TalkingStep(
     this.toggle,
     this.vault,
@@ -68,6 +69,13 @@ class _TalkingStep implements AiOrganizeStep, AiFlashcardMaker {
     required String runId,
     bool anotherBatch = false,
   }) => _work(item);
+
+  @override
+  Future<bool> mentionsDates(KnowledgeItem item) async => true;
+
+  @override
+  Future<AiStepReport> findDates(KnowledgeItem item, {required String runId}) =>
+      _work(item);
 
   Future<AiStepReport> _work(KnowledgeItem item) async {
     onRun?.call(item);
@@ -456,6 +464,71 @@ void main() {
         const Duration(seconds: 4),
       });
       expect(tracker.tasks.value, isEmpty);
+    });
+
+    test('es una tarea de fechas (F40) con su paso y cuánto va del pedido; lo '
+        'gastado queda en su pasada de fechas', () async {
+      for (final id in ['a', 'b']) {
+        await vault.source(
+          id,
+          title: 'Doc $id',
+          content: 'Texto.',
+          createdAt: DateTime(2026, 9),
+        );
+      }
+      final seen = <AiTask>[];
+      final dates = _TalkingStep(
+        AiOrganizeToggle.dates,
+        vault,
+        meter,
+        replies: const [(input: 70, output: 7)],
+        spend: const Duration(seconds: 3),
+        onRun: (_) => seen.add(tracker.tasks.value.single),
+      );
+      steps = [dates];
+      final ai = queue()..findDates(['a', 'b']);
+      await ai.settled;
+
+      expect(seen.map((t) => t.kind).toSet(), {AiTaskKind.dates});
+      expect(seen.map((t) => t.title), ['Doc a', 'Doc b']);
+      expect(seen.first.steps, [AiTaskStepKind.organizeDates]);
+      expect(seen.first.currentStep, AiTaskStepKind.organizeDates);
+      expect(seen.first.batchProgress?.total, 2);
+      expect(seen.first.batchProgress?.done, 0);
+      expect(seen.last.batchProgress?.done, 1);
+      final listed = await runs();
+      expect(listed.map((r) => r.scope).toSet(), {AiRunScope.dates});
+      expect(listed.map((r) => (r.inputTokens, r.outputTokens)).toSet(), {
+        (70, 7),
+      });
+      expect(listed.map((r) => r.workTime).toSet(), {
+        const Duration(seconds: 3),
+      });
+      expect(tracker.tasks.value, isEmpty);
+    });
+
+    test('con las fechas prendidas, el paso de la pasada entera es también '
+        'su paso de «Cómo lo hace»', () async {
+      await vault.source('a', title: 'Doc', content: 'Texto.');
+      final seen = <AiTask>[];
+      steps = [
+        _TalkingStep(AiOrganizeToggle.relations, vault, meter),
+        _TalkingStep(
+          AiOrganizeToggle.dates,
+          vault,
+          meter,
+          onRun: (_) => seen.add(tracker.tasks.value.single),
+        ),
+      ];
+
+      await queue().start();
+
+      expect(seen.single.kind, AiTaskKind.organize);
+      expect(seen.single.steps, [
+        AiTaskStepKind.organizeRelations,
+        AiTaskStepKind.organizeDates,
+      ]);
+      expect(seen.single.currentStep, AiTaskStepKind.organizeDates);
     });
   });
 }

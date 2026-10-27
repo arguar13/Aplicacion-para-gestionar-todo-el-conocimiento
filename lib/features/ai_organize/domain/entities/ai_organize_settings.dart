@@ -18,6 +18,7 @@ class AiOrganizeSettings {
     this.space = true,
     this.reference = true,
     this.atlas = true,
+    this.dates = true,
     this.backfillWhileCharging = true,
   });
 
@@ -43,6 +44,12 @@ class AiOrganizeSettings {
   /// El árbol de temas del Atlas y sus notas mapa.
   final bool atlas;
 
+  /// Los hechos fechados de cada texto para la línea de tiempo (F40). Prendido
+  /// por lo mismo que los demás: es lo pedido, lo que pone lleva su cita y su
+  /// ✨, y se saca con deshacer la pasada. Un texto sin fechas no llega ni a
+  /// pedirle nada al modelo.
+  final bool dates;
+
   /// Pasar por la biblioteca que ya existía, solo con el teléfono cargando
   /// (decisión C).
   final bool backfillWhileCharging;
@@ -55,6 +62,7 @@ class AiOrganizeSettings {
     bool? space,
     bool? reference,
     bool? atlas,
+    bool? dates,
     bool? backfillWhileCharging,
   }) => AiOrganizeSettings(
     enabled: enabled ?? this.enabled,
@@ -64,6 +72,7 @@ class AiOrganizeSettings {
     space: space ?? this.space,
     reference: reference ?? this.reference,
     atlas: atlas ?? this.atlas,
+    dates: dates ?? this.dates,
     backfillWhileCharging: backfillWhileCharging ?? this.backfillWhileCharging,
   );
 
@@ -77,6 +86,7 @@ class AiOrganizeSettings {
       other.space == space &&
       other.reference == reference &&
       other.atlas == atlas &&
+      other.dates == dates &&
       other.backfillWhileCharging == backfillWhileCharging;
 
   @override
@@ -88,6 +98,7 @@ class AiOrganizeSettings {
     space,
     reference,
     atlas,
+    dates,
     backfillWhileCharging,
   );
 }
@@ -102,6 +113,7 @@ enum AiOrganizeToggle {
   space,
   reference,
   atlas,
+  dates,
   backfillWhileCharging;
 
   bool valueIn(AiOrganizeSettings settings) => switch (this) {
@@ -112,6 +124,7 @@ enum AiOrganizeToggle {
     AiOrganizeToggle.space => settings.space,
     AiOrganizeToggle.reference => settings.reference,
     AiOrganizeToggle.atlas => settings.atlas,
+    AiOrganizeToggle.dates => settings.dates,
     AiOrganizeToggle.backfillWhileCharging => settings.backfillWhileCharging,
   };
 
@@ -124,6 +137,7 @@ enum AiOrganizeToggle {
         AiOrganizeToggle.space => settings.copyWith(space: on),
         AiOrganizeToggle.reference => settings.copyWith(reference: on),
         AiOrganizeToggle.atlas => settings.copyWith(atlas: on),
+        AiOrganizeToggle.dates => settings.copyWith(dates: on),
         AiOrganizeToggle.backfillWhileCharging => settings.copyWith(
           backfillWhileCharging: on,
         ),
@@ -161,6 +175,11 @@ enum AiWorkSource {
   /// Solo las tarjetas que pidió la persona desde Repasar (F30), sin esperar
   /// el cargador.
   flashcardsRequest,
+
+  /// Solo las fechas que pidió la persona para la línea de tiempo (F40), sin
+  /// esperar el cargador: «Organizar con IA» de la línea o «Buscar fechas con
+  /// IA» del detalle.
+  datesRequest,
 }
 
 /// Organizando [itemTitle], que salió de [source]; [pending] cuántos esperan

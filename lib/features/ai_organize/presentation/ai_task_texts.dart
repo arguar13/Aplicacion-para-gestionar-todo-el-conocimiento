@@ -34,6 +34,7 @@ String aiTaskHeadline(AppLocalizations l10n, AiTask task) {
       title.isEmpty ? l10n.aiNowStudyUntitled : l10n.aiNowStudy(title),
     AiTaskKind.organize => l10n.aiNowOrganize(title),
     AiTaskKind.flashcards => l10n.aiNowFlashcards(title),
+    AiTaskKind.dates => l10n.aiNowDates(title),
     AiTaskKind.review => l10n.aiNowReview(title),
   };
 }
@@ -59,6 +60,7 @@ String aiStepLabel(AppLocalizations l10n, AiTaskStepKind step) =>
       AiTaskStepKind.organizeRelations => l10n.aiStepOrganizeRelations,
       AiTaskStepKind.organizeFlashcards => l10n.aiStepOrganizeFlashcards,
       AiTaskStepKind.organizeAtlas => l10n.aiStepOrganizeAtlas,
+      AiTaskStepKind.organizeDates => l10n.aiStepOrganizeDates,
       AiTaskStepKind.reviewFlashcards => l10n.aiStepReviewFlashcards,
       AiTaskStepKind.reviewThings => l10n.aiStepReviewThings,
     };

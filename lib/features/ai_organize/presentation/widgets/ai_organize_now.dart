@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
@@ -68,6 +69,40 @@ Future<void> organizeAllNowWithAi(
   );
 }
 
+/// Le pide a la IA que busque **solo las fechas** de [itemIds] para la línea
+/// de tiempo (F40), y avisa qué va a pasar, con «Ver» para seguirlo en «Lo que
+/// hizo la IA»: lo que usa «Organizar con IA» de la línea de tiempo y «Buscar
+/// fechas con IA» del detalle.
+///
+/// No pide el modelo de vínculos —las fechas no lo usan—; el aviso es el mismo
+/// de [organizeNowWithAi]: no dice «en un momento» si no es cierto.
+Future<void> findDatesNowWithAi(
+  BuildContext context,
+  WidgetRef ref, {
+  required List<String> itemIds,
+  String? seeItemId,
+}) {
+  final l10n = AppLocalizations.of(context)!;
+  final count = itemIds.length;
+  return _organizeWithAi(
+    context,
+    ref,
+    itemIds: itemIds,
+    see: seeItemId == null
+        ? RoutePaths.aiActivity
+        : RoutePaths.aiActivityFor(seeItemId),
+    enqueue: (queue) => queue.findDates(itemIds),
+    needsEmbeddingModel: false,
+    message: (state) => switch (state) {
+      _AiState.paused => l10n.datesAskPaused(count),
+      _AiState.needsModel => l10n.datesAskNeedsModel(count),
+      _AiState.needsKey => l10n.datesAskNeedsKey(count),
+      _AiState.waiting => l10n.datesAskWaits(count),
+      _AiState.ready => l10n.datesAskQueued(count),
+    },
+  );
+}
+
 /// Si la IA va a poder hacer lo pedido ahora: en pausa, falta bajar un
 /// modelo, falta una clave de la nube (F32), espera que vuelva la cuota o su
 /// tope del día (F32), o sí.
@@ -79,6 +114,8 @@ Future<void> _organizeWithAi(
   required List<String> itemIds,
   required String see,
   required String Function(_AiState state) message,
+  void Function(AiOrganizeQueue queue)? enqueue,
+  bool needsEmbeddingModel = true,
 }) async {
   final l10n = AppLocalizations.of(context)!;
   final messenger = ScaffoldMessenger.of(context);
@@ -87,7 +124,12 @@ Future<void> _organizeWithAi(
   final enabled = ref.read(aiOrganizeSettingsProvider).enabled;
   final languageModel = ref.read(languageModelStatusCheckProvider);
   final embeddingModel = ref.read(embeddingModelManagerProvider);
-  ref.read(aiOrganizeQueueProvider).organizeAllNow(itemIds);
+  final queue = ref.read(aiOrganizeQueueProvider);
+  if (enqueue != null) {
+    enqueue(queue);
+  } else {
+    queue.organizeAllNow(itemIds);
+  }
 
   final _AiState state;
   if (!enabled) {
@@ -95,7 +137,10 @@ Future<void> _organizeWithAi(
   } else {
     // Lo pedido lo hace la IA de fondo: con su tope del día.
     final language = await languageModel(background: true);
-    final embeddingReady = await embeddingModel.isReady();
+    // Organizar de verdad usa también el modelo de vínculos; solo las fechas,
+    // no.
+    final embeddingReady =
+        !needsEmbeddingModel || await embeddingModel.isReady();
     state = switch (language) {
       _ when !embeddingReady => _AiState.needsModel,
       LanguageModelNeedsDownload() => _AiState.needsModel,

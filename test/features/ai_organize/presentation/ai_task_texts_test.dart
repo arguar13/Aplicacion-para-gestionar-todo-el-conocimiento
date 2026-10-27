@@ -65,6 +65,14 @@ void main() {
         'Revisando «Historia» con otro modelo',
       );
       expect(
+        aiTaskHeadline(es, task(AiTaskKind.dates)),
+        'Buscando fechas de «Historia»',
+      );
+      expect(
+        aiTaskHeadline(en, task(AiTaskKind.dates)),
+        'Looking for dates in “Historia”',
+      );
+      expect(
         aiTaskHeadline(en, task(AiTaskKind.studyAnalysis)),
         'Analyzing “Historia” to study',
       );
@@ -100,6 +108,10 @@ void main() {
     expect(
       aiStepLabel(es, AiTaskStepKind.studySplit),
       'Partir el texto en partes',
+    );
+    expect(
+      aiStepLabel(es, AiTaskStepKind.organizeDates),
+      'Buscar fechas para la línea de tiempo',
     );
   });
 

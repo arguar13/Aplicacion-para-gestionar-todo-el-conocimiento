@@ -10,8 +10,10 @@ import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
+import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
+import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
@@ -27,6 +29,8 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.da
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/flashcard_repository_impl.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
+import 'package:sinapsis/features/timeline/data/repositories/dated_event_repository_impl.dart';
+import 'package:sinapsis/features/timeline/domain/entities/dated_event_input.dart';
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/item_rows.dart';
@@ -444,6 +448,94 @@ void main() {
         {'a'},
       );
     });
+  });
+
+  group('una pasada de solo fechas (F40)', () {
+    late DatedEventRepositoryImpl events;
+
+    setUp(() {
+      events = DatedEventRepositoryImpl(
+        database: db,
+        telemetry: _MockTelemetryService(),
+        ids: FakeIdGenerator(prefix: 'hecho'),
+        clock: () => now,
+      );
+    });
+
+    /// Una pasada de solo fechas sobre «a» que pone [years] hechos.
+    Future<String> datesOnA(List<int> years) async {
+      final run = (await runs.startRun(
+        'a',
+        model: 'gemma',
+        scope: AiRunScope.dates,
+      )).getOrElse((f) => fail('$f'));
+      await events.addFromAi(
+        itemId: 'a',
+        runId: run,
+        drafts: [
+          for (final year in years)
+            DatedEventInput(
+              title: 'Hecho $year',
+              date: HistoricalDate(year: year, precision: DatePrecision.year),
+              excerpt: 'en $year',
+            ),
+        ],
+      );
+      return run;
+    }
+
+    test('cuenta sus fechas al cerrarse, y no organizó el elemento', () async {
+      final run = await datesOnA([1809, 1831, 1859]);
+
+      final tally = (await runs.finishRun(run)).getOrElse((f) => fail('$f'));
+
+      expect(tally.dates, 3);
+      final listed = (await runs.listRuns(
+        itemId: 'a',
+      )).getOrElse((f) => fail('$f')).single;
+      expect(listed.scope, AiRunScope.dates);
+      expect(listed.organizedItem, isFalse);
+      expect(listed.created.dates, 3);
+      expect(listed.remaining.dates, 3);
+    });
+
+    test('«deshacer todo» la deshace con las demás, y la pasada de fechas '
+        'deshecha no hace pasar al elemento por deshecho', () async {
+      final organized = await organizeA();
+      await runs.finishRun(organized);
+      final dates = await datesOnA([1809, 1831]);
+      await runs.finishRun(dates);
+
+      final undone = (await runs.undoItem('a')).getOrElse((f) => fail('$f'));
+
+      expect(undone.dates, 2);
+      expect(await db.select(db.datedEvents).get(), isEmpty);
+      final all = (await runs.listRuns(
+        itemId: 'a',
+      )).getOrElse((f) => fail('$f'));
+      expect(all.every((r) => r.isUndone), isTrue);
+    });
+
+    test(
+      'deshacerla sola saca sus fechas y deja el resto del elemento',
+      () async {
+        final organized = await organizeA();
+        await runs.finishRun(organized);
+        final dates = await datesOnA([1809]);
+        await runs.finishRun(dates);
+
+        await runs.undoRun(dates);
+
+        expect(await db.select(db.datedEvents).get(), isEmpty);
+        expect(await db.select(db.flashcards).get(), hasLength(2));
+        // Como no organizó el elemento, no cuenta como «lo que la IA deshizo»
+        // de la línea de «organizar».
+        expect(
+          (await runs.undoneItemsAmong(['a'])).getOrElse((f) => fail('$f')),
+          isEmpty,
+        );
+      },
+    );
   });
 
   test('borrar el elemento se lleva sus pasadas', () async {

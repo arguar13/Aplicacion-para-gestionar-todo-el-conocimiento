@@ -11,8 +11,10 @@ import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_dates_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_dates_finder.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_flashcard_maker.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
@@ -88,6 +90,50 @@ class _CardsStep extends _Step implements AiFlashcardMaker {
   }
 }
 
+/// El paso de fechas de mentira: además de organizar, busca solo las fechas
+/// cuando se las piden desde la línea de tiempo o el detalle (F40). Cada
+/// pedido pone dos fechas.
+class _DatesStep extends _Step implements AiDatesFinder {
+  _DatesStep({this.log}) : super(AiOrganizeToggle.dates);
+
+  /// Donde anota, en orden, cada pedido de solo fechas, si la prueba quiere
+  /// ver el orden entre cosas distintas.
+  final List<String>? log;
+
+  /// Cada pedido de solo fechas: el elemento y la pasada.
+  final found = <({String itemId, String runId})>[];
+
+  /// Los elementos que dicen tener alguna fecha escrita; `null`, todos.
+  Set<String>? withDates;
+
+  /// Si está, el próximo pedido lanza esto, una sola vez (F32).
+  Exception? failNext;
+
+  /// Si está, el pedido de [heldItem] espera a que se complete.
+  Completer<void>? hold;
+  String? heldItem;
+
+  @override
+  Future<bool> mentionsDates(KnowledgeItem item) async =>
+      withDates?.contains(item.id) ?? true;
+
+  @override
+  Future<AiStepReport> findDates(
+    KnowledgeItem item, {
+    required String runId,
+  }) async {
+    found.add((itemId: item.id, runId: runId));
+    log?.add('fechas ${item.id}');
+    if (item.id == heldItem) await hold!.future;
+    final failure = failNext;
+    if (failure != null) {
+      failNext = null;
+      throw failure;
+    }
+    return const AiStepReport(applied: 2);
+  }
+}
+
 /// Los vectores de las notas, de mentira: anota a cuáles se les pusieron al
 /// día.
 class _Vectors implements ChunkEmbeddingIndexer {
@@ -150,6 +196,7 @@ void main() {
   late _Vectors vectors;
   late List<AiOrganizeStatus> statuses;
   late List<AiFlashcardsBatch?> batches;
+  late List<AiDatesBatch?> dateBatches;
 
   /// Lo creado antes de este momento es la biblioteca que ya existía.
   final epoch = DateTime(2026, 10);
@@ -166,6 +213,7 @@ void main() {
     vectors = _Vectors();
     statuses = [];
     batches = [];
+    dateBatches = [];
   });
 
   tearDown(() async {
@@ -197,6 +245,7 @@ void main() {
       noteQuietPeriod: noteQuietPeriod,
       longWork: longWork,
       onFlashcardsBatch: batches.add,
+      onDatesBatch: dateBatches.add,
       modelRetryDelay: modelRetryDelay,
     );
     addTearDown(queue.dispose);
@@ -1345,6 +1394,516 @@ void main() {
       expect(of(CloudModelFailure.unknown), isNull);
       // Lo de Gemma sigue como siempre.
       expect(aiModelWaitFor(StateError('sin memoria')), isNull);
+    });
+  });
+
+  group('fechas para la línea de tiempo (F40)', () {
+    late _DatesStep dates;
+    late List<String> order;
+
+    Future<List<AiRunRow>> runRowsOf(String itemId) => (vault.db.select(
+      vault.db.aiRuns,
+    )..where((r) => r.itemId.equals(itemId))).get();
+
+    /// Elementos de la biblioteca que ya existía: la cola no los organiza sola.
+    Future<void> library(List<String> ids) async {
+      for (final id in ids) {
+        await vault.source(
+          id,
+          title: id.toUpperCase(),
+          content: 'Texto.',
+          createdAt: DateTime(2026, 9),
+        );
+      }
+    }
+
+    /// Todos los interruptores de cada tipo apagados.
+    const nothingOn = AiOrganizeSettings(
+      relations: false,
+      flashcards: false,
+      properties: false,
+      space: false,
+      reference: false,
+      atlas: false,
+      dates: false,
+    );
+
+    setUp(() {
+      order = [];
+      dates = _DatesStep(log: order);
+      steps = [relations, dates];
+    });
+
+    test('pide solo las fechas: una pasada de fechas por elemento, sin los '
+        'demás pasos, sin los interruptores de cada tipo y sin el modelo de '
+        'vínculos', () async {
+      await library(['a', 'b']);
+      embeddingModel = FakeEmbeddingModelManager();
+      final ai = queue(settings: nothingOn);
+      await ai.start();
+
+      ai.findDates(['a', 'b']);
+      await ai.settled;
+
+      expect(dates.found.map((f) => f.itemId), ['a', 'b']);
+      expect(relations.organized, isEmpty);
+      expect(dates.organized, isEmpty);
+      for (final id in ['a', 'b']) {
+        final run = (await runRowsOf(id)).single;
+        expect(run.scope, AiRunScope.dates);
+        expect(run.finishedAt, isNotNull);
+      }
+      expect(
+        dateBatches.last,
+        const AiDatesBatch(total: 2, done: 2, created: 4),
+      );
+      expect(
+        statuses.whereType<AiOrganizeWorking>().map(
+          (s) => (s.itemTitle, s.source),
+        ),
+        [('A', AiWorkSource.datesRequest), ('B', AiWorkSource.datesRequest)],
+      );
+    });
+
+    test('un elemento sin ninguna fecha escrita no abre una pasada vacía ni '
+        'usa el modelo, pero cuenta como mirado', () async {
+      await library(['a', 'b']);
+      dates.withDates = {'a'};
+      final ai = queue();
+      await ai.start();
+
+      ai.findDates(['a', 'b']);
+      await ai.settled;
+
+      expect(dates.found.map((f) => f.itemId), ['a']);
+      expect(await runRowsOf('b'), isEmpty);
+      expect(
+        dateBatches.last,
+        const AiDatesBatch(total: 2, done: 2, created: 2),
+      );
+    });
+
+    test('no cuenta como organizar el elemento: para la cola sigue '
+        'pendiente', () async {
+      await vault.source(
+        'a',
+        title: 'A',
+        content: 'Texto.',
+        createdAt: DateTime(2026, 10, 2),
+      );
+      // Nada organiza solo: lo que queda a la vista es lo que dejó la pasada
+      // de fechas.
+      final ai = queue(settings: nothingOn);
+      await ai.start();
+
+      ai.findDates(['a']);
+      await ai.settled;
+
+      expect(dates.found, hasLength(1));
+      final count = await AiOrganizeBacklogImpl(
+        vault.db,
+      ).count(epoch: epoch, notesQuietBefore: vault.now);
+      expect(count.fresh, 1);
+    });
+
+    test('va después de lo pedido a mano y antes de lo nuevo', () async {
+      relations = _Step(
+        AiOrganizeToggle.relations,
+        work: (item, _) async => order.add('organizar ${item.id}'),
+      );
+      steps = [relations, dates];
+      await library(['pedido', 'fecha']);
+      await vault.source(
+        'nuevo',
+        title: 'Nuevo',
+        content: 'Texto.',
+        createdAt: DateTime(2026, 10, 2),
+      );
+      final ai = queue(settings: const AiOrganizeSettings(enabled: false));
+      await ai.start();
+
+      ai
+        ..findDates(['fecha'])
+        ..organizeNow('pedido')
+        ..updateSettings(const AiOrganizeSettings());
+      await ai.settled;
+
+      expect(order, ['organizar pedido', 'fechas fecha', 'organizar nuevo']);
+    });
+
+    test('mantiene viva la app con el avance del pedido', () async {
+      await library(['a', 'b']);
+      final keeper = _Keeper();
+      final ai = queue(longWork: keeper);
+      await ai.start();
+
+      ai.findDates(['a', 'b']);
+      await ai.settled;
+
+      expect(keeper.calls, ['trabajando 0/2', 'trabajando 1/2', 'suelta']);
+    });
+
+    test('con la IA en pausa no toma nada, y al reanudar sigue', () async {
+      await library(['a']);
+      final ai = queue(settings: const AiOrganizeSettings(enabled: false));
+      await ai.start();
+
+      ai.findDates(['a']);
+      await ai.settled;
+
+      expect(dates.found, isEmpty);
+      expect(dateBatches.last, const AiDatesBatch(total: 1));
+      expect(statuses.last, isA<AiOrganizePaused>());
+
+      ai.updateSettings(const AiOrganizeSettings());
+      await ai.settled;
+
+      expect(dates.found.map((f) => f.itemId), ['a']);
+      expect(dateBatches.last!.finished, isTrue);
+    });
+
+    test('sin el modelo de lenguaje no trabaja y lo dice', () async {
+      await library(['a']);
+      chatModel = FakeChatModelManager();
+      final ai = queue();
+      await ai.start();
+
+      ai.findDates(['a']);
+      await ai.settled;
+
+      expect(dates.found, isEmpty);
+      expect(
+        statuses.last,
+        isA<AiOrganizeModelMissing>().having(
+          (s) => s.chatModelMissing,
+          'chatModelMissing',
+          isTrue,
+        ),
+      );
+    });
+
+    test('pedir de nuevo un elemento que ya está en la cola no lo suma otra '
+        'vez; uno distinto se suma al pedido en curso', () async {
+      await library(['a', 'b']);
+      chatModel = FakeChatModelManager();
+      final ai = queue();
+      await ai.start();
+
+      ai
+        ..findDates(['a'])
+        ..findDates(['a', 'b']);
+
+      expect(dateBatches.last, const AiDatesBatch(total: 2));
+      chatModel.ready = true;
+      await ai.wake();
+      expect(dates.found.map((f) => f.itemId), ['a', 'b']);
+    });
+
+    test('un pedido nuevo después de terminar el anterior arranca de '
+        'cero', () async {
+      await library(['a', 'b']);
+      final ai = queue();
+      await ai.start();
+      ai.findDates(['a']);
+      await ai.settled;
+      expect(
+        dateBatches.last,
+        const AiDatesBatch(total: 1, done: 1, created: 2),
+      );
+
+      ai.findDates(['b']);
+      await ai.settled;
+
+      expect(
+        dateBatches.last,
+        const AiDatesBatch(total: 1, done: 1, created: 2),
+      );
+    });
+
+    test('cancelar a mitad y pedir otro: lo del primero no se le suma al '
+        'segundo', () async {
+      await library(['a', 'b', 'c']);
+      dates
+        ..hold = Completer<void>()
+        ..heldItem = 'a';
+      final ai = queue();
+      await ai.start();
+
+      ai.findDates(['a', 'b']);
+      while (dates.found.isEmpty) {
+        await pumpEventQueue();
+      }
+      ai
+        ..cancelDates()
+        ..findDates(['c']);
+      dates.hold!.complete();
+      await ai.settled;
+
+      expect(dates.found.map((f) => f.itemId), ['a', 'c']);
+      expect(
+        dateBatches.last,
+        const AiDatesBatch(total: 1, done: 1, created: 2),
+      );
+    });
+
+    test('se puede cerrar el resultado, pero no un pedido en curso', () async {
+      await library(['a']);
+      chatModel = FakeChatModelManager();
+      final ai = queue();
+      await ai.start();
+      ai
+        ..findDates(['a'])
+        ..dismissDates();
+      expect(dateBatches.last, isNotNull);
+
+      chatModel.ready = true;
+      await ai.wake();
+      ai.dismissDates();
+      expect(dateBatches.last, isNull);
+    });
+
+    test('cancelar saca lo que falta del pedido, y lo hecho queda', () async {
+      await library(['a', 'b']);
+      chatModel = FakeChatModelManager();
+      final ai = queue();
+      await ai.start();
+      ai
+        ..findDates(['a', 'b'])
+        ..cancelDates();
+      chatModel.ready = true;
+      await ai.wake();
+
+      expect(dateBatches.last, isNull);
+      expect(dates.found, isEmpty);
+    });
+
+    group('con el modelo en la nube', () {
+      const gemini = AiProvider.gemini;
+
+      setUp(() {
+        cloud = ({bool background = false}) async =>
+            const LanguageModelReady(provider: gemini);
+      });
+
+      test('que se queda sin cuota a mitad no cuenta como hecho: la pasada '
+          'queda abierta y, al volver, se retoma primero, en su '
+          'pasada', () async {
+        await library(['a', 'b']);
+        final ai = queue();
+        await ai.start();
+        dates.failNext = const CloudModelException(
+          CloudModelFailure.quotaExhausted,
+        );
+
+        ai.findDates(['a', 'b']);
+        await ai.settled;
+
+        expect(dates.found.map((f) => f.itemId), ['a']);
+        expect(dateBatches.last!.done, 0);
+        expect(dateBatches.last!.currentTitle, isNull);
+        expect(statuses.last, isA<AiOrganizeWaitingForModel>());
+        // Lo pedido (el que se cortó y el que sigue) y, como en las tarjetas,
+        // los dos de la biblioteca de antes.
+        expect((statuses.last as AiOrganizeWaitingForModel).pending, 4);
+        final open = (await runRowsOf('a')).single;
+        expect(open.finishedAt, isNull);
+
+        vault.now = vault.now.add(kAiModelRetryDelay);
+        await ai.wake();
+
+        expect(dates.found.map((f) => f.itemId), ['a', 'a', 'b']);
+        expect(dates.found[1].runId, open.id);
+        expect(
+          dateBatches.last,
+          const AiDatesBatch(total: 2, done: 2, created: 4),
+        );
+        expect(await runRowsOf('a'), hasLength(1));
+        expect((await runRowsOf('a')).single.finishedAt, isNotNull);
+      });
+
+      test('retomar no necesita el modelo de vínculos: solo el de '
+          'lenguaje', () async {
+        await library(['a']);
+        final ai = queue();
+        await ai.start();
+        dates.failNext = const CloudModelException(CloudModelFailure.network);
+        ai.findDates(['a']);
+        await ai.settled;
+
+        embeddingModel.ready = false;
+        vault.now = vault.now.add(kAiModelRetryDelay);
+        await ai.wake();
+
+        expect(dates.found.map((f) => f.itemId), ['a', 'a']);
+        expect((await runRowsOf('a')).single.finishedAt, isNotNull);
+      });
+
+      test('si al retomar el texto ya no tiene fechas, la pasada que quedó '
+          'abierta igual se cierra', () async {
+        await library(['a']);
+        final ai = queue();
+        await ai.start();
+        dates.failNext = const CloudModelException(CloudModelFailure.network);
+        ai.findDates(['a']);
+        await ai.settled;
+        expect((await runRowsOf('a')).single.finishedAt, isNull);
+
+        dates.withDates = {};
+        vault.now = vault.now.add(kAiModelRetryDelay);
+        await ai.wake();
+
+        expect(dates.found.map((f) => f.itemId), ['a', 'a']);
+        expect((await runRowsOf('a')).single.finishedAt, isNotNull);
+      });
+
+      test('organizar a mano el que se cortó buscando fechas lo organiza de '
+          'verdad, en otra pasada', () async {
+        await library(['a']);
+        final ai = queue();
+        await ai.start();
+        dates.failNext = const CloudModelException(CloudModelFailure.network);
+        ai.findDates(['a']);
+        await ai.settled;
+
+        ai.organizeNow('a');
+        vault.now = vault.now.add(kAiModelRetryDelay);
+        await ai.wake();
+
+        expect(relations.organized, ['a']);
+        final scopes = [for (final run in await runRowsOf('a')) run.scope];
+        expect(
+          scopes,
+          unorderedEquals([AiRunScope.dates, AiRunScope.organize]),
+        );
+      });
+
+      test('pedir de nuevo el que se cortó no le abre otra pasada', () async {
+        await library(['a']);
+        final ai = queue();
+        await ai.start();
+        dates.failNext = const CloudModelException(CloudModelFailure.network);
+
+        ai.findDates(['a']);
+        await ai.settled;
+        ai.findDates(['a']);
+        expect(dateBatches.last!.total, 1);
+
+        vault.now = vault.now.add(kAiModelRetryDelay);
+        await ai.wake();
+
+        expect(dates.found.map((f) => f.itemId), ['a', 'a']);
+        expect(await runRowsOf('a'), hasLength(1));
+      });
+
+      test('cancelado mientras espera, cierra su pasada y no vuelve', () async {
+        await library(['a', 'b']);
+        final ai = queue();
+        await ai.start();
+        dates.failNext = const CloudModelException(CloudModelFailure.network);
+
+        ai.findDates(['a', 'b']);
+        await ai.settled;
+        ai.cancelDates();
+        await pumpEventQueue();
+
+        expect(dateBatches.last, isNull);
+        expect((await runRowsOf('a')).single.finishedAt, isNotNull);
+        vault.now = vault.now.add(kAiModelRetryDelay);
+        await ai.wake();
+        expect(dates.found, hasLength(1));
+        expect(await runRowsOf('b'), isEmpty);
+      });
+
+      test('un error que no es esperar se registra y el pedido sigue con el '
+          'próximo', () async {
+        await library(['a', 'b']);
+        final ai = queue();
+        await ai.start();
+        dates.failNext = Exception('la respuesta vino rota');
+
+        ai.findDates(['a', 'b']);
+        await ai.settled;
+
+        expect(dates.found.map((f) => f.itemId), ['a', 'b']);
+        expect(
+          dateBatches.last,
+          const AiDatesBatch(total: 2, done: 2, created: 2),
+        );
+        verify(
+          () => vault.telemetry.recordError(
+            any<Object?>(),
+            any<StackTrace?>(),
+            hint: any(named: 'hint', that: contains('fechas en a')),
+          ),
+        ).called(1);
+      });
+    });
+
+    group('el interruptor «Fechas para la línea de tiempo»', () {
+      Future<void> freshItem() => vault.source(
+        'n',
+        title: 'N',
+        content: 'Texto.',
+        createdAt: DateTime(2026, 10, 2),
+      );
+
+      test('prendido, todo lo nuevo se organiza ya con sus fechas', () async {
+        await freshItem();
+
+        await queue().start();
+
+        expect(dates.organized, ['n']);
+        expect(relations.organized, ['n']);
+        // Es un paso de la pasada de organizar, no una pasada aparte.
+        expect((await runRowsOf('n')).single.scope, AiRunScope.organize);
+      });
+
+      test('apagado, lo nuevo se organiza sin buscar fechas', () async {
+        await freshItem();
+
+        await queue(settings: const AiOrganizeSettings(dates: false)).start();
+
+        expect(dates.organized, isEmpty);
+        expect(relations.organized, ['n']);
+      });
+
+      test('apagarlo a mitad de un elemento vale desde el paso '
+          'siguiente', () async {
+        late AiOrganizeQueue ai;
+        relations = _Step(
+          AiOrganizeToggle.relations,
+          work: (_, _) async =>
+              ai.updateSettings(const AiOrganizeSettings(dates: false)),
+        );
+        steps = [relations, dates];
+        await freshItem();
+        ai = queue();
+
+        await ai.start();
+
+        expect(relations.organized, ['n']);
+        expect(dates.organized, isEmpty);
+      });
+
+      test('con solo las fechas prendidas, igual organiza lo nuevo', () async {
+        await freshItem();
+
+        await queue(settings: nothingOn.copyWith(dates: true)).start();
+
+        expect(dates.organized, ['n']);
+        expect(relations.organized, isEmpty);
+      });
+
+      test('pedir las fechas a mano no depende del interruptor', () async {
+        await library(['a']);
+        final ai = queue(settings: const AiOrganizeSettings(dates: false));
+        await ai.start();
+
+        ai.findDates(['a']);
+        await ai.settled;
+
+        expect(dates.found.map((f) => f.itemId), ['a']);
+      });
     });
   });
 }

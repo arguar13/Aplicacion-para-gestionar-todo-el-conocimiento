@@ -27,6 +27,10 @@ enum SourceMoreAction {
   /// IA no vuelve a tocar sola.
   organizeWithAi,
 
+  /// Que la IA busque solo las fechas del texto y las ponga en la línea de
+  /// tiempo, cada una con su cita (F40).
+  findDatesWithAi,
+
   /// Volver a extraer el texto, con el idioma (F22).
   reextract,
 
@@ -57,6 +61,10 @@ List<SourceMoreAction> sourceMoreActionsFor(KnowledgeItem item) {
     // procesar sería vincular y hacer tarjetas de un texto que va a cambiar.
     if (item.processingState == ProcessingState.ready)
       SourceMoreAction.organizeWithAi,
+    // Lo mismo, y con algo escrito que leer: sin texto no hay fechas que
+    // buscar.
+    if (item.processingState == ProcessingState.ready && _hasWrittenText(item))
+      SourceMoreAction.findDatesWithAi,
     // También en «solo el libro» (F30, decisión 68): sin texto a propósito,
     // la persona sí puede pedir que se vuelva a extraer.
     if ((hasText || item.source.onlyFile) && canReextractText(item))
@@ -75,6 +83,14 @@ List<SourceMoreAction> sourceMoreActionsFor(KnowledgeItem item) {
       SourceMoreAction.fullScreen,
   ];
 }
+
+/// Si alguna forma del elemento tiene algo escrito: lo extraído, la
+/// transcripción, el texto de una foto, la página o las palabras de una nota.
+/// Mira hasta la primera letra, no el texto entero.
+bool _hasWrittenText(KnowledgeItem item) =>
+    item.renditions.any((r) => r.searchableText?.contains(_notBlank) ?? false);
+
+final _notBlank = RegExp(r'\S');
 
 /// Las formas de texto de una transcripción que todavía tienen marcas de
 /// tiempo —`[mm:ss]` al principio de cada línea, las pone
@@ -146,6 +162,13 @@ Future<void> showSourceMoreSheet(
   switch (chosen) {
     case SourceMoreAction.organizeWithAi:
       await organizeNowWithAi(context, ref, itemId: item.id);
+    case SourceMoreAction.findDatesWithAi:
+      await findDatesNowWithAi(
+        context,
+        ref,
+        itemIds: [item.id],
+        seeItemId: item.id,
+      );
     case SourceMoreAction.reextract:
       await reextractText(context, ref, item);
     case SourceMoreAction.removeTimestamps:
@@ -182,25 +205,34 @@ class _SourceMoreSheet extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            for (final action in actions)
-              ListTile(
-                key: Key('source-more-${action.name}'),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-                // Lo de la IA lleva su ✨, el mismo de todo lo que hace sola.
-                leading: action == SourceMoreAction.organizeWithAi
-                    ? const AiSparkCircle(size: 40)
-                    : SourcePanelIconCircle(
-                        icon: action.icon,
-                        tone:
-                            action == SourceMoreAction.deleteOriginalFile ||
-                                action == SourceMoreAction.deleteText
-                            ? SourcePanelTone.error
-                            : SourcePanelTone.neutral,
+            // Con la IA, volver a extraer y soltar el archivo y el texto son
+            // seis filas: en una pantalla baja la hoja no entra entera, y se
+            // desplaza en vez de cortarse.
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final action in actions)
+                    ListTile(
+                      key: Key('source-more-${action.name}'),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 24,
                       ),
-                title: Text(action.title(l10n)),
-                subtitle: Text(action.hint(l10n)),
-                onTap: () => Navigator.of(context).pop(action),
+                      // Lo de la IA lleva su ✨, el mismo de todo lo que hace
+                      // sola.
+                      leading: action.usesAi
+                          ? const AiSparkCircle(size: 40)
+                          : SourcePanelIconCircle(
+                              icon: action.icon,
+                              tone: action.tone,
+                            ),
+                      title: Text(action.title(l10n)),
+                      subtitle: Text(action.hint(l10n)),
+                      onTap: () => Navigator.of(context).pop(action),
+                    ),
+                ],
               ),
+            ),
           ],
         ),
       ),
@@ -209,8 +241,21 @@ class _SourceMoreSheet extends StatelessWidget {
 }
 
 extension on SourceMoreAction {
+  /// Lo que hace la IA: lleva su ✨.
+  bool get usesAi =>
+      this == SourceMoreAction.organizeWithAi ||
+      this == SourceMoreAction.findDatesWithAi;
+
+  /// Lo que suelta algo del elemento se ve como lo que es.
+  SourcePanelTone get tone =>
+      this == SourceMoreAction.deleteOriginalFile ||
+          this == SourceMoreAction.deleteText
+      ? SourcePanelTone.error
+      : SourcePanelTone.neutral;
+
   IconData get icon => switch (this) {
     SourceMoreAction.organizeWithAi => Icons.auto_awesome,
+    SourceMoreAction.findDatesWithAi => Icons.timeline,
     SourceMoreAction.reextract => Icons.refresh,
     SourceMoreAction.removeTimestamps => Icons.timer_off_outlined,
     SourceMoreAction.deleteOriginalFile => Icons.delete_sweep_outlined,
@@ -220,6 +265,7 @@ extension on SourceMoreAction {
 
   String title(AppLocalizations l10n) => switch (this) {
     SourceMoreAction.organizeWithAi => l10n.sourcePanelOrganizeWithAi,
+    SourceMoreAction.findDatesWithAi => l10n.sourcePanelFindDates,
     SourceMoreAction.reextract => l10n.detailReextract,
     SourceMoreAction.removeTimestamps => l10n.detailRemoveTimestamps,
     SourceMoreAction.deleteOriginalFile => l10n.detailDeleteOriginalFile,
@@ -229,6 +275,7 @@ extension on SourceMoreAction {
 
   String hint(AppLocalizations l10n) => switch (this) {
     SourceMoreAction.organizeWithAi => l10n.sourcePanelOrganizeWithAiHint,
+    SourceMoreAction.findDatesWithAi => l10n.sourcePanelFindDatesHint,
     SourceMoreAction.reextract => l10n.sourcePanelReextractHint,
     SourceMoreAction.removeTimestamps => l10n.sourcePanelRemoveTimestampsHint,
     SourceMoreAction.deleteOriginalFile => l10n.sourcePanelTrashFileHint,

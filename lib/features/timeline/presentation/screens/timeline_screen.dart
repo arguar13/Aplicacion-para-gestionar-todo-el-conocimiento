@@ -7,6 +7,8 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 import 'package:sinapsis/features/timeline/presentation/providers/timeline_providers.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/timeline_ai_action.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/timeline_ai_progress.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_canvas.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_event_bar.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_filter_sheet.dart';
@@ -110,6 +112,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       appBar: AppBar(
         title: Text(l10n.timelineTitle),
         actions: [
+          const TimelineAiAction(),
           IconButton(
             tooltip: l10n.timelineFiltersTooltip,
             icon: Badge(
@@ -146,6 +149,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
             ),
           ),
           const TimelineScopeBar(),
+          const TimelineAiProgress(),
           Expanded(
             child: switch (events) {
               AsyncError() when shown == null => _LoadError(

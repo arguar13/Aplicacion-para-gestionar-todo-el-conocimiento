@@ -180,6 +180,12 @@ class AiOrganizeSwitches extends ConsumerWidget {
       l10n.settingsAiAtlasSubtitle,
     ),
     (
+      AiOrganizeToggle.dates,
+      Icons.timeline,
+      l10n.settingsAiDates,
+      l10n.settingsAiDatesSubtitle,
+    ),
+    (
       AiOrganizeToggle.backfillWhileCharging,
       Icons.battery_charging_full,
       l10n.settingsAiBackfill,

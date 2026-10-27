@@ -221,7 +221,8 @@ class AiQueueStatusCard extends ConsumerWidget {
         (tasks) => tasks.any(
           (task) =>
               task.kind == AiTaskKind.organize ||
-              task.kind == AiTaskKind.flashcards,
+              task.kind == AiTaskKind.flashcards ||
+              task.kind == AiTaskKind.dates,
         ),
       ),
     );

@@ -21,10 +21,12 @@ import 'package:sinapsis/features/ai_models/domain/services/language_model_readi
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_presentation.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel.dart';
+import 'package:sinapsis/features/library/presentation/widgets/source_panel_more.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
@@ -156,6 +158,7 @@ void main() {
     WidgetTester tester,
     KnowledgeItem item, {
     double width = 412,
+    double height = 1000,
     ThemeData? theme,
     bool chatModelReady = false,
     String? summarizeResponse,
@@ -171,7 +174,7 @@ void main() {
     await harness.container.read(libraryRepositoryProvider).save(item);
     await beforeShow?.call();
 
-    tester.view.physicalSize = Size(width, 1000);
+    tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -342,6 +345,34 @@ void main() {
       expect(find.text(es.sourcePanelTrashFileHint), findsOneWidget);
       // El texto de una transcripción no se suelta: no queda un «libro».
       expect(find.byKey(const Key('source-more-deleteText')), findsNothing);
+    });
+
+    testWidgets('en una pantalla baja, la hoja de "Más" se desplaza: ninguna '
+        'fila queda cortada ni inalcanzable', (tester) async {
+      await pumpPanel(
+        tester,
+        _source(
+          SourceKind.document,
+          file: 'originales/f26/libro.pdf',
+          texts: ['Nació en 1809.'],
+        ),
+        height: 480,
+      );
+
+      await openMore(tester);
+
+      expect(tester.takeException(), isNull);
+      final last = find.byKey(const Key('source-more-deleteText'));
+      await tester.scrollUntilVisible(
+        last,
+        80,
+        scrollable: find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      expect(last, findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('un documento: "Más" ofrece volver a extraer, verlo a '
@@ -917,6 +948,237 @@ void main() {
       );
 
       expect(enabled(tester, 'source-panel-more'), isFalse);
+    });
+  });
+
+  group('buscar fechas con IA (F40)', () {
+    late FakeAiOrganizeQueue queue;
+    late List<bool> asked;
+
+    Future<void> pumpWith(
+      WidgetTester tester, {
+      List<String> texts = const ['Nació en 1809.'],
+      ProcessingState state = ProcessingState.ready,
+      bool modelsReady = true,
+      LanguageModelStatus? cloud,
+    }) async {
+      queue = FakeAiOrganizeQueue();
+      asked = [];
+      await pumpPanel(
+        tester,
+        _source(
+          SourceKind.webPage,
+          url: 'https://ejemplo.org/nota',
+          texts: texts,
+          state: state,
+        ),
+        chatModelReady: modelsReady,
+        extraOverrides: [
+          aiOrganizeQueueProvider.overrideWithValue(queue),
+          if (cloud != null)
+            languageModelStatusCheckProvider.overrideWithValue(({
+              bool background = false,
+            }) async {
+              asked.add(background);
+              return cloud;
+            }),
+        ],
+        beforeShow: () async =>
+            harness.embeddingModelManager.ready = modelsReady,
+      );
+    }
+
+    Future<void> findDates(WidgetTester tester) async {
+      await openMore(tester);
+      await tester.tap(find.byKey(const Key('source-more-findDatesWithAi')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('«Más» la ofrece con lo que hace, justo después de organizar', (
+      tester,
+    ) async {
+      await pumpWith(tester);
+      await openMore(tester);
+
+      expect(
+        find.byKey(const Key('source-more-findDatesWithAi')),
+        findsOneWidget,
+      );
+      expect(find.text(es.sourcePanelFindDates), findsOneWidget);
+      expect(find.text(es.sourcePanelFindDatesHint), findsOneWidget);
+      // Las dos cosas de la IA llevan su ✨; lo demás de la hoja, no.
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('source-more-findDatesWithAi')),
+          matching: find.byType(AiSparkCircle),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('source-more-organizeWithAi')),
+          matching: find.byType(AiSparkCircle),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('source-more-organizeWithAi')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('source-more-findDatesWithAi')))
+              .dy,
+        ),
+      );
+    });
+
+    testWidgets('le pide a la cola solo las fechas de ese elemento y avisa '
+        'que las busca en un rato', (tester) async {
+      await pumpWith(tester);
+      await findDates(tester);
+
+      expect(queue.dateRequests, [
+        [_id],
+      ]);
+      // No pidió organizarlo entero.
+      expect(queue.organizeNowCalls, isEmpty);
+      expect(find.text(es.datesAskQueued(1)), findsOneWidget);
+      // La hoja se cerró antes de pedirlo.
+      expect(find.text(es.sourcePanelMoreTitle), findsNothing);
+    });
+
+    testWidgets('sin texto no se ofrece: no hay fechas que buscar', (
+      tester,
+    ) async {
+      await pumpWith(tester, texts: const []);
+      await openMore(tester);
+
+      expect(
+        find.byKey(const Key('source-more-organizeWithAi')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('source-more-findDatesWithAi')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('con un texto en blanco tampoco', (tester) async {
+      await pumpWith(tester, texts: const ['  \n  ']);
+      await openMore(tester);
+
+      expect(
+        find.byKey(const Key('source-more-findDatesWithAi')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('con el texto en cualquiera de sus formas se ofrece', (
+      tester,
+    ) async {
+      await pumpWith(tester, texts: const ['', 'Nació en 1809.']);
+      await openMore(tester);
+
+      expect(
+        find.byKey(const Key('source-more-findDatesWithAi')),
+        findsOneWidget,
+      );
+    });
+
+    test('mientras se procesa o si falló, no se ofrece: el texto va a '
+        'cambiar', () {
+      for (final state in [
+        ProcessingState.pending,
+        ProcessingState.processing,
+        ProcessingState.failed,
+      ]) {
+        final item = _source(
+          SourceKind.webPage,
+          url: 'https://ejemplo.org/nota',
+          texts: const ['Nació en 1809.'],
+          state: state,
+        );
+        expect(
+          sourceMoreActionsFor(item),
+          isNot(contains(SourceMoreAction.findDatesWithAi)),
+          reason: state.name,
+        );
+      }
+    });
+
+    testWidgets('si falta un modelo, lo pide igual y dice que espera', (
+      tester,
+    ) async {
+      await pumpWith(tester, modelsReady: false);
+      await findDates(tester);
+
+      expect(queue.dateRequests, hasLength(1));
+      expect(find.text(es.datesAskNeedsModel(1)), findsOneWidget);
+    });
+
+    testWidgets('con la IA en pausa, lo pide igual y dice cuándo sigue', (
+      tester,
+    ) async {
+      await pumpWith(tester);
+      await harness.container
+          .read(aiOrganizeSettingsProvider.notifier)
+          .set(AiOrganizeToggle.enabled, on: false);
+      await findDates(tester);
+
+      expect(queue.dateRequests, hasLength(1));
+      expect(find.text(es.datesAskPaused(1)), findsOneWidget);
+    });
+
+    testWidgets('no necesita el modelo de búsqueda: con el de lenguaje '
+        'listo, alcanza', (tester) async {
+      await pumpWith(tester);
+      harness.embeddingModelManager.ready = false;
+      await findDates(tester);
+
+      expect(find.text(es.datesAskQueued(1)), findsOneWidget);
+      expect(find.text(es.datesAskNeedsModel(1)), findsNothing);
+    });
+
+    group('con la IA en la nube (F32)', () {
+      testWidgets('lista: avisa y pregunta por la de fondo', (tester) async {
+        await pumpWith(
+          tester,
+          cloud: const LanguageModelReady(provider: AiProvider.gemini),
+        );
+        await findDates(tester);
+
+        expect(find.text(es.datesAskQueued(1)), findsOneWidget);
+        expect(asked, [true]);
+      });
+
+      testWidgets('sin clave, lo pide igual y dice que falta la clave', (
+        tester,
+      ) async {
+        await pumpWith(
+          tester,
+          cloud: const LanguageModelNeedsAccount(provider: AiProvider.gemini),
+        );
+        await findDates(tester);
+
+        expect(queue.dateRequests, hasLength(1));
+        expect(find.text(es.datesAskNeedsKey(1)), findsOneWidget);
+      });
+
+      testWidgets('sin cuota, lo pide igual y dice que espera', (tester) async {
+        await pumpWith(
+          tester,
+          cloud: LanguageModelOutOfQuota(
+            provider: AiProvider.gemini,
+            accounts: 1,
+            resetsAt: DateTime(2026, 10, 17, 4),
+          ),
+        );
+        await findDates(tester);
+
+        expect(queue.dateRequests, hasLength(1));
+        expect(find.text(es.datesAskWaits(1)), findsOneWidget);
+      });
     });
   });
 

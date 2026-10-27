@@ -23,4 +23,11 @@ enum AiRunScope {
   /// se deshaga como una pasada, porque lo marcado se rehace con «Volver a
   /// analizar». No cuenta como organizar el elemento.
   study,
+
+  /// Solo buscar las fechas de un elemento para la línea de tiempo (F40):
+  /// «Organizar con IA» de la línea o «Buscar fechas con IA» del detalle. Deja
+  /// los hechos fechados que puso, que se deshacen con la pasada, pero no
+  /// organizó el elemento: para la cola sigue pendiente, y la biblioteca que
+  /// ya existía se organiza igual con el cargador.
+  dates,
 }

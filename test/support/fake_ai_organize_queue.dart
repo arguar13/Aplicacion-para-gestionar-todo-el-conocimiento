@@ -26,6 +26,23 @@ class FakeAiOrganizeQueue implements AiOrganizeQueue {
   void makeFlashcards(Iterable<String> itemIds, {bool anotherBatch = false}) =>
       flashcardRequests.add(itemIds.toList());
 
+  /// Lo que se pidió buscar solo en fechas (F40), en orden.
+  final dateRequests = <List<String>>[];
+
+  @override
+  void findDates(Iterable<String> itemIds) =>
+      dateRequests.add(itemIds.toList());
+
+  /// Cuántas veces se cancelaron y se cerraron los pedidos de fechas.
+  int datesCancelled = 0;
+  int datesDismissed = 0;
+
+  @override
+  void cancelDates() => datesCancelled++;
+
+  @override
+  void dismissDates() => datesDismissed++;
+
   /// Cuántas veces se la despertó: la llegada de un modelo la despierta.
   int wakes = 0;
 

@@ -14,6 +14,9 @@ enum AiTaskKind {
   /// Hacerle solo las tarjetas a un elemento (F30, el ✨ de Repasar).
   flashcards,
 
+  /// Buscarle solo las fechas a un elemento para la línea de tiempo (F40).
+  dates,
+
   /// Revisar con otro modelo lo que hizo la IA (F33).
   review,
 }
@@ -46,6 +49,9 @@ enum AiTaskStepKind {
 
   /// El árbol de temas del Atlas y sus notas mapa.
   organizeAtlas,
+
+  /// Los hechos fechados del texto, para la línea de tiempo (F40).
+  organizeDates,
 
   /// Mirar las tarjetas de la IA con otro modelo.
   reviewFlashcards,

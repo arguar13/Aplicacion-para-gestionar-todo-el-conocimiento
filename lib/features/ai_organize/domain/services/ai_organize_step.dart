@@ -79,6 +79,7 @@ extension AiOrganizeToggleTask on AiOrganizeToggle {
     AiOrganizeToggle.relations => AiTaskStepKind.organizeRelations,
     AiOrganizeToggle.flashcards => AiTaskStepKind.organizeFlashcards,
     AiOrganizeToggle.atlas => AiTaskStepKind.organizeAtlas,
+    AiOrganizeToggle.dates => AiTaskStepKind.organizeDates,
     AiOrganizeToggle.enabled || AiOrganizeToggle.backfillWhileCharging => null,
   };
 }

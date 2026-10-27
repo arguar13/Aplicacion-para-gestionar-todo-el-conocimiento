@@ -101,8 +101,8 @@ sealed class AiRun with _$AiRun {
     /// Qué modelo trabajó, si se sabe.
     String? model,
 
-    /// Qué le pidieron: organizar el elemento, solo tarjetas, revisarlo o
-    /// analizarlo para estudiar (F39).
+    /// Qué le pidieron: organizar el elemento, solo tarjetas, solo fechas,
+    /// revisarlo o analizarlo para estudiar (F39).
     @Default(AiRunScope.organize) AiRunScope scope,
 
     /// Cuánto trabajó el modelo en la pasada (F39, paso 6), sin las esperas
@@ -133,7 +133,7 @@ sealed class AiRun with _$AiRun {
   bool get hasUsage => workTime > Duration.zero || tokens > 0;
 
   /// Si la pasada organizó el elemento: la última de estas es la que dice si
-  /// la persona se lo sacó a la IA. Las de solo tarjetas, la revisión y el
-  /// análisis para estudiar no cuentan.
+  /// la persona se lo sacó a la IA. Las de solo tarjetas, solo fechas, la
+  /// revisión y el análisis para estudiar no cuentan.
   bool get organizedItem => scope == AiRunScope.organize;
 }

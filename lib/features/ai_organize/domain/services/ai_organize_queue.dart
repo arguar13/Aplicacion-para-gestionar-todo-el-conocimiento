@@ -12,10 +12,12 @@ import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_dates_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_backlog.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_dates_finder.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_flashcard_maker.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_memory.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
@@ -68,7 +70,8 @@ AiModelWait? aiModelWaitFor(Object error) {
 ///
 /// **Qué toma, en este orden:** lo que se pidió organizar a mano
 /// ([organizeNow]); las tarjetas que se pidieron desde Repasar
-/// ([makeFlashcards], F30); lo nuevo —cada fuente que termina de procesarse,
+/// ([makeFlashcards], F30); las fechas que se pidieron para la línea de
+/// tiempo ([findDates], F40); lo nuevo —cada fuente que termina de procesarse,
 /// cada nota cuando lleva [kAiNoteQuietPeriod] sin cambios—; las notas ya
 /// organizadas que cambiaron mucho de contenido (`kNoteRegrowHammingBits`);
 /// y, solo si está prendido y el
@@ -134,6 +137,7 @@ class AiOrganizeQueue {
     Duration noteQuietPeriod = kAiNoteQuietPeriod,
     LongWorkKeeper longWork = const NoLongWorkKeeper(),
     void Function(AiFlashcardsBatch? batch)? onFlashcardsBatch,
+    void Function(AiDatesBatch? batch)? onDatesBatch,
     Duration modelRetryDelay = kAiModelRetryDelay,
     AiTaskTracker? tasks,
   }) : _backlog = backlog,
@@ -154,6 +158,7 @@ class AiOrganizeQueue {
        _noteQuietPeriod = noteQuietPeriod,
        _longWork = longWork,
        _onFlashcardsBatch = onFlashcardsBatch,
+       _onDatesBatch = onDatesBatch,
        _tasks = tasks;
 
   final AiOrganizeBacklog _backlog;
@@ -228,6 +233,15 @@ class AiOrganizeQueue {
   var _batchSerial = 0;
   var _cardsPaused = false;
   final void Function(AiFlashcardsBatch? batch)? _onFlashcardsBatch;
+
+  /// Los elementos de los que se pidieron solo las fechas (F40), en orden.
+  final _dateRequests = Queue<String>();
+
+  /// Cómo va el pedido de fechas, o `null` si no hay ninguno a la vista, y
+  /// cuál pedido es: cambia con cada pedido nuevo y al cancelar.
+  AiDatesBatch? _datesBatch;
+  var _datesSerial = 0;
+  final void Function(AiDatesBatch? batch)? _onDatesBatch;
 
   /// Lo que no se pudo ni empezar en esta sesión —el elemento no se pudo
   /// leer, la pasada no se pudo abrir—: no se vuelve a intentar hasta la
@@ -309,8 +323,7 @@ class AiOrganizeQueue {
     final pending = _requested.toSet();
     // El que se cortó a mitad ya está primero, en su pasada.
     final interrupted = _interrupted;
-    if (interrupted != null &&
-        interrupted.source != AiWorkSource.flashcardsRequest) {
+    if (interrupted != null && !interrupted.source.isRequestLane) {
       pending.add(interrupted.itemId);
     }
     for (final itemId in itemIds) {
@@ -391,6 +404,65 @@ class AiOrganizeQueue {
     }
   }
 
+  /// Busca **solo las fechas** de [itemIds] para la línea de tiempo (F40), en
+  /// ese orden, después de lo pedido a mano y de las tarjetas y antes que lo
+  /// nuevo: sin vínculos, tarjetas, temas ni etiquetas, y **sin esperar el
+  /// cargador**, aunque sean de la biblioteca que ya existía. Solo necesita el
+  /// modelo de lenguaje, y no mira el interruptor de las fechas —lo pidió la
+  /// persona—; la pausa general de la IA, sí.
+  ///
+  /// Cada elemento es una pasada de solo fechas (`AiRunScope.dates`), que se
+  /// deshace como cualquiera y no cuenta como organizarlo. Si ya había un
+  /// pedido en curso, estos se le suman.
+  void findDates(Iterable<String> itemIds) {
+    final queued = _dateRequests.toSet();
+    final interrupted = _interrupted;
+    if (interrupted != null &&
+        interrupted.source == AiWorkSource.datesRequest) {
+      queued.add(interrupted.itemId);
+    }
+    var added = 0;
+    for (final itemId in itemIds) {
+      if (!queued.add(itemId)) continue;
+      _dateRequests.add(itemId);
+      added++;
+    }
+    if (added == 0) return;
+    final batch = _datesBatch;
+    if (batch == null || batch.finished) {
+      _datesSerial++;
+      _publishDates(AiDatesBatch(total: added));
+    } else {
+      _publishDates(batch.copyWith(total: batch.total + added));
+    }
+    unawaited(wake());
+  }
+
+  /// Cancela lo que falta del pedido de fechas. Lo que ya se puso queda, con
+  /// su pasada, y se deshace desde «Lo que hizo la IA».
+  void cancelDates() {
+    _dateRequests.clear();
+    _publishDates(null);
+    // Uno que se cortó esperando al modelo (F32) también se cancela: su pasada
+    // se cierra con lo que alcanzó a hacer.
+    final interrupted = _interrupted;
+    if (interrupted != null &&
+        interrupted.source == AiWorkSource.datesRequest) {
+      _interrupted = null;
+      unawaited(_closeRun(interrupted.runId, 'de fechas cancelada'));
+    }
+  }
+
+  /// Saca de la vista un pedido de fechas que ya terminó.
+  void dismissDates() {
+    if (_datesBatch?.finished ?? true) _publishDates(null);
+  }
+
+  void _publishDates(AiDatesBatch? batch) {
+    _datesBatch = batch;
+    _onDatesBatch?.call(batch);
+  }
+
   /// Cierra una pasada; si no se puede, lo registra.
   Future<void> _closeRun(String runId, String what) async {
     (await _runs.finishRun(runId)).match(
@@ -463,9 +535,17 @@ class AiOrganizeQueue {
         _wakeAgain = false;
         final next = await _next();
         if (next != null) {
-          final finished = await (next.source == AiWorkSource.flashcardsRequest
-              ? _makeFlashcards(next.itemId, resume: next.resume)
-              : _organize(next.itemId, next.source, resume: next.resume));
+          final finished = await switch (next.source) {
+            AiWorkSource.flashcardsRequest => _makeFlashcards(
+              next.itemId,
+              resume: next.resume,
+            ),
+            AiWorkSource.datesRequest => _findDates(
+              next.itemId,
+              resume: next.resume,
+            ),
+            _ => _organize(next.itemId, next.source, resume: next.resume),
+          };
           // Uno que se cortó esperando al modelo no está hecho.
           if (finished) _organizedWhileKept++;
           continue;
@@ -503,7 +583,13 @@ class AiOrganizeQueue {
     // interruptores de cada tipo ni del modelo de vínculos.
     final cardsWaiting =
         (_cardRequests.isNotEmpty || cardsInterrupted) && !_cardsPaused;
-    if (!_anyStepOn && !cardsWaiting) {
+    // Y las fechas que pidió la persona para la línea de tiempo (F40), por lo
+    // mismo.
+    final datesWaiting =
+        _dateRequests.isNotEmpty ||
+        interrupted?.source == AiWorkSource.datesRequest;
+    final requestsWaiting = cardsWaiting || datesWaiting;
+    if (!_anyStepOn && !requestsWaiting) {
       _onStatus(const AiOrganizeIdle());
       return null;
     }
@@ -513,7 +599,7 @@ class AiOrganizeQueue {
     final chatReady = language.isReady && held == null;
     final embeddingReady = await _embeddingModel().isReady();
     final canOrganize = _anyStepOn && chatReady && embeddingReady;
-    if (!canOrganize && !(cardsWaiting && chatReady)) {
+    if (!canOrganize && !(requestsWaiting && chatReady)) {
       _onStatus(
         await _notReady(
           language,
@@ -528,7 +614,11 @@ class AiOrganizeQueue {
 
     // Lo que se cortó esperando al modelo, primero y en su pasada (F32).
     if (interrupted != null &&
-        (cardsInterrupted ? cardsWaiting : canOrganize)) {
+        switch (interrupted.source) {
+          AiWorkSource.flashcardsRequest => cardsWaiting,
+          AiWorkSource.datesRequest => datesWaiting,
+          _ => canOrganize,
+        }) {
       _interrupted = null;
       return (
         itemId: interrupted.itemId,
@@ -550,8 +640,15 @@ class AiOrganizeQueue {
         resume: null,
       );
     }
+    if (datesWaiting && _dateRequests.isNotEmpty) {
+      return (
+        itemId: _dateRequests.removeFirst(),
+        source: AiWorkSource.datesRequest,
+        resume: null,
+      );
+    }
     // Con la IA de vínculos sin poder trabajar, lo de abajo espera: solo se
-    // llegó hasta acá por tarjetas, y ya no quedan.
+    // llegó hasta acá por tarjetas o fechas, y ya no quedan.
     if (!canOrganize) {
       _onStatus(const AiOrganizeIdle());
       return null;
@@ -760,11 +857,13 @@ class AiOrganizeQueue {
     final interrupted = switch (_interrupted?.source) {
       AiWorkSource.requested ||
       AiWorkSource.changedNote ||
-      AiWorkSource.flashcardsRequest => 1,
+      AiWorkSource.flashcardsRequest ||
+      AiWorkSource.datesRequest => 1,
       _ => 0,
     };
     return _requested.length +
         _cardRequests.length +
+        _dateRequests.length +
         interrupted +
         count.fresh +
         (_settings.backfillWhileCharging ? count.existing : 0);
@@ -1055,6 +1154,154 @@ class AiOrganizeQueue {
     }
   }
 
+  /// Solo las fechas de [itemId] (F40): una pasada de solo fechas, con el paso
+  /// de fechas como `AiDatesFinder`. Un fallo se registra y el pedido sigue
+  /// con el próximo; el elemento cuenta como mirado igual.
+  ///
+  /// Salvo que el modelo no pueda contestar por ahora (F32): entonces no
+  /// cuenta, la pasada queda abierta y se retoma primero —con [resume]— cuando
+  /// vuelva, desde el pasaje donde quedó. Devuelve `false` en ese caso.
+  Future<bool> _findDates(String itemId, {_Interrupted? resume}) async {
+    // De qué pedido es: si lo cancelan y piden otro mientras este corre, lo
+    // que dé no se le suma al nuevo.
+    final batchOf = _datesSerial;
+    var report = AiStepReport.nothing;
+    var waiting = false;
+    // Pase lo que pase —salvo esperar al modelo—, el elemento cuenta como
+    // mirado: un pedido que no llega nunca al final se quedaría «buscando
+    // fechas» para siempre.
+    try {
+      final item = await _find(itemId);
+      final finder = _steps().whereType<AiDatesFinder>().firstOrNull;
+      if (item == null || finder == null) {
+        if (resume != null) {
+          await _closeRun(resume.runId, 'de fechas de un elemento ido');
+        }
+        return true;
+      }
+
+      // Un texto sin ninguna fecha escrita no necesita al modelo ni deja una
+      // pasada vacía: pedirle las fechas a toda la biblioteca llenaría «Lo que
+      // hizo la IA» de pasadas sin nada. Una pasada que se retoma ya existe.
+      if (resume == null && !await finder.mentionsDates(item)) return true;
+
+      final epoch = await _epoch();
+      final quietBefore = _clock().subtract(_noteQuietPeriod);
+      final pending = math.max(0, await _pending(epoch, quietBefore));
+      final batch = _datesBatch;
+      if (batch != null && batchOf == _datesSerial) {
+        _publishDates(batch.copyWith(currentTitle: () => item.title));
+      }
+      _onStatus(
+        AiOrganizeWorking(
+          itemTitle: item.title,
+          source: AiWorkSource.datesRequest,
+          pending: pending,
+        ),
+      );
+      _keepAlive(AiWorkSource.datesRequest, pending);
+
+      final runId =
+          resume?.runId ??
+          (await _runs.startRun(
+            item.id,
+            model: _modelName?.call(),
+            scope: AiRunScope.dates,
+          )).fold((failure) {
+            _telemetry.recordError(
+              failure,
+              StackTrace.current,
+              hint: 'AiOrganizeQueue: no se pudo abrir la pasada de fechas',
+            );
+            return null;
+          }, (id) => id);
+      if (runId == null) return true;
+
+      // La tarea de «Lo que hizo la IA» (F39, paso 6): un paso, y cuánto va
+      // del pedido entero.
+      final batchNow = _datesBatch;
+      final task = _tasks?.begin(
+        kind: AiTaskKind.dates,
+        title: item.title,
+        itemId: item.id,
+        model: _modelName?.call(),
+        steps: const [AiTaskStepKind.organizeDates],
+        batchProgress: batchNow != null && batchOf == _datesSerial
+            ? AiTaskProgress(
+                done: batchNow.done,
+                total: batchNow.total,
+                unit: AiTaskUnit.item,
+              )
+            : null,
+      );
+      task?.step(AiTaskStepKind.organizeDates);
+      final usage = AiRunUsageSaver(
+        runs: _runs,
+        telemetry: _telemetry,
+        runId: runId,
+        task: task,
+        hint: 'AiOrganizeQueue',
+      );
+      try {
+        report = await _within(
+          task,
+          () => finder.findDates(item, runId: runId),
+        );
+        // Como un paso de la pasada entera: el modelo es de terceros y falla de
+        // formas sin un tipo propio. Lo que ya puso queda, con su pasada.
+      } on Object catch (e, stackTrace) {
+        final wait = aiModelWaitFor(e);
+        if (wait != null) {
+          // Lo que alcanzó a poner queda; lo que falta lo sigue al retomar, que
+          // sabe hasta dónde leyó.
+          waiting = true;
+          _hold(wait, e);
+          _interrupted = (
+            itemId: item.id,
+            source: AiWorkSource.datesRequest,
+            runId: runId,
+            done: const <AiOrganizeToggle>{},
+            anotherBatch: false,
+          );
+          final current = _datesBatch;
+          if (current != null && batchOf == _datesSerial) {
+            _publishDates(current.copyWith(currentTitle: () => null));
+          }
+          return false;
+        }
+        _telemetry.recordError(
+          e,
+          stackTrace,
+          hint: 'AiOrganizeQueue: fechas en ${item.id}',
+        );
+      } finally {
+        // Lo que costó, antes de cerrar la pasada y también si se cortó
+        // esperando al modelo.
+        await usage.save();
+        // Cortada, la pasada queda abierta y no se cierra acá: la tarea sí.
+        if (waiting) usage.end();
+      }
+      await _closeRun(runId, 'de fechas');
+      usage.end();
+      return true;
+    } finally {
+      if (batchOf == _datesSerial && !waiting) _datesDone(report);
+    }
+  }
+
+  /// Un elemento del pedido de fechas, mirado: suma lo que dio.
+  void _datesDone(AiStepReport report) {
+    final batch = _datesBatch;
+    if (batch == null) return;
+    _publishDates(
+      batch.copyWith(
+        done: batch.done + 1,
+        created: batch.created + report.applied,
+        currentTitle: () => null,
+      ),
+    );
+  }
+
   /// Un elemento del pedido de tarjetas, mirado: suma lo que dio.
   void _cardDone(AiStepReport report) {
     final batch = _batch;
@@ -1082,6 +1329,12 @@ class AiOrganizeQueue {
         total: batch.total,
         detail: LongWorkDetail.flashcards,
       );
+      return;
+    }
+    // Y uno de fechas (F40), lo mismo.
+    final dates = _datesBatch;
+    if (source == AiWorkSource.datesRequest && dates != null) {
+      _longWork.working(done: dates.done, total: dates.total);
       return;
     }
     _longWork.working(
@@ -1122,3 +1375,12 @@ typedef _Interrupted = ({
   Set<AiOrganizeToggle> done,
   bool anotherBatch,
 });
+
+extension on AiWorkSource {
+  /// Si viene de un pedido de la persona con su propia fila en la cola, aparte
+  /// de lo que se organiza entero: lo que pidió Repasar (F30) y la línea de
+  /// tiempo (F40).
+  bool get isRequestLane =>
+      this == AiWorkSource.flashcardsRequest ||
+      this == AiWorkSource.datesRequest;
+}
