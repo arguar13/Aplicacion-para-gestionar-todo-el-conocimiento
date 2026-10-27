@@ -60,6 +60,10 @@
 >   se marquen en el documento original en Procesado"* → la copia del original muestra marcado lo
 >   que se eligió.
 > - Y el Atlas va **arriba** de la Línea de tiempo en «Organizar».
+> - *"Si yo no hiciera un resumen en los documentos antes de procesar, que una vez que los procese
+>   y me quede con el documento original o todo el texto extraído, que también me dejara hacer un
+>   resumen ahí, independientemente de si ya lo hice o no antes de procesar, así no dependa tanto
+>   del archivo original"* → el documento procesado **se estudia solo** (decisión I).
 
 ## Lo que hay hoy
 
@@ -215,6 +219,12 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
   espacio y viaja con el documento procesado en la papelera, la copia y la unión de bóvedas. Como
   el texto de la copia es el mismo, las marcas de resumen, síntesis y palabras clave usan las
   mismas posiciones. Soltar el archivo de la fuente a mano no toca la copia, y al revés.
+- **I. El documento procesado se estudia solo** (ajuste del dueño). Dentro de él, «Resumir»,
+  «Sintetizar» y «Palabras clave» trabajan sobre su propio texto (la sección Texto o la copia del
+  original), con la misma tarjeta de estudiar: «Resumir con <modelo>» o «Elegir a mano». No hace
+  falta haber estudiado la fuente antes. Lo que se hace ahí es del procesado: cuenta como propio,
+  así que «Actualizar» desde la fuente no lo pisa (solo «Reemplazar»), y se marca sobre la copia
+  del original igual que lo traído de la fuente.
 - **G. Triar nunca borra ni suelta nada de la fuente** (el principio de arriba). La hoja de F30
   sale de la Bandeja. Cualquier otro camino que hoy suelte el archivo o el texto de una fuente se
   revisa en el paso 3, y queda solo si lo pide el dueño a mano y de a uno.
@@ -230,6 +240,7 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
    - Todo probado aparte, con mutaciones.
 1b. **Los datos del ajuste del dueño** (esquema v46):
    - la sección Palabras clave y la copia del original, con sus marcas;
+   - estudiar el procesado solo (decisión I): resumen, síntesis y palabras clave de su propio texto;
    - sus censos de papelera, copia y unión de bóvedas;
    - y, en la misma versión de esquema, el vaciado de los cuadernos del paso 5, con su marca.
 2. **La pantalla Procesado y el documento:**
