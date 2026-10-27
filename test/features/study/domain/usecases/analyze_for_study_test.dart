@@ -14,6 +14,7 @@ import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_marker.dart';
 import 'package:sinapsis/features/study/domain/services/study_reply.dart';
 import 'package:sinapsis/features/study/domain/services/study_sentences.dart';
+import 'package:sinapsis/features/study/domain/services/study_words.dart';
 import 'package:sinapsis/features/study/domain/usecases/analyze_for_study.dart';
 
 import '../../../../support/item_rows.dart';
@@ -268,6 +269,119 @@ void main() {
 
     expect(again.parts, isEmpty);
     expect(progress, isEmpty);
+  });
+
+  group('toda oración con contenido sale con sus palabras clave', () {
+    /// Cuántas palabras clave tiene cada oración del texto.
+    Future<List<int>> keywordsPerSentence() async {
+      final keywords = (await repository.read(
+        'texto',
+      )).of(StudyMarkKind.keyword);
+      return [
+        for (final s in sentences)
+          keywords.where((k) => k.start >= s.start && k.end <= s.end).length,
+      ];
+    }
+
+    test('las que el modelo se salteó las completa el respaldo local, sin '
+        'volver a pedirle nada', () async {
+      // El modelo contesta la línea CLAVE de la primera oración de cada parte
+      // y saltea las demás.
+      final marker = _RecordedMarker(
+        partCharBudget: 164,
+        reply: (part) => 'RESUMEN: 1\nSINTESIS: 1\nCLAVE 1: número',
+      );
+
+      await analyze(marker);
+
+      expect(marker.parts, hasLength(5), reason: 'sin pedidos de más');
+      final counts = await keywordsPerSentence();
+      expect(
+        counts.every((n) => n >= 1 && n <= kMaxKeywordsPerSentence),
+        isTrue,
+        reason: '$counts',
+      );
+      // Lo que eligió el modelo se respeta: una sola palabra, la suya.
+      final keywords = (await repository.read(
+        'texto',
+      )).of(StudyMarkKind.keyword);
+      for (var i = 0; i < 10; i += 2) {
+        final inFirst = keywords.where(
+          (k) => k.start >= sentences[i].start && k.end <= sentences[i].end,
+        );
+        expect(inFirst.map((k) => content.substring(k.start, k.end)), [
+          'número',
+        ]);
+      }
+    });
+
+    test('el modelo que no contesta nada de palabras: igual todas las '
+        'oraciones las tienen', () async {
+      final marker = _RecordedMarker(partCharBudget: 164);
+
+      await analyze(marker);
+
+      final counts = await keywordsPerSentence();
+      expect(counts.every((n) => n >= 1), isTrue, reason: '$counts');
+      expect((await repository.read('texto')).complete, isTrue);
+    });
+
+    test('una parte que el modelo no contestó en el formato también las '
+        'tiene: se cuenta como no leída, pero no queda vacía', () async {
+      final marker = _RecordedMarker(
+        partCharBudget: 164,
+        reply: (part) =>
+            part.first == sentences.first ? 'No entendí.' : 'RESUMEN: 1',
+      );
+
+      final progress = await analyze(marker);
+
+      expect(progress.last.unreadParts, 1);
+      final counts = await keywordsPerSentence();
+      expect(counts.every((n) => n >= 1), isTrue, reason: '$counts');
+      // Sin resumen en la parte que no se leyó.
+      final study = await repository.read('texto');
+      expect(
+        study
+            .of(StudyMarkKind.summary)
+            .any((m) => m.start < sentences[2].start),
+        isFalse,
+      );
+    });
+
+    test('una parte que no entró entera no completa las oraciones que quedan '
+        'para la próxima', () async {
+      final marker = _RecordedMarker(partCharBudget: 1000, fits: 3);
+
+      await analyze(marker, shouldStop: () => marker.parts.length == 1);
+
+      final counts = await keywordsPerSentence();
+      expect(counts.take(3).every((n) => n >= 1), isTrue, reason: '$counts');
+      expect(counts.skip(3), everyElement(0), reason: '$counts');
+    });
+
+    test('una palabra que eligió la persona cuenta: esa oración no recibe '
+        'otra', () async {
+      final chosen = sentences[3];
+      final word = content.indexOf('número', chosen.start);
+      await repository.addUserMark(
+        renditionId: 'texto',
+        content: content,
+        kind: StudyMarkKind.keyword,
+        start: word,
+        end: word + 'número'.length,
+      );
+
+      await analyze(_RecordedMarker(partCharBudget: 164));
+
+      final counts = await keywordsPerSentence();
+      expect(counts[3], 1);
+      expect(
+        counts.where((n) => n >= 1).length,
+        10,
+        reason: 'todas las demás, con las suyas: $counts',
+      );
+    });
   });
 
   group('dentro de una tarea de la IA (F39, paso 6)', () {

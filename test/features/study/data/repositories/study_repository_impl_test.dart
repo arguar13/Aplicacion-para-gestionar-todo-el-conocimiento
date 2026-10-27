@@ -336,6 +336,119 @@ void main() {
     expect(after.of(StudyMarkKind.summary), isEmpty);
   });
 
+  group('completar palabras clave (addAiKeywords)', () {
+    test('las agrega como de la IA, con su fragmento, sin tocar hasta dónde '
+        'se analizó ni lo que ya había', () async {
+      await save(from: 0, to: 1, summary: [0], keywords: [word('Inglaterra')]);
+      final before = await repository.read('texto');
+
+      final saved = await repository.addAiKeywords(
+        renditionId: 'texto',
+        content: content,
+        words: [word('fábricas'), word('infantil')],
+      );
+
+      expect(saved.isRight(), isTrue);
+      final study = await repository.read('texto');
+      expect(textsOf(study, StudyMarkKind.keyword), [
+        'Inglaterra',
+        'fábricas',
+        'infantil',
+      ]);
+      expect(
+        study.of(StudyMarkKind.keyword).map((m) => m.origin),
+        everyElement(ContentOrigin.ai),
+      );
+      expect(study.analyzedUntil, before.analyzedUntil);
+      expect(study.complete, before.complete);
+      expect(textsOf(study, StudyMarkKind.summary), [
+        'La revolución industrial empezó en Inglaterra.',
+      ]);
+    });
+
+    test('lo que ya está en el mismo lugar —de la IA o de la persona— no se '
+        'repite', () async {
+      await addMine(StudyMarkKind.keyword, word('vapor'));
+      await save(from: 0, to: 0, keywords: [word('Inglaterra')]);
+
+      Future<void> add(List<StudyWord> words) async {
+        final saved = await repository.addAiKeywords(
+          renditionId: 'texto',
+          content: content,
+          words: words,
+        );
+        expect(saved.isRight(), isTrue);
+      }
+
+      await add([word('vapor'), word('Inglaterra'), word('fábricas')]);
+      await add([word('fábricas')]);
+
+      final study = await repository.read('texto');
+      expect(textsOf(study, StudyMarkKind.keyword), [
+        'Inglaterra',
+        'fábricas',
+        'vapor',
+      ]);
+      // La de la persona sigue siendo de la persona.
+      expect(
+        study
+            .of(StudyMarkKind.keyword)
+            .singleWhere((m) => content.substring(m.start, m.end) == 'vapor')
+            .origin,
+        ContentOrigin.user,
+      );
+    });
+
+    test('volver a analizar la parte reemplaza también lo completado, sin '
+        'duplicar', () async {
+      await save(from: 0, to: 1, keywords: [word('Inglaterra')]);
+      await repository.addAiKeywords(
+        renditionId: 'texto',
+        content: content,
+        words: [word('fábricas')],
+      );
+
+      await save(from: 0, to: 1, keywords: [word('vapor')]);
+
+      expect(textsOf(await repository.read('texto'), StudyMarkKind.keyword), [
+        'vapor',
+      ]);
+    });
+
+    test('algo fuera del texto no se agrega, ni siquiera lo demás', () async {
+      final saved = await repository.addAiKeywords(
+        renditionId: 'texto',
+        content: content,
+        words: [word('vapor'), const StudyWord(0, content.length + 5, 'x')],
+      );
+
+      expect(saved.isLeft(), isTrue);
+      expect(
+        saved.fold((f) => f.toString(), (_) => ''),
+        contains('fuera del texto'),
+      );
+      expect((await repository.read('texto')).marks, isEmpty);
+    });
+
+    test('un comienzo negativo o una palabra vacía tampoco', () async {
+      for (final bad in [
+        const StudyWord(-1, 3, 'x'),
+        const StudyWord(5, 5, 'x'),
+      ]) {
+        final saved = await repository.addAiKeywords(
+          renditionId: 'texto',
+          content: content,
+          words: [bad],
+        );
+        expect(saved.isLeft(), isTrue);
+        expect(
+          saved.fold((f) => f.toString(), (_) => ''),
+          contains('fuera del texto'),
+        );
+      }
+    });
+  });
+
   test('cada cambio se ve en lo que se escucha', () async {
     final seen = <int>[];
     final subscription = repository

@@ -51,6 +51,13 @@ const kMaxStudySentenceChars = 600;
 /// - **Un salto de línea solo no corta**: en un PDF cada renglón termina con
 ///   uno, en medio de la oración. Corta un renglón en blanco, el separador de
 ///   páginas (`---`) y un renglón que empieza un título o un ítem.
+/// - **Una lista de renglones sí**: un índice o una lista sin puntos ni
+///   viñetas —«Capítulo I», «Que trata de…», «Capítulo II»…— es un bloque
+///   donde **todos** los renglones siguientes empiezan con mayúscula o con un
+///   número y ninguno anterior queda a medias —con una coma, un guion—. Cada
+///   renglón es su oración: si no, el bloque entero sería una sola con sus
+///   cuatro palabras clave. Un párrafo de prosa partido por el ancho de la
+///   página no cumple eso en todos sus renglones.
 ///
 /// Con [markdown], las marcas de bloque —`#`, `>`, `-`, `1.`— quedan afuera
 /// de la oración; sin él —un PDF, un `.txt`—, las viñetas de una lista
@@ -62,11 +69,54 @@ List<StudySentence> splitStudySentences(
 }) {
   final sentences = <StudySentence>[];
   for (final block in _blocksOf(content, markdown: markdown)) {
-    for (final sentence in _sentencesIn(content, block.$1, block.$2)) {
-      sentences.addAll(_splitLong(content, sentence));
+    for (final (start, end) in _lineItems(content, block.$1, block.$2)) {
+      for (final sentence in _sentencesIn(content, start, end)) {
+        sentences.addAll(_splitLong(content, sentence));
+      }
     }
   }
   return sentences;
+}
+
+/// El bloque `[start, end)` en sus renglones si es una lista de renglones
+/// —ver [splitStudySentences]—; si no, el bloque entero.
+List<(int, int)> _lineItems(String content, int start, int end) {
+  final breaks = <int>[];
+  for (var i = start; i < end; i++) {
+    if (content.codeUnitAt(i) == 0x0a) breaks.add(i);
+  }
+  if (breaks.isEmpty) return [(start, end)];
+
+  var lineStart = start;
+  final lines = <(int, int)>[];
+  for (final lineBreak in [...breaks, end]) {
+    lines.add((lineStart, lineBreak));
+    lineStart = lineBreak + 1;
+  }
+  for (var i = 0; i < lines.length - 1; i++) {
+    final before = content.substring(lines[i].$1, lines[i].$2).trimRight();
+    final after = content
+        .substring(lines[i + 1].$1, lines[i + 1].$2)
+        .trimLeft();
+    if (before.isEmpty || after.isEmpty) return [(start, end)];
+    if (_unfinishedEnd.contains(before[before.length - 1])) {
+      return [(start, end)];
+    }
+    final first = after[0];
+    final startsAnItem =
+        _isDigit(first) ||
+        (first != first.toLowerCase() && first == first.toUpperCase());
+    if (!startsAnItem) return [(start, end)];
+  }
+  return lines;
+}
+
+/// Con qué puede terminar un renglón que sigue en el de abajo.
+const _unfinishedEnd = {',', ';', ':', '-', '–', '—', '(', '/'};
+
+bool _isDigit(String char) {
+  final code = char.codeUnitAt(0);
+  return code >= 0x30 && code <= 0x39;
 }
 
 /// Los bloques de [content]: `[inicio, fin)`, ya sin la marca del comienzo.
@@ -238,8 +288,10 @@ StudySentence? _trimmed(String content, int start, int end) {
   return null;
 }
 
-/// [sentence] en pedazos de hasta [kMaxStudySentenceChars], cortando en sus
-/// renglones: una tabla o una lista sin puntos.
+/// [sentence] en pedazos de hasta [kMaxStudySentenceChars]: primero por sus
+/// renglones —una tabla o una lista sin puntos— y, el renglón que sigue
+/// siendo más largo —un índice o una enumeración de una sola línea—, en sus
+/// cláusulas (ver [_splitAtClauses]).
 Iterable<StudySentence> _splitLong(
   String content,
   StudySentence sentence,
@@ -250,15 +302,76 @@ Iterable<StudySentence> _splitLong(
   }
   var pieceStart = sentence.start;
   var lastBreak = -1;
+  final pieces = <StudySentence>[];
   for (var i = sentence.start; i < sentence.end; i++) {
     if (content[i] == '\n') lastBreak = i;
     if (i - pieceStart >= kMaxStudySentenceChars && lastBreak > pieceStart) {
       final piece = _trimmed(content, pieceStart, lastBreak);
-      if (piece != null) yield piece;
+      if (piece != null) pieces.add(piece);
       pieceStart = lastBreak + 1;
       lastBreak = -1;
     }
   }
   final rest = _trimmed(content, pieceStart, sentence.end);
+  if (rest != null) pieces.add(rest);
+
+  for (final piece in pieces) {
+    if (piece.length <= kMaxStudySentenceChars) {
+      yield piece;
+    } else {
+      yield* _splitAtClauses(content, piece);
+    }
+  }
+}
+
+/// [sentence], más larga que [kMaxStudySentenceChars] y sin renglones donde
+/// cortar, en pedazos que no la pasen: cada uno termina en la última cláusula
+/// —un `;` o un `:`—, o en la última coma, o en el último espacio que entra,
+/// en la segunda mitad del pedazo. Una «palabra» más larga que eso —una
+/// dirección, datos pegados— se corta en el primer espacio que viene.
+Iterable<StudySentence> _splitAtClauses(
+  String content,
+  StudySentence sentence,
+) sync* {
+  var start = sentence.start;
+  while (sentence.end - start > kMaxStudySentenceChars) {
+    final limit = start + kMaxStudySentenceChars;
+    final floor = start + kMaxStudySentenceChars ~/ 2;
+    var cut =
+        _lastCut(content, floor, limit, const {';', ':'}) ??
+        _lastCut(content, floor, limit, const {','}) ??
+        _lastCut(content, floor, limit, const {' ', '\t'}, after: false);
+    if (cut == null) {
+      // Una «palabra» más larga que el pedazo: hasta el primer espacio.
+      var space = limit;
+      while (space < sentence.end && !_isSpace(content[space])) {
+        space++;
+      }
+      if (space >= sentence.end) break;
+      cut = space;
+    }
+    final piece = _trimmed(content, start, cut);
+    if (piece != null) yield piece;
+    start = cut;
+  }
+  final rest = _trimmed(content, start, sentence.end);
   if (rest != null) yield rest;
+}
+
+/// Dónde cortar entre [floor] y [limit]: después del último de [marks]
+/// seguido de un espacio —o, con `after: false`, en el espacio mismo—; `null`
+/// si no hay ninguno.
+int? _lastCut(
+  String content,
+  int floor,
+  int limit,
+  Set<String> marks, {
+  bool after = true,
+}) {
+  for (var i = limit - 1; i >= floor; i--) {
+    if (!marks.contains(content[i])) continue;
+    if (!after) return i;
+    if (i + 1 < content.length && _isSpace(content[i + 1])) return i + 1;
+  }
+  return null;
 }

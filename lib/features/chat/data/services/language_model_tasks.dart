@@ -276,8 +276,11 @@ const _studySystemInstruction =
     'formato exacto, sin Markdown:\nRESUMEN: <números separados por '
     'comas>\nSINTESIS: <números separados por comas>\nCLAVE <número>: '
     '<palabra>, <palabra>\nUna línea CLAVE por cada oración, de la primera a '
-    'la última, sin saltear ninguna. Si en RESUMEN o SINTESIS no corresponde '
-    'ninguna, escribí ninguna. No respondas nada más.';
+    'la última, sin saltear ninguna: también las cortas, las que son un '
+    'título o un ítem de una lista, y las que parecen no tener nada '
+    'importante —en ese caso elegí la palabra que más diga—; cada línea '
+    'CLAVE lleva al menos una palabra. Si en RESUMEN o SINTESIS no '
+    'corresponde ninguna, escribí ninguna. No respondas nada más.';
 
 /// El formato de respuesta compartido por los cuatro derivados (D5): lo
 /// único que cambia entre `_studyGuideSystemInstruction` y las otras tres es

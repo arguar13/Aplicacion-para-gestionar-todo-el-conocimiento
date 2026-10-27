@@ -23,7 +23,9 @@ void main() {
         '[1] La revolución industrial empezó en Inglaterra.\n'
         '[2] Las fábricas usaban máquinas de vapor.\n'
         '[3] El trabajo infantil era común.\n'
-        '[4] Hoy se estudia en la escuela.',
+        '[4] Hoy se estudia en la escuela.\n'
+        '\nEscribí la línea CLAVE de cada una de las 4 oraciones, de la 1 a la '
+        '4, cada una con al menos una palabra.',
       );
     });
 
@@ -32,7 +34,8 @@ void main() {
       final sentences = splitStudySentences(md, markdown: true);
       expect(
         buildStudyPrompt(md, sentences),
-        'Oraciones del documento:\n[1] Ver Vapor y la nota de hoy.',
+        'Oraciones del documento:\n[1] Ver Vapor y la nota de hoy.\n'
+        '\nEscribí la línea CLAVE de la oración 1, con al menos una palabra.',
       );
     });
   });

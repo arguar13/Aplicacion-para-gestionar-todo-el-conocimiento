@@ -58,7 +58,8 @@ int studyReplyTokens(int count) =>
     (count * _keywordLineTokens + 96).clamp(192, 3072);
 
 /// El pedido de una parte: sus oraciones, numeradas desde 1, cada una en un
-/// renglón y sin las marcas de Markdown —el modelo lee lo que se lee—.
+/// renglón y sin las marcas de Markdown —el modelo lee lo que se lee—, y al
+/// final lo que se le pide de todas.
 String buildStudyPrompt(String content, List<StudySentence> part) {
   final buffer = StringBuffer('Oraciones del documento:\n');
   for (final (index, sentence) in part.indexed) {
@@ -67,7 +68,16 @@ String buildStudyPrompt(String content, List<StudySentence> part) {
     );
     buffer.writeln('[${index + 1}] $text');
   }
-  return buffer.toString().trimRight();
+  // Lo último que lee el modelo es lo que se le pide: una línea CLAVE por
+  // **cada** oración, sin dejar ninguna afuera.
+  buffer.write(
+    part.length == 1
+        ? '\nEscribí la línea CLAVE de la oración 1, con al menos una palabra.'
+        : '\nEscribí la línea CLAVE de cada una de las ${part.length} '
+              'oraciones, de la 1 a la ${part.length}, cada una con al menos '
+              'una palabra.',
+  );
+  return buffer.toString();
 }
 
 /// Lo que la IA marcó en una parte (F36), ya en el texto guardado: las

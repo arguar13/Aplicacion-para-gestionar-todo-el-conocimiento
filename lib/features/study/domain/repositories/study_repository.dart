@@ -3,6 +3,7 @@ import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_reply.dart';
+import 'package:sinapsis/features/study/domain/services/study_words.dart';
 
 /// Dónde se guarda lo estudiado de cada texto (F36): las marcas y hasta dónde
 /// se analizó (`study_marks`, `study_analyses`).
@@ -27,6 +28,17 @@ abstract interface class StudyRepository {
     required int partEnd,
     required StudyPartMarks marks,
     required bool completes,
+  });
+
+  /// Agrega [words] —palabras clave de [content]— como de la IA, sin tocar lo
+  /// que ya hay: lo que la persona o un análisis ya marcó en el mismo lugar no
+  /// se repite. Es el completado de las oraciones que quedaron sin palabras
+  /// clave (`missingKeywords`): a diferencia de `savePart`, no reemplaza nada
+  /// ni corre hasta dónde se analizó.
+  Future<Either<Failure, Unit>> addAiKeywords({
+    required String renditionId,
+    required String content,
+    required List<StudyWord> words,
   });
 
   /// Agrega `[start, end)` de [content] como [kind] elegido por la persona

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +13,7 @@ import 'package:sinapsis/features/export/presentation/providers/marked_download_
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/study/presentation/providers/study_keywords_fill_providers.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -74,6 +77,9 @@ class _StudyDownloadSheetState extends ConsumerState<StudyDownloadSheet> {
       synthesis: view.synthesis,
       keywords: view.keywords,
     );
+    // Lo que se descarga con las palabras clave las lleva en todas las
+    // oraciones, también si se analizó antes de que el análisis lo asegurara.
+    unawaited(ensureStudyKeywords(ref, widget.text));
   }
 
   @override

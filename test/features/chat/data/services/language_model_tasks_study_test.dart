@@ -58,6 +58,10 @@ void main() {
     // (F39).
     expect(opened.instruction, contains('para CADA oración'));
     expect(opened.instruction, contains('sin saltear ninguna'));
+    // También las cortas, los títulos y los ítems: cada línea CLAVE lleva al
+    // menos una palabra.
+    expect(opened.instruction, contains('un título o un ítem'));
+    expect(opened.instruction, contains('lleva al menos una palabra'));
     expect(opened.maxOutputTokens, studyReplyTokens(part.length));
     expect(model.chats.single.received.single, buildStudyPrompt(content, part));
     expect(model.chats.single.closed, isTrue);

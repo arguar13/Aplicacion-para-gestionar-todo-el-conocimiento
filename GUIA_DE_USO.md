@@ -736,10 +736,14 @@ resaltado está en el original, tal cual.
   celeste: la síntesis, lo más esencial, va encima.
 - **Palabras clave** (rosa, en negrita) muestra hasta **4 palabras** por
   oración que la sostienen, en **todas** las oraciones del documento, de
-  punta a punta, estén o no en el resumen o en la síntesis. Un documento
-  analizado antes las tiene solo en las oraciones del resumen y de la
-  síntesis: **«Volver a analizar»** las trae para todas, y lo que elegiste a
-  mano se queda. Las propone la IA y **las elegís vos**:
+  punta a punta, estén o no en el resumen o en la síntesis. **Ninguna oración
+  con contenido se queda sin las suyas**: las propone la IA y, si se saltea
+  alguna (un título, un ítem de un índice, una oración corta) o no contesta
+  una parte, la app elige sola, sin IA y sin gastar nada, las palabras que más
+  dicen en ese documento. Un documento analizado antes se completa solo la
+  primera vez que prendés **Palabras clave** (o abrís **Descargar**): ya no
+  hace falta volver a analizarlo. Lo que elegiste a mano se queda. Y **las
+  elegís vos** también:
   tocá el **lápiz** y después tocá una palabra de **cualquier** oración
   —haya o no resumen— para agregarla o sacarla. Si la oración ya tiene 4,
   te avisa.

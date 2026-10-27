@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
 import 'package:sinapsis/features/study/domain/repositories/study_repository.dart';
+import 'package:sinapsis/features/study/domain/services/study_fallback_keywords.dart';
 import 'package:sinapsis/features/study/domain/services/study_marker.dart';
 import 'package:sinapsis/features/study/domain/services/study_reply.dart';
 import 'package:sinapsis/features/study/domain/services/study_sentences.dart';
@@ -64,8 +66,13 @@ class StudySaveException implements Exception {
 /// Cada parte se guarda al terminar (`StudyRepository.savePart`), así que lo
 /// marcado aparece a medida que se analiza y, si se corta, no se pierde nada
 /// de lo hecho. Una parte en que el modelo no contesta en el formato se
-/// reintenta una vez; si tampoco, queda analizada sin marcas —para no volver
-/// a gastar en ella cada vez— y se cuenta en [StudyProgress.unreadParts].
+/// reintenta una vez; si tampoco, queda analizada sin resumen ni síntesis
+/// —para no volver a gastar en ella cada vez— y se cuenta en
+/// [StudyProgress.unreadParts].
+///
+/// **Toda oración con contenido sale con sus palabras clave**, también la que
+/// el modelo se salteó y las de una parte que no contestó: las pone el
+/// respaldo local (`missingKeywords`), sin IA y sin red.
 ///
 /// Si se corre dentro de una tarea de la IA (`AiTaskHandle.current`, F39),
 /// le va diciendo en qué paso está: partir el texto, mandar la parte al modelo
@@ -94,6 +101,13 @@ class AnalyzeForStudy {
     final sentences = splitStudySentences(content, markdown: markdown);
     final study = await _repository.read(renditionId);
     if (study.complete) return;
+
+    // Las que eligió la persona cuentan: su oración ya tiene palabras clave.
+    final chosenKeywords = [
+      for (final mark in study.of(StudyMarkKind.keyword))
+        (mark.start, mark.end),
+    ];
+    StudyWordStats? stats;
 
     var next = sentences.indexWhere((s) => s.start >= study.analyzedUntil);
     if (next < 0) next = sentences.length;
@@ -144,12 +158,31 @@ class AnalyzeForStudy {
 
       final last = next + analyzed;
       task?.step(AiTaskStepKind.studyJoin);
+      // Toda oración con contenido lleva sus palabras clave, las haya marcado
+      // el modelo o no: a las que se salteó —o a toda una parte que no
+      // contestó— les pone las suyas el respaldo local.
+      final answered = marks ?? _nothing;
+      final fill = missingKeywords(
+        content: content,
+        sentences: part.sublist(0, analyzed),
+        keywordRanges: [
+          for (final word in answered.keywords) (word.start, word.end),
+          ...chosenKeywords,
+        ],
+        stats: stats ??= StudyWordStats.of(content),
+      );
       await _save(
         renditionId,
         content,
         start: sentences[next].start,
         end: sentences[last - 1].end,
-        marks: marks ?? _nothing,
+        marks: fill.isEmpty
+            ? answered
+            : StudyPartMarks(
+                summary: answered.summary,
+                synthesis: answered.synthesis,
+                keywords: [...answered.keywords, ...fill],
+              ),
         completes: last == sentences.length,
       );
       done++;

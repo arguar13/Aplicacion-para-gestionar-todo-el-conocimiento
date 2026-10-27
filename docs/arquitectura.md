@@ -6707,6 +6707,87 @@ Atlas. Plan, con el «Avance» de cada paso: `docs/planes/F40-linea-de-tiempo-co
     eje y la barrita con siete acciones.
   - Las fechas con un modelo real (Gemma o la nube): las pruebas usan un modelo falso.
 
+### 85. Palabras clave en TODAS las oraciones: el respaldo local que no deja ninguna sin las suyas
+
+**Pedido** (2026-10-27, con capturas del teléfono): *"todas las oraciones tienen que tener sí o sí
+sus palabras clave extraídas"*. En el Don Quijote analizado solo 4 palabras en la primera oración
+de la licencia de Project Gutenberg y ninguna en las que siguen; en el índice de capítulos, marcas
+solo en el 1 y el 7; en un PDF científico, palabras salteadas; y la tarjeta decía «331 palabras
+clave» para un libro enorme.
+
+- **Por qué faltaban (medido, no supuesto).** La decisión 83 ya le pedía al modelo una línea
+  `CLAVE` por oración, y `parseStudyReply` toma lo que contesta y nada más: un modelo que saltea
+  una oración, que se corta por el tope de la respuesta o que no contesta una parte en el formato
+  (`unreadParts`) deja esas oraciones sin palabras, sin que nada lo note ni lo repare. A eso se
+  sumaban dos cosas del corte de oraciones: un índice sin viñetas ni puntos (`Capítulo I⏎Que trata
+  de…⏎Capítulo II`) era **una sola** oración con sus cuatro palabras, y una enumeración larguísima
+  de una sola línea, también. Y lo analizado antes de F39 (decisión 83) tiene palabras solo en las
+  oraciones del resumen y de la síntesis. Lo que el dueño ve puede ser cualquiera de esas causas;
+  el remedio no depende de cuál.
+- **Garantía dura, en tres capas.**
+  1. **Se le pide mejor al modelo**: la instrucción dice que también las cortas, los títulos y los
+     ítems llevan su `CLAVE` con al menos una palabra, y el pedido termina pidiendo «la línea CLAVE
+     de cada una de las N oraciones».
+  2. **Respaldo local, sin IA y sin red** (`study_fallback_keywords.dart`): lo que el modelo deja
+     sin marcar, lo completa la app. `AnalyzeForStudy` lo aplica a cada parte antes de guardarla,
+     también a las que el modelo no contestó. Lo que el modelo eligió **no se toca**: el respaldo
+     solo entra en la oración que no tiene ninguna.
+  3. **Lo ya analizado se completa solo** (`FillStudyKeywords`, ver abajo).
+- **Qué es una «oración con contenido».** La que tiene al menos una palabra que dice algo sola
+  (`StudyWord.meaningful`: ni artículo, ni preposición, ni conjunción, ni una letra suelta; un
+  número sí). Esas son las que la garantía obliga. «Es de él.» o «Y.» no tienen nada que marcar, y
+  `splitStudySentences` ya descarta lo que no tiene ni una letra ni un número. La lista de palabras
+  vacías es la que ya existía (`isCommonWord`, en `word_folding.dart`), más una lista más larga
+  —pronombres, auxiliares, adverbios, conectores— que **solo ordena**: esas palabras son el último
+  recurso, no se prohíben.
+- **Qué palabras elige el respaldo.** De las palabras de la oración que pueden ser clave, las que
+  más dicen **en ese documento**: las raras antes que las comunes (frecuencia en el documento,
+  `StudyWordStats`), los nombres propios en medio de la oración, las largas; los números y los
+  romanos («Capítulo II») al final. Una por cada tres palabras con algo para decir, de una a
+  `kMaxKeywordsPerSentence` (4). Es determinista y las posiciones son las exactas del texto.
+- **El corte de oraciones, arreglado donde fallaba** (`study_sentences.dart`):
+  - **Una lista de renglones sin puntos** (un índice, las afiliaciones de un paper): si **todos**
+    los renglones que siguen empiezan con mayúscula o con un número y ninguno anterior queda a
+    medias (coma, punto y coma, dos puntos, guion), cada renglón es su oración. Un párrafo partido
+    por el ancho de la página no cumple eso en todos sus renglones, así que sigue siendo una sola.
+  - **Una oración de más de 600 caracteres sin renglones donde cortar** se parte en la última
+    cláusula (`;` o `:`), o en la última coma, o en el último espacio que entra, en la segunda
+    mitad del pedazo; una «palabra» más larga se corta en el primer espacio que viene. Antes
+    quedaba entera.
+  - Los límites de resumen y síntesis son los de siempre: eligen oraciones, y cambian solo los
+    textos con una lista o una enumeración larguísima, en los análisis nuevos. Lo ya guardado
+    guarda sus rangos y no se mueve.
+- **Lo ya analizado se completa sin volver a pagar la IA, sin migrar datos ni cambiar el esquema.**
+  `FillStudyKeywords` parte el texto en oraciones, cuenta sus palabras y agrega, como `ai`, las que
+  faltan (`StudyRepository.addAiKeywords`): hasta donde se analizó (todo, si terminó), sin tocar el
+  resumen, la síntesis ni `analyzedUntil`, y sin repetir lo que la IA o la persona ya marcó en el
+  mismo lugar.
+  - **Cuándo corre**: al prender «Palabras clave» (`toggleStudyKeywords`) y al abrir la hoja de
+    «Descargar» marcado, por `ensureStudyKeywords`; una vez por texto en la sesión
+    (`renditionId:largo`, así un texto vuelto a extraer se mira de nuevo). No corre mientras el
+    texto se analiza: el análisis pone las suyas.
+  - **Por qué así y no una migración del esquema**: partir un libro entero en el arranque de la
+    migración lo trabaría, y una columna nueva en `study_analyses` pasaría por la unión de bóvedas,
+    la papelera y la copia. Esto es idempotente, **se cura solo** —también lo que se pierde al
+    volver a extraer el texto, al restaurar de la papelera o al unir con otro dispositivo— y no toca
+    ningún censo: las marcas son filas de `study_marks`, que la unión ya junta por tipo y posiciones
+    sin duplicar.
+  - **En otro hilo** a partir de `kStudyFillIsolateChars` (50.000 caracteres): partir y contar un texto de
+    2 millones de caracteres tardó cerca de 0,9 s en la PC (un libro sintético, en modo de
+    desarrollo), que no se pagan en el hilo de la pantalla. Con textos cortos corre en el momento.
+  - **Un límite conocido**: si la persona saca la única palabra clave de una oración, en la próxima
+    sesión vuelve a aparecer una del respaldo (la garantía manda).
+- **Se descartó:**
+  - Una columna «ya completado» en `study_analyses`: una migración v45 con su censo de unión,
+    papelera y copia, para ahorrar una pasada que corre una vez por sesión y en otro hilo.
+  - Volver a pedirle al modelo las oraciones que salteó: otra llamada paga y sin garantía de que
+    conteste. El respaldo es la garantía; el modelo sigue eligiendo mejor cuando contesta.
+  - Una lista de palabras vacías nueva y única: se extiende la que existe, y la nueva solo ordena.
+- **Lo que no quedó probado:**
+  - Con un modelo real: las pruebas usan un modelo falso. Cuánto saltea cada modelo, y si el
+    corte de la respuesta es la causa en el teléfono, se verá al analizar un libro nuevo.
+  - Los tiempos en el teléfono (las cifras de arriba son de la PC, sin compilar en release).
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -7184,6 +7265,11 @@ Atlas. Plan, con el «Avance» de cada paso: `docs/planes/F40-linea-de-tiempo-co
 
   De paso, el detalle sale igual desde todos lados (antes, en blanco desde el Atlas), los
   Cuadernos pasan a «Organizar» y el botón del medio abre el chat directo. Ver la decisión 84.
+- **Palabras clave en todas las oraciones.** Toda oración con contenido sale con las suyas, hasta
+  cuatro: lo que el modelo saltea (o una parte que no contestó) lo completa un respaldo local sin
+  IA, que elige las palabras más raras del documento; lo ya analizado se completa solo al prender
+  «Palabras clave» o abrir «Descargar», sin pagar la IA ni migrar nada. De paso, un índice de
+  renglones sin puntos y una enumeración larguísima se parten en oraciones. Ver la decisión 85.
 
 ### Por construir
 

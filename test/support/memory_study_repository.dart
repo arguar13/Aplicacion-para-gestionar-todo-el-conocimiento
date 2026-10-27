@@ -7,6 +7,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/repositories/study_repository.dart';
 import 'package:sinapsis/features/study/domain/services/study_reply.dart';
+import 'package:sinapsis/features/study/domain/services/study_words.dart';
 
 /// Lo que guarda el repositorio, en memoria, y lo que se le pidió.
 class MemoryStudyRepository implements StudyRepository {
@@ -58,6 +59,43 @@ class MemoryStudyRepository implements StudyRepository {
             start: start,
             end: end,
           ),
+        ]..sort((a, b) => a.start.compareTo(b.start)),
+        analyzedUntil: _study.analyzedUntil,
+        complete: _study.complete,
+      ),
+    );
+    return right(unit);
+  }
+
+  /// Las palabras clave que se completaron con `addAiKeywords`.
+  final filled = <String>[];
+
+  @override
+  Future<Either<Failure, Unit>> addAiKeywords({
+    required String renditionId,
+    required String content,
+    required List<StudyWord> words,
+  }) async {
+    final have = {
+      for (final m in _study.of(StudyMarkKind.keyword)) (m.start, m.end),
+    };
+    final fresh = [
+      for (final word in words)
+        if (have.add((word.start, word.end))) word,
+    ];
+    filled.addAll([for (final w in fresh) content.substring(w.start, w.end)]);
+    _set(
+      DocumentStudy(
+        marks: [
+          ..._study.marks,
+          for (final word in fresh)
+            StudyMark(
+              id: 'fill${_next++}',
+              kind: StudyMarkKind.keyword,
+              origin: ContentOrigin.ai,
+              start: word.start,
+              end: word.end,
+            ),
         ]..sort((a, b) => a.start.compareTo(b.start)),
         analyzedUntil: _study.analyzedUntil,
         complete: _study.complete,

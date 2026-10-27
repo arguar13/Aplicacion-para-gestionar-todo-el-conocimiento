@@ -8,6 +8,7 @@ import 'package:sinapsis/features/ai_models/presentation/language_model_missing.
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/study/domain/services/study_words.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/study/presentation/providers/study_keywords_fill_providers.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -296,7 +297,12 @@ Future<void> toggleStudyKeywords(
     }
   }
   view.state = view.state.copyWith(keywords: on);
-  if (on) await _continueAnalysis(ref, context, text);
+  if (on) {
+    // Lo analizado antes de que cada oración llevara sus palabras clave se
+    // completa acá, con el respaldo local: aparecen cuando terminan, sin IA.
+    unawaited(ensureStudyKeywords(ref, text));
+    await _continueAnalysis(ref, context, text);
+  }
 }
 
 /// Prende o apaga elegir palabras clave a mano en [text] (F36).

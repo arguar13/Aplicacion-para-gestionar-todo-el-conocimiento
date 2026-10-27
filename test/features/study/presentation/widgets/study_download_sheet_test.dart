@@ -96,6 +96,7 @@ void main() {
   late FakeMarkedDocumentWriter writer;
   late KnowledgeItem item;
   late ProviderContainer container;
+  late MemoryStudyRepository repository;
 
   setUp(() async {
     files = InMemoryFileStore();
@@ -124,10 +125,11 @@ void main() {
     Map<MarkedDocumentFormat, MarkedDocumentWriter>? writers,
     StudyView? view,
   }) async {
+    repository = MemoryStudyRepository(study);
     container = ProviderContainer(
       overrides: [
         readAloudControllerProvider.overrideWith(FakeReadAloudController.new),
-        studyRepositoryProvider.overrideWithValue(MemoryStudyRepository(study)),
+        studyRepositoryProvider.overrideWithValue(repository),
         studyAnalysisProvider.overrideWith((ref, id) => FakeStudyAnalysis()),
         renditionHighlightsProvider.overrideWith(
           (ref, id) => Stream.value(highlights),
@@ -180,6 +182,21 @@ void main() {
       null;
 
   group('la hoja', () {
+    testWidgets('al abrirse completa las palabras clave de las oraciones que '
+        'quedaron sin ninguna, para que lo que se lleva las tenga en todas', (
+      tester,
+    ) async {
+      await pump(tester, sheet(), study: analyzed);
+
+      // «Nada más.» y «Las fábricas usaban vapor.» no tenían ninguna.
+      expect(repository.filled, isNotEmpty);
+      expect(
+        repository.filled.any((w) => 'Nada más.'.contains(w)),
+        isTrue,
+        reason: '${repository.filled}',
+      );
+    });
+
     testWidgets('dice el formato y ofrece las cuatro cosas, todas prendibles '
         'si hay de todo', (tester) async {
       await pump(tester, sheet(), study: analyzed, highlights: [mine]);

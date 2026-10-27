@@ -146,6 +146,51 @@ class StudyRepositoryImpl implements StudyRepository {
     return right(unit);
   });
 
+  @override
+  Future<Either<Failure, Unit>> addAiKeywords({
+    required String renditionId,
+    required String content,
+    required List<StudyWord> words,
+  }) => _guard('addAiKeywords', () async {
+    for (final word in words) {
+      if (word.start < 0 ||
+          word.end > content.length ||
+          word.end <= word.start) {
+        return left(
+          Failure.validation(
+            message:
+                'Palabra fuera del texto: ${word.start}–${word.end} de '
+                '${content.length}.',
+          ),
+        );
+      }
+    }
+    final now = _clock();
+    await _db.transaction(() async {
+      final existing = {
+        for (final m in (await read(renditionId)).of(StudyMarkKind.keyword))
+          (m.start, m.end),
+      };
+      await _db.batch((batch) {
+        batch.insertAll(_db.studyMarks, [
+          for (final word in words)
+            if (existing.add((word.start, word.end)))
+              StudyMarksCompanion.insert(
+                id: _ids.next(),
+                renditionId: renditionId,
+                kind: StudyMarkKind.keyword,
+                origin: ContentOrigin.ai,
+                startOffset: word.start,
+                endOffset: word.end,
+                excerpt: content.substring(word.start, word.end),
+                createdAt: now,
+              ),
+        ]);
+      });
+    });
+    return right(unit);
+  });
+
   Future<List<StudyMark>> _userMarks(String renditionId) async {
     final study = await read(renditionId);
     return [
