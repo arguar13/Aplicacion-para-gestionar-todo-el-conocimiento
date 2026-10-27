@@ -27,12 +27,23 @@
 >   procesado … al volver a triar me debería aparecer todos los documentos que existen en la
 >   Biblioteca así elijo cuál triar"*.
 > - *"Que sea elegante la sección de triado, interactiva y versátil"*.
+> - *"Y el Atlas, la Línea de tiempo y el Mapa, que se hagan en base a los archivos que ya se
+>   procesaron, no con la Biblioteca original"*.
+> - *"Que en la Bandeja haya también una opción para pasar toda la información sin modificar a la
+>   pestaña Procesado … en ese caso solo guardaríamos todo el texto original con el enlace a su
+>   respectivo documento original ubicado en la Biblioteca, nada de audios ni videos ni
+>   referencias"*.
 >
 > Respuestas del dueño a las preguntas previas:
 > - El documento procesado es una **copia propia y editable**. Cambia solo al volver a triar.
 > - Los **Cuadernos que ya existen se vacían**: de acá en más se arman solo con Procesado.
 > - Lo nuevo **entra a la Bandeja apenas se guarda**, aunque todavía no tenga texto.
 > - Lo **descartado queda solo en la Biblioteca**, como hoy.
+> - **Atlas, Línea de tiempo y Mapa salen del texto procesado**: la IA organiza cada documento
+>   procesado (temas, vínculos, fechas) con el texto que se eligió, no la fuente.
+> - Lo **ya organizado en la Biblioteca no se pasa**: las tres pantallas **empiezan de cero** y se
+>   llenan con lo que se procesa. Lo viejo no se borra (sigue en la fuente); solo deja de
+>   alimentarlas.
 >
 > Y un principio que el dueño fijó después: *"Recordá que de la Biblioteca nada se borra, debe
 > permanecer siempre como una base de datos de consulta, para eso está lo procesado"*.
@@ -107,6 +118,9 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
     suelta nada de la fuente. Lo que ya se soltó así sigue en la papelera de la app, recuperable
     como siempre.
   - **«Listo»** arma el documento procesado y la fuente queda triada, con «Deshacer».
+- **«Pasar todo sin modificar»:** un toque, sin abrir la hoja. El documento procesado guarda el
+  **texto original entero**, sin resumen, síntesis ni notas, con su enlace a la fuente. Nunca lleva
+  audio, video ni la ficha bibliográfica. Se puede completar después con «Volver a triar».
 - **Elegante, interactiva y versátil:**
   - la tarjeta de siempre con sus gestos;
   - una hoja con vista previa en vivo de lo que va a quedar, con cuántas oraciones y palabras
@@ -140,6 +154,22 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
   documentos procesados.
 - **El chat acotado a un cuaderno lee solo el texto procesado.**
 
+### 6. Atlas, Línea de tiempo y Mapa, con lo procesado
+
+- **La IA organiza los documentos procesados, no las fuentes.**
+  - Al triar o volver a triar, el documento entra a la cola de «Organizar con IA» con los mismos
+    interruptores de siempre: temas, vínculos entre procesados y fechas para la línea de tiempo.
+  - Lo hace solo con el texto que elegiste.
+- **Las fuentes de la Biblioteca ya no se organizan solas** al guardarse: la Biblioteca queda como
+  consulta pura. Lo que ya tenían (temas, vínculos, fechas) **no se borra**: sigue a la vista en el
+  detalle de la fuente, pero no alimenta las tres pantallas.
+- **El Atlas, el Mapa, el grafo local y la Línea de tiempo leen solo documentos procesados.**
+  - Los filtros Todo · Tema · Documento de la línea pasan a ser de procesados.
+  - Los accesos desde el detalle abren el documento procesado de esa fuente, si existe.
+  - «Organizar con IA» y «Buscar fechas con IA» trabajan sobre procesados.
+- **Empiezan de cero**, como elegiste. Cada pantalla vacía explica que se llena al triar, con un
+  botón a la Bandeja.
+
 ## Decisiones (se pueden cambiar mientras no se llegue a su paso)
 
 - **A. El procesado es un elemento nuevo de la bóveda, derivado de su fuente**, como los de F16.
@@ -156,7 +186,11 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
   Inventar qué partes querías sería decidir por vos.
 - **E. Una referencia bibliográfica entra a la Bandeja solo si trae texto**, por ejemplo un PDF
   adjunto.
-- **F. Triar nunca borra ni suelta nada de la fuente** (el principio de arriba). La hoja de F30
+- **F. Temas, vínculos y fechas son del documento procesado.** Son los mismos datos y las mismas
+  tablas de hoy, colgados del documento procesado en vez de la fuente. Por eso la papelera, la
+  copia, la unión de bóvedas y el deshacer de pasadas siguen sirviendo sin rehacerse. Lo de las
+  fuentes queda guardado y fuera de las tres pantallas.
+- **G. Triar nunca borra ni suelta nada de la fuente** (el principio de arriba). La hoja de F30
   sale de la Bandeja. Cualquier otro camino que hoy suelte el archivo o el texto de una fuente se
   revisa en el paso 3, y queda solo si lo pide el dueño a mano y de a uno.
 
@@ -183,12 +217,16 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
    detalle.
 5. **Los Cuadernos solo con Procesado:** vaciar los que existen con su aviso, el selector, «Por
    consulta», «Crear con IA», «Sugeridos» y el chat acotado.
-6. **Cierre:**
+6. **Organizar lo procesado:**
+   - la cola de la IA sobre documentos procesados, no sobre fuentes;
+   - Atlas, Mapa, grafo local y Línea de tiempo leen solo procesados, empezando de cero;
+   - los accesos del detalle y los vacíos.
+7. **Cierre:**
    - la GUÍA, la decisión en `docs/arquitectura.md`, CONTEXTO y el «Avance»;
    - la suite entera y `verify_commit`;
    - la APK al teléfono si la pedís.
 
-Una vez que el paso 1 esté en main, los pasos 2, 3 y 5 van **en paralelo**, cada uno con su
+Una vez que el paso 1 esté en main, los pasos 2, 3, 5 y 6 van **en paralelo**, cada uno con su
 agente. El 4 sigue al 3.
 
 ## Avance
