@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/chunk_invariant_verifier.dart';
+import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/vocabulary_hierarchy.dart';
 import 'package:sinapsis/core/domain/entities/vocabulary_hierarchy.dart';
 
@@ -106,15 +107,23 @@ void main() {
         .get();
     expect(hits, isNotEmpty);
 
-    // Los triggers se apartaron durante la carga: tienen que estar todos.
+    // Los triggers se apartaron durante la carga: tienen que estar todos, y
+    // ninguno de más. Por nombre y no por cuenta: un índice nuevo entra acá
+    // con solo sumar su lista.
     final triggers = await db
         .customSelect(
-          "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger' "
+          "SELECT name FROM sqlite_master WHERE type = 'trigger' "
           "AND name LIKE '%_search_%'",
         )
-        .getSingle();
-    // Seis del índice de elementos y tres del de chunks.
-    expect(triggers.read<int>('n'), 9);
+        .get();
+    expect(
+      {for (final t in triggers) t.read<String>('name')},
+      {
+        ...searchTriggerNames,
+        ...chunkSearchTriggerNames,
+        ...processedPartSearchTriggerNames,
+      },
+    );
 
     final chunkIndexed = await db
         .customSelect('SELECT COUNT(*) AS n FROM chunk_search_docsize')

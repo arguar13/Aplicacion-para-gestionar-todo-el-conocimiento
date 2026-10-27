@@ -381,3 +381,11 @@ AFTER UPDATE OF content ON processed_parts BEGIN
   VALUES (NEW.row_key, ${chunkSearchText('NEW.content')});
 END''',
 ];
+
+/// Los nombres de [processedPartSearchTriggers], como
+/// [chunkSearchTriggerNames].
+const processedPartSearchTriggerNames = [
+  'processed_parts_search_ai',
+  'processed_parts_search_ad',
+  'processed_parts_search_au',
+];
