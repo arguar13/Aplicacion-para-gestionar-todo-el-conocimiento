@@ -15,6 +15,7 @@ import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exceptio
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_info.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
 import 'package:sinapsis/features/ai_models/presentation/screens/language_model_screen.dart';
+import 'package:sinapsis/features/ai_models/presentation/widgets/ai_model_picker.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_notice_listener.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';

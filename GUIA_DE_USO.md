@@ -1864,8 +1864,7 @@ equivocaste.
 
 ## Chat con la IA
 
-Sirve para hacerle preguntas a una Inteligencia Artificial. Tiene dos modos,
-elegidos con un selector arriba:
+Sirve para hacerle preguntas a una Inteligencia Artificial. Tiene dos modos:
 
 - **"Con mi bóveda"**: busca en lo que vos guardaste y redacta una respuesta
   citando de dónde sacó cada dato.
@@ -1875,19 +1874,78 @@ elegidos con un selector arriba:
 **Cómo llegar:** ítem **"Chat"** en la navegación (en el celular, el botón
 del medio de la barra, que lo abre directo).
 
+### La barra de arriba
+
+Arriba hay solo tres cosas:
+
+- **☰, a la izquierda**: abre el **panel de conversaciones** (ver más abajo).
+- **Al centro, la píldora con el modelo** que te contesta —por ejemplo
+  **"Gemma 4 E4B ▾"** o **"Gemini 3.1 Flash Lite ▾"**—. Un puntito a su
+  izquierda dice si puede contestar ahora: del color de "listo" si sí, de
+  otro color si le falta algo (bajar el modelo, una clave, cuota). Tocala y
+  se abre la hoja **"Quién te contesta"**:
+  - arriba, quién escribe: **Gemini**, **Gemma** (en el teléfono) y, si
+    están, **OpenAI** y **Claude**. La primera vez que elegís uno en la
+    nube te explica qué sale del teléfono, y tenés que aceptarlo;
+  - el **modelo**: en la nube, la lista que da el proveedor (el
+    "Recomendado" primero); con Gemma, **"Bajar o cambiar el modelo"**;
+  - la **cuenta** que escribe, con el mismo menú de la pantalla de la IA;
+    si todavía no cargaste ninguna, te lleva a cargar la clave;
+  - **"Más ajustes de la IA"**: la pantalla completa (claves, cuota,
+    privacidad).
+
+  Lo que elegís vale para todo lo de la IA desde el próximo pedido.
+- **Debajo de la píldora, en chico, dónde preguntás**: **"Con tu bóveda ·
+  Toda la bóveda"**, **"Con tu bóveda · Tesis"** (un cuaderno) o
+  **"Conversación libre"**. Está siempre a la vista para que no te olvides
+  dónde estás preguntando. Tocala y se abre **"Dónde pregunto"**: elegís
+  el modo y, con la bóveda, **en qué cuaderno** (la primera opción siempre
+  es "Toda la bóveda"). Elegir un cuaderno con una conversación en curso
+  arranca una nueva: lo ya hablado no cambia de alcance.
+- **✎, a la derecha**: una conversación nueva. No borra la que tenías:
+  queda en el panel. Si la conversación ya está vacía, el lápiz se ve
+  apagado.
+
+### El panel de conversaciones
+
+Se abre con **☰** y se desliza desde la izquierda, por encima de todo (con
+"sin animaciones" en el teléfono, aparece de una). Se cierra tocando
+afuera, con "atrás" o deslizándolo hacia la izquierda.
+
+- **Arriba, atajos** a la **Biblioteca** y a los **Cuadernos**.
+- **Un buscador**: filtra por el título, sin importar mayúsculas ni
+  acentos ("revolucion" encuentra "Revolución").
+- **Tus conversaciones de los dos modos, juntas**, agrupadas por día:
+  **"Hoy"**, **"Ayer"** y después la fecha ("domingo, 6 de septiembre").
+  Cada una dice su modo ("Con tu bóveda" o "Conversación libre"), su
+  cuaderno si tiene, y la hora. La abierta se ve resaltada. Tocar una la
+  abre —si era del otro modo, el chat pasa a ese modo; si era de un
+  cuaderno, vuelve a ese cuaderno—.
+- **El menú ⋮ de cada una**:
+  - **Renombrar**: le ponés el nombre que quieras (si no, se llama como tu
+    primer mensaje). No la mueve de lugar.
+  - **Fijar / Desfijar**: las fijadas van arriba de todo, en **"Fijadas"**,
+    con un alfiler. Lo fijado queda guardado en este teléfono.
+  - **Borrar conversación**: se va en el acto y en su lugar queda
+    **"Borraste «…» · Deshacer"** unos segundos. **Deshacer** la recupera
+    tal cual (si era la abierta, vuelve a abrirse). Pasado ese rato, o al
+    cerrar el panel, se borra de verdad, con todos sus mensajes.
+- **Al pie, tu nombre** (el de "Cómo te llamo", en Ajustes) —o **"¿Cómo
+  te llamo?"** si no pusiste ninguno; tocalo para ponerlo— y el botón
+  **"Nueva"**.
+
 ### Cómo se usa
 
-1. Elegí el modo con los botones de arriba.
-2. En modo "Con mi bóveda", podés acotar la búsqueda a un solo Cuaderno con
-   el desplegable (la primera opción siempre es "Toda la bóveda").
-3. Escribí tu pregunta donde dice **"Preguntá algo…"** y tocá el botón de
+1. Mirá debajo de la píldora dónde estás preguntando; si querés otro modo
+   u otro cuaderno, tocá esa línea.
+2. Escribí tu pregunta donde dice **"Preguntá algo…"** y tocá el botón de
    enviar. También podés tocar el clip para adjuntar una imagen o un
    documento antes de preguntar.
-4. Si la respuesta cita fuentes, cada una se ve como una tarjeta —
+3. Si la respuesta cita fuentes, cada una se ve como una tarjeta —
    **tocarla abre el elemento original**, para que puedas comprobar el dato
    vos mismo.
-5. El ícono de reloj abre el historial de conversaciones guardadas; podés
-   empezar una nueva o borrar una vieja.
+4. Para volver a una conversación vieja, empezar otra o borrar una, abrí
+   el panel con **☰**.
 
 ### La respuesta, a medida que se escribe
 
@@ -1898,7 +1956,9 @@ del medio de la barra, que lo abre directo).
   respuesta; si subiste a releer algo, te deja ahí.
 - **Detener**: mientras escribe, el botón de enviar se vuelve un cuadrado.
   Tocalo y para en el acto; queda guardado lo que alcanzó a escribir. Salir
-  del chat o cambiar de conversación también la detiene y la guarda.
+  del chat, abrir otra conversación, empezar una nueva, elegir otro cuaderno
+  o borrarla también la detiene y la guarda. Cambiar de modo no: sigue
+  escribiendo en su conversación, y la ves al volver.
 - Si algo falla a mitad, queda lo que escribió y un aviso debajo.
 - **Cada respuesta tiene un largo máximo** (unas 350 palabras): si querés
   más, pedile que siga.
@@ -2550,7 +2610,8 @@ modelo, para que también quede buscado por relaciones.
 Redacta las respuestas del Chat, los resúmenes, las tarjetas y los quizzes,
 y es el que usa la IA que organiza sola. **Uno solo hace todo**: el que
 elijas en Ajustes → "IA y modelos" → **"Modelo de lenguaje"** (también se
-llega desde el ícono de robot del Chat). No hay un segundo modelo de
+elige rápido tocando la píldora con el modelo, arriba del Chat). No hay un
+segundo modelo de
 respaldo: si al elegido le falta algo, la app te dice qué y cómo
 resolverlo, en vez de usar otro sin avisar.
 
@@ -2676,6 +2737,10 @@ Hugging Face que el modelo de relaciones.
 
 **Cómo llegar:** ítem **"Ajustes"** en la navegación.
 
+- **Vos:** **"Cómo te llamo"**, un nombre o un apodo, opcional. Lo usan el
+  saludo del chat y el pie del panel de conversaciones. Queda guardado solo
+  en este teléfono: la app nunca lo saca de ninguna cuenta ni de tu email.
+  **"Quitar"** lo borra.
 - **Apariencia:** cambiar el idioma de la app y el **tema**. En **"Cambiar
   tema"** ves una muestra chica con los colores de cada uno, para elegir
   viendo: **Sistema** (sigue al teléfono), **Claro**, **Oscuro** y seis con

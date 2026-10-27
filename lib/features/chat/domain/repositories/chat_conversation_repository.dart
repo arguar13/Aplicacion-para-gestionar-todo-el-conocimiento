@@ -34,6 +34,11 @@ abstract interface class ChatConversationRepository {
   /// conversación" para siempre.
   Future<void> addMessage(PersistedChatMessage message);
 
+  /// Le pone [title] a una conversación, a mano (F42): reemplaza al título
+  /// que se derivó del primer mensaje. No cambia su lugar en el historial —
+  /// ese lo da el último mensaje—.
+  Future<void> renameConversation(String id, String title);
+
   /// Borra una conversación entera, con todos sus mensajes.
   Future<void> deleteConversation(String id);
 }

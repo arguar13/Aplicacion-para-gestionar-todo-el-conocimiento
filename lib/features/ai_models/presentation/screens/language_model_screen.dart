@@ -5,8 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/app_semantic_colors.dart';
-import 'package:sinapsis/core/design/theme_mode_notifier.dart'
-    show sharedPreferencesProvider;
 import 'package:sinapsis/features/ai_models/domain/entities/ai_account.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_model_settings.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
@@ -16,8 +14,7 @@ import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_account_switcher.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_key_sheet.dart';
-import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
-import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
+import 'package:sinapsis/features/ai_models/presentation/widgets/ai_model_picker.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -30,10 +27,6 @@ const kBackgroundCapChoices = [
   500,
   AiModelSettings.maxDailyCap,
 ];
-
-/// Si ya se mostró el aviso de qué sale del teléfono para [provider].
-String aiPrivacySeenKey(AiProvider provider) =>
-    'ai_cloud_privacy_seen_${provider.storageKey}';
 
 /// Un solo lugar para la IA (F32): quién escribe —Gemini, Gemma en el
 /// teléfono, OpenAI o Claude—, con qué cuenta, qué modelo y cuánta cuota.
@@ -48,13 +41,7 @@ class LanguageModelScreen extends ConsumerWidget {
     final provider = ref.watch(
       aiModelSettingsProvider.select((s) => s.provider),
     );
-    final wires = ref.watch(cloudWiresProvider);
-    final offered = [
-      AiProvider.gemini,
-      AiProvider.gemma,
-      for (final p in [AiProvider.openAi, AiProvider.anthropic])
-        if (wires.containsKey(p)) p,
-    ];
+    final offered = offeredAiProviders(ref.watch(cloudWiresProvider));
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.chatModelTooltip)),
@@ -130,18 +117,11 @@ class _StatusHeader extends ConsumerWidget {
     final provider = settings.provider;
     final status = ref.watch(languageModelStatusProvider);
 
-    final String model;
-    if (provider.isCloud) {
-      final models = ref.watch(cloudModelsProvider(provider));
-      final id =
-          settings.modelOf(provider) ??
-          ref.watch(cloudModelCatalogProvider).recommended(provider);
-      model = id == null
-          ? l10n.lmModelRecommendedPlain
-          : models.where((m) => m.id == id).firstOrNull?.displayName ?? id;
-    } else {
-      model = _gemmaTitle(l10n, ref.watch(chatModelOptionNotifierProvider));
-    }
+    final model = watchChosenModelTitle(
+      ref,
+      l10n,
+      unknown: l10n.lmModelRecommendedPlain,
+    );
 
     return Container(
       key: const Key('lm-header'),
@@ -237,13 +217,6 @@ class _StatusHeader extends ConsumerWidget {
     );
   }
 }
-
-String _gemmaTitle(AppLocalizations l10n, ChatModelOption option) =>
-    switch (option) {
-      ChatModelOption.gemma4E4b => l10n.chatModelOptionGemma4Title,
-      ChatModelOption.gemma3nE4b => l10n.chatModelOptionGemma3nTitle,
-      ChatModelOption.gemma412b => l10n.chatModelOptionGemma412bTitle,
-    };
 
 class _Badge extends StatelessWidget {
   const _Badge({required this.icon, required this.label});
@@ -448,29 +421,9 @@ class _ProviderCard extends ConsumerWidget {
   }
 
   Future<void> _choose(BuildContext context, WidgetRef ref) async {
-    if (!await _privacySeen(context, ref, provider)) return;
+    if (!await ensureAiPrivacyAccepted(context, ref, provider)) return;
     await ref.read(aiModelSettingsProvider.notifier).chooseProvider(provider);
   }
-}
-
-/// Si la persona ya sabe qué sale del teléfono con [provider]: la primera vez
-/// —al elegirlo o al cargar su primera clave, porque Gemini viene elegido de
-/// fábrica— se le explica y tiene que aceptarlo. `false` si no aceptó.
-Future<bool> _privacySeen(
-  BuildContext context,
-  WidgetRef ref,
-  AiProvider provider,
-) async {
-  if (!provider.isCloud) return true;
-  final prefs = ref.read(sharedPreferencesProvider);
-  if (prefs.getBool(aiPrivacySeenKey(provider)) ?? false) return true;
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (context) => _PrivacyDialog(provider: provider),
-  );
-  if (ok != true) return false;
-  await prefs.setBool(aiPrivacySeenKey(provider), true);
-  return true;
 }
 
 /// Carga una cuenta de [provider], con el aviso de privacidad antes si
@@ -480,7 +433,7 @@ Future<void> _addAccount(
   WidgetRef ref,
   AiProvider provider,
 ) async {
-  if (!await _privacySeen(context, ref, provider)) return;
+  if (!await ensureAiPrivacyAccepted(context, ref, provider)) return;
   if (!context.mounted) return;
   await showAiKeySheet(context, provider: provider);
 }
@@ -511,48 +464,6 @@ class _MiniTag extends StatelessWidget {
               : scheme.onSurfaceVariant,
         ),
       ),
-    );
-  }
-}
-
-/// Qué sale del teléfono con un proveedor en la nube, antes de elegirlo.
-class _PrivacyDialog extends StatelessWidget {
-  const _PrivacyDialog({required this.provider});
-
-  final AiProvider provider;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    return AlertDialog(
-      icon: Icon(Icons.shield_outlined, color: theme.colorScheme.primary),
-      title: Text(l10n.lmPrivacyTitle),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(l10n.lmPrivacyBody),
-          const SizedBox(height: 12),
-          Text(
-            provider.hasFreeTier ? l10n.lmPrivacyFreeTier : l10n.lmPrivacyPaid,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(l10n.commonCancel),
-        ),
-        FilledButton(
-          key: const Key('lm-privacy-continue'),
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text(l10n.lmPrivacyContinue(provider.label(l10n))),
-        ),
-      ],
     );
   }
 }

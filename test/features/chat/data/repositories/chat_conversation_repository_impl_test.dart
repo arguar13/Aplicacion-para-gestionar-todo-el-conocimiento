@@ -306,6 +306,76 @@ void main() {
     });
   });
 
+  group('renameConversation (F42)', () {
+    test('le pone el nombre a mano sin moverla del historial', () async {
+      final older = await repository.createConversation(
+        ChatConversationMode.vault,
+      );
+      await repository.addMessage(
+        PersistedChatMessage(
+          id: ids.next(),
+          conversationId: older.id,
+          isUser: true,
+          text: 'la vieja',
+          createdAt: now,
+        ),
+      );
+      now = now.add(const Duration(hours: 1));
+      final newer = await repository.createConversation(
+        ChatConversationMode.vault,
+      );
+      await repository.addMessage(
+        PersistedChatMessage(
+          id: ids.next(),
+          conversationId: newer.id,
+          isUser: true,
+          text: 'la nueva',
+          createdAt: now,
+        ),
+      );
+      now = now.add(const Duration(hours: 1));
+
+      await repository.renameConversation(older.id, 'Mi nombre');
+
+      final conversations = await repository
+          .watchConversations(ChatConversationMode.vault)
+          .first;
+      expect(conversations.map((c) => c.title), ['la nueva', 'Mi nombre']);
+      expect(conversations.last.updatedAt, older.updatedAt);
+    });
+
+    test('un mensaje después no le pisa el nombre puesto a mano', () async {
+      final conversation = await repository.createConversation(
+        ChatConversationMode.free,
+      );
+      await repository.renameConversation(conversation.id, 'Puesto a mano');
+
+      await repository.addMessage(
+        PersistedChatMessage(
+          id: ids.next(),
+          conversationId: conversation.id,
+          isUser: true,
+          text: 'el primer mensaje',
+          createdAt: now,
+        ),
+      );
+
+      final conversations = await repository
+          .watchConversations(ChatConversationMode.free)
+          .first;
+      expect(conversations.single.title, 'Puesto a mano');
+    });
+
+    test('renombrar una que no existe no hace nada', () async {
+      await repository.renameConversation('no-existe', 'Nada');
+
+      final conversations = await repository
+          .watchConversations(ChatConversationMode.vault)
+          .first;
+      expect(conversations, isEmpty);
+    });
+  });
+
   group('deleteConversation', () {
     test('borra la conversación y sus mensajes en cascada', () async {
       final conversation = await repository.createConversation(

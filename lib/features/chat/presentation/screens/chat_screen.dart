@@ -5,12 +5,10 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/thumbnail_decode.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/chat_attachment.dart';
-import 'package:sinapsis/core/domain/entities/chat_conversation.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/core/domain/entities/persisted_chat_message.dart';
@@ -21,7 +19,6 @@ import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
-import 'package:sinapsis/features/ai_models/presentation/widgets/ai_account_switcher.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -30,6 +27,9 @@ import 'package:sinapsis/features/chat/domain/services/chat_passages.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_selection.dart';
+import 'package:sinapsis/features/chat/presentation/widgets/chat_conversations_panel.dart';
+import 'package:sinapsis/features/chat/presentation/widgets/chat_top_bar.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
@@ -96,11 +96,9 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
-  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final List<_PendingAttachment> _pendingAttachments = [];
-  var _mode = ChatConversationMode.vault;
 
   /// Si el modelo elegido puede contestar y, si no, qué le falta (F32):
   /// bajar Gemma, una clave, la cuota. `null` mientras se mira.
@@ -109,13 +107,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   var _asking = false;
   var _attaching = false;
 
-  /// A qué cuaderno queda acotado el modo con la bóveda (F16, D1). `null`
-  /// es "toda la bóveda". Solo tiene sentido en `ChatConversationMode.
-  /// vault`; el modo libre lo ignora.
-  String? _notebookId;
+  /// Dónde está parado el chat —el modo, el cuaderno y la conversación
+  /// abierta de cada modo— (F42): vive en [chatSelectionProvider], porque
+  /// lo cambian también la barra, el panel de conversaciones y el «+» del
+  /// campo. La pantalla lo escucha ([_onSelectionChanged]) para cerrar lo
+  /// que ya no corresponde.
+  ChatSelection get _selection => ref.read(chatSelectionProvider);
+  ChatConversationMode get _mode => _selection.mode;
 
-  String? _vaultConversationId;
-  String? _freeConversationId;
+  /// A qué cuaderno queda acotado el modo con la bóveda (F16, D1). `null`
+  /// es "toda la bóveda"; el modo libre lo ignora.
+  String? get _notebookId => _selection.notebookId;
 
   /// La sesión de la conversación libre en curso. Vive mientras dure la
   /// charla —no se abre y se cierra pregunta a pregunta—, para que el
@@ -136,10 +138,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// Corta la respuesta que se está escribiendo; `null` si no hay ninguna.
   Future<void> Function()? _stopReply;
 
-  String? get _currentConversationId => switch (_mode) {
-    ChatConversationMode.vault => _vaultConversationId,
-    ChatConversationMode.free => _freeConversationId,
-  };
+  String? get _currentConversationId => _selection.conversationId;
 
   /// El turno del modelo, al que la pantalla le avisa si está a la vista
   /// (F27): mientras lo esté, una charla abierta no suelta el modelo.
@@ -156,6 +155,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _gate = ref.read(languageModelGateProvider);
     _lifecycle = AppLifecycleListener(onStateChange: (_) => _tellPresence());
     _streamingText.addListener(_followStreaming);
+    ref.listenManual(chatSelectionProvider, _onSelectionChanged);
     _refreshModelStatus();
   }
 
@@ -255,95 +255,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     unawaited(_refreshModelStatus());
   }
 
-  void _changeMode(ChatConversationMode mode) {
-    if (mode == _mode) return;
-    setState(() => _mode = mode);
-  }
-
-  /// Cambia a qué cuaderno queda acotado el modo con la bóveda. Si ya había
-  /// una conversación con mensajes, arranca una nueva —el cuaderno de una
-  /// conversación queda fijo desde que se crea, no cambia bajo lo ya dicho—,
-  /// mismo criterio que [_newConversation].
-  void _selectNotebook(String? notebookId) {
-    if (notebookId == _notebookId) return;
-    unawaited(_stopReply?.call());
-    if (_vaultConversationId != null) {
+  /// Cambió dónde está parado el chat (F42), lo cambie quien lo cambie: la
+  /// barra, el panel o el «+». Lo que ya no corresponde se cierra acá, con
+  /// las reglas de siempre:
+  ///
+  /// - la respuesta que se está escribiendo se corta si su conversación ya
+  ///   no está abierta —otra conversación, una nueva, otro cuaderno, o la
+  ///   borraron—; cambiar de modo no la corta, sigue en la suya;
+  /// - la sesión del modelo de un modo se cierra si cambió su conversación:
+  ///   abrir una vieja arma otra (ver la decisión 26).
+  void _onSelectionChanged(ChatSelection? previous, ChatSelection next) {
+    final asking = _askingConversationId;
+    if (asking != null && !next.holds(asking)) unawaited(_stopReply?.call());
+    if (previous?.vaultConversationId != next.vaultConversationId) {
       unawaited(_vaultConversation?.close());
-      setState(() {
-        _notebookId = notebookId;
-        _vaultConversation = null;
-        _vaultConversationId = null;
-      });
-    } else {
-      setState(() => _notebookId = notebookId);
+      _vaultConversation = null;
     }
+    if (previous?.freeConversationId != next.freeConversationId) {
+      unawaited(_conversation?.close());
+      _conversation = null;
+    }
+    final opened = next.conversationId;
+    if (opened != null && opened != previous?.conversationId) _scrollToEnd();
   }
 
   /// Deja el modo activo listo para arrancar una conversación nueva y
   /// vacía, sin borrar ninguna de las guardadas: la próxima vez que se
   /// mande un mensaje, se crea una fila nueva en el historial.
-  void _newConversation() {
-    unawaited(_stopReply?.call());
-    switch (_mode) {
-      case ChatConversationMode.free:
-        unawaited(_conversation?.close());
-        setState(() {
-          _conversation = null;
-          _freeConversationId = null;
-        });
-      case ChatConversationMode.vault:
-        unawaited(_vaultConversation?.close());
-        setState(() {
-          _vaultConversation = null;
-          _vaultConversationId = null;
-        });
-    }
-  }
-
-  void _openConversation(ChatConversation conversation) {
-    unawaited(_stopReply?.call());
-    switch (conversation.mode) {
-      case ChatConversationMode.free:
-        unawaited(_conversation?.close());
-        setState(() {
-          _conversation = null;
-          _freeConversationId = conversation.id;
-        });
-      case ChatConversationMode.vault:
-        unawaited(_vaultConversation?.close());
-        setState(() {
-          _vaultConversation = null;
-          _vaultConversationId = conversation.id;
-          _notebookId = conversation.notebookId;
-        });
-    }
-    Navigator.of(context).pop();
-    _scrollToEnd();
-  }
-
-  Future<void> _deleteConversation(ChatConversation conversation) async {
-    await ref
-        .read(chatConversationRepositoryProvider)
-        .deleteConversation(conversation.id);
-    if (!mounted) return;
-    if (conversation.id == _currentConversationId) {
-      unawaited(_stopReply?.call());
-      switch (conversation.mode) {
-        case ChatConversationMode.free:
-          unawaited(_conversation?.close());
-          setState(() {
-            _conversation = null;
-            _freeConversationId = null;
-          });
-        case ChatConversationMode.vault:
-          unawaited(_vaultConversation?.close());
-          setState(() {
-            _vaultConversation = null;
-            _vaultConversationId = null;
-          });
-      }
-    }
-  }
+  void _newConversation() =>
+      ref.read(chatSelectionProvider.notifier).startNew();
 
   Future<void> _pickAttachmentKind() async {
     final l10n = AppLocalizations.of(context)!;
@@ -521,7 +461,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         notebookId: _notebookId,
       );
       conversationId = conversation.id;
-      _setConversationId(mode, conversationId);
+      if (mounted) {
+        ref.read(chatSelectionProvider.notifier).started(mode, conversationId);
+      }
     }
     _askingConversationId = conversationId;
 
@@ -631,15 +573,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       createdAt: clock(),
       error: error,
     );
-  }
-
-  void _setConversationId(ChatConversationMode mode, String id) {
-    switch (mode) {
-      case ChatConversationMode.vault:
-        _vaultConversationId = id;
-      case ChatConversationMode.free:
-        _freeConversationId = id;
-    }
   }
 
   /// El mensaje que ve el modelo: el texto del usuario más, si adjuntó
@@ -842,8 +775,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isFree = _mode == ChatConversationMode.free;
-    final conversationId = _currentConversationId;
+    final selection = ref.watch(chatSelectionProvider);
+    final isFree = selection.isFree;
+    final conversationId = selection.conversationId;
     // Elegir otra cuenta o proveedor, cargar una clave o quedarse sin cuota
     // cambia lo que el chat puede hacer sin salir de él (F32).
     ref.listen(languageModelStatusProvider, (_, next) {
@@ -851,76 +785,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
 
     return Scaffold(
-      key: _scaffoldKey,
-      endDrawer: _HistoryDrawer(
-        mode: _mode,
-        activeConversationId: conversationId,
-        onSelect: _openConversation,
-        onNew: () {
-          _newConversation();
-          Navigator.of(context).pop();
-        },
-        onDelete: _deleteConversation,
-      ),
-      appBar: AppBar(
-        title: Text(l10n.chatTitle),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
-            tooltip: l10n.chatHistoryTooltip,
-            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
-          ),
-          if (conversationId != null)
-            IconButton(
-              icon: const Icon(Icons.add_comment_outlined),
-              tooltip: l10n.chatNewConversationTooltip,
-              onPressed: _newConversation,
-            ),
-          // F32: con un toque se cambia la cuenta que escribe, sin salir
-          // del chat. Con Gemma o sin cuentas no se dibuja.
-          const AiAccountSwitcher(dense: true),
-          IconButton(
-            icon: Icon(
-              _modelReady ? Icons.smart_toy_outlined : Icons.download_outlined,
-            ),
-            tooltip: l10n.chatModelTooltip,
-            onPressed: _openModelScreen,
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(isFree ? 48 : 88),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Column(
-              children: [
-                Center(
-                  child: SegmentedButton<ChatConversationMode>(
-                    segments: [
-                      ButtonSegment(
-                        value: ChatConversationMode.vault,
-                        label: Text(l10n.chatModeVault),
-                        icon: const Icon(Icons.folder_outlined, size: 18),
-                      ),
-                      ButtonSegment(
-                        value: ChatConversationMode.free,
-                        label: Text(l10n.chatModeFree),
-                        icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                      ),
-                    ],
-                    selected: {_mode},
-                    onSelectionChanged: (selection) =>
-                        _changeMode(selection.first),
-                  ),
-                ),
-                if (!isFree)
-                  _NotebookScopeSelector(
-                    notebookId: _notebookId,
-                    onChanged: _selectNotebook,
-                  ),
-              ],
-            ),
-          ),
-        ),
+      // F42: arriba, limpio —☰, la píldora del modelo con dónde se
+      // pregunta, ✎—; el historial es el panel de la izquierda.
+      appBar: ChatTopBar(
+        textScaler: MediaQuery.textScalerOf(context),
+        onOpenPanel: () => unawaited(showChatConversationsPanel(context)),
+        onNewConversation: conversationId == null ? null : _newConversation,
+        onOpenRoute: (route) => unawaited(_openModelScreen(route)),
       ),
       body: SafeArea(
         child: Column(
@@ -985,229 +856,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
       ),
     );
-  }
-}
-
-/// A qué cuaderno acotar el modo con la bóveda (F16, D1). Solo se muestra en
-/// ese modo —en el libre el concepto no aplica—. `null` es "toda la
-/// bóveda", la primera opción de la lista.
-class _NotebookScopeSelector extends ConsumerWidget {
-  const _NotebookScopeSelector({required this.notebookId, this.onChanged});
-
-  final String? notebookId;
-  final ValueChanged<String?>? onChanged;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final notebooks = ref.watch(notebooksProvider).valueOrNull ?? const [];
-    // Si el cuaderno elegido se borró mientras tanto, el valor que muestra
-    // el desplegable cae a "toda la bóveda" — no puede seguir mostrando un
-    // valor que no está entre sus opciones sin que Flutter reviente.
-    final shownValue = notebooks.any((n) => n.id == notebookId)
-        ? notebookId
-        : null;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String?>(
-          key: const Key('chat-notebook-scope'),
-          isDense: true,
-          isExpanded: true,
-          icon: const Icon(Icons.expand_more, size: 18),
-          value: shownValue,
-          items: [
-            DropdownMenuItem(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.folder_outlined, size: 16),
-                  const SizedBox(width: 8),
-                  Text(l10n.chatNotebookScopeAll),
-                ],
-              ),
-            ),
-            for (final notebook in notebooks)
-              DropdownMenuItem(
-                value: notebook.id,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.auto_stories_outlined, size: 16),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        notebook.name,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
-}
-
-class _HistoryDrawer extends ConsumerWidget {
-  const _HistoryDrawer({
-    required this.mode,
-    required this.activeConversationId,
-    required this.onSelect,
-    required this.onNew,
-    required this.onDelete,
-  });
-
-  final ChatConversationMode mode;
-  final String? activeConversationId;
-  final ValueChanged<ChatConversation> onSelect;
-  final VoidCallback onNew;
-  final ValueChanged<ChatConversation> onDelete;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final conversationsAsync = ref.watch(chatConversationsProvider(mode));
-
-    return Drawer(
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      l10n.chatHistoryTitle,
-                      style: theme.textTheme.titleLarge,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add_comment_outlined),
-                    tooltip: l10n.chatHistoryNewAction,
-                    onPressed: onNew,
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: conversationsAsync.when(
-                data: (conversations) {
-                  if (conversations.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          l10n.chatHistoryEmpty,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                  final locale = Localizations.localeOf(context).toString();
-                  final dateFormat = DateFormat.MMMd(locale).add_Hm();
-
-                  return ListView.builder(
-                    itemCount: conversations.length,
-                    itemBuilder: (context, index) {
-                      final conversation = conversations[index];
-                      final selected = conversation.id == activeConversationId;
-                      return ListTile(
-                        selected: selected,
-                        leading: Icon(
-                          mode == ChatConversationMode.vault
-                              ? Icons.folder_outlined
-                              : Icons.chat_bubble_outline,
-                        ),
-                        title: Text(
-                          conversation.title ?? l10n.chatHistoryUntitled,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: _ConversationSubtitle(
-                          conversation: conversation,
-                          dateFormat: dateFormat,
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          tooltip: l10n.chatHistoryDeleteTooltip,
-                          onPressed: () =>
-                              _confirmDelete(context, l10n, conversation),
-                        ),
-                        onTap: () => onSelect(conversation),
-                      );
-                    },
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, stackTrace) =>
-                    Center(child: Text(l10n.globalErrorUnexpected)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _confirmDelete(
-    BuildContext context,
-    AppLocalizations l10n,
-    ChatConversation conversation,
-  ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.chatHistoryDeleteConfirmTitle),
-        content: Text(l10n.chatHistoryDeleteConfirmBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l10n.commonCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l10n.chatHistoryDeleteConfirmAction),
-          ),
-        ],
-      ),
-    );
-    if (confirmed ?? false) onDelete(conversation);
-  }
-}
-
-/// La fecha de la conversación y, si quedó acotada a un cuaderno, su
-/// nombre — para distinguir en el historial "Tesis" de "toda la bóveda"
-/// sin tener que abrir cada una.
-class _ConversationSubtitle extends ConsumerWidget {
-  const _ConversationSubtitle({
-    required this.conversation,
-    required this.dateFormat,
-  });
-
-  final ChatConversation conversation;
-  final DateFormat dateFormat;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final date = dateFormat.format(conversation.updatedAt);
-    final notebookId = conversation.notebookId;
-    if (notebookId == null) return Text(date);
-
-    final notebook = ref.watch(notebookByIdProvider(notebookId)).valueOrNull;
-    if (notebook == null) return Text(date);
-
-    return Text('$date · ${notebook.name}');
   }
 }
 

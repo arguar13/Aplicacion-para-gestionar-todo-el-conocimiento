@@ -10,6 +10,7 @@ import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_pro
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
+import 'package:sinapsis/features/chat/presentation/widgets/chat_conversations_panel.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
@@ -56,11 +57,41 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Busca solo dentro del panel de historial: mientras está abierto, la
+  /// Busca solo dentro del panel de conversaciones: mientras está abierto, la
   /// conversación de fondo sigue montada detrás y puede repetir el mismo
-  /// texto o tooltip que un elemento del propio panel.
-  Finder inDrawer(Finder matching) =>
-      find.descendant(of: find.byType(Drawer), matching: matching);
+  /// texto que una fila del propio panel.
+  Finder inPanel(Finder matching) => find.descendant(
+    of: find.byKey(const Key('chat-panel')),
+    matching: matching,
+  );
+
+  /// ☰, arriba a la izquierda (F42).
+  Future<void> openPanel(WidgetTester tester) async {
+    await tester.tap(find.byTooltip(es.chatPanelOpenTooltip));
+    await tester.pumpAndSettle();
+  }
+
+  /// ✎, arriba a la derecha (F42).
+  Future<void> startNew(WidgetTester tester) async {
+    await tester.tap(find.byTooltip(es.chatNewConversationTooltip));
+    await tester.pumpAndSettle();
+  }
+
+  /// Elige [label] —un modo o un cuaderno— en la hoja «Dónde pregunto», que
+  /// se abre tocando la línea debajo del modelo (F42). Si la hoja queda
+  /// abierta —elegir la bóveda la deja para acotarla—, la cierra.
+  Future<void> chooseScope(WidgetTester tester, String label) async {
+    await tester.tap(find.byKey(const Key('chat-scope-line')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(of: find.byType(BottomSheet), matching: find.text(label)),
+    );
+    await tester.pumpAndSettle();
+    if (find.byType(BottomSheet).evaluate().isNotEmpty) {
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+    }
+  }
 
   group('la pantalla a la vista retiene el modelo para la charla (F27)', () {
     testWidgets('lo dice mientras se ve, deja de decirlo si otra pantalla la '
@@ -214,8 +245,7 @@ void main() {
       await pumpChat(tester, chatModelReady: true, chatModelResponse: 'ok');
       await send(tester, 'algo');
 
-      await tester.tap(find.byIcon(Icons.add_comment_outlined));
-      await tester.pumpAndSettle();
+      await startNew(tester);
 
       expect(harness.chatModel.vaultConversations.single.closed, isTrue);
       expect(find.text('algo'), findsNothing);
@@ -224,10 +254,8 @@ void main() {
   });
 
   group('modo conversación libre', () {
-    Future<void> switchToFreeMode(WidgetTester tester) async {
-      await tester.tap(find.text(es.chatModeFree));
-      await tester.pumpAndSettle();
-    }
+    Future<void> switchToFreeMode(WidgetTester tester) =>
+        chooseScope(tester, es.chatModeFree);
 
     testWidgets('tiene su propia explicación, sin nada de la bóveda', (
       tester,
@@ -290,8 +318,7 @@ void main() {
       await switchToFreeMode(tester);
       await send(tester, 'algo');
 
-      await tester.tap(find.byIcon(Icons.add_comment_outlined));
-      await tester.pumpAndSettle();
+      await startNew(tester);
 
       expect(harness.chatModel.conversations.single.closed, isTrue);
       expect(find.text('algo'), findsNothing);
@@ -318,8 +345,7 @@ void main() {
       await send(tester, 'una pregunta libre');
       expect(find.text('listo'), findsOneWidget);
 
-      await tester.tap(find.text(es.chatModeVault));
-      await tester.pumpAndSettle();
+      await chooseScope(tester, es.chatModeVault);
 
       expect(find.text('gatos'), findsOneWidget);
       expect(find.text('una pregunta libre'), findsNothing);
@@ -364,8 +390,7 @@ void main() {
     ) async {
       await pumpChat(tester, chatModelReady: true);
       harness.chatModel.manualReplies = true;
-      await tester.tap(find.text(es.chatModeFree));
-      await tester.pumpAndSettle();
+      await chooseScope(tester, es.chatModeFree);
       await tester.enterText(find.byType(TextField), text);
       await tester.tap(find.byIcon(Icons.send));
       await tester.pump();
@@ -411,6 +436,39 @@ void main() {
       expect(find.text('Roma fue'), findsOneWidget);
       expect(find.byKey(const Key('chat-streaming-reply')), findsNothing);
       expect(find.byTooltip(es.chatStopTooltip), findsNothing);
+    });
+
+    testWidgets('empezar una conversación nueva la corta y guarda lo escrito '
+        '(F42)', (tester) async {
+      final reply = await sendLive(tester, 'Contame de Roma');
+      reply.add('Roma fue');
+      await tester.pump();
+
+      await startNew(tester);
+
+      expect(reply.hasListener, isFalse);
+      expect(find.text(es.chatFreeEmptyExplanation), findsOneWidget);
+      await openPanel(tester);
+      await tester.tap(inPanel(find.text('Contame de Roma')));
+      await tester.pumpAndSettle();
+      expect(find.text('Roma fue'), findsOneWidget);
+    });
+
+    testWidgets('cambiar de modo no la corta: sigue en su conversación (F42)', (
+      tester,
+    ) async {
+      final reply = await sendLive(tester, 'Contame de Roma');
+      reply.add('Roma fue');
+      await tester.pump();
+
+      await chooseScope(tester, es.chatModeVault);
+      expect(reply.hasListener, isTrue);
+      await chooseScope(tester, es.chatModeFree);
+      expect(growing('Roma fue'), findsOneWidget);
+
+      await reply.close();
+      await tester.pumpAndSettle();
+      expect(find.text('Roma fue'), findsOneWidget);
     });
 
     testWidgets('detenerla antes de que escriba nada lo dice', (tester) async {
@@ -570,91 +628,204 @@ void main() {
     });
   });
 
-  group('historial', () {
-    testWidgets('sin conversaciones guardadas, el historial lo dice', (
-      tester,
-    ) async {
+  group('el panel de conversaciones (F42)', () {
+    testWidgets('sin conversaciones guardadas, lo dice', (tester) async {
       await pumpChat(tester);
 
-      await tester.tap(find.byIcon(Icons.history));
-      await tester.pumpAndSettle();
+      await openPanel(tester);
 
-      expect(find.text(es.chatHistoryEmpty), findsOneWidget);
+      expect(inPanel(find.text(es.chatPanelEmpty)), findsOneWidget);
     });
 
-    testWidgets('la conversación mandada aparece en el historial, titulada '
-        'con el primer mensaje', (tester) async {
+    testWidgets('la conversación mandada aparece en «Hoy», titulada con el '
+        'primer mensaje', (tester) async {
       await pumpChat(tester);
       await send(tester, 'mi primera pregunta');
 
-      await tester.tap(find.byIcon(Icons.history));
-      await tester.pumpAndSettle();
+      await openPanel(tester);
 
-      expect(inDrawer(find.text('mi primera pregunta')), findsOneWidget);
+      expect(inPanel(find.text(es.chatPanelToday)), findsOneWidget);
+      expect(inPanel(find.text('mi primera pregunta')), findsOneWidget);
     });
 
-    testWidgets(
-      '"nueva conversación" desde el historial no borra la anterior',
-      (tester) async {
-        await pumpChat(tester);
-        await send(tester, 'mi primera pregunta');
+    testWidgets('«Nueva» desde el panel lo cierra y no borra la anterior', (
+      tester,
+    ) async {
+      await pumpChat(tester);
+      await send(tester, 'mi primera pregunta');
 
-        await tester.tap(find.byIcon(Icons.history));
-        await tester.pumpAndSettle();
-        await tester.tap(inDrawer(find.byTooltip(es.chatHistoryNewAction)));
-        await tester.pumpAndSettle();
+      await openPanel(tester);
+      await tester.tap(inPanel(find.text(es.chatPanelNew)));
+      await tester.pumpAndSettle();
 
-        expect(find.text(es.chatEmptyExplanation), findsOneWidget);
+      expect(find.byKey(const Key('chat-panel')), findsNothing);
+      expect(find.text(es.chatEmptyExplanation), findsOneWidget);
 
-        await tester.tap(find.byIcon(Icons.history));
-        await tester.pumpAndSettle();
+      await openPanel(tester);
+      expect(inPanel(find.text('mi primera pregunta')), findsOneWidget);
+    });
 
-        expect(inDrawer(find.text('mi primera pregunta')), findsOneWidget);
-      },
-    );
+    testWidgets('✎ solo se puede tocar con una conversación empezada', (
+      tester,
+    ) async {
+      await pumpChat(tester);
+      IconButton pencil() => tester.widget<IconButton>(
+        find.byKey(const Key('chat-new-conversation')),
+      );
+      expect(pencil().onPressed, isNull);
 
-    testWidgets('reabrir una conversación del historial muestra sus '
-        'mensajes', (tester) async {
+      await send(tester, 'algo');
+
+      expect(pencil().onPressed, isNotNull);
+    });
+
+    testWidgets('reabrir una conversación muestra sus mensajes y cierra el '
+        'panel', (tester) async {
       await pumpChat(tester);
       await send(tester, 'primera conversación');
-
-      await tester.tap(find.byIcon(Icons.add_comment_outlined));
-      await tester.pumpAndSettle();
+      await startNew(tester);
       await send(tester, 'segunda conversación');
 
-      await tester.tap(find.byIcon(Icons.history));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('primera conversación'));
+      await openPanel(tester);
+      await tester.tap(inPanel(find.text('primera conversación')));
       await tester.pumpAndSettle();
 
+      expect(find.byKey(const Key('chat-panel')), findsNothing);
       expect(find.text('primera conversación'), findsOneWidget);
       expect(find.text('segunda conversación'), findsNothing);
     });
 
-    testWidgets('borrar una conversación activa la saca de pantalla y del '
-        'historial', (tester) async {
+    testWidgets('muestra las de los dos modos; abrir una libre desde el modo '
+        'con la bóveda pasa a la conversación libre', (tester) async {
+      await pumpChat(tester, chatModelReady: true, chatModelResponse: 'ok');
+      await chooseScope(tester, es.chatModeFree);
+      await send(tester, 'una charla libre');
+      await chooseScope(tester, es.chatModeVault);
+      await send(tester, 'una con la bóveda');
+
+      await openPanel(tester);
+      expect(inPanel(find.text('una con la bóveda')), findsOneWidget);
+      await tester.tap(inPanel(find.text('una charla libre')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('una charla libre'), findsOneWidget);
+      expect(find.text('una con la bóveda'), findsNothing);
+      // La línea debajo del modelo lo dice.
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('chat-scope-line')),
+          matching: find.text(es.chatModeFree),
+        ),
+        findsOneWidget,
+      );
+
+      // Y el próximo mensaje sigue la charla libre, con su propia sesión.
+      await send(tester, 'sigo charlando');
+      expect(harness.chatModel.conversations.last.sent.last, 'sigo charlando');
+    });
+
+    testWidgets('borrar la conversación abierta la saca de la pantalla al '
+        'instante; «Deshacer» la recupera, abierta', (tester) async {
       await pumpChat(tester);
       await send(tester, 'mi primera pregunta');
 
-      await tester.tap(find.byIcon(Icons.history));
+      await openPanel(tester);
+      await tester.tap(
+        find.byTooltip(es.chatPanelRowMenu('mi primera pregunta')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.delete_outline));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(es.chatHistoryDeleteConfirmAction));
+      await tester.tap(find.text(es.chatHistoryDeleteTooltip));
       await tester.pumpAndSettle();
 
-      expect(find.text(es.chatHistoryEmpty), findsOneWidget);
+      expect(
+        inPanel(find.text(es.chatPanelDeleted('mi primera pregunta'))),
+        findsOneWidget,
+      );
       expect(find.text(es.chatEmptyExplanation), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('chat-panel-undo')));
+      await tester.pumpAndSettle();
+
+      expect(inPanel(find.text('mi primera pregunta')), findsOneWidget);
+      expect(find.text(es.chatEmptyExplanation), findsNothing);
+
+      // Pasado el tiempo del «Deshacer», sigue ahí: no se borró.
+      await tester.pump(kChatDeleteUndoWindow * 2);
+      await tester.pumpAndSettle();
+      expect(inPanel(find.text('mi primera pregunta')), findsOneWidget);
+    });
+
+    testWidgets('pasado el «Deshacer», se borra de verdad', (tester) async {
+      await pumpChat(tester);
+      await send(tester, 'mi primera pregunta');
+
+      await openPanel(tester);
+      await tester.tap(
+        find.byTooltip(es.chatPanelRowMenu('mi primera pregunta')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.chatHistoryDeleteTooltip));
+      await tester.pumpAndSettle();
+      await tester.pump(kChatDeleteUndoWindow);
+      await tester.pumpAndSettle();
+
+      expect(inPanel(find.text(es.chatPanelEmpty)), findsOneWidget);
+      expect(find.text(es.chatEmptyExplanation), findsOneWidget);
+    });
+
+    testWidgets('cerrar el panel con un borrado pendiente lo confirma', (
+      tester,
+    ) async {
+      await pumpChat(tester);
+      await send(tester, 'mi primera pregunta');
+
+      await openPanel(tester);
+      await tester.tap(
+        find.byTooltip(es.chatPanelRowMenu('mi primera pregunta')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.chatHistoryDeleteTooltip));
+      await tester.pumpAndSettle();
+      // Afuera del panel, sobre el fondo oscuro.
+      await tester.tapAt(const Offset(780, 300));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('chat-panel')), findsNothing);
+
+      await openPanel(tester);
+      expect(inPanel(find.text(es.chatPanelEmpty)), findsOneWidget);
+    });
+
+    testWidgets('borrar una que no está abierta no toca la de la pantalla', (
+      tester,
+    ) async {
+      await pumpChat(tester);
+      await send(tester, 'la vieja');
+      await startNew(tester);
+      await send(tester, 'la de ahora');
+
+      await openPanel(tester);
+      await tester.tap(find.byTooltip(es.chatPanelRowMenu('la vieja')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.chatHistoryDeleteTooltip));
+      await tester.pumpAndSettle();
+      await tester.pump(kChatDeleteUndoWindow);
+      await tester.pumpAndSettle();
+
+      expect(inPanel(find.text('la vieja')), findsNothing);
+      expect(inPanel(find.text('la de ahora')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(ListView).first,
+          matching: find.text('la de ahora'),
+        ),
+        findsOneWidget,
+      );
     });
   });
 
   group('acotar a un cuaderno (F16, D1)', () {
-    Future<void> selectScope(WidgetTester tester, String label) async {
-      await tester.tap(find.byKey(const Key('chat-notebook-scope')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(label).last);
-      await tester.pumpAndSettle();
-    }
+    Future<void> selectScope(WidgetTester tester, String label) =>
+        chooseScope(tester, label);
 
     /// Dos elementos que la búsqueda de texto encuentra a los dos —los
     /// títulos comparten la palabra "cuaderno"—, y un cuaderno manual que
@@ -681,12 +852,33 @@ void main() {
       return notebook.id;
     }
 
-    testWidgets('en modo libre no hay selector de cuaderno', (tester) async {
+    testWidgets('en modo libre no hay cuadernos para elegir', (tester) async {
       await pumpChat(tester);
-      await tester.tap(find.text(es.chatModeFree));
+      await chooseScope(tester, es.chatModeFree);
+
+      await tester.tap(find.byKey(const Key('chat-scope-line')));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('chat-notebook-scope')), findsNothing);
+      expect(find.byKey(const Key('chat-scope-notebook-all')), findsNothing);
+    });
+
+    testWidgets('la línea debajo del modelo dice el cuaderno elegido', (
+      tester,
+    ) async {
+      await pumpChat(tester);
+      await seedScopedNotebook(tester);
+      Finder line(String text) => find.descendant(
+        of: find.byKey(const Key('chat-scope-line')),
+        matching: find.text(text),
+      );
+      expect(
+        line('${es.chatScopeLineVault} · ${es.chatNotebookScopeAll}'),
+        findsOneWidget,
+      );
+
+      await selectScope(tester, 'Mi cuaderno');
+
+      expect(line('${es.chatScopeLineVault} · Mi cuaderno'), findsOneWidget);
     });
 
     testWidgets('elegir un cuaderno acota qué fuentes llegan al modelo', (
@@ -738,9 +930,8 @@ void main() {
       await selectScope(tester, es.chatNotebookScopeAll);
       await send(tester, 'segunda conversación sin acotar');
 
-      await tester.tap(find.byIcon(Icons.history));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('primera conversación con cuaderno'));
+      await openPanel(tester);
+      await tester.tap(inPanel(find.text('primera conversación con cuaderno')));
       await tester.pumpAndSettle();
 
       await send(tester, 'cuaderno de nuevo');

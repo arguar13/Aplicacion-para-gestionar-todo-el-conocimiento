@@ -33,10 +33,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// El cuaderno se elige en la hoja «Dónde pregunto», que abre la línea
+  /// debajo del modelo (F42); elegirlo la cierra.
   Future<void> selectScope(WidgetTester tester, String label) async {
-    await tester.tap(find.byKey(const Key('chat-notebook-scope')));
+    await tester.tap(find.byKey(const Key('chat-scope-line')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(label).last);
+    await tester.tap(
+      find.descendant(of: find.byType(BottomSheet), matching: find.text(label)),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -70,7 +74,7 @@ void main() {
       expect(find.text('Adentro del cuaderno'), findsOneWidget);
       expect(find.text('Afuera del cuaderno'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.add_comment_outlined));
+      await tester.tap(find.byTooltip(es.chatNewConversationTooltip));
       await tester.pumpAndSettle();
       await selectScope(tester, 'Mi cuaderno');
       await send(tester, 'cuaderno');

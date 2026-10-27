@@ -114,4 +114,49 @@ armazón en main.
 
 ## Avance
 
-(Vacío hasta aprobarlo.)
+### Paso 1 — el armazón (hecho)
+
+- **La barra de arriba** (`chat/presentation/widgets/chat_top_bar.dart`): ☰ a la izquierda, al
+  centro la **píldora con el modelo** —con un punto que dice si puede contestar— y debajo, en
+  chico, **dónde se pregunta** («Con tu bóveda · Toda la bóveda», «Con tu bóveda · Tesis»,
+  «Conversación libre»); ✎ a la derecha, apagado si la conversación ya está vacía. Crece con la
+  letra grande en vez de cortar la píldora.
+- **La hoja del modelo** (`ai_models/presentation/widgets/ai_model_picker.dart`): proveedor,
+  modelo y cuenta —lo que hacían el robot y la «C»—, y «Más ajustes de la IA». Reusa el menú de
+  cuentas de F32 y, de la pantalla del modelo, salieron a este archivo el aviso de privacidad, la
+  lista de proveedores ofrecidos y el nombre del modelo elegido: un solo lugar para los dos.
+- **«Dónde pregunto»** (`chat_scope_sheet.dart`): el selector «Con mi bóveda · Conversación
+  libre» y el «Toda la bóveda ▾» salieron de la barra; mientras el paso 2 no los pone en el «+»,
+  se cambian tocando la línea debajo de la píldora. `ChatScopeOptions` y `ChatNotebookScopeList`
+  quedan listos para meterlos en la hoja «Agregar al chat».
+- **El estado del chat tiene un dueño**: `chatSelectionProvider`
+  (`chat/presentation/providers/chat_selection.dart`) guarda el modo, el cuaderno y la
+  conversación abierta de cada modo, con las reglas de siempre (otro cuaderno arranca una
+  conversación nueva, abrir una vieja vuelve a su modo y su cuaderno). La pantalla lo escucha y
+  cierra lo que ya no corresponde: la respuesta en curso se corta si su conversación deja de
+  estar abierta —cambiar de modo no la corta—, y la sesión del modelo de un modo se cierra si
+  cambia su conversación.
+- **El panel de conversaciones** (`chat_conversations_panel.dart`) reemplaza al historial de la
+  derecha: atajos a Biblioteca y Cuadernos (Procesado se suma cuando F41 deje su ruta en main),
+  buscador sin acentos, **las de los dos modos juntas** agrupadas por día («Hoy», «Ayer»,
+  «domingo, 6 de septiembre») con las fijadas arriba, ⋮ por fila (renombrar, fijar/desfijar,
+  borrar con «Deshacer» en el lugar de la fila) y al pie el nombre y «Nueva». Es una ruta emergente
+  que entra deslizándose desde la izquierda, encima de todo, y respeta «sin animaciones».
+  - **Fijar sin migración**: lo fijado vive en las preferencias del teléfono, por id
+    (`chatPinsProvider`). Es una forma de mirar el historial, no un dato de la conversación, y
+    así no se toca el esquema que está subiendo F41. Si algún día tiene que viajar con la
+    bóveda, pasa a una columna de `conversations`.
+  - **Renombrar** usa la columna `title` que ya existía (`renameConversation`, sin migración) y
+    no mueve la conversación de lugar.
+- **«Cómo te llamo»** en Ajustes, sección «Vos» (`settings/.../owner_name.dart` y
+  `owner_name_tile.dart`): opcional, solo en este teléfono, nunca sacado de una cuenta. Lo usan el
+  pie del panel y, desde el paso 2, el saludo: `ownerNameProvider`.
+- **`chat_screen.dart`** quedó solo con las llamadas: salieron `_HistoryDrawer`,
+  `_ConversationSubtitle` y `_NotebookScopeSelector`, y el estado suelto de modo, cuaderno y
+  conversaciones. El vacío, el aviso del modelo y el campo no se tocaron: son del paso 2.
+- **Ninguna función se perdió**: abrir una conversación vieja, empezar una nueva, borrar, cambiar
+  de modelo y de cuenta, de modo y de cuaderno —cada una con su prueba—, más las nuevas (días,
+  fijadas, buscador, renombrar, deshacer, nombre). Las pruebas miran también la letra grande, el
+  lector de pantalla y el contraste AA en los nueve temas.
+- **Para el paso 2**: con letra muy grande, el cuerpo del chat de hoy (el aviso del modelo, el
+  vacío y el campo) se desborda; es de su zona y lo resuelve el campo nuevo.

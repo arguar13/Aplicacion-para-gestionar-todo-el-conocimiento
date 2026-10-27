@@ -2993,41 +2993,13 @@
   "@tensionUndoAction": {
     "description": "Acción del aviso que deshace la marca de revisada."
   },
-  "chatHistoryTooltip": "Historial de conversaciones",
-  "@chatHistoryTooltip": {
-    "description": "Tooltip del ícono que abre el historial de conversaciones del chat."
-  },
-  "chatHistoryTitle": "Historial",
-  "@chatHistoryTitle": {
-    "description": "Título del panel de historial de conversaciones."
-  },
-  "chatHistoryEmpty": "Todavía no hay conversaciones guardadas en este modo.",
-  "@chatHistoryEmpty": {
-    "description": "Mensaje cuando el historial de un modo del chat está vacío."
-  },
   "chatHistoryUntitled": "Conversación sin título",
   "@chatHistoryUntitled": {
     "description": "Título mostrado para una conversación que todavía no tiene mensajes del usuario."
   },
-  "chatHistoryNewAction": "Nueva conversación",
-  "@chatHistoryNewAction": {
-    "description": "Botón que arranca una conversación nueva desde el historial."
-  },
   "chatHistoryDeleteTooltip": "Borrar conversación",
   "@chatHistoryDeleteTooltip": {
     "description": "Tooltip del botón para borrar una conversación del historial."
-  },
-  "chatHistoryDeleteConfirmTitle": "¿Borrar esta conversación?",
-  "@chatHistoryDeleteConfirmTitle": {
-    "description": "Título del diálogo de confirmación antes de borrar una conversación."
-  },
-  "chatHistoryDeleteConfirmBody": "Se borran también todos sus mensajes. Esto no se puede deshacer.",
-  "@chatHistoryDeleteConfirmBody": {
-    "description": "Cuerpo del diálogo de confirmación antes de borrar una conversación."
-  },
-  "chatHistoryDeleteConfirmAction": "Borrar",
-  "@chatHistoryDeleteConfirmAction": {
-    "description": "Botón de confirmar el borrado de una conversación."
   },
   "chatAttachTooltip": "Adjuntar",
   "@chatAttachTooltip": {
@@ -9736,5 +9708,127 @@
   "readAloudBackToReading": "Volver a la lectura",
   "@readAloudBackToReading": {"description": "Pastilla arriba de un visor —el libro, el PDF, la página web— cuando la persona se movió y lo que se lee en voz alta quedó fuera de la vista: tocarla lleva hasta ahí y el visor vuelve a seguir la lectura."},
   "readAloudBackToReadingHint": "Ir a lo que se está leyendo en voz alta",
-  "@readAloudBackToReadingHint": {"description": "Ayuda de la pastilla «Volver a la lectura» de un visor."}
+  "@readAloudBackToReadingHint": {"description": "Ayuda de la pastilla «Volver a la lectura» de un visor."},
+  "chatPanelOpenTooltip": "Conversaciones",
+  "@chatPanelOpenTooltip": {"description": "Botón ☰ de la barra del chat: abre el panel de conversaciones (F42)."},
+  "chatPanelClose": "Cerrar las conversaciones",
+  "@chatPanelClose": {"description": "Lo que anuncia el lector de pantalla para el fondo oscuro que cierra el panel de conversaciones (F42)."},
+  "chatPanelLabel": "Panel de conversaciones",
+  "@chatPanelLabel": {"description": "Nombre del panel de conversaciones para el lector de pantalla (F42)."},
+  "chatPanelSearchHint": "Buscar conversaciones",
+  "@chatPanelSearchHint": {"description": "Texto de ayuda del buscador del panel de conversaciones (F42)."},
+  "chatPanelSearchClear": "Borrar la búsqueda",
+  "@chatPanelSearchClear": {"description": "Botón que vacía el buscador del panel de conversaciones (F42)."},
+  "chatPanelToday": "Hoy",
+  "@chatPanelToday": {"description": "Encabezado de las conversaciones de hoy en el panel (F42)."},
+  "chatPanelYesterday": "Ayer",
+  "@chatPanelYesterday": {"description": "Encabezado de las conversaciones de ayer en el panel (F42)."},
+  "chatPanelPinned": "Fijadas",
+  "@chatPanelPinned": {"description": "Encabezado de las conversaciones fijadas, arriba de todo en el panel (F42)."},
+  "chatPanelPinnedBadge": "Fijada",
+  "@chatPanelPinnedBadge": {"description": "Lo que anuncia el lector de pantalla para el alfiler de una conversación fijada (F42)."},
+  "chatPanelEmpty": "Todavía no hay conversaciones. La primera que empieces va a aparecer acá.",
+  "@chatPanelEmpty": {"description": "Panel de conversaciones sin ninguna guardada, de ningún modo (F42)."},
+  "chatPanelNoMatches": "Ninguna conversación se llama así.",
+  "@chatPanelNoMatches": {"description": "El buscador del panel de conversaciones no encontró ningún título (F42)."},
+  "chatPanelRowMenu": "Opciones de «{title}»",
+  "@chatPanelRowMenu": {
+    "description": "Ayuda del botón ⋮ de una conversación del panel: renombrar, fijar o borrar (F42).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "chatPanelPin": "Fijar",
+  "@chatPanelPin": {"description": "Opción del menú de una conversación: la deja arriba de todo en el panel (F42)."},
+  "chatPanelUnpin": "Desfijar",
+  "@chatPanelUnpin": {"description": "Opción del menú de una conversación fijada: la devuelve a su día (F42)."},
+  "chatPanelDeleted": "Borraste «{title}»",
+  "@chatPanelDeleted": {
+    "description": "Lo que queda en el lugar de una conversación recién borrada, junto al «Deshacer» (F42).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "chatPanelUndo": "Deshacer",
+  "@chatPanelUndo": {"description": "Botón que recupera una conversación recién borrada en el panel (F42)."},
+  "chatPanelOwnerUnnamed": "¿Cómo te llamo?",
+  "@chatPanelOwnerUnnamed": {"description": "Pie del panel de conversaciones sin nombre puesto: tocarlo pregunta cómo llamar a la persona (F42)."},
+  "chatPanelOwnerSemantics": "{name}. Cambiar cómo te llamo",
+  "@chatPanelOwnerSemantics": {
+    "description": "Lo que anuncia el lector de pantalla para el nombre al pie del panel de conversaciones (F42).",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatPanelNew": "Nueva",
+  "@chatPanelNew": {"description": "Botón al pie del panel de conversaciones: empieza una conversación nueva (F42)."},
+  "chatPanelRenameTitle": "Renombrar la conversación",
+  "@chatPanelRenameTitle": {"description": "Título del diálogo para ponerle nombre a mano a una conversación (F42)."},
+  "chatModelPillTooltip": "Elegir el modelo o la cuenta",
+  "@chatModelPillTooltip": {"description": "Ayuda de la píldora con el modelo, al centro de la barra del chat (F42)."},
+  "chatModelPillSemantics": "Modelo: {model}. {condition}. Elegir el modelo o la cuenta",
+  "@chatModelPillSemantics": {
+    "description": "Lo que anuncia el lector de pantalla para la píldora del modelo: cuál es y si puede contestar (F42).",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      },
+      "condition": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelPillNotReady": "Le falta algo para contestar",
+  "@chatModelPillNotReady": {"description": "Estado de la píldora del modelo cuando no puede contestar todavía: falta bajarlo, una clave o cuota (F42)."},
+  "chatScopeLineVault": "Con tu bóveda",
+  "@chatScopeLineVault": {"description": "Debajo de la píldora del modelo: se pregunta con la bóveda (F42, decisión C)."},
+  "chatScopeLineSemantics": "Dónde preguntás: {where}. Cambiar",
+  "@chatScopeLineSemantics": {
+    "description": "Lo que anuncia el lector de pantalla para la línea debajo del modelo, que abre la hoja de modo y cuaderno (F42).",
+    "placeholders": {
+      "where": {
+        "type": "String"
+      }
+    }
+  },
+  "chatScopeSheetTitle": "Dónde pregunto",
+  "@chatScopeSheetTitle": {"description": "Título de la hoja para elegir el modo del chat y el cuaderno (F42)."},
+  "chatScopeVaultHint": "Busca en lo que guardaste y cita de dónde sale cada dato.",
+  "@chatScopeVaultHint": {"description": "Explicación del modo con la bóveda en la hoja «Dónde pregunto» (F42)."},
+  "chatScopeFreeHint": "Charla con el modelo sin tocar tu bóveda.",
+  "@chatScopeFreeHint": {"description": "Explicación de la conversación libre en la hoja «Dónde pregunto» (F42)."},
+  "chatScopeNotebookTitle": "En qué cuaderno",
+  "@chatScopeNotebookTitle": {"description": "Encabezado de la lista de cuadernos para acotar el modo con la bóveda (F42)."},
+  "aiPickerTitle": "Quién te contesta",
+  "@aiPickerTitle": {"description": "Título de la hoja para elegir proveedor, modelo y cuenta, que abre la píldora del chat (F42)."},
+  "aiPickerHint": "Vale para todo lo de la IA desde el próximo pedido.",
+  "@aiPickerHint": {"description": "Aclaración debajo del título de la hoja del modelo (F42)."},
+  "aiPickerModel": "Modelo",
+  "@aiPickerModel": {"description": "Encabezado de la lista de modelos en la hoja del modelo (F42)."},
+  "aiPickerAccount": "Cuenta",
+  "@aiPickerAccount": {"description": "Encabezado de la cuenta en uso en la hoja del modelo (F42)."},
+  "aiPickerMore": "Más ajustes de la IA",
+  "@aiPickerMore": {"description": "Botón de la hoja del modelo que abre la pantalla completa de la IA: claves, cuota, privacidad (F42)."},
+  "settingsYouSection": "Vos",
+  "@settingsYouSection": {"description": "Sección de Ajustes con lo de la persona: cómo la llama la app (F42)."},
+  "ownerNameTitle": "Cómo te llamo",
+  "@ownerNameTitle": {"description": "Ajuste con el nombre que usa el saludo del chat (F42, decisión B)."},
+  "ownerNameEmpty": "Opcional: para que el chat te salude por tu nombre",
+  "@ownerNameEmpty": {"description": "Ajuste «Cómo te llamo» sin nombre puesto (F42)."},
+  "ownerNameDialogTitle": "¿Cómo te llamo?",
+  "@ownerNameDialogTitle": {"description": "Título del diálogo para poner el nombre del saludo (F42)."},
+  "ownerNameDialogHint": "Tu nombre o un apodo",
+  "@ownerNameDialogHint": {"description": "Texto de ayuda del campo del nombre (F42)."},
+  "ownerNameDialogPrivacy": "Queda guardado solo en este teléfono. La app no lo saca de ninguna cuenta.",
+  "@ownerNameDialogPrivacy": {"description": "Aclaración del diálogo del nombre: es local y no se deduce de ninguna cuenta (F42)."},
+  "ownerNameRemove": "Quitar",
+  "@ownerNameRemove": {"description": "Botón del diálogo del nombre que lo borra: el saludo vuelve a ser según la hora (F42)."},
+  "ownerNameSave": "Guardar",
+  "@ownerNameSave": {"description": "Botón que guarda un nombre: el del saludo o el de una conversación (F42)."}
 }

@@ -17,6 +17,7 @@ import 'package:sinapsis/features/citations/presentation/providers/citation_pref
 import 'package:sinapsis/features/dev_seed/presentation/providers/sample_library_providers.dart';
 import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_tile.dart';
 import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
+import 'package:sinapsis/features/settings/presentation/widgets/owner_name_tile.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/review_settings_section.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/theme_choice_picker.dart';
 import 'package:sinapsis/features/vault/domain/entities/compaction_assessment.dart';
@@ -65,6 +66,12 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // F42: cómo te llama la app —el saludo del chat—. Opcional y local.
+          _SettingsSection(
+            title: l10n.settingsYouSection,
+            children: const [OwnerNameTile()],
+          ),
+          const SizedBox(height: 24),
           _SettingsSection(
             title: l10n.settingsAppearanceSection,
             children: [
