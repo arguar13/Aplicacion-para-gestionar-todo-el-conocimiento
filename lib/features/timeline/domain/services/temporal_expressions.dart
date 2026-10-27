@@ -580,6 +580,12 @@ const _centuryContextChars = 1500;
 /// de 1000 a 1999 —con uno del 2000 en adelante, «los años 90» casi siempre
 /// son los del siglo anterior—. Sin un año cerca no se sabe de qué siglo, y
 /// no se toma.
+///
+/// `picked` viene en orden y sin solapes, así que los años más cercanos a una
+/// década son a lo sumo dos: el último que termina antes y el primero que
+/// empieza después. Se recorre una sola vez —un libro que nombra miles de
+/// décadas no compara cada una con todos sus años—; a igual distancia gana el
+/// de antes.
 List<_Candidate> _resolveShortDecades(List<_Candidate> picked) {
   final anchors = [
     for (final c in picked)
@@ -591,22 +597,28 @@ List<_Candidate> _resolveShortDecades(List<_Candidate> picked) {
         c,
   ];
   final resolved = <_Candidate>[];
+  var after = 0;
   for (final c in picked) {
     final short = c.shortDecade;
     if (short == null) {
       resolved.add(c);
       continue;
     }
+    while (after < anchors.length && anchors[after].start < c.end) {
+      after++;
+    }
     _Candidate? nearest;
     var nearestDistance = _centuryContextChars + 1;
-    for (final a in anchors) {
-      final distance = a.end <= c.start ? c.start - a.end : a.start - c.end;
-      if (distance < nearestDistance) {
-        nearest = a;
-        nearestDistance = distance;
-      }
+    if (after > 0) {
+      nearest = anchors[after - 1];
+      nearestDistance = c.start - nearest.end;
     }
-    if (nearest == null) continue;
+    if (after < anchors.length &&
+        anchors[after].start - c.end < nearestDistance) {
+      nearest = anchors[after];
+      nearestDistance = nearest.start - c.end;
+    }
+    if (nearest == null || nearestDistance > _centuryContextChars) continue;
     final century = nearest.date!.year ~/ 100 * 100;
     final date = readDecade(century + short);
     if (date != null) {

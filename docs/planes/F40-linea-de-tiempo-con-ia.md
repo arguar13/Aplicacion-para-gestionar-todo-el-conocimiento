@@ -322,3 +322,18 @@ carta de 1810). Un hecho fechado es una fecha **dentro** de un documento.
   - **Pruebas:** del paso, la cola, Ajustes, «Más», la hoja, la franja y el cableado, todas con un
     modelo falso. Las 106 + 7 mutaciones mueren; tres equivalentes se sacaron del código. La tanda
     amplia de la integración: 4.748 pruebas en verde.
+
+- **El detector ya no se frena con las décadas cortas — hecho.** La prueba del libro entero falló
+  una vez con la máquina cargada, y detrás había una causa real.
+  - **Causa:** para ponerle siglo a «los años 20», `_resolveShortDecades` comparaba cada década con
+    todos los años del texto. Un libro que nombra miles de décadas tardaba al cuadrado: con cuatro
+    veces más texto, doce veces más tiempo.
+  - **Arreglo:** los años ya vienen en orden y sin solapes, así que los candidatos son a lo sumo
+    dos, el último de antes y el primero de después. Un solo recorrido los encuentra. A igual
+    distancia gana el de antes, como siempre.
+  - **La prueba mide cómo crece, no cuánto tarda:** lo mejor de tres, intercalado, de un texto y
+    de otro cuatro veces mayor, con décadas cortas. Con la máquina cargada, los dos tamaños se
+    frenan juntos. Hoy da 3,8 y el recorrido viejo 11,8; el límite es 7.
+  - **Pruebas nuevas:** qué año elige la década (el de después si está más cerca, el de antes si
+    empatan, el último de varios) y el borde de 1.500 caracteres de cada lado. Las 8 mutaciones
+    mueren, entre ellas volver al recorrido viejo.

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
@@ -549,6 +551,49 @@ void main() {
       );
     });
 
+    test('«los años 20» elige el año más cercano de cada lado', () {
+      List<HistoricalDate> dates(String text) =>
+          findTemporalExpressions(text).map((e) => e.date).toList();
+
+      // El de después, si está más cerca que el de antes.
+      expect(dates('En 1714 empezó todo aquello. En los años 20, en 1914.'), [
+        year(1714),
+        decade(1920),
+        year(1914),
+      ]);
+      // A igual distancia, el de antes.
+      expect(dates('En 1714 y los años 20 y 1914.'), [
+        year(1714),
+        decade(1720),
+        year(1914),
+      ]);
+      // El último de antes, aunque haya varios.
+      expect(dates('En 1614, 1714 y 1814, los años 20.'), [
+        year(1614),
+        year(1714),
+        year(1814),
+        decade(1820),
+      ]);
+      // Cada década con el suyo, en un mismo texto.
+      expect(dates('En 1714 los años 20; ya en 1914, los años 30.'), [
+        year(1714),
+        decade(1720),
+        year(1914),
+        decade(1930),
+      ]);
+    });
+
+    test('un año a más de 1500 caracteres no dice el siglo', () {
+      List<HistoricalDate> dates(String text) =>
+          findTemporalExpressions(text).map((e) => e.date).toList();
+      String gap(int chars) => ' ' * chars;
+
+      expect(dates('1914${gap(1500)}los años 20'), [year(1914), decade(1920)]);
+      expect(dates('1914${gap(1501)}los años 20'), [year(1914)]);
+      expect(dates('los años 20${gap(1500)}1914'), [decade(1920), year(1914)]);
+      expect(dates('los años 20${gap(1501)}1914'), [year(1914)]);
+    });
+
     test('«los años veinte», «the twenties», «the 20s»', () {
       expect(
         findTemporalExpressions(
@@ -1025,14 +1070,35 @@ void main() {
       expect(spans('1809, 1859, 1882'), ['1809', '1859', '1882']);
     });
 
-    test('un libro entero se recorre en un tiempo razonable', () {
-      // Cien mil expresiones: si cada una se comparara con todas las demás,
-      // llevaría más de un minuto.
-      final text = List.filled(50000, 'Nació en 1809 y murió en 1882. ').join();
-      final watch = Stopwatch()..start();
-      final found = findTemporalExpressions(text);
-      expect(found, hasLength(100000));
-      expect(watch.elapsed, lessThan(const Duration(seconds: 20)));
+    test('un libro entero se recorre en un tiempo que crece con el texto', () {
+      // Se mide cuánto crece el tiempo, no cuánto tarda: con la máquina
+      // cargada los dos tamaños se frenan juntos. Cuatro veces más texto
+      // tarda unas cuatro veces más; si cada expresión se comparara con
+      // todas las demás —o cada «los años 20» con todos los años del
+      // texto—, tardaría doce.
+      String book(int sentences) => List.filled(
+        sentences,
+        'Nació en 1809; en los años 20 viajó y murió en 1882. ',
+      ).join();
+      int micros(String text) {
+        final watch = Stopwatch()..start();
+        findTemporalExpressions(text);
+        return watch.elapsedMicroseconds;
+      }
+
+      final small = book(8000);
+      final big = book(32000);
+      expect(findTemporalExpressions(big), hasLength(96000));
+      micros(small);
+      // Lo mejor de tres, intercalado: un tirón de la máquina no cae
+      // siempre sobre el mismo tamaño.
+      var bestSmall = micros(small);
+      var bestBig = micros(big);
+      for (var i = 0; i < 2; i++) {
+        bestSmall = math.min(bestSmall, micros(small));
+        bestBig = math.min(bestBig, micros(big));
+      }
+      expect(bestBig / bestSmall, lessThan(7));
     });
 
     test('los espacios duros y los saltos de línea dentro de la expresión', () {
