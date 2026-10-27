@@ -44,6 +44,12 @@ sealed class VaultMergePreview with _$VaultMergePreview {
     @Default(0) int newPropertyValues,
     @Default(0) int newConversations,
 
+    /// Lo resaltado para estudiar un documento (F36) y los hechos fechados que
+    /// la línea de tiempo lee (F40), con la regla de la unión: las marcas que
+    /// acá no están y los hechos que acá no hay, no repetidos por otro id.
+    @Default(0) int newStudyMarks,
+    @Default(0) int newDatedEvents,
+
     /// Archivos originales de la copia que esta bóveda no tiene, con cuánto
     /// pesan; y los que la copia dice tener y no trae.
     @Default(0) int newFiles,
@@ -68,5 +74,7 @@ sealed class VaultMergePreview with _$VaultMergePreview {
       newSpaces == 0 &&
       newPropertyValues == 0 &&
       newConversations == 0 &&
+      newStudyMarks == 0 &&
+      newDatedEvents == 0 &&
       newFiles == 0;
 }

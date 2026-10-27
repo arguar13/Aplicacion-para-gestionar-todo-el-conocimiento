@@ -231,6 +231,8 @@ class VaultMerger {
       valueParentsAdopted: vocabulary.parentsAdopted,
       valueParentsIgnored: vocabulary.parentsIgnored,
       habitEventsAdded: unions.habitEvents,
+      studyMarksAdded: unions.studyMarks,
+      datedEventsAdded: unions.datedEvents,
       aiRunsAdded: ai.runs,
       aiRejectionsAdded: ai.rejections,
     );

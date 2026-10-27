@@ -90,6 +90,23 @@ void main() {
     expect(row['origin'], 'user');
   });
 
+  test('lo que se unió se cuenta en el resultado: una fusión que solo trajo '
+      'hechos y marcas no es «no cambió nada»', () async {
+    await shareItems();
+    pc.at(5);
+    await pc.addDatedEvent('hecho', 'a');
+    await pc.addStudyMark('marca', 'a');
+
+    tel.at(9);
+    final result = await tel.mergeFrom(pc);
+
+    expect(result.datedEventsAdded, 1);
+    expect(result.studyMarksAdded, 1);
+    expect(result.changedNothing, isFalse);
+    tel.at(10);
+    expect((await tel.mergeFrom(pc)).changedNothing, isTrue);
+  });
+
   test('el mismo id no entra dos veces, y fusionar dos veces no duplica '
       'nada', () async {
     await shareItems();

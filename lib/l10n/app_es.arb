@@ -9555,5 +9555,23 @@
         "type": "int"
       }
     }
+  },
+  "vaultMergePreviewStudyMarks": "{count, plural, =1{1 marca de estudio} other{{count} marcas de estudio}}",
+  "@vaultMergePreviewStudyMarks": {
+    "description": "Renglón del resumen de unir bóvedas: lo resaltado para estudiar un documento (resúmenes, síntesis y palabras clave) que la copia trae y esta bóveda no tiene.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergePreviewDatedEvents": "{count, plural, =1{1 fecha de la línea de tiempo} other{{count} fechas de la línea de tiempo}}",
+  "@vaultMergePreviewDatedEvents": {
+    "description": "Renglón del resumen de unir bóvedas: hechos fechados dentro de un documento (F40) que la copia trae y esta bóveda no tiene.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

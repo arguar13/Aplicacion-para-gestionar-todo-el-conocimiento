@@ -76,6 +76,11 @@ sealed class VaultMergeResult with _$VaultMergeResult {
     /// algo en Vocabulario.
     @Default(0) int habitEventsAdded,
 
+    /// Lo resaltado para estudiar un documento (F36) y los hechos fechados de
+    /// la línea de tiempo (F40).
+    @Default(0) int studyMarksAdded,
+    @Default(0) int datedEventsAdded,
+
     /// Las pasadas de la IA y lo que la persona dijo que «no era» (F27).
     @Default(0) int aiRunsAdded,
     @Default(0) int aiRejectionsAdded,
@@ -108,6 +113,8 @@ sealed class VaultMergeResult with _$VaultMergeResult {
       sourcesChunked == 0 &&
       filesCopied == 0 &&
       habitEventsAdded == 0 &&
+      studyMarksAdded == 0 &&
+      datedEventsAdded == 0 &&
       aiRunsAdded == 0 &&
       aiRejectionsAdded == 0;
 }

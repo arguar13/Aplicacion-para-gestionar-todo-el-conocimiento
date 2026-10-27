@@ -3,6 +3,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_work.dart';
+import 'package:sinapsis/features/vault/data/merge/set_union_rules.dart';
 
 /// Cuánto entró de lo que se une por conjuntos.
 class SetUnionResult {
@@ -441,28 +442,12 @@ class SetUnionMerge {
     // eligió a mano. Si acá no se analizó, entra el de la copia entero, con
     // hasta dónde llegaba. Las marcas van antes que el análisis: la condición
     // mira si acá había uno.
-    const renditionOf = 'COALESCE(rm.local_id, x.rendition_id)';
-    const renditionJoin =
-        '''
-      LEFT JOIN ${MergeWork.renditionMap} rm ON rm.incoming_id = x.rendition_id
-     WHERE (rm.incoming_id IS NULL OR rm.local_id IS NOT NULL)
-       AND EXISTS (SELECT 1 FROM main.renditions r WHERE r.id = $renditionOf)''';
+    const renditionOf = SetUnionRules.studyRenditionOf;
     final studyMarks = await _union(
       _db.studyMarks,
       'study_marks',
       kStudyMarkColumns,
-      '''
-      FROM $_incoming.study_marks x
-      $renditionJoin
-       AND NOT EXISTS (SELECT 1 FROM main.study_marks m WHERE m.id = x.id)
-       AND NOT EXISTS (
-         SELECT 1 FROM main.study_marks m
-          WHERE m.rendition_id = $renditionOf AND m.kind = x.kind
-            AND m.start_offset = x.start_offset
-            AND m.end_offset = x.end_offset)
-       AND (x.origin = 'user' OR NOT EXISTS (
-         SELECT 1 FROM main.study_analyses a
-          WHERE a.rendition_id = $renditionOf))''',
+      SetUnionRules.studyMarksFrom(),
       select: {'rendition_id': renditionOf},
     );
     await _union(
@@ -471,7 +456,7 @@ class SetUnionMerge {
       kStudyAnalysisColumns,
       '''
       FROM $_incoming.study_analyses x
-      $renditionJoin
+      ${SetUnionRules.studyRenditionJoin()}
        AND NOT EXISTS (
          SELECT 1 FROM main.study_analyses a
           WHERE a.rendition_id = $renditionOf)''',
@@ -490,25 +475,7 @@ class SetUnionMerge {
       _db.datedEvents,
       'dated_events',
       kDatedEventColumns,
-      '''
-      FROM $_incoming.dated_events x
-      LEFT JOIN ${MergeWork.renditionMap} rm ON rm.incoming_id = x.rendition_id
-      LEFT JOIN main.renditions lr
-             ON lr.id = COALESCE(rm.local_id, x.rendition_id)
-            AND (rm.incoming_id IS NULL OR rm.local_id IS NOT NULL)
-     WHERE ${_itemExists('x.item_id')}
-       AND NOT ${AiProvenanceMerge.rejectedDatedEvent('x')}
-       AND NOT EXISTS (SELECT 1 FROM main.dated_events m WHERE m.id = x.id)
-       AND NOT EXISTS (
-         SELECT 1 FROM main.dated_events m
-          WHERE m.item_id = x.item_id
-            AND m.date_from_year = x.date_from_year
-            AND m.date_from_month = x.date_from_month
-            AND m.date_from_day = x.date_from_day
-            AND m.date_precision = x.date_precision
-            AND (m.excerpt = x.excerpt
-                 OR (x.excerpt IS NULL AND m.excerpt IS NULL
-                     AND m.title = x.title COLLATE NOCASE)))''',
+      SetUnionRules.datedEventsFrom(),
       select: {
         'rendition_id': 'lr.id',
         'start_offset': 'CASE WHEN lr.id IS NOT NULL THEN x.start_offset END',

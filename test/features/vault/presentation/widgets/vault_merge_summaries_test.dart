@@ -62,6 +62,30 @@ void main() {
       expect(lines.last, contains('1 kB'));
     });
 
+    test('lo estudiado y las fechas de la línea de tiempo, después de las '
+        'conversaciones y antes de los archivos', () {
+      final lines = vaultMergePreviewLines(
+        es,
+        empty.copyWith(
+          newConversations: 1,
+          newStudyMarks: 4,
+          newDatedEvents: 1,
+          newFiles: 1,
+        ),
+      );
+
+      expect(lines, hasLength(4));
+      expect(lines[1], es.vaultMergePreviewStudyMarks(4));
+      expect(lines[2], es.vaultMergePreviewDatedEvents(1));
+      expect(es.vaultMergePreviewStudyMarks(4), '4 marcas de estudio');
+      expect(
+        es.vaultMergePreviewDatedEvents(1),
+        '1 fecha de la línea de tiempo',
+      );
+      expect(en.vaultMergePreviewStudyMarks(1), '1 study mark');
+      expect(en.vaultMergePreviewDatedEvents(3), '3 timeline dates');
+    });
+
     test('el singular y el plural, en los dos idiomas', () {
       expect(es.vaultMergePreviewItems(1), '1 elemento nuevo');
       expect(es.vaultMergePreviewItems(5), '5 elementos nuevos');

@@ -421,7 +421,8 @@ class TestVault {
         ),
       );
 
-  /// Una marca de estudio (F36) sobre el texto de [itemId].
+  /// Una marca de estudio (F36) sobre el texto de [itemId], o sobre la forma
+  /// [renditionId] si se pide otra.
   Future<void> addStudyMark(
     String id,
     String itemId, {
@@ -429,12 +430,13 @@ class TestVault {
     ContentOrigin origin = ContentOrigin.ai,
     int start = 0,
     int end = 5,
+    String? renditionId,
   }) => db
       .into(db.studyMarks)
       .insert(
         StudyMarksCompanion.insert(
           id: id,
-          renditionId: 'rend-$itemId',
+          renditionId: renditionId ?? 'rend-$itemId',
           kind: kind,
           origin: origin,
           startOffset: start,

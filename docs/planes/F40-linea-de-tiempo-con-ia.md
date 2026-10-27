@@ -261,3 +261,19 @@ carta de 1810). Un hecho fechado es una fecha **dentro** de un documento.
   - **Lo que no cuenta todavía:** la vista previa de la fusión no muestra cuántos hechos trae,
     igual que pasa con lo estudiado.
   - **Cifras:** 10.000 hechos fechados se leen en menos de 3 s. Las 88 mutaciones mueren.
+
+- **La vista previa de unir bóvedas cuenta los hechos fechados y lo estudiado — hecho.** Era lo
+  que el paso 3 había dejado sin contar.
+  - **Causa:** cada tabla de la unión necesita su cifra en cuatro lugares escritos a mano: la
+    vista previa, `hasNothingNew`, el resultado y `changedNothing`. Ningún censo los vigilaba, y
+    `study_marks` y `dated_events` quedaron afuera.
+  - **Efectos:**
+    - una copia que solo traía hechos o marcas se anunciaba «nada nuevo, no hace falta unirla»;
+    - si igual se unía, el resultado decía «no cambió nada».
+  - **Arreglo:** la regla de qué entra (`SetUnionRules`) es una sola, y la comparten la unión y la
+    vista previa, así que no pueden discrepar. La vista previa la corre sin escribir (`dryRun`) y
+    sin crear nada en la conexión.
+  - **Censo:** `merge_counts_census_test` hace fallar cualquier tabla nueva de la unión que no
+    tenga su cifra en la vista previa y en el resultado, o el motivo de por qué no.
+  - **Pruebas:** 18 de paridad entre la vista previa y lo que la unión escribe; las 23 mutaciones
+    mueren.

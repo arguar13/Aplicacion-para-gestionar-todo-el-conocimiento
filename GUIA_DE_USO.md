@@ -2552,6 +2552,10 @@ nada de lo que ya tenés.
 3. Si trae novedades, te muestra un resumen de todo lo que se sumaría (con el
    aviso: *"Nada de lo que tenés en esta bóveda se borra. Si algo falla, no
    se cambia nada."*) y tocás **"Unir"** para confirmar.
+   El resumen cuenta también lo estudiado (las marcas de resumen, síntesis y
+   palabras clave de un documento) y las fechas de la línea de tiempo que la
+   copia trae y vos no tenés. Si lo único nuevo es una de esas dos cosas, la
+   copia igual se puede unir: ya no te dice que "no hace falta".
 4. Al terminar, ves un resumen final; si quedó algo para revisar a mano
    (porque se cambió en los dos lados a la vez), hay un botón **"Revisar"**
    que te lleva directo a esa pantalla (ver abajo).

@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Variable;
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
@@ -7,6 +9,7 @@ import 'package:sinapsis/features/vault/data/merge/entry_merge_planner.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
 import 'package:sinapsis/features/vault/data/merge/rendition_merge.dart';
+import 'package:sinapsis/features/vault/data/merge/set_union_rules.dart';
 import 'package:sinapsis/features/vault/data/merge/space_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/vocabulary_merge.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
@@ -78,6 +81,7 @@ class VaultMergeReader {
     final known = await MergeConflictLog(database: _db).known();
     final plan = await EntryMergePlanner(_db).plan(spaces, known: known);
     final texts = await RenditionMergePlanner(_db).plan(known: known);
+    final renditionMap = _renditionMap(texts);
     // Un texto de nota que cambia cuenta como un campo del elemento.
     final updatedItems = {
       ...plan.updates.map((c) => c.itemId),
@@ -120,6 +124,18 @@ class VaultMergeReader {
       // distinguir mayúsculas: dos con el mismo nombre no pueden convivir.
       newSpaces: spaces.toAdd.length,
       newPropertyValues: await _scalar(VocabularyMerge.newValuesSql()),
+      // Lo estudiado y los hechos fechados se cuentan con la regla de la unión,
+      // la misma que usa al escribir ([SetUnionRules]): no la copia.
+      newStudyMarks: await _scalar(
+        '${SetUnionRules.dryRunRenditionMapCte} '
+        'SELECT COUNT(*) ${SetUnionRules.studyMarksFrom(dryRun: true)}',
+        [renditionMap],
+      ),
+      newDatedEvents: await _scalar(
+        '${SetUnionRules.dryRunRenditionMapCte} '
+        'SELECT COUNT(*) ${SetUnionRules.datedEventsFrom(dryRun: true)}',
+        [renditionMap],
+      ),
       newConversations: await _scalar(
         '''
         SELECT COUNT(*) FROM $_incoming.conversations c
@@ -131,8 +147,27 @@ class VaultMergeReader {
     );
   }
 
-  Future<int> _scalar(String sql) async =>
-      (await _db.customSelect(sql).getSingle()).data.values.first! as int;
+  /// El mapa de formas como lo dejaría la fusión, en JSON para contar con él
+  /// sin escribir: las que no entran con su id van a la que ya tiene su texto
+  /// —o a ninguna—, y el texto distinto que entra como otra forma va a una
+  /// nueva, que todavía no existe: se marca con un id que no es de ninguna
+  /// forma de acá.
+  String _renditionMap(RenditionMergePlan texts) => jsonEncode({
+    ...texts.notPlaced,
+    for (final change in texts.changes)
+      if (change.action == RenditionAction.keepBoth)
+        change.incomingId: 'otra-forma:${change.incomingId}',
+  });
+
+  Future<int> _scalar(String sql, [List<String> variables = const []]) async {
+    final row = await _db
+        .customSelect(
+          sql,
+          variables: [for (final v in variables) Variable<String>(v)],
+        )
+        .getSingle();
+    return row.data.values.first! as int;
+  }
 
   /// Los archivos originales que la copia referencia: cuáles esta bóveda no
   /// tiene y cuáles la copia dice tener y no trae.
