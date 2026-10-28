@@ -313,19 +313,20 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
    - la cola de la IA sobre documentos procesados, no sobre fuentes;
    - Atlas, Mapa, grafo local y Línea de tiempo leen solo procesados, empezando de cero;
    - los accesos del detalle y los vacíos.
-8. **Las imágenes en Procesado** (decisión L), después del 1b y del 4:
+7. **Las imágenes en Procesado** (decisión L), después del 1b y del 4:
    - los datos, en un esquema nuevo, con sus censos de papelera, copia y unión de bóvedas;
    - la grilla de la hoja y la galería del documento.
-9. **La fuente de consulta** (decisión K), después de los pasos 5 y 6:
+8. **La fuente de consulta** (decisión K), después de los pasos 5 y 6:
    - lo que sale del detalle de la fuente;
    - el Mapa y las Tarjetas de repaso del documento procesado, con «De la fuente».
-7. **Cierre:**
+9. **Cierre:**
    - la GUÍA, la decisión en `docs/arquitectura.md`, CONTEXTO y el «Avance»;
    - la suite entera y `verify_commit`;
    - la APK al teléfono si la pedís.
 
 Una vez que el paso 1 esté en main, los pasos 1b, 2, 3, 5 y 6 van **en paralelo**, cada uno con su
-agente. Los pasos 2, 3 y 5 suman lo del 1b cuando entre. El 4 sigue al 3.
+agente. Los pasos 2, 3 y 5 suman lo del 1b cuando entre. El 4 sigue al 3. El 7 sigue al 1b y al 4, y el 8
+sigue al 5 y al 6.
 
 ## Avance
 
