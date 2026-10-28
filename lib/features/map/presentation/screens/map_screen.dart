@@ -22,7 +22,9 @@ import 'package:sinapsis/features/map/presentation/widgets/map_filter_sheet.dart
 import 'package:sinapsis/features/map/presentation/widgets/map_graph_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_links_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
+import 'package:sinapsis/features/organize/presentation/open_organized_item.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/fills_on_triage.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Las vistas del mapa: cuatro maneras de mirar la bóveda con los mismos
@@ -103,7 +105,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         : RoutePaths.explorerFor(valueId),
   );
 
-  void _openItem(String itemId) => context.push(RoutePaths.itemDetail(itemId));
+  void _openItem(String itemId) => openOrganizedItem(context, itemId);
 
   void _openTension() => context.push(RoutePaths.graphTension);
 
@@ -383,6 +385,15 @@ class _MapBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    // Empieza de cero (F41, paso 6): el Mapa se arma con lo procesado, y sin
+    // nada procesado se dice cómo se llena, en todas las vistas.
+    if (ref.watch(hasProcessedProvider) == false) {
+      return FillsOnTriage(
+        icon: Icons.hub_outlined,
+        title: l10n.mapFillsOnTriageTitle,
+        message: l10n.mapFillsOnTriageMessage,
+      );
+    }
     // Los vínculos no esperan al grafo de temas: no lo usan.
     if (view == MapView.links) {
       return Column(children: [Expanded(child: _fade(context, _links()))]);

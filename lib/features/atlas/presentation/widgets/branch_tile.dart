@@ -14,9 +14,9 @@ const _maxMapNoteChips = 2;
 /// Una rama del Atlas: el tema con lo que hay debajo, cuánto está trabajado y
 /// por dónde entrar.
 ///
-/// Muestra los conteos en cascada —fuentes y notas, cada una con el color con
-/// que la app distingue una de otra—, el estado de cobertura, el rango de
-/// fechas que cubre y sus notas mapa como puntos de entrada. Tocar la fila
+/// Muestra los conteos en cascada —los documentos procesados, y cuántos con
+/// notas propias—, el estado de cobertura, el rango de fechas que cubre y sus
+/// notas mapa como puntos de entrada. Tocar la fila
 /// pliega o despliega (una rama sin subtemas abre su material); el menú y las
 /// marcas llevan al material, a la línea de tiempo, a las notas mapa y a la
 /// bibliografía de la rama (F15, D13).
@@ -259,7 +259,8 @@ class BranchTile extends StatelessWidget {
   static const _notePrefix = 'note:';
 }
 
-/// Cuántas fuentes y cuántas notas hay en la rama, cada una con su color.
+/// Cuántos documentos procesados hay en la rama y, si los hay, cuántos con
+/// notas propias (F41, paso 6).
 class _Counts extends StatelessWidget {
   const _Counts({required this.node});
 
@@ -285,17 +286,16 @@ class _Counts extends StatelessWidget {
     return Wrap(
       spacing: 12,
       children: [
-        if (node.sourceCount > 0)
-          count(
-            Icons.article_outlined,
-            EntityRole.source.accent(colors),
-            l10n.atlasSourceCount(node.sourceCount),
-          ),
-        if (node.noteCount > 0)
+        count(
+          Icons.article_outlined,
+          colors.secondary,
+          l10n.atlasProcessedCount(node.itemCount),
+        ),
+        if (node.annotatedCount > 0)
           count(
             SourceKind.manualNote.icon,
             EntityRole.note.accent(colors),
-            l10n.atlasNoteCount(node.noteCount),
+            l10n.atlasAnnotatedCount(node.annotatedCount),
           ),
       ],
     );

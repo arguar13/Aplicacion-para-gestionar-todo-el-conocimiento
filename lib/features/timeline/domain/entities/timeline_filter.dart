@@ -97,6 +97,8 @@ sealed class TimelineFilter with _$TimelineFilter {
         ? {scope!.id}
         : const {},
     ids: scope?.kind == TimelineScopeKind.document ? {scope!.id} : null,
+    // La línea de tiempo lee lo procesado (F41, paso 6).
+    scope: LibraryScope.processed,
   );
 
   /// Cuántos filtros del panel (tipos y etiquetas) hay puestos.

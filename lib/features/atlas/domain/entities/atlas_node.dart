@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/processed_depth.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_coverage.dart';
 
 part 'atlas_node.freezed.dart';
@@ -13,15 +14,15 @@ sealed class AtlasMapNote with _$AtlasMapNote {
 
 /// Una rama del Atlas: un valor del vocabulario con lo que hay debajo de él.
 ///
-/// Todos los conteos son EN CASCADA: cuentan los elementos asignados al valor
-/// o a cualquiera de sus descendientes, y un elemento asignado a varios de la
-/// rama cuenta UNA vez. Asignar un hijo no asigna el padre —eso sigue siendo
-/// cierto en la base—: el padre lo muestra porque el Atlas cuenta hacia abajo,
-/// como el filtro de la Biblioteca.
+/// Todos los conteos son EN CASCADA: cuentan los documentos asignados al valor
+/// o a cualquiera de sus descendientes, y uno asignado a varios de la rama
+/// cuenta UNA vez. Asignar un hijo no asigna el padre —eso sigue siendo cierto
+/// en la base—: el padre lo muestra porque el Atlas cuenta hacia abajo, como el
+/// filtro de la Biblioteca.
 ///
-/// Una fuente y una nota se cuentan aparte, no juntas: son cosas distintas
-/// —material crudo y entendimiento— y el estado de cobertura sale de esa
-/// diferencia.
+/// Desde F41 (paso 6) lo que se cuenta son documentos procesados, cada uno en
+/// el escalón más alto de [ProcessedDepth] que alcanza: el estado de cobertura
+/// sale de esa diferencia.
 @freezed
 sealed class AtlasNode with _$AtlasNode {
   const factory AtlasNode({
@@ -33,27 +34,24 @@ sealed class AtlasNode with _$AtlasNode {
     /// Cuántos hijos directos tiene.
     @Default(0) int childCount,
 
-    /// Fuentes en la rama.
-    @Default(0) int sourceCount,
+    /// Documentos procesados con su texto y nada más.
+    @Default(0) int textOnlyCount,
 
-    /// Notas atómicas en la rama.
-    @Default(0) int atomicCount,
+    /// Con el resumen o la síntesis, sin fragmentos ni notas.
+    @Default(0) int summarizedCount,
 
-    /// Notas vivas `seed` o `developing`: las que se están construyendo.
-    @Default(0) int growingLivingCount,
+    /// Con fragmentos cortados a mano, sin notas.
+    @Default(0) int cutCount,
 
-    /// Notas vivas `mature`.
-    @Default(0) int matureLivingCount,
+    /// Con notas propias.
+    @Default(0) int annotatedCount,
 
-    /// Notas mapa en la rama.
-    @Default(0) int mapCount,
-
-    /// La actualización más reciente de un elemento de la rama; `null` si no
+    /// La actualización más reciente de un documento de la rama; `null` si no
     /// tiene ninguno.
     DateTime? lastTouched,
 
     /// El año astronómico más temprano de la «Fecha del hecho» de los
-    /// elementos de la rama; `null` si ninguno tiene fecha.
+    /// documentos de la rama; `null` si ninguno tiene fecha.
     int? firstYear,
 
     /// El año astronómico más tardío. Con `firstYear` es el eje temporal de la
@@ -66,24 +64,27 @@ sealed class AtlasNode with _$AtlasNode {
 
   const AtlasNode._();
 
-  /// Notas vivas, del grado de madurez que sean.
-  int get livingCount => growingLivingCount + matureLivingCount;
+  /// Cuántos documentos hay en [depth].
+  int countOf(ProcessedDepth depth) => switch (depth) {
+    ProcessedDepth.textOnly => textOnlyCount,
+    ProcessedDepth.summarized => summarizedCount,
+    ProcessedDepth.cut => cutCount,
+    ProcessedDepth.annotated => annotatedCount,
+  };
 
-  /// Notas de cualquier subtipo.
-  int get noteCount => atomicCount + livingCount + mapCount;
-
-  /// Elementos en la rama: fuentes más notas, sin repetir ninguno.
-  int get itemCount => sourceCount + noteCount;
+  /// Documentos procesados en la rama, sin repetir ninguno.
+  int get itemCount =>
+      textOnlyCount + summarizedCount + cutCount + annotatedCount;
 
   /// Si la rama tiene subtemas.
   bool get hasChildren => childCount > 0;
 
   /// El estado de cobertura: el nivel más avanzado que hay en la rama.
   AtlasCoverage get coverage {
-    if (matureLivingCount > 0) return AtlasCoverage.mature;
-    if (growingLivingCount > 0) return AtlasCoverage.growing;
-    if (noteCount > 0) return AtlasCoverage.fragments;
-    if (sourceCount > 0) return AtlasCoverage.sourcesOnly;
+    if (annotatedCount > 0) return AtlasCoverage.annotated;
+    if (cutCount > 0) return AtlasCoverage.cut;
+    if (summarizedCount > 0) return AtlasCoverage.summarized;
+    if (textOnlyCount > 0) return AtlasCoverage.textOnly;
     return AtlasCoverage.empty;
   }
 }

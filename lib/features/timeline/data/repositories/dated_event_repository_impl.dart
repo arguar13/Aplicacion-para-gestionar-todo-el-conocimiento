@@ -284,6 +284,10 @@ class DatedEventRepositoryImpl implements DatedEventRepository {
 
   /// Que [renditionId] —si hay— sea una forma de texto de [itemId]: la cita
   /// de un hecho es de un texto de SU elemento.
+  ///
+  /// O de su fuente, si [itemId] es un documento procesado (F41, paso 6): un
+  /// procesado no tiene formas propias, y lo que se cita de una parte copiada
+  /// tal cual está, letra por letra, en el original. Ahí se abre la cita.
   Future<bool> _renditionBelongsTo(String? renditionId, String itemId) async {
     if (renditionId == null) return true;
     final rendition =
@@ -291,7 +295,13 @@ class DatedEventRepositoryImpl implements DatedEventRepository {
               ..addColumns([_db.renditions.itemId])
               ..where(_db.renditions.id.equals(renditionId)))
             .getSingleOrNull();
-    return rendition?.read(_db.renditions.itemId) == itemId;
+    final owner = rendition?.read(_db.renditions.itemId);
+    if (owner == null) return false;
+    if (owner == itemId) return true;
+    final processed = await (_db.select(
+      _db.processedDocuments,
+    )..where((d) => d.itemId.equals(itemId))).getSingleOrNull();
+    return processed?.sourceItemId == owner;
   }
 
   DatedEventsCompanion _companionOf(

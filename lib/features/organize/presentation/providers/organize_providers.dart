@@ -65,7 +65,8 @@ typedef NeighborhoodRequest = ({String itemId, int? degree, int maxNodes});
 
 /// Lo que rodea a un elemento en el grafo, actualizándose solo. Para el grafo
 /// local: su costo depende de los vecinos del elemento, no del tamaño de la
-/// bóveda —ver `OrganizeRepository.watchNeighborhood`—.
+/// bóveda —ver `OrganizeRepository.watchNeighborhood`—. Como el Mapa, lee solo
+/// los vínculos entre documentos procesados (F41, paso 6).
 final neighborhoodProvider = StreamProvider.autoDispose
     .family<Neighborhood, NeighborhoodRequest>((ref, request) {
       return ref
@@ -74,6 +75,7 @@ final neighborhoodProvider = StreamProvider.autoDispose
             seedItemId: request.itemId,
             degree: request.degree,
             maxNodes: request.maxNodes,
+            processedOnly: true,
           );
     });
 

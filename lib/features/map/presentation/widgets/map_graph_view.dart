@@ -632,10 +632,11 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
           if (_scene.nodes[edge.b].ref case final to?) (from: from, to: to),
     ];
 
-    // Los títulos y el texto de cada elemento: la escena solo trae el título.
+    // Los títulos de cada elemento —la escena solo trae el título—: son
+    // documentos procesados, como todo lo del Mapa (F41, paso 6).
     final loaded = await ref
         .read(libraryRepositoryProvider)
-        .list(LibraryQuery(ids: ids));
+        .list(LibraryQuery(ids: ids, scope: LibraryScope.processed));
     if (!mounted) return;
 
     final failure = loaded.getLeft().toNullable();

@@ -91,3 +91,27 @@ Future<void> insertProcessedRows(
     }
   }
 }
+
+/// Un documento procesado con un mismo texto —[text], o el título— en cada una
+/// de [sections]: lo que leen el Atlas, el Mapa, el grafo local y la Línea de
+/// tiempo (F41, paso 6), que miran qué secciones tiene y no qué dice cada una.
+/// Lo escribe [insertProcessedRows]; las pruebas que necesitan el camino
+/// entero —una fuente que se tría— pasan por `ProcessSourceUseCase`.
+Future<void> insertProcessedDocument(
+  AppDatabase db, {
+  required String id,
+  required String title,
+  DateTime? createdAt,
+  Set<ProcessedSection> sections = const {ProcessedSection.text},
+  SourceKind sourceKind = SourceKind.webPage,
+  String? text,
+}) => insertProcessedRows(
+  db,
+  id: id,
+  title: title,
+  sourceKind: sourceKind,
+  createdAt: createdAt ?? DateTime(2026, 9, 19, 10),
+  parts: {
+    for (final section in sections) section: [text ?? title],
+  },
+);

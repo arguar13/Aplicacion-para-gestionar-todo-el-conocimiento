@@ -68,7 +68,11 @@ void main() {
     await topics.add('Grecia', parentId: historia, createdAt: DateTime(2026));
     final roma = await topics.add('Roma');
     for (var i = 1; i <= 5; i++) {
-      await vault.source('f$i', title: 'Fuente $i', content: 'Texto $i.');
+      await vault.processedDocument(
+        'f$i',
+        title: 'Fuente $i',
+        content: 'Texto $i.',
+      );
       await topics.tag('f$i', roma);
     }
 

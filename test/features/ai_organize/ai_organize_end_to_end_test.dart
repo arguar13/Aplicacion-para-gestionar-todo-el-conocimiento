@@ -11,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
+import 'package:sinapsis/features/ai_organize/data/services/organize_text_reader_impl.dart';
 import 'package:sinapsis/features/ai_organize/data/services/vocabulary_candidates.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_flashcards_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_properties_step.dart';
@@ -21,6 +22,8 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
+import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 import 'package:sinapsis/features/relations/data/services/chunk_embedding_indexer_impl.dart';
 import 'package:sinapsis/features/relations/data/services/relation_candidate_selector_impl.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_service.dart';
@@ -38,6 +41,7 @@ import '../../support/fake_metadata_suggestion_generator.dart';
 import '../../support/fake_property_suggestion_service.dart';
 import '../../support/fake_relation_suggestion_service.dart';
 import '../../support/gemma_status_check.dart';
+import '../../support/in_memory_file_store.dart';
 import '../../support/silent_logger.dart';
 import '../../support/transform_test_doubles.dart';
 
@@ -65,10 +69,11 @@ class _OneCard implements FlashcardGenerator {
   ];
 }
 
-/// De punta a punta (F27): un elemento termina de procesarse, la cola de la
-/// IA lo toma sola, la pasada crea vínculos, tarjetas y propiedades marcadas
-/// como de la IA, y deshacerla se lleva todo. Lo único falso son los modelos
-/// y la red.
+/// De punta a punta (F27, F41 paso 6): una fuente termina de procesarse y la
+/// IA no la toca; la persona la tría, y la IA organiza su documento procesado
+/// —con lo elegido, vinculándolo con otro procesado y no con las fuentes—: la
+/// pasada crea vínculos, tarjetas y propiedades marcadas como de la IA, y
+/// deshacerla se lleva todo. Lo único falso son los modelos y la red.
 void main() {
   late AiOrganizeHarness vault;
   late String epoca;
@@ -82,8 +87,8 @@ void main() {
 
   tearDown(() => vault.close());
 
-  test('procesar un elemento → la IA lo organiza sola → deshacer la pasada '
-      'se lleva todo', () async {
+  test('procesar una fuente → triarla → la IA organiza su documento procesado '
+      '→ deshacer la pasada se lleva todo', () async {
     final embeddings = FakeEmbeddingService(
       vectorFor: (text) => text.contains('Senado') ? [0.9, 0.4359] : [1.0, 0.0],
     );
@@ -92,8 +97,23 @@ void main() {
       embeddings: embeddings,
       clock: vault.clock,
     );
-    // Lo que ya había en la biblioteca, de antes de que la IA organizara
-    // sola: indexado y con su época puesta a mano.
+    final triage = ProcessSourceUseCase(
+      ProcessedRepositoryImpl(
+        database: vault.db,
+        telemetry: vault.telemetry,
+        ids: vault.ids,
+        clock: vault.clock,
+        files: InMemoryFileStore(),
+      ),
+    );
+    Future<String> passUnchanged(String sourceId) async =>
+        (await triage.passUnchanged(
+          sourceId,
+        )).getOrElse((f) => fail('$f')).documentId;
+
+    // Lo que ya había en la biblioteca: una fuente indexada —que no es
+    // candidata de un procesado— y su documento procesado, con su época
+    // puesta a mano y los vectores de lo que se eligió.
     await vault.source(
       'senado',
       title: 'El Senado',
@@ -101,8 +121,10 @@ void main() {
       createdAt: DateTime(2026, 9),
     );
     await indexer.indexItem('senado');
+    final senado = await passUnchanged('senado');
+    await indexer.indexNote(senado);
     await vault.organize.assignProperty(
-      itemId: 'senado',
+      itemId: senado,
       definitionId: epoca,
       value: 'Antigua',
     );
@@ -123,6 +145,7 @@ void main() {
       ),
     );
 
+    final texts = OrganizeTextReaderImpl(vault.db);
     final ai = AiOrganizeQueue(
       backlog: AiOrganizeBacklogImpl(vault.db),
       runs: vault.runs,
@@ -146,6 +169,7 @@ void main() {
           organize: vault.organize,
           suggestions: vault.suggestions,
           runs: vault.runs,
+          texts: texts,
         ),
         AutoRelateStep(
           database: vault.db,
@@ -153,9 +177,9 @@ void main() {
           indexer: indexer,
           selector: RelationCandidateSelectorImpl(database: vault.db),
           service: FakeRelationSuggestionService(
-            suggestions: const [
+            suggestions: [
               RelationSuggestion(
-                itemId: 'senado',
+                itemId: senado,
                 kind: RelationKind.relatedTo,
                 reason: 'Los dos hablan del Senado',
                 certainty: AiCertainty.high,
@@ -165,6 +189,7 @@ void main() {
           organize: vault.organize,
           suggestions: vault.suggestions,
           runs: vault.runs,
+          texts: texts,
         ),
         AutoFlashcardsStep(
           generator: _OneCard(),
@@ -184,6 +209,7 @@ void main() {
       clock: vault.clock,
       onStatus: (_) {},
       settings: const AiOrganizeSettings(backfillWhileCharging: false),
+      texts: texts,
     );
     addTearDown(ai.dispose);
 
@@ -201,32 +227,40 @@ void main() {
       ),
       processingStates: () => ProcessingStateRepositoryImpl(vault.db),
       logger: const SilentLogger(),
-      onProcessed: (item) {
-        ai.itemProcessed(item.id);
-        processed.complete();
-      },
+      onProcessed: (_) => processed.complete(),
     );
     addTearDown(processing.dispose);
 
     processing.enqueue('nuevo');
     await processed.future;
+    await ai.wake();
+
+    // La fuente de la Biblioteca queda como consulta: la IA no la organiza.
+    expect(
+      (await vault.runs.listRuns(itemId: 'nuevo')).getOrElse((f) => fail('$f')),
+      isEmpty,
+    );
+
+    // La persona la tría, y su documento procesado entra a la cola.
+    final nuevo = await passUnchanged('nuevo');
+    ai.enqueueProcessedForOrganizing(nuevo);
     await ai.settled;
 
     // La pasada: lo que creó, todo marcado como de la IA.
     final run = (await vault.runs.listRuns(
-      itemId: 'nuevo',
+      itemId: nuevo,
     )).getOrElse((f) => fail('$f')).single;
     expect(
       run.created,
       const AiRunTally(relations: 1, flashcards: 1, properties: 1),
     );
     final relation = await vault.db.select(vault.db.relations).getSingle();
-    expect((relation.fromItemId, relation.toItemId), ('nuevo', 'senado'));
+    expect((relation.fromItemId, relation.toItemId), (nuevo, senado));
     expect((relation.origin, relation.aiRunId), (ContentOrigin.ai, run.id));
     expect(relation.note, 'Los dos hablan del Senado');
     final card = await vault.db.select(vault.db.flashcards).getSingle();
     expect((card.origin, card.aiRunId), (ContentOrigin.ai, run.id));
-    final property = (await vault.reload('nuevo')).properties.single;
+    final property = (await vault.reload(nuevo)).properties.single;
     expect(
       (property.value, property.origin),
       ('Antigua', ItemPropertyOrigin.ai),
@@ -239,14 +273,18 @@ void main() {
     expect(undone, run.created);
     expect(await vault.db.select(vault.db.relations).get(), isEmpty);
     expect(await vault.db.select(vault.db.flashcards).get(), isEmpty);
-    expect((await vault.reload('nuevo')).properties, isEmpty);
-    expect((await vault.reload('senado')).properties.single.value, 'Antigua');
+    expect((await vault.reload(nuevo)).properties, isEmpty);
+    expect((await vault.reload(senado)).properties.single.value, 'Antigua');
 
-    // Y la IA no lo vuelve a organizar sola.
+    // Y la IA no lo vuelve a organizar sola, ni a él ni a su fuente.
     await ai.wake();
     expect(
-      (await vault.runs.listRuns(itemId: 'nuevo')).getOrElse((f) => fail('$f')),
+      (await vault.runs.listRuns(itemId: nuevo)).getOrElse((f) => fail('$f')),
       hasLength(1),
+    );
+    expect(
+      (await vault.runs.listRuns(itemId: 'nuevo')).getOrElse((f) => fail('$f')),
+      isEmpty,
     );
   });
 }

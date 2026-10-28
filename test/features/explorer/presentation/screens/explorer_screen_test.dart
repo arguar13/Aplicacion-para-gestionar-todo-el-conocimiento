@@ -4,13 +4,13 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/features/explorer/presentation/providers/explorer_providers.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_filter_section.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 void main() {
   final es = AppLocalizationsEs();
@@ -20,25 +20,14 @@ void main() {
     harness = await LibraryHarness.create();
   });
 
-  /// Igual que en `item_detail_screen_test.dart`: se identifica por
-  /// diferencia de conjuntos, no "el primero de la lista", porque dos
-  /// capturas en la misma prueba comparten el mismo instante bajo el reloj
-  /// fijo de las pruebas.
+  /// Cada documento con su id, en el orden en que se crea.
+  var created = 0;
   Future<String> captureAndGetId(String input) async {
-    Future<Set<String>> currentIds() async =>
-        (await harness.container
-                .read(libraryRepositoryProvider)
-                .list(const LibraryQuery()))
-            .getRight()
-            .toNullable()!
-            .map((i) => i.id)
-            .toSet();
-
-    final before = await currentIds();
-    await harness.capture(input);
-    final after = await currentIds();
-
-    return after.difference(before).single;
+    // Un documento procesado: el Explorador es el material del Atlas y del
+    // Mapa, que desde F41 (paso 6) se arman con lo procesado.
+    final id = 'procesado-${created++}';
+    await insertProcessedDocument(harness.database, id: id, title: input);
+    return id;
   }
 
   Future<void> pumpExplorer(WidgetTester tester) async {

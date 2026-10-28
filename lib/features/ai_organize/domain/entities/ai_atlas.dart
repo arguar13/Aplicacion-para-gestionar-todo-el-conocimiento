@@ -84,7 +84,10 @@ class TopicMaterial {
   /// El tipo de nota, o `null` si es una fuente.
   final NoteKind? noteKind;
 
-  bool get isNote => noteKind != null;
+  /// Si es una nota que la persona escribe. Un documento procesado (F41) es
+  /// material, como lo era una fuente: es lo que se eligió de ella, y desde el
+  /// paso 6 es lo único que reúne una nota mapa.
+  bool get isNote => noteKind != null && noteKind != NoteKind.processed;
 }
 
 /// Una nota mapa viva de un tema, como la ve la IA.

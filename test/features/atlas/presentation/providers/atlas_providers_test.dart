@@ -7,7 +7,7 @@ import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/atlas/presentation/providers/atlas_providers.dart';
 
-import '../../../../support/item_rows.dart';
+import '../../../../support/processed_rows.dart';
 
 /// El cableado del Atlas (F13): el repositorio vive tanto como el contenedor y
 /// el Atlas de una categoría se actualiza solo.
@@ -45,7 +45,12 @@ void main() {
   test('el proveedor entrega el Atlas de la categoría pedida', () async {
     final tema = await temaDefinitionId(db);
     await value('roma', tema);
-    await insertItemRows(db, id: 'i1', title: 'Fuente', createdAt: now);
+    await insertProcessedDocument(
+      db,
+      id: 'i1',
+      title: 'Procesado',
+      createdAt: now,
+    );
     await db
         .into(db.itemPropertyValues)
         .insert(
@@ -58,7 +63,7 @@ void main() {
     final atlas = await container.read(atlasProvider(tema).future);
 
     expect(atlas.definitionName, 'Tema');
-    expect(atlas.nodeOf('roma')!.sourceCount, 1);
+    expect(atlas.nodeOf('roma')!.textOnlyCount, 1);
   });
 
   test('se actualiza solo cuando se asigna una propiedad', () async {
@@ -67,12 +72,17 @@ void main() {
     final seen = <int>[];
     final subscription = container.listen(atlasProvider(tema), (_, next) {
       final atlas = next.value;
-      if (atlas != null) seen.add(atlas.nodeOf('roma')!.sourceCount);
+      if (atlas != null) seen.add(atlas.nodeOf('roma')!.textOnlyCount);
     }, fireImmediately: true);
     addTearDown(subscription.close);
     await pumpEventQueue();
 
-    await insertItemRows(db, id: 'i1', title: 'Fuente', createdAt: now);
+    await insertProcessedDocument(
+      db,
+      id: 'i1',
+      title: 'Procesado',
+      createdAt: now,
+    );
     await db
         .into(db.itemPropertyValues)
         .insert(

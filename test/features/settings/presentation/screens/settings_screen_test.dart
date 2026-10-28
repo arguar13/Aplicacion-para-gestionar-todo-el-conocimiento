@@ -33,6 +33,7 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 import '../../../../support/fake_background_settings.dart';
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 void main() {
   final es = AppLocalizationsEs();
@@ -406,9 +407,10 @@ void main() {
     group('la biblioteca existente', () {
       // El reloj de la harness es el 11 de septiembre: la IA organiza sola
       // desde entonces, y lo guardado antes es la biblioteca que ya existía.
+      // Documentos procesados: la IA organiza eso, no las fuentes (F41).
       Future<void> seedExisting(int count) async {
         for (var i = 0; i < count; i++) {
-          await insertItemRows(
+          await insertProcessedDocument(
             harness.database,
             id: 'antes-$i',
             title: 'De antes $i',
@@ -515,7 +517,11 @@ void main() {
       testWidgets('si está con algo nuevo, no dice que la ordena: lo nuevo '
           'va primero', (tester) async {
         await seedExisting(2);
-        await insertItemRows(harness.database, id: 'nuevo', title: 'Nuevo');
+        await insertProcessedDocument(
+          harness.database,
+          id: 'nuevo',
+          title: 'Nuevo',
+        );
         await pumpSettings(tester);
 
         setStatus(

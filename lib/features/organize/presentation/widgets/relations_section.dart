@@ -81,7 +81,9 @@ Future<void> addRelationFlow(
 }) async {
   final otherId = await showDialog<String>(
     context: context,
-    builder: (context) => PickItemDialog(excludeItemId: fromItemId),
+    // Del mismo lado (F41, paso 6): un procesado, con otros procesados.
+    builder: (context) =>
+        PickItemDialog(excludeItemId: fromItemId, sameSideAs: fromItemId),
   );
   if (otherId == null || !context.mounted) return;
 

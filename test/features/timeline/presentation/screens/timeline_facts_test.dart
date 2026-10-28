@@ -13,11 +13,8 @@ import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
-import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
-import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_badge.dart';
@@ -43,6 +40,7 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// Los hechos fechados dentro de un documento en la línea de tiempo (F40,
 /// pasos 4b y 5): la ficha, los colores por documento y su leyenda, los
@@ -68,47 +66,43 @@ void main() {
   DatedEventRepository repo() =>
       harness.container.read(datedEventRepositoryProvider);
 
-  /// Un documento con su texto.
+  /// Un documento procesado [id] de la fuente `fuente-$id`, que tiene el
+  /// texto (F41, paso 6): la línea de tiempo lee lo procesado, y sus citas
+  /// están en el original.
   Future<void> seedDoc(
     String id,
     String title, {
     String text = darwinText,
     SourceKind kind = SourceKind.document,
   }) async {
-    await insertItemRows(db, id: id, title: title, kind: kind);
+    await insertItemRows(db, id: 'fuente-$id', title: title, kind: kind);
     await db
         .into(db.renditions)
         .insert(
           RenditionsCompanion.insert(
             id: 'texto-$id',
-            itemId: id,
+            itemId: 'fuente-$id',
             kind: RenditionKind.plainText,
             content: Value(text),
             isPrimary: true,
             createdAt: now,
           ),
         );
+    await insertProcessedDocument(
+      db,
+      id: id,
+      title: title,
+      createdAt: now,
+      sourceKind: kind,
+      text: text,
+    );
+    await (db.update(db.processedDocuments)..where((d) => d.itemId.equals(id)))
+        .write(ProcessedDocumentsCompanion(sourceItemId: Value('fuente-$id')));
   }
 
   /// Un elemento con su propia «Fecha del hecho», sin hechos fechados.
   Future<void> seedOwnDate(String id, String title, HistoricalDate date) async {
-    await harness.container
-        .read(libraryRepositoryProvider)
-        .save(
-          KnowledgeItem(
-            id: id,
-            title: title,
-            source: Source(
-              id: 'src-$id',
-              kind: SourceKind.webPage,
-              capturedAt: now,
-              url: 'https://e.org/$id',
-            ),
-            processingState: ProcessingState.ready,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
+    await insertProcessedDocument(db, id: id, title: title, createdAt: now);
     final fechaId =
         (await (db.select(db.propertyDefinitions)..where(
                   (d) =>
@@ -355,9 +349,8 @@ void main() {
       expect(find.byTooltip(es.timelineFactMadeByAi), findsOneWidget);
     });
 
-    testWidgets('«Abrir en el documento» lleva al lector justo en esa cita', (
-      tester,
-    ) async {
+    testWidgets('«Abrir en el documento» lleva al lector del original justo en '
+        'esa cita: la de un procesado está en su fuente (F41)', (tester) async {
       await pumpScreen(tester);
       await tapEvent(tester, 'Publica El origen');
       await tester.pumpAndSettle();
@@ -367,7 +360,7 @@ void main() {
 
       final start = darwinText.indexOf('En 1859 publicó');
       final end = start + 'En 1859 publicó El origen de las especies.'.length;
-      expect(lastRoute, 'lectura darwin $start-$end');
+      expect(lastRoute, 'lectura fuente-darwin $start-$end');
       // La hoja se fue.
       expect(byKey('dated-event-title'), findsNothing);
       await tester.pump(const Duration(milliseconds: 1));

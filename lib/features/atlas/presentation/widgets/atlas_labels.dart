@@ -32,8 +32,8 @@ String atlasGapMessage(
   AtlasNode node,
   DateTime now,
 ) => switch (gap.kind) {
-  AtlasGapKind.manySourcesNoLivingNote => l10n.atlasGapManySources(
-    node.sourceCount,
+  AtlasGapKind.manyWithoutNotes => l10n.atlasGapManyWithoutNotes(
+    node.itemCount,
   ),
   AtlasGapKind.singleItem => l10n.atlasGapSingleItem,
   AtlasGapKind.stale => l10n.atlasGapStale(

@@ -1,12 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
-import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_dates_finder.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
-import 'package:sinapsis/features/reading/domain/extractable_text.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/organize_text.dart';
 import 'package:sinapsis/features/timeline/domain/entities/dated_event_draft.dart';
 import 'package:sinapsis/features/timeline/domain/entities/dated_event_input.dart';
 import 'package:sinapsis/features/timeline/domain/repositories/dated_event_repository.dart';
@@ -37,17 +36,26 @@ import 'package:sinapsis/features/timeline/domain/services/dated_passage_selecto
 /// bloques no tiene ese texto: se lee el que se busca, y los hechos quedan con
 /// su cita pero sin posición —sin «Abrir en el documento»—.
 ///
+/// De un documento procesado (F41, paso 6) se lee solo lo que la persona
+/// eligió al triar ([OrganizeTextReader]), y el hecho queda colgado del
+/// procesado —la línea de tiempo se arma con eso—, pero su cita apunta a la
+/// fuente, en su lugar, si sale de una parte copiada sin editar: «Abrir en el
+/// documento» lleva al original justo ahí.
+///
 /// Es también el que busca **solo** las fechas que pide la persona
 /// ([AiDatesFinder]): los mismos hechos, con la misma regla.
 class AutoDatesStep implements AiOrganizeStep, AiDatesFinder {
   AutoDatesStep({
     required DatedEventsExtractor extractor,
     required DatedEventRepository events,
+    OrganizeTextReader texts = const OwnTextReader(),
   }) : _extractor = extractor,
-       _events = events;
+       _events = events,
+       _texts = texts;
 
   final DatedEventsExtractor _extractor;
   final DatedEventRepository _events;
+  final OrganizeTextReader _texts;
 
   /// Lo que se leyó de cada elemento, para no leerlo dos veces: la cola
   /// pregunta [mentionsDates] y enseguida pide [findDates] con el mismo
@@ -75,8 +83,7 @@ class AutoDatesStep implements AiOrganizeStep, AiDatesFinder {
   }) async {
     final plan = await _planOf(item);
     final parts = plan.parts;
-    final renditionId = plan.renditionId;
-    final reached = _reachedFor(runId, renditionId, plan.length);
+    final reached = _reachedFor(runId, plan.textId, plan.length);
     final task = AiTaskHandle.current;
     var added = 0;
     try {
@@ -87,12 +94,12 @@ class AutoDatesStep implements AiOrganizeStep, AiDatesFinder {
         task?.parts(index, parts.length);
         while (rest != null) {
           final outcome = await _extractor.datedEventsOf(rest);
-          added += await _save(item, runId, renditionId, outcome.events);
+          added += await _save(item, runId, plan.text, outcome.events);
           // Al menos uno: el contrato lo garantiza, pero un pedido que no
           // avanza dejaría la cola girando sobre lo mismo.
           final analyzed = outcome.analyzed.clamp(1, rest.passages.length);
           _resume[runId] = (
-            renditionId: renditionId,
+            textId: plan.textId,
             length: plan.length,
             until: rest.passages[analyzed - 1].end,
           );
@@ -116,17 +123,12 @@ class AutoDatesStep implements AiOrganizeStep, AiDatesFinder {
   Future<_Plan> _planOf(KnowledgeItem item) =>
       _plans[item] ??= _planFor(item, _extractor.datedPartCharBudget);
 
-  static Future<_Plan> _planFor(KnowledgeItem item, int maxChars) async {
-    final rendition = extractableRendition(item);
-    final text = rendition?.content ?? item.searchableText;
-    final parts = text.trim().isEmpty
+  Future<_Plan> _planFor(KnowledgeItem item, int maxChars) async {
+    final text = await _texts.textOf(item);
+    final parts = text.text.trim().isEmpty
         ? const <DatedTextPart>[]
-        : await _select(
-            text,
-            maxChars: maxChars,
-            markdown: extractedTextIsMarkdown(item.source),
-          );
-    return _Plan(renditionId: rendition?.id, length: text.length, parts: parts);
+        : await _select(text.text, maxChars: maxChars, markdown: text.markdown);
+    return _Plan(text: text, textId: text.ownRenditionId, parts: parts);
   }
 
   /// `selectDatedParts` sin trabar la interfaz: recorre todo el texto, y el de
@@ -155,10 +157,10 @@ class AutoDatesStep implements AiOrganizeStep, AiDatesFinder {
   /// Hasta dónde llegó la pasada [runId] antes de cortarse, si es del mismo
   /// texto; `null` si empieza de cero. Si el texto cambió mientras esperaba
   /// —se volvió a extraer—, las posiciones ya no valen.
-  _Reached? _reachedFor(String runId, String? renditionId, int length) {
+  _Reached? _reachedFor(String runId, String? textId, int length) {
     final reached = _resume[runId];
     if (reached == null) return null;
-    if (reached.renditionId == renditionId && reached.length == length) {
+    if (reached.textId == textId && reached.length == length) {
       return reached;
     }
     _resume.remove(runId);
@@ -178,13 +180,14 @@ class AutoDatesStep implements AiOrganizeStep, AiDatesFinder {
   }
 
   /// Guarda los hechos [drafts] de la pasada y devuelve cuántos quedaron. La
-  /// posición de la cita solo vale si el texto es una forma del elemento
-  /// ([renditionId]); el repositorio descarta lo repetido, lo que la persona
-  /// ya quitó y lo que no es válido.
+  /// cita va donde [text] diga que se puede abrir ese mismo texto
+  /// ([OrganizeText.cite]): en una forma del elemento, en la fuente de un
+  /// procesado, o en ningún lado. El repositorio descarta lo repetido, lo que
+  /// la persona ya quitó y lo que no es válido.
   Future<int> _save(
     KnowledgeItem item,
     String runId,
-    String? renditionId,
+    OrganizeText text,
     List<DatedEventDraft> drafts,
   ) async {
     if (drafts.isEmpty) return 0;
@@ -193,34 +196,35 @@ class AutoDatesStep implements AiOrganizeStep, AiDatesFinder {
       runId: runId,
       drafts: [
         for (final draft in drafts)
-          DatedEventInput(
-            title: draft.title,
-            date: draft.date,
-            end: draft.endDate,
-            renditionId: renditionId,
-            startOffset: renditionId == null ? null : draft.start,
-            endOffset: renditionId == null ? null : draft.end,
-            excerpt: draft.excerpt,
-          ),
+          if (text.cite(draft.start, draft.end) case final citation)
+            DatedEventInput(
+              title: draft.title,
+              date: draft.date,
+              end: draft.endDate,
+              renditionId: citation?.renditionId,
+              startOffset: citation?.start,
+              endOffset: citation?.end,
+              excerpt: draft.excerpt,
+            ),
       ],
     )).orThrowStep('guardar los hechos fechados');
   }
 }
 
 /// Lo que se le va a preguntar al modelo de un elemento: sus pedidos, y de qué
-/// texto son —su forma y su largo—.
+/// texto son —el texto mismo, su forma y su largo—.
 class _Plan {
-  const _Plan({
-    required this.renditionId,
-    required this.length,
-    required this.parts,
-  });
+  const _Plan({required this.text, required this.textId, required this.parts});
 
-  /// La forma del texto de la que salen las posiciones; `null` si es el texto
-  /// que se busca de una nota, que no es una forma que se pueda abrir.
-  final String? renditionId;
-  final int length;
+  /// Lo que se lee, con cómo citar lo que se encuentra en él.
+  final OrganizeText text;
+
+  /// La forma del elemento de la que sale el texto, para reconocerlo al
+  /// retomar; `null` si no sale de una —una nota de bloques, un procesado—.
+  final String? textId;
   final List<DatedTextPart> parts;
+
+  int get length => text.text.length;
 }
 
 /// Lo que necesita [_selectIn] para armar los pedidos en otro hilo.
@@ -234,4 +238,4 @@ List<DatedTextPart> _selectIn(_SelectArgs args) => selectDatedParts(
 
 /// Hasta dónde se leyó una pasada: el texto —su forma y su largo— y el final
 /// del último pasaje que contestó el modelo.
-typedef _Reached = ({String? renditionId, int length, int until});
+typedef _Reached = ({String? textId, int length, int until});

@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
+import 'package:sinapsis/core/database/processed_entries.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/features/library/data/repositories/library_query_sql.dart'
@@ -26,7 +27,10 @@ class ProcessedQuerySql {
       if (terms.isEmpty) {
         _where.add('0');
       } else {
-        final everyTerm = List.filled(terms.length, _documentsWithTerm);
+        final everyTerm = List.filled(
+          terms.length,
+          processedDocumentsWithTermSql,
+        );
         _where.add('item.id IN (${everyTerm.join(' INTERSECT ')})');
         for (final term in terms) {
           _args
@@ -98,21 +102,6 @@ class ProcessedQuerySql {
 
   final List<String> _where = [];
   final List<Variable<Object>> _args = [];
-
-  /// Los documentos que tienen UNA palabra —dos parámetros: la palabra para el
-  /// título y para las partes—, vivos o no: lo vivo lo decide el `WHERE`.
-  ///
-  /// Envuelta en su propio `SELECT … FROM (…)` a propósito: en SQLite `UNION` e
-  /// `INTERSECT` tienen la misma precedencia y se asocian a la izquierda, así
-  /// que sin envolverla `A UNION B INTERSECT C UNION D` sería
-  /// `((A UNION B) INTERSECT C) UNION D`.
-  static const _documentsWithTerm =
-      'SELECT doc FROM ( '
-      'SELECT item_search.item_id AS doc FROM item_search '
-      'WHERE item_search MATCH ? '
-      'UNION SELECT pp.document_id AS doc FROM processed_part_search '
-      'JOIN processed_parts pp ON pp.row_key = processed_part_search.rowid '
-      'WHERE processed_part_search MATCH ?)';
 
   static const _from =
       'processed_documents pd JOIN item ON item.id = pd.item_id';

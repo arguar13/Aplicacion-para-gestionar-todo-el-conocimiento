@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
-import 'package:sinapsis/core/domain/entities/item_kind.dart';
-import 'package:sinapsis/core/domain/entities/note_kind.dart';
-import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processed_depth.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
@@ -158,8 +156,8 @@ class AtlasRepositoryImpl implements AtlasRepository {
     ];
   }
 
-  /// Cada elemento vivo con lo que el Atlas necesita de él: una fila por
-  /// elemento.
+  /// Cada documento procesado vivo con lo que el Atlas necesita de él: una
+  /// fila por documento.
   Future<List<AtlasItemFacts>> _readItems(String definitionId) =>
       _readItemRows(atlasItemsSql, [
         Variable.withString(definitionId),
@@ -185,9 +183,7 @@ class AtlasRepositoryImpl implements AtlasRepository {
       if (valueIds == null) continue;
       items.add(
         AtlasItemFacts(
-          isSource: data['kind'] == ItemKind.source.name,
-          noteKind: _named(NoteKind.values, data['note_kind'] as String?),
-          maturity: _named(NoteMaturity.values, data['maturity'] as String?),
+          depth: ProcessedDepth.values.byName(data['depth'] as String),
           // La fecha sí por `read`: cómo se guarda un instante lo sabe drift.
           updatedAt: row.read<DateTime>('updated_at'),
           firstYear: data['year_from'] as int?,
@@ -223,7 +219,3 @@ class AtlasRepositoryImpl implements AtlasRepository {
     ];
   }
 }
-
-/// El valor de [values] que se llama [name], o `null` si [name] es `null`.
-T? _named<T extends Enum>(List<T> values, String? name) =>
-    name == null ? null : values.byName(name);

@@ -12,8 +12,8 @@ import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_reposit
 import 'package:sinapsis/features/ai_organize/domain/services/ai_item_reviewer.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_reviewer.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/organize_text.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
-import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 
 /// Lo más largo que se le muestra al revisor alrededor de cada tarjeta, aunque
@@ -49,11 +49,17 @@ class ReviewFlashcardsStep implements AiItemReviewer {
     required SuggestionRepository suggestions,
     required AiRunRepository runs,
     required ModelTextBudget Function() textBudget,
+    OrganizeTextReader texts = const OwnTextReader(),
   }) : _reviewer = reviewer,
        _flashcards = flashcards,
        _suggestions = suggestions,
        _runs = runs,
-       _textBudget = textBudget;
+       _textBudget = textBudget,
+       _texts = texts;
+
+  /// Qué texto lee: el del elemento, o —de un documento procesado— lo que la
+  /// persona eligió al triar (F41, paso 6), el mismo que leyó al hacerlas.
+  final OrganizeTextReader _texts;
 
   final FlashcardReviewer _reviewer;
   final FlashcardRepository _flashcards;
@@ -113,9 +119,11 @@ class ReviewFlashcardsStep implements AiItemReviewer {
     ];
     if (toReview.isEmpty) return AiStepReport.nothing;
 
-    // El mismo texto contra el que se ubicó la cita de cada tarjeta.
-    final sourceText = extractableRendition(item)?.content;
-    final text = sourceText ?? item.searchableText;
+    // El mismo texto contra el que se ubicó la cita de cada tarjeta. Sus
+    // posiciones valen solo si es una forma del elemento.
+    final read = await _texts.textOf(item);
+    final text = read.text;
+    final sourceText = read.ownRenditionId == null ? null : text;
     final budget = _textBudget();
     final perCall = math.max(1, budget.maxDraftsPerCall);
     final passageChars = (budget.partChars ~/ perCall).clamp(

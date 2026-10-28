@@ -25,8 +25,10 @@ void main() {
   /// así las notas recién guardadas cuentan.
   DateTime quiet() => vault.now.add(const Duration(minutes: 1));
 
-  test('solo lo vivo y listo, que la IA no organizó todavía', () async {
-    await vault.source('listo', title: 'Listo', content: 'Texto.');
+  test('solo lo vivo, que la IA no organizó todavía, y nunca una fuente de la '
+      'Biblioteca (F41, paso 6)', () async {
+    await vault.processedDocument('listo', title: 'Listo', content: 'Texto.');
+    await vault.source('fuente', title: 'Fuente lista', content: 'Texto.');
     await vault.source(
       'procesando',
       title: 'Procesando',
@@ -39,11 +41,19 @@ void main() {
       content: 'Texto.',
       processingState: ProcessingState.failed,
     );
-    await vault.source('borrado', title: 'Borrado', content: 'Texto.');
+    await vault.processedDocument(
+      'borrado',
+      title: 'Borrado',
+      content: 'Texto.',
+    );
     await trashItemRows(vault.db, 'borrado');
-    await vault.source('hecho', title: 'Hecho', content: 'Texto.');
+    await vault.processedDocument('hecho', title: 'Hecho', content: 'Texto.');
     await vault.runs.finishRun(await vault.startRun('hecho'));
-    await vault.source('deshecho', title: 'Deshecho', content: 'Texto.');
+    await vault.processedDocument(
+      'deshecho',
+      title: 'Deshecho',
+      content: 'Texto.',
+    );
     await vault.runs.undoRun(await vault.startRun('deshecho'));
 
     expect(
@@ -65,14 +75,14 @@ void main() {
   });
 
   test('separa lo nuevo de la biblioteca que ya existía', () async {
-    await vault.source('nuevo', title: 'Nuevo', content: 'Texto.');
-    await vault.source(
+    await vault.processedDocument('nuevo', title: 'Nuevo', content: 'Texto.');
+    await vault.processedDocument(
       'viejo',
       title: 'Viejo',
       content: 'Texto.',
       createdAt: DateTime(2026, 9),
     );
-    await vault.source(
+    await vault.processedDocument(
       'mas-viejo',
       title: 'Más viejo',
       content: 'Texto.',
@@ -144,7 +154,7 @@ void main() {
 
     test('el elemento sigue pendiente, terminada o deshecha, y sin gastar '
         'intentos', () async {
-      await vault.source(
+      await vault.processedDocument(
         'viejo',
         title: 'Viejo',
         content: 'Texto.',

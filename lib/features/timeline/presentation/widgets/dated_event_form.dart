@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
@@ -205,7 +206,12 @@ class _DatedEventFormState extends ConsumerState<DatedEventForm> {
     final l10n = AppLocalizations.of(context)!;
     final picked = await showDialog<String>(
       context: context,
-      builder: (_) => PickItemDialog(title: l10n.timelineFormPickDocument),
+      // La línea de tiempo se arma con lo procesado (F41, paso 6): se elige
+      // entre eso.
+      builder: (_) => PickItemDialog(
+        title: l10n.timelineFormPickDocument,
+        scope: LibraryScope.processed,
+      ),
     );
     if (picked != null && mounted) setState(() => _itemId = picked);
   }

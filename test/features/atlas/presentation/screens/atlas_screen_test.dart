@@ -10,12 +10,14 @@ import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/providers/explorer_providers.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
+import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
@@ -26,6 +28,7 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// La pantalla del Atlas (F13), contra SQLite real y el router real: el árbol
 /// con sus conteos y su cobertura, los vacíos, la búsqueda y adónde lleva cada
@@ -75,8 +78,27 @@ void main() {
     }
   }
 
+  /// Un documento procesado con solo su texto: lo que cuenta el Atlas (F41,
+  /// paso 6).
   Future<void> source(String id, List<String> values) async {
-    await insertItemRows(db, id: id, title: 'Fuente $id', createdAt: now);
+    await insertProcessedDocument(
+      db,
+      id: id,
+      title: 'Procesado $id',
+      createdAt: now,
+    );
+    await assign(id, values);
+  }
+
+  /// Un documento procesado con notas propias.
+  Future<void> annotated(String id, List<String> values) async {
+    await insertProcessedDocument(
+      db,
+      id: id,
+      title: 'Con notas $id',
+      createdAt: now,
+      sections: {ProcessedSection.text, ProcessedSection.notes},
+    );
     await assign(id, values);
   }
 
@@ -129,8 +151,8 @@ void main() {
 
   /// Roma ─ República ─ Gracos, Roma ─ Imperio, Grecia y Vacío solos.
   ///
-  /// Roma: 3 fuentes y 2 notas debajo (una viva en construcción y un mapa);
-  /// Grecia: solo fuentes; Vacío: nada.
+  /// Roma: 4 documentos procesados debajo, uno con notas propias, y una nota
+  /// mapa como punto de entrada; Grecia: solo el texto; Vacío: nada.
   Future<void> seed() async {
     await value('roma', 'Roma');
     await value('republica', 'República', parent: 'roma', depth: 1);
@@ -141,7 +163,7 @@ void main() {
     await source('s1', ['roma']);
     await source('s2', ['republica']);
     await source('s3', ['gracos']);
-    await note('n-viva', NoteKind.living, ['republica']);
+    await annotated('n-viva', ['republica']);
     await note('n-mapa', NoteKind.map, ['roma'], title: 'Mapa de Roma');
     await source('g1', ['grecia']);
     await source('g2', ['grecia']);
@@ -181,8 +203,8 @@ void main() {
     expect(node('imperio'), findsNothing);
   });
 
-  testWidgets('cada rama dice cuántas fuentes y cuántas notas hay debajo, en '
-      'cascada', (tester) async {
+  testWidgets('cada rama dice cuántos documentos procesados hay debajo y '
+      'cuántos con notas, en cascada', (tester) async {
     await seed();
     await pump(tester);
 
@@ -190,21 +212,21 @@ void main() {
     expect(
       find.descendant(
         of: node('roma'),
-        matching: find.text(es.atlasSourceCount(3)),
+        matching: find.text(es.atlasProcessedCount(4)),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: node('roma'),
-        matching: find.text(es.atlasNoteCount(2)),
+        matching: find.text(es.atlasAnnotatedCount(1)),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: node('grecia'),
-        matching: find.text(es.atlasSourceCount(2)),
+        matching: find.text(es.atlasProcessedCount(2)),
       ),
       findsOneWidget,
     );
@@ -298,14 +320,14 @@ void main() {
       }
       await pump(tester);
 
-      // Grecia: 6 fuentes y ninguna nota viva. Vacío no es un vacío.
+      // Grecia: 6 documentos y ninguno con notas. Vacío no es un vacío.
       final gaps = find.byKey(const ValueKey('atlas-gaps'));
       expect(gaps, findsOneWidget);
       expect(
-        find.byKey(const ValueKey('atlas-gap-manySourcesNoLivingNote-grecia')),
+        find.byKey(const ValueKey('atlas-gap-manyWithoutNotes-grecia')),
         findsOneWidget,
       );
-      expect(find.text(es.atlasGapManySources(6)), findsOneWidget);
+      expect(find.text(es.atlasGapManyWithoutNotes(6)), findsOneWidget);
       expect(
         find.byKey(const ValueKey('atlas-gap-singleItem-vacio')),
         findsNothing,
@@ -321,7 +343,7 @@ void main() {
       await pump(tester);
 
       await tester.tap(
-        find.byKey(const ValueKey('atlas-gap-manySourcesNoLivingNote-grecia')),
+        find.byKey(const ValueKey('atlas-gap-manyWithoutNotes-grecia')),
       );
       await tester.pumpAndSettle();
 
@@ -371,9 +393,22 @@ void main() {
     );
   });
 
-  testWidgets('«Bibliografía» del menú exporta las fuentes de la rama '
-      '(F15, D13)', (tester) async {
+  testWidgets('«Bibliografía» del menú exporta las fuentes de lo procesado de '
+      'la rama (F15, D13; F41)', (tester) async {
     await seed();
+    // El procesado s1 salió de una fuente de la Biblioteca: esa es la que se
+    // cita.
+    await insertItemRows(
+      db,
+      id: 'fuente-s1',
+      title: 'Fuente 1',
+      createdAt: now,
+    );
+    await (db.update(
+      db.processedDocuments,
+    )..where((d) => d.itemId.equals('s1'))).write(
+      const ProcessedDocumentsCompanion(sourceItemId: Value('fuente-s1')),
+    );
     await pump(tester);
 
     await tester.tap(
@@ -542,7 +577,7 @@ void main() {
     expect(
       find.descendant(
         of: node('grecia'),
-        matching: find.text(es.atlasSourceCount(2)),
+        matching: find.text(es.atlasProcessedCount(2)),
       ),
       findsOneWidget,
     );
@@ -553,15 +588,33 @@ void main() {
     expect(
       find.descendant(
         of: node('grecia'),
-        matching: find.text(es.atlasSourceCount(3)),
+        matching: find.text(es.atlasProcessedCount(3)),
       ),
       findsOneWidget,
     );
   });
 
+  testWidgets('sin nada procesado explica que se llena al triar, y lleva a la '
+      'Bandeja (F41, paso 6)', (tester) async {
+    await value('roma', 'Roma');
+    // Lo de la Biblioteca no cuenta: el Atlas empieza de cero.
+    await insertItemRows(db, id: 'fuente', title: 'Fuente', createdAt: now);
+    await assign('fuente', ['roma']);
+    await pump(tester);
+
+    expect(find.byKey(const ValueKey('fills-on-triage')), findsOneWidget);
+    expect(find.text(es.atlasFillsOnTriageTitle), findsOneWidget);
+    expect(node('roma'), findsNothing);
+
+    await tester.tap(find.text(es.organizedGoToInbox));
+    await tester.pumpAndSettle();
+    expect(find.byType(InboxScreen), findsOneWidget);
+  });
+
   testWidgets('una categoría sin valores muestra el estado vacío', (
     tester,
   ) async {
+    await source('suelto', const []);
     await pump(tester);
 
     expect(find.text(es.atlasEmptyTitle('tags')), findsOneWidget);
@@ -716,7 +769,10 @@ void main() {
       final markdown = utf8.decode(harness.fileSaver.savedBytes!);
       // La jerarquía entera, plegada o no en la pantalla.
       expect(markdown, startsWith('# Atlas — Etiquetas'));
-      expect(markdown, contains('- **Roma** — En construcción · 3 fuentes'));
+      expect(
+        markdown,
+        contains('- **Roma** — Con notas propias · 4 documentos'),
+      );
       expect(markdown, contains('  - **República** —'));
       expect(markdown, contains('    - **Gracos** —'));
       expect(markdown, contains('[[Mapa de Roma]]'));

@@ -1091,11 +1091,25 @@ marcador en la Biblioteca.
 
 ## La IA que organiza sola
 
-Cada cosa que guardás, la IA la organiza sola, en segundo plano, apenas
-termina de procesarse: la vincula con lo que ya tenés, le arma tarjetas de
-repaso, le pone tema y etiquetas y completa lo que le falta. No tenés que esperarla ni
-aprobar nada para que el elemento quede listo. Todo lo que hace queda a la
-vista, marcado como suyo, y se puede corregir o deshacer.
+**La IA organiza lo que procesás, no la Biblioteca.** Cuando triás una fuente
+en la Bandeja —o la volvés a triar—, su documento de **Procesado** entra a la
+cola de la IA: lo vincula con tus otros documentos procesados, le arma tarjetas
+de repaso, le pone tema y etiquetas y busca las fechas para la línea de tiempo.
+Lo hace **solo con lo que elegiste** al triar —el texto, el resumen, la
+síntesis, las notas y los fragmentos que mandaste—, nunca con el resto de la
+fuente. De eso se arman el [Atlas](#el-atlas), el [Mapa](#el-mapa), el
+[grafo local](#grafo-local-de-un-elemento) y la
+[Línea de tiempo](#línea-de-tiempo).
+
+Las **fuentes de la Biblioteca ya no se organizan solas** al guardarse: la
+Biblioteca queda como la base de consulta. Lo que una fuente ya tenía de antes
+—sus temas, sus vínculos, sus fechas— **no se borra**: sigue a la vista en su
+detalle, pero no aparece en esas cuatro pantallas. Tus **notas propias** se
+siguen organizando como siempre (vínculos, tarjetas, tema y etiquetas), aunque
+tampoco están en esas pantallas.
+
+No tenés que esperarla ni aprobar nada. Todo lo que hace queda a la vista,
+marcado como suyo, y se puede corregir o deshacer.
 
 Necesita **el modelo de lenguaje listo** —Gemini con una clave cargada, o
 Gemma bajado (ver [Modelo de lenguaje](#modelo-de-lenguaje-el-del-chat-y-la-ia-que-organiza-sola))—
@@ -1117,10 +1131,10 @@ elegir otra cuenta o cambiar de modelo la destraba en el acto.
 
 ### Qué hace sola
 
-- **Vínculos.** Busca con qué otros elementos de tu biblioteca se relaciona
-  cada cosa nueva —también tus notas, que se vinculan con tus fuentes— y
-  crea el vínculo con su tipo (Relacionado, Continúa, Contradice, Cita,
-  Resume) y una frase que dice por qué.
+- **Vínculos.** Busca con qué otros **documentos procesados** se relaciona
+  cada uno nuevo —por lo que elegiste de cada fuente— y crea el vínculo con su
+  tipo (Relacionado, Continúa, Contradice, Cita, Resume) y una frase que dice
+  por qué. Tus notas propias se vinculan con lo de la Biblioteca, como antes.
 - **Tarjetas de repaso.** Arma las tarjetas de cada elemento, ancladas a la
   parte del texto de donde salen, y entran solas a tu repaso. Cuántas
   depende del largo: 3 para un artículo corto y más cuanto más largo, hasta
@@ -1139,9 +1153,9 @@ elegir otra cuenta o cambiar de modelo la destraba en el acto.
 - **Los datos de la referencia.** Completa el autor, el año, la editorial y
   los demás datos que falten, con lo que lee del archivo o de la página.
   Solo los vacíos: nunca pisa lo que escribiste.
-- **Las fechas de la línea de tiempo.** Lee el texto de cada cosa —un libro,
-  una transcripción, lo que se reconoció en una foto, una página— y pone en la
-  [Línea de tiempo](#línea-de-tiempo) los hechos fechados que cuenta
+- **Las fechas de la línea de tiempo.** Lee lo que procesaste de cada fuente
+  —un libro entero, una transcripción, el resumen, tus fragmentos— y pone en
+  la [Línea de tiempo](#línea-de-tiempo) los hechos fechados que cuenta
   ("Publica *El origen de las especies*", 1859), cada uno con la frase de la
   que sale. Primero un buscador sin IA marca las oraciones que traen un año,
   un siglo, una década o un rango; solo esas, con la oración anterior de
@@ -1151,7 +1165,10 @@ elegir otra cuenta o cambiar de modelo la destraba en el acto.
   martes siguiente") no la toma. La pone directo, marcada con ✨ y sin pasar
   por la Bandeja: se revisa en la propia línea de tiempo, y **"Deshacer"** la
   pasada saca todas. Lo que quitás a mano lo recuerda, para no volver a
-  ponerlo.
+  ponerlo. Si la frase está en una parte que copiaste tal cual de la fuente,
+  la cita lleva **al original, justo ahí**; si la editaste o es una nota tuya,
+  queda con su frase pero sin ese salto. Las fechas son solo de lo procesado:
+  de tus notas propias no las busca, porque no se verían.
 - **El Atlas.** Ubica cada etiqueta nueva debajo de su etiqueta padre en el
   árbol de etiquetas (por ejemplo, "Roma" debajo de "Historia antigua") y,
   cuando una etiqueta junta material suficiente, le arma su **nota mapa**:
@@ -1162,8 +1179,11 @@ elegir otra cuenta o cambiar de modelo la destraba en el acto.
 Lo que no hace sola es fusionar duplicados: fusionar borra uno de los dos,
 así que los sigue avisando en [Posibles duplicados](#posibles-duplicados).
 
-Tus notas las organiza cuando dejás de escribirlas —después de un rato sin
-cambios—, y si más adelante crecen mucho, las vuelve a mirar.
+Tus notas —y tus documentos procesados— las organiza cuando dejás de
+escribirlas: después de un rato sin cambios. Si más adelante cambian mucho,
+las vuelve a mirar. Al **volver a triar** una fuente, su documento procesado
+se organiza en el acto, aunque le hayas sumado algo chico, como un fragmento
+con una fecha: es una pasada nueva, que no repite lo que ya estaba.
 
 ### Cómo reconocer lo que hizo
 
@@ -1337,7 +1357,9 @@ elemento, y **nada cambia hasta que aceptás**:
 ### Organizar con IA, a pedido
 
 En la hoja **"Más"** del [panel del elemento](#el-panel-del-elemento),
-**"Organizar con IA"** le pide que lo organice ahora, antes que lo demás.
+**"Organizar con IA"** le pide que lo organice ahora, antes que lo demás. Una
+fuente no se organiza: se organiza **su documento procesado**, desde su "Más"
+(ver [Procesado](#procesado)).
 Sirve para algo que guardaste antes de que la IA organizara sola (sin
 esperar al cargador), o para algo cuya organización deshiciste: en ese caso
 la línea del elemento dice **"Deshiciste lo que hizo la IA"** y ofrece
@@ -1355,8 +1377,8 @@ Hay dos formas de pedirle a la IA que busque fechas para la
 - **Muchos:** **"Organizar con IA"** en la barra de la línea de tiempo (ver
   [Línea de tiempo](#línea-de-tiempo)).
 
-No hace vínculos, tarjetas ni etiquetas, no espera al cargador y no depende
-del interruptor de las fechas: lo pediste vos. Como siempre, un aviso te dice
+De una fuente se buscan en **su documento procesado**, desde su "Más". No hace vínculos, tarjetas ni etiquetas, no
+espera al cargador y no depende del interruptor de las fechas: lo pediste vos. Como siempre, un aviso te dice
 si lo va a hacer en un momento o qué está esperando (que reanudes la IA, que
 bajes un modelo, que cargues una clave o que vuelva la cuota). Si el modelo
 se corta a mitad de un libro, lo retoma en el pasaje donde quedó, sin volver
@@ -1374,8 +1396,8 @@ haberlo organizado, así que lo demás sigue pendiente para la IA.
   prendidos. Apagar uno no deshace lo hecho: solo deja de hacer más. Con el de
   las fechas apagado, lo nuevo se organiza sin buscarle fechas; igual podés
   pedirlas a mano.
-- **"Ordenar la biblioteca existente mientras carga"**: lo que ya tenías
-  guardado antes de que la IA empezara a organizar sola lo recorre de a
+- **"Ordenar la biblioteca existente mientras carga"**: tus notas que ya
+  tenías antes de que la IA empezara a organizar sola las recorre de a
   poco, del más nuevo al más viejo, **solo con el teléfono enchufado**, para
   no gastar batería mientras lo usás. Debajo, una línea dice cuántos
   quedan, si está esperando el cargador para seguir y, mientras los ordena,
@@ -1385,7 +1407,7 @@ haberlo organizado, así que lo demás sigue pendiente para la IA.
 
 ## El material de un tema
 
-Es lo que ya terminó de procesarse de un Tema, o de una rama del Atlas y
+Es lo que procesaste de un Tema, o de una rama del Atlas y
 todo lo que cuelga de ella. Se puede seguir filtrando por Tema, por Tipo, por
 categorías de propiedades (por ejemplo, Época, Región) y por Etiquetas.
 
@@ -1573,21 +1595,30 @@ nota.
 
 ## Línea de tiempo
 
-Muestra en un eje temporal los elementos que tienen una propiedad de tipo
-fecha (la "Fecha del hecho"), con un dibujo distinto según qué tan precisa es
-esa fecha: exacta, aproximada ("circa") o un período (década o siglo).
+Muestra en un eje temporal los hechos con fecha **de lo que procesaste**: las
+fechas que la IA encontró en cada documento de Procesado, las que les
+agregaste vos y su "Fecha del hecho", con un dibujo distinto según qué tan
+precisa es esa fecha: exacta, aproximada ("circa") o un período (década o
+siglo). También están los hechos que escribís a mano sin documento (los
+**«Hechos sueltos»**).
+
+**Empieza de cero.** Las fechas que las fuentes de la Biblioteca ya tenían
+siguen guardadas en ellas, pero no se ven acá: la línea se llena a medida que
+triás. Vacía, lo explica y ofrece **"Ir a la Bandeja"** y **"Agregar un
+hecho"**.
 
 **Cómo llegar:** **"Línea de tiempo"** en la navegación, dentro de
 **"Organizar"** y arriba del Atlas (en la computadora, en el riel, en el mismo
 lugar). Ya no hay un ícono en la Biblioteca. También se llega desde una rama
-del Atlas ("Ver en la línea de tiempo") y desde el detalle de un elemento con
-fecha ("Ver en la línea de tiempo"): en esos dos casos se abre ya mostrando
-solo esa rama o ese elemento.
+del Atlas ("Ver en la línea de tiempo") y desde el detalle de una fuente
+("Ver en la línea de tiempo", si su documento procesado tiene fechas): en esos
+dos casos se abre ya mostrando solo esa rama o ese documento.
 
 **Qué ver: Todo, un Tema o un Documento.** Arriba hay una fila con tres
 chips. **"Todo"** es el de entrada: todos los hechos con fecha. **"Tema ▾"** y
 **"Documento ▾"** abren una hoja con un buscador (no distingue mayúsculas ni
-acentos): elegís un tema, o un documento entre los que tienen fechas, y la
+acentos): elegís un tema, o un documento procesado entre los que tienen
+fechas, y la
 línea de tiempo muestra solo eso y se acomoda sobre su época. El filtro puesto
 se ve como un chip con el nombre y una **"×"** para quitarlo; tocar **"Todo"**
 también lo quita. Se elige uno a la vez: un tema reemplaza al documento y al
@@ -1607,9 +1638,11 @@ documento), se abre su **ficha** sin salir de la línea de tiempo:
 - la fecha y el título (con ✨ si lo puso la IA);
 - la **cita** del texto, con la fecha resaltada en negrita y con fondo;
 - de qué **documento** sale (tocarlo abre su detalle);
-- **"Abrir en el documento"**, que te lleva al lector justo en esa cita. Si el
-  hecho no tiene cita, o el texto se volvió a extraer y la cita ya no está
-  (la ficha lo avisa), el botón no aparece;
+- **"Abrir en el documento"**, que te lleva al lector justo en esa cita: en
+  un documento procesado, al **original** en la Biblioteca, en el lugar de la
+  frase. Si el hecho no tiene cita —por ejemplo, salió de algo que editaste—,
+  o el texto se volvió a extraer y la cita ya no está (la ficha lo avisa), el
+  botón no aparece;
 - **"Editar"**, que abre el formulario con el título y las fechas (el documento
   y la cita no se cambian; si el hecho era de la IA, editarlo lo vuelve tuyo);
 - **"Quitar"**, que lo saca y avisa con **"Deshacer"**. Si era de la IA, queda
@@ -1648,10 +1681,10 @@ lea los textos y ponga en la línea las fechas que cuentan (un libro tiene
 muchas: 1809, 1831, 1859…), cada una con su frase. Una hoja te deja elegir qué
 recorre:
 
-- **Todo**: toda la biblioteca que ya está lista.
-- **Tema**: todo lo que está en un tema, que elegís con su buscador.
-- **Documento**: un solo elemento, que elegís entre **todos** los de tu
-  biblioteca (no solo los que ya tienen fechas: justamente para eso sirve).
+- **Todo**: todo lo que procesaste.
+- **Tema**: lo procesado que está en un tema, que elegís con su buscador.
+- **Documento**: un solo documento procesado, que elegís entre **todos** (no
+  solo los que ya tienen fechas: justamente para eso sirve).
 
 Si la línea ya estaba recortada a un tema, un documento o una rama del Atlas,
 la hoja arranca con eso elegido. **"Buscar fechas"** lo pone en la cola de la
@@ -1674,7 +1707,7 @@ la línea de tiempo"** en [los interruptores](#los-interruptores-ajustes--ia-y-m
 en el centro). Se abre un formulario con:
 
 - **Documento**: **"Sin documento"** (de entrada) o **"Un documento"**, que
-  abre la lista de la biblioteca para elegir de cuál. Si en la línea de tiempo
+  abre la lista de tus documentos procesados para elegir de cuál. Si en la línea de tiempo
   tenías elegido un documento, viene ya elegido. Todo hecho cuelga de un
   elemento —así viaja a la papelera, a la copia y a la unión de bóvedas—, por
   eso un hecho **sin documento** se guarda en una nota llamada **«Hechos
@@ -1691,11 +1724,13 @@ aparece en la línea (si el filtro puesto lo deja ver).
 **Desde un texto.** Seleccioná algo en el texto extraído, en el lector, en un
 PDF o en una página web y tocá **"A la línea de tiempo"** en la barrita (ver
 [Resaltar a mano](#resaltar-a-mano-la-barrita)): el formulario abre con la
-cita puesta y, si trae fecha, con la fecha cargada. El aviso de abajo tiene
-**"Ver"**, que abre la línea de tiempo en ese documento.
+cita puesta y, si trae fecha, con la fecha cargada. Si estás leyendo una
+fuente, el hecho va a **su documento procesado**, con la cita en la fuente;
+si todavía no la triaste, un aviso te lo dice y te lleva a la Bandeja. El
+aviso de abajo tiene **"Ver"**, que abre la línea de tiempo en ese documento.
 
-Para que un elemento entero aparezca acá también podés ponerle una propiedad
-de tipo fecha desde su detalle (sección Propiedades → "+ Agregar propiedad" →
+Para que un documento procesado entero aparezca acá también podés ponerle una
+propiedad de tipo fecha (sección Propiedades → "+ Agregar propiedad" →
 "Fecha del hecho").
 
 ---
@@ -2154,9 +2189,17 @@ misma pantalla, no la de una nota.
 
 ## El Atlas
 
-Es el índice de lo que sabés y de lo que te falta: para cada rama ves cuánto
-material tenés debajo y qué tan completa está: "Sin material", "Solo
-fuentes", "Fragmentos", "En construcción" o "Madura".
+Es el índice de lo que sabés y de lo que te falta, **armado con lo que
+procesaste**: para cada rama ves cuántos documentos procesados tenés debajo y
+cuánto los trabajaste: "Sin material", "Solo el texto" (lo que pasaste sin
+modificar), "Con resumen o síntesis", "Con fragmentos" (los que cortaste a
+mano) o "Con notas propias" (lo que escribiste vos). Cada documento cuenta en
+lo más trabajado que tiene.
+
+**Empieza de cero.** Los temas que las fuentes de la Biblioteca ya tenían
+siguen en ellas, pero no cuentan acá. Sin nada procesado, el Atlas explica que
+se llena al triar —lo que elegís va a Procesado y la IA le pone temas— y
+ofrece **"Ir a la Bandeja"**.
 
 **Cómo llegar:** ítem **"Atlas"** en la navegación (en el celular, dentro
 de **"Organizar"**).
@@ -2173,22 +2216,27 @@ Arriba, la ficha **"Agrupar por"** elige de qué es el índice:
 - Cualquier otra categoría de texto que hayas creado (Época, Región...).
 
 Tocar una rama la despliega (o, si no tiene nada debajo, abre su material);
-el menú de tres puntos de cada una ofrece "Ver el material" —lo de ese Tema
-o de esa etiqueta, encima del Atlas—, "Ver en la línea de tiempo"
-y "Bibliografía". Una tarjeta plegable te avisa de "vacíos detectados" —
-huecos como muchas fuentes sin ninguna nota propia, o una rama que no tocás
-hace meses. El botón de compartir guarda el Atlas que estás mirando como un
+el menú de tres puntos de cada una ofrece "Ver el material" —lo procesado de
+ese Tema o de esa etiqueta, encima del Atlas—, "Ver en la línea de tiempo"
+y "Bibliografía" (las fuentes de donde salió lo procesado de la rama). Una
+tarjeta plegable te avisa de "vacíos detectados" — huecos como muchos
+documentos y ninguno con notas propias, o una rama que no tocás hace meses. El botón de compartir guarda el Atlas que estás mirando como un
 documento Markdown.
 
 ---
 
 ## El Mapa
 
-Muestra tu bóveda como una red, con cuatro formas de mirarla:
+Muestra **lo que procesaste** como una red: tus documentos de Procesado, sus
+temas y los vínculos entre ellos. Las fuentes y las notas de la Biblioteca no
+están; sus vínculos de antes siguen a la vista en el detalle de cada una.
+**Empieza de cero**: sin nada procesado, explica que se llena al triar y
+ofrece **"Ir a la Bandeja"**. Tiene cuatro formas de mirarlo:
 
 - **Tablero**: tarjetas con números — los temas con más material, los más
   conectados entre sí, los aislados, contradicciones abiertas, cuánto creció
-  tu bóveda mes a mes, y la madurez de tus notas.
+  lo procesado mes a mes, y **cuánto lo trabajaste** (cuántos documentos solo
+  con el texto, con resumen o síntesis, con fragmentos y con notas propias).
 - **Vínculos**: tus documentos y los vínculos entre ellos, tengan o no Tema
   o etiquetas. Lo que vinculás aparece acá en el acto. Se dibuja solo lo que
   tiene algún vínculo; si son muchos, hasta 200 —primero lo que vinculaste
@@ -2234,9 +2282,12 @@ si lo hace en un rato o qué está esperando). Sin ningún Tema todavía, el
 tablero se ve igual, y el esquema y el grafo te lo dicen y te llevan a
 "Vínculos", que no los necesita.
 
-**Ver en el Mapa.** Cada vez que vinculás dos cosas —desde el detalle o
-desde el Mapa— un aviso **"Vinculado"** ofrece **"Ver en el Mapa"**: abre
-"Vínculos" con ese elemento resaltado y encuadrado junto a sus vecinos.
+**Ver en el Mapa.** Cada vez que vinculás dos documentos procesados —desde el
+Mapa o desde un documento— un aviso **"Vinculado"** ofrece **"Ver en el
+Mapa"**: abre "Vínculos" con ese documento resaltado y encuadrado junto a sus
+vecinos. Si vinculás dos cosas de la Biblioteca, el aviso dice "Vinculado" y
+nada más: eso no está en el Mapa. Agregar un vínculo a mano desde el Mapa, o
+"✨ Sugerir vínculos con IA", eligen entre lo procesado.
 
 Los filtros (tipo, Tema, etiquetas, búsqueda) rigen en todas las vistas, y el
 esquema, el grafo y los vínculos se pueden guardar como imagen o como SVG.
@@ -2247,13 +2298,15 @@ IA" y otro para agregar un vínculo a mano.
 
 ## Grafo local de un elemento
 
-Es una versión chica del grafo, centrada en un único elemento: muestra solo
-sus vecinos directos (lo que está vinculado a él).
+Es una versión chica del grafo, centrada en un único documento procesado:
+muestra solo sus vecinos directos (los otros documentos procesados vinculados
+a él).
 
-**Cómo llegar:** aparece automáticamente, como vista previa, dentro del
-detalle de cualquier elemento, justo debajo de su panel; tocarla o tocar el botón de expandir abre la
-pantalla completa, con un selector de "Grado" (cuántos saltos de distancia
-mostrar).
+**Cómo llegar:** aparece, como vista previa, en el **Mapa** de un documento
+procesado. Una fuente se estudia en su documento procesado, y en una nota propia
+no aparece: los vínculos de las dos siguen en su sección "Vínculos". Tocarla, o tocar el botón
+de expandir, abre la pantalla completa, con un selector de "Grado" (cuántos
+saltos de distancia mostrar).
 
 En la pantalla completa, con cualquier grado —también **"Todos"**—, el grafo
 **se puede alejar hasta verlo entero**: pellizcando, con el botón **"−"** o

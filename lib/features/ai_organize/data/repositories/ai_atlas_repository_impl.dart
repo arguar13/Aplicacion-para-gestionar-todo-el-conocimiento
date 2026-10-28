@@ -5,6 +5,8 @@ import 'package:sinapsis/core/database/ai_run_sql.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/atlas_suggestions.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
+import 'package:sinapsis/core/database/note_text.dart';
+import 'package:sinapsis/core/database/processed_entries.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
@@ -201,7 +203,7 @@ class AiAtlasRepositoryImpl implements AiAtlasRepository {
             LEFT JOIN note n ON n.item_id = i.id
            WHERE ipv.property_value_id IN (${_marks(branchValueIds.length)})
              AND ${activeItemSql('i')}
-             AND (n.note_kind IS NULL OR n.note_kind <> '$_map')''',
+             AND ${isProcessedSql('i.id')}''',
           variables: [for (final id in branchValueIds) Variable.withString(id)],
           readsFrom: {
             _db.itemPropertyValues,
@@ -258,12 +260,23 @@ class AiAtlasRepositoryImpl implements AiAtlasRepository {
           readsFrom: {_db.renditions},
         )
         .get();
-    return {
+    final excerpts = {
       for (final row in rows)
         if (_plainText(row.read<String>('kind'), row.read<String>('head'))
             case final text when text.isNotEmpty)
           row.read<String>('item_id'): _cutWords(text, chars),
     };
+    // Un documento procesado (F41) no tiene formas: su comienzo sale de sus
+    // partes, solo las primeras —puede ser un libro—. Es lo único que llega
+    // acá desde el paso 6: el material de una nota mapa es lo procesado.
+    for (final id in itemIds) {
+      if (excerpts.containsKey(id)) continue;
+      final text = (await noteTextOf(_db, id, upTo: chars * 3))?.trim();
+      if (text != null && text.isNotEmpty) {
+        excerpts[id] = _cutWords(text, chars);
+      }
+    }
+    return excerpts;
   });
 
   @override

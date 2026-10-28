@@ -44,6 +44,7 @@ import 'package:sinapsis/features/library/presentation/widgets/source_panel_part
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/historical_date_form.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/relations_section.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/timeline/data/repositories/timeline_repository_impl.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
@@ -633,149 +634,34 @@ void main() {
       );
     });
 
-    testWidgets('sin vínculos, el panel muestra su estado vacío', (
-      tester,
-    ) async {
-      final id = await captureAndGetId('un elemento sin vínculos');
+    testWidgets('en una nota de la persona no se dibuja: el grafo local lee '
+        'solo lo procesado, y sus vínculos están en «Vínculos» (F41, paso '
+        '6)', (tester) async {
+      // Cómo se dibuja el de un documento procesado —vacío, sus vecinos, el
+      // «+N», ampliar— lo prueban `local_graph_panel_test` y la pantalla del
+      // documento.
+      final other = await captureAndGetId('el otro elemento');
+      final id = await captureAndGetId('el elemento con vínculo');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createRelation(
+            fromItemId: id,
+            toItemId: other,
+            kind: RelationKind.relatedTo,
+          );
 
       await pumpDetail(tester, id);
 
-      expect(find.text(es.graphEmpty), findsOneWidget);
       expect(find.byType(LocalGraphPreviewNode), findsNothing);
-    });
-
-    testWidgets('con un vínculo, el panel muestra dos nodos', (tester) async {
-      final other = await captureAndGetId('el otro elemento');
-      final id = await captureAndGetId('el elemento con vínculo');
-      await harness.container
-          .read(organizeRepositoryProvider)
-          .createRelation(
-            fromItemId: id,
-            toItemId: other,
-            kind: RelationKind.relatedTo,
-          );
-
-      await pumpDetail(tester, id);
-
       expect(find.text(es.graphEmpty), findsNothing);
-      expect(find.byType(LocalGraphPreviewNode), findsNWidgets(2));
-    });
-
-    testWidgets(
-      'un elemento con más vecinos de los que caben dibuja el tope y dice '
-      'cuántos faltan',
-      (tester) async {
-        final id = await captureAndGetId('el elemento muy conectado');
-        final organize = harness.container.read(organizeRepositoryProvider);
-        // Treinta y dos vecinos: el vecindario trae veintinueve (y deja tres
-        // afuera) y la vista previa dibuja diez más el central.
-        for (var i = 0; i < 32; i++) {
-          final neighbor = await captureAndGetId('vecino número $i');
-          await organize.createRelation(
-            fromItemId: id,
-            toItemId: neighbor,
-            kind: RelationKind.relatedTo,
-          );
-        }
-
-        await pumpDetail(tester, id);
-
-        expect(find.byType(LocalGraphPreviewNode), findsNWidgets(11));
-        expect(find.text(es.localGraphPreviewMore(22)), findsOneWidget);
-      },
-    );
-
-    testWidgets('sin vecinos de sobra, el panel no avisa de ninguno omitido', (
-      tester,
-    ) async {
-      final other = await captureAndGetId('el otro elemento');
-      final id = await captureAndGetId('el elemento con vínculo');
-      await harness.container
-          .read(organizeRepositoryProvider)
-          .createRelation(
-            fromItemId: id,
-            toItemId: other,
-            kind: RelationKind.relatedTo,
-          );
-
-      await pumpDetail(tester, id);
-
       expect(
-        find.byKey(const ValueKey('local-graph-preview-more')),
-        findsNothing,
-      );
-    });
-
-    testWidgets('tocar el botón de ver grafo completo navega al grafo local', (
-      tester,
-    ) async {
-      final other = await captureAndGetId('el otro elemento');
-      final id = await captureAndGetId('el elemento con vínculo');
-      await harness.container
-          .read(organizeRepositoryProvider)
-          .createRelation(
-            fromItemId: id,
-            toItemId: other,
-            kind: RelationKind.relatedTo,
-          );
-
-      await tester.pumpWidget(harness.wrapWithAppRouter());
-      await tester.pumpAndSettle();
-      harness.goTo('${RoutePaths.library}/$id');
-      await tester.pumpAndSettle();
-
-      final openFullButton = find.byTooltip(es.localGraphPanelOpenFull);
-      await tester.scrollUntilVisible(
-        openFullButton,
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(openFullButton);
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text(es.localGraphTitle('el elemento con vínculo')),
+        find.descendant(
+          of: find.byType(RelationsSection),
+          matching: find.text(es.relationKindRelatedTo('el otro elemento')),
+        ),
         findsOneWidget,
       );
     });
-
-    testWidgets(
-      'un vecino marcado como nota mapa, tocado desde el panel, entra al '
-      'grafo local centrado en él en vez de a su detalle',
-      (tester) async {
-        final other = await captureAndGetId('el vecino mapa');
-        final id = await captureAndGetId('el elemento con vínculo');
-        await harness.container
-            .read(organizeRepositoryProvider)
-            .createRelation(
-              fromItemId: id,
-              toItemId: other,
-              kind: RelationKind.relatedTo,
-            );
-        await harness.container
-            .read(inboxRepositoryProvider)
-            .setNoteKind(itemId: other, kind: NoteKind.map);
-
-        await tester.pumpWidget(harness.wrapWithAppRouter());
-        await tester.pumpAndSettle();
-        harness.goTo('${RoutePaths.library}/$id');
-        await tester.pumpAndSettle();
-
-        final mapNeighbor = find.text('el vecino mapa');
-        await tester.scrollUntilVisible(
-          mapNeighbor,
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(mapNeighbor);
-        await tester.pumpAndSettle();
-
-        expect(find.text(es.localGraphTitle('el vecino mapa')), findsOneWidget);
-        expect(find.text(es.detailRelationsTitle), findsNothing);
-      },
-    );
   });
 
   group('procedencia', () {
@@ -2047,9 +1933,8 @@ void main() {
       expect(item.properties, isEmpty);
     });
 
-    testWidgets('lo que se pone acá aparece en la línea de tiempo', (
-      tester,
-    ) async {
+    testWidgets('en una nota de la Biblioteca no llega a la línea de tiempo: '
+        'se arma con lo procesado (F41, paso 6)', (tester) async {
       final id = await captureAndGetId('la caída de Roma');
       await pumpDetail(tester, id);
       await openDialogFor(tester, kFechaDelHechoCategoryName);
@@ -2064,15 +1949,18 @@ void main() {
       // Un stream de la base necesita el reloj real: dentro de `testWidgets`
       // el reloj es falso y su primera emisión no llegaría nunca.
       final events = (await tester.runAsync(
-        () => timeline.watchEvents(const LibraryQuery()).first,
+        () => timeline
+            .watchEvents(const LibraryQuery(scope: LibraryScope.processed))
+            .first,
       ))!;
 
-      expect(events, hasLength(1));
-      expect(events.single.itemId, id);
-      expect(
-        events.single.date,
-        const HistoricalDate(year: 476, precision: DatePrecision.year),
-      );
+      expect(events, isEmpty);
+      // Pero quedó puesta en la nota.
+      final item =
+          (await harness.container.read(libraryRepositoryProvider).findById(id))
+              .getRight()
+              .toNullable();
+      expect(item!.properties.map((p) => p.value), contains(isNotEmpty));
     });
   });
 

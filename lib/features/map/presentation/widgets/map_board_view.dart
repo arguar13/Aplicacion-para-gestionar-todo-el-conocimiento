@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
-import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processed_depth.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
-import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/services/board_stats.dart';
+import 'package:sinapsis/features/organize/presentation/processed_depth_presentation.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El tablero del mapa (F14): los números que resumen la bóveda vista por
@@ -111,7 +111,7 @@ class _MapBoardViewState extends State<MapBoardView> {
                     onOpenTension: widget.onOpenTension,
                   ),
                   _GrowthCard(points: dashboard.growth),
-                  _MaturityCard(dashboard: dashboard),
+                  _DepthCard(dashboard: dashboard),
                 ],
               ],
             ),
@@ -574,8 +574,11 @@ class _SparklinePainter extends CustomPainter {
   }
 }
 
-class _MaturityCard extends StatelessWidget {
-  const _MaturityCard({required this.dashboard});
+/// Cuánto se trabajó lo procesado (F41, paso 6): cuántos documentos hay en
+/// cada escalón, del texto copiado tal cual a las notas propias. Ocupa el
+/// lugar de la madurez de las notas, que ya no están en el Mapa.
+class _DepthCard extends StatelessWidget {
+  const _DepthCard({required this.dashboard});
 
   final MapDashboard dashboard;
 
@@ -584,14 +587,14 @@ class _MaturityCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
     final segments = [
-      for (final level in NoteMaturity.values) (level, level.color(colors)),
+      for (final level in ProcessedDepth.values) (level, level.color(colors)),
     ];
 
     return _BoardCard(
-      cardKey: 'maturity',
-      title: l10n.mapBoardMaturityTitle,
-      child: dashboard.noteCount == 0
-          ? Text(l10n.mapBoardMaturityNone)
+      cardKey: 'depth',
+      title: l10n.mapBoardDepthTitle,
+      child: dashboard.itemCount == 0
+          ? Text(l10n.mapBoardDepthNone)
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -603,9 +606,9 @@ class _MaturityCard extends StatelessWidget {
                       child: Row(
                         children: [
                           for (final (level, color) in segments)
-                            if ((dashboard.maturity[level] ?? 0) > 0)
+                            if ((dashboard.depth[level] ?? 0) > 0)
                               Expanded(
-                                flex: dashboard.maturity[level]!,
+                                flex: dashboard.depth[level]!,
                                 child: ColoredBox(color: color),
                               ),
                         ],
@@ -633,8 +636,8 @@ class _MaturityCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           Text(
                             '${level.label(l10n)}: '
-                            '${dashboard.maturity[level] ?? 0}',
-                            key: ValueKey('map-maturity-${level.name}'),
+                            '${dashboard.depth[level] ?? 0}',
+                            key: ValueKey('map-depth-${level.name}'),
                           ),
                         ],
                       ),

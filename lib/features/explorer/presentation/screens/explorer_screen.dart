@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
@@ -14,6 +12,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_filter_section.dart';
+import 'package:sinapsis/features/organize/presentation/open_organized_item.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -120,7 +119,7 @@ class ExplorerScreen extends ConsumerWidget {
         final item = items[index];
         return LibraryItemCard(
           item: item,
-          onTap: () => context.push(RoutePaths.itemDetail(item.id)),
+          onTap: () => openOrganizedItem(context, item.id),
         );
       },
     );

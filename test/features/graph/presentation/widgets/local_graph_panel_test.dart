@@ -12,7 +12,9 @@ import 'package:sinapsis/features/organize/presentation/providers/organize_provi
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 void main() {
   final es = AppLocalizationsEs();
@@ -22,15 +24,28 @@ void main() {
     harness = await LibraryHarness.create();
   });
 
+  /// Un documento procesado: el grafo local lee solo eso (F41, paso 6).
+  var processedCount = 0;
   Future<KnowledgeItem> capture(String title) async {
-    await harness.capture(title, title: title);
-    final items =
-        (await harness.container
-                .read(libraryRepositoryProvider)
-                .list(const LibraryQuery()))
-            .getRight()
-            .toNullable()!;
-    return items.firstWhere((i) => i.title == title);
+    final id = 'procesado-${processedCount++}';
+    await insertProcessedDocument(harness.database, id: id, title: title);
+    return (await harness.container
+            .read(libraryRepositoryProvider)
+            .findById(id))
+        .getRight()
+        .toNullable()!;
+  }
+
+  /// Una fuente de la Biblioteca.
+  var sourceCount = 0;
+  Future<KnowledgeItem> captureSource(String title) async {
+    final id = 'fuente-${sourceCount++}';
+    await insertItemRows(harness.database, id: id, title: title);
+    return (await harness.container
+            .read(libraryRepositoryProvider)
+            .findById(id))
+        .getRight()
+        .toNullable()!;
   }
 
   Future<void> link(KnowledgeItem from, KnowledgeItem to) => harness.container
@@ -279,5 +294,69 @@ void main() {
 
     expect(find.textContaining('detalle de'), findsOneWidget);
     expect(find.textContaining('mapa completo de'), findsNothing);
+  });
+
+  group('lo procesado, no la Biblioteca (F41, paso 6)', () {
+    testWidgets('en una fuente no se dibuja: es de consulta, y su Mapa es el '
+        'de su documento procesado (decisión K)', (tester) async {
+      final source = await captureSource('la fuente');
+      final other = await captureSource('otra fuente');
+      await link(source, other);
+
+      await pumpPanel(tester, source);
+
+      expect(find.byType(LocalGraphPanel), findsOneWidget);
+      expect(previewNodes(), findsNothing);
+      expect(find.text('otra fuente'), findsNothing);
+      expect(find.text(es.graphEmpty), findsNothing);
+    });
+
+    testWidgets('en una nota de la persona no se dibuja: no está en el Mapa', (
+      tester,
+    ) async {
+      await harness.capture('una nota mía', title: 'una nota mía');
+      final note =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!
+              .single;
+
+      await pumpPanel(tester, note);
+
+      expect(find.byType(LocalGraphPanel), findsOneWidget);
+      expect(find.text(es.graphEmpty), findsNothing);
+    });
+
+    testWidgets('entre dos procesados no se cuela un vecino de la Biblioteca', (
+      tester,
+    ) async {
+      final seed = await capture('el elemento central');
+      await link(seed, await capture('vecino procesado'));
+      await link(seed, await captureSource('una fuente'));
+
+      await pumpPanel(tester, seed);
+
+      expect(find.text('vecino procesado'), findsOneWidget);
+      expect(find.text('una fuente'), findsNothing);
+    });
+
+    testWidgets('los vínculos viejos con la Biblioteca no ocupan el lugar de '
+        'un vecino procesado ni se cuentan en el «+N»', (tester) async {
+      final seed = await capture('el elemento central');
+      // El vecino procesado, el más viejo: si los de la Biblioteca entraran
+      // al vecindario, llenarían el tope y lo dejarían afuera.
+      await link(seed, await capture('vecino procesado'));
+      for (var i = 0; i < 35; i++) {
+        await link(seed, await captureSource('fuente $i'));
+      }
+
+      await pumpPanel(tester, seed);
+
+      expect(find.text('vecino procesado'), findsOneWidget);
+      expect(previewNodes(), findsNWidgets(2));
+      expect(moreChip(), findsNothing);
+    });
   });
 }

@@ -173,10 +173,14 @@ abstract interface class OrganizeRepository {
   /// que rodea a un elemento y no del tamaño de la bóveda. Cuando el tope deja
   /// vecinos afuera, entran los vinculados más recientemente y
   /// [Neighborhood.omitted] dice cuántos faltan.
+  ///
+  /// Con [processedOnly], solo los vínculos entre dos documentos procesados:
+  /// el grafo local, que como el Mapa lee solo lo procesado (F41, paso 6).
   Stream<Neighborhood> watchNeighborhood({
     required String seedItemId,
     required int maxNodes,
     int? degree = 1,
+    bool processedOnly = false,
   });
 
   // ---------------------------------------------------------------------

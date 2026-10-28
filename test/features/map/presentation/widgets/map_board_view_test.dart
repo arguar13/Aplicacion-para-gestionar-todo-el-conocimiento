@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processed_depth.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart';
@@ -62,12 +62,10 @@ void main() {
   MapDashboard dashboard({
     List<OpenContradiction> open = const [],
     int openCount = 0,
-    Map<NoteMaturity, int> maturity = const {},
-    int notes = 0,
+    Map<ProcessedDepth, int> depth = const {},
+    int items = 4,
   }) => MapDashboard(
-    itemCount: 4,
-    sourceCount: 4 - notes,
-    noteCount: notes,
+    itemCount: items,
     openContradictionCount: openCount,
     openContradictions: open,
     growth: const [
@@ -75,7 +73,7 @@ void main() {
       GrowthPoint(year: 2026, month: 2, added: 2, total: 3),
       GrowthPoint(year: 2026, month: 3, added: 1, total: 4),
     ],
-    maturity: maturity,
+    depth: depth,
   );
 
   Future<List<String>> pump(
@@ -217,7 +215,7 @@ void main() {
         findsNothing,
       );
       expect(find.byKey(const ValueKey('map-board-growth')), findsNothing);
-      expect(find.byKey(const ValueKey('map-board-maturity')), findsNothing);
+      expect(find.byKey(const ValueKey('map-board-depth')), findsNothing);
     });
 
     testWidgets('las contradicciones abiertas: títulos, y adónde lleva cada '
@@ -271,27 +269,30 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('la madurez cuenta las notas de cada grado', (tester) async {
+    testWidgets('lo trabajado cuenta los documentos de cada escalón (F41)', (
+      tester,
+    ) async {
       await pump(
         tester,
         dash: dashboard(
-          notes: 5,
-          maturity: {
-            NoteMaturity.seed: 3,
-            NoteMaturity.developing: 1,
-            NoteMaturity.mature: 1,
+          depth: {
+            ProcessedDepth.textOnly: 2,
+            ProcessedDepth.cut: 1,
+            ProcessedDepth.annotated: 1,
           },
         ),
       );
 
-      expect(find.text('${es.noteMaturitySeed}: 3'), findsOneWidget);
-      expect(find.text('${es.noteMaturityMature}: 1'), findsOneWidget);
+      expect(find.text(es.mapBoardDepthTitle), findsOneWidget);
+      expect(find.text('${es.processedDepthTextOnly}: 2'), findsOneWidget);
+      expect(find.text('${es.processedDepthSummarized}: 0'), findsOneWidget);
+      expect(find.text('${es.processedDepthAnnotated}: 1'), findsOneWidget);
     });
 
-    testWidgets('sin notas, la madurez lo dice', (tester) async {
-      await pump(tester, dash: dashboard());
+    testWidgets('sin documentos, lo trabajado lo dice', (tester) async {
+      await pump(tester, dash: dashboard(items: 0));
 
-      expect(find.text(es.mapBoardMaturityNone), findsOneWidget);
+      expect(find.text(es.mapBoardDepthNone), findsOneWidget);
     });
   });
 }

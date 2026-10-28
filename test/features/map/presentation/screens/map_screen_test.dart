@@ -5,25 +5,26 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
-import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/explorer/presentation/providers/explorer_providers.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
+import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
-import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
-import 'package:sinapsis/features/map/presentation/widgets/map_item_box.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/tension_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/fake_ai_organize_queue.dart';
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// La pantalla del mapa (F14), contra SQLite real y el router real: el tablero
 /// con lo que hay en la bóveda, adónde lleva cada cosa y que se actualiza solo.
@@ -56,12 +57,13 @@ void main() {
     List<String> values, {
     SourceKind kind = SourceKind.webPage,
   }) async {
-    await insertItemRows(
+    // Un documento procesado: el Mapa se arma con lo procesado (F41, paso 6).
+    await insertProcessedDocument(
       db,
       id: id,
       title: 'Fuente $id',
       createdAt: DateTime(2026, 8, 10),
-      kind: kind,
+      sourceKind: kind,
     );
     for (final valueId in values) {
       await db
@@ -112,6 +114,7 @@ void main() {
 
   testWidgets('sin temas, el tablero no se tapa: cuenta lo que hay, y el '
       'esquema dice que todavía no hay temas (F28)', (tester) async {
+    await item('suelto', const []);
     await pump(tester);
 
     expect(find.byType(MapScreen), findsOneWidget);
@@ -188,7 +191,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('map-graph-node-item:s3')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(ItemDetailScreen), findsOneWidget);
+    // Un documento procesado se abre en su pantalla (F41).
+    expect(find.byType(ProcessedDocumentScreen), findsOneWidget);
   });
 
   testWidgets('se actualiza solo: guardar algo nuevo cambia el tablero', (
@@ -426,7 +430,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('map-links-node-a')));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ItemDetailScreen), findsOneWidget);
+      expect(find.byType(ProcessedDocumentScreen), findsOneWidget);
     });
 
     testWidgets('se exporta como SVG con el nombre de la vista', (
@@ -576,10 +580,14 @@ void main() {
       expect(find.byKey(const ValueKey('map-links-node-a')), findsOneWidget);
     });
 
-    testWidgets('vincular desde el detalle avisa, y «Ver en el Mapa» abre los '
-        'vínculos con el foco en ese elemento', (tester) async {
-      await item('a', const []);
-      await item('b', const []);
+    testWidgets('vincular dos fuentes desde el detalle avisa, sin prometer un '
+        'Mapa en el que no van a estar (F41, paso 6)', (tester) async {
+      // «Ver en el Mapa» después de vincular lo ofrece el Mapa mismo, entre
+      // documentos procesados (map_graph_relations_test). El detalle de un
+      // procesado es su pantalla propia; el de una fuente vincula lo de la
+      // Biblioteca, que el Mapa ya no dibuja.
+      await insertItemRows(db, id: 'a', title: 'Fuente a');
+      await insertItemRows(db, id: 'b', title: 'Fuente b');
       await pump(tester);
       harness.goTo(RoutePaths.itemDetail('a'));
       await tester.pumpAndSettle();
@@ -594,20 +602,15 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.tap(find.text(es.pickRelationConfirm));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(es.relationSeeInMap));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(MapScreen), findsOneWidget);
-      final a = find.descendant(
-        of: find.byKey(const ValueKey('map-links-node-a')),
-        matching: find.byType(MapItemBox),
+      // El aviso pregunta antes si es un procesado: una consulta de verdad.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
       );
-      expect(tester.widget<MapItemBox>(a).highlighted, isTrue);
+      await tester.pumpAndSettle();
 
-      // El detalle ya no vive en el shell: al irse al Mapa se suelta, y drift
-      // cierra sus consultas con un temporizador que hay que dejar correr.
-      await tester.pump(const Duration(milliseconds: 1));
+      expect(find.text(es.relationLinked), findsOneWidget);
+      expect(find.text(es.relationSeeInMap), findsNothing);
+      expect(await db.select(db.relations).get(), hasLength(1));
     });
   });
 
@@ -854,22 +857,33 @@ void main() {
     });
   });
 
-  testWidgets('la madurez de las notas sale del tablero', (tester) async {
+  testWidgets('cuánto se trabajó lo procesado sale del tablero (F41)', (
+    tester,
+  ) async {
     await seed();
-    await insertItemRows(
+    await insertProcessedDocument(
       db,
       id: 'n1',
-      title: 'Nota',
+      title: 'Con notas',
       createdAt: DateTime(2026, 8, 12),
-      kind: SourceKind.manualNote,
-    );
-    await (db.update(
-      db.knowledgeNotes,
-    )..where((n) => n.itemId.equals('n1'))).write(
-      const KnowledgeNotesCompanion(maturity: Value(NoteMaturity.mature)),
+      sections: {ProcessedSection.notes},
     );
     await pump(tester);
 
-    expect(find.text('${es.noteMaturityMature}: 1'), findsOneWidget);
+    expect(find.text('${es.processedDepthAnnotated}: 1'), findsOneWidget);
+  });
+
+  testWidgets('sin nada procesado explica que se llena al triar, y lleva a la '
+      'Bandeja; lo de la Biblioteca no cuenta (F41, paso 6)', (tester) async {
+    await insertItemRows(db, id: 'fuente', title: 'Fuente');
+    await pump(tester);
+
+    expect(find.byKey(const ValueKey('fills-on-triage')), findsOneWidget);
+    expect(find.text(es.mapFillsOnTriageTitle), findsOneWidget);
+    expect(find.byType(MapBoardView), findsNothing);
+
+    await tester.tap(find.text(es.organizedGoToInbox));
+    await tester.pumpAndSettle();
+    expect(find.byType(InboxScreen), findsOneWidget);
   });
 }

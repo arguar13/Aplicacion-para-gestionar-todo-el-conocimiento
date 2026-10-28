@@ -1249,4 +1249,81 @@ Verificación:
   papelera ya no se sirve, así que la regla aparte sobraba— y se sacó la regla. Después de rebasar,
   29 sobre lo nuevo y lo que cambió (el quiz y las tarjetas sobre el texto de tarjetas, la nota
   derivada de un procesado, la barrita de solo lectura, la línea y el documento): todas muertas.
+
+**Paso 6 (hecho): organizar lo procesado.** Sin subir el esquema: todo sale de las tablas de hoy,
+colgado del documento procesado (decisión F).
+
+- **La IA organiza lo procesado, no las fuentes.**
+  - La cola (`AiOrganizeBacklog`) toma solo notas: las de la persona y los documentos procesados,
+    que son notas. Una fuente ya no entra ni nueva, ni de la biblioteca que ya existía, ni pedida a
+    mano: `_organize` y `_findDates` la saltan. Se quitó `itemProcessed`, el aviso de la cola de
+    procesamiento al terminar una fuente. La revisión con otro modelo no organiza: corrige lo que la
+    IA ya hizo, y sigue igual.
+  - **El punto para encolar un procesado** es `AiOrganizeQueue.enqueueProcessedForOrganizing(id)`
+    (`ref.read(aiOrganizeQueueProvider)`). Lo llaman la Bandeja y «Volver a triar» al confirmar: lo
+    organiza en el acto, en una pasada nueva que no repite lo que ya estaba. Sin llamarlo, un
+    procesado nuevo igual se organiza solo —la cola lo ve en la base cuando lleva 15 segundos
+    quieto— y uno que cambió mucho también, como una nota; la llamada es lo que hace que volver a
+    triar con algo chico, como un fragmento con una fecha, no espere.
+  - **Lee solo lo elegido** (`OrganizeTextReader`): las partes del procesado, armadas en un solo
+    lugar (`joinProcessedParts`): las páginas del texto pegadas, lo demás separado por un renglón en
+    blanco. El mismo texto lo leen los pasos, la revisión, la huella que dice si cambió, los
+    vectores (`noteTextOf`) y el comienzo de un candidato o de una entrada de nota mapa, que lee
+    solo las primeras partes de un libro. Las tarjetas, no: salen de «el texto que se estudia»
+    (`readProcessedCardText`, decisión I), como las de la cobertura.
+  - **Vínculos entre procesados**: el selector de candidatos deja a cada lado con lo suyo, por SQL
+    (`isProcessedSql`). Un procesado se vincula solo con procesados; lo de la Biblioteca, entre sí.
+  - **Las fechas citan su lugar**: lo que la IA encuentra en una parte copiada tal cual se guarda en
+    el procesado con la cita en la forma de la fuente (`citeInSource`, con `sourceOffsetOf`); un
+    tramo que cruza dos páginas pegadas y seguidas en el original también. En una parte editada o
+    escrita por la persona queda con su frase y sin posición. `DatedEventRepository` acepta esa cita
+    porque la forma es de la fuente del procesado. «Abrir en el documento» abre el original ahí
+    (`TimelineEvent.quoteItemId`). Las fechas son solo de lo procesado: de una nota de la persona
+    no se buscan, porque no se verían.
+  - **Las notas mapa** reúnen lo procesado de cada tema: es su material, como lo era una fuente.
+- **Las cuatro pantallas leen solo lo procesado**, en SQL:
+  - `LibraryQuery.scope` (`LibraryScope.processed`): los mismos filtros de la Biblioteca sobre los
+    documentos procesados; el texto se busca en sus partes y el tipo es el de su fuente. Lo usan el
+    Mapa, la Línea, el grafo local, el Explorador («el material» de una rama), los selectores
+    («Documento», «Un documento», vincular desde el Mapa, «✨ Sugerir vínculos») y la bibliografía
+    de una rama, que cita las fuentes de lo procesado.
+  - **El Atlas cuenta cada procesado por cuánto se trabajó** (`ProcessedDepth`): solo el texto, con
+    resumen o síntesis, con fragmentos o con notas propias. Es la cobertura nueva —las cuatro barras
+    de siempre—, y el vacío «muchas fuentes sin nota viva» pasa a «muchos documentos y ninguno con
+    notas». Así se arregló de raíz el -1: un procesado ya no es «elemento sin escalón».
+  - **El Mapa**: los ítems, los vínculos, el esquema, los elementos de un tema, las contradicciones
+    y el tablero, con `mapItemSql`. La tarjeta de madurez de las notas pasa a «Cuánto trabajaste lo
+    procesado», con la misma escalera y los mismos colores que el Atlas. «Ver en el Mapa» se ofrece
+    solo si lo vinculado está en el Mapa.
+  - **El grafo local**: `watchNeighborhood(processedOnly: true)`, solo vínculos entre procesados.
+    Es también el Mapa del documento procesado (paso 8): dibuja sus vecinos procesados, que se
+    piden con `LibraryScope.processed` —lo que el paso 8 dejó anotado como pendiente—.
+  - **La Línea de tiempo**: las fechas de los procesados y los hechos que la persona escribe a mano
+    en una nota suya, como «Hechos sueltos», que no salen de ninguna fuente. Un hecho marcado en el
+    texto de una fuente va a su documento procesado. El repositorio lee el corpus que pide la
+    consulta (`LibraryQuery.scope`): la Línea pide `processed`, y el calendario de la Biblioteca
+    —que reusa esa lectura para «Fecha del hecho»— sigue leyendo sus fuentes y sus notas.
+- **Empiezan de cero**: sin nada procesado, el Atlas y el Mapa muestran `FillsOnTriage` —que se
+  llenan al triar, con «Ir a la Bandeja»—, y la Línea vacía ofrece la Bandeja y «Agregar un hecho».
+- **Los accesos desde la fuente**: «Ver en la línea de tiempo» abre la de su procesado. El id del
+  procesado sale de la fuente (`processedDocumentIdFor`), así que se pregunta por él sin traer el
+  documento.
+  - Con el paso 8 (decisión K), una fuente es de consulta: su Mapa, «Organizar con IA», «Buscar
+    fechas con IA» y la línea de la IA están en el documento procesado, y piden con su id. Este paso
+    había hecho que, desde la fuente, trabajaran sobre su procesado o dijeran que faltaba triarla;
+    con el paso 8 ese código no lo alcanza nadie y se sacó, con su tarjeta, sus avisos y sus pruebas.
+    El grafo local dibuja el de un documento procesado; de cualquier otro elemento, nada.
+- **Abrir un procesado** desde esas pantallas pasa por un solo punto, `openOrganizedItem`, que va a
+  `RoutePaths.itemDetail`: con el paso 2 en main, esa ruta redirige a la pantalla del documento
+  procesado.
+- Lo que las fuentes ya tenían —temas, vínculos, fechas— no se borra: sigue en su detalle.
+- Las pruebas escriben un documento procesado en un solo lugar, `insertProcessedRows`
+  (`test/support/processed_rows.dart`); `insertProcessedDocument` es un atajo encima, con un mismo
+  texto en cada sección elegida.
+- Pasa la suite entera: 11.248 pruebas.
+- 45 mutaciones, todas muertas. Nueve sobrevivieron la primera vez: siete se mataron con lo que
+  faltaba probar —la cita de una fecha en la fuente, la huella de lo elegido, cruzar partes que no
+  van pegadas o no son seguidas, cada lado de los vínculos con lo suyo, el tope del grafo local—, y
+  dos eran código que nunca corría y se sacó. Otras cuatro se fueron con lo que el paso 8 dejó sin
+  uso.
 - Sin probar en el emulador ni en el teléfono.

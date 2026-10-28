@@ -32,6 +32,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 import '../../timeline_fixtures.dart';
 
 void main() {
@@ -55,31 +56,22 @@ void main() {
             .id;
   });
 
-  /// Guarda un elemento y le pone [date] como "Fecha del hecho", por el
-  /// camino de la app.
+  /// Guarda un documento procesado de una fuente de tipo [kind] —lo que la
+  /// línea de tiempo lee desde F41 (paso 6)— y le pone [date] como «Fecha del
+  /// hecho», por el camino de la app.
   Future<void> seedEvent(
     String id,
     HistoricalDate date, {
     String? title,
     SourceKind kind = SourceKind.webPage,
   }) async {
-    await harness.container
-        .read(libraryRepositoryProvider)
-        .save(
-          KnowledgeItem(
-            id: id,
-            title: title ?? 'Hecho $id',
-            source: Source(
-              id: 'src-$id',
-              kind: kind,
-              capturedAt: now,
-              url: kind == SourceKind.manualNote ? null : 'https://e.org/$id',
-            ),
-            processingState: ProcessingState.ready,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
+    await insertProcessedDocument(
+      db,
+      id: id,
+      title: title ?? 'Hecho $id',
+      createdAt: now,
+      sourceKind: kind,
+    );
     final organize = harness.container.read(organizeRepositoryProvider);
     final value = (await organize.getOrCreateHistoricalPropertyValue(
       definitionId: fechaId,
@@ -1252,7 +1244,7 @@ void main() {
           ),
         ),
       );
-      queries[const LibraryQuery()]!.add([
+      queries[const LibraryQuery(scope: LibraryScope.processed)]!.add([
         eventAt('a', dateOf(100), title: 'Antiguo'),
         eventAt('b', dateOf(1900), title: 'Moderno'),
       ]);

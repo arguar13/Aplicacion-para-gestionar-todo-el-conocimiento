@@ -6,6 +6,7 @@ import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/ai_rejection_memory.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
+import 'package:sinapsis/core/database/processed_entries.dart';
 import 'package:sinapsis/core/database/property_value_merge.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
@@ -680,11 +681,21 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     required String seedItemId,
     required int maxNodes,
     int? degree = 1,
+    bool processedOnly = false,
   }) {
     return watchQuery(
       db: _db,
-      tables: [_db.relations, _db.knowledgeEntries],
-      read: () => _readNeighborhood(seedItemId, maxNodes, degree),
+      tables: [
+        _db.relations,
+        _db.knowledgeEntries,
+        if (processedOnly) _db.processedDocuments,
+      ],
+      read: () => _readNeighborhood(
+        seedItemId,
+        maxNodes,
+        degree,
+        processedOnly: processedOnly,
+      ),
       telemetry: _telemetry,
       hint: 'OrganizeRepositoryImpl.watchNeighborhood',
     );
@@ -698,8 +709,9 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   Future<Neighborhood> _readNeighborhood(
     String seedItemId,
     int maxNodes,
-    int? degree,
-  ) async {
+    int? degree, {
+    required bool processedOnly,
+  }) async {
     final visited = <String>{seedItemId};
     var frontier = <String>{seedItemId};
     var hop = 0;
@@ -710,7 +722,10 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
       // con la fecha de su vínculo más reciente: es el criterio para elegir
       // cuáles entran si el tope no alcanza para todos.
       final fresh = <String, DateTime>{};
-      for (final row in await _linksOf(frontier)) {
+      for (final row in await _linksOf(
+        frontier,
+        processedOnly: processedOnly,
+      )) {
         for (final id in [row.fromItemId, row.toItemId]) {
           if (visited.contains(id)) continue;
           final seen = fresh[id];
@@ -765,19 +780,32 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   }
 
   /// Los vínculos que tocan a alguno de [ids], en cualquiera de los dos
-  /// sentidos.
-  Future<List<RelationRow>> _linksOf(Set<String> ids) async {
+  /// sentidos. Con [processedOnly], solo los que unen dos documentos
+  /// procesados: los vecinos que no lo son no se alcanzan, y por ellos no se
+  /// llega a nada más.
+  Future<List<RelationRow>> _linksOf(
+    Set<String> ids, {
+    required bool processedOnly,
+  }) async {
     final list = ids.toList();
     final rows = <RelationRow>[];
     for (var start = 0; start < list.length; start += _idsPerQuery) {
       final batch = list.skip(start).take(_idsPerQuery).toList();
       rows.addAll(
-        await (_db.select(_db.relations)..where(
-              (r) =>
+        await (_db.select(_db.relations)..where((r) {
+              final linked =
                   (r.fromItemId.isIn(batch) | r.toItemId.isIn(batch)) &
                   itemIsActive(_db, r.fromItemId) &
-                  itemIsActive(_db, r.toItemId),
-            ))
+                  itemIsActive(_db, r.toItemId);
+              if (!processedOnly) return linked;
+              return linked &
+                  CustomExpression<bool>(
+                    isProcessedSql('relations.from_item_id'),
+                  ) &
+                  CustomExpression<bool>(
+                    isProcessedSql('relations.to_item_id'),
+                  );
+            }))
             .get(),
       );
     }

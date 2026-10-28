@@ -18,6 +18,7 @@ import 'package:sinapsis/features/suggestions/data/repositories/suggestion_repos
 
 import 'fake_id_generator.dart';
 import 'in_memory_file_store.dart';
+import 'processed_rows.dart';
 
 class _MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -122,6 +123,27 @@ class AiOrganizeHarness {
     renditionKind: RenditionKind.markdown,
     createdAt: createdAt,
   );
+
+  /// Guarda un documento procesado (F41) sin fuente, con [content] como su
+  /// texto: lo que la IA organiza desde el paso 6. Lo de la persona y lo
+  /// procesado son notas; las fuentes ya no se organizan solas.
+  Future<KnowledgeItem> processedDocument(
+    String id, {
+    required String title,
+    required String content,
+    DateTime? createdAt,
+  }) async {
+    await insertProcessedDocument(
+      db,
+      id: id,
+      title: title,
+      // Un rato antes de ahora, salvo que se diga otra cosa: un procesado es
+      // una nota, y la IA no toma una nota que se acaba de tocar.
+      createdAt: createdAt ?? now.subtract(const Duration(minutes: 1)),
+      text: content,
+    );
+    return reload(id);
+  }
 
   Future<KnowledgeItem> _save(
     String id, {

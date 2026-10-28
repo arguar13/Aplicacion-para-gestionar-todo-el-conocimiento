@@ -113,9 +113,14 @@ void main() {
     runId: await vault.startRun(itemId),
   );
 
-  /// Una fuente con el tema [valueId].
+  /// Un documento procesado con el tema [valueId]: el material de una nota
+  /// mapa, como el del Atlas (F41, paso 6).
   Future<void> sourceIn(String id, String valueId, {String? title}) async {
-    await vault.source(id, title: title ?? 'Fuente $id', content: 'Texto $id.');
+    await vault.processedDocument(
+      id,
+      title: title ?? 'Fuente $id',
+      content: 'Texto $id.',
+    );
     await topics.tag(id, valueId);
   }
 
@@ -316,7 +321,8 @@ void main() {
     );
 
     test('su contenido: la introducción del modelo, limpia, y un enlace a cada '
-        'elemento que existe de verdad', () async {
+        'documento procesado que existe de verdad; una nota de la persona no '
+        'es material (F41, paso 6)', () async {
       for (var i = 1; i <= 5; i++) {
         await sourceIn('f$i', historia);
       }
@@ -333,24 +339,20 @@ void main() {
           text: 'Todo lo reunido sobre Historia antigua. Ver Inventado.',
         ),
       );
-      expect(blocks.whereType<HeadingBlock>().map((b) => b.text), [
-        'Notas',
-        'Fuentes',
-      ]);
+      expect(blocks.whereType<HeadingBlock>().map((b) => b.text), ['Fuentes']);
       expect(linkedTitlesOf(map.blocksContent), {
-        'mi nota',
         for (var i = 1; i <= 5; i++) 'fuente f$i',
       });
       // Cada enlace resuelve a un elemento: ninguno roto, ninguno inventado.
       final links = await (vault.db.select(
         vault.db.inlineLinks,
       )..where((l) => l.fromItemId.equals(map.itemId))).get();
-      expect(links, hasLength(6));
+      expect(links, hasLength(5));
       expect(links.every((l) => l.toItemId != null), isTrue);
       // El modelo vio lo que hay, con su fragmento.
       expect(
         writer.seen.single.first,
-        const MapIntroEntry(title: 'Mi nota', excerpt: 'Lo que pienso.'),
+        const MapIntroEntry(title: 'Fuente f1', excerpt: 'Texto f1.'),
       );
     });
 
@@ -524,7 +526,7 @@ void main() {
         createdAt: vault.now.subtract(age),
       );
       for (var i = 0; i < links; i++) {
-        await vault.source('s$i', title: 'S$i', content: 'x');
+        await vault.processedDocument('s$i', title: 'S$i', content: 'x');
         await vault.organize.createRelation(
           fromItemId: 'n',
           toItemId: 's$i',

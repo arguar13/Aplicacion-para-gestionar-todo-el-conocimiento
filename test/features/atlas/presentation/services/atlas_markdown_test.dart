@@ -18,10 +18,10 @@ void main() {
     int depth, {
     String? parent,
     int children = 0,
-    int sources = 0,
-    int atomic = 0,
-    int growing = 0,
-    int mature = 0,
+    int textOnly = 0,
+    int summarized = 0,
+    int cut = 0,
+    int annotated = 0,
     int? firstYear,
     int? lastYear,
     DateTime? lastTouched,
@@ -32,10 +32,10 @@ void main() {
     depth: depth,
     parentId: parent,
     childCount: children,
-    sourceCount: sources,
-    atomicCount: atomic,
-    growingLivingCount: growing,
-    matureLivingCount: mature,
+    textOnlyCount: textOnly,
+    summarizedCount: summarized,
+    cutCount: cut,
+    annotatedCount: annotated,
     firstYear: firstYear,
     lastYear: lastYear,
     lastTouched: lastTouched,
@@ -90,9 +90,9 @@ void main() {
           'roma',
           'Roma',
           0,
-          sources: 3,
-          atomic: 1,
-          growing: 1,
+          textOnly: 3,
+          summarized: 1,
+          cut: 1,
           firstYear: -43,
           lastYear: 476,
         ),
@@ -101,18 +101,21 @@ void main() {
 
     expect(
       markdown,
-      contains(
-        '- **Roma** — En construcción · 3 fuentes · 2 notas · 44 a.C. – 476',
-      ),
+      contains('- **Roma** — Con fragmentos · 5 documentos · 44 a.C. – 476'),
     );
   });
 
   test('un solo año se dice una vez', () {
     final markdown = lines(
-      atlas([node('a', 'Año', 0, sources: 1, firstYear: 1492, lastYear: 1492)]),
+      atlas([
+        node('a', 'Año', 0, textOnly: 1, firstYear: 1492, lastYear: 1492),
+      ]),
     );
 
-    expect(markdown, contains('- **Año** — Solo fuentes · 1 fuente · 1492'));
+    expect(
+      markdown,
+      contains('- **Año** — Solo el texto · 1 documento · 1492'),
+    );
   });
 
   test('las notas mapa van como [[enlaces]], sin los caracteres que un enlace '
@@ -123,7 +126,7 @@ void main() {
           'roma',
           'Roma',
           0,
-          atomic: 2,
+          summarized: 2,
           maps: const [
             AtlasMapNote(id: 'm1', title: 'Mapa de Roma'),
             AtlasMapNote(id: 'm2', title: 'Roma [1] | #ideas ^x'),
@@ -141,18 +144,18 @@ void main() {
   test('los vacíos van primero, con lo que les pasa', () {
     final snapshot = atlas(
       [
-        node('roma', 'Roma', 0, sources: 6),
+        node('roma', 'Roma', 0, textOnly: 6),
         node(
           'vieja',
           'Vieja',
           0,
-          sources: 2,
+          textOnly: 2,
           lastTouched: DateTime(2025, 9, 2),
         ),
-        node('sola', 'Sola', 0, atomic: 1),
+        node('sola', 'Sola', 0, summarized: 1),
       ],
       gaps: const [
-        AtlasGap(kind: AtlasGapKind.manySourcesNoLivingNote, valueId: 'roma'),
+        AtlasGap(kind: AtlasGapKind.manyWithoutNotes, valueId: 'roma'),
         AtlasGap(kind: AtlasGapKind.stale, valueId: 'vieja'),
         AtlasGap(kind: AtlasGapKind.singleItem, valueId: 'sola'),
       ],
@@ -161,9 +164,15 @@ void main() {
     final markdown = lines(snapshot);
 
     expect(markdown, contains('## 3 vacíos detectados'));
-    expect(markdown, contains('- **Roma** — 6 fuentes y ninguna nota viva'));
+    expect(
+      markdown,
+      contains('- **Roma** — 6 documentos y ninguno con notas propias'),
+    );
     expect(markdown, contains('- **Vieja** — Sin tocar hace 12 meses'));
-    expect(markdown, contains('- **Sola** — Un solo elemento en toda la rama'));
+    expect(
+      markdown,
+      contains('- **Sola** — Un solo documento en toda la rama'),
+    );
     // Los vacíos, antes que el árbol.
     expect(
       markdown.indexOf('## 3 vacíos detectados'),
@@ -191,18 +200,18 @@ void main() {
 
   test('un nombre con caracteres de Markdown no rompe la lista', () {
     final markdown = lines(
-      atlas([node('a', 'C* y [1] _raro_ #1', 0, sources: 1)]),
+      atlas([node('a', 'C* y [1] _raro_ #1', 0, textOnly: 1)]),
     );
 
     expect(
       markdown,
-      contains(r'- **C\* y \[1\] \_raro\_ \#1** — Solo fuentes · 1 fuente'),
+      contains(r'- **C\* y \[1\] \_raro\_ \#1** — Solo el texto · 1 documento'),
     );
   });
 
   test('sale en el idioma de la app', () {
     final markdown = atlasToMarkdown(
-      atlas([node('roma', 'Roma', 0, sources: 3, mature: 1)]),
+      atlas([node('roma', 'Roma', 0, textOnly: 3, annotated: 1)]),
       AppLocalizationsEn(),
       now: now,
     );
@@ -210,7 +219,10 @@ void main() {
     expect(markdown, startsWith('# Atlas — Tema\n'));
     expect(markdown, contains('_Generated on 2026-09-21 · 1 branch_'));
     expect(markdown, contains('## Branches'));
-    expect(markdown, contains('- **Roma** — Mature · 3 sources · 1 note'));
+    expect(
+      markdown,
+      contains('- **Roma** — With your own notes · 4 documents · 1 with notes'),
+    );
   });
 
   test('termina con un salto de línea y no deja líneas en blanco de más', () {

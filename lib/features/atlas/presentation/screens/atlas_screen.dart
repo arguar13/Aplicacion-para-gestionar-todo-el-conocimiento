@@ -19,13 +19,16 @@ import 'package:sinapsis/features/atlas/presentation/widgets/coverage_meter.dart
 import 'package:sinapsis/features/atlas/presentation/widgets/gaps_card.dart';
 import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/fills_on_triage.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart';
 import 'package:sinapsis/features/timeline/presentation/timeline_navigation.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El Atlas (F13): el mapa de lo que sabés y de lo que te falta, generado solo
-/// desde lo que organizaste y las notas.
+/// desde lo que procesaste (F41, paso 6): cada documento procesado cuenta en
+/// las ramas de sus temas, según cuánto lo trabajaste.
 ///
 /// Muestra UNA dimensión a la vez (F28): los **temas** —lo que se elige al
 /// guardar— si hay alguno, o el árbol de **etiquetas**, u otra categoría de
@@ -85,12 +88,18 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
   void _openNote(String noteId) => context.push(RoutePaths.itemDetail(noteId));
 
   /// La bibliografía de la rama [node]: la propia rama y todo lo que cuelga
-  /// de ella (F15, D13), o lo que está en el tema.
+  /// de ella (F15, D13), o lo que está en el tema. Como el Atlas se arma con lo
+  /// procesado (F41, paso 6), son las fuentes de donde salió eso.
   Future<void> _exportBibliography(AtlasNode node) async {
     final bibliography = ref.read(bibliographyRepositoryProvider);
-    final sources = _spaces
-        ? await bibliography.sourcesOfSpace(node.valueId)
-        : await bibliography.sourcesOfBranch(node.valueId);
+    final sources = await bibliography.sourcesMatching(
+      _spaces
+          ? LibraryQuery(spaceId: node.valueId, scope: LibraryScope.processed)
+          : LibraryQuery(
+              propertyValueIds: {node.valueId},
+              scope: LibraryScope.processed,
+            ),
+    );
     if (!mounted) return;
     await exportBibliography(
       context,
@@ -243,6 +252,15 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
         ),
       ),
       data: (snapshot) {
+        // Empieza de cero (F41, paso 6): sin nada procesado no hay Atlas, y se
+        // dice cómo se llena.
+        if (ref.watch(hasProcessedProvider) == false) {
+          return FillsOnTriage(
+            icon: Icons.account_tree_outlined,
+            title: l10n.atlasFillsOnTriageTitle,
+            message: l10n.atlasFillsOnTriageMessage,
+          );
+        }
         if (snapshot.nodes.isEmpty) {
           return _Empty(l10n: l10n, kind: topicSelectKind(dimension));
         }

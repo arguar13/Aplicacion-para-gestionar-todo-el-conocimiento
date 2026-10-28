@@ -69,7 +69,13 @@ class StructuredMapRepository implements KnowledgeMapRepository {
     String valueId, {
     String? dimensionId,
     int limit = kMaxGraphItems,
-  }) => _real.readTopicItems(valueId, dimensionId: dimensionId, limit: limit);
+    LibraryScope scope = LibraryScope.processed,
+  }) => _real.readTopicItems(
+    valueId,
+    dimensionId: dimensionId,
+    limit: limit,
+    scope: scope,
+  );
 
   @override
   Future<LinkGraph> readLinkGraph({

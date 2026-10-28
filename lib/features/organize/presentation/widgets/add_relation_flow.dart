@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/presentation/widgets/see_in_map.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
@@ -15,13 +16,17 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Son tres pasos de una sola conversación —dejarla a medias no crea nada—, y
 /// si guardar falla lo dice en un aviso; si guarda, avisa «Vinculado» con «Ver
 /// en el Mapa» (F28). Lo usan el grafo y la vista «Vínculos» del mapa, desde
-/// donde no hay un elemento "de partida".
+/// donde no hay un elemento "de partida". Como el Mapa dibuja lo procesado
+/// (F41, paso 6), los dos se eligen entre eso.
 Future<void> showAddRelationFlow(BuildContext context, WidgetRef ref) async {
   final l10n = AppLocalizations.of(context)!;
 
   final fromId = await showDialog<String>(
     context: context,
-    builder: (context) => PickItemDialog(title: l10n.graphPickFirstItemTitle),
+    builder: (context) => PickItemDialog(
+      title: l10n.graphPickFirstItemTitle,
+      scope: LibraryScope.processed,
+    ),
   );
   if (fromId == null || !context.mounted) return;
 
@@ -30,6 +35,7 @@ Future<void> showAddRelationFlow(BuildContext context, WidgetRef ref) async {
     builder: (context) => PickItemDialog(
       excludeItemId: fromId,
       title: l10n.graphPickSecondItemTitle,
+      scope: LibraryScope.processed,
     ),
   );
   if (toId == null || !context.mounted) return;

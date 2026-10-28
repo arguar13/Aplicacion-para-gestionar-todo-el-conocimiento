@@ -22,6 +22,10 @@ abstract interface class TimelineRepository {
   /// - los hechos fechados dentro de un documento (`DatedEvent`), cada uno
   ///   con su título, su cita y, si es un tramo, su fin.
   ///
+  /// Lee el corpus de [filter] (F41, paso 6): la línea de tiempo pide lo
+  /// procesado —y los hechos que la persona escribe a mano en una nota suya—;
+  /// el calendario de la Biblioteca, sus fuentes y sus notas.
+  ///
   /// Lo que está en la papelera no aparece, y cualquiera de las dos fuentes
   /// que cambie hace emitir de nuevo.
   Stream<List<TimelineEvent>> watchEvents(LibraryQuery filter);

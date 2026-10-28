@@ -67,7 +67,13 @@ class _LocalGraphScreenState extends ConsumerState<LocalGraphScreen> {
         ? const AsyncLoading<List<KnowledgeItem>>()
         : nodeIds.isEmpty
         ? const AsyncData<List<KnowledgeItem>>([])
-        : ref.watch(libraryItemsProvider(LibraryQuery(ids: nodeIds)));
+        // Los vecinos son documentos procesados (F41, paso 6): el grafo local
+        // lee solo eso, como el Mapa.
+        : ref.watch(
+            libraryItemsProvider(
+              LibraryQuery(ids: nodeIds, scope: LibraryScope.processed),
+            ),
+          );
     final seedTitle =
         ref.watch(libraryItemProvider(itemId)).valueOrNull?.title ?? '';
 

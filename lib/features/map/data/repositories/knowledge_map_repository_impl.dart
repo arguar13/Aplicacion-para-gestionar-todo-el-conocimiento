@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
-import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processed_depth.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
@@ -107,16 +107,12 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
       final data = row.data;
       final id = data['id'] as String;
       if (allowed != null && !allowed.contains(id)) continue;
-      final maturity = data['maturity'] as String?;
       items.add(
         DashboardItem(
           id: id,
-          isNote: data['kind'] == ItemKind.note.name,
           // La fecha por `read`: cómo se guarda un instante lo sabe drift.
           createdAt: row.read<DateTime>('created_at'),
-          maturity: maturity == null
-              ? null
-              : NoteMaturity.values.byName(maturity),
+          depth: ProcessedDepth.values.byName(data['depth'] as String),
         ),
       );
     }
@@ -236,12 +232,13 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
     String valueId, {
     String? dimensionId,
     int limit = kMaxGraphItems,
+    LibraryScope scope = LibraryScope.processed,
   }) async {
     final spaces = dimensionId != null && isSpacesDimension(dimensionId);
     // Uno de más, para saber si hay más de los que se dibujan.
     final rows = await _db
         .customSelect(
-          spaces ? mapSpaceTopicItemsSql : mapTopicItemsSql,
+          spaces ? mapSpaceTopicItemsSql(scope) : mapTopicItemsSql(scope),
           variables: [
             Variable.withString(valueId),
             Variable.withInt(limit + 1),
@@ -374,25 +371,25 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
   }
 
   @override
-  Stream<void> changes({LibraryQuery filter = const LibraryQuery()}) {
-    final tables = {
-      ...mapTables(_db),
-      if (filter.isFiltered) ...mapFilterTables(_db),
-    };
-    return _db.tableUpdates(TableUpdateQuery.onAllTables(tables));
-  }
+  Stream<void> changes({LibraryQuery filter = const LibraryQuery()}) =>
+      // Con o sin filtro, las mismas tablas: un filtro se resuelve sobre lo
+      // procesado (F41, paso 6), que ya está entre ellas.
+      _db.tableUpdates(TableUpdateQuery.onAllTables(mapTables(_db)));
 
-  /// Los elementos que pasan el filtro, o `null` si no hay filtro y pasan
-  /// todos —así no se pide la lista entera de identificadores para nada—.
+  /// Los documentos procesados que pasan el filtro, o `null` si no hay filtro
+  /// y pasan todos —así no se pide la lista entera de identificadores para
+  /// nada—.
   ///
   /// El filtro se resuelve en Dart sobre los elementos y no con un `IN (...)`
   /// en la consulta: una bóveda grande sin restricción puede pasar el límite
-  /// de variables de SQLite.
+  /// de variables de SQLite. Se resuelve sobre lo procesado (F41, paso 6),
+  /// que es lo que el mapa dibuja: el texto se busca en lo que la persona
+  /// eligió, y el tipo es el de la fuente.
   Future<Set<String>?> _allowedItemIds(LibraryQuery filter) async {
     if (!filter.isFiltered) return null;
 
     final result = await _library.matchingIds(
-      filter.copyWith(limit: null, offset: 0),
+      filter.copyWith(limit: null, offset: 0, scope: LibraryScope.processed),
     );
     return result.fold(
       (failure) => throw MapFilterFailed(failure),

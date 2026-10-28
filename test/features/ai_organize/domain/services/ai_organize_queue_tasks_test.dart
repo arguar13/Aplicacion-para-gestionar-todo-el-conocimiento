@@ -7,6 +7,7 @@ import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
+import 'package:sinapsis/features/ai_organize/data/services/organize_text_reader_impl.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
@@ -181,6 +182,7 @@ void main() {
       modelName: () => 'gemma4E4b',
       onFlashcardsBatch: batches.add,
       tasks: tracked ? tracker : null,
+      texts: OrganizeTextReaderImpl(vault.db),
     );
     addTearDown(queue.dispose);
     return queue;
@@ -191,7 +193,7 @@ void main() {
 
   test('mientras organiza un elemento, la tarea dice qué elemento, con qué '
       'modelo, qué pasos tiene y cuál va', () async {
-    await vault.source('a', title: 'Historia', content: 'Texto.');
+    await vault.processedDocument('a', title: 'Historia', content: 'Texto.');
     final seen = <AiTask>[];
     properties = _TalkingStep(
       AiOrganizeToggle.properties,
@@ -234,7 +236,7 @@ void main() {
   });
 
   test('solo cuenta los pasos prendidos', () async {
-    await vault.source('a', title: 'Historia', content: 'Texto.');
+    await vault.processedDocument('a', title: 'Historia', content: 'Texto.');
     late AiTask seen;
     properties = _TalkingStep(
       AiOrganizeToggle.properties,
@@ -253,7 +255,7 @@ void main() {
 
   test('los tokens de cada respuesta, y el tiempo, quedan en la pasada al '
       'cerrarla', () async {
-    await vault.source('a', title: 'Historia', content: 'Texto.');
+    await vault.processedDocument('a', title: 'Historia', content: 'Texto.');
     properties = _TalkingStep(
       AiOrganizeToggle.properties,
       vault,
@@ -282,7 +284,7 @@ void main() {
   test('lo que costó se guarda antes de cerrar la pasada, y la tarea termina '
       'después de cerrarla: quien vuelve a leer al terminar la encuentra '
       'cerrada y con su costo', () async {
-    await vault.source('a', title: 'Historia', content: 'Texto.');
+    await vault.processedDocument('a', title: 'Historia', content: 'Texto.');
     final log = <String>[];
     tracker.tasks.addListener(() {
       if (tracker.tasks.value.isEmpty) log.add('tarea terminada');
@@ -302,7 +304,7 @@ void main() {
 
   test('si el paso falla por algo que no es del modelo, igual cuenta lo que '
       'gastó y la tarea se va', () async {
-    await vault.source('a', title: 'Historia', content: 'Texto.');
+    await vault.processedDocument('a', title: 'Historia', content: 'Texto.');
     properties = _TalkingStep(
       AiOrganizeToggle.properties,
       vault,
@@ -319,7 +321,7 @@ void main() {
   });
 
   test('sin tracker la cola anda igual y la pasada queda en cero', () async {
-    await vault.source('a', title: 'Historia', content: 'Texto.');
+    await vault.processedDocument('a', title: 'Historia', content: 'Texto.');
     properties = _TalkingStep(
       AiOrganizeToggle.properties,
       vault,
@@ -338,7 +340,7 @@ void main() {
   test('si el modelo deja de contestar a mitad, lo gastado hasta ahí queda en '
       'la pasada abierta, y al retomar se suma lo que falta, con los pasos '
       'que ya hizo marcados', () async {
-    await vault.source('a', title: 'Historia', content: 'Texto.');
+    await vault.processedDocument('a', title: 'Historia', content: 'Texto.');
     properties = _TalkingStep(
       AiOrganizeToggle.properties,
       vault,
@@ -393,7 +395,7 @@ void main() {
   group('solo tarjetas, pedidas desde Repasar', () {
     test('si el modelo deja de contestar, la tarea se va y lo gastado queda en '
         'la pasada, que sigue abierta para retomarla', () async {
-      await vault.source(
+      await vault.processedDocument(
         'a',
         title: 'Historia',
         content: 'Texto.',
@@ -423,13 +425,13 @@ void main() {
         'gastado queda en su pasada', () async {
       // De la biblioteca que ya existía: la cola no la organiza sola, sin el
       // cargador.
-      await vault.source(
+      await vault.processedDocument(
         'a',
         title: 'Historia',
         content: 'Texto.',
         createdAt: DateTime(2026, 9),
       );
-      await vault.source(
+      await vault.processedDocument(
         'b',
         title: 'Roma',
         content: 'Texto.',
@@ -469,7 +471,7 @@ void main() {
     test('es una tarea de fechas (F40) con su paso y cuánto va del pedido; lo '
         'gastado queda en su pasada de fechas', () async {
       for (final id in ['a', 'b']) {
-        await vault.source(
+        await vault.processedDocument(
           id,
           title: 'Doc $id',
           content: 'Texto.',
@@ -509,7 +511,7 @@ void main() {
 
     test('con las fechas prendidas, el paso de la pasada entera es también '
         'su paso de «Cómo lo hace»', () async {
-      await vault.source('a', title: 'Doc', content: 'Texto.');
+      await vault.processedDocument('a', title: 'Doc', content: 'Texto.');
       final seen = <AiTask>[];
       steps = [
         _TalkingStep(AiOrganizeToggle.relations, vault, meter),

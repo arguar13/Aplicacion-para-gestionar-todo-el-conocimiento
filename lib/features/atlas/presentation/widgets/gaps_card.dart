@@ -87,7 +87,7 @@ class _GapTile extends StatelessWidget {
   final void Function(String valueId) onOpen;
 
   IconData get _icon => switch (gap.kind) {
-    AtlasGapKind.manySourcesNoLivingNote => Icons.library_books_outlined,
+    AtlasGapKind.manyWithoutNotes => Icons.library_books_outlined,
     AtlasGapKind.singleItem => Icons.looks_one_outlined,
     AtlasGapKind.stale => Icons.history_toggle_off,
   };

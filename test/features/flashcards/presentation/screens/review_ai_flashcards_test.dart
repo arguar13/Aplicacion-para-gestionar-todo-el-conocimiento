@@ -44,7 +44,7 @@ class _RecordingQueue implements AiOrganizeQueue {
 
   // Lo que el resto de la app le avisa a la cola, sin nada que hacer acá.
   @override
-  void itemProcessed(String itemId) {}
+  void enqueueProcessedForOrganizing(String documentId) {}
 
   @override
   Future<void> start() async {}

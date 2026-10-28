@@ -50,6 +50,11 @@ sealed class TimelineEvent with _$TimelineEvent {
     /// lo que hace falta para abrir el documento justo ahí. Las posiciones
     /// son `null` si el hecho no tiene cita o el texto cambió y ya no está.
     String? renditionId,
+
+    /// De qué elemento es ese texto: el mismo del hecho, salvo en un documento
+    /// procesado (F41, paso 6), que cita su fuente —ahí está el original—.
+    /// `null` sin cita.
+    String? quoteItemId,
     int? startOffset,
     int? endOffset,
 

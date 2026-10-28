@@ -6,6 +6,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -14,6 +15,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_task.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/domain/services/ai_task_tracker.dart';
+import 'package:sinapsis/features/ai_organize/data/services/organize_text_reader_impl.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_dates_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
@@ -24,6 +26,7 @@ import 'package:sinapsis/features/timeline/domain/services/dated_passage_selecto
 import 'package:sinapsis/features/timeline/domain/services/temporal_expressions.dart';
 
 import '../../../../support/ai_organize_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// El modelo de fechas de mentira: por cada fecha de los pasajes que lee, un
 /// hecho citado tal cual está en el texto. Anota cada pedido
@@ -159,6 +162,66 @@ void main() {
       expect(step.toggle.taskStep, AiTaskStepKind.organizeDates);
     },
   );
+
+  group('de un documento procesado (F41, paso 6)', () {
+    test('lee lo elegido, y la cita de una parte copiada tal cual va a la '
+        'fuente, en su lugar; la de una nota, sin lugar', () async {
+      const source = 'Darwin nació en 1809. Murió en 1882.';
+      await vault.source('fuente', title: 'Darwin', content: source);
+      await insertProcessedDocument(
+        vault.db,
+        id: 'p',
+        title: 'Darwin',
+        sections: const {},
+      );
+      await (vault.db.update(
+        vault.db.processedDocuments,
+      )..where((d) => d.itemId.equals('p'))).write(
+        const ProcessedDocumentsCompanion(sourceItemId: Value('fuente')),
+      );
+      Future<void> part(
+        String id,
+        ProcessedSection section,
+        String content, {
+        int? at,
+      }) => vault.db
+          .into(vault.db.processedParts)
+          .insert(
+            ProcessedPartsCompanion.insert(
+              id: id,
+              documentId: 'p',
+              section: section,
+              position: 0,
+              content: content,
+              origin: at == null
+                  ? ProcessedPartOrigin.user
+                  : ProcessedPartOrigin.copied,
+              sourceRenditionId: Value(at == null ? null : 'rend-fuente'),
+              sourceStart: Value(at),
+              sourceEnd: Value(at == null ? null : at + content.length),
+              createdAt: vault.now,
+              updatedAt: vault.now,
+            ),
+          );
+      await part('t', ProcessedSection.text, 'Murió en 1882.', at: 22);
+      await part('n', ProcessedSection.notes, 'Lo leí en 1990.');
+      final item = await vault.reload('p');
+      final texts = OrganizeTextReaderImpl(vault.db);
+      model.text = (await texts.textOf(item)).text;
+      step = AutoDatesStep(extractor: model, events: events, texts: texts);
+
+      await step.organize(item, runId: await vault.startRun('p'));
+
+      final facts = await stored();
+      expect(facts.map((f) => f.itemId).toSet(), {'p'});
+      final death = facts.firstWhere((f) => f.dateFromYear == 1882);
+      expect(death.renditionId, 'rend-fuente');
+      expect(source.substring(death.startOffset!, death.endOffset), '1882');
+      final note = facts.firstWhere((f) => f.dateFromYear == 1990);
+      expect(note.renditionId, isNull);
+      expect(note.startOffset, isNull);
+    });
+  });
 
   group('lo que lee del texto', () {
     test('un texto sin fechas no le manda nada al modelo', () async {

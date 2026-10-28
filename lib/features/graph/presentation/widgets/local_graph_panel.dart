@@ -13,6 +13,7 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Vista previa del mapa de CUALQUIER elemento —fuente o nota— dentro de su
@@ -28,8 +29,30 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// invita a ampliar. Sin etiquetas de vínculo ni vínculos entre vecinos: con
 /// muchos, eso era lo que la hacía ilegible. Se calcula en el build, sin
 /// simulación física.
+///
+/// **El grafo local lee solo lo procesado** (F41, paso 6), como el Mapa: los
+/// vínculos entre documentos procesados. Es el Mapa de un documento procesado
+/// (paso 8). De cualquier otro elemento no se dibuja: una fuente es de
+/// consulta y se estudia en su procesado (decisión K), y una nota de la
+/// persona no está en el Mapa. Sus vínculos siguen a la vista en su detalle,
+/// en «Vínculos».
 class LocalGraphPanel extends ConsumerWidget {
   const LocalGraphPanel({required this.item, super.key});
+
+  final KnowledgeItem item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final own = ref.watch(processedDocumentProvider(item.id));
+    if (own.valueOrNull == null) return const SizedBox.shrink();
+    return _ProcessedGraphPanel(item: item);
+  }
+}
+
+/// La vista previa del grafo de un documento procesado: lo que
+/// [LocalGraphPanel] dibuja una vez que sabe de cuál.
+class _ProcessedGraphPanel extends ConsumerWidget {
+  const _ProcessedGraphPanel({required this.item});
 
   final KnowledgeItem item;
 
@@ -52,7 +75,14 @@ class LocalGraphPanel extends ConsumerWidget {
     final items = hood.nodeIds.isEmpty
         ? const <KnowledgeItem>[]
         : ref
-              .watch(libraryItemsProvider(LibraryQuery(ids: hood.nodeIds)))
+              .watch(
+                libraryItemsProvider(
+                  LibraryQuery(
+                    ids: hood.nodeIds,
+                    scope: LibraryScope.processed,
+                  ),
+                ),
+              )
               .valueOrNull;
     if (items == null) return const SizedBox.shrink();
 

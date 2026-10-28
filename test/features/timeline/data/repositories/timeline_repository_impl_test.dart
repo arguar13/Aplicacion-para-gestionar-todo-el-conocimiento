@@ -33,6 +33,7 @@ import 'package:sinapsis/features/timeline/domain/services/timeline_axis.dart';
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/item_rows.dart';
+import '../../../../support/processed_rows.dart';
 import '../../timeline_fixtures.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
@@ -87,37 +88,64 @@ void main() {
 
   tearDown(() => db.close());
 
+  /// Un documento procesado de una fuente de tipo [kind]: lo que la línea de
+  /// tiempo lee desde F41 (paso 6).
   Future<void> seedItem(
     String id, {
     String? title,
     SourceKind kind = SourceKind.webPage,
-  }) async {
-    final isNote = kind == SourceKind.manualNote;
+  }) => insertProcessedDocument(
+    db,
+    id: id,
+    title: title ?? 'Elemento $id',
+    createdAt: now,
+    sourceKind: kind,
+  );
+
+  /// Una fuente de la Biblioteca, por el camino de la app: no entra.
+  Future<void> seedLibrarySource(String id) async {
     await library.save(
       KnowledgeItem(
         id: id,
-        title: title ?? 'Elemento $id',
+        title: 'Fuente $id',
         source: Source(
           id: 'src-$id',
-          kind: kind,
+          kind: SourceKind.webPage,
           capturedAt: now,
-          url: isNote ? null : 'https://ejemplo.org/$id',
+          url: 'https://ejemplo.org/$id',
+        ),
+        processingState: ProcessingState.ready,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  /// Una nota de la persona, por el camino de la app.
+  Future<void> seedNote(String id) async {
+    await library.save(
+      KnowledgeItem(
+        id: id,
+        title: 'Nota $id',
+        source: Source(
+          id: 'src-$id',
+          kind: SourceKind.manualNote,
+          capturedAt: now,
         ),
         processingState: ProcessingState.ready,
         createdAt: now,
         updatedAt: now,
         renditions: [
-          if (isNote)
-            Rendition.text(
-              id: 'rend-$id',
-              itemId: id,
-              kind: RenditionKind.blocks,
-              content: encodeContentBlocks([
-                const ContentBlock.paragraph(text: 'texto'),
-              ]),
-              isPrimary: true,
-              createdAt: now,
-            ),
+          Rendition.text(
+            id: 'rend-$id',
+            itemId: id,
+            kind: RenditionKind.blocks,
+            content: encodeContentBlocks([
+              const ContentBlock.paragraph(text: 'texto'),
+            ]),
+            isPrimary: true,
+            createdAt: now,
+          ),
         ],
       ),
     );
@@ -140,9 +168,12 @@ void main() {
     );
   }
 
+  /// Lo que muestra la línea de tiempo: lo procesado, con [filter].
   Future<List<TimelineEvent>> read([
     LibraryQuery filter = const LibraryQuery(),
-  ]) => timeline.watchEvents(filter).first;
+  ]) => timeline
+      .watchEvents(filter.copyWith(scope: LibraryScope.processed))
+      .first;
 
   List<String> ids(List<TimelineEvent> events) =>
       events.map((e) => e.itemId).toList();
@@ -166,11 +197,11 @@ void main() {
       expect(events.single.title, 'Caída de Roma');
       expect(events.single.date, dateOf(476));
       expect(events.single.sourceKind, SourceKind.webPage);
-      expect(events.single.noteKind, isNull);
+      expect(events.single.noteKind, NoteKind.processed);
     });
 
-    test('el título y el tipo de fuente salen de item y de source, no de las '
-        'tablas viejas', () async {
+    test('el título sale de item y el tipo, del de la fuente que guardó el '
+        'procesado', () async {
       await seedItem('roma', title: 'Roma');
       await setDate('roma', dateOf(476));
       // Se cambia SOLO el modelo nuevo: si la lectura saliera del viejo, no se
@@ -178,9 +209,11 @@ void main() {
       await (db.update(db.knowledgeEntries)..where((e) => e.id.equals('roma')))
           .write(const KnowledgeEntriesCompanion(title: Value('De ahora')));
       await (db.update(
-        db.knowledgeSources,
-      )..where((s) => s.itemId.equals('roma'))).write(
-        const KnowledgeSourcesCompanion(sourceType: Value(SourceKind.document)),
+        db.processedDocuments,
+      )..where((d) => d.itemId.equals('roma'))).write(
+        const ProcessedDocumentsCompanion(
+          sourceKind: Value(SourceKind.document),
+        ),
       );
 
       final event = (await read()).single;
@@ -189,14 +222,73 @@ void main() {
       expect(event.sourceKind, SourceKind.document);
     });
 
-    test('una nota trae su subtipo', () async {
-      await seedItem('n', kind: SourceKind.manualNote);
-      await setDate('n', dateOf(1453));
+    test(
+      'un documento procesado trae su subtipo y el tipo de su fuente',
+      () async {
+        await seedItem('p', kind: SourceKind.youtube);
+        await setDate('p', dateOf(1453));
 
-      final events = await read();
+        final events = await read();
 
-      expect(events.single.sourceKind, SourceKind.manualNote);
-      expect(events.single.noteKind, NoteKind.living);
+        expect(events.single.sourceKind, SourceKind.youtube);
+        expect(events.single.noteKind, NoteKind.processed);
+      },
+    );
+
+    test('lo de la Biblioteca no entra, ni su «Fecha del hecho» ni sus hechos '
+        'de la IA: empieza de cero (F41, paso 6)', () async {
+      await seedLibrarySource('fuente');
+      await setDate('fuente', dateOf(476));
+      await seedNote('nota');
+      await setDate('nota', dateOf(1453));
+
+      expect(await read(), isEmpty);
+    });
+
+    test('el calendario de la Biblioteca lee lo suyo: sus fuentes y sus notas, '
+        'con sus fechas y sus hechos, y no lo procesado', () async {
+      await seedLibrarySource('fuente');
+      await setDate('fuente', dateOf(476));
+      await seedNote('nota');
+      await setDate('nota', dateOf(1453));
+      await seedItem('procesado');
+      await setDate('procesado', dateOf(1789));
+      await db
+          .into(db.datedEvents)
+          .insert(
+            DatedEventsCompanion.insert(
+              id: 'de-la-ia',
+              itemId: 'fuente',
+              title: 'Un hecho de la fuente',
+              dateFromYear: 1859,
+              dateFromMonth: 1,
+              dateFromDay: 1,
+              datePrecision: DatePrecision.year,
+              origin: const Value(ContentOrigin.ai),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+
+      final library = await timeline.watchEvents(const LibraryQuery()).first;
+
+      expect(
+        library.map((e) => e.itemId),
+        unorderedEquals(['fuente', 'nota', 'fuente']),
+      );
+      expect(library.map((e) => e.datedEventId), contains('de-la-ia'));
+      // Con un filtro, lo resuelve la Biblioteca en su corpus.
+      expect(
+        (await timeline
+                .watchEvents(
+                  const LibraryQuery(sourceKinds: {SourceKind.webPage}),
+                )
+                .first)
+            .map((e) => e.itemId)
+            .toSet(),
+        {'fuente'},
+      );
+      expect(ids(await read()), ['procesado']);
     });
 
     test('con dos fechas, dos eventos del mismo elemento', () async {
@@ -385,7 +477,9 @@ void main() {
     test('poner una fecha emite el evento nuevo', () async {
       await seedItem('roma');
 
-      final emissions = timeline.watchEvents(const LibraryQuery());
+      final emissions = timeline.watchEvents(
+        const LibraryQuery(scope: LibraryScope.processed),
+      );
       final expectation = expectLater(
         emissions,
         emitsThrough(
@@ -403,7 +497,9 @@ void main() {
       await seedItem('roma');
       await setDate('roma', dateOf(476));
 
-      final emissions = timeline.watchEvents(const LibraryQuery());
+      final emissions = timeline.watchEvents(
+        const LibraryQuery(scope: LibraryScope.processed),
+      );
       final expectation = expectLater(emissions, emitsThrough(isEmpty));
       await library.delete('roma');
 
@@ -414,7 +510,9 @@ void main() {
       await seedItem('roma', title: 'Roma');
       await setDate('roma', dateOf(476));
 
-      final emissions = timeline.watchEvents(const LibraryQuery());
+      final emissions = timeline.watchEvents(
+        const LibraryQuery(scope: LibraryScope.processed),
+      );
       final expectation = expectLater(
         emissions,
         emitsThrough(
@@ -744,7 +842,7 @@ void main() {
       await seedItem('darwin');
       final seen = <List<String>>[];
       final sub = timeline
-          .watchEvents(const LibraryQuery())
+          .watchEvents(const LibraryQuery(scope: LibraryScope.processed))
           .listen((events) => seen.add([for (final e in events) e.title]));
       addTearDown(sub.cancel);
       await pumpEventQueue();
@@ -766,10 +864,87 @@ void main() {
       expect(seen.last, isEmpty);
     });
 
+    group('lo procesado y lo de la persona (F41, paso 6)', () {
+      Future<void> fact(
+        String id,
+        String itemId, {
+        ContentOrigin origin = ContentOrigin.user,
+        String? renditionId,
+      }) => db
+          .into(db.datedEvents)
+          .insert(
+            DatedEventsCompanion.insert(
+              id: id,
+              itemId: itemId,
+              title: 'Hecho $id',
+              dateFromYear: 1859,
+              dateFromMonth: 1,
+              dateFromDay: 1,
+              datePrecision: DatePrecision.year,
+              origin: Value(origin),
+              renditionId: Value(renditionId),
+              startOffset: Value(renditionId == null ? null : 0),
+              endOffset: Value(renditionId == null ? null : 4),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+
+      test(
+        'los hechos que la persona escribió en una nota suya —«Hechos '
+        'sueltos»— entran; los de la IA en esa nota, o en una fuente, no',
+        () async {
+          await seedNote('sueltos');
+          await seedLibrarySource('fuente');
+          await fact('a-mano', 'sueltos');
+          await fact('de-la-ia', 'sueltos', origin: ContentOrigin.ai);
+          await fact('de-la-fuente', 'fuente');
+
+          final events = await read();
+
+          expect(events.map((e) => e.datedEventId), ['a-mano']);
+          // Y el chip «Documento» los encuentra: son esos, sin preguntar a lo
+          // procesado.
+          expect(
+            (await read(
+              const LibraryQuery(ids: {'sueltos'}),
+            )).map((e) => e.datedEventId),
+            ['a-mano'],
+          );
+        },
+      );
+
+      test('la cita de un procesado está en su fuente: el hecho dice de qué '
+          'elemento es ese texto', () async {
+        await seedLibrarySource('fuente');
+        await db
+            .into(db.renditions)
+            .insert(
+              RenditionsCompanion.insert(
+                id: 'texto-fuente',
+                itemId: 'fuente',
+                kind: RenditionKind.plainText,
+                content: const Value('1859 publica.'),
+                isPrimary: true,
+                createdAt: now,
+              ),
+            );
+        await seedItem('p');
+        await fact('citado', 'p', renditionId: 'texto-fuente');
+        await fact('sin-cita', 'p');
+
+        final events = {for (final e in await read()) e.datedEventId: e};
+
+        expect(events['citado']!.quoteItemId, 'fuente');
+        expect(events['citado']!.hasAnchor, isTrue);
+        expect(events['sin-cita']!.quoteItemId, isNull);
+      });
+    });
+
     test('diez mil hechos se leen sin trabarse', () async {
       const items = 200;
       for (var i = 0; i < items; i++) {
-        await insertItemRows(db, id: 'i$i', title: 'Documento $i');
+        await insertProcessedDocument(db, id: 'i$i', title: 'Documento $i');
       }
       await db.batch((batch) {
         batch.insertAll(db.datedEvents, [

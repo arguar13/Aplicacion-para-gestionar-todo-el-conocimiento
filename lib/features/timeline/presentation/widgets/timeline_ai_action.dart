@@ -71,11 +71,13 @@ class TimelineAiAction extends ConsumerWidget {
     );
   }
 
-  /// Lo que recorre la IA para [scope]: los elementos listos de ese recorte —o
-  /// de toda la biblioteca—. Es la consulta de la línea de tiempo sin su
-  /// búsqueda ni su panel: lo que se recorre es el tema o la rama, no lo que
-  /// estaba buscado.
-  static LibraryQuery _queryOf(TimelineScope? scope) => TimelineFilter(
-    scope: scope,
-  ).query.copyWith(processingStates: {ProcessingState.ready});
+  /// Lo que recorre la IA para [scope]: los documentos procesados listos de
+  /// ese recorte —o todos—, que son de lo que se arma la línea de tiempo (F41,
+  /// paso 6). Es la consulta de la línea de tiempo sin su búsqueda ni su panel:
+  /// lo que se recorre es el tema o la rama, no lo que estaba buscado.
+  static LibraryQuery _queryOf(TimelineScope? scope) =>
+      TimelineFilter(scope: scope).query.copyWith(
+        processingStates: {ProcessingState.ready},
+        scope: LibraryScope.processed,
+      );
 }

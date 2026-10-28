@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/processed_entries.dart';
 
 /// Lo que el Atlas lee: cualquier escritura en estas tablas puede cambiarlo.
 /// `item` también —un elemento que va a la papelera deja de contar— y por eso
@@ -11,6 +12,10 @@ List<TableInfo<dynamic, dynamic>> atlasTables(AppDatabase db) => [
   db.itemPropertyValues,
   db.knowledgeEntries,
   db.knowledgeNotes,
+  // Lo procesado (F41, paso 6): el Atlas se arma solo con eso, y cuánto se
+  // trabajó cada documento sale de sus partes.
+  db.processedDocuments,
+  db.processedParts,
   // Los temas (F28): crear, renombrar o borrar uno cambia su Atlas, y poner o
   // sacar uno de un elemento (F37) también.
   db.spaces,
@@ -21,8 +26,14 @@ List<TableInfo<dynamic, dynamic>> atlasTables(AppDatabase db) => [
 /// unidades» (U+001F), el mismo `char(31)` de la consulta.
 const atlasValueIdSeparator = '\u001f';
 
-/// Lo que el Atlas necesita de cada elemento vivo, en UNA fila por elemento:
-/// qué es, cuándo se tocó, qué años cubre y qué valores de la categoría tiene.
+/// Lo que el Atlas necesita de cada documento procesado vivo, en UNA fila por
+/// documento: cuánto se trabajó, cuándo se tocó, qué años cubre y qué valores
+/// de la categoría tiene.
+///
+/// **Solo documentos procesados** (F41, paso 6): el Atlas se arma con lo que
+/// la persona eligió de cada fuente al triarla, no con la Biblioteca. Lo que
+/// las fuentes ya tenían queda en ellas y no cuenta. `depth` es el escalón de
+/// `ProcessedDepth` de cada uno (`processedDepthSql`).
 /// Variables: `?1` la categoría; `?2` el nombre de la categoría de fechas del
 /// hecho (la de sistema).
 ///
@@ -38,7 +49,7 @@ const atlasValueIdSeparator = '\u001f';
 /// por elemento: va aparte para no multiplicar las filas por temas × fechas.
 ///
 /// Lo que está en la papelera queda afuera (`kActiveItemSql`): sin fila, el
-/// elemento no cuenta en ninguna rama.
+/// documento no cuenta en ninguna rama.
 final atlasItemsSql = _atlasItemsSql(
   valueIds: '''
 (SELECT group_concat(ipv.property_value_id, char(31))
@@ -79,17 +90,15 @@ WITH dated AS (
     AND dv.date_from_year IS NOT NULL
   GROUP BY ipv.item_id
 )
-SELECT item.kind AS kind,
-       item.updated_at AS updated_at,
-       note.note_kind AS note_kind,
-       note.maturity AS maturity,
+SELECT item.updated_at AS updated_at,
+       ${processedDepthSql('item.id')} AS depth,
        dated.year_from AS year_from,
        dated.year_to AS year_to,
        $valueIds AS value_ids
 FROM item
-LEFT JOIN note ON note.item_id = item.id
 LEFT JOIN dated ON dated.item_id = item.id
 WHERE $kActiveItemSql
+  AND ${isProcessedSql('item.id')}
 ''';
 
 /// Las notas mapa vivas asignadas a un valor de la categoría: una fila por

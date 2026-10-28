@@ -27,7 +27,7 @@ import 'package:sinapsis/features/map/domain/services/link_strength.dart';
 import 'package:sinapsis/features/map/domain/services/topic_graph_builder.dart';
 
 import '../../../../support/in_memory_file_store.dart';
-import '../../../../support/item_rows.dart';
+import '../../../../support/processed_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -75,6 +75,7 @@ class FakeMapRepository implements KnowledgeMapRepository {
     String valueId, {
     String? dimensionId,
     int limit = kMaxGraphItems,
+    LibraryScope scope = LibraryScope.processed,
   }) async => TopicItemsGraph.empty(valueId);
 
   @override
@@ -661,7 +662,7 @@ void main() {
             );
       }
       for (final (item, value) in [('s1', 'roma'), ('s2', 'grecia')]) {
-        await insertItemRows(db, id: item, title: 'Fuente $item');
+        await insertProcessedDocument(db, id: item, title: 'Fuente $item');
         await db
             .into(db.itemPropertyValues)
             .insert(

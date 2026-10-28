@@ -9,6 +9,7 @@ import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/organize_text.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/relation_confidence.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
@@ -36,6 +37,11 @@ const kAutoRelateSeedExcerptChars = 280;
 /// (`ChunkEmbeddingIndexer.indexNote`), que esta pasada deja al día y quedan
 /// guardados para cuando otro elemento busque con qué vincularse.
 ///
+/// Un documento procesado (F41, paso 6) se vincula **solo con otros
+/// procesados**, por los vectores de lo que la persona eligió al triar: son
+/// los vínculos que dibujan el Mapa y el grafo local. Y lo de la Biblioteca,
+/// solo entre sí (`RelationCandidateSelector`).
+///
 /// Nunca repite: deja afuera lo que ya está vinculado de cualquier tipo, lo
 /// que ya está para revisar o la persona descartó ahí, lo que dijo que «no
 /// era», y los elementos cuya pasada de la IA se deshizo.
@@ -49,6 +55,7 @@ class AutoRelateStep implements AiOrganizeStep {
     required OrganizeRepository organize,
     required SuggestionRepository suggestions,
     required AiRunRepository runs,
+    OrganizeTextReader texts = const OwnTextReader(),
   }) : _db = database,
        _ids = ids,
        _indexer = indexer,
@@ -56,7 +63,12 @@ class AutoRelateStep implements AiOrganizeStep {
        _service = service,
        _organize = organize,
        _suggestions = suggestions,
-       _runs = runs;
+       _runs = runs,
+       _texts = texts;
+
+  /// Qué texto lee: el del elemento, o —de un documento procesado— lo que la
+  /// persona eligió al triar (F41, paso 6).
+  final OrganizeTextReader _texts;
 
   final AppDatabase _db;
   final IdGenerator _ids;
@@ -100,7 +112,7 @@ class AutoRelateStep implements AiOrganizeStep {
         .toList();
     if (toSend.isEmpty) return AiStepReport.nothing;
 
-    final seed = item.searchableText.trim();
+    final seed = (await _texts.textOf(item)).text.trim();
     final suggestions = await _service.suggestRelations(
       seedTitle: item.title,
       seedExcerpt: seed.length > kAutoRelateSeedExcerptChars

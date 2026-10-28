@@ -7,6 +7,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_badge.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/organize/presentation/open_organized_item.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 import 'package:sinapsis/features/timeline/domain/services/quote_date_locator.dart';
 import 'package:sinapsis/features/timeline/presentation/providers/dated_event_providers.dart';
@@ -152,13 +153,16 @@ class DatedEventSheet extends ConsumerWidget {
 
   /// Lleva al lector justo en la cita, la misma lectura con salto que usan las
   /// tarjetas y las notas extraídas. Sin ancla no se ofrece (ver el botón).
+  ///
+  /// La cita de un hecho de un documento procesado está en su fuente (F41,
+  /// paso 6): se abre el original, en su lugar.
   void _openInDocument(BuildContext context) {
     final router = GoRouter.of(context);
     Navigator.of(context).pop();
     unawaited(
       router.push(
         RoutePaths.reading(
-          event.itemId,
+          event.quoteItemId ?? event.itemId,
           start: event.startOffset,
           end: event.endOffset,
         ),
@@ -278,9 +282,10 @@ class _DocumentRow extends StatelessWidget {
         key: const ValueKey('dated-event-document'),
         borderRadius: BorderRadius.circular(8),
         onTap: () {
-          final router = GoRouter.of(context);
           Navigator.of(context).pop();
-          unawaited(router.push(RoutePaths.itemDetail(event.itemId)));
+          if (screenContext.mounted) {
+            unawaited(openOrganizedItem(screenContext, event.itemId));
+          }
         },
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 48),

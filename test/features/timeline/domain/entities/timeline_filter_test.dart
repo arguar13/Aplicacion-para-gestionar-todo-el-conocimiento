@@ -7,10 +7,12 @@ import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart'
 /// sale de él.
 void main() {
   group('la consulta', () {
-    test('sin nada puesto no restringe: se ve todo', () {
+    test('sin nada puesto no restringe: se ve todo lo procesado (F41, paso '
+        '6)', () {
       const filter = TimelineFilter();
 
-      expect(filter.query, const LibraryQuery());
+      expect(filter.query, const LibraryQuery(scope: LibraryScope.processed));
+      expect(filter.query.isFiltered, isFalse);
       expect(filter.query.isFiltered, isFalse);
       expect(filter.activeCount, 0);
     });
@@ -20,7 +22,10 @@ void main() {
         scope: TimelineScope.topic(spaceId: 'sp', label: 'Roma'),
       );
 
-      expect(filter.query, const LibraryQuery(spaceId: 'sp'));
+      expect(
+        filter.query,
+        const LibraryQuery(spaceId: 'sp', scope: LibraryScope.processed),
+      );
     });
 
     test('una rama del Atlas es el valor de la propiedad', () {
@@ -28,7 +33,13 @@ void main() {
         scope: TimelineScope.branch(valueId: 'v', label: 'Imperio'),
       );
 
-      expect(filter.query, const LibraryQuery(propertyValueIds: {'v'}));
+      expect(
+        filter.query,
+        const LibraryQuery(
+          propertyValueIds: {'v'},
+          scope: LibraryScope.processed,
+        ),
+      );
     });
 
     test('un documento limita la consulta a ese elemento (ids)', () {
@@ -56,6 +67,7 @@ void main() {
           searchText: 'césar',
           sourceKinds: {SourceKind.webPage},
           tagIds: {'t1', 't2'},
+          scope: LibraryScope.processed,
         ),
       );
     });

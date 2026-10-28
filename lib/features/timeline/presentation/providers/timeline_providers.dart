@@ -95,6 +95,10 @@ final timelineEventsProvider = StreamProvider.autoDispose
 final timelineDocumentsProvider =
     Provider.autoDispose<AsyncValue<List<TimelineDocument>>>((ref) {
       return ref
-          .watch(timelineEventsProvider(const LibraryQuery()))
+          .watch(
+            timelineEventsProvider(
+              const LibraryQuery(scope: LibraryScope.processed),
+            ),
+          )
           .whenData(groupTimelineDocuments);
     });

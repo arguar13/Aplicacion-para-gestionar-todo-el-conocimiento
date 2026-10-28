@@ -32,6 +32,18 @@ enum LibrarySort {
   relevance,
 }
 
+/// De qué parte de la bóveda es una consulta (F41).
+enum LibraryScope {
+  /// La Biblioteca: las fuentes y las notas de la persona, sin los documentos
+  /// procesados, que viven en «Procesado». Lo de siempre.
+  library,
+
+  /// Solo los documentos procesados: de lo que se arman el Atlas, el Mapa, el
+  /// grafo local y la Línea de tiempo (paso 6). Busca el texto en lo que la
+  /// persona eligió de cada fuente, y el tipo es el de su fuente.
+  processed,
+}
+
 /// Qué pedirle a la biblioteca.
 ///
 /// Es un objeto y no una lista de parámetros sueltos porque los filtros se
@@ -82,6 +94,10 @@ sealed class LibraryQuery with _$LibraryQuery {
     /// Cualquiera de estos basta, y solo entran fuentes —una nota no pasa por
     /// la Bandeja—. Es lo que hace encontrable lo que se trió.
     @Default(<InboxStatus>{}) Set<InboxStatus> inboxStatuses,
+
+    /// De qué parte de la bóveda: la Biblioteca, o lo procesado (F41). No es
+    /// un filtro —no cuenta en [isFiltered]—: es dónde se busca.
+    @Default(LibraryScope.library) LibraryScope scope,
 
     @Default(LibrarySort.capturedAt) LibrarySort sortBy,
 

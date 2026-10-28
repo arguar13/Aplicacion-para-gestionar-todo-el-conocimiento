@@ -24,6 +24,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.d
 import 'package:sinapsis/features/ai_organize/domain/services/ai_run_usage_saver.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/content_change.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/organize_text.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
@@ -69,13 +70,23 @@ AiModelWait? aiModelWaitFor(Object error) {
 /// siempre; la IA trabaja después.
 ///
 /// **Qué toma, en este orden:** lo que se pidió organizar a mano
-/// ([organizeNow]); las tarjetas que se pidieron desde Repasar
-/// ([makeFlashcards], F30); las fechas que se pidieron para la línea de
-/// tiempo ([findDates], F40); lo nuevo —cada fuente que termina de procesarse,
-/// cada nota cuando lleva [kAiNoteQuietPeriod] sin cambios—; las notas ya
-/// organizadas que cambiaron mucho de contenido (`kNoteRegrowHammingBits`);
-/// y, solo si está prendido y el
-/// dispositivo está enchufado, la biblioteca que ya existía (decisión C).
+/// ([organizeNow]), y cada documento procesado que se acaba de triar o volver
+/// a triar ([enqueueProcessedForOrganizing]); las tarjetas que se pidieron
+/// desde Repasar ([makeFlashcards], F30); las fechas que se pidieron para la
+/// línea de tiempo ([findDates], F40); lo nuevo —cada nota, y cada documento
+/// procesado, que es una, cuando lleva [kAiNoteQuietPeriod] sin cambios—; las
+/// notas ya organizadas que cambiaron mucho de contenido
+/// (`kNoteRegrowHammingBits`); y, solo si está prendido y el dispositivo está
+/// enchufado, la biblioteca que ya existía (decisión C).
+///
+/// **Las fuentes de la Biblioteca no se organizan** (F41, paso 6): la
+/// Biblioteca es la base de consulta, y el Atlas, el Mapa y la Línea de tiempo
+/// se arman con lo que la persona eligió de cada una al triarla. La IA
+/// organiza ese documento procesado, con lo elegido y nada más
+/// ([OrganizeTextReader]). Lo que una fuente ya tenía —sus temas, sus
+/// vínculos, sus fechas— queda donde está. Pedirle a la cola que organice o
+/// busque fechas de una fuente no hace nada: quien lo ofrece pide el de su
+/// documento procesado.
 ///
 /// **Lo pendiente se deduce de la base** (`AiOrganizeBacklog`), no de una
 /// lista en memoria: si la app se cierra a mitad, al volver se retoma sola.
@@ -140,6 +151,7 @@ class AiOrganizeQueue {
     void Function(AiDatesBatch? batch)? onDatesBatch,
     Duration modelRetryDelay = kAiModelRetryDelay,
     AiTaskTracker? tasks,
+    OrganizeTextReader texts = const OwnTextReader(),
   }) : _backlog = backlog,
        _runs = runs,
        _library = library,
@@ -159,11 +171,17 @@ class AiOrganizeQueue {
        _longWork = longWork,
        _onFlashcardsBatch = onFlashcardsBatch,
        _onDatesBatch = onDatesBatch,
-       _tasks = tasks;
+       _tasks = tasks,
+       _texts = texts;
 
   final AiOrganizeBacklog _backlog;
   final AiRunRepository _runs;
   final LibraryRepository _library;
+
+  /// El texto que se lee de cada elemento: de una nota, sus formas; de un
+  /// documento procesado, sus partes (F41, paso 6). Con él se toma la huella
+  /// que dice si una nota cambió lo suficiente.
+  final OrganizeTextReader _texts;
 
   /// Se piden al usarlos, no al nacer: armar los pasos arma la cadena de
   /// proveedores del modelo, y la cola vive toda la sesión.
@@ -305,9 +323,21 @@ class AiOrganizeQueue {
   /// quieta ESE tiempo cuando se mira, no casi.
   static const _noteSettleMargin = Duration(seconds: 1);
 
-  /// Un elemento terminó de procesarse bien: la cola se despierta y lo toma
-  /// —ya está pendiente en la base—.
-  void itemProcessed(String itemId) => unawaited(wake());
+  /// La persona terminó de triar —o de volver a triar— una fuente, y su
+  /// documento procesado [documentId] quedó como lo eligió (F41, paso 6): la IA
+  /// lo organiza ahora, antes que lo nuevo, con los mismos interruptores de
+  /// siempre —temas, vínculos con otros procesados, fechas para la línea de
+  /// tiempo— y solo con lo elegido.
+  ///
+  /// Es el único punto para eso, y lo llaman la Bandeja y «Volver a triar» al
+  /// confirmar. Sin llamarlo, un procesado nuevo igual se organiza solo —es una
+  /// nota, y la cola toma lo nuevo de la base cuando lleva
+  /// [kAiNoteQuietPeriod] quieto—, y uno que cambió mucho también; esto es lo
+  /// que hace que volver a triar con algo chico —un fragmento con una fecha—
+  /// no espere a que el cambio sea grande. Es una pasada nueva: lo que ya
+  /// estaba no se repite, y deshacerla saca solo lo que ella puso.
+  void enqueueProcessedForOrganizing(String documentId) =>
+      organizeAllNow([documentId]);
 
   /// Organiza [itemId] ahora, antes que lo demás, aunque su pasada anterior
   /// se haya deshecho o sea de la biblioteca que ya existía y el teléfono no
@@ -812,7 +842,8 @@ class AiOrganizeQueue {
       if (seen == null) continue;
       final note = await _find(edited.itemId);
       if (note == null) continue;
-      if (contentChangedMuch(seen, await _simhashOf(note.searchableText))) {
+      final text = (await _texts.textOf(note)).text;
+      if (contentChangedMuch(seen, await _simhashOf(text))) {
         return edited.itemId;
       }
       await _refreshNoteVectors(edited.itemId);
@@ -878,7 +909,8 @@ class AiOrganizeQueue {
     _Interrupted? resume,
   }) async {
     final item = await _find(itemId);
-    if (item == null) {
+    // Una fuente de la Biblioteca no se organiza (F41, paso 6): ver la clase.
+    if (item == null || !_isNote(item)) {
       _skip.add(itemId);
       if (resume != null) await _closeRun(resume.runId, 'de un elemento ido');
       return true;
@@ -897,16 +929,14 @@ class AiOrganizeQueue {
     );
     _keepAlive(source, pending);
 
+    final text = await _texts.textOf(item);
     final String runId;
     if (resume != null) {
       runId = resume.runId;
     } else {
       // La huella del texto que ve esta pasada, para saber después si la
-      // nota cambió. Solo de las notas: una fuente no se vuelve a organizar
-      // por cambios, y la de un libro serían cientos de miles de cuentas.
-      final simhash = _isNote(item)
-          ? await _simhashOf(item.searchableText)
-          : null;
+      // nota —o el documento procesado— cambió.
+      final simhash = await _simhashOf(text.text);
       final started =
           (await _runs.startRun(
             item.id,
@@ -928,7 +958,7 @@ class AiOrganizeQueue {
     final done = <AiOrganizeToggle>{...?resume?.done};
     final steps = [
       for (final step in _steps())
-        if (step.toggle.valueIn(_settings)) step,
+        if (step.toggle.valueIn(_settings) && _appliesTo(step, text)) step,
     ];
     final task = _beginTask(AiTaskKind.organize, item, steps: steps);
     final usage = AiRunUsageSaver(
@@ -998,6 +1028,12 @@ class AiOrganizeQueue {
       usage.end();
     }
   }
+
+  /// Si [step] tiene algo que hacer con un elemento de texto [text]: las fechas
+  /// son para la línea de tiempo, que se arma solo con lo procesado (F41, paso
+  /// 6), así que de una nota de la persona no se buscan —no se verían—.
+  static bool _appliesTo(AiOrganizeStep step, OrganizeText text) =>
+      step.toggle != AiOrganizeToggle.dates || text.processed;
 
   /// Abre la tarea de [item] para «Lo que hizo la IA» (F39, paso 6), con los
   /// pasos que hace. Una pasada retomada salta los que ya hizo, y los pasos de
@@ -1173,7 +1209,12 @@ class AiOrganizeQueue {
     try {
       final item = await _find(itemId);
       final finder = _steps().whereType<AiDatesFinder>().firstOrNull;
-      if (item == null || finder == null) {
+      // La línea de tiempo se arma solo con lo procesado (F41, paso 6): las
+      // fechas de una fuente, o de una nota de la persona, no se verían. Van
+      // las del documento procesado de la fuente. Ver la clase.
+      if (item == null ||
+          finder == null ||
+          !(await _texts.textOf(item)).processed) {
         if (resume != null) {
           await _closeRun(resume.runId, 'de fechas de un elemento ido');
         }
@@ -1357,6 +1398,8 @@ class AiOrganizeQueue {
   Future<KnowledgeItem?> _find(String itemId) async =>
       (await _library.findById(itemId)).getRight().toNullable();
 
+  /// Una nota de la persona o un documento procesado: lo que la IA organiza.
+  /// Si no, es una fuente de la Biblioteca.
   static bool _isNote(KnowledgeItem item) =>
       item.source.kind == SourceKind.manualNote;
 }

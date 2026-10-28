@@ -111,31 +111,39 @@ void main() {
   });
 
   group('lo que junta un tema', () {
-    test('los elementos vivos de la rama, con sus valores, sin las notas mapa '
-        'ni la papelera', () async {
-      await vault.source('a', title: 'A', content: 'x');
-      await vault.source('b', title: 'B', content: 'x');
-      await vault.note('c', title: 'C', content: 'x');
-      await vault.source('borrado', title: 'Borrado', content: 'x');
-      await vault.note('mapa', title: 'Mapa', content: 'x');
-      await KnowledgeEntryWriter(vault.db).setNoteKind('mapa', NoteKind.map);
-      const grecia = 't-Grecia';
-      await topics.tag('a', historia);
-      await topics.tag('a', grecia);
-      await topics.tag('b', grecia);
-      await topics.tag('c', historia);
-      await topics.tag('borrado', historia);
-      await topics.tag('mapa', historia);
-      await vault.library.delete('borrado');
+    test(
+      'los documentos procesados vivos de la rama, con sus valores, sin las '
+      'notas mapa, sin lo de la Biblioteca y sin la papelera (F41)',
+      () async {
+        await vault.processedDocument('a', title: 'A', content: 'x');
+        await vault.processedDocument('b', title: 'B', content: 'x');
+        await vault.note('c', title: 'C', content: 'x');
+        await vault.source('fuente', title: 'Fuente', content: 'x');
+        await vault.processedDocument(
+          'borrado',
+          title: 'Borrado',
+          content: 'x',
+        );
+        await vault.note('mapa', title: 'Mapa', content: 'x');
+        await KnowledgeEntryWriter(vault.db).setNoteKind('mapa', NoteKind.map);
+        const grecia = 't-Grecia';
+        await topics.tag('a', historia);
+        await topics.tag('a', grecia);
+        await topics.tag('b', grecia);
+        await topics.tag('c', historia);
+        await topics.tag('fuente', historia);
+        await topics.tag('borrado', historia);
+        await topics.tag('mapa', historia);
+        await vault.library.delete('borrado');
 
-      final material = right(await atlas.topicMaterial({historia, grecia}));
+        final material = right(await atlas.topicMaterial({historia, grecia}));
 
-      final byId = {for (final m in material) m.itemId: m};
-      expect(byId.keys, unorderedEquals(['a', 'b', 'c']));
-      expect(byId['a']!.valueIds, {historia, grecia});
-      expect(byId['c']!.noteKind, NoteKind.living);
-      expect(byId['b']!.isNote, isFalse);
-    });
+        final byId = {for (final m in material) m.itemId: m};
+        expect(byId.keys, unorderedEquals(['a', 'b']));
+        expect(byId['a']!.valueIds, {historia, grecia});
+        expect(byId['b']!.noteKind, NoteKind.processed);
+      },
+    );
 
     test('el comienzo de cada uno: los bloques se leen como texto', () async {
       await vault.source('a', title: 'A', content: 'palabra ' * 100);
@@ -154,9 +162,20 @@ void main() {
         ),
       );
 
-      final excerpts = right(await atlas.excerptsOf(['a', 'n'], chars: 30));
+      // Un documento procesado no tiene formas: su comienzo sale de sus
+      // partes (F41, paso 6).
+      await vault.processedDocument(
+        'p',
+        title: 'P',
+        content: 'Lo elegido ' * 20,
+      );
+
+      final excerpts = right(
+        await atlas.excerptsOf(['a', 'n', 'p'], chars: 30),
+      );
 
       expect(excerpts['a'], 'palabra palabra palabra…');
+      expect(excerpts['p'], startsWith('Lo elegido Lo elegido'));
       expect(excerpts['n'], 'Título Texto de la nota.');
     });
   });

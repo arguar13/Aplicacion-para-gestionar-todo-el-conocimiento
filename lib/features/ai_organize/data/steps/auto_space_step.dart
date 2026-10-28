@@ -3,6 +3,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/organize_text.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/space_chooser.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 
@@ -26,9 +27,15 @@ class AutoSpaceStep implements AiOrganizeStep {
     required SpaceChooser chooser,
     required OrganizeRepository organize,
     required AiRunRepository runs,
+    OrganizeTextReader texts = const OwnTextReader(),
   }) : _chooser = chooser,
        _organize = organize,
-       _runs = runs;
+       _runs = runs,
+       _texts = texts;
+
+  /// Qué texto lee: el del elemento, o —de un documento procesado— lo que la
+  /// persona eligió al triar (F41, paso 6).
+  final OrganizeTextReader _texts;
 
   final SpaceChooser _chooser;
   final OrganizeRepository _organize;
@@ -46,7 +53,7 @@ class AutoSpaceStep implements AiOrganizeStep {
     final spaces = await _organize.watchAllSpaces().first;
     if (spaces.isEmpty) return AiStepReport.nothing;
 
-    final text = item.searchableText.trim();
+    final text = (await _texts.textOf(item)).text.trim();
     final choice = await _chooser(
       itemTitle: item.title,
       excerpt: text.length > kSpaceExcerptChars

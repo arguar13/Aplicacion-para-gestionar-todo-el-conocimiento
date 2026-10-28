@@ -1049,7 +1049,7 @@
   "@timelineEmptyTitle": {
     "description": "Título de la línea de tiempo cuando ningún elemento tiene fecha."
   },
-  "timelineEmptyHint": "Add a “Fecha del hecho” from an item’s detail —Add property— and it will show up here.",
+  "timelineEmptyHint": "It fills up as you triage: the AI reads what you send to Processed and places here the events it tells, each with its quote. You can also add one by hand.",
   "@timelineEmptyHint": {
     "description": "Explica cómo fechar un elemento para que aparezca en la línea de tiempo."
   },
@@ -3712,40 +3712,6 @@
   "@atlasCoverageEmpty": {
     "description": "Estado de cobertura: el tema existe y no tiene nada asignado."
   },
-  "atlasCoverageSourcesOnly": "Sources only",
-  "@atlasCoverageSourcesOnly": {
-    "description": "Estado de cobertura: hay material crudo y ninguna nota."
-  },
-  "atlasCoverageFragments": "Fragments",
-  "@atlasCoverageFragments": {
-    "description": "Estado de cobertura: hay notas pero ninguna nota viva, fragmentos sin consolidar."
-  },
-  "atlasCoverageGrowing": "Growing",
-  "@atlasCoverageGrowing": {
-    "description": "Estado de cobertura: hay una nota viva semilla o en desarrollo."
-  },
-  "atlasCoverageMature": "Mature",
-  "@atlasCoverageMature": {
-    "description": "Estado de cobertura: hay una nota viva madura."
-  },
-  "atlasSourceCount": "{count, plural, =1{1 source} other{{count} sources}}",
-  "@atlasSourceCount": {
-    "description": "Cuántas fuentes hay en una rama del Atlas.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "atlasNoteCount": "{count, plural, =1{1 note} other{{count} notes}}",
-  "@atlasNoteCount": {
-    "description": "Cuántas notas hay en una rama del Atlas.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "atlasEmptyTitle": "{kind, select, spaces{You have no topics yet} tags{No tags yet} other{This category has no values}}",
   "@atlasEmptyTitle": {
     "description": "Title of the Atlas when what is being viewed has nothing yet: topics, tags or another category (F28).",
@@ -3785,16 +3751,7 @@
       }
     }
   },
-  "atlasGapManySources": "{count} sources and no living note",
-  "@atlasGapManySources": {
-    "description": "Un vacío: un tema con muchas fuentes y ninguna nota viva.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "atlasGapSingleItem": "A single item in the whole branch",
+  "atlasGapSingleItem": "A single document in the whole branch",
   "@atlasGapSingleItem": {
     "description": "Un vacío: un tema con un único elemento."
   },
@@ -4075,14 +4032,6 @@
         "type": "int"
       }
     }
-  },
-  "mapBoardMaturityTitle": "Note maturity",
-  "@mapBoardMaturityTitle": {
-    "description": "Título de la tarjeta del tablero con cuántas notas hay en cada grado de madurez."
-  },
-  "mapBoardMaturityNone": "There are no notes yet.",
-  "@mapBoardMaturityNone": {
-    "description": "Mensaje de la tarjeta de madurez cuando la bóveda no tiene notas."
   },
   "mapBoardPairSemantics": "{first} and {second}, joined with weight {weight}",
   "@mapBoardPairSemantics": {
@@ -11895,5 +11844,80 @@
   "processedOriginalCopyDroppedKeptText": "The copy of the original is in the app's trash, and its text stays in «Text». The source's file stays in the Library.",
   "@processedOriginalCopyDroppedKeptText": {
     "description": "Aviso después de «Borrar la copia del original» cuando el texto se guardó como sección Texto (F41, decisión K)."
+  },
+  "organizedGoToInbox": "Go to the Inbox",
+  "@organizedGoToInbox": {
+    "description": "Lleva a la Bandeja desde lo que se llena al triar (F41)."
+  },
+  "processedDepthTextOnly": "Text only",
+  "@processedDepthTextOnly": {
+    "description": "Un documento procesado con su texto y nada más (F41)."
+  },
+  "processedDepthSummarized": "With summary or synthesis",
+  "@processedDepthSummarized": {
+    "description": "Un documento procesado con resumen o síntesis (F41)."
+  },
+  "processedDepthCut": "With fragments",
+  "@processedDepthCut": {
+    "description": "Un documento procesado con fragmentos cortados a mano (F41)."
+  },
+  "processedDepthAnnotated": "With your own notes",
+  "@processedDepthAnnotated": {
+    "description": "Un documento procesado con notas de la persona (F41)."
+  },
+  "atlasProcessedCount": "{count, plural, =1{1 document} other{{count} documents}}",
+  "@atlasProcessedCount": {
+    "description": "Cuántos documentos procesados hay en una rama del Atlas (F41).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "atlasAnnotatedCount": "{count, plural, =1{1 with notes} other{{count} with notes}}",
+  "@atlasAnnotatedCount": {
+    "description": "Cuántos documentos de la rama tienen notas propias (F41).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "atlasGapManyWithoutNotes": "{count} documents and none with your own notes",
+  "@atlasGapManyWithoutNotes": {
+    "description": "Un vacío del Atlas: mucho procesado y nada escrito (F41).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "atlasFillsOnTriageTitle": "The Atlas is built from what you process",
+  "@atlasFillsOnTriageTitle": {
+    "description": "El Atlas vacío antes de procesar nada (F41)."
+  },
+  "atlasFillsOnTriageMessage": "When you triage a source in the Inbox, what you choose goes to Processed and the AI gives it topics: that's how it shows up here, in each branch, with how much you worked on it. What the Library already had stays in each source.",
+  "@atlasFillsOnTriageMessage": {
+    "description": "El Atlas vacío antes de procesar nada (F41)."
+  },
+  "mapFillsOnTriageTitle": "The Map is built from what you process",
+  "@mapFillsOnTriageTitle": {
+    "description": "El Mapa vacío antes de procesar nada (F41)."
+  },
+  "mapFillsOnTriageMessage": "When you triage a source in the Inbox, the AI organizes what you chose —its topics and its links with other processed documents— and the Map draws them. What the Library already had stays in each source.",
+  "@mapFillsOnTriageMessage": {
+    "description": "El Mapa vacío antes de procesar nada (F41)."
+  },
+  "mapBoardDepthTitle": "How much you worked on what you processed",
+  "@mapBoardDepthTitle": {
+    "description": "La tarjeta del tablero con cuánto se trabajó cada documento (F41)."
+  },
+  "mapBoardDepthNone": "Nothing processed with these filters.",
+  "@mapBoardDepthNone": {
+    "description": "La tarjeta de lo trabajado sin documentos (F41)."
+  },
+  "timelineFactSourceNotProcessed": "The timeline is built from what you triage: process this source and its dates go to its processed document.",
+  "@timelineFactSourceNotProcessed": {
+    "description": "«A la línea de tiempo» desde una fuente sin procesar (F41)."
   }
 }

@@ -140,16 +140,28 @@ class TextSearchPlan {
 /// etiquetas, propiedades— para las tres preguntas que se le hacen a una
 /// consulta (los ids de una página, los ids de todo lo que coincide y cuántos
 /// son), de modo que no puedan discrepar.
+///
+/// Con [LibraryScope.processed] (F41, paso 6) mira solo los documentos
+/// procesados, con los mismos filtros: el texto se busca en su título y en lo
+/// que la persona eligió de la fuente —sus partes, cada palabra en cualquiera
+/// de ellas, como en «Procesado»—, sin orden por relevancia, y su tipo es el
+/// de la fuente de la que salió.
 class LibraryQuerySql {
   LibraryQuerySql(this.query, {TextSearchPlan? plan})
     : plan = plan ?? const TextSearchPlan(match: '') {
-    final match = query.hasSearchText
+    final processed = query.scope == LibraryScope.processed;
+    final processedTerms = processed && query.hasSearchText
+        ? searchTerms(query.searchText!)
+        : null;
+    final match = query.hasSearchText && !processed
         ? (plan?.match ?? buildSearchQuery(query.searchText!))
         : null;
     // Un texto que no deja ninguna palabra que buscar (solo comillas, por
-    // ejemplo) no encuentra nada: no es "sin filtro de texto".
+    // ejemplo) no encuentra nada: no es "sin filtro de texto". En lo
+    // procesado no pasa: cada palabra, aun una de comillas, se busca tal cual.
     matchesNothing = match != null && match.isEmpty;
     final searching = match != null && match.isNotEmpty;
+    _kindSql = processed ? _processedKindSql : _sourceKindSql;
     _windowed = searching && (plan?.windowed ?? false);
 
     if (searching) {
@@ -200,10 +212,23 @@ class LibraryQuerySql {
 
     // Lo que está en la papelera no es de la biblioteca, sea cual sea el resto
     // de la consulta. Un documento procesado tampoco (F41): vive en
-    // «Procesado», y la Biblioteca queda como la base de consulta.
+    // «Procesado», y la Biblioteca queda como la base de consulta. Salvo que
+    // se pida justamente lo procesado (paso 6).
     _where
       ..add(kActiveItemSql)
-      ..add(_notProcessed);
+      ..add(processed ? _isProcessed : _notProcessed);
+    if (processedTerms != null) {
+      final everyTerm = List.filled(
+        processedTerms.length,
+        processedDocumentsWithTermSql,
+      );
+      _where.add('item.id IN (${everyTerm.join(' INTERSECT ')})');
+      for (final term in processedTerms) {
+        _args
+          ..add(Variable.withString(term.match))
+          ..add(Variable.withString(term.match));
+      }
+    }
     if (query.sourceKinds.isNotEmpty) {
       _where.add('$_kindSql IN (${_marks(query.sourceKinds.length)})');
       _args.addAll(query.sourceKinds.map((k) => Variable.withString(k.name)));
@@ -295,13 +320,25 @@ class LibraryQuerySql {
   /// Lo que no es un documento procesado (F41): ver `notProcessedSql`.
   static final _notProcessed = notProcessedSql('item.id');
 
+  /// Lo que sí lo es (F41, paso 6): ver `isProcessedSql`.
+  static final _isProcessed = isProcessedSql('item.id');
+
   /// Un elemento con su fuente, si la tiene: una nota no tiene fila en
   /// `source`.
   static const _plainFrom = 'item LEFT JOIN source ON source.item_id = item.id';
 
   /// De qué tipo de fuente es el elemento: el de su fila de `source`, o nota si
   /// no tiene.
-  static const _kindSql = "COALESCE(source.source_type, 'manualNote')";
+  static const _sourceKindSql = "COALESCE(source.source_type, 'manualNote')";
+
+  /// El de un documento procesado (F41, paso 6): el de la fuente de la que
+  /// salió, que se guardó al procesarla.
+  static const _processedKindSql =
+      '(SELECT pd.source_kind FROM processed_documents pd '
+      'WHERE pd.item_id = item.id)';
+
+  /// Cuál de los dos vale para esta consulta.
+  late final String _kindSql;
 
   /// Cuándo se capturó: lo dice su fuente; una nota, cuando se creó.
   static const _capturedAtSql = 'COALESCE(source.captured_at, item.created_at)';

@@ -1,23 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processed_depth.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/services/map_dashboard_builder.dart';
 
 /// El tablero del mapa (F14), armado sin base de datos: cuánto hay, cuánto
-/// creció, qué tan trabajadas están las notas y qué contradicciones siguen
-/// abiertas.
+/// creció, qué tan trabajado está lo procesado (F41, paso 6) y qué
+/// contradicciones siguen abiertas.
 void main() {
   DashboardItem item(
     String id,
     DateTime createdAt, {
-    bool note = false,
-    NoteMaturity? maturity,
-  }) => DashboardItem(
-    id: id,
-    isNote: note,
-    createdAt: createdAt,
-    maturity: maturity,
-  );
+    ProcessedDepth depth = ProcessedDepth.textOnly,
+  }) => DashboardItem(id: id, createdAt: createdAt, depth: depth);
 
   DashboardContradiction contradiction(
     String id,
@@ -45,49 +39,37 @@ void main() {
 
     expect(dashboard.itemCount, 0);
     expect(dashboard.growth, isEmpty);
-    expect(dashboard.maturity, isEmpty);
+    expect(dashboard.depth, isEmpty);
     expect(dashboard.openContradictions, isEmpty);
   });
 
-  test('cuenta los elementos, y separa las notas de las fuentes', () {
+  test('cuenta los documentos procesados', () {
     final dashboard = build(
       items: [
-        item('s1', DateTime(2026, 1, 5)),
-        item('s2', DateTime(2026, 1, 6)),
-        item('n1', DateTime(2026, 1, 7), note: true),
+        item('p1', DateTime(2026, 1, 5)),
+        item('p2', DateTime(2026, 1, 6)),
+        item('p3', DateTime(2026, 1, 7), depth: ProcessedDepth.annotated),
       ],
     );
 
     expect(dashboard.itemCount, 3);
-    expect(dashboard.sourceCount, 2);
-    expect(dashboard.noteCount, 1);
   });
 
-  group('la madurez', () {
-    test('cuenta las notas por grado, y solo las notas', () {
+  group('lo trabajado', () {
+    test('cuenta los documentos por escalón', () {
       final dashboard = build(
         items: [
-          item('n1', DateTime(2026), note: true, maturity: NoteMaturity.seed),
-          item(
-            'n2',
-            DateTime(2026, 1, 2),
-            note: true,
-            maturity: NoteMaturity.seed,
-          ),
-          item(
-            'n3',
-            DateTime(2026, 1, 3),
-            note: true,
-            maturity: NoteMaturity.mature,
-          ),
-          // Una fuente no tiene madurez aunque un dato suelto la trajera.
-          item('s1', DateTime(2026, 1, 4), maturity: NoteMaturity.developing),
+          item('p1', DateTime(2026)),
+          item('p2', DateTime(2026, 1, 2)),
+          item('p3', DateTime(2026, 1, 3), depth: ProcessedDepth.cut),
+          item('p4', DateTime(2026, 1, 4), depth: ProcessedDepth.annotated),
         ],
       );
 
-      expect(dashboard.maturity, {
-        NoteMaturity.seed: 2,
-        NoteMaturity.mature: 1,
+      expect(dashboard.depth, {
+        ProcessedDepth.textOnly: 2,
+        ProcessedDepth.cut: 1,
+        ProcessedDepth.annotated: 1,
       });
     });
   });

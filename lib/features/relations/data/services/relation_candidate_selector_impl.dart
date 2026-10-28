@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/note_text.dart';
+import 'package:sinapsis/core/database/processed_entries.dart';
 import 'package:sinapsis/core/domain/services/embedding_similarity.dart';
 import 'package:sinapsis/features/relations/domain/services/relation_candidate_selector.dart';
 
@@ -69,6 +70,17 @@ class RelationCandidateSelectorImpl implements RelationCandidateSelector {
     ];
     if (seedVectors.isEmpty) return const [];
 
+    // Cada uno con los suyos (F41, paso 6): un documento procesado se vincula
+    // solo con otros procesados —son los vínculos que dibujan el Mapa y el
+    // grafo local, que leen solo lo procesado—, y lo de la Biblioteca solo
+    // entre sí. Las fuentes, con sus fragmentos, son siempre de la Biblioteca.
+    final processedSeed =
+        await (_db.selectOnly(_db.processedDocuments)
+              ..addColumns([_db.processedDocuments.itemId])
+              ..where(_db.processedDocuments.itemId.equals(seedItemId)))
+            .getSingleOrNull() !=
+        null;
+
     // Solo de elementos vivos: sugerir vincular con algo que está en la
     // papelera sería mandar al usuario a un elemento que ya borró.
     //
@@ -76,21 +88,23 @@ class RelationCandidateSelectorImpl implements RelationCandidateSelector {
     // libros son diez mil fragmentos, y traer el texto de todos para
     // quedarse al final con el extracto de quince era cargar en memoria la
     // bóveda entera cada vez que se procesaba algo.
-    final chunkId = _db.chunks.id;
-    final chunkItemId = _db.chunks.itemId;
-    final rows =
-        await (_db.selectOnly(_db.chunks)
-              ..addColumns([chunkId, chunkItemId])
-              ..where(
-                chunkItemId.equals(seedItemId).not() &
-                    itemIsActive(_db, chunkItemId),
-              ))
-            .get();
     final chunkIdsByItem = <String, List<String>>{};
-    for (final row in rows) {
-      chunkIdsByItem
-          .putIfAbsent(row.read(chunkItemId)!, () => [])
-          .add(row.read(chunkId)!);
+    if (!processedSeed) {
+      final chunkId = _db.chunks.id;
+      final chunkItemId = _db.chunks.itemId;
+      final rows =
+          await (_db.selectOnly(_db.chunks)
+                ..addColumns([chunkId, chunkItemId])
+                ..where(
+                  chunkItemId.equals(seedItemId).not() &
+                      itemIsActive(_db, chunkItemId),
+                ))
+              .get();
+      for (final row in rows) {
+        chunkIdsByItem
+            .putIfAbsent(row.read(chunkItemId)!, () => [])
+            .add(row.read(chunkId)!);
+      }
     }
 
     final vectorsByItem = <String, List<Uint8List>>{};
@@ -104,6 +118,7 @@ class RelationCandidateSelectorImpl implements RelationCandidateSelector {
     if (includeNotes) {
       for (final MapEntry(key: itemId, value: vectors) in (await _noteVectors(
         except: seedItemId,
+        processed: processedSeed,
       )).entries) {
         (vectorsByItem[itemId] ??= []).addAll(vectors);
       }
@@ -161,15 +176,23 @@ class RelationCandidateSelectorImpl implements RelationCandidateSelector {
   }
 
   /// Los vectores guardados de las notas vivas, sin decodificar, por nota:
-  /// [only] la de esa, o todas menos [except].
+  /// [only] la de esa, o todas menos [except]. Con [processed], solo los
+  /// documentos procesados (`true`) o solo lo que no lo es (`false`).
   Future<Map<String, List<Uint8List>>> _noteVectors({
     String? only,
     String? except,
+    bool? processed,
   }) async {
     final notes = _db.noteEmbeddings;
     var filter = itemIsActive(_db, notes.itemId);
     if (only != null) filter &= notes.itemId.equals(only);
     if (except != null) filter &= notes.itemId.equals(except).not();
+    if (processed != null) {
+      final isProcessed = CustomExpression<bool>(
+        isProcessedSql('${notes.aliasedName}.${notes.itemId.name}'),
+      );
+      filter &= processed ? isProcessed : isProcessed.not();
+    }
     final query = _db.selectOnly(notes)
       ..addColumns([notes.itemId, notes.vector])
       ..where(filter);
@@ -191,8 +214,11 @@ class RelationCandidateSelectorImpl implements RelationCandidateSelector {
               ..orderBy([(c) => OrderingTerm.asc(c.seq)])
               ..limit(1))
             .getSingleOrNull();
-    final content = (first?.content ?? await noteTextOf(_db, itemId) ?? '')
-        .trim();
+    final content =
+        (first?.content ??
+                await noteTextOf(_db, itemId, upTo: _excerptMaxLength + 1) ??
+                '')
+            .trim();
     return content.length > _excerptMaxLength
         ? '${content.substring(0, _excerptMaxLength)}…'
         : content;

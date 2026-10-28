@@ -6,7 +6,8 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
-import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processed_depth.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -23,12 +24,15 @@ import 'package:sinapsis/features/map/domain/services/topic_graph_builder.dart';
 
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/item_rows.dart';
+import '../../../../support/processed_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
 /// Lo que el mapa lee (F14), contra SQLite de verdad: los temas de una
 /// categoría, lo que los une, sin lo que está en la papelera, y respetando el
-/// filtro de la biblioteca.
+/// filtro. Desde F41 (paso 6) el mapa lee solo documentos procesados: los
+/// ayudantes de siempre los crean así, y las fuentes y notas de la Biblioteca
+/// se crean aparte para ver que no entran.
 void main() {
   late AppDatabase db;
   late KnowledgeMapRepositoryImpl repository;
@@ -78,22 +82,49 @@ void main() {
         ),
       );
 
+  /// Un documento procesado de una fuente de tipo [kind].
   Future<void> source(
     String id,
     List<String> values, {
     SourceKind kind = SourceKind.webPage,
   }) async {
-    await insertItemRows(db, id: id, title: 'Fuente $id', kind: kind);
+    await insertProcessedDocument(
+      db,
+      id: id,
+      title: 'Fuente $id',
+      sourceKind: kind,
+    );
     for (final valueId in values) {
       await assign(id, valueId);
     }
   }
 
+  /// Un documento procesado con notas propias.
   Future<void> note(String id, List<String> values) async {
-    await insertItemRows(
+    await insertProcessedDocument(
       db,
       id: id,
       title: 'Nota $id',
+      sections: {ProcessedSection.notes},
+    );
+    for (final valueId in values) {
+      await assign(id, valueId);
+    }
+  }
+
+  /// Una fuente y una nota de la Biblioteca: no están en el mapa (F41).
+  Future<void> librarySource(String id, List<String> values) async {
+    await insertItemRows(db, id: id, title: 'Biblioteca $id');
+    for (final valueId in values) {
+      await assign(id, valueId);
+    }
+  }
+
+  Future<void> libraryNote(String id, List<String> values) async {
+    await insertItemRows(
+      db,
+      id: id,
+      title: 'Nota de la Biblioteca $id',
       kind: SourceKind.manualNote,
     );
     for (final valueId in values) {
@@ -350,47 +381,44 @@ void main() {
   });
 
   group('el tablero', () {
-    Future<void> setMaturity(String noteId, NoteMaturity maturity) =>
-        (db.update(db.knowledgeNotes)..where((n) => n.itemId.equals(noteId)))
-            .write(KnowledgeNotesCompanion(maturity: Value(maturity)));
-
-    test('cuenta los elementos vivos, el crecimiento y la madurez', () async {
-      await insertItemRows(
+    test('cuenta los documentos procesados vivos, el crecimiento y cuánto '
+        'se trabajó cada uno; lo de la Biblioteca no (F41)', () async {
+      await insertProcessedDocument(
         db,
-        id: 's1',
-        title: 'Fuente 1',
+        id: 'p1',
+        title: 'Procesado 1',
         createdAt: DateTime(2026, 1, 10),
       );
-      await insertItemRows(
+      await insertProcessedDocument(
         db,
-        id: 's2',
-        title: 'Fuente 2',
+        id: 'p2',
+        title: 'Procesado 2',
         createdAt: DateTime(2026, 2, 10),
       );
-      await insertItemRows(
+      await insertProcessedDocument(
         db,
-        id: 'n1',
-        title: 'Nota 1',
-        kind: SourceKind.manualNote,
+        id: 'p3',
+        title: 'Procesado 3',
         createdAt: DateTime(2026, 2, 12),
+        sections: {ProcessedSection.text, ProcessedSection.fragments},
       );
-      await insertItemRows(
+      await insertProcessedDocument(
         db,
-        id: 'n2',
-        title: 'Nota 2',
-        kind: SourceKind.manualNote,
+        id: 'p4',
+        title: 'Procesado 4',
         createdAt: DateTime(2026, 4),
+        sections: {ProcessedSection.summary, ProcessedSection.notes},
       );
-      await setMaturity('n2', NoteMaturity.mature);
+      await librarySource('fuente', const []);
+      await libraryNote('nota', const []);
 
       final dashboard = await repository.readDashboard();
 
       expect(dashboard.itemCount, 4);
-      expect(dashboard.sourceCount, 2);
-      expect(dashboard.noteCount, 2);
-      expect(dashboard.maturity, {
-        NoteMaturity.seed: 1,
-        NoteMaturity.mature: 1,
+      expect(dashboard.depth, {
+        ProcessedDepth.textOnly: 2,
+        ProcessedDepth.cut: 1,
+        ProcessedDepth.annotated: 1,
       });
       expect(
         [for (final p in dashboard.growth) (p.month, p.added, p.total)],
@@ -551,16 +579,15 @@ void main() {
 
         final links = await repository.schemaLinks(const SchemaRef.item('n1'));
 
+        // La nota viva es de la Biblioteca: no está en el mapa (F41, paso 6).
         final byTitle = {for (final l in links) l.title: l};
-        expect(byTitle.keys, {'Fuente s1', 'Fuente s2', 'Nota viva'});
+        expect(byTitle.keys, {'Fuente s1', 'Fuente s2'});
         final s1 = byTitle['Fuente s1']!;
         expect(s1.relation, RelationKind.indexes);
         expect(s1.outgoing, isTrue);
-        expect(s1.isNote, isFalse);
         final s2 = byTitle['Fuente s2']!;
         expect(s2.relation, RelationKind.contradicts);
         expect(s2.outgoing, isFalse);
-        expect(byTitle['Nota viva']!.isNote, isTrue);
         expect(links.every((l) => l.edge == SchemaEdgeKind.relation), isTrue);
       },
     );
@@ -586,18 +613,12 @@ void main() {
   });
 
   group('los elementos de un tema', () {
-    Future<void> at(
-      String id,
-      DateTime when,
-      List<String> values, {
-      SourceKind kind = SourceKind.webPage,
-    }) async {
-      await insertItemRows(
+    Future<void> at(String id, DateTime when, List<String> values) async {
+      await insertProcessedDocument(
         db,
         id: id,
         title: 'Fuente $id',
         createdAt: when,
-        kind: kind,
       );
       for (final valueId in values) {
         await assign(id, valueId);
@@ -635,16 +656,15 @@ void main() {
       expect([for (final i in graph.items) i.id], ['de-republica']);
     });
 
-    test('las notas se distinguen de las fuentes', () async {
+    test('lo de la Biblioteca no sale: solo lo procesado (F41)', () async {
       await seedTopics();
-      await at('s', DateTime(2026), ['roma']);
-      await at('n', DateTime(2026, 2), ['roma'], kind: SourceKind.manualNote);
+      await at('p', DateTime(2026), ['roma']);
+      await librarySource('s', ['roma']);
+      await libraryNote('n', ['roma']);
 
       final graph = await repository.readTopicItems('roma');
 
-      final byId = {for (final i in graph.items) i.id: i};
-      expect(byId['s']!.isNote, isFalse);
-      expect(byId['n']!.isNote, isTrue);
+      expect([for (final i in graph.items) i.id], ['p']);
     });
 
     test('los vínculos son solo los que unen dos de sus elementos', () async {
@@ -1111,19 +1131,19 @@ void main() {
       );
     });
 
-    test('con un filtro, también avisan por lo que el filtro mira', () async {
+    test('con un filtro, también avisan por lo que el filtro mira: el tipo de '
+        'la fuente que guarda el procesado (F41)', () async {
       await seedTopics();
       await source('s1', ['roma']);
       Future<void> retype() =>
           (db.update(
-            db.knowledgeSources,
-          )..where((s) => s.itemId.equals('s1'))).write(
-            const KnowledgeSourcesCompanion(
-              sourceType: Value(SourceKind.document),
+            db.processedDocuments,
+          )..where((d) => d.itemId.equals('s1'))).write(
+            const ProcessedDocumentsCompanion(
+              sourceKind: Value(SourceKind.document),
             ),
           );
 
-      expect(await notifies(retype), isFalse);
       expect(
         await notifies(
           retype,
@@ -1247,7 +1267,7 @@ void main() {
 
     test('los elementos de un tema: las asignaciones del valor por su índice '
         'y los vínculos por el índice del origen', () async {
-      final items = await planOf(mapTopicItemsSql, [
+      final items = await planOf(mapTopicItemsSql(LibraryScope.processed), [
         Variable.withString('roma'),
         Variable.withInt(201),
       ]);
@@ -1320,7 +1340,10 @@ void main() {
     test('los elementos y las notas mapa de un tema se buscan por el índice '
         'del espacio —en item_spaces desde F37—, sin recorrer la bóveda '
         '(F28)', () async {
-      for (final sql in [mapSpaceTopicItemsSql, mapSpaceNotesSql]) {
+      for (final sql in [
+        mapSpaceTopicItemsSql(LibraryScope.processed),
+        mapSpaceNotesSql,
+      ]) {
         final plan = await planOf(sql, [
           Variable.withString('historia'),
           Variable.withInt(10),
@@ -1360,19 +1383,12 @@ void main() {
     });
   });
 
-  test('las notas de cualquier subtipo son elementos del mapa', () async {
+  test('un documento procesado de cualquier escalón es elemento del mapa; lo '
+      'de la Biblioteca no (F41)', () async {
     await seedTopics();
-    await insertItemRows(
-      db,
-      id: 'n-mapa',
-      title: 'Mapa de Roma',
-      kind: SourceKind.manualNote,
-    );
-    await (db.update(db.knowledgeNotes)
-          ..where((n) => n.itemId.equals('n-mapa')))
-        .write(const KnowledgeNotesCompanion(noteKind: Value(NoteKind.map)));
-    await assign('n-mapa', 'roma');
-    await assign('n-mapa', 'grecia');
+    await note('p-notas', ['roma', 'grecia']);
+    await librarySource('s', ['roma', 'grecia']);
+    await libraryNote('n', ['roma', 'grecia']);
 
     final g = await graph();
 

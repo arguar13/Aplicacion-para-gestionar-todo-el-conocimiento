@@ -32,6 +32,7 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/fake_ai_organize_queue.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// «Organizar con IA» en la línea de tiempo (F40): qué se puede elegir, qué le
 /// pide a la cola de la IA, cómo se ve el avance y qué dice cuando la IA no
@@ -61,28 +62,41 @@ void main() {
     );
   }
 
+  /// Un documento procesado listo —lo que recorre la IA desde F41 (paso 6)—
+  /// o, si todavía se procesa, la fuente de la Biblioteca, que no se recorre.
   Future<void> seed(
     String id, {
     String? title,
     ProcessingState state = ProcessingState.ready,
     SourceKind kind = SourceKind.webPage,
-  }) => harness.container
-      .read(libraryRepositoryProvider)
-      .save(
-        KnowledgeItem(
-          id: id,
-          title: title ?? 'Doc $id',
-          source: Source(
-            id: 'src-$id',
-            kind: kind,
-            capturedAt: now,
-            url: kind == SourceKind.manualNote ? null : 'https://e.org/$id',
-          ),
-          processingState: state,
-          createdAt: now,
-          updatedAt: now,
-        ),
+  }) async {
+    if (state == ProcessingState.ready) {
+      return insertProcessedDocument(
+        harness.database,
+        id: id,
+        title: title ?? 'Doc $id',
+        createdAt: now,
+        sourceKind: kind,
       );
+    }
+    await harness.container
+        .read(libraryRepositoryProvider)
+        .save(
+          KnowledgeItem(
+            id: id,
+            title: title ?? 'Doc $id',
+            source: Source(
+              id: 'src-$id',
+              kind: kind,
+              capturedAt: now,
+              url: kind == SourceKind.manualNote ? null : 'https://e.org/$id',
+            ),
+            processingState: state,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+  }
 
   /// Un tema con esos elementos adentro; devuelve su id.
   Future<String> space(String name, List<String> itemIds) async {

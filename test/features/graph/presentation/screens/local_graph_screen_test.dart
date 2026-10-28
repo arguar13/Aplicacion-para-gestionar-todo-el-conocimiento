@@ -7,9 +7,11 @@ import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.d
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 void main() {
   final es = AppLocalizationsEs();
@@ -19,15 +21,15 @@ void main() {
     harness = await LibraryHarness.create();
   });
 
-  Future<String> idOf(String title) async {
-    final items =
-        (await harness.container
-                .read(libraryRepositoryProvider)
-                .list(const LibraryQuery()))
-            .getRight()
-            .toNullable()!;
-    return items.firstWhere((i) => i.title == title).id;
-  }
+  /// Un documento procesado llamado [title]: el grafo local lee solo eso
+  /// (F41, paso 6). Su id es su título, sin espacios.
+  Future<void> processed(String title) => insertProcessedDocument(
+    harness.database,
+    id: title.replaceAll(' ', '-'),
+    title: title,
+  );
+
+  Future<String> idOf(String title) async => title.replaceAll(' ', '-');
 
   Future<void> pumpLocalGraph(WidgetTester tester, String itemId) async {
     harness.goTo(RoutePaths.graphLocal(itemId));
@@ -38,7 +40,7 @@ void main() {
   testWidgets('sin ningún vínculo, explica que todavía no hay nada que ver', (
     tester,
   ) async {
-    await harness.capture('una nota sin vínculos');
+    await processed('una nota sin vínculos');
     final id = await idOf('una nota sin vínculos');
 
     await pumpLocalGraph(tester, id);
@@ -50,8 +52,8 @@ void main() {
     'con un vínculo directo, la semilla y el vecino aparecen como nodos '
     'tocables',
     (tester) async {
-      await harness.capture('La semilla');
-      await harness.capture('El vecino directo');
+      await processed('La semilla');
+      await processed('El vecino directo');
       final seedId = await idOf('La semilla');
       final neighborId = await idOf('El vecino directo');
 
@@ -71,9 +73,11 @@ void main() {
     },
   );
 
-  testWidgets('tocar un vecino normal navega a su detalle', (tester) async {
-    await harness.capture('La semilla');
-    await harness.capture('El vecino directo');
+  testWidgets('tocar un vecino abre su documento procesado (F41)', (
+    tester,
+  ) async {
+    await processed('La semilla');
+    await processed('El vecino directo');
     final seedId = await idOf('La semilla');
     final neighborId = await idOf('El vecino directo');
 
@@ -89,17 +93,24 @@ void main() {
     await tester.tap(find.text('El vecino directo'));
     await tester.pumpAndSettle();
 
-    expect(find.text(es.detailRelationsTitle), findsOneWidget);
+    expect(find.byType(ProcessedDocumentScreen), findsOneWidget);
   });
 
   testWidgets(
-    'un vecino marcado como nota mapa entra al grafo local centrado en él, '
-    'en vez de a su detalle',
+    'una nota mapa de la Biblioteca no es un vecino: el grafo local lee solo '
+    'lo procesado (F41, paso 6)',
     (tester) async {
-      await harness.capture('La semilla');
+      await processed('La semilla');
       await harness.capture('El vecino mapa');
       final seedId = await idOf('La semilla');
-      final neighborId = await idOf('El vecino mapa');
+      final neighborId =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!
+              .single
+              .id;
 
       await harness.container
           .read(organizeRepositoryProvider)
@@ -113,11 +124,9 @@ void main() {
           .setNoteKind(itemId: neighborId, kind: NoteKind.map);
 
       await pumpLocalGraph(tester, seedId);
-      await tester.tap(find.text('El vecino mapa'));
-      await tester.pumpAndSettle();
 
-      expect(find.text(es.localGraphTitle('El vecino mapa')), findsOneWidget);
-      expect(find.text(es.detailRelationsTitle), findsNothing);
+      expect(find.text('El vecino mapa'), findsNothing);
+      expect(find.text(es.graphEmpty), findsOneWidget);
     },
   );
 
@@ -125,9 +134,9 @@ void main() {
     'cambiar el selector de grado a 2 muestra recién ahí un vecino a dos '
     'saltos',
     (tester) async {
-      await harness.capture('La semilla');
-      await harness.capture('El vecino directo');
-      await harness.capture('El vecino lejano');
+      await processed('La semilla');
+      await processed('El vecino directo');
+      await processed('El vecino lejano');
       final seedId = await idOf('La semilla');
       final directId = await idOf('El vecino directo');
       final farId = await idOf('El vecino lejano');
@@ -159,11 +168,11 @@ void main() {
     'un grafo grande entra entero: se puede alejar más allá del piso de '
     'siempre, y al abrir ya se ve todo (F40)',
     (tester) async {
-      await harness.capture('La semilla');
+      await processed('La semilla');
       final seedId = await idOf('La semilla');
       final organize = harness.container.read(organizeRepositoryProvider);
       for (var i = 0; i < 60; i++) {
-        await harness.capture('Vecino $i');
+        await processed('Vecino $i');
         await organize.createRelation(
           fromItemId: seedId,
           toItemId: await idOf('Vecino $i'),

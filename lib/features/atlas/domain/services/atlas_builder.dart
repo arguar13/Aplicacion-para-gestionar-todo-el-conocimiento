@@ -14,25 +14,24 @@ class AtlasValueRow {
   final String? parentId;
 }
 
-/// Lo que la base cuenta de UNA rama, en cascada. Una rama sin ningún elemento
-/// no tiene fila: para el constructor es como si todo valiera cero.
+/// Lo que la base cuenta de UNA rama, en cascada: cuántos documentos
+/// procesados hay en cada escalón (`ProcessedDepth`). Una rama sin ningún
+/// documento no tiene fila: para el constructor es como si todo valiera cero.
 class AtlasBranchCounts {
   const AtlasBranchCounts({
-    this.sources = 0,
-    this.atomic = 0,
-    this.growingLiving = 0,
-    this.matureLiving = 0,
-    this.maps = 0,
+    this.textOnly = 0,
+    this.summarized = 0,
+    this.cut = 0,
+    this.annotated = 0,
     this.lastTouched,
     this.firstYear,
     this.lastYear,
   });
 
-  final int sources;
-  final int atomic;
-  final int growingLiving;
-  final int matureLiving;
-  final int maps;
+  final int textOnly;
+  final int summarized;
+  final int cut;
+  final int annotated;
   final DateTime? lastTouched;
   final int? firstYear;
   final int? lastYear;
@@ -98,11 +97,10 @@ AtlasSnapshot buildAtlas({
         depth: depth,
         parentId: tree.parentOf(id),
         childCount: children.length,
-        sourceCount: count.sources,
-        atomicCount: count.atomic,
-        growingLivingCount: count.growingLiving,
-        matureLivingCount: count.matureLiving,
-        mapCount: count.maps,
+        textOnlyCount: count.textOnly,
+        summarizedCount: count.summarized,
+        cutCount: count.cut,
+        annotatedCount: count.annotated,
         lastTouched: count.lastTouched,
         firstYear: count.firstYear,
         lastYear: count.lastYear,
@@ -180,8 +178,8 @@ List<AtlasGap> _gapsOf(
 ) {
   final byId = {for (final node in nodes) node.valueId: node};
 
-  bool manySources(AtlasNode node) =>
-      node.sourceCount >= kAtlasManySources && node.livingCount == 0;
+  bool manyWithoutNotes(AtlasNode node) =>
+      node.itemCount >= kAtlasManyWithoutNotes && node.annotatedCount == 0;
   bool singleItem(AtlasNode node) => node.itemCount == 1;
   bool stale(AtlasNode node) {
     final touched = node.lastTouched;
@@ -198,10 +196,10 @@ List<AtlasGap> _gapsOf(
   int byLabel(AtlasNode a, AtlasNode b) =>
       keyOf[a.valueId]!.compareTo(keyOf[b.valueId]!);
 
-  final many = topmost(manySources)
+  final many = topmost(manyWithoutNotes)
     ..sort((a, b) {
-      final bySources = b.sourceCount.compareTo(a.sourceCount);
-      return bySources != 0 ? bySources : byLabel(a, b);
+      final byCount = b.itemCount.compareTo(a.itemCount);
+      return byCount != 0 ? byCount : byLabel(a, b);
     });
   // Las más abandonadas primero: la fecha más vieja.
   final abandoned = topmost(stale)
@@ -213,10 +211,7 @@ List<AtlasGap> _gapsOf(
 
   return [
     for (final node in many)
-      AtlasGap(
-        kind: AtlasGapKind.manySourcesNoLivingNote,
-        valueId: node.valueId,
-      ),
+      AtlasGap(kind: AtlasGapKind.manyWithoutNotes, valueId: node.valueId),
     for (final node in abandoned)
       AtlasGap(kind: AtlasGapKind.stale, valueId: node.valueId),
     for (final node in single)

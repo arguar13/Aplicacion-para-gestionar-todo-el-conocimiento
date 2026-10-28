@@ -3,7 +3,6 @@ import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/ai_run_sql.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
-import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_backlog.dart';
 
 /// Cuántas pasadas a medias se le aguantan a un elemento antes de dejarlo:
@@ -13,8 +12,8 @@ import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_ba
 /// caer, y retomarlo en cada arranque sería un bucle.
 const kMaxAiRunAttempts = 3;
 
-/// [AiOrganizeBacklog] contra la base: todo sale de `item`, `source` y
-/// `ai_runs`, por sus índices —`ai_runs` por `item_id`—, sin traer filas que
+/// [AiOrganizeBacklog] contra la base: todo sale de `item` y `ai_runs`, por
+/// sus índices —`ai_runs` por `item_id`—, sin traer filas que
 /// no hagan falta. Con diez mil elementos, cada pregunta es una búsqueda, no
 /// un recorrido en memoria.
 class AiOrganizeBacklogImpl implements AiOrganizeBacklog {
@@ -23,10 +22,15 @@ class AiOrganizeBacklogImpl implements AiOrganizeBacklog {
   final AppDatabase _db;
 
   static final _note = ItemKind.note.name;
-  static final _done = SourceProcessingStatus.done.name;
 
   /// Lo pendiente de `item i` (ver [AiOrganizeBacklog]); el único `?` es
   /// hasta cuándo una nota tiene que estar quieta.
+  ///
+  /// **Solo notas** (F41, paso 6): las de la persona y los documentos
+  /// procesados, que son notas. Las fuentes de la Biblioteca ya no se
+  /// organizan solas —la Biblioteca es la base de consulta—: la IA organiza lo
+  /// que la persona eligió de cada una al triarla, en su documento procesado.
+  /// Lo que una fuente ya tenía queda donde está.
   ///
   /// Una pasada de solo tarjetas (F30, ver `organizeRunSql`) no cuenta:
   /// hizo tarjetas, no organizó el elemento, que sigue esperando sus
@@ -34,9 +38,7 @@ class AiOrganizeBacklogImpl implements AiOrganizeBacklog {
   static final _pendingSql =
       '''
       ${activeItemSql('i')}
-      AND (i.kind = '$_note' OR EXISTS (
-            SELECT 1 FROM source s
-             WHERE s.item_id = i.id AND s.processing_status = '$_done'))
+      AND i.kind = '$_note'
       AND NOT EXISTS (
             SELECT 1 FROM ai_runs r
              WHERE r.item_id = i.id
@@ -45,7 +47,7 @@ class AiOrganizeBacklogImpl implements AiOrganizeBacklog {
       AND (SELECT COUNT(*) FROM ai_runs r
             WHERE r.item_id = i.id AND ${organizeRunSql('r')})
             < $kMaxAiRunAttempts
-      AND (i.kind <> '$_note' OR i.updated_at <= ?)''';
+      AND i.updated_at <= ?''';
 
   @override
   Future<String?> nextFresh({
@@ -179,7 +181,6 @@ class AiOrganizeBacklogImpl implements AiOrganizeBacklog {
 
   Set<ResultSetImplementation<dynamic, dynamic>> get _tables => {
     _db.knowledgeEntries,
-    _db.knowledgeSources,
     _db.aiRuns,
     _db.aiFieldChanges,
   };

@@ -7,9 +7,11 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
 
 import '../../support/item_rows.dart';
 import '../../support/library_harness.dart';
+import '../../support/processed_rows.dart';
 
 /// El detalle de un elemento se abre igual desde cualquier lado.
 ///
@@ -85,14 +87,21 @@ void main() {
     tester,
   ) async {
     await pump(tester);
+    // El material es lo procesado (F41, paso 6): su documento se abre por el
+    // detalle, que lleva a su pantalla.
+    await insertProcessedDocument(
+      harness.database,
+      id: 'p',
+      title: 'Lo procesado',
+    );
     await push(tester, RoutePaths.explorer);
     expect(find.byType(ExplorerScreen), findsOneWidget);
 
-    await tester.tap(find.text('Una fuente'));
+    await tester.tap(find.text('Lo procesado'));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(inDetail('Una fuente'), findsOneWidget);
+    expect(find.byType(ProcessedDocumentScreen), findsOneWidget);
   });
 
   testWidgets('desde la Biblioteca se abre y «atrás» vuelve a la lista', (

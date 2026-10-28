@@ -14,6 +14,7 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/timeline/data/repositories/dated_event_repository_impl.dart';
 import 'package:sinapsis/features/timeline/domain/entities/dated_event.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart';
@@ -26,6 +27,7 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// «A la línea de tiempo» en la barrita de resaltar (F40, paso 5): lo
 /// seleccionado en un texto —el extraído, el del lector, el de un PDF o una
@@ -65,6 +67,19 @@ void main() {
             createdAt: now,
           ),
         );
+    // Su documento procesado (F41, paso 6): ahí van los hechos que se marcan
+    // en la fuente, con la cita en ella.
+    await insertProcessedDocument(
+      db,
+      id: processedDocumentIdFor('darwin'),
+      title: 'Darwin, una vida',
+      createdAt: now,
+    );
+    await (db.update(
+      db.processedDocuments,
+    )..where((d) => d.itemId.equals(processedDocumentIdFor('darwin')))).write(
+      const ProcessedDocumentsCompanion(sourceItemId: Value('darwin')),
+    );
   });
 
   Future<List<DatedEvent>> stored() async => [
@@ -247,7 +262,7 @@ void main() {
 
       final fact = (await stored()).single;
       final start = text.indexOf(quote);
-      expect(fact.itemId, 'darwin');
+      expect(fact.itemId, processedDocumentIdFor('darwin'));
       expect(fact.title, 'Publica El origen');
       expect(fact.date.year, 1859);
       expect(fact.end, isNull);
@@ -383,10 +398,25 @@ void main() {
       expect(location, RoutePaths.timeline);
       final scope = harness.container.read(timelineFilterProvider).scope;
       expect(scope?.kind, TimelineScopeKind.document);
-      expect(scope?.id, 'darwin');
+      expect(scope?.id, processedDocumentIdFor('darwin'));
       expect(scope?.label, 'Darwin, una vida');
       await tester.pump(const Duration(milliseconds: 1));
     });
+  });
+
+  testWidgets('de una fuente sin su documento procesado no abre el formulario: '
+      'lo dice y lleva a la Bandeja (F41, paso 6)', (tester) async {
+    await deleteItemRows(db, processedDocumentIdFor('darwin'));
+    await pumpText(tester);
+
+    await selectExtracted(tester, 'En 1859 publicó El origen de las especies.');
+    await tester.tap(find.byTooltip(es.highlightAddToTimeline));
+    await tester.pumpAndSettle();
+
+    expect(byKey('dated-event-form-title'), findsNothing);
+    expect(find.text(es.timelineFactSourceNotProcessed), findsOneWidget);
+    expect(find.text(es.organizedGoToInbox), findsOneWidget);
+    expect(await stored(), isEmpty);
   });
 
   group('desde un PDF o una página web', () {
@@ -449,7 +479,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final fact = (await stored()).single;
-      expect(fact.itemId, 'darwin');
+      expect(fact.itemId, processedDocumentIdFor('darwin'));
       expect(fact.renditionId, 'texto-darwin');
       expect(fact.startOffset, start);
       expect(fact.endOffset, end);

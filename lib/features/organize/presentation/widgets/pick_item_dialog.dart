@@ -4,6 +4,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Elige con qué elemento vincular, buscando en toda la biblioteca.
@@ -21,8 +22,19 @@ class PickItemDialog extends ConsumerStatefulWidget {
     this.excludeItemId,
     this.title,
     this.scopeIds,
+    this.scope = LibraryScope.library,
+    this.sameSideAs,
     super.key,
   });
+
+  /// Entre qué se elige: la Biblioteca, o lo procesado (F41, paso 6) —lo que
+  /// usan el Mapa y la Línea de tiempo, que se arman con eso—.
+  final LibraryScope scope;
+
+  /// Si está, se elige del mismo lado que ese elemento, y no de [scope]: un
+  /// documento procesado se vincula con otros procesados —son los vínculos del
+  /// Mapa— y lo de la Biblioteca, con lo de la Biblioteca.
+  final String? sameSideAs;
 
   /// Si no es `null`, la lista se limita a estos elementos y a ningún otro, en
   /// vez de buscar en toda la biblioteca: para quien ya sabe entre cuáles se
@@ -66,9 +78,16 @@ class _PickItemDialogState extends ConsumerState<PickItemDialog> {
     final l10n = AppLocalizations.of(context)!;
     final searchText = _controller.text.trim();
 
+    final side = widget.sameSideAs;
+    final scope = side == null
+        ? widget.scope
+        : ref.watch(processedDocumentProvider(side)).valueOrNull == null
+        ? LibraryScope.library
+        : LibraryScope.processed;
     final query = LibraryQuery(
       searchText: searchText.isEmpty ? null : searchText,
       ids: widget.scopeIds,
+      scope: scope,
     );
     final items =
         (ref.watch(libraryItemsProvider(query)).valueOrNull ??

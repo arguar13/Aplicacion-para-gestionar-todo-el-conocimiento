@@ -103,6 +103,19 @@ void registerMapBenchmark(BenchmarkEnvironment env) {
     final opened = await env.open();
     db = opened.db;
     vault = opened.vault;
+    // Desde F41 (paso 6) el mapa lee solo documentos procesados. La bóveda
+    // sintética es de la Biblioteca: para medir lo mismo que antes —y el peor
+    // caso de la condición nueva—, todos sus elementos cuentan como procesados
+    // mientras dura el benchmark, cada uno con el tipo de su fuente —el de un
+    // procesado—, para que filtrar por tipo recorte lo mismo que antes. Se
+    // deshace al terminar, y antes por si una corrida anterior se cortó.
+    await db.customStatement('DELETE FROM processed_documents');
+    await db.customStatement(
+      'INSERT INTO processed_documents (item_id, source_kind, created_at) '
+      'SELECT item.id, '
+      "COALESCE(source.source_type, 'manualNote'), item.created_at "
+      'FROM item LEFT JOIN source ON source.item_id = item.id',
+    );
     final telemetry = MockTelemetryService();
     repository = KnowledgeMapRepositoryImpl(
       database: db,
@@ -137,6 +150,7 @@ void registerMapBenchmark(BenchmarkEnvironment env) {
     }
     env.log('\n$report');
     env.save('latest_map_report.md', report.toString());
+    await db.customStatement('DELETE FROM processed_documents');
     await db.close();
   });
 

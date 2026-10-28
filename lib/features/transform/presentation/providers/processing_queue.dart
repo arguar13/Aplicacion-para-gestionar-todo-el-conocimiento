@@ -480,9 +480,9 @@ final processingQueueProvider =
               ref.read(youTubeAudioDownloadProvider(item.id).notifier).start(),
             );
           }
-          // Y la IA lo organiza después, en su propia cola (F27): el
-          // elemento ya está listo, no la espera.
-          ref.read(aiOrganizeQueueProvider).itemProcessed(item.id);
+          // La IA no lo organiza (F41, paso 6): una fuente de la Biblioteca
+          // queda como consulta, y la IA organiza lo que la persona elija de
+          // ella al triarla, en su documento procesado.
         },
         onResume: () => unawaited(ref.read(aiOrganizeQueueProvider).start()),
       );

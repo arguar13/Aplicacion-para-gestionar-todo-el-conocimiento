@@ -62,6 +62,7 @@ class _FakeRepository implements KnowledgeMapRepository {
     String valueId, {
     String? dimensionId,
     int limit = kMaxGraphItems,
+    LibraryScope scope = LibraryScope.processed,
   }) => throw UnimplementedError();
 
   @override

@@ -8,8 +8,8 @@ import 'package:sinapsis/features/graph/domain/services/relation_suggestion_serv
 import 'package:sinapsis/features/map/presentation/widgets/map_item_box.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
-import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// Lo que el grafo del mapa hace con los vínculos (F14): agregar uno entre dos
 /// elementos cualquiera y pedirle a la IA que sugiera entre los de un tema. Son
@@ -43,7 +43,8 @@ void main() {
       );
 
   Future<void> item(String id, List<String> values) async {
-    await insertItemRows(
+    // Un documento procesado: el Mapa se arma con lo procesado (F41, paso 6).
+    await insertProcessedDocument(
       db,
       id: id,
       title: 'Fuente $id',

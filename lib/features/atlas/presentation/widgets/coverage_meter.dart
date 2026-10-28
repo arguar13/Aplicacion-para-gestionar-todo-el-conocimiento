@@ -1,28 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/domain/entities/processed_depth.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_coverage.dart';
-import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/organize/presentation/processed_depth_presentation.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 extension AtlasCoveragePresentation on AtlasCoverage {
-  String label(AppLocalizations l10n) => switch (this) {
-    AtlasCoverage.empty => l10n.atlasCoverageEmpty,
-    AtlasCoverage.sourcesOnly => l10n.atlasCoverageSourcesOnly,
-    AtlasCoverage.fragments => l10n.atlasCoverageFragments,
-    AtlasCoverage.growing => l10n.atlasCoverageGrowing,
-    AtlasCoverage.mature => l10n.atlasCoverageMature,
+  /// El escalón de lo procesado que dice este nivel; `null` sin material.
+  ProcessedDepth? get depth => switch (this) {
+    AtlasCoverage.empty => null,
+    AtlasCoverage.textOnly => ProcessedDepth.textOnly,
+    AtlasCoverage.summarized => ProcessedDepth.summarized,
+    AtlasCoverage.cut => ProcessedDepth.cut,
+    AtlasCoverage.annotated => ProcessedDepth.annotated,
   };
 
-  /// El color de las barras llenas: el de las fuentes mientras solo hay
-  /// material crudo, y el de las notas desde que hay algo escrito. Es el mismo
-  /// criterio con que el resto de la app distingue una fuente de una nota.
-  Color color(ColorScheme colors) => this == AtlasCoverage.sourcesOnly
-      ? EntityRole.source.accent(colors)
-      : EntityRole.note.accent(colors);
+  /// El nombre: el mismo con que el tablero del Mapa dice cuánto se trabajó lo
+  /// procesado (F41, paso 6).
+  String label(AppLocalizations l10n) =>
+      depth?.label(l10n) ?? l10n.atlasCoverageEmpty;
+
+  /// El color de las barras llenas, el mismo del tablero: el de las fuentes
+  /// mientras solo está el texto copiado, el de las notas cuando hay algo
+  /// escrito por la persona.
+  Color color(ColorScheme colors) =>
+      depth?.color(colors) ?? colors.outlineVariant;
 }
 
 /// El estado de cobertura de una rama, legible de un vistazo: cuatro barras
 /// que se llenan de izquierda a derecha —ninguna es «sin material», las cuatro
-/// es «madura»—.
+/// es «con notas propias»—.
 ///
 /// El estado no depende del color: es CUÁNTAS barras hay llenas, y el nombre
 /// va en el tooltip y en la semántica para quien no las ve.

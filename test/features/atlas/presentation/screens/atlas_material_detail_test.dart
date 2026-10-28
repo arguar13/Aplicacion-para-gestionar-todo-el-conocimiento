@@ -3,16 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
-import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
-import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
-import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// Del Atlas al detalle de cada elemento de una rama, con el router real.
 ///
@@ -20,7 +20,8 @@ import '../../../../support/library_harness.dart';
 /// y de ahí cada elemento empujaba `/library/:id`, una ruta que vive DENTRO
 /// del shell: apilaba un segundo shell con la misma clave de página y el
 /// detalle salía en blanco. Estas pruebas recorren la rama entera —cada
-/// fuente y cada nota— y piden que cada una se vea con lo suyo.
+/// documento procesado, que es lo que el Atlas cuenta desde F41— y piden que
+/// cada uno se vea con lo suyo.
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -57,15 +58,20 @@ void main() {
           ),
         );
     for (var i = 0; i < sources.length; i++) {
-      await insertItemRows(db, id: 's$i', title: sources[i], createdAt: now);
+      await insertProcessedDocument(
+        db,
+        id: 's$i',
+        title: sources[i],
+        createdAt: now,
+      );
       await assign('s$i');
     }
-    await insertItemRows(
+    await insertProcessedDocument(
       db,
       id: 'n1',
       title: note,
       createdAt: now,
-      kind: SourceKind.manualNote,
+      sections: {ProcessedSection.notes},
     );
     await assign('n1');
   }
@@ -89,8 +95,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  /// Abre el detalle de [title] desde el material y comprueba que se vea con
-  /// su título en la barra, y que «atrás» vuelva a la lista entera.
+  /// Abre el documento procesado [title] desde el material —el detalle por id
+  /// lleva a su pantalla (F41, paso 2)— y comprueba que se vea con su título
+  /// en la barra, y que «atrás» vuelva a la lista entera.
   Future<void> openAndBack(
     WidgetTester tester,
     String title,
@@ -100,11 +107,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull, reason: title);
-    expect(find.byType(ItemDetailScreen), findsOneWidget, reason: title);
+    expect(find.byType(ProcessedDocumentScreen), findsOneWidget, reason: title);
     expect(
       find.descendant(
         of: find.descendant(
-          of: find.byType(ItemDetailScreen),
+          of: find.byType(ProcessedDocumentScreen),
           matching: find.byType(AppBar),
         ),
         matching: find.text(title),
@@ -115,7 +122,7 @@ void main() {
 
     await back(tester);
 
-    expect(find.byType(ItemDetailScreen), findsNothing, reason: title);
+    expect(find.byType(ProcessedDocumentScreen), findsNothing, reason: title);
     expect(find.byType(ExplorerScreen), findsOneWidget, reason: title);
     for (final other in all) {
       expect(find.text(other), findsOneWidget, reason: other);
@@ -172,13 +179,18 @@ void main() {
   testWidgets('una rama por temas: cada elemento abre su detalle', (
     tester,
   ) async {
-    await insertItemRows(db, id: 'a', title: 'Roma antigua', createdAt: now);
-    await insertItemRows(
+    await insertProcessedDocument(
+      db,
+      id: 'a',
+      title: 'Roma antigua',
+      createdAt: now,
+    );
+    await insertProcessedDocument(
       db,
       id: 'b',
       title: 'Nota del foro',
       createdAt: now,
-      kind: SourceKind.manualNote,
+      sections: {ProcessedSection.notes},
     );
     final space =
         (await harness.container

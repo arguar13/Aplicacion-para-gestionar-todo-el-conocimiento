@@ -6,6 +6,7 @@ import 'package:sinapsis/features/ai_organize/data/services/vocabulary_candidate
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/organize_text.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/vocabulary_budget.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
@@ -43,11 +44,17 @@ class AutoPropertiesStep implements AiOrganizeStep {
     required OrganizeRepository organize,
     required SuggestionRepository suggestions,
     required AiRunRepository runs,
+    OrganizeTextReader texts = const OwnTextReader(),
   }) : _vocabulary = vocabulary,
        _service = service,
        _organize = organize,
        _suggestions = suggestions,
-       _runs = runs;
+       _runs = runs,
+       _texts = texts;
+
+  /// Qué texto lee: el del elemento, o —de un documento procesado— lo que la
+  /// persona eligió al triar (F41, paso 6).
+  final OrganizeTextReader _texts;
 
   final VocabularyCandidatesReader _vocabulary;
   final PropertySuggestionService _service;
@@ -63,7 +70,7 @@ class AutoPropertiesStep implements AiOrganizeStep {
     KnowledgeItem item, {
     required String runId,
   }) async {
-    final content = item.searchableText.trim();
+    final content = (await _texts.textOf(item)).text.trim();
     if (content.isEmpty) return AiStepReport.nothing;
 
     final excerpt = content.length > kPropertyExcerptChars

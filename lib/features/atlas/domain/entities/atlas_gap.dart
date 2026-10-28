@@ -4,9 +4,10 @@ part 'atlas_gap.freezed.dart';
 
 /// Qué le falta o qué tiene raro una rama (F13, D7).
 enum AtlasGapKind {
-  /// Muchas fuentes y ninguna nota viva en toda la rama: material de sobra sin
-  /// nada propio escrito. Ver `kAtlasManySources`.
-  manySourcesNoLivingNote,
+  /// Muchos documentos procesados y ninguno con notas propias en toda la rama:
+  /// material de sobra sin nada escrito por la persona. Ver
+  /// `kAtlasManyWithoutNotes`.
+  manyWithoutNotes,
 
   /// Un solo elemento en toda la rama: un tema que todavía no es un tema.
   singleItem,
@@ -18,7 +19,7 @@ enum AtlasGapKind {
 /// Un vacío detectado en la rama [valueId].
 ///
 /// Se avisa en la rama MÁS ALTA donde se cumple y no se repite en sus
-/// descendientes: si «Roma» tiene cincuenta fuentes y ninguna nota viva, sus
+/// descendientes: si «Roma» tiene cincuenta documentos y ninguno con notas, sus
 /// subtemas tampoco tienen, y avisar de todos sería el mismo vacío contado
 /// varias veces.
 @freezed

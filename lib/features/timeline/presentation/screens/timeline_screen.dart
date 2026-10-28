@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/organize/presentation/open_organized_item.dart';
 import 'package:sinapsis/features/timeline/domain/entities/dated_event_seed.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart';
@@ -126,7 +127,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     if (event.isDatedEvent) {
       unawaited(showDatedEventSheet(context, event));
     } else {
-      unawaited(context.push(RoutePaths.itemDetail(event.itemId)));
+      unawaited(openOrganizedItem(context, event.itemId));
     }
   }
 
@@ -253,6 +254,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 filtered: filter.activeCount > 0,
                 onClearFilters: _clearAll,
                 onAdd: _addFact,
+                onInbox: () => context.go(RoutePaths.inbox),
               ),
               _ => Column(
                 children: [
@@ -292,16 +294,21 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   }
 }
 
+/// La línea vacía: sin resultados para el filtro, o —sin filtro— que se llena
+/// al triar (F41, paso 6), con el camino a la Bandeja y el de agregar un
+/// hecho a mano.
 class _Empty extends StatelessWidget {
   const _Empty({
     required this.filtered,
     required this.onClearFilters,
     required this.onAdd,
+    required this.onInbox,
   });
 
   final bool filtered;
   final VoidCallback onClearFilters;
   final VoidCallback onAdd;
+  final VoidCallback onInbox;
 
   @override
   Widget build(BuildContext context) {
@@ -340,11 +347,25 @@ class _Empty extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
             const SizedBox(height: 16),
-            FilledButton.icon(
-              key: const ValueKey('timeline-empty-add-fact'),
-              onPressed: onAdd,
-              icon: const Icon(Icons.add),
-              label: Text(l10n.timelineAddFact),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (!filtered)
+                  FilledButton.icon(
+                    key: const ValueKey('timeline-empty-inbox'),
+                    onPressed: onInbox,
+                    icon: const Icon(Icons.inbox_outlined),
+                    label: Text(l10n.organizedGoToInbox),
+                  ),
+                (filtered ? FilledButton.icon : OutlinedButton.icon)(
+                  key: const ValueKey('timeline-empty-add-fact'),
+                  onPressed: onAdd,
+                  icon: const Icon(Icons.add),
+                  label: Text(l10n.timelineAddFact),
+                ),
+              ],
             ),
           ],
         ),

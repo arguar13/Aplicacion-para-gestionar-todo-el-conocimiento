@@ -3,10 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/services/embedding_similarity.dart';
 import 'package:sinapsis/features/relations/data/services/relation_candidate_selector_impl.dart';
 
 import '../../../../support/item_rows.dart';
+import '../../../../support/processed_rows.dart';
 
 /// Contra SQLite real, en memoria, sembrando `KnowledgeEntries`/`Chunks`/
 /// `Embeddings` directo a mano con vectores de juguete —no hace falta la
@@ -165,6 +167,65 @@ void main() {
         )).map((c) => c.itemId),
         unorderedEquals([liveId, trashedId]),
       );
+    });
+  });
+
+  group('cada lado con lo suyo (F41, paso 6)', () {
+    /// Una nota —o, con [processed], un documento procesado— con un vector de
+    /// sus tramos.
+    Future<String> seedNote(
+      List<double> vector, {
+      bool processed = false,
+    }) async {
+      final id = 'nota-${counter++}';
+      if (processed) {
+        await insertProcessedDocument(db, id: id, title: 'Procesado $id');
+      } else {
+        await insertItemRows(
+          db,
+          id: id,
+          title: 'Nota $id',
+          kind: SourceKind.manualNote,
+        );
+      }
+      await db
+          .into(db.noteEmbeddings)
+          .insert(
+            NoteEmbeddingsCompanion.insert(
+              itemId: id,
+              seq: 0,
+              vector: encodeEmbeddingVector(vector),
+              textHash: 'h',
+              modelVersion: 'test',
+              createdAt: now,
+            ),
+          );
+      return id;
+    }
+
+    test(
+      'un procesado se vincula solo con procesados: ni fuentes ni notas',
+      () async {
+        final seed = await seedNote([1, 0], processed: true);
+        final other = await seedNote([1, 0], processed: true);
+        await seedNote([1, 0]);
+        await seedItemWithVector([1, 0]);
+
+        final candidates = await selector.selectCandidates(seedItemId: seed);
+
+        expect(candidates.map((c) => c.itemId), [other]);
+      },
+    );
+
+    test('lo de la Biblioteca, solo con lo de la Biblioteca', () async {
+      final seed = await seedNote([1, 0]);
+      final source = await seedItemWithVector([1, 0]);
+      final note = await seedNote([1, 0]);
+      await seedNote([1, 0], processed: true);
+
+      final candidates = await selector.selectCandidates(seedItemId: seed);
+
+      expect(candidates.map((c) => c.itemId).toSet(), {source, note});
     });
   });
 }

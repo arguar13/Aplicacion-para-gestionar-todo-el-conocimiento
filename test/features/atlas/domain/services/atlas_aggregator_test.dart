@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sinapsis/core/domain/entities/note_kind.dart';
-import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processed_depth.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_aggregator.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart';
 
 /// La suma por rama del Atlas (F13), sin base de datos: la cascada por la
-/// jerarquía, un elemento una vez por rama y los datos que se arrastran.
+/// jerarquía, un documento una vez por rama, cada uno en el escalón de lo que
+/// se trabajó (F41, paso 6) y los datos que se arrastran.
 void main() {
   final day = DateTime(2026, 9, 2);
 
@@ -18,30 +18,23 @@ void main() {
     const AtlasValueRow(id: 'grecia', label: 'Grecia'),
   ];
 
+  /// Un documento procesado con solo su texto.
   AtlasItemFacts source(
     List<String> valueIds, {
     DateTime? updatedAt,
     int? firstYear,
     int? lastYear,
   }) => AtlasItemFacts(
-    isSource: true,
+    depth: ProcessedDepth.textOnly,
     updatedAt: updatedAt ?? day,
     valueIds: valueIds,
     firstYear: firstYear,
     lastYear: lastYear,
   );
 
-  AtlasItemFacts note(
-    NoteKind kind,
-    List<String> valueIds, {
-    NoteMaturity maturity = NoteMaturity.seed,
-  }) => AtlasItemFacts(
-    isSource: false,
-    noteKind: kind,
-    maturity: maturity,
-    updatedAt: day,
-    valueIds: valueIds,
-  );
+  /// Un documento procesado trabajado hasta [depth].
+  AtlasItemFacts worked(ProcessedDepth depth, List<String> valueIds) =>
+      AtlasItemFacts(depth: depth, updatedAt: day, valueIds: valueIds);
 
   Map<String, AtlasBranchCounts> aggregate(List<AtlasItemFacts> items) =>
       aggregateBranches(values: values, items: items);
@@ -55,11 +48,11 @@ void main() {
       source(['grecia']),
     ]);
 
-    expect(counts['roma']!.sources, 4);
-    expect(counts['republica']!.sources, 2);
-    expect(counts['gracos']!.sources, 1);
-    expect(counts['imperio']!.sources, 1);
-    expect(counts['grecia']!.sources, 1);
+    expect(counts['roma']!.textOnly, 4);
+    expect(counts['republica']!.textOnly, 2);
+    expect(counts['gracos']!.textOnly, 1);
+    expect(counts['imperio']!.textOnly, 1);
+    expect(counts['grecia']!.textOnly, 1);
   });
 
   test('asignar el hijo no asigna el padre: este lo ve por cascada', () {
@@ -67,9 +60,9 @@ void main() {
       source(['gracos']),
     ]);
 
-    expect(counts['gracos']!.sources, 1);
-    expect(counts['republica']!.sources, 1);
-    expect(counts['roma']!.sources, 1);
+    expect(counts['gracos']!.textOnly, 1);
+    expect(counts['republica']!.textOnly, 1);
+    expect(counts['roma']!.textOnly, 1);
     expect(counts.containsKey('imperio'), isFalse);
   });
 
@@ -79,10 +72,10 @@ void main() {
       source(['republica', 'imperio']),
     ]);
 
-    expect(counts['roma']!.sources, 2);
-    expect(counts['republica']!.sources, 2);
-    expect(counts['gracos']!.sources, 1);
-    expect(counts['imperio']!.sources, 1);
+    expect(counts['roma']!.textOnly, 2);
+    expect(counts['republica']!.textOnly, 2);
+    expect(counts['gracos']!.textOnly, 1);
+    expect(counts['imperio']!.textOnly, 1);
   });
 
   test('el mismo valor repetido para un elemento no lo cuenta dos veces', () {
@@ -90,8 +83,8 @@ void main() {
       source(['gracos', 'gracos']),
     ]);
 
-    expect(counts['gracos']!.sources, 1);
-    expect(counts['roma']!.sources, 1);
+    expect(counts['gracos']!.textOnly, 1);
+    expect(counts['roma']!.textOnly, 1);
   });
 
   test('las ramas sin ningún elemento no tienen entrada', () {
@@ -102,26 +95,25 @@ void main() {
     expect(counts.keys, ['grecia']);
   });
 
-  test('separa fuentes y notas por subtipo y madurez', () {
+  test('separa los documentos por cuánto se trabajaron', () {
     final counts = aggregate([
       source(['roma']),
-      note(NoteKind.atomic, ['gracos']),
-      note(NoteKind.living, ['republica']),
-      note(NoteKind.living, ['republica'], maturity: NoteMaturity.developing),
-      note(NoteKind.living, ['imperio'], maturity: NoteMaturity.mature),
-      note(NoteKind.map, ['roma']),
+      worked(ProcessedDepth.summarized, ['gracos']),
+      worked(ProcessedDepth.cut, ['republica']),
+      worked(ProcessedDepth.cut, ['republica']),
+      worked(ProcessedDepth.annotated, ['imperio']),
     ]);
 
     final roma = counts['roma']!;
-    expect(roma.sources, 1);
-    expect(roma.atomic, 1);
-    expect(roma.growingLiving, 2);
-    expect(roma.matureLiving, 1);
-    expect(roma.maps, 1);
+    expect(roma.textOnly, 1);
+    expect(roma.summarized, 1);
+    expect(roma.cut, 2);
+    expect(roma.annotated, 1);
     final republica = counts['republica']!;
-    expect(republica.growingLiving, 2);
-    expect(republica.matureLiving, 0);
-    expect(republica.atomic, 1);
+    expect(republica.textOnly, 0);
+    expect(republica.summarized, 1);
+    expect(republica.cut, 2);
+    expect(republica.annotated, 0);
   });
 
   test('un elemento sin ningún valor de la categoría no cuenta', () {
@@ -131,7 +123,7 @@ void main() {
     ]);
 
     expect(counts.keys, ['grecia']);
-    expect(counts['grecia']!.sources, 1);
+    expect(counts['grecia']!.textOnly, 1);
   });
 
   test('un valor que no es de la categoría se ignora', () {
@@ -142,15 +134,18 @@ void main() {
     expect(counts.keys, ['grecia']);
   });
 
-  test('un elemento sin datos de subtipo cuenta como elemento y nada más', () {
-    // Una nota sin su fila de subtipo: no es fuente ni de ningún subtipo.
+  test('cada documento cuenta en un solo escalón, el suyo', () {
+    // Ningún documento queda afuera de los conteos (antes de F41 un procesado
+    // contaba como -1: elemento de la rama, sin escalón).
     final counts = aggregate([
-      AtlasItemFacts(isSource: false, updatedAt: day, valueIds: ['grecia']),
+      for (final depth in ProcessedDepth.values) worked(depth, ['grecia']),
     ]);
 
     final grecia = counts['grecia']!;
-    expect(grecia.sources + grecia.atomic + grecia.maps, 0);
-    expect(grecia.growingLiving + grecia.matureLiving, 0);
+    expect(
+      grecia.textOnly + grecia.summarized + grecia.cut + grecia.annotated,
+      ProcessedDepth.values.length,
+    );
     expect(grecia.lastTouched, day);
   });
 
@@ -195,7 +190,7 @@ void main() {
         ],
       );
 
-      expect(counts['hijo']!.sources, 1);
+      expect(counts['hijo']!.textOnly, 1);
     });
 
     test('un ciclo dañado termina igual y cuenta cada rama una vez', () {
@@ -209,8 +204,8 @@ void main() {
         ],
       );
 
-      expect(counts['a']!.sources, 1);
-      expect(counts['b']!.sources, 1);
+      expect(counts['a']!.textOnly, 1);
+      expect(counts['b']!.textOnly, 1);
     });
 
     test('sin valores o sin elementos, sin conteos', () {

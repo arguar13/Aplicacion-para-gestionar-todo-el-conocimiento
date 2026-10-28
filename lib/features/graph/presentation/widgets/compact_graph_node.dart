@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,27 +8,28 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/organize/presentation/open_organized_item.dart';
 
 /// El tamaño fijo de [CompactGraphNode]: bastante más chico que el nodo del
 /// grafo completo (220×208) — acá no hay portada ni pie, solo ícono y
 /// título, para que quepan varios a la vez en un panel embebido.
 const compactGraphNodeSize = Size(148, 56);
 
-/// Adónde navega tocar un nodo del grafo local: a su detalle, salvo que sea
-/// una nota mapa, en cuyo caso entra al grafo local centrado en ella en vez
-/// de a su detalle (decisión D4 de F6, ver `docs/arquitectura.md`) — lectura
-/// literal del propio docstring de [NoteKind.map]: "da puntos de entrada al
-/// grafo".
+/// Adónde navega tocar un nodo del grafo local: a su documento procesado
+/// (F41, paso 6, por el mismo camino que el Mapa), salvo que sea una nota
+/// mapa, en cuyo caso entra al grafo local centrado en ella en vez de a su
+/// detalle (decisión D4 de F6, ver `docs/arquitectura.md`) — lectura literal
+/// del propio docstring de [NoteKind.map]: "da puntos de entrada al grafo".
 void openLocalGraphNode(
   BuildContext context, {
   required String nodeId,
   required NoteKind? kind,
 }) {
-  context.push(
-    kind == NoteKind.map
-        ? RoutePaths.graphLocal(nodeId)
-        : RoutePaths.itemDetail(nodeId),
-  );
+  if (kind == NoteKind.map) {
+    unawaited(context.push(RoutePaths.graphLocal(nodeId)));
+  } else {
+    unawaited(openOrganizedItem(context, nodeId));
+  }
 }
 
 /// Un nodo del grafo local: solo ícono y título, sin portada ni pie —

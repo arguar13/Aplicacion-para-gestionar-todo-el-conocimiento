@@ -13,6 +13,7 @@ import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_pro
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_task_providers.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
 import 'package:sinapsis/features/ai_organize/data/services/battery_charging_probe.dart';
+import 'package:sinapsis/features/ai_organize/data/services/organize_text_reader_impl.dart';
 import 'package:sinapsis/features/ai_organize/data/services/prefs_ai_organize_memory.dart';
 import 'package:sinapsis/features/ai_organize/data/services/vocabulary_candidates.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_atlas_step.dart';
@@ -35,6 +36,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.d
 import 'package:sinapsis/features/ai_organize/domain/services/ai_review_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/map_note_language.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/organize_text.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_atlas_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
@@ -68,6 +70,12 @@ final aiOrganizeMemoryProvider = Provider<PrefsAiOrganizeMemory>(
   ),
 );
 
+/// El texto que la IA lee de cada elemento (F41, paso 6): sus formas, o las
+/// partes de un documento procesado.
+final organizeTextReaderProvider = Provider<OrganizeTextReader>(
+  (ref) => OrganizeTextReaderImpl(ref.watch(appDatabaseProvider)),
+);
+
 /// Lo que la IA tiene pendiente, deducido de la base (F27).
 final aiOrganizeBacklogProvider = Provider<AiOrganizeBacklog>(
   (ref) => AiOrganizeBacklogImpl(ref.watch(appDatabaseProvider)),
@@ -85,6 +93,7 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
   final runs = ref.watch(aiRunRepositoryProvider);
   final organize = ref.watch(organizeRepositoryProvider);
   final suggestions = ref.watch(suggestionRepositoryProvider);
+  final texts = ref.watch(organizeTextReaderProvider);
   return [
     AutoReferenceStep(
       files: ref.watch(fileStoreProvider),
@@ -101,8 +110,14 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
       organize: organize,
       suggestions: suggestions,
       runs: runs,
+      texts: texts,
     ),
-    AutoSpaceStep(chooser: model.chooseSpace, organize: organize, runs: runs),
+    AutoSpaceStep(
+      chooser: model.chooseSpace,
+      organize: organize,
+      runs: runs,
+      texts: texts,
+    ),
     AutoRelateStep(
       database: ref.watch(appDatabaseProvider),
       ids: ref.watch(idGeneratorProvider),
@@ -112,10 +127,12 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
       organize: organize,
       suggestions: suggestions,
       runs: runs,
+      texts: texts,
     ),
     AutoDatesStep(
       extractor: model,
       events: ref.watch(datedEventRepositoryProvider),
+      texts: texts,
     ),
     AutoFlashcardsStep(
       generator: model,
@@ -189,6 +206,7 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
     onDatesBatch: (batch) =>
         ref.read(aiDatesBatchProvider.notifier).state = batch,
     tasks: ref.read(aiTaskTrackerProvider),
+    texts: ref.read(organizeTextReaderProvider),
   );
   ref
     ..listen(
@@ -218,6 +236,7 @@ final aiItemReviewerProvider = Provider<AiItemReviewer>((ref) {
         suggestions: ref.watch(suggestionRepositoryProvider),
         runs: ref.watch(aiRunRepositoryProvider),
         textBudget: textBudget,
+        texts: ref.watch(organizeTextReaderProvider),
       ),
       ReviewThingsStep(
         reviewer: model,
@@ -225,6 +244,7 @@ final aiItemReviewerProvider = Provider<AiItemReviewer>((ref) {
         atlas: ref.watch(aiAtlasRepositoryProvider),
         suggestions: ref.watch(suggestionRepositoryProvider),
         textBudget: textBudget,
+        texts: ref.watch(organizeTextReaderProvider),
       ),
     ],
     // Los dos pasos de «Cómo lo hace», en el mismo orden (F39).

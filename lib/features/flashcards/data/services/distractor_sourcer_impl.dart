@@ -4,6 +4,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/export/domain/services/anki_topic_resolver.dart';
 import 'package:sinapsis/features/flashcards/domain/services/distractor_sourcer.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/relations/domain/services/relation_candidate_selector.dart';
@@ -87,7 +88,12 @@ class DistractorSourcerImpl implements DistractorSourcer {
     final itemIds = <String>[];
     for (final siblingId in siblings) {
       if (itemIds.length >= count) break;
-      final graph = await _map.readTopicItems(siblingId, limit: count * 4);
+      // De la Biblioteca: un distractor se ancla al fragmento de una fuente.
+      final graph = await _map.readTopicItems(
+        siblingId,
+        limit: count * 4,
+        scope: LibraryScope.library,
+      );
       for (final node in graph.items) {
         if (node.id != seedItemId) itemIds.add(node.id);
       }

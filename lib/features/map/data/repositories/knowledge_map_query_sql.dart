@@ -1,11 +1,35 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/processed_entries.dart';
 import 'package:sinapsis/features/library/data/repositories/library_query_sql.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+
+/// Lo que el Mapa dibuja (F41, paso 6): los documentos procesados vivos, y
+/// nada de la Biblioteca. Lo que las fuentes ya tenían —sus temas, sus
+/// vínculos— queda en ellas y no se ve acá: el Mapa se arma con lo que la
+/// persona eligió de cada una al triarla. [alias] es el de la tabla `item`.
+///
+/// Las notas mapa son la excepción, y solo como puntos de entrada del esquema:
+/// son el índice que la IA arma de cada tema, con lo procesado.
+String mapItemSql(String alias) =>
+    '${activeItemSql(alias)} AND ${isProcessedSql('$alias.id')}';
+
+/// Lo vivo de [scope]: lo procesado —lo del Mapa, [mapItemSql]— o la
+/// Biblioteca, para quien lee los temas sin ser el Mapa (las preguntas de un
+/// cuestionario buscan sus distractores en las fuentes, F20).
+String _scopeItemSql(String alias, LibraryScope scope) => switch (scope) {
+  LibraryScope.processed => mapItemSql(alias),
+  LibraryScope.library =>
+    '${activeItemSql(alias)} AND ${notProcessedSql('$alias.id')}',
+};
 
 /// Lo que el mapa lee: cualquier escritura en estas tablas puede cambiarlo.
 /// `item` también —un elemento que va a la papelera deja de contar— y por eso
 /// va junto a las consultas, que son las que dicen qué hacen con lo borrado.
+///
+/// Alcanza también para un filtro: se resuelve sobre lo procesado (F41, paso
+/// 6), que guarda el tipo de su fuente y busca el texto en sus partes.
 List<TableInfo<dynamic, dynamic>> mapTables(AppDatabase db) => [
   db.propertyValues,
   db.propertyDefinitions,
@@ -17,23 +41,18 @@ List<TableInfo<dynamic, dynamic>> mapTables(AppDatabase db) => [
   // sacar uno de un elemento (F37) también.
   db.spaces,
   db.itemSpaces,
-];
-
-/// Lo que se suma cuando el mapa se calcula sobre lo que pasa un filtro: lo que
-/// la consulta de la biblioteca mira además de lo anterior —el tipo de la
-/// fuente, sus formas y sus chunks, para la búsqueda de texto—.
-List<TableInfo<dynamic, dynamic>> mapFilterTables(AppDatabase db) => [
-  db.knowledgeSources,
-  db.renditions,
-  db.chunks,
+  // Lo procesado (F41, paso 6): lo único que el Mapa dibuja, y cuánto se
+  // trabajó cada documento sale de sus partes.
+  db.processedDocuments,
+  db.processedParts,
 ];
 
 /// El separador de los valores dentro de `value_ids`: el «separador de
 /// unidades» (U+001F), el mismo `char(31)` de la consulta.
 const mapValueIdSeparator = '\u001f';
 
-/// Los elementos vivos con los valores que tienen de la categoría: UNA fila por
-/// elemento. Variable: `?1` la categoría.
+/// Los documentos procesados vivos con los valores que tienen de la categoría:
+/// UNA fila por documento. Variable: `?1` la categoría.
 ///
 /// La misma forma que la del Atlas y por la misma razón: lo que cuesta es
 /// fabricar cada fila del lado de Dart, no leerla en SQLite, así que los
@@ -41,8 +60,9 @@ const mapValueIdSeparator = '\u001f';
 /// [mapValueIdSeparator]. Un elemento sin ningún valor de la categoría trae
 /// `value_ids` nulo y no aporta nada al mapa.
 ///
-/// Lo que está en la papelera queda afuera (`kActiveItemSql`).
-const mapItemsSql =
+/// Lo que está en la papelera queda afuera, y lo que no es procesado también
+/// ([mapItemSql]).
+final mapItemsSql =
     '''
 SELECT item.id AS id,
        (SELECT group_concat(ipv.property_value_id, char(31))
@@ -50,21 +70,21 @@ SELECT item.id AS id,
           JOIN property_values pv ON pv.id = ipv.property_value_id
          WHERE ipv.item_id = item.id AND pv.definition_id = ?1) AS value_ids
 FROM item
-WHERE $kActiveItemSql
+WHERE ${mapItemSql('item')}
 ''';
 
-/// Los elementos vivos con sus temas: lo mismo que [mapItemsSql] cuando el
-/// mapa mira los temas (F28). Un elemento puede estar en varios (F37): vienen
-/// juntos en `value_ids`, como los valores de una categoría, o nulo si no
-/// tiene ninguno.
-const mapSpaceItemsSql =
+/// Los documentos procesados vivos con sus temas: lo mismo que [mapItemsSql]
+/// cuando el mapa mira los temas (F28). Un documento puede estar en varios
+/// (F37): vienen juntos en `value_ids`, como los valores de una categoría, o
+/// nulo si no tiene ninguno.
+final mapSpaceItemsSql =
     '''
 SELECT item.id AS id,
        (SELECT group_concat(s.space_id, char(31))
           FROM item_spaces s
          WHERE s.item_id = item.id) AS value_ids
 FROM item
-WHERE $kActiveItemSql
+WHERE ${mapItemSql('item')}
 ''';
 
 /// Las relaciones, con lo justo para pesarlas: los extremos, el tipo y si
@@ -81,21 +101,20 @@ SELECT from_item_id AS from_id,
 FROM relations
 ''';
 
-/// Los elementos vivos con lo que el tablero cuenta de cada uno: qué es, cuándo
-/// se guardó y, si es una nota, su madurez. Una fila por elemento.
-const mapDashboardItemsSql =
+/// Los documentos procesados vivos con lo que el tablero cuenta de cada uno:
+/// cuándo se procesó y cuánto se trabajó (`processedDepthSql`). Una fila por
+/// documento.
+final mapDashboardItemsSql =
     '''
 SELECT item.id AS id,
-       item.kind AS kind,
        item.created_at AS created_at,
-       note.maturity AS maturity
+       ${processedDepthSql('item.id')} AS depth
 FROM item
-LEFT JOIN note ON note.item_id = item.id
-WHERE $kActiveItemSql
+WHERE ${mapItemSql('item')}
 ''';
 
-/// Las contradicciones sin revisar entre dos elementos vivos. Variable: `?1` el
-/// tipo de vínculo `contradicts`.
+/// Las contradicciones sin revisar entre dos documentos procesados vivos.
+/// Variable: `?1` el tipo de vínculo `contradicts`.
 ///
 /// Acá la papelera sí va en la consulta y no del lado de Dart: son pocas filas
 /// y traer los títulos de lo borrado sería trabajo tirado.
@@ -112,8 +131,8 @@ JOIN item a ON a.id = r.from_item_id
 JOIN item b ON b.id = r.to_item_id
 WHERE r.kind = ?1
   AND r.reviewed_at IS NULL
-  AND ${activeItemSql('a')}
-  AND ${activeItemSql('b')}
+  AND ${mapItemSql('a')}
+  AND ${mapItemSql('b')}
 ''';
 
 /// Las notas mapa vivas asignadas a un tema, las tocadas más recientemente
@@ -139,13 +158,13 @@ ORDER BY item.updated_at DESC, item.id
 LIMIT ?2
 ''';
 
-/// Los elementos vivos vinculados a uno, en los dos sentidos, los vínculos
-/// más recientes primero. Variables: `?1` el elemento; `?2` cuántos como
-/// mucho.
+/// Los documentos procesados vivos vinculados a uno, en los dos sentidos, los
+/// vínculos más recientes primero. Variables: `?1` el elemento; `?2` cuántos
+/// como mucho.
 ///
 /// Dos búsquedas por clave —por los vínculos que salen y por los que llegan— y
 /// no un `OR`, que SQLite resolvería recorriendo todos los vínculos.
-const mapItemLinksSql =
+final mapItemLinksSql =
     '''
 SELECT * FROM (
   SELECT r.kind AS kind,
@@ -156,7 +175,7 @@ SELECT * FROM (
          r.created_at AS at
   FROM relations r
   JOIN item ON item.id = r.to_item_id
-  WHERE r.from_item_id = ?1 AND $kActiveItemSql
+  WHERE r.from_item_id = ?1 AND ${mapItemSql('item')}
   UNION ALL
   SELECT r.kind AS kind,
          0 AS outgoing,
@@ -166,27 +185,27 @@ SELECT * FROM (
          r.created_at AS at
   FROM relations r
   JOIN item ON item.id = r.from_item_id
-  WHERE r.to_item_id = ?1 AND $kActiveItemSql
+  WHERE r.to_item_id = ?1 AND ${mapItemSql('item')}
 )
 ORDER BY at DESC, id
 LIMIT ?2
 ''';
 
-/// Los elementos vivos de un tema y de sus subtemas, los tocados más
-/// recientemente primero. Variables, en este orden: el valor; cuántos como
+/// Los elementos vivos de [scope] de un tema y de sus subtemas, los tocados
+/// más recientemente primero. Variables, en este orden: el valor; cuántos como
 /// mucho.
 ///
 /// La jerarquía se resuelve con la misma consulta recursiva sobre los VALORES
 /// que usa el filtro de la biblioteca (F13): asignar un subtema no asigna a su
 /// padre, y acá se cuenta como suyo. Lo asignado se busca por el índice del
 /// valor y cada elemento por su clave.
-final mapTopicItemsSql =
+String mapTopicItemsSql(LibraryScope scope) =>
     '''
 SELECT item.id AS id,
        item.title AS title,
        item.kind AS kind
 FROM item
-WHERE $kActiveItemSql
+WHERE ${_scopeItemSql('item', scope)}
   AND item.id IN (
     SELECT item_id FROM item_property_values
     WHERE property_value_id IN (${valuesWithDescendantsSql(1)}))
@@ -212,10 +231,10 @@ ORDER BY item.updated_at DESC, item.id
 LIMIT ?2
 ''';
 
-/// Los elementos vivos de un tema —un espacio— (F28), los tocados más
-/// recientemente primero. Variables: `?1` el espacio; `?2` cuántos como
+/// Los elementos vivos de [scope] de un tema —un espacio— (F28), los tocados
+/// más recientemente primero. Variables: `?1` el espacio; `?2` cuántos como
 /// mucho. Los temas no tienen subtemas: no hay jerarquía que recorrer.
-const mapSpaceTopicItemsSql =
+String mapSpaceTopicItemsSql(LibraryScope scope) =>
     '''
 SELECT item.id AS id,
        item.title AS title,
@@ -223,7 +242,7 @@ SELECT item.id AS id,
 FROM item_spaces s
 CROSS JOIN item ON item.id = s.item_id
 WHERE s.space_id = ?1
-  AND $kActiveItemSql
+  AND ${_scopeItemSql('item', scope)}
 ORDER BY item.updated_at DESC, item.id
 LIMIT ?2
 ''';
@@ -253,8 +272,8 @@ ORDER BY item.updated_at DESC, item.id
 LIMIT ?
 ''';
 
-/// Los vínculos entre dos elementos vivos, con su fecha: entre ellos elige la
-/// vista «Vínculos» qué dibujar (F28).
+/// Los vínculos entre dos documentos procesados vivos, con su fecha: entre
+/// ellos elige la vista «Vínculos» qué dibujar (F28).
 ///
 /// A diferencia de [mapRelationsSql], acá la papelera va en la consulta: la
 /// vista no parte de una lista de elementos con la que descartar después, y
@@ -272,18 +291,19 @@ SELECT r.from_item_id AS from_id,
 FROM relations r
 JOIN item a ON a.id = r.from_item_id
 JOIN item b ON b.id = r.to_item_id
-WHERE ${activeItemSql('a')}
-  AND ${activeItemSql('b')}
+WHERE ${mapItemSql('a')}
+  AND ${mapItemSql('b')}
 ''';
 
-/// Cuántos elementos vivos hay: lo que la vista «Vínculos» necesita para
-/// decir cuántos no tienen ningún vínculo.
-const mapLiveItemCountSql =
-    'SELECT COUNT(*) AS total FROM item WHERE $kActiveItemSql';
+/// Cuántos documentos procesados vivos hay: lo que la vista «Vínculos»
+/// necesita para decir cuántos no tienen ningún vínculo.
+final mapLiveItemCountSql =
+    'SELECT COUNT(*) AS total FROM item WHERE ${mapItemSql('item')}';
 
-/// El título y el tipo de un grupo de elementos vivos, buscados por su clave.
+/// El título y el tipo de un grupo de documentos procesados vivos, buscados
+/// por su clave.
 String mapItemsByIdSql(int count) =>
     'SELECT item.id AS id, item.title AS title, item.kind AS kind '
     'FROM item '
     'WHERE item.id IN (${List.filled(count, '?').join(', ')}) '
-    'AND $kActiveItemSql';
+    'AND ${mapItemSql('item')}';

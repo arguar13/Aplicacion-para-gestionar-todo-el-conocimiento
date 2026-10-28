@@ -10,12 +10,22 @@ import 'package:sinapsis/features/organize/presentation/providers/organize_provi
 /// de trabajo—), acotado por los filtros de tema, tipo, etiqueta y propiedad
 /// que el usuario vaya sumando.
 ///
+/// Es «el material» de una rama del Atlas o de un tema del Mapa, y desde F41
+/// (paso 6) esas pantallas se arman con documentos procesados: el Explorador
+/// muestra lo mismo que ellas cuentan ([LibraryScope.processed]), no la
+/// Biblioteca.
+///
 /// Mismo patrón que `LibraryQueryNotifier`, pero sin búsqueda de texto ni
 /// paginación: acá el punto es explorar filtrando, no buscar algo puntual
 /// ni recorrer miles de elementos por tandas.
 class ExplorerQueryNotifier extends StateNotifier<LibraryQuery> {
-  ExplorerQueryNotifier()
-    : super(const LibraryQuery(processingStates: {ProcessingState.ready}));
+  ExplorerQueryNotifier() : super(_base);
+
+  /// Lo que el Explorador muestra siempre, sin filtros: lo procesado y listo.
+  static const _base = LibraryQuery(
+    processingStates: {ProcessingState.ready},
+    scope: LibraryScope.processed,
+  );
 
   /// Entra o sale de un tema, igual que en la Biblioteca —ver
   /// `LibraryQueryNotifier.selectSpace`—: uno a la vez, elegir el que ya
@@ -50,19 +60,13 @@ class ExplorerQueryNotifier extends StateNotifier<LibraryQuery> {
   /// se llega desde otra pantalla a mirar una cosa, no a sumarla a lo que
   /// hubiera.
   void focusOnValue(String valueId) {
-    state = LibraryQuery(
-      processingStates: state.processingStates,
-      propertyValueIds: {valueId},
-    );
+    state = _base.copyWith(propertyValueIds: {valueId});
   }
 
   /// Deja SOLO el tema [spaceId] —lo que abren el Mapa y el Atlas desde un
   /// tema (F28)—, con el mismo criterio que [focusOnValue].
   void focusOnSpace(String spaceId) {
-    state = LibraryQuery(
-      processingStates: state.processingStates,
-      spaceId: spaceId,
-    );
+    state = _base.copyWith(spaceId: spaceId);
   }
 
   /// Suelta todos los filtros, también el tema: vive en el mismo panel, y un

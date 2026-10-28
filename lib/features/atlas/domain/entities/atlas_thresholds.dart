@@ -1,7 +1,7 @@
-/// Desde cuántas fuentes, sin ninguna nota viva en toda la rama, un tema se
-/// avisa como un vacío (F13, D7): hay material de sobra y nadie escribió nada
-/// propio con él.
-const kAtlasManySources = 5;
+/// Desde cuántos documentos procesados, sin ninguno con notas propias en toda
+/// la rama, un tema se avisa como un vacío (F13, D7; F41, paso 6): hay material
+/// de sobra y nadie escribió nada propio con él.
+const kAtlasManyWithoutNotes = 5;
 
 /// Cuánto sin que se toque nada de una rama para avisarla como abandonada:
 /// seis meses.

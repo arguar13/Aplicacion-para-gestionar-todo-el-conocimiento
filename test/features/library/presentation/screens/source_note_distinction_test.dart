@@ -6,7 +6,6 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/compact_graph_node.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/swipe_card.dart';
@@ -254,30 +253,8 @@ void main() {
     });
   });
 
-  group('explorador', () {
-    testWidgets('dibuja distinto una fuente y una nota', (tester) async {
-      await seedBoth();
-      await pump(tester, const ExplorerScreen());
-
-      Material cardOf(String title) => tester.widget<Material>(
-        find
-            .descendant(
-              of: find.widgetWithText(LibraryItemCard, title),
-              matching: find.byType(Material),
-            )
-            .first,
-      );
-
-      expect(
-        cardOf('Una fuente').borderRadius,
-        BorderRadius.circular(EntityRole.source.radius),
-      );
-      expect(
-        cardOf('Una nota').borderRadius,
-        BorderRadius.circular(EntityRole.note.radius),
-      );
-    });
-  });
+  // El Explorador ya no muestra fuentes ni notas de la Biblioteca: es el
+  // material de lo procesado (F41, paso 6), y no hay nada que distinguir ahí.
 
   group('grafo', () {
     testWidgets('el nodo del grafo local también', (tester) async {

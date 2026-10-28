@@ -1,4 +1,4 @@
-import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processed_depth.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 
 /// Cuántas contradicciones abiertas trae el tablero: las más recientes.
@@ -7,21 +7,19 @@ const kDashboardContradictions = 5;
 /// Cuántos meses de crecimiento trae el tablero: los últimos.
 const kDashboardGrowthMonths = 24;
 
-/// Lo que el tablero necesita saber de cada elemento vivo.
+/// Lo que el tablero necesita saber de cada documento procesado vivo.
 class DashboardItem {
   const DashboardItem({
     required this.id,
-    required this.isNote,
     required this.createdAt,
-    this.maturity,
+    required this.depth,
   });
 
   final String id;
-  final bool isNote;
   final DateTime createdAt;
 
-  /// Solo las notas la tienen.
-  final NoteMaturity? maturity;
+  /// Cuánto se trabajó.
+  final ProcessedDepth depth;
 }
 
 /// Una contradicción abierta con el momento en que se creó: para ordenarlas.
@@ -42,17 +40,10 @@ MapDashboard buildMapDashboard({
 }) {
   final ids = {for (final item in items) item.id};
 
-  var notes = 0;
-  final maturity = <NoteMaturity, int>{};
+  final depth = <ProcessedDepth, int>{};
   final perMonth = <int, int>{};
   for (final item in items) {
-    if (item.isNote) {
-      notes++;
-      final level = item.maturity;
-      if (level != null) {
-        maturity.update(level, (n) => n + 1, ifAbsent: () => 1);
-      }
-    }
+    depth.update(item.depth, (n) => n + 1, ifAbsent: () => 1);
     perMonth.update(
       _monthKey(item.createdAt.year, item.createdAt.month),
       (n) => n + 1,
@@ -69,15 +60,13 @@ MapDashboard buildMapDashboard({
 
   return MapDashboard(
     itemCount: items.length,
-    sourceCount: items.length - notes,
-    noteCount: notes,
     openContradictionCount: open.length,
     openContradictions: [
       for (final entry in open.take(kDashboardContradictions))
         entry.contradiction,
     ],
     growth: _growth(perMonth),
-    maturity: maturity,
+    depth: depth,
   );
 }
 

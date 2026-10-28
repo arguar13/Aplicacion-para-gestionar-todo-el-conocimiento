@@ -16,6 +16,7 @@ import 'package:sinapsis/features/timeline/presentation/screens/timeline_screen.
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 import '../../timeline_fixtures.dart';
 
 /// «Ver en la línea de tiempo», en el detalle de un elemento con fechas (F40).
@@ -39,7 +40,7 @@ void main() {
             .id;
   });
 
-  Future<void> save(String id, String title) => harness.container
+  Future<void> saveSource(String id, String title) => harness.container
       .read(libraryRepositoryProvider)
       .save(
         KnowledgeItem(
@@ -57,20 +58,40 @@ void main() {
         ),
       );
 
-  /// Un elemento con una «Fecha del hecho» de verdad, puesta por el camino de
-  /// la app.
-  Future<void> dated(String id, String title, int year) async {
-    await save(id, title);
+  /// Una fuente [id] y, con [processed], su documento procesado `p-$id`: la
+  /// línea de tiempo lee lo procesado (F41, paso 6).
+  Future<void> save(String id, String title, {bool processed = true}) async {
+    await saveSource(id, title);
+    if (!processed) return;
+    await insertProcessedDocument(
+      db,
+      id: 'p-$id',
+      title: title,
+      createdAt: now,
+    );
+    await (db.update(db.processedDocuments)
+          ..where((d) => d.itemId.equals('p-$id')))
+        .write(ProcessedDocumentsCompanion(sourceItemId: Value(id)));
+  }
+
+  Future<void> dateOn(String itemId, int year) async {
     final organize = harness.container.read(organizeRepositoryProvider);
     final value = (await organize.getOrCreateHistoricalPropertyValue(
       definitionId: fechaId,
       date: dateOf(year),
     )).getRight().toNullable()!;
     await organize.assignProperty(
-      itemId: id,
+      itemId: itemId,
       definitionId: fechaId,
       value: value.value,
     );
+  }
+
+  /// Una fuente cuyo documento procesado tiene una «Fecha del hecho» de
+  /// verdad, puesta por el camino de la app.
+  Future<void> dated(String id, String title, int year) async {
+    await save(id, title);
+    await dateOn('p-$id', year);
   }
 
   Future<void> openDetail(WidgetTester tester, String id) async {
@@ -85,8 +106,8 @@ void main() {
 
   final link = find.byKey(const ValueKey('item-timeline-link'));
 
-  testWidgets('un elemento con «Fecha del hecho» ofrece verlo en la línea de '
-      'tiempo', (tester) async {
+  testWidgets('una fuente cuyo documento procesado tiene fecha ofrece verla en '
+      'la línea de tiempo', (tester) async {
     await dated('roma', 'Caída de Roma', 476);
 
     await openDetail(tester, 'roma');
@@ -116,7 +137,7 @@ void main() {
     );
     final scope = harness.container.read(timelineFilterProvider).scope;
     expect(scope?.kind, TimelineScopeKind.document);
-    expect(scope?.id, 'roma');
+    expect(scope?.id, 'p-roma');
     expect(scope?.label, 'Caída de Roma');
     // Solo el hecho de ese documento.
     expect(find.text(es.timelineEventCount(1)), findsOneWidget);
@@ -150,7 +171,7 @@ void main() {
     await harness.container
         .read(organizeRepositoryProvider)
         .assignProperty(
-          itemId: 'texto',
+          itemId: 'p-texto',
           definitionId: fechaId,
           value: 'cuando sea',
         );
@@ -173,12 +194,22 @@ void main() {
       date: dateOf(1500),
     )).getRight().toNullable()!;
     await organize.assignProperty(
-      itemId: 'nuevo',
+      itemId: 'p-nuevo',
       definitionId: fechaId,
       value: value.value,
     );
     await tester.pumpAndSettle();
 
     expect(link, findsOneWidget);
+  });
+
+  testWidgets('la fecha que la fuente ya tenía no ofrece la línea: empieza de '
+      'cero, con lo procesado (F41, paso 6)', (tester) async {
+    await save('vieja', 'Vieja', processed: false);
+    await dateOn('vieja', 476);
+
+    await openDetail(tester, 'vieja');
+
+    expect(link, findsNothing);
   });
 }

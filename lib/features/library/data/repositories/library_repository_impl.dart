@@ -1185,7 +1185,11 @@ class LibraryRepositoryImpl implements LibraryRepository {
   /// por relevancia, o en una ventana de los chunks más recientes si la palabra
   /// está en tantos que ordenarla no distingue nada —ver [kRankedHitsCap]—.
   Future<LibraryQuerySql> _sqlFor(LibraryQuery query) async {
-    if (!query.hasSearchText) return LibraryQuerySql(query);
+    // Lo procesado (F41, paso 6) busca en sus partes, no en los chunks de las
+    // fuentes: no hay relevancia que medir ni ventana que elegir.
+    if (!query.hasSearchText || query.scope == LibraryScope.processed) {
+      return LibraryQuerySql(query);
+    }
     final match = buildSearchQuery(query.searchText!);
     if (match.isEmpty) {
       return LibraryQuerySql(query, plan: TextSearchPlan(match: match));

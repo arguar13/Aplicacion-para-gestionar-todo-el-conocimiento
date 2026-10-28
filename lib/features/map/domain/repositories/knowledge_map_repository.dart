@@ -60,10 +60,14 @@ abstract interface class KnowledgeMapRepository {
   ///
   /// Con [dimensionId] `kSpacesDimensionId`, [valueId] es un espacio: sus
   /// elementos, sin subtemas (F28).
+  ///
+  /// [scope] es de dónde: lo procesado, que es lo que dibuja el Mapa (F41,
+  /// paso 6), o la Biblioteca, para quien busca en las fuentes.
   Future<TopicItemsGraph> readTopicItems(
     String valueId, {
     String? dimensionId,
     int limit = kMaxGraphItems,
+    LibraryScope scope = LibraryScope.processed,
   });
 
   /// Los elementos vivos que pasan [filter] y tienen algún vínculo con otro

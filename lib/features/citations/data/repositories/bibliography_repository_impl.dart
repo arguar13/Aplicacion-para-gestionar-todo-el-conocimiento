@@ -90,7 +90,29 @@ class BibliographyRepositoryImpl implements BibliographyRepository {
     final rows = await _db
         .customSelect(sql.sql, variables: sql.variables)
         .get();
-    return sourcesOf([for (final row in rows) row.read<String>('id')]);
+    final ids = [for (final row in rows) row.read<String>('id')];
+    if (query.scope == LibraryScope.library) return sourcesOf(ids);
+    // Lo procesado (F41, paso 6) se cita por sus fuentes: un documento
+    // procesado no tiene ficha propia, la de su fuente es la que vale.
+    return sourcesOf(await _sourcesOfProcessed(ids));
+  }
+
+  /// Las fuentes de los documentos procesados [ids], en ese orden; las que se
+  /// borraron de verdad no están.
+  Future<List<String>> _sourcesOfProcessed(List<String> ids) async {
+    final documents = _db.processedDocuments;
+    final sourceOf = <String, String>{};
+    for (var start = 0; start < ids.length; start += _idsPerQuery) {
+      final slice = ids.skip(start).take(_idsPerQuery).toList();
+      final query = _db.selectOnly(documents)
+        ..addColumns([documents.itemId, documents.sourceItemId])
+        ..where(documents.itemId.isIn(slice));
+      for (final row in await query.get()) {
+        final source = row.read(documents.sourceItemId);
+        if (source != null) sourceOf[row.read(documents.itemId)!] = source;
+      }
+    }
+    return [for (final id in ids) ?sourceOf[id]];
   }
 
   @override

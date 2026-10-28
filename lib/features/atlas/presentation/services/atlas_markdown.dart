@@ -66,8 +66,8 @@ String _nodeLine(AppLocalizations l10n, AtlasNode node) {
   ];
   final parts = [
     node.coverage.label(l10n),
-    if (node.sourceCount > 0) l10n.atlasSourceCount(node.sourceCount),
-    if (node.noteCount > 0) l10n.atlasNoteCount(node.noteCount),
+    if (node.itemCount > 0) l10n.atlasProcessedCount(node.itemCount),
+    if (node.annotatedCount > 0) l10n.atlasAnnotatedCount(node.annotatedCount),
     if (axis != null) axis,
     if (mapNotes.isNotEmpty) l10n.atlasExportMapNotes(mapNotes.join(', ')),
   ];

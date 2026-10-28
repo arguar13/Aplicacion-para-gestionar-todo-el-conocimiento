@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 /// de una lista en memoria: si la app se cierra a mitad, al volver se sabe
 /// qué falta sin haber guardado nada aparte.
 ///
-/// Un elemento está pendiente si está vivo, listo —una fuente procesada, o
-/// una nota— y no tiene ninguna pasada terminada ni deshecha. Una deshecha
+/// Un elemento está pendiente si está vivo, es una nota —de la persona, o un
+/// documento procesado (F41)— y no tiene ninguna pasada terminada ni deshecha.
+/// Las fuentes de la Biblioteca no: desde el paso 6 de F41 la IA organiza lo
+/// que la persona eligió de cada una al triarla, no la fuente. Una deshecha
 /// cuenta como hecha: la persona no quiere lo que la IA hizo con él, y la IA
 /// no lo vuelve a organizar sola. Una pasada que quedó a medias —la app se
 /// cerró— no cuenta, hasta un tope de intentos: algo que hace caer la app

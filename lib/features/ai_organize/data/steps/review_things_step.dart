@@ -16,9 +16,9 @@ import 'package:sinapsis/features/ai_organize/domain/repositories/ai_atlas_repos
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_item_reviewer.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/organize_text.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/things_reviewer.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_parser.dart';
-import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 
 /// Cuántas cosas van en un pedido, como mucho: cada una lleva su valor, sus
@@ -57,11 +57,17 @@ class ReviewThingsStep implements AiItemReviewer {
     required AiAtlasRepository atlas,
     required SuggestionRepository suggestions,
     required ModelTextBudget Function() textBudget,
+    OrganizeTextReader texts = const OwnTextReader(),
   }) : _reviewer = reviewer,
        _runs = runs,
        _atlas = atlas,
        _suggestions = suggestions,
-       _textBudget = textBudget;
+       _textBudget = textBudget,
+       _texts = texts;
+
+  /// Qué texto lee: el del elemento, o —de un documento procesado— lo que la
+  /// persona eligió al triar (F41, paso 6).
+  final OrganizeTextReader _texts;
 
   final ThingsReviewer _reviewer;
   final AiRunRepository _runs;
@@ -117,10 +123,7 @@ class ReviewThingsStep implements AiItemReviewer {
       kMinItemExcerptChars,
       kMaxItemExcerptChars,
     );
-    final itemExcerpt = _cut(
-      extractableRendition(item)?.content ?? item.searchableText,
-      excerptChars,
-    );
+    final itemExcerpt = _cut((await _texts.textOf(item)).text, excerptChars);
 
     var proposed = 0;
     for (var from = 0; from < things.length; from += perCall) {

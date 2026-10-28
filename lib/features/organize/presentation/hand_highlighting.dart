@@ -18,11 +18,14 @@ import 'package:sinapsis/features/capture/presentation/providers/capture_provide
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_edit_dialog.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlight_note_dialog.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/processed/domain/entities/extract_note_target.dart';
+import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/timeline/domain/entities/dated_event_seed.dart';
@@ -429,6 +432,11 @@ Future<void> createFlashcardFromRange(
 /// fecha, el formulario abre vacío en ella.
 ///
 /// Al guardar avisa, con un «Ver» que abre la línea de tiempo en ese documento.
+///
+/// La línea de tiempo se arma con lo procesado (F41, paso 6): lo que se
+/// selecciona en una fuente va a su documento procesado, con la cita en la
+/// fuente —donde está el texto—. Si la fuente todavía no se procesó, lo dice y
+/// lleva a la Bandeja: el hecho no se vería en la línea.
 Future<void> addRangeToTimeline(
   BuildContext context,
   WidgetRef ref, {
@@ -439,18 +447,37 @@ Future<void> addRangeToTimeline(
   required int end,
 }) async {
   if (start < 0 || end <= start || end > content.length) return;
+  final l10n = AppLocalizations.of(context)!;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final router = GoRouter.maybeOf(context);
+  final documentId = await _timelineDocumentOf(ref, itemId);
+  if (!context.mounted) return;
+  if (documentId == null) {
+    messenger
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.timelineFactSourceNotProcessed),
+          action: router == null
+              ? null
+              : SnackBarAction(
+                  label: l10n.organizedGoToInbox,
+                  onPressed: () => router.go(RoutePaths.inbox),
+                ),
+        ),
+      );
+    return;
+  }
   final seed = DatedEventSeed.fromQuote(
-    itemId: itemId,
+    itemId: documentId,
     renditionId: renditionId,
     content: content,
     start: start,
     end: end,
   );
-  final l10n = AppLocalizations.of(context)!;
-  final messenger = ScaffoldMessenger.maybeOf(context);
   final saved = await showDatedEventForm(context, seed: seed);
   if (!saved || !context.mounted) return;
-  final title = await _documentTitle(ref, itemId);
+  final title = await _documentTitle(ref, documentId);
   if (!context.mounted) return;
   messenger
     ?..hideCurrentSnackBar()
@@ -464,12 +491,29 @@ Future<void> addRangeToTimeline(
             showInTimeline(
               context,
               ref,
-              TimelineScope.document(itemId: itemId, label: title),
+              TimelineScope.document(itemId: documentId, label: title),
             );
           },
         ),
       ),
     );
+}
+
+/// De qué elemento es un hecho que se agrega desde el texto de [itemId] (F41,
+/// paso 6): de una fuente, su documento procesado —`null` si todavía no lo
+/// tiene—; de una nota o un procesado, él mismo.
+Future<String?> _timelineDocumentOf(WidgetRef ref, String itemId) async {
+  final item = await ref.read(libraryItemProvider(itemId).future);
+  if (item == null) return null;
+  if (item.source.kind.role != EntityRole.source) return item.id;
+  // El id del procesado sale de la fuente (`processedDocumentIdFor`): se
+  // pregunta por él, sin traer el documento.
+  final documentId = processedDocumentIdFor(itemId);
+  final status =
+      (await ref.read(processedRepositoryProvider).statusOf(documentId))
+          .getRight()
+          .toNullable();
+  return status == ProcessedDocumentStatus.active ? documentId : null;
 }
 
 /// El título de [itemId], para rotular el chip de la línea de tiempo.

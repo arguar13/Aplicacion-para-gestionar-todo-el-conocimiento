@@ -17,6 +17,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -24,6 +25,8 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
+import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
@@ -40,6 +43,18 @@ import '../../../../support/read_aloud_test_support.dart';
 import '../../../../support/recording_dated_events.dart';
 
 class _MockOrganizeRepository extends Mock implements OrganizeRepository {}
+
+/// La fuente `item-1` ya triada: su documento procesado está vivo (F41).
+class _TriagedSource extends Mock implements ProcessedRepository {
+  @override
+  Future<Either<Failure, ProcessedDocumentStatus>> statusOf(
+    String documentId,
+  ) async => right(
+    documentId == processedDocumentIdFor('item-1')
+        ? ProcessedDocumentStatus.active
+        : ProcessedDocumentStatus.absent,
+  );
+}
 
 class _MockCaptureItemUseCase extends Mock implements CaptureItemUseCase {}
 
@@ -345,7 +360,25 @@ void main() {
         tester,
         extra: [
           datedEventRepositoryProvider.overrideWithValue(dated),
-          libraryItemProvider.overrideWith((ref, id) => Stream.value(null)),
+          // Una fuente triada: el hecho va a su documento procesado, con la
+          // cita en ella (F41, paso 6).
+          libraryItemProvider.overrideWith(
+            (ref, id) => Stream.value(
+              KnowledgeItem(
+                id: id,
+                title: 'La fuente',
+                source: Source(
+                  id: 'src-$id',
+                  kind: SourceKind.document,
+                  capturedAt: DateTime(2026),
+                ),
+                processingState: ProcessingState.ready,
+                createdAt: DateTime(2026),
+                updatedAt: DateTime(2026),
+              ),
+            ),
+          ),
+          processedRepositoryProvider.overrideWithValue(_TriagedSource()),
         ],
       );
       await nextPage(tester);
@@ -371,7 +404,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final saved = dated.added.single;
-      expect(saved.itemId, 'item-1');
+      expect(saved.itemId, processedDocumentIdFor('item-1'));
       expect(saved.input.title, 'revolución');
       expect(saved.input.date.year, 1850);
       expect(saved.input.renditionId, 'r1');

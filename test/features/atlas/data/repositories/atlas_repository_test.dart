@@ -7,6 +7,8 @@ import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processed_depth.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -19,12 +21,14 @@ import 'package:sinapsis/features/atlas/domain/entities/atlas_gap.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_snapshot.dart';
 
 import '../../../../support/item_rows.dart';
+import '../../../../support/processed_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
 /// Los agregados del Atlas (F13), contra SQLite de verdad: cuentan en cascada
-/// por la jerarquía, sin repetir un elemento dentro de una rama, sin lo que
-/// está en la papelera, y se recalculan solo cuando algo cambia.
+/// por la jerarquía, sin repetir un documento dentro de una rama, sin lo que
+/// está en la papelera, y se recalculan solo cuando algo cambia. Desde F41
+/// (paso 6) cuentan solo documentos procesados, por cuánto se trabajaron.
 void main() {
   late AppDatabase db;
   late AtlasRepositoryImpl repository;
@@ -74,17 +78,28 @@ void main() {
         ),
       );
 
-  Future<void> source(
+  /// Un documento procesado con las secciones que lo dejan en [depth].
+  Future<void> processed(
     String id,
     List<String> values, {
     DateTime? updatedAt,
+    ProcessedDepth depth = ProcessedDepth.textOnly,
   }) async {
-    await insertItemRows(
+    await insertProcessedDocument(
       db,
       id: id,
-      title: 'Fuente $id',
+      title: 'Procesado $id',
       createdAt: updatedAt ?? now,
+      sections: {ProcessedSection.text, ...depth.sections},
     );
+    for (final valueId in values) {
+      await assign(id, valueId);
+    }
+  }
+
+  /// Una fuente de la Biblioteca: ya no cuenta en el Atlas (F41, paso 6).
+  Future<void> source(String id, List<String> values) async {
+    await insertItemRows(db, id: id, title: 'Fuente $id', createdAt: now);
     for (final valueId in values) {
       await assign(id, valueId);
     }
@@ -156,19 +171,19 @@ void main() {
     'cuenta en cascada: cada rama trae lo suyo y lo de sus subtemas',
     () async {
       await seedTree();
-      await source('s-roma', ['roma']);
-      await source('s-republica', ['republica']);
-      await source('s-gracos', ['gracos']);
-      await source('s-imperio', ['imperio']);
-      await source('s-grecia', ['grecia']);
+      await processed('s-roma', ['roma']);
+      await processed('s-republica', ['republica']);
+      await processed('s-gracos', ['gracos']);
+      await processed('s-imperio', ['imperio']);
+      await processed('s-grecia', ['grecia']);
 
       final snapshot = await atlas();
 
-      expect(snapshot.nodeOf('roma')!.sourceCount, 4);
-      expect(snapshot.nodeOf('republica')!.sourceCount, 2);
-      expect(snapshot.nodeOf('gracos')!.sourceCount, 1);
-      expect(snapshot.nodeOf('imperio')!.sourceCount, 1);
-      expect(snapshot.nodeOf('grecia')!.sourceCount, 1);
+      expect(snapshot.nodeOf('roma')!.textOnlyCount, 4);
+      expect(snapshot.nodeOf('republica')!.textOnlyCount, 2);
+      expect(snapshot.nodeOf('gracos')!.textOnlyCount, 1);
+      expect(snapshot.nodeOf('imperio')!.textOnlyCount, 1);
+      expect(snapshot.nodeOf('grecia')!.textOnlyCount, 1);
       expect(snapshot.nodeOf('vacio')!.itemCount, 0);
     },
   );
@@ -176,21 +191,21 @@ void main() {
   test('un elemento asignado a varios valores de una rama cuenta una vez en '
       'ella', () async {
     await seedTree();
-    await source('s-dos', ['roma', 'republica', 'gracos']);
-    await source('s-otro', ['republica', 'imperio']);
+    await processed('s-dos', ['roma', 'republica', 'gracos']);
+    await processed('s-otro', ['republica', 'imperio']);
 
     final snapshot = await atlas();
 
-    expect(snapshot.nodeOf('roma')!.sourceCount, 2);
-    expect(snapshot.nodeOf('republica')!.sourceCount, 2);
-    expect(snapshot.nodeOf('gracos')!.sourceCount, 1);
-    expect(snapshot.nodeOf('imperio')!.sourceCount, 1);
+    expect(snapshot.nodeOf('roma')!.textOnlyCount, 2);
+    expect(snapshot.nodeOf('republica')!.textOnlyCount, 2);
+    expect(snapshot.nodeOf('gracos')!.textOnlyCount, 1);
+    expect(snapshot.nodeOf('imperio')!.textOnlyCount, 1);
   });
 
   test('asignar el hijo no asigna el padre, pero el Atlas cuenta hacia '
       'abajo', () async {
     await seedTree();
-    await source('s-gracos', ['gracos']);
+    await processed('s-gracos', ['gracos']);
 
     await atlas();
 
@@ -198,48 +213,63 @@ void main() {
       db.itemPropertyValues,
     )..where((r) => r.propertyValueId.equals('roma'))).get();
     expect(direct, isEmpty);
-    expect((await atlas()).nodeOf('roma')!.sourceCount, 1);
+    expect((await atlas()).nodeOf('roma')!.textOnlyCount, 1);
   });
 
-  test('separa fuentes y notas, y las notas por subtipo y madurez', () async {
+  test('separa los documentos por cuánto se trabajaron: el escalón más alto '
+      'de sus partes', () async {
     await seedTree();
-    await source('s1', ['roma']);
-    await note('n-atomica', NoteKind.atomic, ['gracos']);
-    await note('n-semilla', NoteKind.living, ['republica']);
-    await note('n-desarrollo', NoteKind.living, [
-      'republica',
-    ], maturity: NoteMaturity.developing);
-    await note('n-madura', NoteKind.living, [
-      'imperio',
-    ], maturity: NoteMaturity.mature);
-    await note('n-mapa', NoteKind.map, ['roma']);
+    await processed('p-texto', ['roma']);
+    await processed('p-resumen', ['gracos'], depth: ProcessedDepth.summarized);
+    await processed('p-cortes', ['republica'], depth: ProcessedDepth.cut);
+    await processed('p-cortes-2', ['republica'], depth: ProcessedDepth.cut);
+    await processed('p-notas', ['imperio'], depth: ProcessedDepth.annotated);
 
     final snapshot = await atlas();
 
     final roma = snapshot.nodeOf('roma')!;
-    expect(roma.sourceCount, 1);
-    expect(roma.atomicCount, 1);
-    expect(roma.growingLivingCount, 2);
-    expect(roma.matureLivingCount, 1);
-    expect(roma.mapCount, 1);
-    expect(roma.itemCount, 6);
+    expect(roma.textOnlyCount, 1);
+    expect(roma.summarizedCount, 1);
+    expect(roma.cutCount, 2);
+    expect(roma.annotatedCount, 1);
+    expect(roma.itemCount, 5);
     final republica = snapshot.nodeOf('republica')!;
-    expect(republica.growingLivingCount, 2);
-    expect(republica.matureLivingCount, 0);
-    expect(republica.atomicCount, 1);
+    expect(republica.cutCount, 2);
+    expect(republica.summarizedCount, 1);
+    expect(republica.annotatedCount, 0);
+  });
+
+  test('las fuentes y las notas de la Biblioteca no cuentan: el Atlas se arma '
+      'con lo procesado y empieza de cero (F41, paso 6)', () async {
+    await seedTree();
+    await source('s-vieja', ['roma']);
+    await note('n-viva', NoteKind.living, [
+      'roma',
+    ], maturity: NoteMaturity.mature);
+    await note('n-atomica', NoteKind.atomic, ['gracos']);
+
+    final before = await atlas();
+    expect(before.nodeOf('roma')!.itemCount, 0);
+    expect(before.nodeOf('roma')!.coverage, AtlasCoverage.empty);
+
+    await processed('p1', ['gracos']);
+    await pumpEventQueue();
+    final after = await atlas();
+    expect(after.nodeOf('roma')!.itemCount, 1);
+    expect(after.nodeOf('gracos')!.textOnlyCount, 1);
   });
 
   test(
     'el estado de cobertura de cada rama sale de lo que hay debajo',
     () async {
       await seedTree();
-      await source('s-grecia', ['grecia']);
-      await source('s-gracos', ['gracos']);
-      await note('n-atomica', NoteKind.atomic, ['gracos']);
-      await note('n-viva', NoteKind.living, ['republica']);
-      await note('n-madura', NoteKind.living, [
-        'imperio',
-      ], maturity: NoteMaturity.mature);
+      await processed('p-grecia', ['grecia']);
+      await processed('p-gracos', ['gracos']);
+      await processed('p-resumen', [
+        'gracos',
+      ], depth: ProcessedDepth.summarized);
+      await processed('p-cortes', ['republica'], depth: ProcessedDepth.cut);
+      await processed('p-notas', ['imperio'], depth: ProcessedDepth.annotated);
 
       final snapshot = await atlas();
 
@@ -247,11 +277,11 @@ void main() {
         for (final n in snapshot.nodes) n.valueId: n.coverage,
       };
       expect(coverage(), {
-        'roma': AtlasCoverage.mature,
-        'republica': AtlasCoverage.growing,
-        'gracos': AtlasCoverage.fragments,
-        'imperio': AtlasCoverage.mature,
-        'grecia': AtlasCoverage.sourcesOnly,
+        'roma': AtlasCoverage.annotated,
+        'republica': AtlasCoverage.cut,
+        'gracos': AtlasCoverage.summarized,
+        'imperio': AtlasCoverage.annotated,
+        'grecia': AtlasCoverage.textOnly,
         'vacio': AtlasCoverage.empty,
       });
     },
@@ -261,20 +291,20 @@ void main() {
     'lo que está en la papelera no cuenta, y al restaurarlo vuelve',
     () async {
       await seedTree();
-      await source('s-vivo', ['roma']);
-      await source('s-borrado', ['roma']);
-      await note('n-borrada', NoteKind.living, ['roma']);
+      await processed('s-vivo', ['roma']);
+      await processed('s-borrado', ['roma']);
+      await processed('n-borrada', ['roma'], depth: ProcessedDepth.annotated);
       await trashItemRows(db, 's-borrado');
       await trashItemRows(db, 'n-borrada');
 
       final afterTrash = await atlas();
-      expect(afterTrash.nodeOf('roma')!.sourceCount, 1);
-      expect(afterTrash.nodeOf('roma')!.livingCount, 0);
+      expect(afterTrash.nodeOf('roma')!.textOnlyCount, 1);
+      expect(afterTrash.nodeOf('roma')!.annotatedCount, 0);
 
       await restoreItemRows(db, 's-borrado');
       await pumpEventQueue();
       final restored = await atlas();
-      expect(restored.nodeOf('roma')!.sourceCount, 2);
+      expect(restored.nodeOf('roma')!.textOnlyCount, 2);
     },
   );
 
@@ -301,9 +331,9 @@ void main() {
   group('eje temporal', () {
     test('el rango de «Fecha del hecho» de lo que hay en la rama', () async {
       await seedTree();
-      await source('s1', ['roma']);
-      await source('s2', ['republica']);
-      await source('s3', ['gracos']);
+      await processed('s1', ['roma']);
+      await processed('s2', ['republica']);
+      await processed('s3', ['gracos']);
       await factDate('f-antiguo', -753, ['s1']);
       await factDate('f-tardio', 476, ['s3'], toYear: 480);
 
@@ -321,7 +351,7 @@ void main() {
 
     test('un elemento con varias fechas aporta el rango entero', () async {
       await seedTree();
-      await source('s1', ['grecia']);
+      await processed('s1', ['grecia']);
       await factDate('f1', -490, ['s1']);
       await factDate('f2', -404, ['s1']);
 
@@ -333,7 +363,7 @@ void main() {
 
     test('un valor de fecha no cuenta como elemento ni como rama', () async {
       await seedTree();
-      await source('s1', ['roma']);
+      await processed('s1', ['roma']);
       await factDate('f1', 44, ['s1']);
 
       final snapshot = await atlas();
@@ -349,8 +379,8 @@ void main() {
       await seedTree();
       final viejo = now.subtract(const Duration(days: 300));
       final reciente = now.subtract(const Duration(days: 2));
-      await source('s-viejo', ['roma'], updatedAt: viejo);
-      await source('s-reciente', ['gracos'], updatedAt: reciente);
+      await processed('s-viejo', ['roma'], updatedAt: viejo);
+      await processed('s-reciente', ['gracos'], updatedAt: reciente);
 
       final snapshot = await atlas();
 
@@ -372,15 +402,15 @@ void main() {
   test('los vacíos salen de los agregados', () async {
     await seedTree();
     for (var i = 0; i < 5; i++) {
-      await source('s-grecia-$i', ['grecia']);
+      await processed('s-grecia-$i', ['grecia']);
     }
-    await source('s-imperio', ['imperio']);
+    await processed('s-imperio', ['imperio']);
 
     final snapshot = await atlas();
 
     expect(
       snapshot.gaps,
-      contains(_gap(AtlasGapKind.manySourcesNoLivingNote, 'grecia')),
+      contains(_gap(AtlasGapKind.manyWithoutNotes, 'grecia')),
     );
     // Un solo elemento en toda la rama de Roma —el de Imperio—: se avisa en la
     // rama más alta, no en Imperio.
@@ -405,17 +435,17 @@ void main() {
           ),
         );
     await value('cesar', definitionId: otra, label: 'César');
-    await source('s1', ['roma', 'cesar']);
+    await processed('s1', ['roma', 'cesar']);
 
     final temaAtlas = await atlas();
     final otraAtlas = await repository.snapshot(otra);
 
     expect(temaAtlas.definitionName, 'Tema');
     expect(temaAtlas.nodeOf('cesar'), isNull);
-    expect(temaAtlas.nodeOf('roma')!.sourceCount, 1);
+    expect(temaAtlas.nodeOf('roma')!.textOnlyCount, 1);
     expect(otraAtlas.definitionName, 'Personaje');
     expect([for (final n in otraAtlas.nodes) n.valueId], ['cesar']);
-    expect(otraAtlas.nodeOf('cesar')!.sourceCount, 1);
+    expect(otraAtlas.nodeOf('cesar')!.textOnlyCount, 1);
   });
 
   test('una categoría que no existe da un Atlas vacío', () async {
@@ -441,10 +471,10 @@ void main() {
         'está en él contado como en una rama de etiquetas', () async {
       await space('historia', 'Historia');
       await space('arte', 'Arte');
-      await source('s1', const []);
-      await source('s2', const []);
-      await note('n1', NoteKind.living, const []);
-      await source('suelto', const []);
+      await processed('s1', const []);
+      await processed('s2', const []);
+      await processed('n1', const [], depth: ProcessedDepth.annotated);
+      await processed('suelto', const []);
       for (final id in ['s1', 's2', 'n1']) {
         await moveTo(id, 'historia');
       }
@@ -454,8 +484,8 @@ void main() {
       expect([for (final n in snapshot.nodes) n.label], ['Arte', 'Historia']);
       expect(snapshot.nodes.every((n) => n.depth == 0), isTrue);
       final historia = snapshot.nodeOf('historia')!;
-      expect(historia.sourceCount, 2);
-      expect(historia.growingLivingCount, 1);
+      expect(historia.textOnlyCount, 2);
+      expect(historia.annotatedCount, 1);
       expect(historia.hasChildren, isFalse);
       expect(snapshot.nodeOf('arte')!.coverage, AtlasCoverage.empty);
     });
@@ -475,7 +505,7 @@ void main() {
 
     test('lo que está en la papelera no cuenta', () async {
       await space('historia', 'Historia');
-      await source('s1', const []);
+      await processed('s1', const []);
       await moveTo('s1', 'historia');
       await trashItemRows(db, 's1');
 
@@ -491,16 +521,16 @@ void main() {
     test('lo que está en dos temas cuenta en cada uno (F37)', () async {
       await space('historia', 'Historia');
       await space('arte', 'Arte');
-      await source('s1', const []);
-      await source('s2', const []);
+      await processed('s1', const []);
+      await processed('s2', const []);
       await moveTo('s1', 'historia');
       await alsoIn('s1', 'arte');
       await moveTo('s2', 'arte');
 
       final snapshot = await spacesAtlas();
 
-      expect(snapshot.nodeOf('historia')!.sourceCount, 1);
-      expect(snapshot.nodeOf('arte')!.sourceCount, 2);
+      expect(snapshot.nodeOf('historia')!.textOnlyCount, 1);
+      expect(snapshot.nodeOf('arte')!.textOnlyCount, 2);
     });
 
     test('una nota mapa en dos temas está en los dos (F37)', () async {
@@ -519,12 +549,12 @@ void main() {
 
     test('ponerle un tema a un elemento descarta la caché (F37)', () async {
       await space('historia', 'Historia');
-      await source('s1', const []);
-      expect((await spacesAtlas()).nodeOf('historia')!.sourceCount, 0);
+      await processed('s1', const []);
+      expect((await spacesAtlas()).nodeOf('historia')!.textOnlyCount, 0);
 
       await moveTo('s1', 'historia');
 
-      expect((await spacesAtlas()).nodeOf('historia')!.sourceCount, 1);
+      expect((await spacesAtlas()).nodeOf('historia')!.textOnlyCount, 1);
       expect(repository.computations, 2);
     });
 
@@ -542,7 +572,7 @@ void main() {
   group('caché', () {
     test('sin ninguna escritura en medio no se recalcula', () async {
       await seedTree();
-      await source('s1', ['roma']);
+      await processed('s1', ['roma']);
 
       final first = await atlas();
       final second = await atlas();
@@ -563,20 +593,20 @@ void main() {
 
     test('asignar una propiedad la descarta y el Atlas lo refleja', () async {
       await seedTree();
-      await source('s1', ['roma']);
-      expect((await atlas()).nodeOf('roma')!.sourceCount, 1);
+      await processed('s1', ['roma']);
+      expect((await atlas()).nodeOf('roma')!.textOnlyCount, 1);
 
-      await source('s2', ['gracos']);
+      await processed('s2', ['gracos']);
 
       final after = await atlas();
       expect(repository.computations, 2);
-      expect(after.nodeOf('roma')!.sourceCount, 2);
+      expect(after.nodeOf('roma')!.textOnlyCount, 2);
     });
 
     test('mover un valor en el vocabulario la descarta', () async {
       await seedTree();
-      await source('s-gracos', ['gracos']);
-      expect((await atlas()).nodeOf('imperio')!.sourceCount, 0);
+      await processed('s-gracos', ['gracos']);
+      expect((await atlas()).nodeOf('imperio')!.textOnlyCount, 0);
 
       // Gracos pasa de República a Imperio: el subárbol se mueve entero.
       await (db.update(db.propertyValues)..where((v) => v.id.equals('gracos')))
@@ -584,23 +614,23 @@ void main() {
 
       final after = await atlas();
       expect(repository.computations, 2);
-      expect(after.nodeOf('imperio')!.sourceCount, 1);
-      expect(after.nodeOf('republica')!.sourceCount, 0);
+      expect(after.nodeOf('imperio')!.textOnlyCount, 1);
+      expect(after.nodeOf('republica')!.textOnlyCount, 0);
     });
 
     test('mandar un elemento a la papelera la descarta', () async {
       await seedTree();
-      await source('s1', ['roma']);
-      expect((await atlas()).nodeOf('roma')!.sourceCount, 1);
+      await processed('s1', ['roma']);
+      expect((await atlas()).nodeOf('roma')!.textOnlyCount, 1);
 
       await trashItemRows(db, 's1');
 
-      expect((await atlas()).nodeOf('roma')!.sourceCount, 0);
+      expect((await atlas()).nodeOf('roma')!.textOnlyCount, 0);
     });
 
     test('lo que no toca al Atlas no la descarta', () async {
       await seedTree();
-      await source('s1', ['roma']);
+      await processed('s1', ['roma']);
       await atlas();
 
       await db
@@ -623,26 +653,26 @@ void main() {
     test('emite lo que hay al suscribirse y vuelve a emitir cuando se asigna '
         'una propiedad', () async {
       await seedTree();
-      await source('s1', ['roma']);
+      await processed('s1', ['roma']);
       final emitted = <AtlasSnapshot>[];
       final subscription = repository.watchAtlas(tema).listen(emitted.add);
       addTearDown(subscription.cancel);
       await pumpEventQueue();
       expect(emitted, hasLength(1));
-      expect(emitted.last.nodeOf('roma')!.sourceCount, 1);
+      expect(emitted.last.nodeOf('roma')!.textOnlyCount, 1);
 
-      await source('s2', ['gracos']);
+      await processed('s2', ['gracos']);
       await pumpEventQueue();
 
-      expect(emitted.last.nodeOf('roma')!.sourceCount, 2);
-      expect(emitted.last.nodeOf('gracos')!.sourceCount, 1);
+      expect(emitted.last.nodeOf('roma')!.textOnlyCount, 2);
+      expect(emitted.last.nodeOf('gracos')!.textOnlyCount, 1);
     });
 
     test(
       'un segundo observador con el Atlas ya calculado no recalcula',
       () async {
         await seedTree();
-        await source('s1', ['roma']);
+        await processed('s1', ['roma']);
         final first = <AtlasSnapshot>[];
         final one = repository.watchAtlas(tema).listen(first.add);
         addTearDown(one.cancel);
@@ -668,46 +698,55 @@ void main() {
       return [for (final r in rows) r.read<String>('detail')];
     }
 
-    test('los elementos se recorren UNA vez, y sus valores y sus notas se '
-        'buscan por clave: nada se recorre por cada rama', () async {
-      await seedTree();
+    test(
+      'los elementos se recorren UNA vez, y sus valores y si son '
+      'procesados se buscan por clave: nada se recorre por cada rama',
+      () async {
+        await seedTree();
 
-      final plan = await planOf(atlasItemsSql, [
-        Variable.withString(tema),
-        Variable.withString(kFechaDelHechoCategoryName),
-      ]);
-      final reason = plan.join('\n');
+        final plan = await planOf(atlasItemsSql, [
+          Variable.withString(tema),
+          Variable.withString(kFechaDelHechoCategoryName),
+        ]);
+        final reason = plan.join('\n');
 
-      // Cada elemento una vez —no una por cada rama en que está—.
-      expect(
-        plan.where((line) => RegExp(r'\bSCAN item\b').hasMatch(line)),
-        hasLength(1),
-        reason: reason,
-      );
-      // Las asignaciones nunca se recorren enteras: las de un elemento por su
-      // clave, las de las fechas por el índice del valor.
-      expect(
-        plan.where((line) => RegExp(r'\bSCAN ipv\b').hasMatch(line)),
-        isEmpty,
-        reason: reason,
-      );
-      expect(
-        plan.where(
-          (line) =>
-              line.startsWith('SEARCH ipv') && line.contains('(item_id=?)'),
-        ),
-        hasLength(1),
-        reason: reason,
-      );
-      expect(
-        plan.where(
-          (line) =>
-              line.startsWith('SEARCH note') && line.contains('(item_id=?)'),
-        ),
-        hasLength(1),
-        reason: reason,
-      );
-    });
+        // Cada elemento una vez —no una por cada rama en que está—.
+        expect(
+          plan.where((line) => RegExp(r'\bSCAN item\b').hasMatch(line)),
+          hasLength(1),
+          reason: reason,
+        );
+        // Las asignaciones nunca se recorren enteras: las de un elemento por su
+        // clave, las de las fechas por el índice del valor.
+        expect(
+          plan.where((line) => RegExp(r'\bSCAN ipv\b').hasMatch(line)),
+          isEmpty,
+          reason: reason,
+        );
+        expect(
+          plan.where(
+            (line) =>
+                line.startsWith('SEARCH ipv') && line.contains('(item_id=?)'),
+          ),
+          hasLength(1),
+          reason: reason,
+        );
+        expect(
+          plan.where(
+            (line) =>
+                line.startsWith('SEARCH processed') &&
+                line.contains('(item_id=?)'),
+          ),
+          isNotEmpty,
+          reason: reason,
+        );
+        expect(
+          plan.where((line) => RegExp(r'\bSCAN processed').hasMatch(line)),
+          isEmpty,
+          reason: reason,
+        );
+      },
+    );
 
     test('el Atlas de los temas también recorre los elementos UNA vez: el '
         'tema es una columna del elemento (F28)', () async {

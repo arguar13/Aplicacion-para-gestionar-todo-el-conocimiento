@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_atlas_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
@@ -81,7 +83,11 @@ Future<void> showAiSuggestRelationsDialog(
   final itemsById = {for (final item in items) item.id: item};
   final seedId = await showDialog<String>(
     context: context,
-    builder: (context) => PickItemDialog(scopeIds: itemsById.keys.toSet()),
+    // El Mapa dibuja lo procesado (F41, paso 6): se elige entre eso.
+    builder: (context) => PickItemDialog(
+      scopeIds: itemsById.keys.toSet(),
+      scope: LibraryScope.processed,
+    ),
   );
   if (seedId == null || !context.mounted) return;
 
@@ -95,41 +101,54 @@ Future<void> showAiSuggestRelationsDialog(
       if (link.to == seedId) link.from,
   };
 
-  final candidates = [
+  final pool = [
     for (final item in items)
-      if (item.id != seedId && !alreadyLinked.contains(item.id))
-        RelationCandidate(
-          itemId: item.id,
-          title: item.title,
-          excerpt: _excerptOf(item),
-        ),
+      if (item.id != seedId && !alreadyLinked.contains(item.id)) item,
   ].take(_maxCandidates).toList();
+  // El comienzo de cada uno, de la base: un documento procesado no trae su
+  // texto en el elemento —son sus partes— (F41, paso 6).
+  final excerpts = (await ref
+      .read(aiAtlasRepositoryProvider)
+      .excerptsOf([
+        seedId,
+        for (final item in pool) item.id,
+      ], chars: _excerptChars)).getOrElse((_) => const {});
+  String excerptOf(KnowledgeItem item) =>
+      excerpts[item.id] ?? item.subtitle ?? '';
+  final candidates = [
+    for (final item in pool)
+      RelationCandidate(
+        itemId: item.id,
+        title: item.title,
+        excerpt: excerptOf(item),
+      ),
+  ];
 
   if (!context.mounted) return;
   await showDialog<void>(
     context: context,
     builder: (context) => _AiSuggestionsDialog(
       seed: seed,
+      seedExcerpt: excerptOf(seed),
       candidates: candidates,
       itemsById: itemsById,
     ),
   );
 }
 
-String _excerptOf(KnowledgeItem item) {
-  final text = item.searchableText.trim();
-  if (text.isEmpty) return item.subtitle ?? '';
-  return text.length > 280 ? '${text.substring(0, 280)}…' : text;
-}
+/// Cuánto del comienzo de cada elemento ve el modelo.
+const _excerptChars = 280;
 
 class _AiSuggestionsDialog extends ConsumerStatefulWidget {
   const _AiSuggestionsDialog({
     required this.seed,
+    required this.seedExcerpt,
     required this.candidates,
     required this.itemsById,
   });
 
   final KnowledgeItem seed;
+  final String seedExcerpt;
   final List<RelationCandidate> candidates;
   final Map<String, KnowledgeItem> itemsById;
 
@@ -157,7 +176,7 @@ class _AiSuggestionsDialogState extends ConsumerState<_AiSuggestionsDialog> {
           .read(relationSuggestionServiceProvider)
           .suggestRelations(
             seedTitle: widget.seed.title,
-            seedExcerpt: _excerptOf(widget.seed),
+            seedExcerpt: widget.seedExcerpt,
             candidates: widget.candidates,
           );
       if (!mounted) return;

@@ -11,6 +11,7 @@ import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
+import 'package:sinapsis/features/ai_organize/data/services/organize_text_reader_impl.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_dates_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
@@ -20,6 +21,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/content_change.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/organize_text.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
@@ -247,6 +249,7 @@ void main() {
       onFlashcardsBatch: batches.add,
       onDatesBatch: dateBatches.add,
       modelRetryDelay: modelRetryDelay,
+      texts: OrganizeTextReaderImpl(vault.db),
     );
     addTearDown(queue.dispose);
     return queue;
@@ -261,13 +264,13 @@ void main() {
 
   test('organiza lo nuevo de a uno, en el orden en que llegó, con una '
       'pasada terminada cada uno', () async {
-    await vault.source(
+    await vault.processedDocument(
       'b',
       title: 'B',
       content: 'Texto b.',
       createdAt: DateTime(2026, 10, 2, 9),
     );
-    await vault.source(
+    await vault.processedDocument(
       'a',
       title: 'A',
       content: 'Texto a.',
@@ -294,10 +297,122 @@ void main() {
     expect(statuses.last, isA<AiOrganizeIdle>());
   });
 
+  group('lo procesado, no la Biblioteca (F41, paso 6)', () {
+    test('una fuente que termina de procesarse no se organiza: ni nueva, ni '
+        'de la biblioteca que ya existía, ni pedida a mano', () async {
+      await vault.source('fuente', title: 'Fuente', content: 'Texto.');
+      await vault.source(
+        'vieja',
+        title: 'Vieja',
+        content: 'Texto.',
+        createdAt: DateTime(2026, 9),
+      );
+      charging.charging = true;
+      final ai = queue();
+
+      await ai.start();
+      ai.organizeNow('fuente');
+      await ai.settled;
+
+      expect(relations.organized, isEmpty);
+      expect(await runsOf('fuente'), isEmpty);
+      expect(await runsOf('vieja'), isEmpty);
+      expect(statuses.last, isA<AiOrganizeIdle>());
+    });
+
+    test('al triar, el procesado entra a la cola en el acto, aunque se acabe '
+        'de tocar, y la IA lo organiza con lo que se eligió', () async {
+      final seen = <String>[];
+      relations = _Step(
+        AiOrganizeToggle.relations,
+        work: (item, _) async => seen.add(
+          (await OrganizeTextReaderImpl(vault.db).textOf(item)).text,
+        ),
+      );
+      steps = [relations, flashcards];
+      await vault.processedDocument(
+        'p',
+        title: 'P',
+        content: 'Lo que se eligió.',
+        createdAt: vault.now,
+      );
+      final ai = queue();
+      await ai.start();
+      // Recién tocado: sola, todavía no la toma.
+      expect(relations.organized, isEmpty);
+
+      ai.enqueueProcessedForOrganizing('p');
+      await ai.settled;
+
+      expect(relations.organized, ['p']);
+      expect(seen, ['Lo que se eligió.']);
+      expect(
+        statuses.whereType<AiOrganizeWorking>().single.source,
+        AiWorkSource.requested,
+      );
+    });
+
+    test('volver a triar organiza otra vez, en una pasada nueva', () async {
+      await vault.processedDocument('p', title: 'P', content: 'Texto.');
+      final ai = queue();
+      await ai.start();
+      expect(await runsOf('p'), hasLength(1));
+
+      ai.enqueueProcessedForOrganizing('p');
+      await ai.settled;
+
+      expect(await runsOf('p'), hasLength(2));
+      expect(relations.organized, ['p', 'p']);
+    });
+
+    test('la pasada guarda la huella de lo elegido, que es lo que se vuelve '
+        'a comparar al editarlo', () async {
+      const chosen =
+          'Lo que se eligió al triar: el texto de la fuente, sin lo que se '
+          'dejó afuera, y una nota de quien lo leyó.';
+      await vault.processedDocument('p', title: 'P', content: chosen);
+      final ai = queue();
+
+      await ai.start();
+
+      final runId = (await runsOf('p')).single;
+      final stored = await (vault.db.select(
+        vault.db.aiRuns,
+      )..where((r) => r.id.equals(runId))).getSingle();
+      expect(stored.contentSimhash, contentSimhashOf(chosen));
+      expect(
+        stored.contentSimhash,
+        isNot(contentSimhashOf(ownTextOf(await vault.reload('p')).text)),
+      );
+    });
+
+    test('las fechas son solo de lo procesado: de una nota de la persona no '
+        'se buscan, ni solas ni pedidas', () async {
+      final dates = _DatesStep();
+      steps = [relations, dates];
+      await vault.note('n', title: 'N', content: 'En 1859 publicó.');
+      await vault.processedDocument(
+        'p',
+        title: 'P',
+        content: 'En 1859 publicó.',
+      );
+      vault.now = vault.now.add(const Duration(minutes: 5));
+      final ai = queue();
+
+      await ai.start();
+      ai.findDates(['n', 'fuente-que-no-existe']);
+      await ai.settled;
+
+      expect(relations.organized.toSet(), {'n', 'p'});
+      expect(dates.organized, ['p']);
+      expect(dates.found, isEmpty);
+    });
+  });
+
   test('pausada no toma nada y dice cuántos esperan; al reanudar, '
       'sigue', () async {
-    await vault.source('a', title: 'A', content: 'Texto.');
-    await vault.source('b', title: 'B', content: 'Texto.');
+    await vault.processedDocument('a', title: 'A', content: 'Texto.');
+    await vault.processedDocument('b', title: 'B', content: 'Texto.');
     final ai = queue(settings: const AiOrganizeSettings(enabled: false));
 
     await ai.start();
@@ -314,14 +429,14 @@ void main() {
 
   test('cada tipo respeta su interruptor; con todos apagados no abre '
       'pasadas', () async {
-    await vault.source('a', title: 'A', content: 'Texto.');
+    await vault.processedDocument('a', title: 'A', content: 'Texto.');
 
     await queue(settings: const AiOrganizeSettings(relations: false)).start();
 
     expect(relations.organized, isEmpty);
     expect(flashcards.organized, ['a']);
 
-    await vault.source('b', title: 'B', content: 'Texto.');
+    await vault.processedDocument('b', title: 'B', content: 'Texto.');
     await queue(
       settings: const AiOrganizeSettings(relations: false, flashcards: false),
     ).start();
@@ -332,7 +447,7 @@ void main() {
 
   test('si falta un modelo lo dice y espera, sin errores; con el modelo, '
       'sigue', () async {
-    await vault.source('a', title: 'A', content: 'Texto.');
+    await vault.processedDocument('a', title: 'A', content: 'Texto.');
     embeddingModel.ready = false;
     final ai = queue();
 
@@ -359,7 +474,7 @@ void main() {
 
   group('la biblioteca que ya existía', () {
     test('se recorre solo con el teléfono cargando', () async {
-      await vault.source(
+      await vault.processedDocument(
         'viejo',
         title: 'Viejo',
         content: 'Texto.',
@@ -387,7 +502,7 @@ void main() {
     test(
       'con el interruptor apagado no se recorre nunca, ni cargando',
       () async {
-        await vault.source(
+        await vault.processedDocument(
           'viejo',
           title: 'Viejo',
           content: 'Texto.',
@@ -407,7 +522,7 @@ void main() {
     test('mantiene viva la app mientras la recorre, con el avance, y la '
         'suelta al terminar', () async {
       for (final id in ['v1', 'v2', 'v3']) {
-        await vault.source(
+        await vault.processedDocument(
           id,
           title: id,
           content: 'Texto.',
@@ -431,7 +546,7 @@ void main() {
     test('la suelta si se pausa o se desenchufa, y la vuelve a pedir al '
         'seguir', () async {
       for (final id in ['v1', 'v2']) {
-        await vault.source(
+        await vault.processedDocument(
           id,
           title: id,
           content: 'Texto.',
@@ -469,7 +584,7 @@ void main() {
 
     test('lo nuevo también la pide mientras trabaja —no se congela al '
         'minimizar—; lo nuevo que se cuela en la pasada la mantiene', () async {
-      await vault.source('nuevo', title: 'Nuevo', content: 'Texto.');
+      await vault.processedDocument('nuevo', title: 'Nuevo', content: 'Texto.');
       final keeper = _Keeper();
       final ai = queue(longWork: keeper);
 
@@ -478,7 +593,7 @@ void main() {
       expect(keeper.calls, ['trabajando 0/1', 'suelta']);
       keeper.calls.clear();
 
-      await vault.source(
+      await vault.processedDocument(
         'viejo',
         title: 'Viejo',
         content: 'Texto.',
@@ -488,7 +603,11 @@ void main() {
         AiOrganizeToggle.relations,
         work: (item, _) async {
           if (item.id == 'viejo') {
-            await vault.source('otro', title: 'Otro', content: 'Texto.');
+            await vault.processedDocument(
+              'otro',
+              title: 'Otro',
+              content: 'Texto.',
+            );
           }
         },
       );
@@ -508,13 +627,13 @@ void main() {
     });
 
     test('lo nuevo pasa antes que lo viejo', () async {
-      await vault.source(
+      await vault.processedDocument(
         'viejo',
         title: 'Viejo',
         content: 'Texto.',
         createdAt: DateTime(2026, 9),
       );
-      await vault.source('nuevo', title: 'Nuevo', content: 'Texto.');
+      await vault.processedDocument('nuevo', title: 'Nuevo', content: 'Texto.');
       charging.charging = true;
 
       await queue().start();
@@ -526,8 +645,8 @@ void main() {
   test(
     'retoma lo que quedó a medias al reiniciar, hasta tres intentos',
     () async {
-      await vault.source('a', title: 'A', content: 'Texto.');
-      await vault.source('b', title: 'B', content: 'Texto.');
+      await vault.processedDocument('a', title: 'A', content: 'Texto.');
+      await vault.processedDocument('b', title: 'B', content: 'Texto.');
       // «a»: la app se cerró una vez a mitad. «b»: tres veces —algo la hace
       // caer—, y no se retoma más.
       await vault.startRun('a');
@@ -548,7 +667,7 @@ void main() {
   test(
     'no vuelve a organizar sola lo que se deshizo, salvo que se pida',
     () async {
-      await vault.source('a', title: 'A', content: 'Texto.');
+      await vault.processedDocument('a', title: 'A', content: 'Texto.');
       final ai = queue();
       await ai.start();
       await vault.runs.undoRun((await runsOf('a')).single);
@@ -568,8 +687,8 @@ void main() {
 
   test('pedir varios a la vez los organiza a todos, una vez cada uno, aunque '
       'vengan repetidos o ya se hayan deshecho (F28)', () async {
-    await vault.source('a', title: 'A', content: 'Texto.');
-    await vault.source('b', title: 'B', content: 'Texto.');
+    await vault.processedDocument('a', title: 'A', content: 'Texto.');
+    await vault.processedDocument('b', title: 'B', content: 'Texto.');
     final ai = queue();
     await ai.start();
     for (final id in ['a', 'b']) {
@@ -593,8 +712,8 @@ void main() {
         ),
         flashcards,
       ];
-      await vault.source('a', title: 'A', content: 'Texto.');
-      await vault.source('b', title: 'B', content: 'Texto.');
+      await vault.processedDocument('a', title: 'A', content: 'Texto.');
+      await vault.processedDocument('b', title: 'B', content: 'Texto.');
 
       await queue().start();
 
@@ -724,7 +843,7 @@ void main() {
       steps = [relations, cards];
       // La biblioteca que ya existía, y el teléfono sin cargar.
       for (final id in ['v1', 'v2']) {
-        await vault.source(
+        await vault.processedDocument(
           id,
           title: id.toUpperCase(),
           content: 'Texto.',
@@ -852,8 +971,8 @@ void main() {
       await ai.settled;
       expect(cards.made, hasLength(2));
 
-      await vault.source('v3', title: 'V3', content: 'Texto.');
-      await vault.source('v4', title: 'V4', content: 'Texto.');
+      await vault.processedDocument('v3', title: 'V3', content: 'Texto.');
+      await vault.processedDocument('v4', title: 'V4', content: 'Texto.');
       ai
         ..pauseFlashcards()
         ..makeFlashcards(['v3', 'v4'])
@@ -866,7 +985,7 @@ void main() {
 
     test('lo pedido a mano va antes; un fallo no corta el pedido', () async {
       cards.failsOn = 'v1';
-      await vault.source('n', title: 'Nuevo', content: 'Texto.');
+      await vault.processedDocument('n', title: 'Nuevo', content: 'Texto.');
       final ai = queue()
         ..makeFlashcards(['v1', 'v2'])
         ..organizeNow('v2');
@@ -942,7 +1061,7 @@ void main() {
         },
       ),
     ];
-    await vault.source('a', title: 'A', content: 'Texto.');
+    await vault.processedDocument('a', title: 'A', content: 'Texto.');
     final chat = gate.holdForUser();
 
     final working = queue().start();
@@ -986,7 +1105,7 @@ void main() {
 
     test('sin clave, no abre pasadas y dice que falta la clave del '
         'proveedor, no bajar un modelo', () async {
-      await vault.source('a', title: 'A', content: 'Texto.');
+      await vault.processedDocument('a', title: 'A', content: 'Texto.');
       cloudSays(const LanguageModelNeedsAccount(provider: gemini));
 
       await queue().start();
@@ -1003,7 +1122,7 @@ void main() {
 
     test('sin cuota, espera hasta la renovación sin abrir pasadas y dice '
         'cuántos esperan; cuando vuelve, sigue', () async {
-      await vault.source('a', title: 'A', content: 'Texto.');
+      await vault.processedDocument('a', title: 'A', content: 'Texto.');
       final resetsAt = vault.now.add(const Duration(hours: 6));
       cloudSays(
         LanguageModelOutOfQuota(
@@ -1034,7 +1153,7 @@ void main() {
     test(
       'en el tope del día de la IA de fondo, espera y dice el tope',
       () async {
-        await vault.source('a', title: 'A', content: 'Texto.');
+        await vault.processedDocument('a', title: 'A', content: 'Texto.');
         cloudSays(
           LanguageModelBackgroundCapReached(
             provider: gemini,
@@ -1053,7 +1172,7 @@ void main() {
 
     test('con las claves rechazadas, espera por las claves, no por la '
         'cuota', () async {
-      await vault.source('a', title: 'A', content: 'Texto.');
+      await vault.processedDocument('a', title: 'A', content: 'Texto.');
       cloudSays(
         const LanguageModelOutOfQuota(
           provider: gemini,
@@ -1081,7 +1200,7 @@ void main() {
         },
       );
       steps = [relations, flashcards];
-      await vault.source(
+      await vault.processedDocument(
         'a',
         title: 'A',
         content: 'Texto a.',
@@ -1101,7 +1220,7 @@ void main() {
       noErrors();
 
       // Mientras espera llega otro: el cortado va primero.
-      await vault.source(
+      await vault.processedDocument(
         'b',
         title: 'B',
         content: 'Texto b.',
@@ -1130,7 +1249,7 @@ void main() {
         },
       );
       steps = [relations, flashcards];
-      await vault.source('a', title: 'A', content: 'Texto.');
+      await vault.processedDocument('a', title: 'A', content: 'Texto.');
       cloudSays(const LanguageModelReady(provider: gemini));
       final ai = queue();
 
@@ -1161,7 +1280,7 @@ void main() {
         ),
       );
       steps = [relations];
-      await vault.source('a', title: 'A', content: 'Texto.');
+      await vault.processedDocument('a', title: 'A', content: 'Texto.');
       cloudSays(const LanguageModelReady(provider: gemini));
 
       await queue().start();
@@ -1183,7 +1302,7 @@ void main() {
         },
       );
       steps = [relations];
-      await vault.source('a', title: 'A', content: 'Texto.');
+      await vault.processedDocument('a', title: 'A', content: 'Texto.');
       cloudSays(const LanguageModelReady(provider: gemini));
       final ai = queue();
 
@@ -1212,7 +1331,7 @@ void main() {
             throw const CloudModelException(CloudModelFailure.blocked),
       );
       steps = [relations, flashcards];
-      await vault.source('a', title: 'A', content: 'Texto.');
+      await vault.processedDocument('a', title: 'A', content: 'Texto.');
       cloudSays(const LanguageModelReady(provider: gemini));
 
       await queue().start();
@@ -1239,7 +1358,7 @@ void main() {
         },
       );
       steps = [relations];
-      await vault.source('a', title: 'A', content: 'Texto.');
+      await vault.processedDocument('a', title: 'A', content: 'Texto.');
       cloudSays(const LanguageModelReady(provider: gemini));
       final ai = queue(modelRetryDelay: const Duration(milliseconds: 1));
 
@@ -1267,7 +1386,7 @@ void main() {
         },
       );
       steps = [relations];
-      await vault.source('a', title: 'A', content: 'Texto.');
+      await vault.processedDocument('a', title: 'A', content: 'Texto.');
       cloudSays(const LanguageModelReady(provider: gemini));
       final ai = queue();
       await ai.start();
@@ -1288,7 +1407,7 @@ void main() {
         cards = _CardsStep();
         steps = [relations, cards];
         for (final id in ['v1', 'v2']) {
-          await vault.source(
+          await vault.processedDocument(
             id,
             title: id.toUpperCase(),
             content: 'Texto.',
@@ -1408,7 +1527,7 @@ void main() {
     /// Elementos de la biblioteca que ya existía: la cola no los organiza sola.
     Future<void> library(List<String> ids) async {
       for (final id in ids) {
-        await vault.source(
+        await vault.processedDocument(
           id,
           title: id.toUpperCase(),
           content: 'Texto.',
@@ -1485,7 +1604,7 @@ void main() {
 
     test('no cuenta como organizar el elemento: para la cola sigue '
         'pendiente', () async {
-      await vault.source(
+      await vault.processedDocument(
         'a',
         title: 'A',
         content: 'Texto.',
@@ -1513,7 +1632,7 @@ void main() {
       );
       steps = [relations, dates];
       await library(['pedido', 'fecha']);
-      await vault.source(
+      await vault.processedDocument(
         'nuevo',
         title: 'Nuevo',
         content: 'Texto.',
@@ -1840,7 +1959,7 @@ void main() {
     });
 
     group('el interruptor «Fechas para la línea de tiempo»', () {
-      Future<void> freshItem() => vault.source(
+      Future<void> freshItem() => vault.processedDocument(
         'n',
         title: 'N',
         content: 'Texto.',

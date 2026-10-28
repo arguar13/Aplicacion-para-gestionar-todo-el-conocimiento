@@ -1,4 +1,4 @@
-import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processed_depth.dart';
 
 /// Una contradicción que nadie revisó: un vínculo `contradicts` entre dos
 /// elementos vivos, sin marca de revisado.
@@ -32,7 +32,7 @@ class GrowthPoint {
   /// De 1 a 12.
   final int month;
 
-  /// Cuántos elementos se guardaron ese mes.
+  /// Cuántos documentos se procesaron ese mes.
   final int added;
 
   /// Cuántos había al terminar el mes, contando los de antes.
@@ -40,34 +40,29 @@ class GrowthPoint {
 }
 
 /// Lo que el tablero del mapa cuenta además del grafo de temas (F14): las
-/// contradicciones abiertas, cuánto creció la bóveda y qué tan trabajadas
-/// están las notas.
+/// contradicciones abiertas, cuánto creció lo procesado y qué tan trabajado
+/// está.
 ///
-/// Se calcula sobre los elementos vivos que pasan el mismo filtro que el mapa.
+/// Se calcula sobre los documentos procesados vivos que pasan el mismo filtro
+/// que el mapa (F41, paso 6).
 class MapDashboard {
   const MapDashboard({
     required this.itemCount,
-    required this.sourceCount,
-    required this.noteCount,
     required this.openContradictionCount,
     required this.openContradictions,
     required this.growth,
-    required this.maturity,
+    required this.depth,
   });
 
   /// Un tablero sin nada.
   const MapDashboard.empty()
     : itemCount = 0,
-      sourceCount = 0,
-      noteCount = 0,
       openContradictionCount = 0,
       openContradictions = const [],
       growth = const [],
-      maturity = const {};
+      depth = const {};
 
   final int itemCount;
-  final int sourceCount;
-  final int noteCount;
 
   /// Cuántas contradicciones hay sin revisar en total.
   final int openContradictionCount;
@@ -80,6 +75,6 @@ class MapDashboard {
   /// últimos 24.
   final List<GrowthPoint> growth;
 
-  /// Cuántas notas hay en cada grado de madurez.
-  final Map<NoteMaturity, int> maturity;
+  /// Cuántos documentos hay en cada escalón de lo trabajado.
+  final Map<ProcessedDepth, int> depth;
 }

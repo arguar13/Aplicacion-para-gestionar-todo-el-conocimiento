@@ -57,11 +57,13 @@ Future<TimelineScope?> showTimelineAnyDocumentPicker(BuildContext context) {
   );
 }
 
-/// Los documentos listos de la biblioteca, por título.
+/// Los documentos procesados listos, por título: la línea de tiempo se arma
+/// con eso (F41, paso 6).
 const _readyDocumentsQuery = LibraryQuery(
   processingStates: {ProcessingState.ready},
   sortBy: LibrarySort.title,
   descending: false,
+  scope: LibraryScope.processed,
 );
 
 /// La hoja de elección de un tema o de un documento: un buscador y la lista
