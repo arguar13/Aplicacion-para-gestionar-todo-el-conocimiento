@@ -75,8 +75,12 @@ Future<bool> retriageSource(
     context,
     sourceItemId: sourceItemId,
     changes: kRetriageChanges,
-    onDone: (edits) async {
-      final result = await triage.retriage(sourceItemId, edits);
+    onDone: (edits, original) async {
+      final result = await triage.retriage(
+        sourceItemId,
+        edits,
+        original: original,
+      );
       if (result.getLeft().toNullable() case final failure?) return failure;
       final outcome = result.getRight().toNullable()!;
       // El nombre de ahora de la fuente, como en el aviso de la Bandeja: si

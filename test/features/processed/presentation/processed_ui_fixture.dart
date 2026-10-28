@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +16,7 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
@@ -25,15 +28,26 @@ import '../../../support/library_harness.dart';
 /// fuentes con texto y sus documentos procesados, por el caso de uso real y
 /// sobre la base real en memoria de [LibraryHarness].
 extension ProcessedUiFixture on LibraryHarness {
-  /// Guarda una fuente con [text] en su forma `rend-<id>`.
+  /// Guarda una fuente con [text] en su forma `rend-<id>` y, con
+  /// [originalName], su archivo original —con [originalBytes]— en el almacén
+  /// de prueba: lo que se puede copiar a Procesado (decisión H).
   Future<void> saveTextSource(
     String id, {
     String? title,
     String text = 'La república romana cayó. César cruzó el Rubicón.',
     SourceKind kind = SourceKind.webPage,
     DateTime? at,
+    String? originalName,
+    List<int> originalBytes = const [60, 104, 116, 109, 108, 62],
   }) async {
     final when = at ?? DateTime(2026, 10, 20, 12);
+    final originalPath = originalName == null
+        ? null
+        : await files.save(
+            bytes: Uint8List.fromList(originalBytes),
+            suggestedName: originalName,
+            id: id,
+          );
     final item = KnowledgeItem(
       id: id,
       title: title ?? 'Fuente $id',
@@ -42,6 +56,7 @@ extension ProcessedUiFixture on LibraryHarness {
         kind: kind,
         capturedAt: when,
         url: 'https://ejemplo.org/$id',
+        originalFilePath: originalPath,
       ),
       processingState: ProcessingState.ready,
       createdAt: when,
@@ -64,11 +79,13 @@ extension ProcessedUiFixture on LibraryHarness {
   /// Procesa [sourceId] con [edits] y devuelve el id del documento.
   Future<String> process(
     String sourceId,
-    Map<ProcessedSection, SectionEdit> edits,
-  ) async {
+    Map<ProcessedSection, SectionEdit> edits, {
+    OriginalEdit? original,
+  }) async {
     final result = await container.read(processSourceUseCaseProvider)(
       sourceId,
       edits,
+      original: original,
     );
     return result
         .getOrElse((failure) => throw StateError('$failure'))
@@ -129,6 +146,14 @@ extension ProcessedUiFixture on LibraryHarness {
         );
     return id;
   }
+
+  /// Cambia el texto de la fuente [id] en la base sin tocar la copia de su
+  /// original: lo que pasa al volver a extraerlo. Lo elegido ya no se marca
+  /// sobre la copia.
+  Future<void> changeSourceTextHash(String id) =>
+      (database.update(database.knowledgeSources)
+            ..where((s) => s.itemId.equals(id)))
+          .write(const KnowledgeSourcesCompanion(contentHash: Value('otro')));
 
   /// Deja la fuente [id] triada, como la dejaba la Bandeja antes de F41.
   Future<void> markTriaged(String id) =>

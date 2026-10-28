@@ -7,8 +7,10 @@ import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
+import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_source_material.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_triage.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
@@ -25,11 +27,15 @@ import 'package:sinapsis/features/study/presentation/widgets/study_document_card
 import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Lo que hace «Listo»: guardar [edits]. Devuelve el fallo, o `null` si salió
-/// bien —entonces la hoja se cierra; si no, queda abierta con lo elegido y
-/// dice por qué—.
+/// Lo que hace «Listo»: guardar [edits] y, si se pidió, lo de la copia del
+/// original ([original], decisión H; `null` si no se toca). Devuelve el fallo,
+/// o `null` si salió bien —entonces la hoja se cierra; si no, queda abierta con
+/// lo elegido y dice por qué—.
 typedef ProcessedTriageDone =
-    Future<Failure?> Function(Map<ProcessedSection, SectionEdit> edits);
+    Future<Failure?> Function(
+      Map<ProcessedSection, SectionEdit> edits,
+      OriginalEdit? original,
+    );
 
 /// Abre la hoja «¿Qué va a Procesado?» (F41) sobre la fuente
 /// [sourceItemId]. Devuelve si se terminó con «Listo».
@@ -47,9 +53,14 @@ typedef ProcessedTriageDone =
 ///   [ProcessedChange.add], y la hoja muestra interruptores; con más, cada
 ///   sección que el documento ya tiene ofrece además elegir entre agregar,
 ///   actualizar, reemplazar o quitar.
+/// - [originalExists] e [initialOriginal]: si el documento ya tiene la copia
+///   del original —sin decirlo, lo lee del documento, como [existing]— y qué
+///   se le pide al abrir (decisión H). La copia va aparte de las secciones:
+///   es un archivo, no partes.
 /// - [onDone]: lo que hace «Listo» con el `Map<ProcessedSection,
-///   SectionEdit>` armado —en la Bandeja, procesar y triar; al volver a
-///   triar, solo procesar—. La hoja no guarda nada por su cuenta.
+///   SectionEdit>` armado y lo pedido para la copia —en la Bandeja, procesar
+///   y triar; al volver a triar, solo procesar—. La hoja no guarda nada por
+///   su cuenta.
 /// - [startCutting]: abre enseguida «Cortar del original», encima: lo que
 ///   hace «Extraer nota» de la tarjeta.
 Future<bool> showProcessedTriageSheet(
@@ -59,6 +70,8 @@ Future<bool> showProcessedTriageSheet(
   Map<ProcessedSection, int>? existing,
   Map<ProcessedSection, SectionEdit> initial = const {},
   Set<ProcessedChange> changes = const {ProcessedChange.add},
+  bool? originalExists,
+  OriginalEdit? initialOriginal,
   bool startCutting = false,
 }) async {
   final still = MediaQuery.disableAnimationsOf(context);
@@ -79,6 +92,8 @@ Future<bool> showProcessedTriageSheet(
         existing: existing,
         initial: initial,
         changes: changes,
+        originalExists: originalExists,
+        initialOriginal: initialOriginal,
         startCutting: startCutting,
         scrollController: scroll,
       ),
@@ -91,8 +106,9 @@ Future<bool> showProcessedTriageSheet(
 /// de la fuente va a su documento procesado. Ver [showProcessedTriageSheet].
 ///
 /// - **De la fuente**: el texto extraído, el resumen y la síntesis, cada uno
-///   con su interruptor, en cualquier combinación. Si todavía no hay resumen
-///   o síntesis, ofrece armarlo con la IA o a mano, como la tarjeta de
+///   con su interruptor, en cualquier combinación, y —si la fuente lo
+///   ofrece— la copia de su original, con lo que ocupa. Si todavía no hay
+///   resumen o síntesis, ofrece armarlo con la IA o a mano, como la tarjeta de
 ///   estudiar —el mismo [StudySuggestion] y sus mismos caminos—, y mientras
 ///   la IA lo arma, la misma franja con «Parar».
 /// - **Lo tuyo**: las notas —escritas, o extraídas del original— y los
@@ -114,6 +130,8 @@ class ProcessedTriageSheet extends ConsumerStatefulWidget {
     this.existing,
     this.initial = const {},
     this.changes = const {ProcessedChange.add},
+    this.originalExists,
+    this.initialOriginal,
     this.startCutting = false,
     this.scrollController,
     super.key,
@@ -126,6 +144,13 @@ class ProcessedTriageSheet extends ConsumerStatefulWidget {
   final Map<ProcessedSection, int>? existing;
   final Map<ProcessedSection, SectionEdit> initial;
   final Set<ProcessedChange> changes;
+
+  /// Si el documento ya tiene la copia del original; sin decirlo, lo sabe del
+  /// documento mismo, como [existing].
+  final bool? originalExists;
+
+  /// Lo que la hoja trae pedido para la copia al abrirse.
+  final OriginalEdit? initialOriginal;
   final bool startCutting;
   final ScrollController? scrollController;
 
@@ -150,7 +175,7 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (widget.existing case final existing?) {
-        _start(existing);
+        _start(existing, originalExists: widget.originalExists ?? false);
         return;
       }
       // Lo que el documento ya tiene, del documento mismo —vivo o en la
@@ -163,18 +188,28 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
         processedDocumentForSourceProvider(widget.sourceItemId),
         (_, document) {
           if (_started || document.isLoading) return;
-          _start(document.valueOrNull?.summary.partCounts ?? const {});
+          final summary = document.valueOrNull?.summary;
+          _start(
+            summary?.partCounts ?? const {},
+            originalExists:
+                widget.originalExists ?? summary?.hasOriginal ?? false,
+          );
         },
         fireImmediately: true,
       );
     });
   }
 
-  void _start(Map<ProcessedSection, int> existing) {
+  void _start(
+    Map<ProcessedSection, int> existing, {
+    required bool originalExists,
+  }) {
     _controller.triage = ProcessedTriage.from(
       widget.sourceItemId,
       existing: existing,
       edits: widget.initial,
+      originalExists: originalExists,
+      original: widget.initialOriginal,
     );
     setState(() => _started = true);
     unawaited(_readMissingExcerpts());
@@ -223,13 +258,13 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
   }
 
   Future<void> _done() async {
-    final edits = ref.read(processedTriageProvider(widget.sourceItemId)).edits;
-    if (edits.isEmpty || _busy) return;
+    final triage = ref.read(processedTriageProvider(widget.sourceItemId));
+    if (triage.isEmpty || _busy) return;
     setState(() {
       _busy = true;
       _error = null;
     });
-    final failure = await widget.onDone(edits);
+    final failure = await widget.onDone(triage.edits, triage.originalEdit);
     if (!mounted) return;
     if (failure == null) {
       Navigator.of(context).pop(true);
@@ -280,6 +315,9 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
       for (final section in offered)
         if (triageShapeOf(section) == TriageSectionShape.clips) section,
     ];
+    // La copia del original (decisión H): si la fuente la ofrece, o si el
+    // documento ya tiene una —para actualizarla, reemplazarla o quitarla—.
+    final offersOriginal = loaded.original != null || triage.originalExists;
     final sheet = _SheetContext(
       triage: triage,
       material: loaded,
@@ -296,6 +334,11 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
             _controller.setSection(section, on: !triage.includes(section));
           }
         },
+      if (offersOriginal && whole.length < 9)
+        SingleActivator(_digits[whole.length]): () => _controller.setOriginal(
+          on: triage.original == null,
+          change: sheet.originalChanges.first,
+        ),
       if (offered.contains(ProcessedSection.fragments))
         const SingleActivator(LogicalKeyboardKey.keyC): _cut,
       if (offered.contains(ProcessedSection.notes))
@@ -340,7 +383,7 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  if (whole.isNotEmpty) ...[
+                  if (whole.isNotEmpty || offersOriginal) ...[
                     _GroupTitle(l10n.processedTriageFromSource),
                     for (final section in whole)
                       _WholeSection(
@@ -354,6 +397,18 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
                           change: change,
                         ),
                         onManual: _cut,
+                      ),
+                    if (offersOriginal)
+                      _OriginalSection(
+                        sheet: sheet,
+                        // Con la copia ya hecha, prenderlo es actualizarla:
+                        // agregar no haría nada.
+                        onChanged: (on) => _controller.setOriginal(
+                          on: on,
+                          change: sheet.originalChanges.first,
+                        ),
+                        onChange: (change) =>
+                            _controller.setOriginal(on: true, change: change),
                       ),
                   ],
                   if (clips.isNotEmpty) ...[
@@ -372,7 +427,10 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
                         ),
                       ),
                   ],
-                  _PreviewCard(sheet: sheet, keys: whole.length.clamp(1, 9)),
+                  _PreviewCard(
+                    sheet: sheet,
+                    keys: (whole.length + (offersOriginal ? 1 : 0)).clamp(1, 9),
+                  ),
                 ],
               ),
             ),
@@ -451,6 +509,17 @@ class _SheetContext {
         if (changes.contains(change) &&
             (change != ProcessedChange.update || section.canUpdate))
           change,
+    ];
+  }
+
+  /// Qué se le puede pedir a la copia del original: sin copia todavía, solo
+  /// agregarla; con una, actualizarla, reemplazarla o quitarla —agregar no
+  /// haría nada—.
+  List<ProcessedChange> get originalChanges {
+    if (!triage.originalExists) return const [ProcessedChange.add];
+    return [
+      for (final change in ProcessedChange.values)
+        if (change != ProcessedChange.add && changes.contains(change)) change,
     ];
   }
 
@@ -594,6 +663,71 @@ class _WholeSection extends ConsumerWidget {
       if (existing > 0) l10n.processedTriageExisting(existing),
       if (offer.isNotEmpty) offer,
     ].join(' · ');
+  }
+}
+
+/// La copia del original (decisión H): su interruptor y cuánto ocupa. Al
+/// volver a triar un documento que ya la tiene, actualizarla, reemplazarla o
+/// quitarla, como las demás secciones.
+class _OriginalSection extends StatelessWidget {
+  const _OriginalSection({
+    required this.sheet,
+    required this.onChanged,
+    required this.onChange,
+  });
+
+  final _SheetContext sheet;
+  final ValueChanged<bool> onChanged;
+  final ValueChanged<ProcessedChange> onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final offer = sheet.material.original;
+    final current = sheet.triage.original;
+    final changes = sheet.originalChanges;
+    final subtitle = [
+      if (sheet.triage.originalExists) l10n.processedTriageOriginalExisting,
+      if (offer != null)
+        l10n.processedTriageOriginalOffer(
+          formatFileSize(offer.sizeBytes, l10n.localeName),
+        )
+      else
+        l10n.processedTriageOriginalGone,
+    ].join(' · ');
+
+    return Column(
+      key: const Key('triage-section-original'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SwitchListTile(
+          key: const Key('triage-switch-original'),
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.file_copy_outlined),
+          title: Text(l10n.processedTriageSectionOriginal),
+          subtitle: Text(subtitle),
+          value: current != null,
+          onChanged: onChanged,
+        ),
+        if (current != null && changes.length > 1)
+          Padding(
+            padding: const EdgeInsets.only(left: 40, bottom: 8),
+            child: SegmentedButton<ProcessedChange>(
+              key: const Key('triage-change-original'),
+              showSelectedIcon: false,
+              segments: [
+                for (final change in changes)
+                  ButtonSegment(
+                    value: change,
+                    label: Text(triageChangeLabel(l10n, change)),
+                  ),
+              ],
+              selected: {current},
+              onSelectionChanged: (selected) => onChange(selected.single),
+            ),
+          ),
+      ],
+    );
   }
 }
 
@@ -822,6 +956,8 @@ class _PreviewCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final edits = sheet.triage.edits;
+    final original = sheet.triage.original;
+    final offer = sheet.material.original;
     final previews = _watchPreviews(ref, sheet);
 
     return Padding(
@@ -842,7 +978,7 @@ class _PreviewCard extends ConsumerWidget {
                   style: theme.textTheme.titleSmall,
                 ),
                 const SizedBox(height: 8),
-                if (edits.isEmpty)
+                if (sheet.triage.isEmpty)
                   Text(
                     l10n.processedTriagePreviewEmpty,
                     style: theme.textTheme.bodyMedium?.copyWith(
@@ -863,6 +999,24 @@ class _PreviewCard extends ConsumerWidget {
                               _chipText(l10n, section, edit, previews[section]),
                             ),
                           ),
+                      if (original != null)
+                        Chip(
+                          key: const Key('triage-preview-chip-original'),
+                          avatar: const Icon(
+                            Icons.file_copy_outlined,
+                            size: 16,
+                          ),
+                          label: Text(
+                            offer == null || original == ProcessedChange.remove
+                                ? l10n.processedTriageSectionOriginal
+                                : l10n.processedTriageOriginalChip(
+                                    formatFileSize(
+                                      offer.sizeBytes,
+                                      l10n.localeName,
+                                    ),
+                                  ),
+                          ),
+                        ),
                     ],
                   ),
                 const SizedBox(height: 12),
@@ -920,7 +1074,7 @@ class _Actions extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final empty = sheet.triage.edits.isEmpty;
+    final empty = sheet.triage.isEmpty;
     final words = _watchPreviews(
       ref,
       sheet,

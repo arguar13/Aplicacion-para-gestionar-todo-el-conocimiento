@@ -283,6 +283,7 @@ class _SearchAndFilters extends ConsumerWidget {
     final activeFilterCount =
         query.sourceKinds.length +
         query.sections.length +
+        (query.withOriginal ? 1 : 0) +
         (query.spaceId == null ? 0 : 1);
 
     void openFilters() => showListFiltersSheet(
@@ -366,6 +367,12 @@ class _FiltersSheet extends ConsumerWidget {
                 selected: query.sections.contains(section),
                 onSelected: (_) => notifier.toggleSection(section),
               ),
+            FilterChip(
+              avatar: const Icon(Icons.file_copy_outlined, size: 18),
+              label: Text(l10n.processedSectionOriginal),
+              selected: query.withOriginal,
+              onSelected: (_) => notifier.toggleOriginal(),
+            ),
           ],
         ),
       ],

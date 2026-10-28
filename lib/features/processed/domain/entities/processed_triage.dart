@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 
@@ -102,6 +103,8 @@ class ProcessedTriage {
     this.existing = const {},
     this.choices = const {},
     this.nextClip = 0,
+    this.originalExists = false,
+    this.original,
   });
 
   /// La hoja a partir de un pedido ya armado: lo que trae «Volver a triar»
@@ -114,6 +117,8 @@ class ProcessedTriage {
     Map<ProcessedSection, int> existing = const {},
     Map<ProcessedSection, SectionEdit> edits = const {},
     String Function(ProcessedAnchor anchor)? excerptOf,
+    bool originalExists = false,
+    OriginalEdit? original,
   }) {
     var next = 0;
     final choices = <ProcessedSection, TriageChoice>{};
@@ -142,6 +147,8 @@ class ProcessedTriage {
       existing: existing,
       choices: choices,
       nextClip: next,
+      originalExists: originalExists,
+      original: original?.change,
     );
   }
 
@@ -156,6 +163,20 @@ class ProcessedTriage {
 
   /// El número del próximo pasaje, para su [TriageClip.id].
   final int nextClip;
+
+  /// Si el documento ya tiene la copia del original (decisión H): con ella se
+  /// ofrece actualizarla, reemplazarla o quitarla.
+  final bool originalExists;
+
+  /// Lo pedido para la copia del original, o `null` si no se toca: va aparte
+  /// de las secciones porque no es una lista de partes sino un archivo.
+  final ProcessedChange? original;
+
+  /// Lo que recibe `ProcessSourceUseCase` para la copia del original.
+  OriginalEdit? get originalEdit {
+    final change = original;
+    return change == null ? null : OriginalEdit(change);
+  }
 
   /// Si el documento ya existe: con él se ofrece más que agregar.
   bool get documentExists => existing.values.any((count) => count > 0);
@@ -183,8 +204,8 @@ class ProcessedTriage {
       if (_editOf(section, choice) case final edit?) section: edit,
   };
 
-  /// Si no se pidió nada.
-  bool get isEmpty => edits.isEmpty;
+  /// Si no se pidió nada: ni una sección ni la copia del original.
+  bool get isEmpty => edits.isEmpty && original == null;
 
   static SectionEdit? _editOf(ProcessedSection section, TriageChoice choice) {
     switch (triageShapeOf(section)) {
@@ -230,6 +251,20 @@ class ProcessedTriage {
     }
     return _copy(choices: choices);
   }
+
+  /// Prende la copia del original con [change] —agregar, por defecto— o la
+  /// apaga: entonces no se toca.
+  ProcessedTriage withOriginal({
+    required bool on,
+    ProcessedChange change = ProcessedChange.add,
+  }) => ProcessedTriage(
+    sourceItemId: sourceItemId,
+    existing: existing,
+    choices: choices,
+    nextClip: nextClip,
+    originalExists: originalExists,
+    original: on ? change : null,
+  );
 
   /// Cambia lo que se le pide a [section], conservando sus pasajes.
   ProcessedTriage withChange(
@@ -325,6 +360,8 @@ class ProcessedTriage {
     existing: existing,
     choices: choices ?? this.choices,
     nextClip: nextClip ?? this.nextClip,
+    originalExists: originalExists,
+    original: original,
   );
 
   @override
@@ -333,7 +370,9 @@ class ProcessedTriage {
       other.sourceItemId == sourceItemId &&
       mapEquals(other.existing, existing) &&
       mapEquals(other.choices, choices) &&
-      other.nextClip == nextClip;
+      other.nextClip == nextClip &&
+      other.originalExists == originalExists &&
+      other.original == original;
 
   @override
   int get hashCode => Object.hash(
@@ -341,5 +380,7 @@ class ProcessedTriage {
     Object.hashAllUnordered(existing.entries.map((e) => (e.key, e.value))),
     Object.hashAllUnordered(choices.entries.map((e) => (e.key, e.value))),
     nextClip,
+    originalExists,
+    original,
   );
 }

@@ -19,8 +19,10 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_run_usage_saver
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_original_study_repository.dart';
 import 'package:sinapsis/features/processed/data/repositories/processed_study_repository_impl.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/study/data/repositories/keyed_study_repository.dart';
 import 'package:sinapsis/features/study/data/repositories/study_repository_impl.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
@@ -32,7 +34,9 @@ import 'package:sinapsis/features/transform/presentation/providers/transform_pro
 
 /// Dónde se guarda lo estudiado: el texto de una forma de la Biblioteca, en
 /// `study_marks`; el texto propio de un documento procesado (F41, decisión I),
-/// en sus partes —por su clave `procesado:…`—.
+/// en sus partes —por su clave `procesado:…`—; y la copia del original de un
+/// procesado (decisión H) muestra lo elegido de él, sin guardar nada —por su
+/// clave `procesado-original:…`—.
 final studyRepositoryProvider = Provider<StudyRepository>((ref) {
   final database = ref.watch(appDatabaseProvider);
   final telemetry = ref.watch(telemetryServiceProvider);
@@ -42,6 +46,9 @@ final studyRepositoryProvider = Provider<StudyRepository>((ref) {
       kProcessedStudyKeyPrefix: ProcessedStudyRepositoryImpl(
         database: database,
         telemetry: telemetry,
+      ),
+      kProcessedOriginalStudyKeyPrefix: ProcessedOriginalStudyRepository(
+        ref.watch(processedRepositoryProvider),
       ),
     },
   );

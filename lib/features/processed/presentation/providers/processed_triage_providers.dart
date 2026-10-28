@@ -8,6 +8,7 @@ import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_triage.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 
 /// Lo que se va eligiendo en la hoja «¿Qué va a Procesado?» (F41) de una
@@ -29,6 +30,12 @@ class ProcessedTriageController extends StateNotifier<ProcessedTriage> {
     required bool on,
     ProcessedChange change = ProcessedChange.add,
   }) => state = state.withSection(section, on: on, change: change);
+
+  /// Prende o apaga la copia del original (decisión H), con [change].
+  void setOriginal({
+    required bool on,
+    ProcessedChange change = ProcessedChange.add,
+  }) => state = state.withOriginal(on: on, change: change);
 
   /// «A Procesado»: el pasaje [anchor] del original, a los fragmentos.
   /// Devuelve si entró —el mismo tramo no entra dos veces—.
@@ -75,6 +82,29 @@ final processedTriageProvider = StateNotifierProvider.autoDispose
 /// ningún corte.
 final processedCutSourceProvider = Provider<String?>((ref) => null);
 
+/// Los fragmentos de un documento procesado sobre la copia de su original
+/// (decisión H), por la clave de la copia (`processedOriginalStudyKeyFor`):
+/// los visores los marcan con el color de los cortes, como mientras se corta.
+/// Sin nada que marcar —el texto de la fuente ya no es el de la copia—,
+/// ninguno.
+final processedOriginalCutsProvider = Provider.autoDispose
+    .family<List<ProcessedAnchor>, String>((ref, key) {
+      final documentId = processedDocumentOfOriginalStudyKey(key);
+      if (documentId == null) return const [];
+      final marks = ref
+          .watch(processedOriginalMarksProvider(documentId))
+          .valueOrNull;
+      if (marks == null) return const [];
+      return [
+        for (final fragment in marks.fragments)
+          ProcessedAnchor(
+            renditionId: key,
+            start: fragment.start,
+            end: fragment.end,
+          ),
+      ];
+    });
+
 /// Si se está cortando de [itemId], quien recibe los cortes; si no, `null`.
 ProcessedTriageController? processedCutterFor(WidgetRef ref, String itemId) {
   if (ref.read(processedCutSourceProvider) != itemId) return null;
@@ -119,6 +149,9 @@ List<PaintedRange> watchProcessedCutPaints(
 /// Las anclas de los cortes del texto [renditionId] mientras se corta de su
 /// fuente, y cada cambio; fuera de la pantalla de cortar, ninguna.
 List<ProcessedAnchor> watchProcessedCuts(WidgetRef ref, String renditionId) {
+  if (processedDocumentOfOriginalStudyKey(renditionId) != null) {
+    return ref.watch(processedOriginalCutsProvider(renditionId));
+  }
   final source = ref.watch(processedCutSourceProvider);
   if (source == null) return const [];
   return ref.watch(processedTriageProvider(source)).cutsIn(renditionId);

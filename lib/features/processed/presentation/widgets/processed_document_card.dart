@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_section_presentation.dart';
@@ -48,6 +47,12 @@ class ProcessedDocumentCard extends StatelessWidget {
       DateFormat.yMMMd(locale).format(document.updatedAt.toLocal()),
     );
     final sections = document.sections;
+    // Las partes que tiene y, al final, la copia del original (decisión H).
+    final parts = [
+      for (final section in sections) (section.icon, section.label(l10n)),
+      if (document.hasOriginal)
+        (Icons.file_copy_outlined, l10n.processedSectionOriginal),
+    ];
 
     return Material(
       color: selected
@@ -96,21 +101,21 @@ class ProcessedDocumentCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (sections.isNotEmpty) ...[
+                    if (parts.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       // Para el lector de pantalla, las partes en una sola
                       // frase y no chip por chip.
                       Semantics(
                         label: l10n.processedRowParts(
-                          sections.map((s) => s.label(l10n)).join(', '),
+                          parts.map((part) => part.$2).join(', '),
                         ),
                         excludeSemantics: true,
                         child: Wrap(
                           spacing: 6,
                           runSpacing: 6,
                           children: [
-                            for (final section in sections)
-                              _PartChip(section: section),
+                            for (final (icon, label) in parts)
+                              _PartChip(icon: icon, label: label),
                           ],
                         ),
                       ),
@@ -165,13 +170,13 @@ class _OriginBadge extends StatelessWidget {
 /// Una parte que tiene el documento: un chip quieto, sin toque propio —tocar
 /// la fila abre el documento—.
 class _PartChip extends StatelessWidget {
-  const _PartChip({required this.section});
+  const _PartChip({required this.icon, required this.label});
 
-  final ProcessedSection section;
+  final IconData icon;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
@@ -185,11 +190,11 @@ class _PartChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(section.icon, size: 14, color: colors.onSurfaceVariant),
+            Icon(icon, size: 14, color: colors.onSurfaceVariant),
             const SizedBox(width: 4),
             Flexible(
               child: Text(
-                section.label(l10n),
+                label,
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: colors.onSurfaceVariant,
                 ),

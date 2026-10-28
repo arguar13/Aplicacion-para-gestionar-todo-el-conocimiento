@@ -617,9 +617,9 @@ Verificación:
   `processedStudyTextProvider` dé el texto del procesado; hasta entonces devuelve `null`. Las acciones de
   cada sección (`_SectionActions`) son el lugar de sus atajos.
 
-**Lo que falta del paso 2** —entra con el 1b—: Palabras clave (la lista compacta y, plegables, las
-oraciones con la clave marcada) y el Original (la copia en el visor de siempre con las marcas), y
-llenar `processedStudyTextProvider`.
+**Lo que faltaba del paso 2** —Palabras clave de las dos formas y el Original— entró con el 1b, en la
+segunda tanda (más abajo). Conectar `processedStudyTextProvider` es «Resumir» en el documento: del
+paso 8.
 
 Verificación:
 
@@ -632,6 +632,75 @@ Verificación:
   con una prueba que fija que se pide una sola.
 - Sin probar en el emulador ni en el teléfono: el lector en voz alta con un motor de voz real, y un libro
   de verdad en el teléfono.
+
+### Paso 2, segunda tanda (hecho): el Original, su conmutador y las palabras clave
+
+Sobre el 1b. Para el paso 8: acá **no** se tocaron las acciones que salen de la fuente (decisión K);
+abajo dice dónde engancharlas.
+
+- **La copia del original en el documento** (decisión H).
+  - Arriba, debajo de la fuente, su tarjeta (`ProcessedOriginalCard`): qué es (PDF, página web
+    archivada o documento), cuánto ocupa, cuándo se copió y **«Ver el original»**. Es también el lugar
+    de lo que se haga con la copia misma —«Borrar la copia del original», del 8—.
+  - **«Ver el original»** (`RoutePaths.processedOriginal(id)`, en la raíz) abre la copia en el visor de
+    siempre según `ProcessedOriginal.kind`: el de PDF, el de páginas o el lector. Encima, lo elegido:
+    resumen, síntesis y palabras clave con los colores de estudiar, y los fragmentos con el de los
+    cortes. Arriba, un interruptor por color.
+  - **Cómo se pinta sin tocar la fuente.** El visor mira la copia por **su propia clave**,
+    `procesado-original:<id>` (`processedOriginalStudyKeyFor`), como a cualquier texto. Esa clave tiene
+    su repositorio en `KeyedStudyRepository`: `ProcessedOriginalStudyRepository` da lo elegido
+    (`watchOriginalMarks`) como lo estudiado y **solo se lee**, así que cualquier escritura falla
+    diciéndolo y nada cae en la fuente. Sus fragmentos salen de `processedOriginalCutsProvider`, que
+    `watchProcessedCuts` usa para esa clave. `studyViewProvider` abre esa clave con todo a la vista
+    (`kMarkedCopyStudyView`).
+    - Se descartó sobreescribir `documentStudyProvider` en un `ProviderScope`: los providers que
+      dependen de él (los de escuchar) piden `dependencies` y Riverpod lo frena. La clave propia es la
+      costura que ya existía (decisión I) y no deja dos verdades.
+  - **Si el texto de la fuente cambió** (`content_hash`), `watchOriginalMarks` no da nada: no se pinta y
+    una línea lo dice. Un PDF o una página se ven igual. Un Word, un EPUB o un texto, que el lector
+    muestra por su texto, ofrecen «Abrir con otra app».
+  - **Para el 8**: la barrita de los visores sigue ofreciendo sus acciones sobre la copia, con
+    `itemId` = el procesado y la clave de la copia. Resaltar ahí no tiene dónde guardarse (la clave no
+    es una forma) y lo avisa; «Extraer nota», «Tarjeta» y «Línea de tiempo» quedan apuntando al
+    procesado, como pide K: revisarlas cuando se muden.
+- **El conmutador «El original» en la hoja «¿Qué va a Procesado?»**, en «De la fuente».
+  - Solo aparece si la fuente lo ofrece (`ProcessedSourceMaterial.original`: documentos de texto y
+    páginas archivadas) o si el documento ya tiene la copia. Dice cuánto ocupa con `formatFileSize`.
+  - Va aparte de las secciones, porque es un archivo y no partes: `ProcessedTriage.original` (un
+    `ProcessedChange`) y `originalEdit`. «Listo» se prende con solo eso, y entra en «Va a quedar».
+  - Con la copia ya hecha ofrece Actualizar, Reemplazar o Quitar, y prenderlo es Actualizar: Agregar
+    no haría nada. La hoja lo sabe del documento (`summary.hasOriginal`), como sus cuentas por sección
+    (paso 4), o de `showProcessedTriageSheet(originalExists:)`. Con el teclado, el número que sigue a
+    las secciones.
+  - «Listo» lo pasa: `ProcessedTriageDone` es ahora `(edits, original)`, y `TriageIntoProcessed` —al
+    triar y al volver a triar (`retriage`)— lo manda a `ProcessSourceUseCase(…, original:)`. Es el único
+    cambio en la Bandeja y en «Volver a triar».
+- **Palabras clave, de las dos formas** (`ProcessedKeywordsView`).
+  - Arriba, la lista compacta (`compactKeywords`): cada palabra una vez, sin distinguir mayúsculas,
+    en el orden del texto. Tocarla la abre en su lugar de la fuente, si la oración no se editó.
+  - Plegadas, las oraciones, cada una con su clave marcada en el rosa de estudiar. Eso lo hace
+    `ReadAloudText`, que sumó capas fijas (`paints`). Una oración editada más corta no marca fuera de
+    sí (`keywordSpansOf`).
+- **«Original» en la lista**: es un chip más de la fila (`hasOriginal`) y un filtro más
+  (`ProcessedQuery.withOriginal`), que vale como cualquiera de las partes.
+- **Lo que queda para otros**: `ProcessedStudySlot` define su propio `processedStudyTextProvider`
+  (el hueco del paso 2, que devuelve `null`) con el mismo nombre que el del 1b en
+  `processed_providers.dart`. Conectar la tarjeta de estudiar del procesado es «Resumir» en el
+  documento: del 8, que puede borrar el del hueco y usar el del 1b.
+
+Verificación:
+
+- `flutter analyze`: 19.
+- Pruebas nuevas: 9 del original (`processed_original_screen_test`), 5 del conmutador en la hoja, 3 de
+  las palabras clave, 1 del chip y el filtro, y 2 de triar y volver a triar con la copia. Pasan 3.381
+  en `test/app`, `test/core/design`, procesado, Bandeja, estudiar, visores, Biblioteca, organizar,
+  narración, lectura, tarjetas y línea de tiempo. Tras rebasar sobre el paso 4, pasan 2.085 en
+  `test/app`, procesado, Bandeja, estudiar, visores, Biblioteca y organizar; la de escala del 1b
+  (`process_source_scale_test`) falló con la máquina cargada y pasa sola.
+- 28 mutaciones, todas muertas. La que primero sobrevivió —no marcar los fragmentos sobre la copia—
+  tiene ahora su prueba en lo que se pinta, no en el provider.
+- Sin probar en el emulador ni en el teléfono: el PDF de verdad (pdfrx no corre en las pruebas) y la
+  página en el `WebView`.
 
 **Paso 3 (el resto): triar es elegir qué va a Procesado.**
 

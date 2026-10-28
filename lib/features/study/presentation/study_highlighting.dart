@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_layers.dart';
@@ -101,7 +102,18 @@ class StudyView {
 
 /// Qué se ve de lo estudiado del texto de una forma (F36).
 final studyViewProvider = StateProvider.autoDispose.family<StudyView, String>(
-  (ref, renditionId) => const StudyView(),
+  (ref, renditionId) => renditionId.startsWith(kProcessedOriginalStudyKeyPrefix)
+      ? kMarkedCopyStudyView
+      : const StudyView(),
+);
+
+/// Cómo se abre la copia del original de un documento procesado (F41,
+/// decisión H): con todo lo elegido a la vista —es lo que se fue a ver—. Sus
+/// interruptores lo apagan de a uno.
+const kMarkedCopyStudyView = StudyView(
+  summary: true,
+  synthesis: true,
+  keywords: true,
 );
 
 /// Los colores de resaltador (F36): verde el resumen, celeste la síntesis y

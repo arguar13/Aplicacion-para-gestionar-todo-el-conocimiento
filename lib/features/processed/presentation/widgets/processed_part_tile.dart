@@ -12,7 +12,9 @@ import 'package:sinapsis/features/organize/presentation/widgets/highlightable_te
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_readable.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/processed_keywords_view.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_section_presentation.dart';
+import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Una parte de un documento procesado (F41): una página del texto, una
@@ -75,6 +77,11 @@ class ProcessedPartTile extends ConsumerWidget {
                     sourceKey: processedPartReadKey(part.id),
                     style: theme.textTheme.bodyLarge,
                     selectable: true,
+                    // Una oración de las palabras clave, con su clave marcada.
+                    paints: keywordPaintsOf(
+                      part,
+                      StudyPalette.of(theme.brightness),
+                    ),
                   ),
                 ),
               ),

@@ -6,6 +6,7 @@ import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/inbox/domain/repositories/inbox_repository.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 
@@ -55,11 +56,16 @@ class TriageIntoProcessed {
   final ProcessSourceUseCase _process;
 
   /// «Listo» en la hoja «¿Qué va a Procesado?»: procesa [sourceItemId] con
-  /// [edits] y la tría.
+  /// [edits] —y, si se pidió, con la copia de su original ([original])— y la
+  /// tría.
   Future<Either<Failure, ProcessOutcome>> call(
     String sourceItemId,
-    Map<ProcessedSection, SectionEdit> edits,
-  ) => _thenTriage(sourceItemId, _process(sourceItemId, edits));
+    Map<ProcessedSection, SectionEdit> edits, {
+    OriginalEdit? original,
+  }) => _thenTriage(
+    sourceItemId,
+    _process(sourceItemId, edits, original: original),
+  );
 
   /// «Pasar todo sin modificar»: el texto original entero, con su enlace, y
   /// nada más (ver `ProcessSourceUseCase.passUnchanged`), y la tría.
@@ -75,11 +81,14 @@ class TriageIntoProcessed {
   /// - Si no —espera en la Bandeja, o se descartó—, queda triada como al
   ///   triarla en la Bandeja, las dos cosas o ninguna.
   ///
+  /// Con [original], también la copia de su original (decisión H).
+  ///
   /// Falla, sin escribir nada, si [sourceItemId] no es una fuente viva.
   Future<Either<Failure, RetriageOutcome>> retriage(
     String sourceItemId,
-    Map<ProcessedSection, SectionEdit> edits,
-  ) async {
+    Map<ProcessedSection, SectionEdit> edits, {
+    OriginalEdit? original,
+  }) async {
     final status = await _inbox.statusOf(sourceItemId);
     if (status.getLeft().toNullable() case final failure?) return left(failure);
     final from = status.getRight().toNullable();
@@ -93,13 +102,13 @@ class TriageIntoProcessed {
       );
     }
     if (from == InboxStatus.triaged) {
-      final processed = await _process(sourceItemId, edits);
+      final processed = await _process(sourceItemId, edits, original: original);
       return processed.map(
         (outcome) =>
             RetriageOutcome(sourceItemId: sourceItemId, processed: outcome),
       );
     }
-    final triaged = await call(sourceItemId, edits);
+    final triaged = await call(sourceItemId, edits, original: original);
     return triaged.map(
       (outcome) => RetriageOutcome(
         sourceItemId: sourceItemId,

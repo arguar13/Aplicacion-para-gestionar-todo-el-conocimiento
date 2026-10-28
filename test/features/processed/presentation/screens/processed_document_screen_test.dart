@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/database/app_database.dart'
+    show StudyMarksCompanion;
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
@@ -11,6 +15,7 @@ import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
+import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/trash/presentation/screens/trash_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -354,6 +359,113 @@ void main() {
         find.widgetWithText(FilledButton, es.processedPageJumpGo),
       );
       expect(go.onPressed, isNull);
+    });
+  });
+
+  group('las palabras clave, de las dos formas', () {
+    /// Dos oraciones con sus palabras clave: «república» y «Rubicón», y otra
+    /// vez «república» en la segunda, que la lista compacta no repite.
+    const keywordsText =
+        'La república romana cayó. César cruzó el Rubicón y la república.';
+
+    Future<String> processKeywords() async {
+      await harness.saveTextSource(
+        'claves',
+        title: 'Claves',
+        text: keywordsText,
+      );
+      for (final (word, from) in [
+        ('república', 0),
+        ('Rubicón', 0),
+        ('república', 30),
+      ]) {
+        final start = keywordsText.indexOf(word, from);
+        await harness.database
+            .into(harness.database.studyMarks)
+            .insert(
+              StudyMarksCompanion.insert(
+                id: 'clave-$start',
+                renditionId: 'rend-claves',
+                kind: StudyMarkKind.keyword,
+                origin: ContentOrigin.ai,
+                startOffset: start,
+                endOffset: start + word.length,
+                excerpt: word,
+                createdAt: DateTime(2026, 10, 20, 12),
+              ),
+            );
+      }
+      return harness.process('claves', {
+        ProcessedSection.keywords: SectionEdit.add(
+          const SectionInput.fromSource(),
+        ),
+      });
+    }
+
+    Finder compact() => find.byKey(const Key('processed-keywords-compact'));
+
+    testWidgets('arriba la lista compacta, en el orden del texto y sin '
+        'repetir; plegadas, las oraciones', (tester) async {
+      final id = await processKeywords();
+      await open(tester, id);
+
+      expect(
+        [
+          for (final chip in tester.widgetList<ActionChip>(
+            find.descendant(of: compact(), matching: find.byType(ActionChip)),
+          ))
+            (chip.label as Text).data,
+        ],
+        ['república', 'Rubicón'],
+      );
+      // Las oraciones, plegadas hasta pedirlas.
+      expect(find.text('La república romana cayó.'), findsNothing);
+      await tester.tap(find.text(es.processedKeywordsSentences(2)));
+      await tester.pumpAndSettle();
+      expect(find.text('La república romana cayó.'), findsOneWidget);
+    });
+
+    testWidgets('cada oración lleva su clave marcada en el rosa de estudiar', (
+      tester,
+    ) async {
+      final id = await processKeywords();
+      await open(tester, id);
+      await tester.tap(find.text(es.processedKeywordsSentences(2)));
+      await tester.pumpAndSettle();
+
+      final pink = StudyPalette.of(Brightness.light).keyword;
+      final marked = <String>[];
+      // Cada oración es un `SelectableText.rich`: se puede seleccionar.
+      for (final selectable in tester.widgetList<SelectableText>(
+        find.byType(SelectableText),
+      )) {
+        selectable.textSpan?.visitChildren((span) {
+          if (span is TextSpan &&
+              span.style?.backgroundColor == pink &&
+              span.text != null) {
+            marked.add(span.text!);
+          }
+          return true;
+        });
+      }
+      expect(marked, containsAll(['república', 'Rubicón']));
+    });
+
+    testWidgets('tocar una palabra la abre en su lugar de la fuente', (
+      tester,
+    ) async {
+      final id = await processKeywords();
+      await open(tester, id);
+
+      await tester.tap(
+        find.descendant(of: compact(), matching: find.text('Rubicón')),
+      );
+      await tester.pumpAndSettle();
+
+      final reading = tester.widget<ReadingScreen>(find.byType(ReadingScreen));
+      final start = keywordsText.indexOf('Rubicón');
+      expect(reading.itemId, 'claves');
+      expect(reading.jump, (start: start, end: start + 'Rubicón'.length));
     });
   });
 

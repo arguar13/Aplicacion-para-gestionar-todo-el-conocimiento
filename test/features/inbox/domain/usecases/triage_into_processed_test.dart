@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
@@ -17,6 +19,7 @@ import 'package:sinapsis/features/inbox/domain/repositories/inbox_repository.dar
 import 'package:sinapsis/features/inbox/domain/usecases/triage_into_processed.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
@@ -99,6 +102,84 @@ void main() {
       expect(await sections(), {ProcessedSection.text});
     },
   );
+
+  /// Una fuente con su archivo: lo que se puede copiar a Procesado.
+  Future<void> saveWithFile() async {
+    final now = DateTime(2026, 10, 27, 9);
+    final file = await harness.files.save(
+      bytes: Uint8List.fromList(text.codeUnits),
+      suggestedName: 'notas.txt',
+      id: 'con-archivo',
+    );
+    await harness.container
+        .read(libraryRepositoryProvider)
+        .save(
+          KnowledgeItem(
+            id: 'con-archivo',
+            title: 'Con archivo',
+            source: Source(
+              id: 'src-con-archivo',
+              kind: SourceKind.document,
+              capturedAt: now,
+              originalFilePath: file,
+            ),
+            processingState: ProcessingState.ready,
+            createdAt: now,
+            updatedAt: now,
+            renditions: [
+              Rendition.text(
+                id: 'rend-con-archivo',
+                itemId: 'con-archivo',
+                kind: RenditionKind.plainText,
+                content: text,
+                isPrimary: true,
+                createdAt: now,
+              ),
+            ],
+          ),
+        );
+  }
+
+  test(
+    'con la copia del original pedida, la guarda y la tría (decisión H)',
+    () async {
+      await saveWithFile();
+
+      final outcome = await triage()(
+        'con-archivo',
+        const {},
+        original: const OriginalEdit(ProcessedChange.add),
+      );
+
+      expect(outcome.isRight(), isTrue);
+      expect(await stateOf('con-archivo'), ItemState.triaged);
+      expect(
+        await harness.database
+            .select(harness.database.processedOriginals)
+            .get(),
+        hasLength(1),
+      );
+    },
+  );
+
+  test('volver a triar también lleva la copia del original', () async {
+    await saveWithFile();
+    await triage()('con-archivo', {
+      ProcessedSection.text: SectionEdit.add(const SectionInput.fromSource()),
+    });
+
+    final outcome = await triage().retriage(
+      'con-archivo',
+      const {},
+      original: const OriginalEdit(ProcessedChange.add),
+    );
+
+    expect(outcome.isRight(), isTrue);
+    expect(
+      await harness.database.select(harness.database.processedOriginals).get(),
+      hasLength(1),
+    );
+  });
 
   test(
     '«Pasar todo sin modificar» guarda solo el texto entero y la tría',

@@ -54,6 +54,10 @@ abstract final class RoutePaths {
 
   static String processedDocument(String id) => '$processed/$id';
 
+  /// La copia del original de un documento procesado (decisión H), en su
+  /// visor y con lo elegido marcado encima.
+  static String processedOriginal(String id) => '$processed/$id/original';
+
   /// Guardar algo nuevo.
   static const capture = '/capture';
 
@@ -241,6 +245,7 @@ abstract final class RouteNames {
   static const inbox = 'inbox';
   static const processed = 'processed';
   static const processedDocument = 'processed-document';
+  static const processedOriginal = 'processed-original';
   static const capture = 'capture';
   static const transcriptionModel = 'transcription-model';
   static const vaultBackup = 'vault-backup';

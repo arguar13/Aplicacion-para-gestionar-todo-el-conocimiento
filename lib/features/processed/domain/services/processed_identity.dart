@@ -34,6 +34,24 @@ const kProcessedStudyKeyPrefix = 'procesado:';
 String processedStudyKeyFor(String documentId) =>
     '$kProcessedStudyKeyPrefix$documentId';
 
+/// Lo que antecede a la clave de estudio de la copia del original de un
+/// procesado (decisión H): ver [processedOriginalStudyKeyFor].
+const kProcessedOriginalStudyKeyPrefix = 'procesado-original:';
+
+/// La clave con que los visores miran la copia del original del procesado
+/// [documentId]: lo estudiado de ella es lo elegido del procesado
+/// (`ProcessedOriginalStudyRepository`), y no se mezcla ni con lo de la fuente
+/// ni con lo estudiado en el procesado mismo (`processedStudyKeyFor`).
+String processedOriginalStudyKeyFor(String documentId) =>
+    '$kProcessedOriginalStudyKeyPrefix$documentId';
+
+/// El documento de la clave [key] de una copia del original, o `null` si no
+/// es una.
+String? processedDocumentOfOriginalStudyKey(String key) =>
+    key.startsWith(kProcessedOriginalStudyKeyPrefix)
+    ? key.substring(kProcessedOriginalStudyKeyPrefix.length)
+    : null;
+
 /// El documento de la clave de estudio [key], o `null` si no es de un
 /// procesado.
 String? processedDocumentOfStudyKey(String key) =>

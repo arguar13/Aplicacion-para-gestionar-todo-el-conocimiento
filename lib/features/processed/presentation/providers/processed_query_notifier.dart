@@ -47,6 +47,13 @@ class ProcessedQueryNotifier extends StateNotifier<ProcessedQuery> {
     state = state.copyWith(sections: sections, limit: pageSize);
   }
 
+  /// Suma o quita «tiene la copia del original» (decisión H): vale, como las
+  /// partes, cualquiera de las elegidas.
+  void toggleOriginal() => state = state.copyWith(
+    withOriginal: !state.withOriginal,
+    limit: pageSize,
+  );
+
   /// Ordena por [sort]. Por título va de la A a la Z; lo demás, lo más
   /// reciente arriba —ver `ProcessedQuery.descending`—.
   void sortBy(ProcessedSort sort) {
@@ -65,6 +72,7 @@ class ProcessedQueryNotifier extends StateNotifier<ProcessedQuery> {
       spaceId: null,
       sourceKinds: const {},
       sections: const {},
+      withOriginal: false,
       limit: pageSize,
     );
   }
@@ -78,6 +86,7 @@ class ProcessedQueryNotifier extends StateNotifier<ProcessedQuery> {
   int get activeFilterCount =>
       state.sourceKinds.length +
       state.sections.length +
+      (state.withOriginal ? 1 : 0) +
       (state.spaceId == null ? 0 : 1);
 
   bool get hasActiveFilters => activeFilterCount > 0;

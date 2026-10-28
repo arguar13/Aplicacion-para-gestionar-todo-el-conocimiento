@@ -1744,6 +1744,14 @@ dice el nombre de la fuente, y debajo hay dos grupos:
   prendidos, cuánto va a quedar. Las palabras clave llegan **con su oración**:
   cada una va dentro de la oración de la fuente donde está, para leerla en su
   contexto.
+  - **El original** (solo en documentos de texto —PDF, Word, EPUB, texto— y
+    páginas web archivadas): una **copia propia del archivo** para tu documento
+    procesado, que se abre en el visor de siempre con lo que elegiste marcado
+    encima. Debajo dice cuánto ocupa (*"Una copia del archivo · 2,3 MB"*).
+    Si la fuente no lo ofrece (un audio, una foto, un archivo que ya no está),
+    no aparece. Al volver a triar un documento que ya tiene su copia, se elige
+    **Actualizar** (la vuelve a copiar solo si el archivo de la fuente es otro),
+    **Reemplazar** o **Quitar**.
   - Si todavía **no hay resumen, síntesis o palabras clave**, debajo aparecen
     los mismos dos caminos de la tarjeta de estudiar: **"Resumir con Gemini 2.5 Flash"** (o el
     modelo que elegiste) y **"Elegir a mano"**. Con la IA, la franja muestra cómo
@@ -1763,7 +1771,8 @@ dice el nombre de la fuente, y debajo hay dos grupos:
   - Cada nota y cada fragmento se ve en su lista, con una **X** para quitarlo.
 
 Al final de la hoja, **"Va a quedar"** muestra en chips cada parte que va
-(*"Texto extraído · 12 páginas"*, *"Resumen · 14 oraciones"*), y abajo, fijo,
+(*"Texto extraído · 12 páginas"*, *"Resumen · 14 oraciones"*, *"El original ·
+2,3 MB"*), y abajo, fijo,
 cuántas palabras van en total. Todo se actualiza **en vivo** mientras elegís,
 sin guardar nada.
 
@@ -1966,7 +1975,8 @@ Se ve y se maneja como la [Biblioteca](#la-biblioteca):
   documento, aunque las palabras estén en partes distintas.
 - **Filtros** (el botón de la perilla, con el número de los que tenés
   puestos): por **tema**, por **de qué fuente salió** (un libro, una página,
-  un video…) y por **qué partes tiene**. Con un filtro que no deja nada, ofrece
+  un video…) y por **qué partes tiene**, también **Original** (los que tienen la
+  copia del archivo). Con un filtro que no deja nada, ofrece
   **"Limpiar filtros"**.
 - **Ordenar** (el botón de las rayitas): **lo último que trabajaste** (el de
   siempre), **cuándo lo procesaste** o **por título, de la A a la Z**.
@@ -1976,8 +1986,7 @@ Se ve y se maneja como la [Biblioteca](#la-biblioteca):
 
 Cada fila muestra el ícono del tipo de fuente de la que salió, el título, las
 partes que tiene —**Texto · Resumen · Síntesis · Palabras clave · Notas ·
-Fragmentos**— y cuándo
-se actualizó por última vez.
+Fragmentos · Original**— y cuándo se actualizó por última vez.
 
 **Vacío:** *"Todavía no procesaste nada. Triá una fuente en la Bandeja."*, con
 un botón **"Ir a la Bandeja"**. Si tenés fuentes que triaste **antes** de que
@@ -1996,6 +2005,18 @@ abre la hoja de esa fuente con lo que el documento ya tiene (ver
 [Volver a triar](#volver-a-triar)); con la fuente en la papelera está apagado
 y dice que primero la restaures.
 
+Si guardaste **la copia del original**, debajo está su tarjeta: qué es (*"PDF"*,
+*"Página web archivada"* o *"Documento"*), cuánto ocupa y cuándo se copió, con
+**"Ver el original"**. Abre la copia en el visor de siempre —el de PDF, el de
+páginas o el lector— con lo que elegiste **marcado encima**: el resumen en verde,
+la síntesis en celeste y las palabras clave en rosa, como al estudiar, y los
+fragmentos en durazno, como al cortarlos. Arriba, **"Resumen"**, **"Síntesis"**
+y **"Palabras clave"** prenden y apagan cada color. Es una copia tuya: lo que
+ves marcado es de tu documento procesado, no de la fuente, y la fuente no se
+toca. Si el texto de la fuente cambió desde que lo copiaste (por ejemplo, lo
+volviste a extraer), no se marca nada y una línea arriba lo dice; un Word, un
+EPUB o un texto, que se leen por su texto, ofrecen **"Abrir con otra app"**.
+
 Debajo, **sus secciones**, cada una plegable con su nombre y cuánto tiene (por
 ejemplo *"12 páginas"* o *"8 oraciones"*, y *"2 con cambios tuyos"* si editaste
 algo). Lo elegido —resumen, síntesis, palabras clave, notas, fragmentos— se
@@ -2011,6 +2032,10 @@ abre desplegado; el
   **"Deshacer"** en el aviso de abajo. Lo que editás queda marcado *"Con cambios
   tuyos"* y, al volver a triar con "Actualizar", no se pisa. Una parte no se
   puede dejar vacía: para sacarla, quitala.
+- **Las palabras clave** se ven **de las dos formas**: arriba, la **lista
+  compacta**, cada palabra una vez y en el orden del texto (tocá una para
+  abrirla en su lugar de la fuente); debajo, **"Ver las 9 oraciones"** despliega
+  cada oración con su palabra marcada en rosa, editable como cualquier parte.
 - **Cada fragmento** tiene **"Abrir en el original"**: abre la fuente en modo
   lectura, justo en ese pasaje, como las tarjetas y las citas. Las oraciones y
   las notas que salieron de un pasaje lo tienen en su menú. Si la fuente está en

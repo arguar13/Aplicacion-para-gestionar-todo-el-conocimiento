@@ -40,6 +40,7 @@ import 'package:sinapsis/features/notebooks/presentation/screens/notebooks_scree
 import 'package:sinapsis/features/processed/presentation/processed_routes.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_original_screen.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_screen.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_backfill_screen.dart';
@@ -446,6 +447,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     builder: (context, state) => ProcessedDocumentScreen(
                       documentId: state.pathParameters['id']!,
                     ),
+                    routes: [
+                      // La copia del original (decisión H), encima del
+                      // documento, también en la raíz.
+                      GoRoute(
+                        parentNavigatorKey: rootNavigatorKey,
+                        path: 'original',
+                        name: RouteNames.processedOriginal,
+                        builder: (context, state) => ProcessedOriginalScreen(
+                          documentId: state.pathParameters['id']!,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

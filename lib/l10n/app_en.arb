@@ -11624,5 +11624,120 @@
   "notebookEmptiedTitle": "This notebook was emptied when the app updated",
   "notebookEmptiedManual": "A notebook now holds only processed documents: what it had came from the Library, which stays whole. To fill it again, triage in the Inbox and add the processed documents.",
   "notebookEmptiedQuery": "A notebook now holds only processed documents: its saved view is the same, but it no longer looks at the Library. Triage in the Inbox, and what you process that matches it will show up here.",
-  "notebookEmptiedDismiss": "Got it"
+  "notebookEmptiedDismiss": "Got it",
+  "processedSectionOriginal": "Original",
+  "@processedSectionOriginal": {
+    "description": "Parte de un documento procesado (F41, decisión H): la copia propia del archivo de la fuente. Chip de la fila y filtro de «Procesado»."
+  },
+  "processedOriginalCardTitle": "The copy of the original",
+  "@processedOriginalCardTitle": {
+    "description": "Tarjeta del documento procesado con la copia propia del archivo de la fuente (F41, decisión H)."
+  },
+  "processedOriginalCardDetails": "{kind} · {size} · copied on {date}",
+  "@processedOriginalCardDetails": {
+    "description": "Debajo de «La copia del original»: qué es, cuánto ocupa y cuándo se copió (F41).",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "processedOriginalKindPdf": "PDF",
+  "@processedOriginalKindPdf": {
+    "description": "Tipo de la copia del original de un documento procesado (F41)."
+  },
+  "processedOriginalKindPage": "Archived web page",
+  "@processedOriginalKindPage": {
+    "description": "Tipo de la copia del original de un documento procesado (F41)."
+  },
+  "processedOriginalKindDocument": "Document",
+  "@processedOriginalKindDocument": {
+    "description": "Tipo de la copia del original de un documento procesado: un Word, un EPUB o un texto (F41)."
+  },
+  "processedOriginalOpen": "See the original",
+  "@processedOriginalOpen": {
+    "description": "Abre la copia del original de un documento procesado en su visor, con lo elegido marcado (F41)."
+  },
+  "processedOriginalMarked": "With what you chose marked on it",
+  "@processedOriginalMarked": {
+    "description": "Debajo de «Ver el original»: la copia muestra marcado el resumen, la síntesis, las palabras clave y los fragmentos (F41)."
+  },
+  "processedOriginalUnmarked": "What you chose isn't marked: the source's text is no longer the text of this copy.",
+  "@processedOriginalUnmarked": {
+    "description": "Una línea sobre la copia del original cuando el texto de la fuente cambió desde que se copió (F41)."
+  },
+  "processedOriginalUnreadable": "This copy can't be read here: its text is no longer the source's. Open it with another app.",
+  "@processedOriginalUnreadable": {
+    "description": "La copia de un Word, un EPUB o un texto cuyo texto extraído ya no corresponde (F41)."
+  },
+  "processedOriginalOpenWith": "Open with another app",
+  "@processedOriginalOpenWith": {
+    "description": "Abre la copia del original de un documento procesado con la app del sistema (F41)."
+  },
+  "processedOriginalMissing": "This document doesn't have a copy of the original.",
+  "@processedOriginalMissing": {
+    "description": "La pantalla del original de un documento procesado que no tiene copia (F41)."
+  },
+  "processedOriginalLayers": "What's marked",
+  "@processedOriginalLayers": {
+    "description": "Rótulo de los interruptores de lo que se marca sobre la copia del original (F41)."
+  },
+  "processedKeywordsSentences": "{count, plural, =1{See the sentence} other{See the {count} sentences}}",
+  "@processedKeywordsSentences": {
+    "description": "Despliega, en Palabras clave de un documento procesado, las oraciones con su clave marcada (F41).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedKeywordOpen": "Open “{word}” in the original",
+  "@processedKeywordOpen": {
+    "description": "Ayuda de una palabra clave de la lista compacta: la abre en su lugar de la fuente (F41).",
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "processedKeywordsListLabel": "The keywords, in the order of the text",
+  "@processedKeywordsListLabel": {
+    "description": "Para el lector de pantalla: la lista compacta de palabras clave de un documento procesado (F41)."
+  },
+  "processedTriageSectionOriginal": "The original",
+  "@processedTriageSectionOriginal": {
+    "description": "Hoja «¿Qué va a Procesado?» (F41, decisión H): una copia propia del archivo de la fuente."
+  },
+  "processedTriageOriginalOffer": "A copy of the file · {size}",
+  "@processedTriageOriginalOffer": {
+    "description": "Debajo del interruptor «El original»: cuánto ocupa la copia (F41).",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "processedTriageOriginalExisting": "It already has its copy",
+  "@processedTriageOriginalExisting": {
+    "description": "Debajo de «El original», al volver a triar: el documento ya tiene la copia (F41)."
+  },
+  "processedTriageOriginalGone": "The source no longer has its file: the copy stays",
+  "@processedTriageOriginalGone": {
+    "description": "Debajo de «El original», al volver a triar una fuente que soltó su archivo (F41)."
+  },
+  "processedTriageOriginalChip": "The original · {size}",
+  "@processedTriageOriginalChip": {
+    "description": "Chip de «Va a quedar» en la hoja de triar: la copia del original y cuánto ocupa (F41).",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  }
 }

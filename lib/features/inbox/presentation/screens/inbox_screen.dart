@@ -253,8 +253,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       sourceItemId: item.id,
       startCutting: cutting,
       changes: kRetriageChanges,
-      onDone: (edits) async {
-        final result = await triage(item.id, edits);
+      onDone: (edits, original) async {
+        final result = await triage(item.id, edits, original: original);
         if (!mounted) return result.getLeft().toNullable();
         return _processed(
           item,

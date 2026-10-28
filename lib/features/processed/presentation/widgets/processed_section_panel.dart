@@ -9,6 +9,7 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_c
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/processed_keywords_view.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_part_tile.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_section_presentation.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_text_pages.dart';
@@ -95,9 +96,13 @@ class ProcessedSectionPanel extends StatelessWidget {
               pageCount: count,
               sourceItemId: sourceItemId,
             ),
+            ProcessedSection.keywords => ProcessedKeywordsView(
+              documentId: document.id,
+              count: count,
+              sourceItemId: sourceItemId,
+            ),
             ProcessedSection.summary ||
             ProcessedSection.synthesis ||
-            ProcessedSection.keywords ||
             ProcessedSection.notes ||
             ProcessedSection.fragments => _PartsList(
               documentId: document.id,

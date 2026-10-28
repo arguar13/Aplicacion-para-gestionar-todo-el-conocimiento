@@ -12,6 +12,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
@@ -37,8 +38,20 @@ void main() {
     harness = await LibraryHarness.create();
   });
 
-  Future<void> seedSource({String id = 'fuente', bool summary = true}) async {
+  Future<void> seedSource({
+    String id = 'fuente',
+    bool summary = true,
+    bool withFile = false,
+  }) async {
     final now = DateTime(2026, 10, 27, 9);
+    // La página archivada: lo que se puede copiar a Procesado (decisión H).
+    final file = withFile
+        ? await harness.files.save(
+            bytes: Uint8List(2048),
+            suggestedName: 'pagina.html',
+            id: id,
+          )
+        : null;
     await harness.container
         .read(libraryRepositoryProvider)
         .save(
@@ -50,6 +63,7 @@ void main() {
               kind: SourceKind.webPage,
               capturedAt: now,
               url: 'https://ejemplo.org/roma',
+              originalFilePath: file,
             ),
             processingState: ProcessingState.ready,
             createdAt: now,
@@ -81,11 +95,13 @@ void main() {
 
   /// Lo que recibió «Listo», y lo que contesta.
   final received = <Map<ProcessedSection, SectionEdit>>[];
+  final receivedOriginals = <OriginalEdit?>[];
   Failure? answer;
   bool? closedWith;
 
   setUp(() {
     received.clear();
+    receivedOriginals.clear();
     answer = null;
     closedWith = null;
   });
@@ -95,6 +111,7 @@ void main() {
     Map<ProcessedSection, int> existing = const {},
     Map<ProcessedSection, SectionEdit> initial = const {},
     Set<ProcessedChange> changes = const {ProcessedChange.add},
+    bool originalExists = false,
     double textScale = 1,
     bool still = false,
     ThemeMode themeMode = ThemeMode.light,
@@ -131,8 +148,10 @@ void main() {
                       existing: existing,
                       initial: initial,
                       changes: changes,
-                      onDone: (edits) async {
+                      originalExists: originalExists,
+                      onDone: (edits, original) async {
                         received.add(edits);
+                        receivedOriginals.add(original);
                         return answer;
                       },
                     );
@@ -157,8 +176,8 @@ void main() {
         find.byKey(Key('triage-switch-${section.name}')),
       );
 
-  Future<void> toggle(WidgetTester tester, ProcessedSection section) async {
-    final target = find.byKey(Key('triage-switch-${section.name}'));
+  Future<void> tapSwitch(WidgetTester tester, Key key) async {
+    final target = find.byKey(key);
     await tester.scrollUntilVisible(
       target,
       120,
@@ -172,6 +191,9 @@ void main() {
     await tester.tap(target);
     await tester.pumpAndSettle();
   }
+
+  Future<void> toggle(WidgetTester tester, ProcessedSection section) =>
+      tapSwitch(tester, Key('triage-switch-${section.name}'));
 
   testWidgets('ofrece lo de la fuente y lo tuyo, y sin nada elegido «Listo» '
       'está apagado y dice por qué', (tester) async {
@@ -447,6 +469,133 @@ void main() {
           ),
         ]),
       ),
+    });
+  });
+
+  group('el original (decisión H)', () {
+    const originalSwitch = Key('triage-switch-original');
+
+    testWidgets('sin archivo que copiar, no aparece', (tester) async {
+      await seedSource();
+      await pumpSheet(tester);
+
+      expect(find.byKey(const Key('triage-section-original')), findsNothing);
+    });
+
+    testWidgets('con la página archivada, aparece con lo que ocupa; prenderlo '
+        'solo ya deja «Listo», y manda agregar la copia', (tester) async {
+      await seedSource(withFile: true, summary: false);
+      await pumpSheet(tester);
+
+      expect(find.byKey(originalSwitch), findsOneWidget);
+      expect(
+        find.text(es.processedTriageOriginalOffer('2 kB')),
+        findsOneWidget,
+      );
+      expect(done(tester).onPressed, isNull);
+
+      await tapSwitch(tester, originalSwitch);
+
+      expect(
+        find.byKey(const Key('triage-preview-chip-original')),
+        findsOneWidget,
+      );
+      expect(find.text(es.processedTriageOriginalChip('2 kB')), findsOneWidget);
+      expect(done(tester).onPressed, isNotNull);
+
+      await tester.tap(find.byKey(const Key('triage-done')));
+      await tester.pumpAndSettle();
+      expect(received.single, isEmpty);
+      expect(receivedOriginals.single, const OriginalEdit(ProcessedChange.add));
+    });
+
+    testWidgets('apagarlo lo saca de lo pedido', (tester) async {
+      await seedSource(withFile: true);
+      await pumpSheet(tester);
+
+      await toggle(tester, ProcessedSection.text);
+      await tapSwitch(tester, originalSwitch);
+      await tapSwitch(tester, originalSwitch);
+      await tester.tap(find.byKey(const Key('triage-done')));
+      await tester.pumpAndSettle();
+
+      expect(receivedOriginals.single, isNull);
+    });
+
+    testWidgets('al volver a triar un documento que ya la tiene, se elige '
+        'actualizarla, reemplazarla o quitarla —agregar no haría nada—', (
+      tester,
+    ) async {
+      await seedSource(withFile: true);
+      await pumpSheet(
+        tester,
+        originalExists: true,
+        changes: ProcessedChange.values.toSet(),
+      );
+
+      expect(
+        find.textContaining(es.processedTriageOriginalExisting),
+        findsOneWidget,
+      );
+      await tapSwitch(tester, originalSwitch);
+      final segmented = find.byKey(const Key('triage-change-original'));
+      expect(segmented, findsOneWidget);
+      // Prenderlo con la copia ya hecha es actualizarla.
+      expect(
+        tester
+            .widget<SegmentedButton<ProcessedChange>>(segmented)
+            .selected
+            .single,
+        ProcessedChange.update,
+      );
+      expect(
+        find.descendant(
+          of: segmented,
+          matching: find.text(es.processedTriageChangeAdd),
+        ),
+        findsNothing,
+      );
+      await tester.tap(
+        find.descendant(
+          of: segmented,
+          matching: find.text(es.processedTriageChangeReplace),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('triage-done')));
+      await tester.pumpAndSettle();
+
+      expect(
+        receivedOriginals.single,
+        const OriginalEdit(ProcessedChange.replace),
+      );
+    });
+
+    testWidgets('con el teclado, el número siguiente a las secciones prende el '
+        'original', (tester) async {
+      await seedSource(withFile: true);
+      await pumpSheet(tester);
+
+      final sheet = find.byKey(const Key('processed-triage-sheet'));
+      final digits = [
+        LogicalKeyboardKey.digit1,
+        LogicalKeyboardKey.digit2,
+        LogicalKeyboardKey.digit3,
+        LogicalKeyboardKey.digit4,
+        LogicalKeyboardKey.digit5,
+      ];
+      final wholeCount = tester
+          .widgetList(
+            find.descendant(of: sheet, matching: find.byType(SwitchListTile)),
+          )
+          .length;
+      await tester.sendKeyEvent(digits[wholeCount - 1]);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<SwitchListTile>(find.byKey(originalSwitch)).value,
+        isTrue,
+      );
     });
   });
 

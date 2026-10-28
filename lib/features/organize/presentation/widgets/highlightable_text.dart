@@ -572,6 +572,10 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
 /// Sin nada que resaltar se dibuja igual que un `Text` —o un
 /// `SelectableText`, con [selectable]— de siempre; solo el texto que se está
 /// leyendo se redibuja cuando el lector cambia de línea.
+///
+/// Con [paints], lleva además esas capas fijas —las palabras clave de una
+/// oración de un documento procesado (F41), con los colores de estudiar—,
+/// debajo del amarillo de lo que se lee.
 class ReadAloudText extends ConsumerWidget {
   const ReadAloudText(
     this.text, {
@@ -579,6 +583,7 @@ class ReadAloudText extends ConsumerWidget {
     this.style,
     this.textAlign,
     this.selectable = false,
+    this.paints = const [],
     super.key,
   });
 
@@ -591,6 +596,9 @@ class ReadAloudText extends ConsumerWidget {
   final TextStyle? style;
   final TextAlign? textAlign;
   final bool selectable;
+
+  /// Capas fijas sobre [text], con sus posiciones contadas sobre él.
+  final List<PaintedRange> paints;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -615,7 +623,7 @@ class ReadAloudText extends ConsumerWidget {
           },
         );
 
-    if (reading == null) {
+    if (reading == null && paints.isEmpty) {
       return selectable
           ? SelectableText(
               text,
@@ -635,6 +643,7 @@ class ReadAloudText extends ConsumerWidget {
       const [],
       baseStyle: DefaultTextStyle.of(context).style.merge(style),
       activeRange: reading,
+      paints: paints,
     );
     return selectable
         ? SelectableText.rich(

@@ -16,6 +16,7 @@ import 'package:sinapsis/features/processed/domain/entities/processed_document.d
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_readable.dart';
 import 'package:sinapsis/features/processed/presentation/retriage.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/processed_original_card.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_section_panel.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_study_slot.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_text_pages.dart';
@@ -25,6 +26,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// - **Arriba, su fuente**: «Ver el original en la Biblioteca», y si la fuente
 ///   está en la papelera o se borró, lo dice. Al lado, «Volver a triar».
+/// - **La copia del original**, si la tiene (decisión H): «Ver el original»
+///   la abre en su visor con lo elegido marcado (`ProcessedOriginalCard`).
 /// - **La tarjeta de estudiar** sobre su propio texto (decisión I), cuando lo
 ///   tenga: ver `ProcessedStudySlot`.
 /// - **Sus secciones**, plegables y en el orden en que se leen, cada una con
@@ -136,8 +139,9 @@ class _DocumentBodyState extends ConsumerState<_DocumentBody> {
           ],
           _SourceCard(document: document),
           const SizedBox(height: 12),
+          ProcessedOriginalCard(documentId: document.id),
           ProcessedStudySlot(document: document),
-          if (sections.isEmpty)
+          if (document.summary.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(

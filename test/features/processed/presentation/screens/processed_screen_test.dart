@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
@@ -120,6 +121,42 @@ void main() {
       await tester.tap(find.text('Roma'));
       await tester.pumpAndSettle();
       expect(find.byType(ProcessedDocumentScreen), findsOneWidget);
+    });
+
+    testWidgets('la copia del original es una parte más: su chip en la fila '
+        'y su filtro', (tester) async {
+      await harness.saveTextSource(
+        'pagina',
+        title: 'Con copia',
+        originalName: 'pagina.html',
+      );
+      await harness.process('pagina', {
+        ProcessedSection.text: SectionEdit.add(const SectionInput.fromSource()),
+      }, original: const OriginalEdit(ProcessedChange.add));
+      await harness.processTextAndNotes('roma');
+      await open(tester);
+
+      final row = find.ancestor(
+        of: find.text('Con copia'),
+        matching: find.byType(ProcessedDocumentCard),
+      );
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.text(es.processedSectionOriginal),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip(es.libraryFiltersTooltip));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(FilterChip, es.processedSectionOriginal),
+      );
+      await tester.pumpAndSettle();
+      await closeSheet(tester);
+
+      expect(rowTitles(tester), ['Con copia']);
     });
 
     testWidgets('se filtra por las partes que tiene', (tester) async {
