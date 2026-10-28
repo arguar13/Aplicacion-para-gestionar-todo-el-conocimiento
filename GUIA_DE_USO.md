@@ -927,9 +927,9 @@ Los colores son los mismos que ves en la pantalla con el tema claro: la hoja
 es blanca. Lo que se pisa se apila igual que en la pantalla: el resumen, la
 síntesis, tus resaltados (el más nuevo arriba) y las palabras clave encima.
 
-El mosaico **«Resumir»** del panel, en un documento o una página web, prende
-el resumen y te lleva a la tarjeta. En un video, un audio o una nota sigue
-como siempre: un resumen escrito en un diálogo.
+El mosaico **«Resumir»** del panel queda solo en una nota propia: un resumen
+escrito en un diálogo. Una fuente no lo tiene, porque se estudia en su
+[documento procesado](#procesado), con su propia tarjeta de estudiar.
 
 **«Volver a analizar»**, en el menú **⋮** de la tarjeta, rehace desde cero
 lo que hizo la IA. Antes pregunta. **Lo que elegiste a mano se queda**: las

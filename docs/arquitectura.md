@@ -6861,6 +6861,104 @@ no ofrecían nada ni pintaban lo que sonaba.
     PDFium real), la franja y qué se pinta; no hay una prueba de widget que mueva el visor.
   - La voz real: las pruebas usan un motor falso.
 
+### 87. F41: «Procesado» —la información pura que se elige al triar, en un documento propio; la Biblioteca queda de consulta—
+
+**Pedido** (2026-10-27): *"En la pestaña Organizar, vamos a crear otra interfaz, debajo de la
+Bandeja y arriba de la Línea de tiempo, que sea igual a la Biblioteca … aquí va a ir información
+pura, y dentro de cada archivo va a haber un enlace que me va a redirigir al documento respectivo
+de la Biblioteca"*, con dos ajustes del dueño mientras se construía (la copia del original, las
+palabras clave y estudiar el procesado solo; después, la fuente de consulta y las imágenes). Y el
+principio: *"de la Biblioteca nada se borra, debe permanecer siempre como una base de datos de
+consulta, para eso está lo procesado"*. Plan, con sus decisiones A–L y el «Avance» de cada paso:
+`docs/planes/F41-procesado.md`.
+
+- **El documento procesado es un elemento de la bóveda, derivado de su fuente** (decisión A): una
+  nota de un tipo nuevo (`NoteKind.processed`) con su fila en `processed_documents`, uno por fuente
+  garantizado por la base, y un id que sale de la fuente (UUID v5). Así hereda la búsqueda, el chat,
+  la papelera, la copia y la unión de bóvedas sin rehacerlos, y dos dispositivos que procesan la
+  misma fuente llegan al mismo elemento. Se descartó una tabla aparte: habría pedido rehacer cada uno
+  de esos caminos.
+- **Cada sección guarda su origen y su ancla** (decisión B, `processed_parts`): si es copiada o
+  escrita, si se editó y dónde estaba en el original. Es lo que deja elegir Agregar, Actualizar,
+  Reemplazar o Quitar sin adivinar. **«Actualizar» nunca pisa lo editado a mano.**
+- **Un libro entero no traba la app.** Se midió con 3 millones de caracteres: el texto va en
+  páginas de 8.000 (`kProcessedTextPageChars`), así que guardarlo cuesta lo que una fila y corregir
+  o leer cuesta lo que mide una página. La lista y el documento abierto nunca traen el texto;
+  paginar y comparar lo largo corre en otro hilo.
+- **De la Biblioteca nada se borra** (decisión G). Triar, volver a triar o editar no cambia ninguna
+  fila de la fuente (lo fija una prueba). La hoja de F30 salió de la Bandeja: no queda ningún camino
+  automático que suelte el archivo o el texto de una fuente. Si alguien vacía la papelera con la
+  fuente adentro, el procesado conserva su texto y su enlace pasa a `null`.
+- **La copia del original y cada imagen son formas propias del procesado** (decisiones H y L), en
+  `originales/<procesado>/`, copiadas por el sistema sin pasar por la memoria. Ser una forma las hace
+  contar, sin tocarlos, para `isFileReferenced`, el borrado de verdad, la copia de la bóveda y la
+  unión. Soltar el archivo de la fuente no toca la copia, y al revés. Lo elegido se pinta sobre la
+  copia por su propia clave de solo lectura (`procesado-original:<id>`), y solo mientras el texto de
+  la fuente siga siendo el de la copia.
+- **Cambio de regla en la unión de bóvedas** (`rendition_merge.dart`): `dropped_here` cuenta
+  cualquier forma de la copia cuyo `rendition_id` espera en la papelera del contenido de esta bóveda,
+  no solo un texto. Así la copia del original o una imagen que la persona quitó acá no vuelven con
+  la unión, igual que un texto soltado.
+- **El procesado se estudia solo** (decisión I): resumen, síntesis y palabras clave de su propio
+  texto (`studyTextOf`), con la máquina de siempre y la clave `procesado:<id>`, guardado en el
+  procesado y no en la fuente. Lo estudiado ahí es propio: «Actualizar» no lo pisa.
+- **Dos textos que no se confunden.** El que se estudia (`ProcessedStudyText`: las páginas de Texto,
+  o el de la fuente con la copia) y el de las tarjetas, el quiz y la nota derivada
+  (`ProcessedCardText`, `readProcessedCardText`: todas las secciones de las que salen tarjetas, con
+  el ancla en la fuente de lo copiado intacto). Las clases se llaman distinto a propósito.
+- **Triar es elegir qué va a Procesado** (`ProcessedTriageSheet`): de la fuente, cada sección con su
+  interruptor, el original y la grilla de imágenes; lo tuyo, notas y fragmentos cortados en el visor
+  de siempre; la vista previa en vivo y «Va a quedar». Triar y procesar van juntos o ninguno.
+  «Pasar todo sin modificar» guarda solo el texto, nunca audio, video ni la ficha. Todo lo nuevo
+  entra a la Bandeja apenas se guarda, esperando su texto con su estado real.
+- **«Volver a triar» por un solo punto** (`retriageAction`), desde la Bandeja, el documento, el vacío
+  de Procesado y el detalle de la fuente, con el selector de toda la Biblioteca y la misma hoja, que
+  lee lo que el documento ya tiene.
+- **«Extraer como nota» de una fuente va siempre a su documento procesado** (decisión J), lo decide
+  `extractRangeAsNote` para los cuatro visores y el modo lectura. Si no hay documento, nace con esa
+  sola nota, sin triar la fuente.
+- **Los Cuadernos, solo con Procesado**: `NotebookRepository` es el único que escribe
+  `notebook_item` y deja afuera lo que no es un procesado vivo; «Por consulta» se traduce a una
+  `ProcessedQuery`; el chat acotado no trae ningún fragmento de una fuente. Los cuadernos que
+  existían se vaciaron en la migración, con su aviso hasta que se lo descarte.
+- **La fuente queda de consulta** (decisión K, `isConsultationSource`). Su detalle pierde lo que es
+  estudiarla —«Resumir», lo estudiado para leer, el Mapa, las Tarjetas, lo de la IA, la nota
+  derivada, el quiz, «Borrar archivo»— y gana una línea: «Estudiarlo en Procesado» o «Para
+  estudiarlo, triálo». Todo eso vive en el documento procesado, con las piezas de siempre sobre él.
+  Lo que la IA ya organizó en una fuente no se borra: deja de verse. Las tarjetas que ya tenía la
+  fuente se ven en su documento, en «De la fuente», sin moverlas. «Borrar la copia del original,
+  quedarme con el texto» pasa el texto de la fuente a la sección Texto en el mismo guardado, para que
+  el documento no quede mudo.
+- **La IA organiza lo procesado, no las fuentes** (decisión F, sin subir el esquema). La cola toma
+  solo notas, y un documento procesado es una. Lee solo lo elegido (`OrganizeTextReader`, armado en
+  un solo lugar por `joinProcessedParts`). Un procesado se vincula solo con procesados. Las fechas
+  de una parte copiada tal cual citan su lugar en la fuente (`citeInSource`), así que «Abrir en el
+  documento» lleva al original. Triar o volver a triar lo encola en el acto, por un solo punto
+  (`TriageIntoProcessed`, salvo «Sin cambios»); deshacer no lo saca de la cola, porque la cola
+  salta un documento que ya no existe.
+- **Atlas, Mapa, grafo local y Línea de tiempo leen solo lo procesado**, en SQL: `LibraryScope.processed`
+  aplica los mismos filtros de la Biblioteca sobre los documentos procesados. Empiezan de cero: lo
+  que las fuentes ya tenían sigue guardado, pero no las alimenta. El Atlas cuenta cada procesado por
+  cuánto se trabajó (`ProcessedDepth`: solo texto, con resumen o síntesis, con fragmentos, con
+  notas propias). El A/B a 10.000 elementos no mostró costo medible de la condición nueva.
+- **Los esquemas v45, v46 y v47**, aditivos, con los conteos de todas las tablas como compuerta de
+  la migración y las tablas nuevas en los censos de la papelera, la copia y la unión.
+- **Se descartó:**
+  - Una segunda Biblioteca con lo triado y lo descartado (la primera versión del plan).
+  - Una tabla aparte para el procesado, sin papelera ni copia.
+  - Guardar un libro en una sola fila: corregir una letra costaba 280 ms.
+  - Pasar al procesado lo que la IA ya organizó en la Biblioteca: Atlas, Mapa y Línea empiezan de
+    cero.
+  - Redirigir a la fuente lo que se hace sobre la copia del original: se quitó de la barrita.
+  - Listar las fotos incrustadas en una página archivada: obligaba a decodificar hasta 25 MB para
+    armar una grilla.
+- **Lo que no quedó probado:**
+  - Nada en el emulador ni en el teléfono.
+  - El PDF de verdad y la página en el `WebView`, sobre la copia y en modo cortar.
+  - Las fotos de verdad en la grilla y la galería, y el pellizco del zoom.
+  - La IA real en tarjetas, quiz, nota derivada y organizar.
+  - «Ver en la fuente» desde una tarjeta de un procesado: le falta una columna con el ancla.
+
 ### 88. F42: un chat moderno —barra limpia, panel de conversaciones, saludo, campo flotante con «+» y la respuesta a todo lo ancho—
 
 **Pedido** (2026-10-27): *"La interfaz de nuestro chat está medio «retro» y quisiera hacerla más
@@ -7416,6 +7514,18 @@ de organización, no para copiarlas. Plan, con el «Avance» de cada paso:
   Síntesis · Palabras clave», empiezan por lo que se ve, pintan lo que suena en amarillo sobre el
   original (la palabra, con palabras clave) y siguen la lectura con «Volver a la lectura» si la
   persona se mueve. También el texto largo del detalle, que se lee con el mismo lector.
+- **F41, «Procesado»: la información pura que se elige al triar** (decisión 87, esquemas v45 a
+  v47). En «Organizar», entre la Bandeja y el Atlas, una pantalla como la Biblioteca con un
+  documento propio por fuente:
+  - triar abre «¿Qué va a Procesado?»: texto, resumen, síntesis, palabras clave, la copia del
+    original, las imágenes de a una, notas y fragmentos cortados en el visor, con vista previa en
+    vivo; o «Pasar todo sin modificar»;
+  - «Volver a triar» agrega, actualiza, reemplaza o quita por sección, desde cualquier lado y con
+    toda la Biblioteca para elegir;
+  - el documento se estudia solo (resumir, tarjetas, quiz, nota derivada, Mapa) y la fuente queda
+    de consulta: de la Biblioteca nada se borra;
+  - los Cuadernos, el Atlas, el Mapa y la Línea de tiempo se arman solo con lo procesado, y la IA
+    organiza lo elegido.
 - **F42, un chat moderno** (decisión 88):
   - arriba, ☰ con el panel de conversaciones (por día, con buscador, fijar y renombrar), la
     píldora del modelo y ✎;

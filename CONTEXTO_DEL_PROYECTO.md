@@ -218,6 +218,19 @@ desde F13):
     - el detalle sale igual desde todos lados (antes, en blanco desde el Atlas);
     - la vista previa de unir bóvedas cuenta lo estudiado y los hechos;
     - Cuadernos va en «Organizar» y el botón del medio abre el chat directo.
+- **F41** — **«Procesado»: la información pura que se elige al triar** (decisión 87, esquemas v45,
+  v46 y v47).
+  - **El documento procesado**: uno por fuente, un elemento de la bóveda con secciones que guardan
+    su origen y su ancla (Texto en páginas de 8.000, Resumen, Síntesis, Palabras clave, Notas,
+    Fragmentos e Imágenes), la copia propia del original y un enlace a la fuente.
+  - **La Bandeja**: todo lo nuevo entra apenas se guarda; triar abre «¿Qué va a Procesado?», con
+    vista previa en vivo, «Cortar del original» en el visor de siempre y «Pasar todo sin
+    modificar». «Extraer como nota» de una fuente va siempre a su documento procesado.
+  - **«Volver a triar»**, por un solo punto, desde la Bandeja, el documento, el vacío y el detalle.
+  - **La fuente queda de consulta**: estudiar, el Mapa, las Tarjetas, lo de la IA, la nota
+    derivada y el quiz viven en el documento procesado. De la Biblioteca nada se borra.
+  - **Cuadernos, Atlas, Mapa, grafo local y Línea de tiempo**, solo con lo procesado y empezando de
+    cero; la IA organiza lo elegido. Los cuadernos que existían se vaciaron, con su aviso.
 - **F42** — **un chat moderno** (decisión 88), sin cambios de esquema.
   - **Arriba**: ☰ con el panel de conversaciones (por día, con buscador, fijar, renombrar y
     «Nueva»), la píldora del modelo con dónde se pregunta y ✎.
@@ -269,12 +282,13 @@ desde F13):
 > Falta mirarla en el teléfono: el dictado, la vibración, el teclado inmersivo y cómo se ven el
 > fundido y el brillo. La APK se instala solo si el dueño la pide.
 >
-> **F41 («Procesado») está en construcción**: `docs/planes/F41-procesado.md`. En main están los
-> pasos 1 (datos, v45), 2 (la pantalla) y 3 (la Bandeja nueva). Faltan 1b (v46), 4, 5, 6 y la
-> decisión J, cada uno con su agente.
+> **F41 («Procesado») está construida** (2026-10-28): `docs/planes/F41-procesado.md`. Esquemas
+> v45, v46 y v47. Falta mirarla en el teléfono: el PDF y la página web sobre la copia del original
+> y en modo cortar, las fotos de verdad en la grilla y la galería, y la IA real organizando lo
+> procesado. La APK se instala solo si el dueño la pide.
 
 
-- `origin/main` = el commit «docs: cierre de F40». **Suite: 10.331 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre).
+- `origin/main` = el commit «docs: cierre de F41». **Suite: 11.333 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre).
   **Analizador: 19 avisos.** Es la línea base de `tool/verify_commit.ps1` y **no puede crecer**.
 - Hay cinco archivos con cambios de solo formato que no son de este trabajo y no se commitean:
   - `lib/core/database/tables/suggestions.dart`

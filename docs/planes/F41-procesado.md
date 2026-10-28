@@ -1,7 +1,8 @@
 # F41 — «Procesado»: la información pura que elegís al triar
 
-> **Estado: APROBADO, segunda versión** (2026-10-27, «Aprobado, y agregá más agentes para
-> avanzar más rápido» en el chat).
+> **Estado: CONSTRUIDO** (2026-10-28), decisión 87 en `docs/arquitectura.md`. Aprobado en su
+> segunda versión el 2026-10-27 («Aprobado, y agregá más agentes para avanzar más rápido» en el
+> chat).
 >
 > La primera versión, aprobada el mismo día, entendía «Procesado» como una segunda Biblioteca con
 > lo triado y lo descartado. El dueño la corrigió antes de que se construyera nada: «tirar» era
@@ -1335,3 +1336,17 @@ colgado del documento procesado (decisión F).
   dos eran código que nunca corría y se sacó. Otras cuatro se fueron con lo que el paso 8 dejó sin
   uso.
 - Sin probar en el emulador ni en el teléfono.
+
+### Paso 9 (hecho): el cierre
+
+- La decisión 87 en `docs/arquitectura.md`, con el cambio de regla de `dropped_here` en la unión
+  de bóvedas (paso 7), y F41 en «Construido».
+- `CONTEXTO_DEL_PROYECTO.md` y la GUÍA al día. En la GUÍA quedaba que el mosaico «Resumir» estaba
+  en el panel de una fuente: ahora dice que queda solo en una nota propia.
+- Suite entera sobre `87e147ee`: **11.333 pasan, 0 fallas, 46 omitidas**. `flutter analyze`: 19.
+- En una primera corrida de la suite, `processed_document_screen_test` se colgó en su primera
+  prueba («Ver el original en la Biblioteca» abre la fuente): no terminó en cinco minutos, y ni
+  siquiera saltó el límite de 240 s, así que el proceso quedó trabado entero. No se repitió: el
+  archivo solo pasa (35 de 35), con carga alta en paralelo pasa, y la segunda corrida de la suite
+  entera pasó completa. Si vuelve a pasar, mirar ahí primero.
+- Sin probar en el emulador ni en el teléfono: la APK se instala si el dueño la pide.
