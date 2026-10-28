@@ -28,6 +28,7 @@ import 'package:sinapsis/core/util/text_anchor_locator.dart';
 import 'package:sinapsis/features/processed/data/repositories/processed_original_trash.dart';
 import 'package:sinapsis/features/processed/data/repositories/processed_query_sql.dart';
 import 'package:sinapsis/features/processed/data/repositories/processed_rows.dart';
+import 'package:sinapsis/features/processed/domain/entities/extract_note_target.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
@@ -840,6 +841,34 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
           : ProcessedSourceText(renditionId: id, text: content),
     );
   });
+
+  @override
+  Future<Either<Failure, ExtractNoteTarget>> extractTargetOf(String itemId) =>
+      _guard('extractTargetOf', () async {
+        final entry = await (_db.select(
+          _db.knowledgeEntries,
+        )..where((e) => e.id.equals(itemId))).getSingleOrNull();
+        if (entry == null) {
+          return left(
+            const Failure.validation(message: 'Ese elemento ya no existe.'),
+          );
+        }
+        if (entry.kind == ItemKind.source) {
+          return right(
+            entry.deletedAt == null
+                ? ExtractToSource(itemId)
+                : ExtractSourceInTrash(itemId),
+          );
+        }
+        final document = await (_db.select(
+          _db.processedDocuments,
+        )..where((d) => d.itemId.equals(itemId))).getSingleOrNull();
+        return right(
+          document == null
+              ? const ExtractAsLooseNote()
+              : ExtractToProcessed(itemId, sourceItemId: document.sourceItemId),
+        );
+      });
 
   // --- Escribir ------------------------------------------------------------
 

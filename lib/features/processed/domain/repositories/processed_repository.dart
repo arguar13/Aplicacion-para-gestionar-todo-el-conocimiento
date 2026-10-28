@@ -3,6 +3,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/processed/domain/entities/extract_note_target.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
@@ -198,6 +199,12 @@ abstract interface class ProcessedRepository {
     String sourceItemId, {
     String? renditionId,
   });
+
+  /// Adónde va «Extraer como nota» desde [itemId] (decisión J): a su
+  /// documento procesado si es una fuente viva; a ningún lado si es una
+  /// fuente en la papelera; a sus propias notas si es un documento procesado;
+  /// a una nota suelta si es una nota propia. Falla si no existe.
+  Future<Either<Failure, ExtractNoteTarget>> extractTargetOf(String itemId);
 
   // --- Escribir ------------------------------------------------------------
 

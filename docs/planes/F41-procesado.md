@@ -659,9 +659,8 @@ Verificación:
     total y los botones.
 - **Decisión C**: mientras se corta, «Extraer como nota» de la barrita va a las notas del documento
   procesado y no crea nada en la Biblioteca. Lo resuelve `extractRangeAsNote` mismo, así que los
-  cuatro visores lo hacen sin saber de Procesado. **Fuera de la Bandeja** —el detalle, el modo
-  lectura— sigue creando la nota suelta de siempre. Si también ahí tiene que ir a un procesado
-  (¿creándolo?, ¿sin triar la fuente?), lo decide el dueño.
+  cuatro visores lo hacen sin saber de Procesado. Fuera de la Bandeja quedaba la nota suelta de
+  siempre; el dueño lo resolvió con la decisión J (ver más abajo).
 - **«Cortar del original»** (`ProcessedCutScreen`): la fuente en su visor de siempre.
   - Se ve el PDF real o la página guardada (con «Ver el texto extraído» para pasar a su texto) o el
     lector de Word, EPUB y texto, que pagina un libro. Un audio, un video o una foto muestran su
@@ -722,3 +721,55 @@ Verificación:
 - Sin probar en el emulador ni en el teléfono, ni con un PDF o una página web real en modo cortar:
   el visor del PDF y el `WebView` no corren en las pruebas. Lo que sí se probó es la barrita que
   usan (`documentHighlightToolbar`) en modo cortar y el lector de texto entero.
+
+**La decisión J: «Extraer como nota» de una fuente va siempre a su documento procesado.**
+
+- **Un solo lugar decide adónde va**: `extractRangeAsNote`, por el que pasan los cuatro visores
+  (texto extraído, lector, PDF, página web) y el modo lectura. Ninguna pantalla cambió.
+  - Mientras se tría, sigue yendo a la hoja.
+  - Si no, pregunta qué es el elemento (`ProcessedRepository.extractTargetOf`) y lo resuelve
+    `ExtractNoteToProcessed`, en `processed/domain/usecases`.
+- **De una fuente viva**: el pasaje, tal cual y con su ancla, a la sección Notas por
+  `ProcessSourceUseCase` (`SectionEdit.add`, sin repetir).
+  - Si no tenía documento, nace con esa sola nota.
+  - **No la tría** ni toca su estado de la Bandeja.
+  - El aviso dice «Nota guardada en Procesado», con «Ver» (`RoutePaths.processedDocument`, con
+    el router de la pantalla; sin uno no se ofrece) y «Deshacer». Deshacer usa el `ProcessUndo`:
+    saca solo esa nota, y el documento si nació para ella.
+  - Lo repetido avisa «Ese pasaje ya está en Procesado».
+- **De una fuente en la papelera**: no guarda nada, lo dice y ofrece «Restaurar»
+  (`LibraryRepository.restore`).
+- **De una nota propia**: la nota suelta vinculada de siempre.
+- **De un documento procesado** (decisión I): a sus propias notas, como algo suyo. Es
+  `ProcessedDraft.written`, sin ancla en la fuente: el texto que se ve ahí es del documento.
+  - Pasa por su fuente, así que si la fuente se borró de verdad, o está en la papelera, no se
+    puede y lo dice.
+  - Hoy ninguna pantalla del documento procesado extrae con la barrita: queda listo para
+    cuando la tenga.
+- **El modo lectura** cuenta y lista también las notas del documento procesado de la fuente.
+  - Tocarlas abre el documento.
+  - «Ir al fragmento» lleva a su lugar cuando su ancla es de este texto.
+  - Las notas sueltas de antes siguen en la lista, donde estaban.
+- **Para el paso 4**: una fuente pendiente puede tener ya su documento procesado, nacido de una
+  nota extraída.
+  - La hoja de triar todavía abre con `existing` vacío. Funciona: agregar no repite, y la nota
+    queda.
+  - Pero no muestra lo que ya hay. Pasarle `existing` desde `processedDocumentForSourceProvider`
+    en `InboxScreen._triage` es lo que la decisión J pide («la hoja muestra las notas que ya
+    tiene, sin pisarlas»), y queda para el paso 4.
+
+Verificación:
+
+- `flutter analyze`: 19.
+- Pruebas nuevas:
+  - el caso de uso: 10;
+  - adónde va desde el texto extraído: 3 (papelera con «Restaurar», nota propia, el documento
+    que nace);
+  - el modo lectura: 5 (la nota va al procesado sin triar, «Deshacer» del primero y del segundo,
+    lo repetido, «Ver» con el router de la app);
+  - la barrita del PDF y la página: 1.
+- Las de los visores sin base de datos usan `FakeExtractNote`, que contesta «nota propia».
+- 16 mutaciones, todas muertas.
+- Pasan 4.828 de inbox, processed, viewer, organize, study, library, reading, timeline, core,
+  narration y flashcards.
+- Sin probar en el emulador ni en el teléfono.

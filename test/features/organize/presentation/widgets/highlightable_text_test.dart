@@ -27,10 +27,12 @@ import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_en.dart';
 
+import '../../../../support/fake_extract_note.dart';
 import '../../../../support/read_aloud_test_support.dart';
 
 class _MockOrganizeRepository extends Mock implements OrganizeRepository {}
@@ -61,6 +63,9 @@ class _RecordingReadAloud extends FakeReadAloudController {
 /// `contextMenuBuilder` lo agrega junto a la selección, que Flutter ya
 /// posiciona.
 void main() {
+  // Lo que se extrae de lo que no es una fuente: una nota suelta, como
+  // siempre (F41, decisión J). Ver también `extract_note_routing_test.dart`.
+  final extractNote = FakeExtractNote();
   final en = AppLocalizationsEn();
   const content = 'Conocemos bien el amor y las reglas del juego.';
 
@@ -120,6 +125,7 @@ void main() {
         overrides: [
           organizeRepositoryProvider.overrideWithValue(repository),
           captureItemUseCaseProvider.overrideWithValue(captureUseCase),
+          extractNoteToProcessedProvider.overrideWithValue(extractNote),
           sharedPreferencesProvider.overrideWithValue(prefs),
           ...overrides,
         ],

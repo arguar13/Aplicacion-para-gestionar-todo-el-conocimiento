@@ -560,7 +560,7 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
 ## Modo lectura: leer para destilar
 
 Sirve para leer con calma el texto de una fuente larga y sacar fragmentos
-como notas nuevas, sin salir de la lectura.
+como notas, sin salir de la lectura.
 
 **Cómo llegar:** botón **"Leer para destilar"** dentro del detalle de un
 elemento, o tocando el fragmento resaltado de un resultado de búsqueda en la
@@ -569,14 +569,40 @@ Biblioteca.
 1. Arriba se ve un contador: **"{N} notas extraídas"**.
 2. Leés el texto completo; podés seleccionarlo con el dedo o el mouse.
 3. Al seleccionar un fragmento, aparece una barra abajo con tres acciones:
-   **"Extraer como nota"** (crea una nota nueva con ese fragmento, ya
-   vinculada a la fuente original), **"Resaltar"** (lo marca sin crear una
-   nota aparte; te pide la nota) y un botón para crear una tarjeta de
-   repaso directo de la selección. Junto a la selección aparece además la
-   barrita para resaltar con colores (ver
+   **"Extraer como nota"** (guarda ese fragmento como nota en el documento
+   procesado de la fuente: ver
+   [Extraer como nota va a Procesado](#extraer-como-nota-va-a-procesado)),
+   **"Resaltar"** (lo marca sin crear una nota aparte; te pide la nota) y un
+   botón para crear una tarjeta de repaso directo de la selección. Junto a la
+   selección aparece además la barrita para resaltar con colores (ver
    [Resaltar a mano](#resaltar-a-mano-la-barrita)).
 4. Debajo del texto se listan las notas que ya extrajiste, cada una con un
    botón **"Ir al fragmento"** para saltar de vuelta a ese lugar del texto.
+   Están las que guardaste en Procesado (tocarlas abre el documento
+   procesado) y las notas sueltas que sacaste antes, que siguen donde estaban
+   (tocarlas abre la nota).
+
+### Extraer como nota va a Procesado
+
+**"Extraer como nota"** de una fuente (un documento, una página, un libro, la
+transcripción de un audio o un video) guarda el fragmento en las **Notas de su
+documento procesado**, tal cual y con su lugar en el original. Es igual desde
+cualquier lado: el modo lectura, el texto extraído del detalle, "Leer como
+libro", el PDF, la página web guardada o la Bandeja. Así una nota no termina
+en dos lugares según la pantalla.
+
+- Si la fuente **todavía no tiene documento procesado, se crea en ese
+  momento con esa sola nota**. La fuente **no queda triada**: sigue en la
+  Bandeja como estaba, y triarla sigue siendo elegir qué más va.
+- El aviso dice **"Nota guardada en Procesado"**, con **"Ver"** (abre el
+  documento procesado) y **"Deshacer"** (saca solo esa nota, y el documento,
+  si se había creado para ella).
+- El mismo fragmento no se guarda dos veces: si lo intentás, te avisa.
+- Una fuente **en la papelera** no acepta notas: el aviso lo dice y ofrece
+  **"Restaurar"**; restaurada, ya podés extraerle.
+- Lo que **no es una fuente** no cambia: de una nota tuya sigue saliendo una
+  nota suelta, vinculada a ella, como siempre. Las notas sueltas que ya
+  sacaste de una fuente antes de esto quedan donde están.
 
 Si el elemento todavía no tiene texto (se está procesando, por ejemplo un
 audio que todavía se está transcribiendo), la pantalla te lo avisa.
@@ -618,9 +644,10 @@ seleccionar aparece en cambio una barrita sobre la selección:
 - **Subrayar**: lo marca con una línea del último color que elegiste (el
   amarillo, si todavía no elegiste ninguno).
 - **Copiar**, **Escuchar** (lee en voz alta lo seleccionado), **Nota** (resalta
-  y te deja escribir por qué), **Extraer como nota** (mientras triás, va a las
-  notas del documento procesado: ver
-  [Cortar del original](#cortar-del-original)), **Crear tarjeta** y
+  y te deja escribir por qué), **Extraer como nota** (de una fuente, va a las
+  notas de su documento procesado: ver
+  [Extraer como nota va a Procesado](#extraer-como-nota-va-a-procesado)),
+  **Crear tarjeta** y
   **A la línea de tiempo** (ver
   [Línea de tiempo](#línea-de-tiempo)): convierte lo seleccionado en un hecho
   fechado, con la cita ya puesta. Si lo seleccionado trae una fecha («en

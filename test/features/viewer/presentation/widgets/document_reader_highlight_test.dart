@@ -24,6 +24,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
@@ -32,6 +33,7 @@ import 'package:sinapsis/features/viewer/presentation/screens/document_reader_sc
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/fake_extract_note.dart';
 import '../../../../support/memory_study_repository.dart';
 import '../../../../support/read_aloud_test_support.dart';
 import '../../../../support/recording_dated_events.dart';
@@ -44,6 +46,9 @@ class _MockCaptureItemUseCase extends Mock implements CaptureItemUseCase {}
 /// (F38): los mismos resaltados que «Texto extraído», en posiciones del texto
 /// entero aunque cada página sea un tramo de él.
 void main() {
+  // Lo que se extrae de lo que no es una fuente: una nota suelta, como
+  // siempre (F41, decisión J). Ver también `extract_note_routing_test.dart`.
+  final extractNote = FakeExtractNote();
   final es = AppLocalizationsEs();
   const pageOne = 'Primera página. Nada importante acá.';
   const pageTwo =
@@ -99,6 +104,7 @@ void main() {
         ),
         organizeRepositoryProvider.overrideWithValue(repository),
         captureItemUseCaseProvider.overrideWithValue(captureUseCase),
+        extractNoteToProcessedProvider.overrideWithValue(extractNote),
         ...extra,
       ],
     );

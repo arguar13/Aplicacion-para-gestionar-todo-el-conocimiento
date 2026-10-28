@@ -21,8 +21,11 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_c
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/extract_note_target.dart';
+import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_triage.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_highlight_toolbar.dart';
@@ -30,6 +33,7 @@ import 'package:sinapsis/features/viewer/presentation/widgets/document_selection
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/fake_extract_note.dart';
 import '../../../../support/read_aloud_test_support.dart';
 
 class _MockOrganizeRepository extends Mock implements OrganizeRepository {}
@@ -84,6 +88,9 @@ class _FakeSelection implements DocumentSelection {
 /// La barrita de resaltado sobre el PDF real y la página web (F38): la misma
 /// de «Texto extraído», con cada botón llevado a lo que el visor seleccionó.
 void main() {
+  // Lo que se extrae de lo que no es una fuente: una nota suelta, como
+  // siempre (F41, decisión J). Ver también `extract_note_routing_test.dart`.
+  final extractNote = FakeExtractNote();
   final es = AppLocalizationsEs();
   const content =
       'La revolución industrial cambió todo. Las fábricas usaban '
@@ -124,6 +131,7 @@ void main() {
         readAloudControllerProvider.overrideWith(_RecordingReadAloud.new),
         organizeRepositoryProvider.overrideWithValue(repository),
         captureItemUseCaseProvider.overrideWithValue(capture),
+        extractNoteToProcessedProvider.overrideWithValue(extractNote),
       ],
     );
     addTearDown(container.dispose);
@@ -445,6 +453,48 @@ void main() {
       );
       verifyNever(() => capture.call(any()));
       expect(find.text(es.processedCutNoteAdded), findsOneWidget);
+    });
+  });
+
+  group('«Extraer como nota» de una fuente (F41, decisión J)', () {
+    void reset() => extractNote
+      ..outcome = const ExtractLooseNote()
+      ..asked.clear()
+      ..undone.clear();
+
+    setUp(reset);
+    tearDown(reset);
+
+    testWidgets('va a su documento procesado con el tramo del texto extraído: '
+        'avisa con «Deshacer», y no crea ninguna nota suelta', (tester) async {
+      const undo = ProcessUndo(
+        documentId: 'procesado',
+        previousStatus: ProcessedDocumentStatus.absent,
+        previous: {},
+      );
+      extractNote.outcome = const ExtractedToProcessed(
+        documentId: 'procesado',
+        created: true,
+        unchanged: false,
+        undo: undo,
+      );
+      await pump(tester);
+
+      await tap(tester, find.byTooltip(es.detailExtractSelection));
+
+      expect(extractNote.asked, [
+        (itemId: 'item-1', renditionId: 'r1', start: 38, end: 50),
+      ]);
+      verifyNever(() => capture.call(any()));
+      expect(find.text(es.processedNoteSaved), findsOneWidget);
+      // Sin router no hay a dónde llevar «Ver»: el visor está suelto.
+      expect(find.byKey(const Key('processed-note-view')), findsNothing);
+      expect(selection.clears, 1);
+
+      await tap(tester, find.widgetWithText(SnackBarAction, es.inboxUndo));
+
+      expect(extractNote.undone, [undo]);
+      expect(find.text(es.processedNoteUndone), findsOneWidget);
     });
   });
 }

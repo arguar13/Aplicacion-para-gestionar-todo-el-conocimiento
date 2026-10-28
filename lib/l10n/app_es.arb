@@ -10476,5 +10476,21 @@
   "processedTriageSectionKeywords": "Palabras clave",
   "@processedTriageSectionKeywords": {
     "description": "Sección del documento procesado: las oraciones con sus palabras clave."
+  },
+  "processedNoteSaved": "Nota guardada en Procesado",
+  "@processedNoteSaved": {
+    "description": "Aviso al extraer una nota de una fuente: va a su documento procesado."
+  },
+  "processedNoteUndone": "Nota sacada de Procesado.",
+  "@processedNoteUndone": {
+    "description": "Aviso al deshacer una nota extraída a Procesado."
+  },
+  "processedNoteSourceInTrash": "Esta fuente está en la papelera: restaurala para guardarle notas.",
+  "@processedNoteSourceInTrash": {
+    "description": "Aviso al extraer una nota de una fuente en la papelera."
+  },
+  "processedNoteSourceRestored": "Fuente restaurada: ya podés extraerle notas.",
+  "@processedNoteSourceRestored": {
+    "description": "Aviso después de restaurar la fuente desde el aviso de extraer."
   }
 }

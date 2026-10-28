@@ -13,6 +13,7 @@ import 'package:sinapsis/features/processed/domain/entities/processed_query.dart
 import 'package:sinapsis/features/processed/domain/entities/processed_source_material.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_study_text.dart';
 import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
+import 'package:sinapsis/features/processed/domain/usecases/extract_note_to_processed.dart';
 import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 
 /// Los documentos procesados (F41).
@@ -27,6 +28,15 @@ final processedRepositoryProvider = Provider<ProcessedRepository>(
 /// Procesar una fuente: crear o cambiar su documento procesado, con deshacer.
 final processSourceUseCaseProvider = Provider<ProcessSourceUseCase>(
   (ref) => ProcessSourceUseCase(ref.watch(processedRepositoryProvider)),
+);
+
+/// «Extraer como nota» de cualquier pantalla (decisión J): a qué documento
+/// procesado va, o a ninguno.
+final extractNoteToProcessedProvider = Provider<ExtractNoteToProcessed>(
+  (ref) => ExtractNoteToProcessed(
+    ref.watch(processedRepositoryProvider),
+    ref.watch(processSourceUseCaseProvider),
+  ),
 );
 
 /// La lista de «Procesado» para [ProcessedQuery], y cada cambio.

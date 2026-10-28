@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
-import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -14,6 +16,7 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -174,6 +177,24 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<List<ProcessedPartRow>> processedParts() =>
+      harness.database.select(harness.database.processedParts).get();
+
+  Future<int> processedDocuments() async =>
+      (await harness.database.select(harness.database.processedDocuments).get())
+          .length;
+
+  Future<ItemState> stateOf(String id) async => (await (harness.database.select(
+    harness.database.knowledgeEntries,
+  )..where((e) => e.id.equals(id))).getSingle()).state;
+
+  Future<void> extract(WidgetTester tester) async {
+    await tester.tap(
+      find.widgetWithText(FilledButton, es.detailExtractSelection),
+    );
+    await tester.pumpAndSettle();
+  }
+
   double scrollOffset(WidgetTester tester) => tester
       .state<ScrollableState>(find.byType(Scrollable).first)
       .position
@@ -242,49 +263,96 @@ void main() {
   });
 
   group('extraer', () {
-    testWidgets('crea la nota, la vincula con el rango exacto y actualiza la '
-        'cuenta y la lista', (tester) async {
+    testWidgets('de una fuente, la nota va a su documento procesado —que nace '
+        'con ella— con el rango exacto, sin triar la fuente, y la cuenta y la '
+        'lista la muestran (decisión J)', (tester) async {
       final id = await seedSource();
+      final before = await stateOf(id);
       await pumpReading(tester, id);
       await select(tester, 0, 20);
 
-      await tester.tap(
-        find.widgetWithText(FilledButton, es.detailExtractSelection),
+      await extract(tester);
+
+      // Ninguna nota suelta en la Biblioteca.
+      expect(
+        await harness.database.select(harness.database.relations).get(),
+        isEmpty,
       );
-      await tester.pumpAndSettle();
+      final note = (await processedParts()).single;
+      expect(note.section, ProcessedSection.notes);
+      expect(note.content, 'Párrafo número 0: el');
+      expect((note.sourceStart, note.sourceEnd), (0, 20));
+      expect(await processedDocuments(), 1);
+      // La fuente sigue donde estaba: extraer no es triar.
+      expect(await stateOf(id), before);
 
-      // De dónde salió, guardado: los primeros veinte caracteres.
-      final relation = await harness.database
-          .select(harness.database.relations)
-          .getSingle();
-      expect(relation.kind, RelationKind.extractedFrom);
-      expect(relation.toItemId, id);
-      expect(relation.sourceCharStart, 0);
-      expect(relation.sourceCharEnd, 20);
-
-      // Y a la vista: la cuenta, la lista y el fragmento.
+      expect(find.text(es.processedNoteSaved), findsOneWidget);
+      expect(find.byKey(const Key('processed-note-view')), findsOneWidget);
       expect(find.text(es.readingExtractedCount(1)), findsOneWidget);
       expect(find.text(es.readingExtractedTitle), findsOneWidget);
       expect(find.text('Párrafo número 0: el'), findsWidgets);
     });
 
-    testWidgets('la nota que sale es atómica', (tester) async {
+    testWidgets('«Deshacer» saca la nota y el documento que nació para ella', (
+      tester,
+    ) async {
       final id = await seedSource();
       await pumpReading(tester, id);
       await select(tester, 0, 20);
+      await extract(tester);
 
-      await tester.tap(
-        find.widgetWithText(FilledButton, es.detailExtractSelection),
-      );
+      await tester.tap(find.widgetWithText(SnackBarAction, es.inboxUndo));
       await tester.pumpAndSettle();
 
-      final relation = await harness.database
-          .select(harness.database.relations)
-          .getSingle();
-      final note = await (harness.database.select(
-        harness.database.knowledgeNotes,
-      )..where((n) => n.itemId.equals(relation.fromItemId))).getSingle();
-      expect(note.noteKind, NoteKind.atomic);
+      expect(await processedDocuments(), 0);
+      expect(find.text(es.processedNoteUndone), findsOneWidget);
+      expect(find.text(es.readingExtractedCount(0)), findsOneWidget);
+    });
+
+    testWidgets('con el documento ya armado, «Deshacer» saca solo la última '
+        'nota y el documento queda', (tester) async {
+      final id = await seedSource();
+      await pumpReading(tester, id);
+      await select(tester, 0, 20);
+      await extract(tester);
+      await select(tester, 100, 130);
+      await extract(tester);
+
+      await tester.tap(find.widgetWithText(SnackBarAction, es.inboxUndo));
+      await tester.pumpAndSettle();
+
+      expect(await processedDocuments(), 1);
+      expect((await processedParts()).single.content, 'Párrafo número 0: el');
+      expect(find.text(es.readingExtractedCount(1)), findsOneWidget);
+    });
+
+    testWidgets('el mismo pasaje no entra dos veces', (tester) async {
+      final id = await seedSource();
+      await pumpReading(tester, id);
+      for (var i = 0; i < 2; i++) {
+        await select(tester, 0, 20);
+        await extract(tester);
+      }
+
+      expect(await processedParts(), hasLength(1));
+      expect(find.text(es.processedCutRepeated), findsOneWidget);
+    });
+
+    testWidgets('«Ver» abre el documento procesado', (tester) async {
+      final id = await seedSource();
+      tester.view.physicalSize = const Size(900, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      harness.container.read(goRouterProvider).go(RoutePaths.reading(id));
+      await tester.pumpAndSettle();
+      await select(tester, 0, 20);
+      await extract(tester);
+
+      await tester.tap(find.byKey(const Key('processed-note-view')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProcessedDocumentScreen), findsOneWidget);
     });
 
     testWidgets('se pueden extraer varias, y la cuenta sube con cada una', (

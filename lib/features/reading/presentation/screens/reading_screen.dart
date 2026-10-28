@@ -5,6 +5,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/reading_scroll_physics.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -14,6 +15,8 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_c
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -25,6 +28,10 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// selección nativo la deja en segundo lugar y a merced de que el sistema lo
 /// muestre bien—. Arriba se cuenta cuántas notas salieron ya de esta fuente, y
 /// abajo se listan, cada una con un botón que lleva al fragmento del que salió.
+///
+/// Desde F41 (decisión J) lo extraído de una fuente va a las notas de su
+/// documento procesado: se cuentan y se listan esas, junto con las notas
+/// sueltas que se sacaron antes, que quedan donde estaban.
 ///
 /// Se lee en voz alta con el lector flotante (F25): el texto entero, con la
 /// línea que se lee en amarillo.
@@ -71,6 +78,25 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
             relation.direction == RelationDirection.incoming)
           relation,
     ];
+    // Lo que fue a su documento procesado (decisión J). Las notas son las que
+    // escribe o extrae la persona: pocas, no el texto de un libro.
+    final processedId = ref
+        .watch(processedDocumentForSourceProvider(item.id))
+        .valueOrNull
+        ?.id;
+    final processedNotes = processedId == null
+        ? const <ProcessedPart>[]
+        : ref
+                  .watch(
+                    processedPartsProvider((
+                      documentId: processedId,
+                      section: ProcessedSection.notes,
+                      offset: 0,
+                      limit: null,
+                    )),
+                  )
+                  .valueOrNull ??
+              const <ProcessedPart>[];
 
     return Scaffold(
       appBar: AppBar(
@@ -80,7 +106,9 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
             padding: const EdgeInsets.only(right: 16),
             child: Center(
               child: Text(
-                l10n.readingExtractedCount(extracted.length),
+                l10n.readingExtractedCount(
+                  extracted.length + processedNotes.length,
+                ),
                 style: Theme.of(context).textTheme.labelLarge,
               ),
             ),
@@ -108,9 +136,12 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
                           initialJump: widget.jump,
                           markdown: extractedTextIsMarkdown(item.source),
                         ),
-                        if (extracted.isNotEmpty)
+                        if (extracted.isNotEmpty || processedNotes.isNotEmpty)
                           _ExtractedList(
                             relations: extracted,
+                            processedId: processedId,
+                            processedNotes: processedNotes,
+                            renditionId: rendition.id,
                             content: rendition.content,
                             onGoTo: (start, end) =>
                                 _controller.jumpTo(start: start, end: end),
@@ -217,15 +248,24 @@ class _SelectionBar extends StatelessWidget {
 }
 
 /// Las notas que salieron de esta fuente, con el fragmento de cada una y un
-/// botón para ir a él.
+/// botón para ir a él: las de su documento procesado (decisión J), que abren
+/// el documento, y las sueltas de antes, que abren su nota.
 class _ExtractedList extends StatelessWidget {
   const _ExtractedList({
     required this.relations,
+    required this.processedId,
+    required this.processedNotes,
+    required this.renditionId,
     required this.content,
     required this.onGoTo,
   });
 
   final List<ItemRelation> relations;
+  final String? processedId;
+  final List<ProcessedPart> processedNotes;
+
+  /// El texto que se lee: solo lo anclado en él lleva «Ir al fragmento».
+  final String renditionId;
   final String content;
   final void Function(int start, int end) onGoTo;
 
@@ -244,6 +284,39 @@ class _ExtractedList extends StatelessWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
+        for (final note in processedNotes)
+          Builder(
+            builder: (context) {
+              final anchor = note.anchor;
+              final fits =
+                  anchor != null &&
+                  anchor.renditionId == renditionId &&
+                  anchor.end <= content.length;
+              return ListTile(
+                key: ValueKey('reading-processed-note-${note.id}'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: Text(
+                  note.content,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: fits
+                    ? IconButton(
+                        icon: const Icon(Icons.my_location),
+                        tooltip: l10n.readingGoToFragment,
+                        onPressed: () => onGoTo(anchor.start, anchor.end),
+                      )
+                    : null,
+                onTap: switch (processedId) {
+                  final id? => () => context.push(
+                    RoutePaths.processedDocument(id),
+                  ),
+                  null => null,
+                },
+              );
+            },
+          ),
         for (final relation in relations)
           Builder(
             builder: (context) {

@@ -21,7 +21,9 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlight_note_dialog.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/processed/domain/entities/extract_note_target.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/timeline/domain/entities/dated_event_seed.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart';
@@ -122,18 +124,20 @@ Future<({String? text})?> askHighlightNote(
   return note == null ? null : (text: note.isEmpty ? null : note);
 }
 
-/// Crea una nota atómica nueva con `[start, end)` de [content] —el texto de
-/// la forma [renditionId]—, vinculada al elemento [itemId] como su fuente.
+/// «Extraer como nota»: `[start, end)` de [content] —el texto de la forma
+/// [renditionId] de [itemId]— como nota. Adónde va lo decide qué es [itemId],
+/// no la pantalla (F41, decisiones C y J); así cada visor que ofrece «Extraer
+/// como nota» lo hace bien sin saber de Procesado:
 ///
-/// Pasa por [captureItemUseCaseProvider] —el mismo camino de entrada que
-/// cualquier captura manual— en vez de armar el `KnowledgeItem` a mano: así
-/// la nota nueva recibe el mismo tratamiento (id, timestamps, guardado
-/// atómico) que cualquier otra, sin duplicar esa lógica acá.
-///
-/// **Mientras se tría para Procesado** (F41, decisión C) no crea nada en la
-/// Biblioteca: el pasaje va a las notas del documento procesado de [itemId],
-/// en la hoja «¿Qué va a Procesado?», y se guarda con ella. Así cada visor
-/// que ofrece «Extraer como nota» lo hace bien sin saber de Procesado.
+/// - **Mientras se tría** («Cortar del original»), a las notas de la hoja
+///   «¿Qué va a Procesado?», que se guardan con ella.
+/// - **De una fuente**, a las notas de su documento procesado, que nace con
+///   esa nota si no existía, sin triar la fuente (`ExtractNoteToProcessed`).
+///   El aviso dice «Nota guardada en Procesado», con «Ver» y «Deshacer».
+/// - **De una fuente en la papelera**, nada: lo dice y ofrece restaurarla.
+/// - **De un documento procesado**, a sus propias notas.
+/// - **De una nota propia**, una nota atómica suelta, vinculada a ella como
+///   su fuente: ver [_extractAsLooseNote].
 Future<void> extractRangeAsNote(
   BuildContext context,
   WidgetRef ref, {
@@ -158,6 +162,150 @@ Future<void> extractRangeAsNote(
     return;
   }
 
+  final routed = await ref.read(extractNoteToProcessedProvider)(
+    itemId: itemId,
+    renditionId: renditionId,
+    start: start,
+    end: end,
+    excerpt: excerpt,
+  );
+  if (!context.mounted) return;
+  final l10n = AppLocalizations.of(context)!;
+  if (routed.getLeft().toNullable() case final failure?) {
+    _say(context, failure.localizedMessage(l10n));
+    return;
+  }
+  switch (routed.getRight().toNullable()!) {
+    case ExtractLooseNote():
+      await _extractAsLooseNote(
+        context,
+        ref,
+        itemId: itemId,
+        excerpt: excerpt,
+        start: start,
+        end: end,
+      );
+    case ExtractRefusedInTrash(:final sourceItemId):
+      _offerRestore(context, ref, sourceItemId);
+    case final ExtractedToProcessed saved when saved.unchanged:
+      _say(context, l10n.processedCutRepeated);
+    case final ExtractedToProcessed saved:
+      _announceProcessedNote(context, ref, saved);
+  }
+}
+
+/// «Nota guardada en Procesado», con «Ver» —abre el documento procesado— y
+/// «Deshacer» —saca esa nota sola, y el documento si nació para ella—.
+///
+/// Lo que usan los botones se resuelve ahora: el aviso puede tocarse después
+/// de cerrada la pantalla que extrajo. «Ver» usa el router de esa pantalla, y
+/// sin uno —un visor suelto, fuera de la app— no se ofrece.
+void _announceProcessedNote(
+  BuildContext context,
+  WidgetRef ref,
+  ExtractedToProcessed saved,
+) {
+  final l10n = AppLocalizations.of(context)!;
+  final theme = Theme.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final router = GoRouter.maybeOf(context);
+  final extract = ref.read(extractNoteToProcessedProvider);
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Expanded(child: Text(l10n.processedNoteSaved)),
+            if (router != null)
+              TextButton(
+                key: const Key('processed-note-view'),
+                style: TextButton.styleFrom(
+                  foregroundColor:
+                      theme.snackBarTheme.actionTextColor ??
+                      theme.colorScheme.inversePrimary,
+                ),
+                onPressed: () {
+                  messenger.hideCurrentSnackBar();
+                  unawaited(
+                    router.push(RoutePaths.processedDocument(saved.documentId)),
+                  );
+                },
+                child: Text(l10n.detailExtractedNoteView),
+              ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: l10n.inboxUndo,
+          onPressed: () => unawaited(() async {
+            final undone = await extract.undo(saved.undo);
+            messenger
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(
+                    undone.match(
+                      (failure) => failure.localizedMessage(l10n),
+                      (_) => l10n.processedNoteUndone,
+                    ),
+                  ),
+                ),
+              );
+          }()),
+        ),
+      ),
+    );
+}
+
+/// Una fuente en la papelera no acepta notas (decisión J): lo dice y ofrece
+/// restaurarla.
+void _offerRestore(BuildContext context, WidgetRef ref, String sourceItemId) {
+  final l10n = AppLocalizations.of(context)!;
+  final messenger = ScaffoldMessenger.of(context);
+  final library = ref.read(libraryRepositoryProvider);
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(l10n.processedNoteSourceInTrash),
+        action: SnackBarAction(
+          label: l10n.trashRestore,
+          onPressed: () => unawaited(() async {
+            final restored = await library.restore(sourceItemId);
+            messenger
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(
+                    restored.match(
+                      (failure) => failure.localizedMessage(l10n),
+                      (_) => l10n.processedNoteSourceRestored,
+                    ),
+                  ),
+                ),
+              );
+          }()),
+        ),
+      ),
+    );
+}
+
+/// Una nota atómica nueva con [excerpt] —`[start, end)` del texto de
+/// [itemId]—, vinculada a [itemId] como su fuente: lo que se extrae de una
+/// nota propia, que no tiene documento procesado.
+///
+/// Pasa por [captureItemUseCaseProvider] —el mismo camino de entrada que
+/// cualquier captura manual— en vez de armar el `KnowledgeItem` a mano: así
+/// la nota nueva recibe el mismo tratamiento (id, timestamps, guardado
+/// atómico) que cualquier otra, sin duplicar esa lógica acá.
+Future<void> _extractAsLooseNote(
+  BuildContext context,
+  WidgetRef ref, {
+  required String itemId,
+  required String excerpt,
+  required int start,
+  required int end,
+}) async {
   final result = await ref.read(captureItemUseCaseProvider)(
     CaptureRequest.text(rawInput: excerpt),
   );
