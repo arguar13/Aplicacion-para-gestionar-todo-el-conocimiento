@@ -225,6 +225,20 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
   falta haber estudiado la fuente antes. Lo que se hace ahí es del procesado: cuenta como propio,
   así que «Actualizar» desde la fuente no lo pisa (solo «Reemplazar»), y se marca sobre la copia
   del original igual que lo traído de la fuente.
+- **J. «Extraer como nota» de una fuente va siempre a su documento procesado**, desde donde sea:
+  la Bandeja, el detalle, el modo lectura o cualquier visor (ajuste del dueño: «lo más profesional
+  y coherente»). Es la decisión C llevada a todos lados: un mismo gesto no puede dejar la nota en
+  dos lugares según la pantalla.
+  - **Si la fuente todavía no tiene documento procesado, se crea en ese momento con esa sola
+    nota**, sin triar la fuente. Extraer es un pedido explícito de la persona, así que no se
+    inventa nada (decisión D). Y la fuente sigue en la Bandeja como estaba: triar sigue siendo
+    elegir qué más va, y la hoja muestra las notas que ya tiene, sin pisarlas.
+  - El aviso dice «Nota guardada en Procesado» con «Ver» y «Deshacer». Deshacer saca solo esa
+    nota, y el documento, si se había creado para ella.
+  - Lo que no es una fuente no cambia. Una nota propia sigue sacando notas sueltas vinculadas,
+    porque no tiene documento procesado. Dentro de un documento procesado, lo extraído va a sus
+    propias notas (decisión I). Una fuente en la papelera no acepta notas: lo dice y ofrece
+    restaurarla.
 - **G. Triar nunca borra ni suelta nada de la fuente** (el principio de arriba). La hoja de F30
   sale de la Bandeja. Cualquier otro camino que hoy suelte el archivo o el texto de una fuente se
   revisa en el paso 3, y queda solo si lo pide el dueño a mano y de a uno.
