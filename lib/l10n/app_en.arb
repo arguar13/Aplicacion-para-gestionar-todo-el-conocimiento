@@ -11590,11 +11590,6 @@
   "@processedTriageEmptied": {
     "description": "Vista previa al volver a triar: la sección se queda sin partes (F41, paso 4)."
   },
-  "notebookPartText": "Text",
-  "notebookPartSummary": "Summary",
-  "notebookPartSynthesis": "Synthesis",
-  "notebookPartNotes": "Notes",
-  "notebookPartFragments": "Excerpts",
   "notebookDetailEmptyTitle": "This notebook is empty",
   "notebookDetailEmptyManual": "A notebook is filled with processed documents: what you chose to keep from each source when you triaged it in the Inbox. Add them with “+”.",
   "notebookDetailEmptyQuery": "It fills itself with the processed documents that match its saved view. None does yet: triage in the Inbox and what you process will show up here.",
@@ -11625,5 +11620,9 @@
         "type": "String"
       }
     }
-  }
+  },
+  "notebookEmptiedTitle": "This notebook was emptied when the app updated",
+  "notebookEmptiedManual": "A notebook now holds only processed documents: what it had came from the Library, which stays whole. To fill it again, triage in the Inbox and add the processed documents.",
+  "notebookEmptiedQuery": "A notebook now holds only processed documents: its saved view is the same, but it no longer looks at the Library. Triage in the Inbox, and what you process that matches it will show up here.",
+  "notebookEmptiedDismiss": "Got it"
 }

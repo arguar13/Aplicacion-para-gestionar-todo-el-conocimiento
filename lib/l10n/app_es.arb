@@ -10566,26 +10566,6 @@
   "@processedTriageEmptied": {
     "description": "Vista previa al volver a triar: la sección se queda sin partes (F41, paso 4)."
   },
-  "notebookPartText": "Texto",
-  "@notebookPartText": {
-    "description": "Chip de un documento procesado en un cuaderno (F41, paso 5): tiene la sección Texto, el texto extraído entero o la transcripción."
-  },
-  "notebookPartSummary": "Resumen",
-  "@notebookPartSummary": {
-    "description": "Chip de un documento procesado en un cuaderno: tiene la sección Resumen."
-  },
-  "notebookPartSynthesis": "Síntesis",
-  "@notebookPartSynthesis": {
-    "description": "Chip de un documento procesado en un cuaderno: tiene la sección Síntesis."
-  },
-  "notebookPartNotes": "Notas",
-  "@notebookPartNotes": {
-    "description": "Chip de un documento procesado en un cuaderno: tiene la sección Notas."
-  },
-  "notebookPartFragments": "Fragmentos",
-  "@notebookPartFragments": {
-    "description": "Chip de un documento procesado en un cuaderno: tiene la sección Fragmentos, los pasajes cortados a mano del original."
-  },
   "notebookDetailEmptyTitle": "Este cuaderno está vacío",
   "@notebookDetailEmptyTitle": {
     "description": "Título del vacío del detalle de un cuaderno (F41, paso 5)."
@@ -10645,5 +10625,21 @@
         "type": "String"
       }
     }
+  },
+  "notebookEmptiedTitle": "Este cuaderno se vació al actualizar la app",
+  "@notebookEmptiedTitle": {
+    "description": "Título del aviso de un cuaderno que se vació al llegar F41 (v46): de acá en más los cuadernos se arman solo con documentos procesados."
+  },
+  "notebookEmptiedManual": "Ahora un cuaderno se arma solo con documentos procesados: lo que tenía era de la Biblioteca, que sigue entera. Para volver a llenarlo, triá en la Bandeja y agregá los documentos procesados.",
+  "@notebookEmptiedManual": {
+    "description": "Cuerpo del aviso de un cuaderno a mano vaciado: por qué quedó vacío y cómo volver a llenarlo."
+  },
+  "notebookEmptiedQuery": "Ahora un cuaderno se arma solo con documentos procesados: su vista guardada sigue igual, pero ya no mira la Biblioteca. Triá en la Bandeja, y lo que proceses que la cumpla va a aparecer acá.",
+  "@notebookEmptiedQuery": {
+    "description": "Cuerpo del aviso de un cuaderno por consulta vaciado: su vista sigue, pero mira solo lo procesado."
+  },
+  "notebookEmptiedDismiss": "Entendido",
+  "@notebookEmptiedDismiss": {
+    "description": "Descarta el aviso del cuaderno vaciado; no vuelve."
   }
 }

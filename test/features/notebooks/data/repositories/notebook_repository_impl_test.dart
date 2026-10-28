@@ -205,6 +205,46 @@ void main() {
     });
   });
 
+  group('el aviso del cuaderno vaciado (F41, v46)', () {
+    test('se lee de la marca, y descartarlo la deja en null sin tocar nada '
+        'más', () async {
+      final notebook = await repository.create(
+        name: 'Tesis',
+        mode: NotebookMode.manual,
+      );
+      final emptied = DateTime(2026, 10, 28, 9);
+      await (db.update(db.notebooks)..where((n) => n.id.equals(notebook.id)))
+          .write(NotebooksCompanion(emptiedForProcessedAt: Value(emptied)));
+
+      final marked = (await repository.watchById(notebook.id).first)!;
+      expect(marked.emptiedForProcessedAt, emptied);
+      expect(marked.showsEmptiedNotice, isTrue);
+
+      now = DateTime(2026, 10, 28, 12);
+      await repository.dismissEmptiedNotice(notebook.id);
+
+      final dismissed = (await repository.watchById(notebook.id).first)!;
+      expect(dismissed.emptiedForProcessedAt, isNull);
+      expect(dismissed.showsEmptiedNotice, isFalse);
+      // Es un aviso, no un cambio del cuaderno.
+      expect(dismissed.updatedAt, marked.updatedAt);
+      expect(dismissed.name, 'Tesis');
+    });
+
+    test('un cuaderno nuevo no tiene aviso', () async {
+      final notebook = await repository.create(
+        name: 'Nuevo',
+        mode: NotebookMode.manual,
+      );
+
+      expect(notebook.showsEmptiedNotice, isFalse);
+      expect(
+        (await repository.watchById(notebook.id).first)!.showsEmptiedNotice,
+        isFalse,
+      );
+    });
+  });
+
   group('watchById', () {
     test('emite el cuaderno, y `null` si se borra', () async {
       final notebook = await repository.create(

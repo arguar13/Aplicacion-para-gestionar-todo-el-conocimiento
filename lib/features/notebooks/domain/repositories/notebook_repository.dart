@@ -38,6 +38,11 @@ abstract interface class NotebookRepository {
 
   Future<void> rename({required String id, required String name});
 
+  /// Descarta el aviso de que el cuaderno [id] se vació al llegar F41: deja
+  /// `emptied_for_processed_at` en `null`, y no vuelve. No toca nada más del
+  /// cuaderno —ni su fecha—: es un aviso, no un cambio.
+  Future<void> dismissEmptiedNotice(String id);
+
   Future<void> delete(String id);
 
   /// Agrega [itemId] a un cuaderno [NotebookMode.manual], si es un documento

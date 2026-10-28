@@ -1432,7 +1432,7 @@ Botón flotante **"Nuevo cuaderno"**. Te pregunta cómo:
 
 **Lo que se ve adentro.** Cada fila es un documento procesado: el ícono de la
 fuente de la que salió, su título y unos chips con las partes que tiene
-—**Texto**, **Resumen**, **Síntesis**, **Notas**, **Fragmentos**—. Tocarla abre
+—**Texto**, **Resumen**, **Síntesis**, **Palabras clave**, **Notas**, **Fragmentos**—. Tocarla abre
 el documento procesado, en su pantalla de [Procesado](#procesado). Con el
 lector de pantalla, la fila se lee en una sola frase: el título, de qué tipo era
 la fuente y qué partes tiene.
@@ -1447,6 +1447,14 @@ y te manda a la Bandeja. Cada fila tiene una "X" para sacarla (esto no borra el
 documento procesado, solo lo saca del cuaderno). Un cuaderno "por consulta" es
 de solo lectura: se actualiza solo, según los procesados que la vista vaya
 trayendo.
+
+**Los cuadernos que ya tenías.** Al actualizar la app a Procesado, los
+cuadernos que tenían algo de la Biblioteca quedaron vacíos: conservan su nombre
+y su modo, y uno por consulta conserva su vista, que ahora mira solo lo
+procesado. Al abrirlos, un aviso explica por qué quedaron vacíos y cómo volver a
+llenarlos: triar en la Bandeja y agregar los documentos procesados. Tiene
+**"Ir a la Bandeja"** y **"Entendido"**, que lo saca para siempre. La
+Biblioteca no perdió nada.
 
 **Vacío.** Un cuaderno sin nada explica que se llena con documentos procesados
 y ofrece **"Ir a Procesado"**, para elegir qué agregar, y **"Ir a la

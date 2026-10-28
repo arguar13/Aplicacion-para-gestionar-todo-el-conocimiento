@@ -139,6 +139,13 @@ class NotebookRepositoryImpl implements NotebookRepository {
   }
 
   @override
+  Future<void> dismissEmptiedNotice(String id) async {
+    await (_db.update(_db.notebooks)..where((n) => n.id.equals(id))).write(
+      const NotebooksCompanion(emptiedForProcessedAt: Value(null)),
+    );
+  }
+
+  @override
   Future<void> delete(String id) async {
     await (_db.delete(_db.notebooks)..where((n) => n.id.equals(id))).go();
   }
@@ -247,5 +254,6 @@ class NotebookRepositoryImpl implements NotebookRepository {
           ),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    emptiedForProcessedAt: row.emptiedForProcessedAt,
   );
 }

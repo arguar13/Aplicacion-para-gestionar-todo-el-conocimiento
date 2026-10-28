@@ -1,8 +1,10 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
@@ -621,6 +623,82 @@ void main() {
 
       expect(find.text('Después'), findsOneWidget);
       expect(find.text('Antes'), findsNothing);
+    });
+  });
+
+  group('el aviso del cuaderno vaciado (F41, v46)', () {
+    Future<String> emptiedNotebook(NotebookMode mode) async {
+      final notebook = await harness.container
+          .read(notebookRepositoryProvider)
+          .create(
+            name: 'De antes',
+            mode: mode,
+            query: mode == NotebookMode.query ? const LibraryQuery() : null,
+          );
+      final db = harness.database;
+      await (db.update(
+        db.notebooks,
+      )..where((n) => n.id.equals(notebook.id))).write(
+        NotebooksCompanion(
+          emptiedForProcessedAt: Value(DateTime(2026, 10, 28)),
+        ),
+      );
+      return notebook.id;
+    }
+
+    Future<void> open(WidgetTester tester, String notebookId) async {
+      await pumpNotebooks(tester);
+      await tester.tap(find.byKey(Key('notebook-$notebookId')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('explica por qué quedó vacío y cómo volver a llenarlo; '
+        '«Entendido» lo saca y no vuelve', (tester) async {
+      final id = await emptiedNotebook(NotebookMode.manual);
+
+      await open(tester, id);
+
+      expect(find.byKey(const Key('notebook-emptied-notice')), findsOneWidget);
+      expect(find.text(es.notebookEmptiedTitle), findsOneWidget);
+      expect(find.text(es.notebookEmptiedManual), findsOneWidget);
+      // Junto con el vacío de siempre, que lleva a llenarlo.
+      expect(find.byKey(const Key('notebook-detail-empty')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('notebook-emptied-dismiss')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('notebook-emptied-notice')), findsNothing);
+      final row = await (harness.database.select(
+        harness.database.notebooks,
+      )..where((n) => n.id.equals(id))).getSingle();
+      expect(row.emptiedForProcessedAt, isNull);
+
+      // Al volver a abrirlo, sigue sin aviso.
+      await open(tester, id);
+      expect(find.byKey(const Key('notebook-emptied-notice')), findsNothing);
+    });
+
+    testWidgets('en uno por consulta dice que su vista ya no mira la '
+        'Biblioteca, y lleva a la Bandeja', (tester) async {
+      final id = await emptiedNotebook(NotebookMode.query);
+
+      await open(tester, id);
+
+      expect(find.text(es.notebookEmptiedQuery), findsOneWidget);
+      expect(find.text(es.notebookEmptiedManual), findsNothing);
+      await tester.tap(find.byKey(const Key('notebook-emptied-inbox')));
+      await tester.pumpAndSettle();
+      expect(find.text('la Bandeja'), findsOneWidget);
+    });
+
+    testWidgets('un cuaderno sin la marca no lo muestra', (tester) async {
+      final notebook = await harness.container
+          .read(notebookRepositoryProvider)
+          .create(name: 'Nuevo', mode: NotebookMode.manual);
+
+      await open(tester, notebook.id);
+
+      expect(find.byKey(const Key('notebook-emptied-notice')), findsNothing);
     });
   });
 

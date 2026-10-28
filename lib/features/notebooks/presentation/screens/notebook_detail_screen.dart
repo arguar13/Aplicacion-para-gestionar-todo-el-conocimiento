@@ -53,7 +53,18 @@ class NotebookDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: _NotebookItemsPanel(notebook: notebook),
+      body: Column(
+        children: [
+          if (notebook.showsEmptiedNotice)
+            _EmptiedNotice(
+              notebook: notebook,
+              onDismiss: () => ref
+                  .read(notebookRepositoryProvider)
+                  .dismissEmptiedNotice(notebook.id),
+            ),
+          Expanded(child: _NotebookItemsPanel(notebook: notebook)),
+        ],
+      ),
       floatingActionButton: notebook.mode == NotebookMode.manual
           ? FloatingActionButton(
               onPressed: () => _addItem(context, ref, notebook),
@@ -212,6 +223,94 @@ class _MemberTile extends ConsumerWidget {
             )
           : null,
       onTap: () => openProcessedDocument(context, document.id),
+    );
+  }
+}
+
+/// El aviso de un cuaderno que se vació al llegar F41 (v46): por qué quedó
+/// vacío y cómo volver a llenarlo. Se ve mientras el cuaderno tenga la marca
+/// (`Notebook.showsEmptiedNotice`) y «Entendido» la saca para siempre.
+///
+/// Es un aviso tranquilo, en la superficie y con un ícono que informa, no una
+/// alarma: no se perdió nada —la Biblioteca sigue entera—, cambió de qué se
+/// arma un cuaderno.
+class _EmptiedNotice extends StatelessWidget {
+  const _EmptiedNotice({required this.notebook, required this.onDismiss});
+
+  final Notebook notebook;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Card(
+      key: const Key('notebook-emptied-notice'),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      color: scheme.secondaryContainer.withValues(alpha: 0.5),
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ExcludeSemantics(
+                  child: Icon(
+                    Icons.info_outline,
+                    color: scheme.onSecondaryContainer,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      l10n.notebookEmptiedTitle,
+                      style: theme.textTheme.titleSmall,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(
+                notebook.mode == NotebookMode.manual
+                    ? l10n.notebookEmptiedManual
+                    : l10n.notebookEmptiedQuery,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                children: [
+                  TextButton(
+                    key: const Key('notebook-emptied-dismiss'),
+                    onPressed: onDismiss,
+                    child: Text(l10n.notebookEmptiedDismiss),
+                  ),
+                  FilledButton.tonal(
+                    key: const Key('notebook-emptied-inbox'),
+                    onPressed: () => openInboxToTriage(context),
+                    child: Text(l10n.notebookDetailGoToInbox),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

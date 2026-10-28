@@ -846,7 +846,7 @@ Verificación:
     el primer cuadro con el final, y otra prueba fija que con animaciones sube desde abajo.
 - Sin probar en el emulador ni en el teléfono.
 
-### Paso 5 (sin el aviso del vaciado): los Cuadernos, solo con Procesado
+### Paso 5 (hecho): los Cuadernos, solo con Procesado
 
 - **Un solo lugar decide qué es miembro de un cuaderno: `NotebookRepository`.**
   - `addItems` (y `addItem`, que pasa por él) inserta con una sola consulta que filtra
@@ -894,29 +894,44 @@ Verificación:
 - Arreglado de paso: el desplegable de vistas del diálogo «Cuaderno nuevo» desbordaba con una pista
   larga (`isExpanded`).
 - **Las tarjetas de un procesado salen de su texto procesado** (decisión I), nunca de la fuente.
-  - Un solo lugar arma «el texto que se estudia»: `readProcessedStudyText`
-    (`processed_study_text.dart`). Son sus partes en el orden en que se leen, separadas por un
+  - Un solo lugar arma el texto de las tarjetas: `readProcessedCardText`
+    (`processed_card_text.dart`). Son sus partes en el orden en que se leen, separadas por un
     renglón en blanco.
   - Cada tramo sabe de qué parte sale y, si es copia intacta, dónde está en el original
     (`sourceAnchorOf`).
   - Un libro se junta en otro hilo desde `kProcessedInlineChars`. No inventa formas de texto.
   - Lo usan el paso de tarjetas de la IA (`AutoFlashcardsStep`, que ya no cae a la fuente) y la
-    cobertura (`FlashcardCoverageReaderImpl`, con `processedHasStudyTextSql`, la misma regla en
+    cobertura (`FlashcardCoverageReaderImpl`, con `processedHasCardTextSql`, la misma regla en
     SQL).
   - Así «Tarjetas con IA», las tarjetas de «Llenar con IA» y el ✨ de Repasar cuentan y hacen las
     de los procesados.
   - Las tarjetas de un procesado quedan sin fragmento, como las de una nota: la tabla de tarjetas
     apunta a posiciones del elemento, y un procesado no tiene forma de texto.
-  - Qué secciones se estudian lo dice un `switch` (`isStudiedSection`): una sección nueva, como
-    las palabras clave del 1b, obliga a decidirlo.
-  - `processedStudyTextProvider` (el de resumir, del 1b) es otra cosa: necesita una forma de
-    texto donde guardar las marcas. No se tocó.
+  - De qué secciones salen lo dice un `switch` (`isCardSection`): una sección nueva obliga a
+    decidirlo. Entran todas, también Palabras clave: cada parte es una oración con sus claves
+    marcadas, lo que la persona eligió conservar. Que alguna se repita con el Texto solo le da
+    más peso. Un procesado con solo palabras clave da tarjetas (prueba).
+  - **Dos textos distintos, que no se confunden:** el que se resume y se estudia en el procesado
+    (1b, `ProcessedRepository.studyTextOf`) son las páginas de Texto, o el de la fuente con la
+    copia del original. El de las tarjetas (`readProcessedCardText`) es todas las secciones de
+    las que salen tarjetas. Las clases se llaman distinto a propósito: `ProcessedStudyText` y
+    `ProcessedCardText`.
   - Mutaciones de esta parte: 13. Murieron 12. La que queda es equivalente: juntar el texto
     siempre en este hilo da el mismo resultado, solo cuesta más con un libro.
 
+- **El aviso del cuaderno vaciado** (v46, `notebooks.emptied_for_processed_at`): se ve en el detalle
+  mientras la marca no sea `null`. Explica por qué quedó vacío y cómo volver a llenarlo, con un
+  texto para uno a mano y otro para uno por consulta. Trae «Ir a la Bandeja» y «Entendido».
+  «Entendido» (`NotebookRepository.dismissEmptiedNotice`) deja la marca en `null`, sin otra
+  columna y sin tocar la fecha del cuaderno, así que no vuelve.
+- Los chips de las partes usan los nombres de «Procesado» (`ProcessedSectionPresentation`), con
+  Palabras clave: un solo par ícono-nombre en toda la app.
+
 **Falta:**
 
-- **El aviso del vaciado**: espera la columna `emptied_for_processed_at` del paso 1b (v46).
+- **«Ver en la fuente» desde una tarjeta de un procesado**: por ahora la tarjeta queda sin
+  fragmento, como las de una nota de bloques. Para llevar al original haría falta una columna en
+  `flashcards` con el ancla de la fuente (`ProcessedCardText.sourceAnchorOf` ya la sabe dar).
 - El benchmark del chat acotado arma ahora 500 procesados («pasar todo sin modificar»); no se
   corrió.
 
@@ -930,4 +945,7 @@ Verificación:
   procesado, notas, tarjetas y el censo (ver el informe del commit).
 - Mutaciones: 32, todas muertas. Una sobrevivió al principio —«Crear con IA» sin el alcance de
   procesados—: lo de afuera se caía después, pero ocupaba el tope; se sumó la prueba que la mata.
+  Del aviso y de las palabras clave en las tarjetas: 6, todas muertas.
+- Sobre el 1b (v46): pasan 2.183 de cuadernos, procesado, tarjetas, IA que organiza, notas, chat y
+  el censo.
 - Sin probar en el emulador ni en el teléfono.
