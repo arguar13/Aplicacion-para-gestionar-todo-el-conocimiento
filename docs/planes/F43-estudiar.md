@@ -296,6 +296,36 @@ presentaciones sea muy variada y muy versatil para todo los gustos"*.
   «organización sin verificar», la app lo recuerda y lo dice con esas palabras, no con un error
   genérico.
 
+### Modelos de código abierto para imágenes (pedido del dueño, 2026-10-28)
+
+*"si hay modelos de codigo abierto para generar imagenes que me los sugiera con su link"*.
+
+- **En «¿Qué puede cada IA?»** va una sección **«De código abierto»**. Cada modelo lleva:
+  - su enlace a la ficha oficial en Hugging Face;
+  - **su licencia en una línea**: si permite uso comercial o solo personal;
+  - qué necesita para correr.
+- **La lista, que se verifica contra cada ficha y su LICENSE al construir:**
+
+  | Modelo | Licencia |
+  |---|---|
+  | Qwen-Image | Apache 2.0 |
+  | Z-Image | Apache 2.0 |
+  | FLUX.1 [schnell] | Apache 2.0 |
+  | FLUX.2 klein 4B | Comercial abierta, según su ficha |
+  | Stable Diffusion 3.5 | Licencia comunitaria de Stability |
+  | Sana | Liviano, corre con 8 GB de video |
+
+- **Ninguno cabe ni corre bien dentro del teléfono**: piden una placa de video. Por eso la app
+  ofrece dos formas de usarlos:
+  1. **Hugging Face como proveedor de imágenes**: con un token propio, la app pide la imagen a
+     esos mismos modelos abiertos por la API de Hugging Face. Tiene créditos gratis chicos por
+     mes; se verifica al construir y se dice tal cual.
+  2. **«Servidor propio»**: la dirección de un servidor en la computadora de la persona que
+     hable el formato de imágenes de OpenAI (por ejemplo, LocalAI con FLUX o Stable Diffusion).
+     Usa el mismo cable que OpenAI con otra dirección. Gratis, sin cuota, y nada sale de la casa.
+- **Cada uno entra en el aviso «Con tu IA actual»** como una alternativa más, con su costo: «sin
+  costo, en tu computadora» o «créditos de Hugging Face».
+
 ### El aviso, antes de generar
 
 En la hoja de la Presentación y de la Infografía, encima de «Generar ahora», va una tarjeta
