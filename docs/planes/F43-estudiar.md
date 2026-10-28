@@ -298,33 +298,47 @@ presentaciones sea muy variada y muy versatil para todo los gustos"*.
 
 ### Modelos de código abierto para imágenes (pedido del dueño, 2026-10-28)
 
-*"si hay modelos de codigo abierto para generar imagenes que me los sugiera con su link"*.
+Lo que pidió el dueño:
 
-- **En «¿Qué puede cada IA?»** va una sección **«De código abierto»**. Cada modelo lleva:
-  - su enlace a la ficha oficial en Hugging Face;
-  - **su licencia en una línea**: si permite uso comercial o solo personal;
-  - qué necesita para correr.
-- **La lista, que se verifica contra cada ficha y su LICENSE al construir:**
+- *"si hay modelos de codigo abierto para generar imagenes que me los sugiera con su link"*;
+- y después la aclaración: *"una categoria como una opcion «Exigente» … porque mi movil es de
+  gama alta, pero debe ser opcional y aclarando las exigencias, y con los pasos para poder usar
+  cada uno, siempre que sea facil, ademas es para uso personal, no voy a usar un servidor propio
+  solo en mi movil … de esos tres elimina uno si es que ves que es muy exigente o si no es de
+  facil aceso"*.
 
-  | Modelo | Licencia |
-  |---|---|
-  | Qwen-Image | Apache 2.0 |
-  | Z-Image | Apache 2.0 |
-  | FLUX.1 [schnell] | Apache 2.0 |
-  | FLUX.2 klein 4B | Comercial abierta, según su ficha |
-  | Stable Diffusion 3.5 | Licencia comunitaria de Stability |
-  | Sana | Liviano, corre con 8 GB de video |
+**El teléfono del dueño** es un Redmi Note 13 Pro+, con un Dimensity 7200: un procesador de gama
+media alta.
 
-- **Ninguno cabe ni corre bien dentro del teléfono**: piden una placa de video. Por eso la app
-  ofrece dos formas de usarlos:
-  1. **Hugging Face como proveedor de imágenes**: con un token propio, la app pide la imagen a
-     esos mismos modelos abiertos por la API de Hugging Face. Tiene créditos gratis chicos por
-     mes; se verifica al construir y se dice tal cual.
-  2. **«Servidor propio»**: la dirección de un servidor en la computadora de la persona que
-     hable el formato de imágenes de OpenAI (por ejemplo, LocalAI con FLUX o Stable Diffusion).
-     Usa el mismo cable que OpenAI con otra dirección. Gratis, sin cuota, y nada sale de la casa.
-- **Cada uno entra en el aviso «Con tu IA actual»** como una alternativa más, con su costo: «sin
-  costo, en tu computadora» o «créditos de Hugging Face».
+- **Qwen-Image sale.** Tiene 20.000 millones de parámetros: no entra en ningún teléfono y es el
+  más pesado incluso en la nube.
+- **FLUX.1 [schnell] y Stable Diffusion 3.5 Large se quedan, pero por Hugging Face.** Corren en la
+  nube con un token propio, que se pega una vez en Ajustes → IA. Tienen 12.000 y 8.000 millones
+  de parámetros: en el teléfono no entran en la memoria o tardarían minutos por imagen.
+- **No hay «Servidor propio»**: el dueño no lo va a usar.
+- **Categoría nueva, «Exigente — en el teléfono»:** opcional, con las exigencias a la vista.
+  - **Los modelos:** abiertos y chicos, que se bajan desde la app con un toque, como Gemma, y
+    corren sin internet con stable-diffusion.cpp (licencia MIT), en el procesador:
+    - **SDXS-512**, el más rápido;
+    - **SD-Turbo**, el de mejor calidad, con licencia de Stability solo para uso no comercial,
+      que alcanza para el uso personal.
+  - **Lo que se mide antes de prometer:** en un Galaxy S24, SDXS tarda unos 6 s por imagen y
+    SD-Turbo unos 12 s. En un teléfono de gama media con 6 GB, SDXS tarda 26–29 s y SD-Turbo se
+    cierra por falta de memoria. En el Dimensity 7200 se mide de verdad y la app muestra el tiempo
+    medido.
+  - **Las exigencias, a la vista:**
+    - 8 GB de RAM como mínimo, 12 GB recomendados;
+    - entre 1 y 2,5 GB de espacio;
+    - calienta y gasta batería mientras genera;
+    - 512 px, con calidad de ilustración simple, buena para los estilos geométrico, acuarela o
+      línea. El texto lo pone siempre la app.
+  - **Los pasos**: Ajustes → IA → «Imágenes en el teléfono (Exigente)» → «Bajar» → «Probar». La
+    app dice si tu teléfono puede, con cuánta RAM y con qué modelo.
+  - **Si el teléfono no da** (memoria o un cierre), la app lo dice y lo apaga sola. Nunca deja
+    la creación a medias: el lugar de la ilustración queda dibujado.
+- **En «¿Qué puede cada IA?»** van los dos grupos, cada modelo con su enlace a la ficha oficial,
+  su licencia en una línea y lo que exige: **«De código abierto — en la nube (Hugging Face)»** y
+  **«Exigente — en el teléfono»**.
 
 ### El aviso, antes de generar
 
@@ -435,7 +449,7 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
    - el armado del material que entra en la ventana del modelo;
    - el pedido de JSON con su esquema, por partes y con una corrección;
    - la cola de crear, con «ahora» y «más tarde».
-3. **La IA de imágenes y el aviso**:
+3. **La IA de imágenes y el aviso** (Gemini, OpenAI y Hugging Face):
    - los cables de imagen de Gemini y OpenAI;
    - la tabla «¿Qué puede cada IA?» con precios fechados;
    - la prueba de la cuenta;
@@ -448,6 +462,9 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
    los íconos y la exportación a PNG y PDF, como piezas que dibujan una lámina de datos.
 
 **Ola 2:**
+
+3b. **Imágenes en el teléfono, la categoría «Exigente»**: SDXS-512 y SD-Turbo con
+    stable-diffusion.cpp, la descarga, la medición en el teléfono, las exigencias y los pasos.
 
 6. **Repasar nuevo**:
    - el selector y su hoja;
