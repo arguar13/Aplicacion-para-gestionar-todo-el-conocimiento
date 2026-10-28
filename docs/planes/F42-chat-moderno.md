@@ -1,6 +1,7 @@
 # F42 — Un chat moderno, inmersivo y elegante
 
-> **Estado: APROBADO** (2026-10-27, «Aprobado» en el chat).
+> **Estado: CONSTRUIDO** (aprobado el 2026-10-27 con «Aprobado» en el chat; cerrado el 2026-10-28,
+> decisión 88 en `docs/arquitectura.md`).
 >
 > Pedido del dueño, con una captura del chat actual y cinco de apps reales (Gemini, Copilot,
 > Claude y ChatGPT) como guía de estilo, no para copiarlas: *"La interfaz de nuestro chat está
@@ -314,3 +315,20 @@ foto), volver a generar (con foto, y sin ella), «↓», las vibraciones, la tra
 el teclado; el contraste AA de cada par de colores en los nueve temas, la conversación dibujada en
 cada uno, y una respuesta con todo con letra al doble sin desbordes. Las mutaciones van en el
 informe del paso.
+
+### Paso 4 — cierre (hecho)
+
+- La decisión 88 en `docs/arquitectura.md`, con lo que se descartó y lo que no quedó probado, y
+  F42 en «Construido».
+- CONTEXTO y la GUÍA al día. Los pasos 2 y 3 ya habían sumado a la GUÍA el vacío, el campo, «Agregar
+  al chat», «Pensar más», el dictado y «La conversación».
+- `verify_commit`: los pasos 1 (`5159001e`), 2 (`18dcf918`) y 3 (`fc1f08c1`) compilan y pasan el
+  analizador solos, con 19 avisos, la línea base.
+- Suite entera sobre main con los tres pasos (`71481248`): **10.988 pasan, 46 omitidas, 3
+  fallas**, ninguna del chat. Las tres son de Anki y del lector de libros:
+  - las de Anki pasaron solas; venían de la carga de la máquina, con varios agentes corriendo
+    pruebas a la vez, y se arreglaron de raíz en un commit aparte;
+  - la de paginar en otro hilo mide tiempos y pasó sola.
+- Falta mirarlo en el teléfono: el dictado con el reconocedor real, la vibración, el teclado
+  inmersivo y cómo se ven el fundido, el indicador y el brillo. La APK se instala solo si el
+  dueño la pide.

@@ -6861,6 +6861,74 @@ no ofrecían nada ni pintaban lo que sonaba.
     PDFium real), la franja y qué se pinta; no hay una prueba de widget que mueva el visor.
   - La voz real: las pruebas usan un motor falso.
 
+### 88. F42: un chat moderno —barra limpia, panel de conversaciones, saludo, campo flotante con «+» y la respuesta a todo lo ancho—
+
+**Pedido** (2026-10-27): *"La interfaz de nuestro chat está medio «retro» y quisiera hacerla más
+moderna o elegante … como para hacerlo más inmersivo y realista y moderno … no tienes que hacerla
+exactamente igual, es solamente para que te guíes"*, con capturas de cuatro apps de chat como guía
+de organización, no para copiarlas. Plan, con el «Avance» de cada paso:
+`docs/planes/F42-chat-moderno.md`. (La 87 queda para el cierre de F41, que se construye a la vez.)
+
+- **Se toma la organización, no la marca de nadie** (decisión A del plan). Arriba ☰ · la píldora
+  del modelo · ✎; el vacío con saludo; la cápsula con «+». Todo con el diseño de Sinapsis y sus
+  nueve temas, sin logos ajenos.
+- **El estado del chat tiene un dueño** (`chatSelectionProvider`): el modo, el cuaderno y la
+  conversación abierta de cada modo, con las reglas de siempre. La pantalla lo escucha y cierra lo
+  que ya no corresponde: la respuesta en curso, si su conversación deja de estar abierta, y la
+  sesión del modelo, si cambia su conversación. Antes era estado suelto en la pantalla.
+- **Dónde se pregunta, de una sola forma** (decisión C). La línea debajo de la píldora y la fila
+  «Dónde pregunto» del «+» abren la misma hoja y cambian el mismo estado. Dos interruptores
+  propios en el «+» habrían sido una segunda forma, distinta, de hacer lo mismo.
+- **Sin migraciones.** Fijar vive en las preferencias del teléfono, por id: es una forma de mirar
+  el historial, no un dato de la conversación. Renombrar usa la columna `title` que ya existía.
+  Volver a generar borra la respuesta con `deleteMessage`. 👍/👎 queda en las preferencias (las
+  últimas mil) y nunca sale del teléfono. Así F42 no tocó el esquema que subía F41.
+- **«Cómo te llamo»** es opcional, va en Ajustes y queda solo en el teléfono (decisión B): la app no
+  saca el nombre de ninguna cuenta. Sin nombre, el saludo va según la hora.
+- **El brillo del vacío respira tres veces y queda quieto.** Una animación sin fin hace dibujar 60
+  cuadros por segundo con el chat sobre la mesa. Se pinta una vez en su capa y se anima solo lo que
+  se resuelve al componer.
+- **«Pensar más» es la perilla que ya existía, en el otro extremo.** Los tres clientes de la nube
+  regulaban cuánto piensa el modelo, siempre al mínimo. Quién la tiene vive en un solo lugar
+  (`thinkMoreSupport`). Con Gemma se ve apagado y dice por qué. No se guarda, porque gasta más
+  cuota y se elige a sabiendas.
+- **🎤 Dictar con un canal propio** (`DictationChannel`, sobre el `SpeechRecognizer` de Android).
+  Ningún paquete deja preguntar si hay reconocedor sin pedir el micrófono al abrir el chat. El
+  canal propio pregunta sin permiso y lo pide la primera vez que se toca. Donde no hay
+  reconocedor, el botón no aparece.
+- **La respuesta con tipografía, sin paquete de Markdown.** Una capa de bloques
+  (`parseChatBlocks`) cubre títulos, listas, citas, código y tablas. Cada bloque guarda sus
+  posiciones en el texto crudo y lo de adentro lo lee `RenderedMarkdown`, el de toda la app. Así el
+  amarillo del lector en voz alta (F25) cae en su lugar sin traducir posiciones.
+- **Mientras escribe, costo lineal.** Cada evento del modelo trae todo el texto hasta ahí, así que
+  releerlo entero con cada palabra cuesta el largo al cuadrado. Por eso `ChatBlockStream` retoma
+  desde el anteúltimo bloque y la pantalla guarda cada bloque armado: solo se rearman los que
+  cambian, los que se funden y el que toca el amarillo. Una prueba lo mide. El fundido es un
+  `Ticker` que corre solo mientras algo se funde.
+- **Las citas son chips** con su propio nodo para el lector de pantalla y llevan al pasaje
+  (`RoutePaths.reading`). Editar y reenviar manda el mensaje corregido como uno nuevo al final:
+  la sesión del modelo no puede olvidar una vuelta, y lo conversado queda como pasó.
+- **Un segundo toque mientras se releen los adjuntos ya no arma otra pregunta.** Lo encontró una
+  mutación: el chat queda ocupado apenas empieza a releer la foto.
+- **Inmersivo sin saltos.** La barra de abajo se va recién cuando el teclado ya la tapa entera.
+  «↓» lleva al final de verdad (`scrollChatToEnd`): corrige hasta que el final deja de moverse,
+  porque el largo de la lista es una estimación.
+- **Ninguna función se perdió** (decisión D), cada una con su prueba en el lugar nuevo. Lo que hace
+  la persona en las pruebas (mandar, elegir dónde, adjuntar) está una sola vez en
+  `test/support/chat_actions.dart`.
+- **Se descartó:**
+  - Un paquete de Markdown: rompía las posiciones del lector en voz alta.
+  - Un paquete de habla a texto: pedía el micrófono al abrir el chat.
+  - Reescribir el historial al editar.
+  - Una animación sin fin en el vacío.
+- **Lo que no quedó probado:**
+  - La vibración real: se prueba que se pida.
+  - El teclado real de Android: se simula el espacio que ocupa.
+  - Cómo se ven el fundido, el indicador y el brillo.
+  - La voz real del lector y el dictado real con el reconocedor del teléfono.
+  - Que el lector en voz alta dice «[1]» tal cual.
+  - Que los enlaces del modelo se ven como texto, sin abrirse.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -7348,6 +7416,17 @@ no ofrecían nada ni pintaban lo que sonaba.
   Síntesis · Palabras clave», empiezan por lo que se ve, pintan lo que suena en amarillo sobre el
   original (la palabra, con palabras clave) y siguen la lectura con «Volver a la lectura» si la
   persona se mueve. También el texto largo del detalle, que se lee con el mismo lector.
+- **F42, un chat moderno** (decisión 88):
+  - arriba, ☰ con el panel de conversaciones (por día, con buscador, fijar y renombrar), la
+    píldora del modelo y ✎;
+  - el vacío saluda por el nombre de «Cómo te llamo» y propone sugerencias de lo procesado;
+  - abajo, una cápsula con «+» (cámara, fotos, archivos, dónde pregunto y «Pensar más»), 🎤 para
+    dictar y enviar;
+  - la respuesta va a todo lo ancho, con títulos, listas, código y tablas;
+  - las citas son chips;
+  - cada respuesta se puede copiar, escuchar, volver a generar y marcar con 👍/👎;
+  - al mantener apretado se puede editar y reenviar;
+  - con el teclado abierto, el chat ocupa toda la pantalla, con «↓» para volver al final.
 
 ### Por construir
 

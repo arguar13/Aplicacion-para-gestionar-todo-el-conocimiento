@@ -218,6 +218,21 @@ desde F13):
     - el detalle sale igual desde todos lados (antes, en blanco desde el Atlas);
     - la vista previa de unir bóvedas cuenta lo estudiado y los hechos;
     - Cuadernos va en «Organizar» y el botón del medio abre el chat directo.
+- **F42** — **un chat moderno** (decisión 88), sin cambios de esquema.
+  - **Arriba**: ☰ con el panel de conversaciones (por día, con buscador, fijar, renombrar y
+    «Nueva»), la píldora del modelo con dónde se pregunta y ✎.
+  - **El vacío**: un saludo con el nombre de «Cómo te llamo» (en Ajustes, opcional y solo en el
+    teléfono), un brillo que respira tres veces y sugerencias de lo procesado.
+  - **El campo flotante**: «+» con Cámara, Fotos, Archivos, «Dónde pregunto» y «Pensar más», 🎤
+    para dictar (con un canal propio sobre el reconocedor de Android) y enviar o Detener.
+  - **La conversación**:
+    - tu burbuja va a la derecha y la respuesta a todo lo ancho, con títulos, listas, código y
+      tablas, sin paquete de Markdown;
+    - mientras se escribe, el costo es lineal; la respuesta tiene fundido e indicador vivo;
+    - las citas son chips;
+    - cada respuesta se puede copiar, escuchar, volver a generar y marcar con 👍/👎;
+    - al mantener apretado, se puede editar y reenviar;
+    - con el teclado abierto, el chat ocupa toda la pantalla, con «↓» para volver al final.
 
 ## 5. Estado actual
 
@@ -249,6 +264,14 @@ desde F13):
 > **F40 (la línea de tiempo con IA, dentro de Organizar) está construida** (2026-10-26):
 > `docs/planes/F40-linea-de-tiempo-con-ia.md`. Esquema v44. Falta mirarla en el teléfono y probar
 > las fechas con un modelo real; la APK se instala solo si el dueño la pide.
+>
+> **F42 (un chat moderno) está construida** (2026-10-28): `docs/planes/F42-chat-moderno.md`.
+> Falta mirarla en el teléfono: el dictado, la vibración, el teclado inmersivo y cómo se ven el
+> fundido y el brillo. La APK se instala solo si el dueño la pide.
+>
+> **F41 («Procesado») está en construcción**: `docs/planes/F41-procesado.md`. En main están los
+> pasos 1 (datos, v45), 2 (la pantalla) y 3 (la Bandeja nueva). Faltan 1b (v46), 4, 5, 6 y la
+> decisión J, cada uno con su agente.
 
 
 - `origin/main` = el commit «docs: cierre de F40». **Suite: 10.331 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre).
