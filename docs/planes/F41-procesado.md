@@ -845,3 +845,73 @@ Verificación:
   - «Sin animaciones»: la prueba solo miraba que el selector estuviera. Ahora compara su lugar en
     el primer cuadro con el final, y otra prueba fija que con animaciones sube desde abajo.
 - Sin probar en el emulador ni en el teléfono.
+
+### Paso 5 (sin el aviso del vaciado): los Cuadernos, solo con Procesado
+
+- **Un solo lugar decide qué es miembro de un cuaderno: `NotebookRepository`.**
+  - `addItems` (y `addItem`, que pasa por él) inserta con una sola consulta que filtra
+    `isProcessedSql` y lo vivo: una fuente, una nota, uno en la papelera o un id que no existe se
+    quedan afuera, sin error. Nada
+    se cuela entre mirar y escribir. Ningún otro código escribe `notebook_item`.
+  - `resolveQuery` devuelve ahora una `ProcessedQuery`, no una `LibraryQuery`; `memberIds` da los
+    ids con `ProcessedRepository.matchingIds`, el mismo motor de la pantalla Procesado, y falla si
+    el cuaderno no existe. El chat, los repasos (`StudyScopeResolver`), «Tarjetas con IA» y
+    «Llenar con IA» preguntan ahí: ninguno evalúa un cuaderno con el motor de la Biblioteca, que
+    deja afuera lo procesado.
+- **«Por consulta» sobre procesados** (`processedQueryForView`). La vista se guardó en la
+  Biblioteca; cada filtro se traduce a lo que significa en un procesado: el texto, en su título y
+  sus partes; el tipo, el de la fuente de origen; temas, etiquetas y propiedades, los del
+  procesado (decisión F); lo pendiente, lo fallido y lo de la Bandeja no traen ninguno, como una
+  nota en la Biblioteca. `ProcessedQuery` suma `tagIds` y `propertyValueIds`, con sus ramas
+  (`valuesWithDescendantsSql`), y la lista de Procesado escucha `item_property_values`.
+- **«Agregar»**: un selector nuevo de documentos procesados (`PickProcessedDialog`), con buscador en
+  Procesado, varios a la vez, lo que ya está marcado y quieto, y su vacío que manda a triar.
+- **«Crear con IA»**: busca por palabras solo entre los procesados vivos (el buscador del chat con
+  ese alcance). Por sentido, los vectores son de las fuentes: `ItemVectorIndex.nearestTo` suma
+  `among`, se busca solo entre las fuentes de los procesados vivos y cada una cuenta por su
+  procesado. Así el tope no se llena con fuentes que después se descartarían. Sin ningún
+  procesado, no se busca.
+- **«Sugeridos»**: los temas y las etiquetas cuentan solo procesados vivos, y los títulos de
+  ejemplo también.
+- **El chat acotado lee solo el texto procesado.** Con los miembros de un cuaderno como alcance,
+  `ChunkPassageRetriever` no trae ningún fragmento de una fuente: ni de una de la Biblioteca ni de
+  la que dio el procesado (prueba en `chat_scoped_to_notebook_test`). Un procesado que coincide
+  solo por el título daba un pasaje vacío; ahora da su primera parte, en el orden en que se lee.
+  Las citas de un procesado salen sin posición y abren `itemDetail(id)`, que el paso 2 redirige
+  a la pantalla del procesado (`processedDocumentRedirect`). Las
+  sugerencias del chat vacío, con un cuaderno, salen de lo último procesado.
+- **Lo que muestra un cuaderno**: cada fila es un documento procesado, con el ícono de la fuente de
+  origen en su círculo, el título y los chips de sus partes. El lector de pantalla lee la fila en
+  una frase (título, origen, partes); el ícono y los chips no se leen sueltos, y la «X» sí.
+  Tocarla abre el documento en su pantalla (`RoutePaths.processedDocument`), por un solo punto:
+  `notebook_navigation.dart`, que sabe a dónde lleva un cuaderno.
+- **El vacío** (el `EmptyStateView` de toda la app) explica que se llena con documentos
+  procesados, a mano o por su vista, y ofrece «Ir a Procesado» y, debajo, «Ir a la Bandeja».
+- **«Llenar con IA»**: la nota lee de cada procesado lo primero copiado tal cual de su fuente y
+  anclado al texto principal de la fuente, con la misma coordenada que una cita; lo escrito o
+  editado no se cita. Las afirmaciones quedan ancladas a la fuente de la Biblioteca. La nota queda
+  en la Biblioteca y la hoja lo dice: no puede ser miembro.
+- Arreglado de paso: el desplegable de vistas del diálogo «Cuaderno nuevo» desbordaba con una pista
+  larga (`isExpanded`).
+
+**Falta:**
+
+- **El aviso del vaciado**: espera la columna `emptied_for_processed_at` del paso 1b (v46).
+- **Tarjetas de un procesado**: la cobertura (`FlashcardCoverageReaderImpl`) y la cola de la IA
+  leen formas de texto, y un procesado no tiene. En un cuaderno, «Tarjetas con IA» y las tarjetas
+  de «Llenar con IA» cuentan cero. Hace falta decidir si salen del texto procesado (cola de la IA,
+  paso 6 o decisión I).
+- El benchmark del chat acotado arma ahora 500 procesados («pasar todo sin modificar»); no se
+  corrió.
+
+Verificación:
+
+- `flutter analyze`: 19.
+- Pruebas: la suite entera antes de rebasar, 10.738 pasan y 4 fallan. De esas 4, una se arregló
+  (el censo de lecturas de `item`: el filtro de `addItems` ahora decide lo vivo). Otra ya está
+  arreglada en main (`1cb63cbc`, los triggers del banco). Las otras dos son de tiempo y temporales
+  bajo carga (Anki, paginar en otro hilo) y pasan solas. Después de rebasar: cuadernos, chat,
+  procesado, notas, tarjetas y el censo (ver el informe del commit).
+- Mutaciones: 32, todas muertas. Una sobrevivió al principio —«Crear con IA» sin el alcance de
+  procesados—: lo de afuera se caía después, pero ocupaba el tope; se sumó la prueba que la mata.
+- Sin probar en el emulador ni en el teléfono.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/features/notebooks/domain/entities/notebook.dart';
 import 'package:sinapsis/features/notebooks/presentation/notebook_navigation.dart';
@@ -216,7 +217,8 @@ class _MemberTile extends ConsumerWidget {
 }
 
 /// El vacío de un cuaderno (F41, paso 5): se llena con documentos procesados,
-/// y lleva a donde se consiguen —«Procesado» y la Bandeja, a triar—.
+/// y lleva a donde se consiguen —«Procesado», a elegir, y la Bandeja, a
+/// triar—. El mismo vacío de toda la app (`EmptyStateView`).
 class _EmptyNotebook extends StatelessWidget {
   const _EmptyNotebook({required this.mode});
 
@@ -225,63 +227,20 @@ class _EmptyNotebook extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Column(
-            key: const Key('notebook-detail-empty'),
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ExcludeSemantics(
-                child: Icon(
-                  Icons.auto_stories_outlined,
-                  size: 48,
-                  color: theme.colorScheme.outline,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                l10n.notebookDetailEmptyTitle,
-                style: theme.textTheme.titleMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                mode == NotebookMode.manual
-                    ? l10n.notebookDetailEmptyManual
-                    : l10n.notebookDetailEmptyQuery,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  if (processedListPath case final path?)
-                    FilledButton.tonalIcon(
-                      key: const Key('notebook-empty-processed'),
-                      onPressed: () => context.go(path),
-                      icon: const Icon(Icons.article_outlined),
-                      label: Text(l10n.notebookDetailGoToProcessed),
-                    ),
-                  OutlinedButton.icon(
-                    key: const Key('notebook-empty-inbox'),
-                    onPressed: () => openInboxToTriage(context),
-                    icon: const Icon(Icons.inbox_outlined),
-                    label: Text(l10n.notebookDetailGoToInbox),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+    return EmptyStateView(
+      key: const Key('notebook-detail-empty'),
+      icon: Icons.auto_stories_outlined,
+      title: l10n.notebookDetailEmptyTitle,
+      message: mode == NotebookMode.manual
+          ? l10n.notebookDetailEmptyManual
+          : l10n.notebookDetailEmptyQuery,
+      actionLabel: l10n.notebookDetailGoToProcessed,
+      onAction: () => openProcessedList(context),
+      secondary: OutlinedButton.icon(
+        key: const Key('notebook-empty-inbox'),
+        onPressed: () => openInboxToTriage(context),
+        icon: const Icon(Icons.inbox_outlined),
+        label: Text(l10n.notebookDetailGoToInbox),
       ),
     );
   }

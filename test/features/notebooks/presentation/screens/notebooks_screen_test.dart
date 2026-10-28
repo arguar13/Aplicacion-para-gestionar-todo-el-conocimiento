@@ -76,6 +76,17 @@ void main() {
         path: RoutePaths.inbox,
         builder: (_, _) => const Scaffold(body: Text('la Bandeja')),
       ),
+      GoRoute(
+        path: RoutePaths.processed,
+        builder: (_, _) => const Scaffold(body: Text('Procesado')),
+        routes: [
+          GoRoute(
+            path: ':id',
+            builder: (_, state) =>
+                Scaffold(body: Text('procesado ${state.pathParameters['id']}')),
+          ),
+        ],
+      ),
     ],
     initialLocation: RoutePaths.notebooks,
   );
@@ -387,7 +398,7 @@ void main() {
     }
 
     testWidgets('vacío, explica que se llena con documentos procesados y '
-        'lleva a la Bandeja (F41, paso 5)', (tester) async {
+        'lleva a Procesado o a la Bandeja (F41, paso 5)', (tester) async {
       final notebook = await harness.container
           .read(notebookRepositoryProvider)
           .create(name: 'A mano', mode: NotebookMode.manual);
@@ -400,6 +411,11 @@ void main() {
       await tester.tap(find.byKey(const Key('notebook-empty-inbox')));
       await tester.pumpAndSettle();
       expect(find.text('la Bandeja'), findsOneWidget);
+
+      await openNotebook(tester, notebook.id);
+      await tester.tap(find.text(es.notebookDetailGoToProcessed));
+      await tester.pumpAndSettle();
+      expect(find.text('Procesado'), findsOneWidget);
     });
 
     testWidgets('agregar y sacar un procesado cambia el panel, no la bóveda; '
@@ -497,7 +513,7 @@ void main() {
 
       await tester.tap(find.text('Un libro procesado'));
       await tester.pumpAndSettle();
-      expect(find.text('detalle de libro'), findsOneWidget);
+      expect(find.text('procesado libro'), findsOneWidget);
     });
 
     testWidgets('se agregan varios a la vez, y los que ya están se ven '

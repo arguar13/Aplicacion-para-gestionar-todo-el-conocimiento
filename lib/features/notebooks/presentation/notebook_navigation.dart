@@ -2,8 +2,7 @@
 ///
 /// Un cuaderno tiene solo documentos procesados, así que tocar uno abre ese
 /// documento, y su vacío lleva a donde se consiguen: «Procesado» y la Bandeja.
-/// Las direcciones viven acá, y no repartidas por las pantallas, para que la
-/// de «Procesado» se cambie en un solo renglón.
+/// Las direcciones viven acá, y no repartidas por las pantallas.
 library;
 
 import 'dart:async';
@@ -12,18 +11,15 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 
-/// Abre el documento procesado [documentId].
-///
-/// Mientras «Procesado» no tenga su pantalla (paso 2), lo abre el detalle de
-/// elemento, como a cualquier elemento de la bóveda.
+/// Abre el documento procesado [documentId], en su pantalla (paso 2). Se
+/// apila encima del cuaderno: volver deja el cuaderno como estaba.
 void openProcessedDocument(BuildContext context, String documentId) =>
-    unawaited(context.push(RoutePaths.itemDetail(documentId)));
+    unawaited(context.push(RoutePaths.processedDocument(documentId)));
 
-/// La dirección de la lista de «Procesado», o `null` mientras no tenga
-/// pantalla (paso 2): sin ella, el vacío de un cuaderno ofrece solo la
-/// Bandeja.
-const String? processedListPath = null;
+/// Va a «Procesado», a elegir qué agregar. Es `go` y no `push`: es un destino
+/// de la barra, no una pantalla que se apila encima.
+void openProcessedList(BuildContext context) =>
+    context.go(RoutePaths.processed);
 
-/// Va a la Bandeja, a triar. Es `go` y no `push`: la Bandeja es un destino de
-/// la barra, no una pantalla que se apila encima.
+/// Va a la Bandeja, a triar. Es `go` y no `push`, por lo mismo.
 void openInboxToTriage(BuildContext context) => context.go(RoutePaths.inbox);

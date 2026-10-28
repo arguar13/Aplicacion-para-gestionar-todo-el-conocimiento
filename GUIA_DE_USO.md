@@ -1433,8 +1433,9 @@ Botón flotante **"Nuevo cuaderno"**. Te pregunta cómo:
 **Lo que se ve adentro.** Cada fila es un documento procesado: el ícono de la
 fuente de la que salió, su título y unos chips con las partes que tiene
 —**Texto**, **Resumen**, **Síntesis**, **Notas**, **Fragmentos**—. Tocarla abre
-el documento procesado. Con el lector de pantalla, la fila se lee en una sola
-frase: el título, de qué tipo era la fuente y qué partes tiene.
+el documento procesado, en su pantalla de [Procesado](#procesado). Con el
+lector de pantalla, la fila se lee en una sola frase: el título, de qué tipo era
+la fuente y qué partes tiene.
 
 Dentro de un cuaderno hecho "a mano" hay un botón **"+"** para **agregar
 documentos procesados**: el selector busca en Procesado (en el título y en el
@@ -1448,8 +1449,8 @@ de solo lectura: se actualiza solo, según los procesados que la vista vaya
 trayendo.
 
 **Vacío.** Un cuaderno sin nada explica que se llena con documentos procesados
-y ofrece **"Ir a la Bandeja"**, para triar. (Cuando esté la pantalla
-**Procesado**, ofrece también **"Ir a Procesado"**.)
+y ofrece **"Ir a Procesado"**, para elegir qué agregar, y **"Ir a la
+Bandeja"**, para triar.
 
 ### Crear un cuaderno con IA
 
@@ -2208,7 +2209,7 @@ Arriba hay solo tres cosas:
   es "Toda la bóveda"). Con un cuaderno, el chat **lee solo el texto de sus
   documentos procesados**: nunca un pasaje de una fuente de la Biblioteca, ni
   siquiera de la fuente de la que salió un procesado. Una cita de un procesado
-  no tiene página ni minuto propios: tocarla abre el documento. Elegir un
+  no tiene página ni minuto propios: tocarla abre el documento procesado. Elegir un
   cuaderno con una conversación en curso arranca una nueva: lo ya hablado no
   cambia de alcance.
 - **✎, a la derecha**: una conversación nueva. No borra la que tenías:
