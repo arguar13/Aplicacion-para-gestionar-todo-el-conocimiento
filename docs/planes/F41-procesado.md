@@ -77,6 +77,12 @@
 >   qué imágenes conservar … ya sea porque el documento original sea una imagen, una página o una
 >   publicación … que yo pueda elegir si conservo todas o si conservo algunas o cuáles"* → una
 >   sección **Imágenes**, con todas, ninguna o las que se elijan, una por una (decisión L).
+> - Con otras cuatro capturas: *"Todos los botones que te marco con sus respectivas funciones
+>   quitamos de ahí y ponlos directamente en los elementos ya procesados, para más coherencia"* →
+>   también salen de la fuente **«Organizar con IA»** y **«Buscar fechas con IA»** (de «Más
+>   acciones»), el panel **«La IA organizó esto»** (con «Para revisar», «Deshacer todo» y
+>   «Revisar con otro modelo»), **«Borrar archivo, quedarme con el texto»** y, arriba, **✨
+>   «Generar nota derivada»** y **«Generar quiz»** (decisión K).
 
 ## Lo que hay hoy
 
@@ -256,10 +262,26 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
   detalle de una fuente deja de mostrar lo que es estudiarla: «Extraer resumen», «Extraer
   síntesis» y «Extraer palabras clave», el mosaico «Resumir», el Mapa y las Tarjetas de repaso.
   Todo eso vive en su documento procesado, que ya se estudia solo (decisión I).
+  - **También salen de la fuente** (segunda tanda de capturas): «Organizar con IA» y «Buscar
+    fechas con IA» de «Más acciones»; el panel «La IA organizó esto» con «Para revisar», «Ver»,
+    «Deshacer todo» y «Revisar con otro modelo»; «Borrar archivo, quedarme con el texto»; y en
+    la barra de arriba ✨ «Generar nota derivada» (F16) y «Generar quiz». Todos van al documento
+    procesado con su misma función, sobre lo procesado:
+    - organizar y buscar fechas trabajan el texto procesado (paso 6), y su panel muestra lo que
+      la IA hizo con el documento procesado;
+    - la nota derivada y el quiz salen del texto procesado;
+    - «Borrar archivo, quedarme con el texto» pasa a ser **«Borrar la copia del original,
+      quedarme con el texto»**: libera el espacio de la copia (decisión H) y nunca toca el
+      archivo de la fuente, que en la Biblioteca no se borra (decisión G).
   - **Lo que queda en la fuente**: el original y su texto («Extraer transcripción»), escuchar,
-    los resaltados a mano, «Relacionado», lo que organizó la IA, y la tarjeta de estudiar con
-    Resumir · Sintetizar · Palabras clave marcando el original. Eso último hace falta porque es
-    de donde la hoja de triar trae el resumen, la síntesis y las palabras clave (paso 3).
+    «Leer» y «Copiar», «Volver a extraer el texto», «Quitar marcas de tiempo», los resaltados a
+    mano, «Relacionado», exportar, la papelera, y la tarjeta de estudiar con Resumir · Sintetizar
+    · Palabras clave marcando el original. Eso último hace falta porque es de donde la hoja de
+    triar trae el resumen, la síntesis y las palabras clave (paso 3).
+  - **Lo que la IA ya organizó en una fuente no se borra** (temas, vínculos, tarjetas, fechas,
+    sugerencias para revisar): sigue guardado, pero deja de verse en la fuente y no alimenta
+    Atlas, Mapa ni Línea de tiempo (decisión F).
+  - Una nota propia no cambia: sigue con su ✨, su quiz y su panel, porque no es una fuente.
   - **El documento procesado suma su Mapa** (el grafo local de sus vínculos entre procesados,
     paso 6) **y sus Tarjetas de repaso**, hechas con IA o a mano **de su propio texto**.
   - **Nada se borra.** Las tarjetas que ya tiene una fuente siguen en Repasar, con su historial,
