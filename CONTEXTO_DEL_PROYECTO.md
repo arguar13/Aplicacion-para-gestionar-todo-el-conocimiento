@@ -383,7 +383,8 @@ adb -s <serial> shell rm -f /data/local/tmp/sinapsis.apk
 ```
 
 El cable del teléfono es viejo e inestable: una copia corrupta del mismo tamaño ya hizo fallar una
-instalación (de ahí el `sha256`). Si sale *offline*: `adb reconnect offline` / `adb kill-server`; el
+instalación (de ahí el `sha256`). Desde Git Bash, antes `export MSYS_NO_PATHCONV=1`: si no, convierte
+`/data/local/tmp/…` en una ruta de Windows y la comprobación y el borrado no encuentran el archivo. Si sale *offline*: `adb reconnect offline` / `adb kill-server`; el
 dueño a veces debe desbloquear la pantalla o reactivar «Depuración USB (ajustes de seguridad)».
 Instalar encima conserva datos y modelos **solo si la app ya estaba instalada** (verificar con
 `firstInstallTime` en `dumpsys package app.sinapsis.dev`). La compilación en frío tarda ~6 min.
