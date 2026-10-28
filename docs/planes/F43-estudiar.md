@@ -1,6 +1,7 @@
 # F43 — «Estudiar»: un estudio para crear sobre lo procesado
 
-> **Estado: PROPUESTO** (2026-10-28). Se construye cuando el dueño escriba «aprobado» en el chat.
+> **Estado: APROBADO** (2026-10-28, «aprobado» en el chat, con las ilustraciones con IA de la
+> decisión H y su aviso detallado —ver «H en detalle»—). En construcción.
 >
 > Pedido del dueño, con catorce capturas de NotebookLM (la pestaña «Studio», sus hojas de
 > personalizar y cinco resultados abiertos) y una de Repasar de hoy: *"vamos a cambiar eso para
@@ -270,6 +271,103 @@ siempre la app encima. Las imágenes de las tarjetas y del cuestionario no piden
 imágenes del propio documento procesado** (F41), y con un modelo de la nube que mira fotos, la IA
 elige cuál va con cada pregunta.
 
+## H en detalle: «¿Tu IA puede hacer esto?» (aprobado con ilustraciones, 2026-10-28)
+
+Pedido del dueño al aprobar: *"obviamente quiero las ilustraciones con ia (pero que me avise que si
+con el modelo que tengo va a poder generar imagenes o presentaciones o sino que me de mas opciones
+que sea detallada la retroalimentacion y que me diga con que ia puedo hacer imagenes y con cual no y
+cuanto consume en tokens en porcentaje y en cuota diaria), que las opciones de la infografia o
+presentaciones sea muy variada y muy versatil para todo los gustos"*.
+
+### Qué puede cada IA (verificado en la documentación oficial el 2026-10-28)
+
+| IA | Escribe el contenido (texto, presentación, informe…) | Ilustraciones |
+|---|---|---|
+| **Gemma** (en el teléfono) | Sí, sin internet; con un libro largo, por partes y más lento | **No** |
+| **Claude** | Sí | **No**: Claude no genera imágenes |
+| **Gemini** | Sí | **Sí, solo con facturación activa**: la capa gratis no incluye los modelos de imagen. Nano Banana 2.1 (`gemini-nano-banana-2.1`, ≈ US$ 0,034 por imagen 1K, 1.120 tokens), Nano Banana 2 Lite (`gemini-3.1-flash-lite-image`, el más barato, ≈ US$ 0,034), Nano Banana Pro (`gemini-3-pro-image`, ≈ US$ 0,134) |
+| **OpenAI** | Sí | **Sí, con la organización verificada** en su consola: `gpt-image-2.5-flare` (rápido) o `gpt-image-1-mini` (el más barato) |
+
+- **Los precios y los nombres se guardan en una tabla con su fecha.** La pantalla dice «precios
+  al 28/10/2026».
+- **Qué modelos de imagen tiene cada cuenta sale de la lista del propio proveedor**, la misma que
+  ya se trae en F32 y que hoy descarta los de imagen. Si el proveedor saca uno nuevo, aparece.
+- **El primer pedido de imagen prueba la cuenta de verdad.** Si responde «sin facturación» o
+  «organización sin verificar», la app lo recuerda y lo dice con esas palabras, no con un error
+  genérico.
+
+### El aviso, antes de generar
+
+En la hoja de la Presentación y de la Infografía, encima de «Generar ahora», va una tarjeta
+**«Con tu IA actual»**:
+
+- **Qué va a poder hacer**, con ✓ y ✗: «✓ Escribir las diapositivas con Gemini 3.1 Flash ·
+  ✗ Ilustraciones: tu cuenta de Gemini no tiene facturación activa».
+- **Cuánto va a consumir:**
+  - los tokens estimados de lectura y de escritura;
+  - las imágenes: cuántas, de qué tamaño y su precio aproximado;
+  - **el porcentaje de la cuota diaria**: «≈ 18 % de tu cuota de hoy, ya usaste 42 %».
+- **La cuota diaria de cada cuenta la fija la persona** en Ajustes → IA: pedidos, tokens e
+  imágenes por día, o un tope en dólares. Los proveedores no informan cuánto queda de la capa
+  gratis (F32), así que el porcentaje es contra lo que la persona puso. Hasta que lo ponga, se usa
+  el límite publicado de la capa gratis, rotulado «estimado».
+- **Si la IA actual no puede**, se ofrecen **las opciones concretas**, en este orden:
+  1. **Seguir sin ilustraciones**: las plantillas dibujadas por la app, que se ven terminadas
+     igual.
+  2. **Usar otra cuenta ya cargada que sí puede**: «Usar Gemini (cuenta Trabajo) para las
+     ilustraciones». El texto lo sigue escribiendo la IA elegida.
+  3. **Agregar una clave de Gemini u OpenAI**, que abre la hoja de claves de F32, con dos líneas
+     sobre la facturación o la verificación.
+- **La misma tabla «¿Qué puede cada IA?»** se ve completa en Ajustes → IA y desde un «ⓘ» en la
+  tarjeta, con cada cuenta de la persona marcada como **puede**, **no puede** o **sin probar**.
+- **Si una cuenta se queda sin cuota a mitad**, lo ya hecho se guarda. Las ilustraciones que
+  faltan quedan con su lugar dibujado y «Completar ilustraciones», que sigue después con la misma
+  cuenta o con otra.
+
+## Plantillas: variadas y para todos los gustos
+
+**El contenido y el diseño van separados** (decisión G): todo lo que sigue se cambia en el visor
+sin volver a generar, y se previsualiza en miniatura antes de elegir.
+
+### Presentación
+
+- **Dieciséis plantillas, en cinco familias:**
+  - **Clásicas:** *Editorial*, *Pergamino*, *Académica*.
+  - **Modernas:** *Minimal suizo*, *Bento*, *Aurora* (degradés suaves), *Vidrio* (capas
+    translúcidas).
+  - **Oscuras:** *Medianoche*, *Neón*, *Pizarra*.
+  - **Cálidas y creativas:** *Acuarela*, *Pastel*, *Papel recortado*.
+  - **Sobrias de trabajo:** *Corporativa*, *Datos* (cifras y gráficos), *Ejecutiva*.
+- **Lo que se personaliza en cada una:**
+  - **la paleta**: seis por plantilla, más un color propio;
+  - **la tipografía**: cinco pares de títulos y texto, con fuentes libres incluidas en la app;
+  - **la densidad**: aireada, estándar o compacta;
+  - **la transición**: fundido, deslizar, zoom suave o ninguna;
+  - **el formato**: 16:9 o 4:3;
+  - la numeración y un pie con el título.
+- **Doce diseños de diapositiva**: portada, sección, viñetas, dos columnas, cita, cifra destacada,
+  línea de pasos, comparación, cronología, imagen con texto, cuadrícula de conceptos y cierre.
+- **Con ilustraciones**: una por diapositiva que la pida, en el estilo que se elija (*Igual que la
+  plantilla*, *Fotográfico*, *Acuarela*, *Plastilina*, *Línea*, *Isométrico*).
+
+### Infografía
+
+- **Dieciocho estilos.** Los dibujados por la app no necesitan IA de imágenes:
+  - *Automático* (la IA elige según el tema), *Editorial*, *Geométrico*, *Minimal suizo*,
+    *Bento*, *Pizarra*, *Neón oscuro*, *Pergamino*, *Corporativo*, *Pastel*, *Infantil* y
+    *Datos*.
+  - Con ilustraciones con IA: *Plastilina*, *Kawaii*, *Acuarela*, *Isométrico*, *Cómic* y
+    *Fotográfico*. Sin una IA que pueda, se ofrecen igual con su versión dibujada.
+- **Diez composiciones**: bloques bento, columnas, zigzag, línea de tiempo, proceso, radial,
+  comparación, pirámide, panel de cifras y mapa de conceptos. *Automática* elige según el
+  contenido.
+- **Gráficos dibujados por la app** cuando el contenido trae números: barras, anillo, progreso y
+  pictograma.
+- **Lo que se personaliza**: la paleta, la tipografía, la orientación (horizontal, vertical o
+  cuadrado), el detalle (conciso, estándar o detallado), los íconos de un juego propio y el fondo
+  (liso, textura o degradé).
+- **Exportar**: PNG en alta resolución, o PDF.
+
 ## Decisiones (se pueden cambiar mientras no se llegue a su paso)
 
 - **A. Atlas se queda en Organizar**, junto a la Bandeja. El pedido no lo nombra entre los que
@@ -287,40 +385,62 @@ elige cuál va con cada pregunta.
   documento, con un interruptor para dejarlas solo de hojear.
 - **G. Un esquema de datos por tipo, y el diseño en la app**: cambiar plantilla o estilo nunca
   vuelve a llamar a la IA.
-- **H. Ilustraciones con IA, opcionales y aparte** (ver arriba). Si preferís no tenerlas,
-  se quitan del plan y la infografía queda solo con plantillas dibujadas.
+- **H. Ilustraciones con IA, aprobadas**, con el aviso «Con tu IA actual» y las alternativas
+  (ver «H en detalle»). Sin una IA que pueda, todo se ve terminado igual con lo dibujado.
 - **I. Sin 👍 y 👎**: en NotebookLM le avisan a Google. Acá no hay a quién mandarlo, y no se manda
   nada a ningún servicio.
 
 ## Pasos (cada uno, su commit y su push)
 
+Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso se integra en
+`main` con su suite, su push y su verificación.
+
+**Ola 1, todo lo que no depende de nada:**
+
 1. **La barra**: el paso «Estudiar» con sus cinco destinos, Organizar con Bandeja y Atlas, el
    chat a la derecha de Estudiar, la insignia, el riel de la computadora, la GUÍA y las pruebas.
-2. **Los datos**:
+2. **Los datos de «Lo creado»**:
    - `study_creations` (v48) en los tres censos;
    - el recorte de Procesado (documento, cuaderno, tema) y sus fuentes;
    - el armado del material que entra en la ventana del modelo;
+   - el pedido de JSON con su esquema, por partes y con una corrección;
    - la cola de crear, con «ahora» y «más tarde».
-3. **Repasar nuevo**:
+3. **La IA de imágenes y el aviso**:
+   - los cables de imagen de Gemini y OpenAI;
+   - la tabla «¿Qué puede cada IA?» con precios fechados;
+   - la prueba de la cuenta;
+   - la cuota diaria por cuenta en Ajustes;
+   - el estimador de tokens, imágenes y porcentaje.
+4. **El diseño de las presentaciones**: las dieciséis plantillas, los doce diseños de
+   diapositiva, paletas, tipografías (fuentes libres en la app), densidad, transiciones y el
+   PDF, como piezas que dibujan un mazo de datos.
+5. **El diseño de las infografías**: los dieciocho estilos, las diez composiciones, los gráficos,
+   los íconos y la exportación a PNG y PDF, como piezas que dibujan una lámina de datos.
+
+**Ola 2:**
+
+6. **Repasar nuevo**:
    - el selector y su hoja;
    - «Para hoy» compacto;
    - la grilla;
-   - «Lo creado» con sus estados;
-   - la hoja de personalizar común con «Uso de IA».
-4. **Extraer texto completo, resumen y síntesis**, con su visor y el modo escuchar.
-5. **Tarjetas didácticas y Cuestionario**, con los cuatro tipos de pregunta.
-6. **Mapa mental y Tabla de datos.**
-7. **Informes**, con sus plantillas, interactivo y documento.
-8. **Presentación**, con sus plantillas, diseños, visor, notas y PDF.
-9. **Infografía**, con sus estilos dibujados. Después, si se aprueba H, las ilustraciones con IA
-   (Gemini u OpenAI).
-10. **El cierre**:
+   - «Lo creado» con sus estados y su menú;
+   - la hoja de personalizar común, con «Uso de IA» y la tarjeta «Con tu IA actual».
+
+**Ola 3, un agente por tipo:**
+
+7. **Extraer texto completo, resumen y síntesis**, con su visor y el modo escuchar.
+8. **Tarjetas didácticas y Cuestionario**, con los cuatro tipos de pregunta.
+9. **Mapa mental y Tabla de datos.**
+10. **Informes**, con sus plantillas, interactivo y documento.
+11. **Presentación**: generarla, el visor y las ilustraciones.
+12. **Infografía**: generarla, el visor y las ilustraciones.
+
+**Al final:**
+
+13. **El cierre**:
     - la decisión 89;
     - la GUÍA, CONTEXTO y la suite entera;
-    - la APK en el teléfono, si la pedís.
-
-Los pasos 4 a 9 son independientes entre sí una vez hechos el 2 y el 3: se pueden construir en
-paralelo, cada uno en su rama.
+    - la APK en el teléfono, si se pide.
 
 ## Lo que no entra (para que quede dicho)
 
