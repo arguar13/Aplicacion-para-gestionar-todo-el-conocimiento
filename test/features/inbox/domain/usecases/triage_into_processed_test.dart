@@ -19,6 +19,7 @@ import 'package:sinapsis/features/inbox/domain/repositories/inbox_repository.dar
 import 'package:sinapsis/features/inbox/domain/usecases/triage_into_processed.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
@@ -353,6 +354,100 @@ void main() {
       );
       verifyNever(() => inbox.returnToInbox(any()));
       expect(await stateOf('fuente'), ItemState.triaged);
+    });
+  });
+
+  group('lo triado va a la IA (F41, paso 6)', () {
+    final text = {
+      ProcessedSection.text: SectionEdit.add(const SectionInput.fromSource()),
+    };
+    final note = {
+      ProcessedSection.notes: SectionEdit.add(
+        const SectionInput.drafts([ProcessedDraft.written('Una idea mía')]),
+      ),
+    };
+
+    String documentOf(Either<Failure, ProcessOutcome> outcome) =>
+        outcome.getOrElse((failure) => throw StateError('$failure')).documentId;
+
+    test('triar en la Bandeja le pasa el documento a la IA', () async {
+      final outcome = await triage()('fuente', text);
+
+      expect(harness.triagedForOrganizing, [documentOf(outcome)]);
+    });
+
+    test('pasar sin modificar, también', () async {
+      final outcome = await triage().passUnchanged('fuente');
+
+      expect(harness.triagedForOrganizing, [documentOf(outcome)]);
+    });
+
+    test(
+      'volver a triar una ya triada, también: es una pasada nueva',
+      () async {
+        final first = documentOf(await triage()('fuente', text));
+
+        final again = await triage().retriage('fuente', note);
+
+        expect(again.isRight(), isTrue);
+        expect(harness.triagedForOrganizing, [first, first]);
+      },
+    );
+
+    test(
+      'volver a triar una que esperaba la tría y la pasa una sola vez',
+      () async {
+        final outcome = (await triage().retriage(
+          'fuente',
+          text,
+        )).getOrElse((failure) => throw StateError('$failure'));
+
+        expect(harness.triagedForOrganizing, [outcome.processed.documentId]);
+      },
+    );
+
+    test('«Sin cambios» no la pasa: no hay nada nuevo que organizar', () async {
+      await triage()('fuente', text);
+      harness.triagedForOrganizing.clear();
+
+      final again = (await triage().retriage(
+        'fuente',
+        text,
+      )).getOrElse((failure) => throw StateError('$failure'));
+
+      expect(again.processed.unchanged, isTrue);
+      expect(harness.triagedForOrganizing, isEmpty);
+    });
+
+    test('si no hay nada que guardar, no la pasa', () async {
+      await triage()('fuente', const {});
+      await triage().retriage('fuente', const {});
+
+      expect(harness.triagedForOrganizing, isEmpty);
+    });
+
+    test('si el triado falla y se deshace, no la pasa', () async {
+      final inbox = _FailingInbox();
+      when(
+        () => inbox.transitionState(
+          itemId: any(named: 'itemId'),
+          to: any(named: 'to'),
+        ),
+      ).thenAnswer(
+        (_) async => left(const Failure.cache(message: 'La base no contestó.')),
+      );
+      final organized = <String>[];
+      final useCase = TriageIntoProcessed(
+        inbox: inbox,
+        process: harness.container.read(processSourceUseCaseProvider),
+        organize: organized.add,
+      );
+
+      expect((await useCase.passUnchanged('fuente')).isLeft(), isTrue);
+      expect((await useCase('fuente', text)).isLeft(), isTrue);
+
+      expect(organized, isEmpty);
+      expect(await documents(), 0);
     });
   });
 }

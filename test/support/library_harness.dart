@@ -93,6 +93,7 @@ class LibraryHarness {
     this.textToSpeechService,
     this.photoLibraryChooser,
     this.dictation,
+    this.triagedForOrganizing,
   );
 
   /// Prepara todo y programa la limpieza. Llamar desde `setUp`.
@@ -248,6 +249,7 @@ class LibraryHarness {
     final propertySuggestionService = FakePropertySuggestionService();
     final textToSpeechService = FakeTextToSpeechService();
     final fixedNow = now ?? DateTime(2026, 9, 11, 10);
+    final triagedForOrganizing = <String>[];
 
     final container = ProviderContainer(
       overrides: [
@@ -353,6 +355,9 @@ class LibraryHarness {
             logger: ref.read(appLoggerProvider),
           ),
         ),
+        // Lo triado no le llega a una cola de la IA de verdad, que arrancaría
+        // debajo de la prueba con sus esperas y sus modelos: se anota.
+        organizeTriagedProvider.overrideWithValue(triagedForOrganizing.add),
         ...extraOverrides,
       ],
     );
@@ -387,8 +392,13 @@ class LibraryHarness {
       textToSpeechService,
       gallery,
       dictation,
+      triagedForOrganizing,
     );
   }
+
+  /// Los documentos procesados que un triado le pasó a la IA para organizar
+  /// (F41, paso 6), en orden.
+  final List<String> triagedForOrganizing;
 
   final ProviderContainer container;
   final AppDatabase database;

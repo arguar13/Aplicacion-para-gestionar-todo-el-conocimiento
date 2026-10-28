@@ -433,7 +433,8 @@ tiene relacionado. Lo que es **estudiarlo** —leer su resumen, su síntesis y s
 palabras clave, su Mapa, sus tarjetas de repaso, lo que la IA organizó, la nota
 derivada y el cuestionario— está en su documento procesado (ver
 [Procesado](#procesado)). Una **nota propia** sigue teniendo todo acá, porque no
-tiene documento procesado.
+tiene documento procesado, salvo el Mapa: el Mapa se arma con lo procesado, y
+sus vínculos están en "Vínculos".
 
 De arriba hacia abajo, vas a encontrar:
 

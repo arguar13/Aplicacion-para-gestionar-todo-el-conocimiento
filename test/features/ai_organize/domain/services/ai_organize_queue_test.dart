@@ -365,6 +365,27 @@ void main() {
       expect(relations.organized, ['p', 'p']);
     });
 
+    test(
+      'un procesado que se encoló y se deshizo antes de empezar no se '
+      'organiza: la cola salta lo que ya no existe, sin abrir una pasada',
+      () async {
+        // Deshacer el triado de un documento que nació con él lo borra: la cola
+        // no necesita que se lo saquen.
+        await vault.processedDocument('p', title: 'P', content: 'Texto.');
+        final ai = queue(settings: const AiOrganizeSettings(enabled: false));
+        await ai.start();
+
+        ai.enqueueProcessedForOrganizing('p');
+        await vault.library.delete('p');
+        ai.updateSettings(const AiOrganizeSettings());
+        await ai.settled;
+
+        expect(relations.organized, isEmpty);
+        expect(await runsOf('p'), isEmpty);
+        expect(statuses.last, isA<AiOrganizeIdle>());
+      },
+    );
+
     test('la pasada guarda la huella de lo elegido, que es lo que se vuelve '
         'a comparar al editarlo', () async {
       const chosen =

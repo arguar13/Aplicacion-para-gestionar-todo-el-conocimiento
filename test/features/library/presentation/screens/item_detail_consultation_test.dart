@@ -112,13 +112,14 @@ void main() {
     });
   }
 
-  testWidgets('una nota propia no cambia: «Resumir», su Mapa, sus tarjetas, '
-      'lo de la IA, el derivado y el quiz', (tester) async {
+  testWidgets('una nota propia no cambia: «Resumir», sus tarjetas, lo de la '
+      'IA, el derivado y el quiz; Mapa no tiene, porque el grafo lee solo lo '
+      'procesado (F41, paso 6)', (tester) async {
     await saveNote('nota');
     await openDetail(tester, 'nota');
 
     expect(find.byKey(const Key('source-panel-summarize')), findsOneWidget);
-    expect(find.byType(LocalGraphPanel), findsOneWidget);
+    expect(find.byType(LocalGraphPanel), findsNothing);
     expect(find.byType(FlashcardSection), findsOneWidget);
     expect(find.byType(AiOrganizedLine), findsOneWidget);
     expect(find.byType(GenerateQuizButton), findsOneWidget);

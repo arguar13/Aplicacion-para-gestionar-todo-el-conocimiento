@@ -1259,9 +1259,16 @@ colgado del documento procesado (decisión F).
     mano: `_organize` y `_findDates` la saltan. Se quitó `itemProcessed`, el aviso de la cola de
     procesamiento al terminar una fuente. La revisión con otro modelo no organiza: corrige lo que la
     IA ya hizo, y sigue igual.
-  - **El punto para encolar un procesado** es `AiOrganizeQueue.enqueueProcessedForOrganizing(id)`
-    (`ref.read(aiOrganizeQueueProvider)`). Lo llaman la Bandeja y «Volver a triar» al confirmar: lo
-    organiza en el acto, en una pasada nueva que no repite lo que ya estaba. Sin llamarlo, un
+  - **El punto para encolar un procesado** es `AiOrganizeQueue.enqueueProcessedForOrganizing(id)`.
+    Lo llama un solo lugar, `TriageIntoProcessed` —triar en la Bandeja, pasar sin modificar y
+    «Volver a triar»—, cada vez que el triado dejó el documento distinto: no con «Sin cambios», ni si
+    falló y se deshizo. Le llega como `organize`, un parámetro del caso de uso; en la app es
+    `organizeTriagedProvider`, que lee la cola recién al triar, y en las pruebas un registro
+    (`LibraryHarness.triagedForOrganizing`), así ninguna pantalla arranca una cola de verdad. Lo
+    organiza en el acto, en una pasada nueva que no repite lo que ya estaba.
+  - **Deshacer el triado no lo saca de la cola.** Un documento que nació con el triado se borra al
+    deshacer, y la cola salta lo que ya no existe sin abrir una pasada (lo fija una prueba); uno que
+    ya existía vuelve a como estaba, y organizarlo otra vez no repite nada. Sin llamarlo, un
     procesado nuevo igual se organiza solo —la cola lo ve en la base cuando lleva 15 segundos
     quieto— y uno que cambió mucho también, como una nota; la llamada es lo que hace que volver a
     triar con algo chico, como un fragmento con una fecha, no espere.
@@ -1312,7 +1319,8 @@ colgado del documento procesado (decisión F).
     fechas con IA» y la línea de la IA están en el documento procesado, y piden con su id. Este paso
     había hecho que, desde la fuente, trabajaran sobre su procesado o dijeran que faltaba triarla;
     con el paso 8 ese código no lo alcanza nadie y se sacó, con su tarjeta, sus avisos y sus pruebas.
-    El grafo local dibuja el de un documento procesado; de cualquier otro elemento, nada.
+    El grafo local dibuja el de un documento procesado; de cualquier otro elemento, nada. Por eso
+    el detalle de una nota propia ya no lo pone: no tiene Mapa, y sus vínculos están en «Vínculos».
 - **Abrir un procesado** desde esas pantallas pasa por un solo punto, `openOrganizedItem`, que va a
   `RoutePaths.itemDetail`: con el paso 2 en main, esa ruta redirige a la pantalla del documento
   procesado.

@@ -45,15 +45,32 @@ class RetriageOutcome {
 ///
 /// Nunca toca la fuente más que en su estado de la Bandeja: ni su texto, ni
 /// su archivo, ni sus datos (decisión G).
+///
+/// **Lo triado va a la IA** (F41, paso 6): cada vez que un triado deja el
+/// documento procesado distinto —triar, pasar sin modificar, volver a
+/// triar—, se lo pasa a `organize` para que la IA lo organice ahora, con lo
+/// elegido. No si no cambió nada, ni si falló y se deshizo.
+///
+/// Deshacer no lo saca de la cola: un documento que nació con el triado se
+/// borra al deshacer, y la cola salta lo que ya no existe; uno que ya
+/// existía vuelve a como estaba, y organizarlo otra vez no repite nada.
 class TriageIntoProcessed {
   const TriageIntoProcessed({
     required InboxRepository inbox,
     required ProcessSourceUseCase process,
+    void Function(String documentId) organize = _noOrganizing,
   }) : _inbox = inbox,
-       _process = process;
+       _process = process,
+       _organize = organize;
 
   final InboxRepository _inbox;
   final ProcessSourceUseCase _process;
+
+  /// Qué hacer con el documento de un triado que cambió algo: en la app,
+  /// `AiOrganizeQueue.enqueueProcessedForOrganizing`.
+  final void Function(String documentId) _organize;
+
+  static void _noOrganizing(String documentId) {}
 
   /// «Listo» en la hoja «¿Qué va a Procesado?»: procesa [sourceItemId] con
   /// [edits] —y, si se pidió, con la copia de su original ([original])— y la
@@ -104,8 +121,10 @@ class TriageIntoProcessed {
     if (from == InboxStatus.triaged) {
       final processed = await _process(sourceItemId, edits, original: original);
       return processed.map(
-        (outcome) =>
-            RetriageOutcome(sourceItemId: sourceItemId, processed: outcome),
+        (outcome) => RetriageOutcome(
+          sourceItemId: sourceItemId,
+          processed: _organized(outcome),
+        ),
       );
     }
     final triaged = await call(sourceItemId, edits, original: original);
@@ -154,7 +173,14 @@ class TriageIntoProcessed {
         // explica por qué la fuente sigue en la Bandeja.
         await _process.undo(outcome.undo);
         return left(failure);
-      }, (_) => right(outcome));
+      }, (_) => right(_organized(outcome)));
     });
+  }
+
+  /// El único lugar donde un triado le pasa su documento a la IA: ya quedó
+  /// guardado, y algo cambió.
+  ProcessOutcome _organized(ProcessOutcome outcome) {
+    if (!outcome.unchanged) _organize(outcome.documentId);
+    return outcome;
   }
 }

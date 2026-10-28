@@ -329,9 +329,10 @@ class AiOrganizeQueue {
   /// siempre —temas, vínculos con otros procesados, fechas para la línea de
   /// tiempo— y solo con lo elegido.
   ///
-  /// Es el único punto para eso, y lo llaman la Bandeja y «Volver a triar» al
-  /// confirmar. Sin llamarlo, un procesado nuevo igual se organiza solo —es una
-  /// nota, y la cola toma lo nuevo de la base cuando lleva
+  /// Es el único punto para eso, y lo llama `TriageIntoProcessed` —triar en la
+  /// Bandeja, pasar sin modificar y «Volver a triar»— cada vez que el triado
+  /// cambió algo. Sin llamarlo, un procesado nuevo igual se organiza solo —es
+  /// una nota, y la cola toma lo nuevo de la base cuando lleva
   /// [kAiNoteQuietPeriod] quieto—, y uno que cambió mucho también; esto es lo
   /// que hace que volver a triar con algo chico —un fragmento con una fecha—
   /// no espere a que el cambio sea grande. Es una pasada nueva: lo que ya

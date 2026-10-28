@@ -19,6 +19,14 @@ class FakeAiOrganizeQueue implements AiOrganizeQueue {
   void organizeAllNow(Iterable<String> itemIds) =>
       organizeNowCalls.addAll(itemIds);
 
+  /// Los documentos procesados que se triaron y se pasaron a organizar (F41,
+  /// paso 6), en orden.
+  final processedForOrganizing = <String>[];
+
+  @override
+  void enqueueProcessedForOrganizing(String documentId) =>
+      processedForOrganizing.add(documentId);
+
   /// Lo que se pidió hacer solo en tarjetas (F30), en orden.
   final flashcardRequests = <List<String>>[];
 

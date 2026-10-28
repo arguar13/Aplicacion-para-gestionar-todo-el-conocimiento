@@ -34,7 +34,6 @@ import 'package:sinapsis/features/export/presentation/providers/export_providers
 import 'package:sinapsis/features/export/presentation/widgets/export_format_presentation.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/generate_quiz_button.dart';
-import 'package:sinapsis/features/graph/presentation/widgets/local_graph_panel.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/inbox_standing_line.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -469,14 +468,13 @@ class _DetailBodyState extends State<_DetailBody> {
                 // decisión K): en el lugar de su Mapa y de sus tarjetas, la
                 // línea que lleva ahí, o a triarla si todavía no se trió.
                 //
-                // Una nota, con qué está vinculada, a la vista (F28): arriba
-                // del texto y de las tarjetas, no al final de un libro
-                // entero. Vincular dos cosas se ve acá sin bajar.
-                const SizedBox(height: 16),
-                if (consultation)
-                  SourceStudyLine(item: item)
-                else
-                  LocalGraphPanel(item: item),
+                // Una nota de la persona no tiene Mapa: el grafo local lee
+                // solo lo procesado (F41, paso 6). Sus vínculos están en
+                // «Vínculos», más abajo.
+                if (consultation) ...[
+                  const SizedBox(height: 16),
+                  SourceStudyLine(item: item),
+                ],
 
                 // Lo que se soltó del elemento —su archivo o su texto— y se
                 // puede recuperar durante 30 días (F30, decisión 68). Sin

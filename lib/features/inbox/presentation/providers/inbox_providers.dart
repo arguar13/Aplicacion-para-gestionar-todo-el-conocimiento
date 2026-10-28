@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/attachments/presentation/providers/attachment_providers.dart';
 import 'package:sinapsis/features/inbox/data/repositories/inbox_repository_impl.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
@@ -29,12 +30,23 @@ final inboxRepositoryProvider = Provider<InboxRepository>((ref) {
 });
 
 /// Triar a Procesado (F41): el documento procesado y el estado de la fuente,
-/// las dos cosas o ninguna.
+/// las dos cosas o ninguna, y lo triado a la IA ([organizeTriagedProvider]).
 final triageIntoProcessedProvider = Provider<TriageIntoProcessed>(
   (ref) => TriageIntoProcessed(
     inbox: ref.watch(inboxRepositoryProvider),
     process: ref.watch(processSourceUseCaseProvider),
+    organize: ref.watch(organizeTriagedProvider),
   ),
+);
+
+/// Qué se hace con el documento procesado de un triado que cambió algo (F41,
+/// paso 6): la IA lo organiza ahora. La cola se lee recién al triar: armar el
+/// caso de uso no la arranca, y una pantalla que nunca tría no la necesita.
+final organizeTriagedProvider = Provider<void Function(String documentId)>(
+  (ref) =>
+      (documentId) => ref
+          .read(aiOrganizeQueueProvider)
+          .enqueueProcessedForOrganizing(documentId),
 );
 
 /// Los ids de las fuentes que esperan triaje, actualizándose solos.

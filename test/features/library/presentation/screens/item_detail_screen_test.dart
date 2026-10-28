@@ -33,7 +33,6 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dar
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/local_graph_panel.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -42,7 +41,6 @@ import 'package:sinapsis/features/library/presentation/screens/item_detail_scree
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
-import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/historical_date_form.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/relations_section.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
@@ -615,28 +613,11 @@ void main() {
     );
   });
 
-  group('grafo local (panel embebido)', () {
-    testWidgets('está a la vista: arriba del texto y de las tarjetas (F28)', (
+  group('grafo local (F41, paso 6)', () {
+    testWidgets('en una nota de la persona no hay Mapa: el grafo local lee '
+        'solo lo procesado, y sus vínculos están en «Vínculos»', (
       tester,
     ) async {
-      final id = await captureAndGetId('un texto para leer entero');
-
-      await pumpDetail(tester, id);
-
-      final panel = tester.getTopLeft(find.byType(LocalGraphPanel)).dy;
-      expect(
-        panel,
-        lessThan(tester.getTopLeft(find.byType(FlashcardSection)).dy),
-      );
-      expect(
-        panel,
-        lessThan(tester.getTopLeft(find.byType(HighlightableText)).dy),
-      );
-    });
-
-    testWidgets('en una nota de la persona no se dibuja: el grafo local lee '
-        'solo lo procesado, y sus vínculos están en «Vínculos» (F41, paso '
-        '6)', (tester) async {
       // Cómo se dibuja el de un documento procesado —vacío, sus vecinos, el
       // «+N», ampliar— lo prueban `local_graph_panel_test` y la pantalla del
       // documento.
@@ -652,8 +633,7 @@ void main() {
 
       await pumpDetail(tester, id);
 
-      expect(find.byType(LocalGraphPreviewNode), findsNothing);
-      expect(find.text(es.graphEmpty), findsNothing);
+      expect(find.byType(LocalGraphPanel), findsNothing);
       expect(
         find.descendant(
           of: find.byType(RelationsSection),
