@@ -562,12 +562,18 @@ List<HandMark> handMarks(
 ///
 /// Cada botón cierra la barrita antes de actuar, como las opciones de
 /// Flutter. Sin nada seleccionado, el menú común de la app.
+///
+/// Con [readOnly] —la copia del original de un documento procesado, ver
+/// `isReadOnlyStudyKey`— la barrita queda con lo que ahí se puede hacer:
+/// copiar, escuchar y «Extraer como nota». Sin colores, sin nota, sin tarjeta
+/// y sin línea de tiempo: no hay forma de texto donde caigan.
 Widget buildHighlightMenu(
   BuildContext context,
   WidgetRef ref,
   EditableTextState editable, {
   required void Function(HighlightColor color, HighlightStyle style)
   onHighlight,
+  bool readOnly = false,
   VoidCallback? onReadAloud,
   VoidCallback? onNote,
   VoidCallback? onExtract,
@@ -601,20 +607,24 @@ Widget buildHighlightMenu(
   return HighlightToolbar(
     anchors: editable.contextMenuAnchors,
     underlineColor: ref.read(lastHighlightColorProvider),
-    onHighlight: (color) {
-      ContextMenuController.removeAny();
-      onHighlight(color, HighlightStyle.fill);
-    },
-    onUnderline: (color) {
-      ContextMenuController.removeAny();
-      onHighlight(color, HighlightStyle.underline);
-    },
+    onHighlight: readOnly
+        ? null
+        : (color) {
+            ContextMenuController.removeAny();
+            onHighlight(color, HighlightStyle.fill);
+          },
+    onUnderline: readOnly
+        ? null
+        : (color) {
+            ContextMenuController.removeAny();
+            onHighlight(color, HighlightStyle.underline);
+          },
     onCopy: copy == null ? null : closing(copy),
     onReadAloud: closingOrNull(onReadAloud),
-    onNote: closingOrNull(onNote),
+    onNote: readOnly ? null : closingOrNull(onNote),
     onExtract: closingOrNull(onExtract),
-    onCreateFlashcard: closingOrNull(onCreateFlashcard),
-    onAddToTimeline: closingOrNull(onAddToTimeline),
+    onCreateFlashcard: readOnly ? null : closingOrNull(onCreateFlashcard),
+    onAddToTimeline: readOnly ? null : closingOrNull(onAddToTimeline),
     onToProcessed: closingOrNull(onToProcessed),
     moreActions: [
       for (final type in const [

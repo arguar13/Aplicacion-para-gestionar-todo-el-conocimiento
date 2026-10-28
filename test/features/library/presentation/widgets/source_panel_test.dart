@@ -164,7 +164,6 @@ void main() {
     String? summarizeResponse,
     List<Override> extraOverrides = const [],
     Future<void> Function()? beforeShow,
-    VoidCallback? onSummarize,
   }) async {
     harness = await LibraryHarness.create(
       chatModelReady: chatModelReady,
@@ -192,7 +191,7 @@ void main() {
                       .valueOrNull;
                   return current == null
                       ? const SizedBox.shrink()
-                      : SourcePanel(item: current, onSummarize: onSummarize);
+                      : SourcePanel(item: current);
                 },
               ),
             ),
@@ -221,10 +220,9 @@ void main() {
   final panel = find.byType(SourcePanel);
 
   group('las partes, según la fuente', () {
-    testWidgets('una página web con texto: solo los cuatro mosaicos, sin '
-        'separadores, y "Más" ofrece solo que la organice la IA', (
-      tester,
-    ) async {
+    testWidgets('una página web con texto: Leer · Copiar · Más, sin '
+        'separadores ni «Resumir», y «Más» apagado: organizarla es de su '
+        'documento procesado (F41, decisión K)', (tester) async {
       await pumpPanel(
         tester,
         _source(
@@ -234,17 +232,31 @@ void main() {
         ),
       );
 
-      expect(find.byType(SourcePanelTile), findsNWidgets(4));
+      expect(find.byType(SourcePanelTile), findsNWidgets(3));
+      expect(find.byKey(const Key('source-panel-summarize')), findsNothing);
       expect(enabled(tester, 'source-panel-read'), isTrue);
-      expect(enabled(tester, 'source-panel-summarize'), isTrue);
       expect(enabled(tester, 'source-panel-copy'), isTrue);
-      expect(enabled(tester, 'source-panel-more'), isTrue);
+      expect(enabled(tester, 'source-panel-more'), isFalse);
+      expect(find.byTooltip(es.sourcePanelNothingMore), findsOneWidget);
       expect(find.byType(SourcePanelStatus), findsNothing);
       expect(find.byType(SourcePanelAudio), findsNothing);
       expect(
         find.descendant(of: panel, matching: find.byType(Divider)),
         findsNothing,
       );
+    });
+
+    testWidgets('una nota propia con texto: los cuatro mosaicos, con '
+        '«Resumir», y «Más» ofrece que la organice la IA y buscarle fechas', (
+      tester,
+    ) async {
+      await pumpPanel(
+        tester,
+        _source(SourceKind.manualNote, texts: ['Nació en 1809.']),
+      );
+
+      expect(find.byType(SourcePanelTile), findsNWidgets(4));
+      expect(enabled(tester, 'source-panel-summarize'), isTrue);
 
       await openMore(tester);
 
@@ -254,6 +266,10 @@ void main() {
       );
       expect(find.text(es.sourcePanelOrganizeWithAi), findsOneWidget);
       expect(find.text(es.sourcePanelOrganizeWithAiHint), findsOneWidget);
+      expect(
+        find.byKey(const Key('source-more-findDatesWithAi')),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('source-more-reextract')), findsNothing);
     });
 
@@ -303,8 +319,8 @@ void main() {
     });
 
     testWidgets('un audio con su transcripción: "Más" ofrece volver a '
-        'extraer, quitar las marcas y borrar el archivo, cada una con lo que '
-        'hace', (tester) async {
+        'extraer y quitar las marcas, cada una con lo que hace; ni la IA ni '
+        'borrar el archivo (F41, decisión K)', (tester) async {
       await pumpPanel(
         tester,
         _source(
@@ -326,23 +342,18 @@ void main() {
         find.byKey(const Key('source-more-removeTimestamps')),
         findsOneWidget,
       );
-      expect(
-        find.byKey(const Key('source-more-deleteOriginalFile')),
-        findsOneWidget,
-      );
       expect(find.byKey(const Key('source-more-fullScreen')), findsNothing);
-      // Lo de la IA, primero: es lo único de la hoja que no es del archivo.
-      expect(
-        tester
-            .getTopLeft(find.byKey(const Key('source-more-organizeWithAi')))
-            .dy,
-        lessThan(
-          tester.getTopLeft(find.byKey(const Key('source-more-reextract'))).dy,
-        ),
-      );
+      // La fuente queda de consulta: la IA trabaja su documento procesado, y
+      // de la Biblioteca nada se borra.
+      for (final key in [
+        'source-more-organizeWithAi',
+        'source-more-findDatesWithAi',
+        'source-more-deleteOriginalFile',
+      ]) {
+        expect(find.byKey(Key(key)), findsNothing, reason: key);
+      }
       expect(find.text(es.sourcePanelReextractHint), findsOneWidget);
       expect(find.text(es.sourcePanelRemoveTimestampsHint), findsOneWidget);
-      expect(find.text(es.sourcePanelTrashFileHint), findsOneWidget);
       // El texto de una transcripción no se suelta: no queda un «libro».
       expect(find.byKey(const Key('source-more-deleteText')), findsNothing);
     });
@@ -376,8 +387,8 @@ void main() {
     });
 
     testWidgets('un documento: "Más" ofrece volver a extraer, verlo a '
-        'pantalla completa y soltar el archivo o el texto (F30), nada de '
-        'marcas de tiempo', (tester) async {
+        'pantalla completa y soltar el texto (F30); nada de marcas de tiempo '
+        'ni de soltar el archivo (F41, decisión K)', (tester) async {
       await pumpPanel(
         tester,
         _source(
@@ -389,7 +400,6 @@ void main() {
 
       // A la vista aunque el texto quede plegado debajo.
       expect(enabled(tester, 'source-panel-read'), isTrue);
-      expect(enabled(tester, 'source-panel-summarize'), isTrue);
 
       await openMore(tester);
 
@@ -401,7 +411,7 @@ void main() {
       );
       expect(
         find.byKey(const Key('source-more-deleteOriginalFile')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.byKey(const Key('source-more-deleteText')), findsOneWidget);
       expect(find.text(es.sourcePanelDeleteTextHint), findsOneWidget);
@@ -467,16 +477,15 @@ void main() {
       );
 
       expect(find.text(es.detailNoContentYet), findsOneWidget);
-      expect(find.byType(SourcePanelTile), findsNWidgets(4));
+      expect(find.byType(SourcePanelTile), findsNWidgets(3));
       for (final key in [
         'source-panel-read',
-        'source-panel-summarize',
         'source-panel-copy',
         'source-panel-more',
       ]) {
         expect(enabled(tester, key), isFalse, reason: key);
       }
-      expect(find.byTooltip(es.sourcePanelNeedsText), findsNWidgets(3));
+      expect(find.byTooltip(es.sourcePanelNeedsText), findsNWidgets(2));
       expect(find.text(es.detailRetry), findsNothing);
     });
 
@@ -667,14 +676,12 @@ void main() {
       expect(copied, 'Un título\n\nUn párrafo.');
     });
 
-    testWidgets('"Resumir" muestra el resumen en su diálogo', (tester) async {
+    testWidgets('"Resumir" de una nota muestra el resumen en su diálogo', (
+      tester,
+    ) async {
       await pumpPanel(
         tester,
-        _source(
-          SourceKind.webPage,
-          url: 'https://ejemplo.org/nota',
-          texts: ['Un artículo largo.'],
-        ),
+        _source(SourceKind.manualNote, texts: ['Un artículo largo.']),
         chatModelReady: true,
         summarizeResponse: 'La idea en dos líneas.',
       );
@@ -686,29 +693,6 @@ void main() {
       expect(find.text('La idea en dos líneas.'), findsOneWidget);
       expect(harness.summarizationService.summarized, ['Un artículo largo.']);
       expect(tile(tester, 'source-panel-summarize').busy, isFalse);
-    });
-
-    testWidgets('en lo que se estudia, "Resumir" hace lo suyo —prender el '
-        'resumen en el original (F36)— en vez del diálogo', (tester) async {
-      var studied = 0;
-      await pumpPanel(
-        tester,
-        _source(
-          SourceKind.webPage,
-          url: 'https://ejemplo.org/nota',
-          texts: ['Un artículo largo.'],
-        ),
-        chatModelReady: true,
-        summarizeResponse: 'La idea en dos líneas.',
-        onSummarize: () => studied++,
-      );
-
-      await tester.tap(find.byKey(const Key('source-panel-summarize')));
-      await tester.pumpAndSettle();
-
-      expect(studied, 1);
-      expect(find.byType(AlertDialog), findsNothing);
-      expect(harness.summarizationService.summarized, isEmpty);
     });
 
     testWidgets('"Leer" abre la lectura para destilar', (tester) async {
@@ -780,13 +764,11 @@ void main() {
       required bool modelsReady,
     }) async {
       queue = FakeAiOrganizeQueue();
+      // Una nota propia: una fuente se organiza en su documento procesado
+      // (F41, decisión K).
       await pumpPanel(
         tester,
-        _source(
-          SourceKind.webPage,
-          url: 'https://ejemplo.org/nota',
-          texts: ['Un artículo.'],
-        ),
+        _source(SourceKind.manualNote, texts: ['Un artículo.']),
         chatModelReady: modelsReady,
         extraOverrides: [aiOrganizeQueueProvider.overrideWithValue(queue)],
         beforeShow: () async =>
@@ -846,11 +828,7 @@ void main() {
         asked = [];
         await pumpPanel(
           tester,
-          _source(
-            SourceKind.webPage,
-            url: 'https://ejemplo.org/nota',
-            texts: ['Un artículo.'],
-          ),
+          _source(SourceKind.manualNote, texts: ['Un artículo.']),
           extraOverrides: [
             aiOrganizeQueueProvider.overrideWithValue(queue),
             languageModelStatusCheckProvider.overrideWithValue(({
@@ -966,12 +944,7 @@ void main() {
       asked = [];
       await pumpPanel(
         tester,
-        _source(
-          SourceKind.webPage,
-          url: 'https://ejemplo.org/nota',
-          texts: texts,
-          state: state,
-        ),
+        _source(SourceKind.manualNote, texts: texts, state: state),
         chatModelReady: modelsReady,
         extraOverrides: [
           aiOrganizeQueueProvider.overrideWithValue(queue),
@@ -1094,8 +1067,7 @@ void main() {
         ProcessingState.failed,
       ]) {
         final item = _source(
-          SourceKind.webPage,
-          url: 'https://ejemplo.org/nota',
+          SourceKind.manualNote,
           texts: const ['Nació en 1809.'],
           state: state,
         );
@@ -1188,7 +1160,7 @@ void main() {
         ('claro', AppTheme.lightTheme),
         ('oscuro', AppTheme.darkTheme),
       ]) {
-        testWidgets('a $width px, tema $name: nada se desborda y los cuatro '
+        testWidgets('a $width px, tema $name: nada se desborda y los '
             'mosaicos van en un solo renglón, del mismo ancho', (tester) async {
           await pumpPanel(
             tester,
@@ -1218,9 +1190,9 @@ void main() {
           expect(find.text(es.failureNetwork), findsOneWidget);
 
           final tiles = find.byType(SourcePanelTile);
-          expect(tiles, findsNWidgets(4));
+          expect(tiles, findsNWidgets(3));
           final rects = [
-            for (var i = 0; i < 4; i++) tester.getRect(tiles.at(i)),
+            for (var i = 0; i < 3; i++) tester.getRect(tiles.at(i)),
           ];
           for (final rect in rects) {
             expect(rect.top, rects.first.top);
@@ -1229,7 +1201,6 @@ void main() {
           // El nombre entra entero, sin puntos suspensivos.
           for (final label in [
             es.sourcePanelRead,
-            es.sourcePanelSummarize,
             es.sourcePanelCopy,
             es.sourcePanelMore,
           ]) {
@@ -1259,6 +1230,34 @@ void main() {
     }
   });
 
+  testWidgets('a 360 px, los cuatro mosaicos de una nota entran en un '
+      'renglón, con «Resumir» entero', (tester) async {
+    await pumpPanel(
+      tester,
+      _source(SourceKind.manualNote, texts: ['Una idea.']),
+      width: 360,
+    );
+
+    expect(tester.takeException(), isNull);
+    final tiles = find.byType(SourcePanelTile);
+    expect(tiles, findsNWidgets(4));
+    final width = tester.getRect(tiles.first).width;
+    for (final label in [
+      es.sourcePanelRead,
+      es.sourcePanelSummarize,
+      es.sourcePanelCopy,
+      es.sourcePanelMore,
+    ]) {
+      final text = find.text(label);
+      expect(tester.getSize(text).width, lessThanOrEqualTo(width));
+      expect(
+        tester.renderObject<RenderParagraph>(text).didExceedMaxLines,
+        isFalse,
+        reason: label,
+      );
+    }
+  });
+
   group('lo que se suelta va a la papelera de la app (F30, decisión 68)', () {
     const path = 'originales/$_id/libro.pdf';
 
@@ -1283,26 +1282,6 @@ void main() {
     Future<int> textCount() async => (await (harness.database.select(
       harness.database.renditions,
     )..where((r) => r.itemId.equals(_id))).get()).length;
-
-    testWidgets('«Borrar archivo»: sin preguntar, el archivo queda en el '
-        'disco y se puede recuperar desde el aviso', (tester) async {
-      await pumpBook(tester);
-
-      await openMore(tester);
-      await tester.tap(find.byKey(const Key('source-more-deleteOriginalFile')));
-      await tester.pumpAndSettle();
-
-      expect((await sourceRow()).originalBlobPath, isNull);
-      expect(harness.files.deleted, isEmpty);
-      expect(harness.files.paths, contains(path));
-      expect(find.text(es.detailOriginalFileTrashed), findsOneWidget);
-
-      await tester.tap(find.text(es.contentTrashUndo));
-      await tester.pumpAndSettle();
-
-      expect((await sourceRow()).originalBlobPath, path);
-      expect(find.text(es.contentTrashFileRestored), findsOneWidget);
-    });
 
     testWidgets('«Borrar el texto»: el libro no se vuelve a extraer solo, se '
         'dice en el panel, y «Volver a extraer» sigue ahí', (tester) async {

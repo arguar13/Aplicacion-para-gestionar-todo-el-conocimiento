@@ -56,12 +56,13 @@ import 'package:sinapsis/features/organize/presentation/widgets/map_note_links_s
 import 'package:sinapsis/features/organize/presentation/widgets/property_editor.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/relations_section.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
+import 'package:sinapsis/features/processed/domain/services/consultation_source.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/source_study_line.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/reference_section.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_document_card.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/item_timeline_link.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
@@ -98,13 +99,16 @@ class ItemDetailScreen extends ConsumerWidget {
             // bibliografía propia que exportar.
             if (item.valueOrNull!.source.kind == SourceKind.manualNote)
               _BibliographyButton(item: item.valueOrNull!),
-            // Cualquier elemento puede ser el origen de un derivado (F16,
-            // D5) —una fuente entera o una nota, no solo desde un cuaderno—.
-            GenerateDerivedNoteButton(
-              sourceTitle: item.valueOrNull!.title,
-              itemId: item.valueOrNull!.id,
-            ),
-            GenerateQuizButton(item: item.valueOrNull!),
+            // Una nota puede ser el origen de un derivado (F16, D5) y de un
+            // quiz (F20). Una fuente no: queda de consulta, y los dos salen
+            // de su documento procesado (F41, decisión K).
+            if (!isConsultationSource(item.valueOrNull!)) ...[
+              GenerateDerivedNoteButton(
+                sourceTitle: item.valueOrNull!.title,
+                itemId: item.valueOrNull!.id,
+              ),
+              GenerateQuizButton(item: item.valueOrNull!),
+            ],
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: l10n.detailDelete,
@@ -247,10 +251,6 @@ class _DetailBodyState extends State<_DetailBody> {
   /// La fila del texto en la tarjeta de estudiar (F39).
   final _textFold = ExpansibleController();
 
-  /// La tarjeta de estudiar (F36): «Resumir» del panel de la fuente lleva
-  /// hasta ella.
-  final _studyCardKey = GlobalKey();
-
   /// Lo que se ofrece para leer en voz alta (F25): se arma de nuevo solo
   /// cuando el elemento cambia, no con cada cuadro.
   late ReadableDocument _readable = _readableOf(widget.item);
@@ -337,6 +337,7 @@ class _DetailBodyState extends State<_DetailBody> {
     // debajo de todo ocupaba la pantalla entera (F39).
     final textInCard = study != null;
     final transcript = isTranscriptSource(item.source);
+    final consultation = isConsultationSource(item);
 
     return Center(
       child: ConstrainedBox(
@@ -425,24 +426,23 @@ class _DetailBodyState extends State<_DetailBody> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       EmbeddedFileViewer(item: item, gapBelow: 12),
-                      _SourcePanelWithAi(
-                        item: item,
-                        studyCardKey: _studyCardKey,
-                      ),
+                      _SourcePanelWithAi(item: item),
                     ],
                   ),
                 ),
 
                 // Estudiar el documento o la página (F36): resaltar el resumen
-                // o la síntesis en el original y extraerlos.
+                // o la síntesis en el original. Extraerlos para leerlos y
+                // escucharlos es de su documento procesado (F41, decisión
+                // K): acá la tarjeta marca lo que la hoja de triar lleva.
                 if (study != null) ...[
                   const SizedBox(height: 16),
                   // Las fotos de la página o la publicación van en la
                   // tarjeta, plegadas, y no en «Contenido» (F39).
                   Consumer(
                     builder: (context, ref, _) => StudyDocumentCard(
-                      key: _studyCardKey,
                       text: study,
+                      studiedRows: false,
                       item: item,
                       kind: item.source.kind,
                       extractedText: (context) => _ExtractedTextBody(
@@ -465,11 +465,18 @@ class _DetailBodyState extends State<_DetailBody> {
                   ),
                 ],
 
-                // Con qué está vinculado, a la vista (F28): arriba del texto y
-                // de las tarjetas, no al final de un libro entero. Vincular
-                // dos cosas se ve acá sin bajar.
+                // Una fuente se estudia en su documento procesado (F41,
+                // decisión K): en el lugar de su Mapa y de sus tarjetas, la
+                // línea que lleva ahí, o a triarla si todavía no se trió.
+                //
+                // Una nota, con qué está vinculada, a la vista (F28): arriba
+                // del texto y de las tarjetas, no al final de un libro
+                // entero. Vincular dos cosas se ve acá sin bajar.
                 const SizedBox(height: 16),
-                LocalGraphPanel(item: item),
+                if (consultation)
+                  SourceStudyLine(item: item)
+                else
+                  LocalGraphPanel(item: item),
 
                 // Lo que se soltó del elemento —su archivo o su texto— y se
                 // puede recuperar durante 30 días (F30, decisión 68). Sin
@@ -508,8 +515,10 @@ class _DetailBodyState extends State<_DetailBody> {
                     ],
                 ],
 
-                const SizedBox(height: 16),
-                FlashcardSection(item: item),
+                if (!consultation) ...[
+                  const SizedBox(height: 16),
+                  FlashcardSection(item: item),
+                ],
                 const SizedBox(height: 24),
                 // De dónde sale lo que dice la nota: no dibuja nada si no cita
                 // ninguna fuente, y lleva su propio espacio de abajo.
@@ -655,42 +664,23 @@ String _userNoteKey(String itemId) => 'note:$itemId';
 /// cuando hizo algo que siga en pie, dejó algo para revisar o se deshizo lo
 /// que hizo —ver `AiItemSummary.isVisible`—.
 ///
+/// Solo en una nota propia: lo que la IA organizó en una fuente no se borra,
+/// pero deja de verse en ella —la fuente queda de consulta, y lo que se ve es
+/// lo que la IA hizo con su documento procesado, allá (F41, decisión K)—.
+///
 /// Se decide acá y no dentro de la línea: el panel separa cada franja con
 /// una raya, y una franja que se dibuja vacía dejaría la raya sola al pie.
 class _SourcePanelWithAi extends ConsumerWidget {
-  const _SourcePanelWithAi({required this.item, required this.studyCardKey});
+  const _SourcePanelWithAi({required this.item});
 
   final KnowledgeItem item;
 
-  /// La tarjeta de estudiar, adonde lleva «Resumir» en lo que se estudia.
-  final GlobalKey studyCardKey;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (isConsultationSource(item)) return SourcePanel(item: item);
     final ai = ref.watch(aiItemSummaryProvider(item.id));
-    final study = item.isBeingProcessed ? null : studyTextOf(item);
     return SourcePanel(
       item: item,
-      // En un documento o una página web, «Resumir» prende el resumen en el
-      // original y lleva a la tarjeta (F36), en vez del párrafo del diálogo.
-      onSummarize: study == null
-          ? null
-          : () {
-              unawaited(
-                showStudyLayer(ref, context, study, StudyLayer.summary),
-              );
-              final card = studyCardKey.currentContext;
-              if (card != null) {
-                unawaited(
-                  Scrollable.ensureVisible(
-                    card,
-                    duration: const Duration(milliseconds: 320),
-                    curve: Curves.easeOutCubic,
-                    alignment: 0.1,
-                  ),
-                );
-              }
-            },
       extraSections: [
         if (ai.isVisible)
           AiOrganizedLine(itemId: item.id, itemTitle: item.title, summary: ai),

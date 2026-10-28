@@ -1,24 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
-import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_document_card.dart';
 
-/// El texto con el que se estudia un documento procesado por sí solo
-/// (F41, decisión I): su sección Texto o la copia del original, para que
-/// «Resumir», «Sintetizar» y «Palabras clave» trabajen sobre lo procesado
-/// aunque la fuente nunca se haya estudiado. `null` mientras no se pueda.
-///
-/// Es el punto por el que entra el paso 1b: los datos —dónde se guarda lo
-/// estudiado del procesado y cómo cae en sus secciones Resumen, Síntesis y
-/// Palabras clave— son suyos. Hasta entonces no hay texto que estudiar y la
-/// tarjeta no se muestra; cuando lo haya, la pantalla la muestra sola.
-final processedStudyTextProvider = Provider.autoDispose
-    .family<StudyText?, String>((ref, documentId) => null);
-
 /// La tarjeta de estudiar de siempre (`StudyDocumentCard`: «Resumir con» el
-/// modelo elegido o «Elegir a mano», la leyenda con sus colores, el avance),
-/// sobre el texto del documento procesado —ver [processedStudyTextProvider]—.
+/// modelo elegido o «Elegir a mano», la leyenda con sus colores, el avance y
+/// «Extraer» con el resumen, la síntesis y las palabras clave para leer y
+/// escuchar), sobre el texto propio del documento procesado (F41, decisión I)
+/// —`processedStudyTextProvider`: su sección Texto o la copia del original—.
+///
+/// Es acá donde se estudia lo procesado (decisión K): en la fuente, la misma
+/// tarjeta solo marca el original. Sin texto propio —un documento con solo
+/// notas o fragmentos— no hay qué estudiar y no se muestra.
 ///
 /// La misma tarjeta, no una copia: lo que se aprenda a hacer en ella vale
 /// igual para una fuente y para lo procesado.
@@ -29,11 +23,17 @@ class ProcessedStudySlot extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final text = ref.watch(processedStudyTextProvider(document.id));
-    if (text == null) return const SizedBox.shrink();
+    final own = ref
+        .watch(processedStudyTextProvider(document.id))
+        .valueOrNull
+        ?.getOrElse((_) => null);
+    if (own == null) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: StudyDocumentCard(text: text, kind: document.summary.sourceKind),
+      child: StudyDocumentCard(
+        text: own.asStudyText,
+        kind: document.summary.sourceKind,
+      ),
     );
   }
 }

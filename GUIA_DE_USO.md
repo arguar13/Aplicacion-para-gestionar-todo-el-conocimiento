@@ -426,12 +426,21 @@ El detalle se abre igual desde cualquier lado —incluido el material de una
 rama del Atlas o del Mapa—, ocupando toda la pantalla (sin la barra de
 navegación), y la flecha de la barra superior te devuelve adonde estabas.
 
+**Una fuente de la Biblioteca es de consulta; se estudia en Procesado.** Un
+documento, un libro, una página, una publicación, una imagen, un audio o un
+video se lee acá tal cual lo guardaste, con su texto, sus resaltados y lo que
+tiene relacionado. Lo que es **estudiarlo** —leer su resumen, su síntesis y sus
+palabras clave, su Mapa, sus tarjetas de repaso, lo que la IA organizó, la nota
+derivada y el cuestionario— está en su documento procesado (ver
+[Procesado](#procesado)). Una **nota propia** sigue teniendo todo acá, porque no
+tiene documento procesado.
+
 De arriba hacia abajo, vas a encontrar:
 
-1. **Barra superior**, con botones para exportar (PDF o Word), armar su
-   bibliografía, generar una nota derivada con
-   IA, generar un cuestionario, y eliminarlo (se manda a la papelera, no se
-   borra directo).
+1. **Barra superior**, con botones para exportar (PDF o Word) y eliminarlo (se
+   manda a la papelera, no se borra directo). En una nota propia, además,
+   armar su bibliografía, generar una nota derivada con IA y generar un
+   cuestionario.
 2. **Título** y, si tiene, un subtítulo. Si es una fuente, debajo dice qué
    decidiste con ella en la Bandeja: **"Triado el 3 oct"** o **"Descartado
    el…"**, con el botón **"Volver a la Bandeja"** (la devuelve para decidir
@@ -456,8 +465,16 @@ De arriba hacia abajo, vas a encontrar:
    En todo lo que trae un texto —un documento, una página web, una
    publicación, una imagen, un audio o un video—, debajo va la tarjeta de
    estudiar (ver [Estudiar el documento](#estudiar-el-documento-resumen-síntesis-y-palabras-clave)).
-10. Un **grafo local** con sus vínculos más cercanos, a la vista: lo que
-    vinculás se ve acá sin tener que bajar hasta el final.
+10. En una fuente, **dónde se estudia**: si ya tiene su documento procesado,
+    la línea *"Se estudia en Procesado…"* con **"Estudiarlo en Procesado"**,
+    que lo abre. Si todavía no, *"Para estudiarlo, triálo"*: con la fuente en
+    la Bandeja, **"Triar"** abre ahí mismo la hoja **"¿Qué va a Procesado?"**,
+    y con **"Listo"** queda triada con su documento (el aviso trae **"Ver"** y
+    **"Deshacer"**); mientras espera su texto, el botón espera apagado. Si ya
+    la triaste o la descartaste, **"Volver a triar"**.
+
+    En una nota propia, un **grafo local** con sus vínculos más cercanos, a
+    la vista: lo que vinculás se ve acá sin tener que bajar hasta el final.
 11. El **«Contenido»**, si es una página o una publicación que trae archivos:
     sus documentos, audios y videos, cada uno con su texto —las fotos van en
     la tarjeta de estudiar, en «Fotos»— (ver
@@ -466,7 +483,8 @@ De arriba hacia abajo, vas a encontrar:
     adentro, en **«Extraer texto»** —**«Extraer transcripción»** en un audio
     o un video—: tocalo para verlo. Sin la tarjeta —una nota tuya, una
     referencia—, se ve acá, entero.
-13. Sus **tarjetas de repaso**, si generaste alguna.
+13. En una nota propia, sus **tarjetas de repaso**. Las de una fuente están
+    en su documento procesado, en **"De la fuente"**.
 14. **Relacionado**: la lista de vínculos con otros elementos (podés agregar
     uno nuevo con el botón de cadena, eligiendo qué tipo de relación es:
     Relacionado, Contradice, Continúa, Cita, Resume, etc.; y corregir o
@@ -488,20 +506,23 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
    volviendo a extraer el texto, o un problema, con un único botón
    **"Reintentar"** (o **"Descargar el modelo"** si falta el de
    transcripción).
-3. **Cuatro botones grandes**:
+3. **Los botones grandes**:
    - **Leer**: abre el [modo lectura](#modo-lectura-leer-para-destilar).
-   - **Resumir**: la IA arma un resumen y te lo muestra para leerlo o
-     copiarlo. En un documento o una página web, en cambio, resalta el
-     resumen en el original y te lleva a la tarjeta de estudiar.
+   - **Resumir**, solo en una nota propia: la IA arma un resumen y te lo
+     muestra para leerlo o copiarlo. Una fuente no lo tiene: su resumen se
+     marca en el original con la tarjeta de estudiar y se lee en su documento
+     procesado.
    - **Copiar**: copia todo el texto.
    - **Más**: abre una lista con lo que se usa de vez en cuando, cada
      opción con una línea que explica qué hace:
-     - **Organizar con IA**: que la IA lo organice ahora, antes que lo
-       demás (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
-     - **Buscar fechas con IA**: que la IA lea el texto y ponga en la
-       [Línea de tiempo](#línea-de-tiempo) las fechas que cuenta, cada una con
-       su cita (ver [Buscar fechas con IA, a pedido](#buscar-fechas-con-ia-a-pedido)).
-       Aparece cuando el elemento ya está listo y tiene algo escrito.
+     - **Organizar con IA**, en una nota propia: que la IA la organice ahora,
+       antes que lo demás (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
+       Una fuente se organiza desde su documento procesado.
+     - **Buscar fechas con IA**, en una nota propia: que la IA lea el texto y
+       ponga en la [Línea de tiempo](#línea-de-tiempo) las fechas que cuenta,
+       cada una con su cita (ver [Buscar fechas con IA, a pedido](#buscar-fechas-con-ia-a-pedido)).
+       Aparece cuando la nota ya está lista y tiene algo escrito. Las de una
+       fuente se buscan desde su documento procesado.
      - **Volver a extraer el texto**: vuelve a leer el original (podés
        elegir el idioma en que se habla, si es un audio o video). En un
        video de YouTube, la transcripción es siempre **en el idioma en que se
@@ -514,11 +535,6 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
        otro idioma, **volver a extraer el texto** lo arregla.
      - **Quitar marcas de tiempo**: saca las marcas "[3:15]" de una
        transcripción.
-     - **Borrar archivo, quedarme con el texto**: libera espacio en un
-       audio, un video, una publicación o un libro, conservando el texto.
-       No pregunta ni borra de una vez: el archivo va a la
-       [papelera de la app](#la-papelera-de-la-app) por 30 días, y el aviso
-       trae **"Deshacer"**.
      - **Borrar el texto, quedarme con el libro**, en libros y documentos:
        el texto va a la papelera de la app por 30 días y el libro **no se
        vuelve a leer solo**. El panel lo dice (*"Dejaste solo el libro…"*) y
@@ -526,10 +542,15 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
        quieras.
      - **Ver a pantalla completa**, en los documentos.
 
-   En una nota de bloques, en vez de **Más** aparece **Editar**.
-4. **Lo que hizo la IA con este elemento**, si hizo algo: la línea **"La IA
-   organizó esto"**, con lo que sigue siendo suyo, **"Ver"** y **"Deshacer
-   todo"** (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
+   En una nota de bloques, en vez de **Más** aparece **Editar**. Del archivo
+   de una fuente no se borra nada desde acá: la Biblioteca es tu base de
+   consulta.
+4. En una nota propia, **lo que hizo la IA con ella**, si hizo algo: la línea
+   **"La IA organizó esto"**, con lo que sigue siendo suyo, **"Ver"** y
+   **"Deshacer todo"** (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
+   Lo que la IA ya había organizado en una fuente no se borra: sigue
+   guardado, pero no se muestra acá; en su documento procesado ves lo que la
+   IA hizo con lo procesado.
 
 ### Cómo organizar un elemento desde acá
 
@@ -843,6 +864,13 @@ qué hacer, y **«Reintentar»** sigue desde donde quedó.
   texto corrido, con cuántas oraciones y palabras son.
 - **Extraer palabras clave**: las palabras como etiquetas, cada una una
   vez, en el orden en que aparecen.
+
+  Estas tres filas están en la tarjeta de estudiar de un **documento
+  procesado**, que es donde se estudia (ver [Procesado](#procesado)). En la
+  tarjeta de una fuente de la Biblioteca no aparecen: ahí marcás el
+  resumen, la síntesis y las palabras clave en el original —es lo que la
+  hoja de triar lleva a Procesado— y «Extraer» trae solo el texto, la
+  transcripción y las fotos.
 - Cada fila trae **Copiar** y **Escuchar**. Vacía, dice *«Todavía no hay: desplegá para
   armarlo con la IA o a mano»*, y al desplegarla ofrece los mismos dos
   caminos de la hoja. Mientras la IA analiza, avisa que va a aparecer ahí a
@@ -2033,6 +2061,10 @@ ves marcado es de tu documento procesado, no de la fuente, y la fuente no se
 toca. Si el texto de la fuente cambió desde que lo copiaste (por ejemplo, lo
 volviste a extraer), no se marca nada y una línea arriba lo dice; un Word, un
 EPUB o un texto, que se leen por su texto, ofrecen **"Abrir con otra app"**.
+Sobre la copia, al seleccionar un pasaje, la barrita ofrece **Copiar**,
+**Escuchar** y **"Extraer como nota"** (va a las notas del documento
+procesado), pero no los colores, la nota, la tarjeta ni la línea de tiempo: la
+copia es para ver lo elegido, no se resalta a mano.
 
 Debajo, **sus secciones**, cada una plegable con su nombre y cuánto tiene (por
 ejemplo *"12 páginas"* o *"8 oraciones"*, y *"2 con cambios tuyos"* si editaste
@@ -2074,6 +2106,41 @@ abre desplegado; el
 - Arriba a la derecha, **"Eliminar"** lo manda a la papelera, con
   "Deshacer". Un documento procesado que está en la papelera se puede abrir y
   leer igual: lo dice arriba, con **"Restaurar"**.
+
+**Se estudia acá.** La fuente queda de consulta en la Biblioteca, y lo que es
+estudiarla está en su documento procesado, trabajando **su texto procesado** (no
+el de la fuente):
+
+- **Su Mapa**: el grafo local del documento, con lo que tiene vinculado, debajo
+  de las secciones. Tocarlo abre el grafo entero.
+- **Sus Tarjetas de repaso**, debajo del Mapa: las agregás a mano o con el ✨, que
+  las saca de su texto procesado. **"De la fuente"**, plegado, junta las
+  tarjetas que la fuente ya tenía: no se movieron ni se copiaron —siguen en
+  Repasar con su historial, y su "Abrir en el original" lleva al pasaje de la
+  fuente—; se editan y se borran como las demás.
+- **Lo que hizo la IA** con el documento, si hizo algo: la línea **"La IA
+  organizó esto"**, arriba, con **"Para revisar"**, **"Ver"**, **"Deshacer
+  todo"** y **"Revisar con otro modelo"**.
+- **Arriba, en la barra**: el ✨ de la **nota derivada** y el **cuestionario**,
+  los dos de su texto procesado. Lo que citan se ancla en la fuente, en el
+  pasaje que el documento copió de ella, así que "Ver en la fuente" lleva a la
+  Biblioteca; lo que escribiste o editaste a mano no está en la fuente y no se
+  cita.
+- **"Más"** (los tres puntos de la barra): **"Organizar con IA"** y **"Buscar
+  fechas con IA"**, sobre su texto procesado, y, si el documento tiene la copia
+  del original, **"Borrar la copia del original, quedarme con el texto"**: libera
+  su espacio y **nunca toca el archivo de la fuente**, que sigue en la
+  Biblioteca. No pregunta ni borra de una vez: la copia va a la
+  [papelera de la app](#la-papelera-de-la-app) por 30 días y el aviso trae
+  **"Deshacer"**. Si el documento no tenía su sección **Texto**, el texto de la
+  copia queda guardado ahí en el mismo momento, así que se sigue estudiando
+  igual (con lo que ya habías resumido o marcado en su lugar). Con la fuente en
+  la papelera no se ofrece: la copia es lo único que queda de su original.
+- **La tarjeta de estudiar**, arriba de las secciones, cuando el documento tiene
+  texto propio (su sección Texto o la copia del original): **Resumir**,
+  **Sintetizar** y **Palabras clave** sobre lo procesado, y en «Extraer» el
+  **resumen**, la **síntesis** y las **palabras clave** para leer, copiar y
+  escuchar.
 
 **Escuchar:** el botón redondo del [lector en voz alta](#escuchar-el-lector-en-voz-alta)
 lee el documento entero, sección por sección, y empieza por la página del texto

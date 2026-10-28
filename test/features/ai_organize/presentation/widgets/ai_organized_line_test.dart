@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
@@ -21,7 +22,7 @@ import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 import '../fake_ai_run_repository.dart';
 
-/// La línea «La IA organizó esto» en el panel de la fuente del detalle (F27).
+/// La línea «La IA organizó esto» en el panel del detalle de una nota (F27).
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -46,7 +47,15 @@ void main() {
         ),
       ],
     );
-    await insertItemRows(harness.database, id: 'a', title: 'Roma');
+    // Una nota propia: en el detalle de una fuente la línea ya no se ve —la
+    // fuente queda de consulta, y lo que la IA hizo se ve en su documento
+    // procesado, con esta misma línea (F41, decisión K)—.
+    await insertItemRows(
+      harness.database,
+      id: 'a',
+      title: 'Roma',
+      kind: SourceKind.manualNote,
+    );
     await insertItemRows(harness.database, id: 'b', title: 'Cartago');
   }
 

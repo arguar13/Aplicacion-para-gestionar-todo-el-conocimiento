@@ -367,7 +367,16 @@ class GenerateDerivedNoteUseCase
 
   /// La fuente de [itemId], si se puede citar: con texto y con su posición en
   /// él —una nota no tiene, y lo que el modelo dijera de ella no se anclaría—.
+  ///
+  /// Un documento procesado (F41, decisión K) se cita como en un cuaderno
+  /// ([_citableProcessed]): lo que se lee es lo procesado, anclado al pasaje
+  /// de la fuente que copió. Es el ✨ de su barra: la fuente ya no lo ofrece.
   Future<ChatSource?> _citableSource(String itemId) async {
+    final document = await _processed.watchDocument(itemId).first;
+    if (document != null) {
+      final sourceId = document.summary.sourceItemId;
+      return sourceId == null ? null : _citableProcessed(itemId, sourceId);
+    }
     final item = (await _library.findById(itemId)).getOrElse((_) => null);
     if (item == null) return null;
     final source = buildChatSource(item);

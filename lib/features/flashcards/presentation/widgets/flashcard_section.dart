@@ -24,6 +24,8 @@ import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_pr
 import 'package:sinapsis/features/flashcards/presentation/widgets/card_form_cloze_review.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/card_form_dialog.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_card_text.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -36,10 +38,30 @@ const kManualFlashcardsWanted = 5;
 ///
 /// Desde F27 cada tarjeta se edita, y las que hizo la IA llevan la marca ✨ y
 /// se les puede decir que «no era».
+///
+/// En un documento procesado ([processed], F41, decisión K) son las suyas: el
+/// ✨ las saca de su texto procesado —el de sus tarjetas,
+/// `readProcessedCardText`, el mismo de la IA que organiza— y no de la
+/// fuente. Con [fromSourceItemId], debajo, plegadas, las que la fuente ya
+/// tenía: no se mueven ni se copian —siguen en Repasar con su historial, y su
+/// «Abrir en el original» lleva al pasaje de la fuente—, solo se ven acá.
 class FlashcardSection extends ConsumerStatefulWidget {
-  const FlashcardSection({required this.item, super.key});
+  const FlashcardSection({
+    required this.item,
+    this.processed = false,
+    this.fromSourceItemId,
+    super.key,
+  });
 
   final KnowledgeItem item;
+
+  /// Si [item] es un documento procesado: lo dice quien lo muestra, que lo
+  /// sabe, y así el ✨ de cualquier otro elemento no pregunta de más.
+  final bool processed;
+
+  /// La fuente de la que salió el documento procesado [item], para mostrar sus
+  /// tarjetas en el grupo «De la fuente»; `null` en todo lo demás.
+  final String? fromSourceItemId;
 
   @override
   ConsumerState<FlashcardSection> createState() => _FlashcardSectionState();
@@ -80,8 +102,9 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
   /// Sin cambios no se escribe nada.
   Future<void> _edit(Flashcard card) async {
     final l10n = AppLocalizations.of(context)!;
+    // Las del mismo elemento que [card]: una de «De la fuente» es de la fuente.
     final siblings =
-        ref.read(itemFlashcardsProvider(widget.item.id)).valueOrNull ??
+        ref.read(itemFlashcardsProvider(card.itemId)).valueOrNull ??
         const <Flashcard>[];
     final result = await showCardFormDialog(
       context,
@@ -200,23 +223,47 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
   /// el mismo recorrido por partes, otra revisión y otro guardado.
   Future<void> _generateWithAi({bool cloze = false}) async {
     final l10n = AppLocalizations.of(context)!;
-    // El mismo texto que abre la lectura —la forma principal que no es de
-    // bloques—: el rango de una cita tiene que ser de ESE texto para que
+    // Ocupado desde ya: averiguar de qué texto salen también espera.
+    setState(() {
+      _generating = true;
+      _progress = null;
+    });
+    // Un documento procesado se estudia con su texto procesado (F41, decisión
+    // K). Sus tarjetas no llevan pasaje: el procesado no tiene una forma de
+    // texto donde «Ver en la fuente» caiga, y la de la fuente es de otro
+    // elemento.
+    final read = widget.processed
+        ? await readProcessedCardText(
+            ref.read(processedRepositoryProvider),
+            widget.item.id,
+          )
+        : null;
+    if (!mounted) return;
+    // Si el texto procesado no se puede leer, se dice: no se cae al de la
+    // fuente.
+    if (read?.getLeft().toNullable() case final failure?) {
+      setState(() => _generating = false);
+      _showMessage(failure.localizedMessage(l10n));
+      return;
+    }
+    final processed = read?.getRight().toNullable();
+    // Si no, el mismo texto que abre la lectura —la forma principal que no es
+    // de bloques—: el rango de una cita tiene que ser de ESE texto para que
     // «Ver en la fuente» caiga en el lugar. Sin él —una nota de bloques—, el
     // texto que se buscó siempre y sin fragmentos.
-    final sourceText = extractableRendition(widget.item)?.content;
-    final content = sourceText ?? widget.item.searchableText;
+    final sourceText = widget.processed
+        ? null
+        : extractableRendition(widget.item)?.content;
+    final content = widget.processed
+        ? processed?.content ?? ''
+        : sourceText ?? widget.item.searchableText;
     if (content.trim().isEmpty) {
+      setState(() => _generating = false);
       _showMessage(
         cloze ? l10n.cardFormAiNoContent : l10n.flashcardsNoContentToGenerate,
       );
       return;
     }
-
-    setState(() {
-      _generating = true;
-      _progress = null;
-    });
 
     // Lo que el elemento ya tiene no se vuelve a proponer.
     final existing =
@@ -382,13 +429,16 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
       children: [
         Row(
           children: [
-            Text(
-              l10n.flashcardsTitle,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            // Se parte con la letra grande en un teléfono, en vez de empujar
+            // los botones afuera.
+            Expanded(
+              child: Text(
+                l10n.flashcardsTitle,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-            const Spacer(),
             IconButton(
               icon: _generating
                   ? const SizedBox(
@@ -447,21 +497,54 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 )
-              : Column(
-                  children: [
-                    for (final card in list)
-                      _FlashcardTile(
-                        card: card,
-                        onEdit: () => _edit(card),
-                        onReject: () => _reject(card),
-                        onDelete: () => ref
-                            .read(flashcardRepositoryProvider)
-                            .delete(card.id),
-                      ),
-                  ],
-                ),
+              : Column(children: [for (final card in list) _tile(card)]),
         ),
+        if (widget.fromSourceItemId case final sourceId?)
+          _FromSourceCards(sourceItemId: sourceId, tile: _tile),
       ],
+    );
+  }
+
+  Widget _tile(Flashcard card) => _FlashcardTile(
+    card: card,
+    onEdit: () => _edit(card),
+    onReject: () => _reject(card),
+    onDelete: () => ref.read(flashcardRepositoryProvider).delete(card.id),
+  );
+}
+
+/// «De la fuente» (F41, decisión K): las tarjetas que ya tenía la fuente de un
+/// documento procesado, plegadas, con cuántas son. Se editan, se rechazan y se
+/// borran como las demás —son las mismas tarjetas, que siguen en Repasar con
+/// su historial—. Sin ninguna, no ocupa lugar.
+class _FromSourceCards extends ConsumerWidget {
+  const _FromSourceCards({required this.sourceItemId, required this.tile});
+
+  final String sourceItemId;
+  final Widget Function(Flashcard card) tile;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cards =
+        ref.watch(itemFlashcardsProvider(sourceItemId)).valueOrNull ??
+        const <Flashcard>[];
+    if (cards.isEmpty) return const SizedBox.shrink();
+
+    return ExpansionTile(
+      key: const Key('flashcards-from-source'),
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.local_library_outlined),
+      title: Text(l10n.flashcardsFromSource),
+      subtitle: Text(
+        l10n.flashcardsFromSourceCount(cards.length),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+      children: [for (final card in cards) tile(card)],
     );
   }
 }

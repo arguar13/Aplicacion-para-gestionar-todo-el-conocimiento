@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fpdart/fpdart.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
@@ -14,14 +18,20 @@ import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_pr
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
+import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
+import '../../../processed/presentation/processed_ui_fixture.dart';
 
 /// Las tarjetas de un elemento (F27): todas se editan, y las que hizo la IA
 /// llevan la marca ✨ y se les puede decir que «no era», con «Deshacer».
+class _MockProcessedRepository extends Mock implements ProcessedRepository {}
+
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -189,6 +199,183 @@ void main() {
 
     expect(find.byTooltip(es.flashcardsEditAction), findsNothing);
     expect(find.byTooltip(es.flashcardMadeByAi), findsOneWidget);
+  });
+
+  group('en un documento procesado (F41, decisión K)', () {
+    const processedText = 'La entropía mide el desorden. Siempre crece.';
+
+    Future<void> pumpProcessed(WidgetTester tester) async {
+      await tester.pumpWidget(
+        harness.wrap(
+          Scaffold(
+            body: SingleChildScrollView(
+              child: FlashcardSection(item: item, processed: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('el ✨ lee el texto de sus tarjetas —lo procesado, no la '
+        'fuente—, y sus tarjetas no llevan pasaje: el procesado no tiene una '
+        'forma donde caer', (tester) async {
+      await harness.saveTextSource('roma', text: processedText);
+      final id = await harness.processTextAndNotes('roma', notes: ['Mi nota.']);
+      item =
+          (await harness.container.read(libraryRepositoryProvider).findById(id))
+              .getOrElse((f) => fail('$f'))!;
+      await pumpProcessed(tester);
+
+      await tester.tap(find.byTooltip(es.flashcardsGenerateAction));
+      await tester.pumpAndSettle();
+
+      expect(model.contents, ['$processedText\n\nMi nota.']);
+      await tester.tap(find.text(es.flashcardsSaveSelected));
+      await tester.pumpAndSettle();
+
+      final row = (await db().select(db().flashcards).get()).single;
+      expect(row.itemId, id);
+      expect(row.sourceCharStart, isNull);
+      expect(row.sourceCharEnd, isNull);
+    });
+
+    testWidgets('si el texto procesado no se puede leer, lo dice y no cae al '
+        'del elemento', (tester) async {
+      final failing = _MockProcessedRepository();
+      when(
+        () => failing.partsOf(any(), sections: any(named: 'sections')),
+      ).thenAnswer(
+        (_) async => left<Failure, List<ProcessedPart>>(
+          const Failure.unexpected(message: 'la base'),
+        ),
+      );
+      harness = await LibraryHarness.create(
+        extraOverrides: [
+          flashcardGeneratorProvider.overrideWithValue(model),
+          processedRepositoryProvider.overrideWithValue(failing),
+        ],
+      );
+      await insertItemRows(harness.database, id: 'a', title: 'Termodinámica');
+      await pumpProcessed(tester);
+
+      await tester.tap(find.byTooltip(es.flashcardsGenerateAction));
+      await tester.pumpAndSettle();
+
+      expect(model.contents, isEmpty);
+      expect(
+        find.text(
+          const Failure.unexpected(message: 'la base').localizedMessage(es),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<IconButton>(
+              find.ancestor(
+                of: find.byIcon(Icons.auto_awesome_outlined),
+                matching: find.byType(IconButton),
+              ),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    });
+
+    testWidgets('sin texto procesado lo dice, sin llamar al modelo ni caer en '
+        'el del elemento', (tester) async {
+      // [item] no es un procesado: no tiene texto procesado que leer.
+      await pumpProcessed(tester);
+
+      await tester.tap(find.byTooltip(es.flashcardsGenerateAction));
+      await tester.pumpAndSettle();
+
+      expect(model.contents, isEmpty);
+      expect(find.text(es.flashcardsNoContentToGenerate), findsOneWidget);
+      // Vuelve a estar listo para otro intento.
+      expect(
+        tester
+            .widget<IconButton>(
+              find.ancestor(
+                of: find.byIcon(Icons.auto_awesome_outlined),
+                matching: find.byType(IconButton),
+              ),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    });
+
+    group('«De la fuente»', () {
+      Future<void> pumpWithSource(WidgetTester tester) async {
+        await tester.pumpWidget(
+          harness.wrap(
+            Scaffold(
+              body: SingleChildScrollView(
+                child: FlashcardSection(item: item, fromSourceItemId: 'fuente'),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('las que ya tenía la fuente, plegadas y con cuántas son; '
+          'siguen siendo de la fuente', (tester) async {
+        await insertItemRows(harness.database, id: 'fuente', title: 'Fuente');
+        final repository = harness.container.read(flashcardRepositoryProvider);
+        for (final front in ['¿Qué mide?', '¿Crece?']) {
+          await repository.create(itemId: 'fuente', front: front, back: 'x');
+        }
+        await seedCard();
+        await pumpWithSource(tester);
+
+        final group = find.byKey(const Key('flashcards-from-source'));
+        expect(group, findsOneWidget);
+        expect(find.text(es.flashcardsFromSource), findsOneWidget);
+        expect(find.text(es.flashcardsFromSourceCount(2)), findsOneWidget);
+        // Las propias, a la vista; las de la fuente, plegadas.
+        expect(find.text('¿Qué es la entropía?'), findsOneWidget);
+        expect(find.text('¿Qué mide?'), findsNothing);
+
+        await tester.tap(find.text(es.flashcardsFromSource));
+        await tester.pumpAndSettle();
+
+        expect(find.text('¿Qué mide?'), findsOneWidget);
+        expect(find.text('¿Crece?'), findsOneWidget);
+        final rows = await db().select(db().flashcards).get();
+        expect(
+          rows.where((r) => r.itemId == 'fuente').map((r) => r.front),
+          unorderedEquals(['¿Qué mide?', '¿Crece?']),
+        );
+      });
+
+      testWidgets('borrar una de la fuente desde acá la borra de la fuente', (
+        tester,
+      ) async {
+        await insertItemRows(harness.database, id: 'fuente', title: 'Fuente');
+        await harness.container
+            .read(flashcardRepositoryProvider)
+            .create(itemId: 'fuente', front: '¿Qué mide?', back: 'x');
+        await pumpWithSource(tester);
+        await tester.tap(find.text(es.flashcardsFromSource));
+        await tester.pumpAndSettle();
+
+        await openMenu(tester);
+        await tester.tap(find.text(es.flashcardsDeleteAction));
+        await tester.pumpAndSettle();
+
+        expect(await db().select(db().flashcards).get(), isEmpty);
+        expect(find.byKey(const Key('flashcards-from-source')), findsNothing);
+      });
+
+      testWidgets('sin tarjetas en la fuente, no ocupa lugar', (tester) async {
+        await insertItemRows(harness.database, id: 'fuente', title: 'Fuente');
+        await pumpWithSource(tester);
+
+        expect(find.byKey(const Key('flashcards-from-source')), findsNothing);
+      });
+    });
   });
 
   group('el ✨ lee por partes (F30)', () {

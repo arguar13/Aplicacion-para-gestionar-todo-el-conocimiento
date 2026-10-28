@@ -24,6 +24,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
@@ -89,6 +90,7 @@ void main() {
     bool withStudy = true,
     DocumentStudy? study,
     List<Override> extra = const [],
+    String renditionId = 'r1',
   }) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -122,7 +124,7 @@ void main() {
             study: withStudy
                 ? (
                     itemId: 'item-1',
-                    renditionId: 'r1',
+                    renditionId: renditionId,
                     content: content,
                     markdown: true,
                   )
@@ -600,5 +602,29 @@ void main() {
 
       expect(find.text(es.highlightCardTitle), findsNothing);
     });
+  });
+
+  testWidgets('sobre la copia del original de un procesado la barrita es de '
+      'solo lectura: Copiar y Extraer como nota, sin colores, nota, tarjeta ni '
+      'línea de tiempo (F41, decisión K)', (tester) async {
+    await pumpReader(
+      tester,
+      renditionId: processedOriginalStudyKeyFor('procesado'),
+    );
+
+    await select(tester, 0, 5);
+
+    expect(find.byType(HighlightToolbar), findsOneWidget);
+    expect(find.byType(HighlightColorDot), findsNothing);
+    expect(find.byKey(const Key('highlight-underline')), findsNothing);
+    for (final tooltip in [
+      es.highlightAddNote,
+      es.flashcardsFromSelection,
+      es.highlightAddToTimeline,
+    ]) {
+      expect(find.byTooltip(tooltip), findsNothing, reason: tooltip);
+    }
+    expect(find.byTooltip(es.highlightCopy), findsOneWidget);
+    expect(find.byTooltip(es.detailExtractSelection), findsOneWidget);
   });
 }

@@ -11842,5 +11842,58 @@
   "processedImageNext": "Next image",
   "@processedImageNext": {
     "description": "Botón de la pantalla completa de imágenes."
+  },
+  "sourceStudyInProcessed": "You study it in Processed: its summary, synthesis, keywords, map and cards.",
+  "@sourceStudyInProcessed": {
+    "description": "Detalle de una fuente (F41, decisión K): la línea que dice que se estudia en su documento procesado."
+  },
+  "sourceStudyOpen": "Study it in Processed",
+  "@sourceStudyOpen": {
+    "description": "Detalle de una fuente (F41): el botón que abre su documento procesado."
+  },
+  "sourceStudyTriage": "To study it, triage it",
+  "@sourceStudyTriage": {
+    "description": "Detalle de una fuente sin documento procesado (F41, decisión K)."
+  },
+  "sourceStudyTriageAction": "Triage",
+  "@sourceStudyTriageAction": {
+    "description": "Detalle de una fuente en la Bandeja: abre la hoja «¿Qué va a Procesado?»."
+  },
+  "flashcardsFromSource": "From the source",
+  "@flashcardsFromSource": {
+    "description": "Tarjetas de un documento procesado (F41): el grupo plegado con las tarjetas que ya tenía la fuente."
+  },
+  "flashcardsFromSourceCount": "{count, plural, =1{1 card, still in Review with its history} other{{count} cards, still in Review with their history}}",
+  "@flashcardsFromSourceCount": {
+    "description": "Debajo de «De la fuente»: cuántas son, y que no se movieron.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedOrganizeWithAiHint": "Topics, links and cards from its processed text",
+  "@processedOrganizeWithAiHint": {
+    "description": "«Más» del documento procesado (F41): para qué sirve «Organizar con IA»."
+  },
+  "processedFindDatesHint": "The dates in its processed text, to the timeline",
+  "@processedFindDatesHint": {
+    "description": "«Más» del documento procesado (F41): para qué sirve «Buscar fechas con IA»."
+  },
+  "processedDeleteOriginalCopy": "Delete the copy of the original, keep the text",
+  "@processedDeleteOriginalCopy": {
+    "description": "«Más» del documento procesado (F41, decisión K): soltar la copia propia del original."
+  },
+  "processedDeleteOriginalCopyHint": "Frees its space. The source's file is not touched.",
+  "@processedDeleteOriginalCopyHint": {
+    "description": "Debajo de «Borrar la copia del original»: lo que hace y lo que no."
+  },
+  "processedOriginalCopyDropped": "The copy of the original is in the app's trash. The source's file stays in the Library.",
+  "@processedOriginalCopyDropped": {
+    "description": "Aviso después de «Borrar la copia del original» (F41, decisión K)."
+  },
+  "processedOriginalCopyDroppedKeptText": "The copy of the original is in the app's trash, and its text stays in «Text». The source's file stays in the Library.",
+  "@processedOriginalCopyDroppedKeptText": {
+    "description": "Aviso después de «Borrar la copia del original» cuando el texto se guardó como sección Texto (F41, decisión K)."
   }
 }

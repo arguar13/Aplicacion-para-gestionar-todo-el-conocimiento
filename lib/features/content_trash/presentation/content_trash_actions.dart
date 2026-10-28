@@ -12,23 +12,6 @@ import 'package:sinapsis/features/content_trash/domain/repositories/content_tras
 import 'package:sinapsis/features/content_trash/presentation/providers/content_trash_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// «Borrar archivo, quedarme con el texto» (F30, decisión 68): el archivo va a
-/// la papelera de la app por 30 días —no se borra del disco— y el aviso trae
-/// «Deshacer». Sin pregunta de antes: no hay nada que no se pueda recuperar.
-Future<void> trashOriginalFile(
-  BuildContext context,
-  WidgetRef ref,
-  KnowledgeItem item,
-) {
-  final repository = ref.read(contentTrashRepositoryProvider);
-  return _trash(
-    context,
-    repository: repository,
-    result: repository.keepOnlyText(item.id),
-    message: AppLocalizations.of(context)!.detailOriginalFileTrashed,
-  );
-}
-
 /// «Borrar el texto, quedarme con el libro» (F30, decisión 68): el texto va a
 /// la papelera de la app por 30 días, con sus subrayados, y el libro no se
 /// vuelve a extraer solo. El aviso trae «Deshacer».

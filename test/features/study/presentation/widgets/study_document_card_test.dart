@@ -71,6 +71,7 @@ void main() {
     ),
     WidgetBuilder? extractedText,
     ExpansibleController? extractedTextController,
+    bool studiedRows = true,
   }) async {
     repository = MemoryStudyRepository(study);
     analysis = FakeStudyAnalysis();
@@ -104,6 +105,7 @@ void main() {
                 extractedText: extractedText,
                 extractedTextController: extractedTextController,
                 extractedTextSubtitle: 'Para buscar',
+                studiedRows: studiedRows,
               ),
             ),
           ),
@@ -632,6 +634,39 @@ void main() {
       await pump(tester);
 
       expect(find.text(es.studyExtractText), findsNothing);
+    });
+  });
+
+  group('en una fuente de consulta (F41, decisión K)', () {
+    testWidgets('marca el original y trae su texto, sin el resumen, la '
+        'síntesis ni las palabras clave para leer: se extraen en Procesado', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        study: analyzed,
+        studiedRows: false,
+        extractedText: (_) => const Text('el texto entero'),
+      );
+
+      expect(find.byKey(const Key('study-toggle-summary')), findsOneWidget);
+      expect(find.text(es.studyLegendSummary), findsOneWidget);
+      expect(find.text(es.studyExtractTitle), findsOneWidget);
+      expect(find.byKey(const Key('study-extract-text')), findsOneWidget);
+      for (final key in [
+        'study-extract-summary',
+        'study-extract-synthesis',
+        'study-extract-keywords',
+      ]) {
+        expect(find.byKey(Key(key)), findsNothing, reason: key);
+      }
+    });
+
+    testWidgets('sin texto que mostrar, ni «Extraer»', (tester) async {
+      await pump(tester, study: analyzed, studiedRows: false);
+
+      expect(find.text(es.studyExtractTitle), findsNothing);
+      expect(find.byKey(const Key('study-toggle-summary')), findsOneWidget);
     });
   });
 

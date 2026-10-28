@@ -7,18 +7,22 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/generate_quiz_button.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
+import 'package:sinapsis/features/notes/presentation/widgets/generate_derived_note_button.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_readable.dart';
 import 'package:sinapsis/features/processed/presentation/retriage.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/processed_more_menu.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_original_card.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_section_panel.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_study_slot.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/processed_study_tools.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_text_pages.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -28,11 +32,20 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   está en la papelera o se borró, lo dice. Al lado, «Volver a triar».
 /// - **La copia del original**, si la tiene (decisión H): «Ver el original»
 ///   la abre en su visor con lo elegido marcado (`ProcessedOriginalCard`).
+/// - **Lo que la IA organizó** con el documento, con «Para revisar», «Ver»,
+///   «Deshacer todo» y «Revisar con otro modelo», cuando hizo algo.
 /// - **La tarjeta de estudiar** sobre su propio texto (decisión I), cuando lo
 ///   tenga: ver `ProcessedStudySlot`.
 /// - **Sus secciones**, plegables y en el orden en que se leen, cada una con
 ///   sus partes editables. Se recorren las que el documento tiene: una
 ///   sección nueva entra sola.
+/// - **Su Mapa y sus Tarjetas de repaso** (decisión K): el grafo local y la
+///   sección de tarjetas de siempre, sobre el documento. Las tarjetas con IA
+///   salen de su texto procesado, y las que ya tenía la fuente se ven en «De
+///   la fuente», plegadas.
+/// - **Arriba**, lo que la fuente ya no ofrece porque queda de consulta: la
+///   nota derivada ✨, el quiz y, en «Más», «Organizar con IA», «Buscar fechas
+///   con IA» y «Borrar la copia del original» —todos sobre lo procesado—.
 /// - **Escuchar**: el botón flotante lee el documento entero, como en el
 ///   detalle de un elemento, empezando por la página del texto que se mira.
 ///
@@ -57,12 +70,14 @@ class ProcessedDocumentScreen extends ConsumerWidget {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          if (value != null && !value.inTrash)
+          if (value != null && !value.inTrash) ...[
+            ..._studyActions(ref, value),
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: l10n.detailDelete,
               onPressed: () => _moveToTrash(context, ref),
             ),
+          ],
         ],
       ),
       body: document.when(
@@ -81,6 +96,21 @@ class ProcessedDocumentScreen extends ConsumerWidget {
             : _DocumentBody(document: document),
       ),
     );
+  }
+
+  /// La nota derivada ✨ y el quiz del documento, que salen de su texto
+  /// procesado (los dos preguntan primero si el elemento es un procesado: ver
+  /// `readProcessedCardText`), y «Más».
+  List<Widget> _studyActions(WidgetRef ref, ProcessedDocument document) {
+    final item = ref.watch(libraryItemProvider(document.id)).valueOrNull;
+    return [
+      GenerateDerivedNoteButton(
+        sourceTitle: document.title,
+        itemId: document.id,
+      ),
+      if (item != null) GenerateQuizButton(item: item),
+      ProcessedMoreMenu(document: document),
+    ];
   }
 
   /// A la papelera, con «Deshacer», y de vuelta adonde se estaba: de la
@@ -140,6 +170,7 @@ class _DocumentBodyState extends ConsumerState<_DocumentBody> {
           _SourceCard(document: document),
           const SizedBox(height: 12),
           ProcessedOriginalCard(documentId: document.id),
+          ProcessedAiLine(document: document),
           ProcessedStudySlot(document: document),
           if (document.summary.isEmpty)
             Padding(
@@ -161,6 +192,7 @@ class _DocumentBodyState extends ConsumerState<_DocumentBody> {
             ),
             const SizedBox(height: 12),
           ],
+          ProcessedStudyTools(document: document),
         ],
       ),
     );

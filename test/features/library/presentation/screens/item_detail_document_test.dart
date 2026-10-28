@@ -9,10 +9,7 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
-import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
-import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/attachments/presentation/providers/attachment_providers.dart';
-import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/widgets/playback_synced_text.dart';
@@ -21,7 +18,6 @@ import 'package:sinapsis/features/study/presentation/providers/study_providers.d
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
-import '../../../../support/fake_study_analysis.dart';
 import '../../../../support/library_harness.dart';
 import '../../../../support/memory_study_repository.dart';
 
@@ -92,49 +88,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('La primera frase'), findsOneWidget);
-  });
-
-  testWidgets('"Resumir" del panel prende el resumen de la tarjeta de '
-      'estudiar (F36) y analiza lo que falta, sin el diálogo del párrafo', (
-    tester,
-  ) async {
-    final analysis = FakeStudyAnalysis();
-    final harness = await pumpItem(
-      tester,
-      kind: SourceKind.document,
-      extraOverrides: [
-        studyRepositoryProvider.overrideWithValue(
-          MemoryStudyRepository(DocumentStudy.notStarted),
-        ),
-        studyAnalysisProvider.overrideWith((ref, id) => analysis),
-        languageModelStatusCheckProvider.overrideWithValue(
-          ({bool background = false}) async =>
-              const LanguageModelReady(provider: AiProvider.gemma),
-        ),
-      ],
-    );
-
-    await tester.tap(find.byKey(const Key('source-panel-summarize')));
-    await tester.pumpAndSettle();
-
-    expect(harness.container.read(studyViewProvider('r1')).summary, isTrue);
-    expect(analysis.starts, [
-      (
-        content: 'La primera frase del libro.',
-        markdown: false,
-        itemId: 'item-1',
-      ),
-    ]);
-    expect(find.byType(AlertDialog), findsNothing);
-    final summary = tester.widget<FilterChip>(
-      find
-          .descendant(
-            of: find.byKey(const Key('study-toggle-summary')),
-            matching: find.byType(FilterChip),
-          )
-          .first,
-    );
-    expect(summary.selected, isTrue);
   });
 
   testWidgets('en una página web el texto también va plegado en la tarjeta, '

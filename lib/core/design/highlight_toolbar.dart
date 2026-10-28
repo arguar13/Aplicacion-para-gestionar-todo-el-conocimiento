@@ -34,7 +34,10 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///    eligió, o el primero—. Lo guarda quien la usa; ver
 ///    `lastHighlightColorProvider`.
 ///  * [onHighlight] y [onUnderline] reciben el color tocado; el segundo
-///    siempre [underlineColor].
+///    siempre [underlineColor]. Sin ellos no hay colores ni «Subrayar»: lo
+///    que se mira es de solo lectura —la copia del original de un documento
+///    procesado (F41), cuyas marcas son lo elegido del procesado y no se
+///    resalta a mano—, y la barrita queda con lo que sí se puede hacer.
 ///  * Los otros botones son opcionales: **sin su callback no se dibuja**, así
 ///    que un documento al que no se le puede extraer una nota simplemente no
 ///    ofrece ese botón.
@@ -53,8 +56,8 @@ class HighlightToolbar extends StatelessWidget {
   const HighlightToolbar({
     required this.anchors,
     required this.underlineColor,
-    required this.onHighlight,
-    required this.onUnderline,
+    this.onHighlight,
+    this.onUnderline,
     this.systemToolbarExtent = 0,
     this.onCopy,
     this.onReadAloud,
@@ -69,8 +72,8 @@ class HighlightToolbar extends StatelessWidget {
 
   final TextSelectionToolbarAnchors anchors;
   final HighlightColor underlineColor;
-  final ValueChanged<HighlightColor> onHighlight;
-  final ValueChanged<HighlightColor> onUnderline;
+  final ValueChanged<HighlightColor>? onHighlight;
+  final ValueChanged<HighlightColor>? onUnderline;
   final double systemToolbarExtent;
   final VoidCallback? onCopy;
   final VoidCallback? onReadAloud;
@@ -96,6 +99,10 @@ class HighlightToolbar extends StatelessWidget {
 
   /// Lo que suma «A Procesado», en su propia fila.
   static const _toProcessedHeight = 48.0;
+
+  /// Lo que ocupan las dos filas de colores, que no están en lo que es de
+  /// solo lectura.
+  static const _colorsHeight = 104.0;
 
   /// Lo que ocupa la barra flotante de Android sobre lo seleccionado en un
   /// `WebView`: 48 de alto y el aire con la selección y con lo de al lado.
@@ -130,9 +137,12 @@ class HighlightToolbar extends StatelessWidget {
         (anchors.secondaryAnchor ?? anchors.primaryAnchor) +
         const Offset(0, _distanceBelow);
     final paddingAbove = MediaQuery.paddingOf(context).top + _screenPadding;
-    final toolbarHeight = onToProcessed == null
-        ? _height
-        : _height + _toProcessedHeight;
+    final highlight = onHighlight;
+    final underline = onUnderline;
+    final toolbarHeight =
+        _height -
+        (highlight == null && underline == null ? _colorsHeight : 0) +
+        (onToProcessed == null ? 0 : _toProcessedHeight);
     var fitsAbove =
         toolbarHeight <= anchorAbove.dy - _distanceAbove - paddingAbove;
     final system = systemToolbarExtent;
@@ -154,13 +164,14 @@ class HighlightToolbar extends StatelessWidget {
     final localAdjustment = Offset(_screenPadding, paddingAbove);
 
     final colorButtons = [
-      for (final color in HighlightColor.values)
-        HighlightColorDot(
-          key: Key('highlight-color-${color.name}'),
-          color: color,
-          tooltip: l10n.highlightWithColor(highlightColorName(l10n, color)),
-          onPressed: () => onHighlight(color),
-        ),
+      if (highlight != null)
+        for (final color in HighlightColor.values)
+          HighlightColorDot(
+            key: Key('highlight-color-${color.name}'),
+            color: color,
+            tooltip: l10n.highlightWithColor(highlightColorName(l10n, color)),
+            onPressed: () => highlight(color),
+          ),
     ];
     final actions = <Widget>[
       if (onCopy != null)
@@ -254,35 +265,43 @@ class HighlightToolbar extends StatelessWidget {
                     // Las muestras en una grilla de [_columns] columnas: la
                     // primera fila, llena; la segunda, lo que sobra y
                     // «Subrayar» en la última columna.
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: colorButtons.take(_columns).toList(),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        ...colorButtons.skip(_columns),
-                        IconButton(
-                          key: const Key('highlight-underline'),
-                          tooltip: l10n.highlightUnderlineWithColor(
-                            highlightColorName(l10n, underlineColor),
-                          ),
-                          onPressed: () => onUnderline(underlineColor),
-                          icon: Icon(
-                            Icons.format_underlined,
-                            color: HighlightPalette.line(
-                              context,
-                              underlineColor,
+                    if (colorButtons.isNotEmpty)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: colorButtons.take(_columns).toList(),
+                      ),
+                    if (colorButtons.isNotEmpty || underline != null)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          ...colorButtons.skip(_columns),
+                          if (underline != null)
+                            IconButton(
+                              key: const Key('highlight-underline'),
+                              tooltip: l10n.highlightUnderlineWithColor(
+                                highlightColorName(l10n, underlineColor),
+                              ),
+                              onPressed: () => underline(underlineColor),
+                              icon: Icon(
+                                Icons.format_underlined,
+                                color: HighlightPalette.line(
+                                  context,
+                                  underlineColor,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (actions.isNotEmpty) ...[
+                        ],
+                      ),
+                    if (actions.isNotEmpty &&
+                        (colorButtons.isNotEmpty ||
+                            underline != null ||
+                            onToProcessed != null)) ...[
                       Divider(
                         height: 1,
                         color: theme.colorScheme.outlineVariant,
                       ),
+                    ],
+                    if (actions.isNotEmpty)
                       // Con los siete botones, en una pantalla de 320 de
                       // ancho no entran a 48: se achican en vez de salirse.
                       FittedBox(
@@ -292,7 +311,6 @@ class HighlightToolbar extends StatelessWidget {
                           children: actions,
                         ),
                       ),
-                    ],
                   ],
                 ),
               ),

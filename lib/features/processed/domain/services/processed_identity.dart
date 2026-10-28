@@ -62,6 +62,16 @@ String? processedDocumentOfOriginalStudyKey(String key) =>
     ? key.substring(kProcessedOriginalStudyKeyPrefix.length)
     : null;
 
+/// Si lo que se mira con la clave [key] es de solo lectura (F41, decisión
+/// K): la copia del original de un documento procesado. Lo que tiene marcado
+/// es lo elegido del procesado, en las posiciones del texto de la fuente; no
+/// es una forma de texto donde caiga un resaltado, una nota, una tarjeta o un
+/// hecho de la línea de tiempo, y nada de lo que se haga sobre la copia cae en
+/// la fuente. Lo que sí se puede es copiar, escuchar y «Extraer como nota»,
+/// que va a las notas del documento procesado (decisión J).
+bool isReadOnlyStudyKey(String key) =>
+    processedDocumentOfOriginalStudyKey(key) != null;
+
 /// El documento de la clave de estudio [key], o `null` si no es de un
 /// procesado.
 String? processedDocumentOfStudyKey(String key) =>

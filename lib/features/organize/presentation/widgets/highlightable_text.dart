@@ -18,6 +18,7 @@ import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlight_note_dialog.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -354,6 +355,7 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
       context,
       ref,
       editable,
+      readOnly: isReadOnlyStudyKey(widget.renditionId),
       onHighlight: (color, style) =>
           unawaited(_highlightRange(selection, color, style)),
       onReadAloud: () => unawaited(_readSelectionAloud(selection)),

@@ -25,8 +25,10 @@ import 'package:sinapsis/features/processed/domain/entities/extract_note_target.
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_triage.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
+import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_highlight_toolbar.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_selection.dart';
@@ -125,6 +127,7 @@ void main() {
     bool canCopy = true,
     HighlightColor? lastColor,
     bool cutting = false,
+    StudyText? study,
   }) async {
     container = ProviderContainer(
       overrides: [
@@ -166,7 +169,7 @@ void main() {
                             secondaryAnchor: Offset(200, 320),
                           ),
                           selection: selection,
-                          text: text,
+                          text: study ?? text,
                           canCopy: canCopy,
                         ),
                       ),
@@ -495,6 +498,62 @@ void main() {
 
       expect(extractNote.undone, [undo]);
       expect(find.text(es.processedNoteUndone), findsOneWidget);
+    });
+  });
+
+  group('sobre la copia del original de un procesado (F41, decisión K)', () {
+    final copy = (
+      itemId: 'procesado',
+      renditionId: processedOriginalStudyKeyFor('procesado'),
+      content: content,
+      markdown: false,
+    );
+
+    testWidgets('es de solo lectura: sin colores, Subrayar, Nota, Hacer '
+        'tarjeta ni línea de tiempo, que no tienen dónde caer; Copiar, '
+        'Escuchar y Extraer como nota sí', (tester) async {
+      await pump(tester, study: copy);
+
+      expect(find.byType(HighlightColorDot), findsNothing);
+      expect(find.byKey(const Key('highlight-underline')), findsNothing);
+      for (final tooltip in [
+        es.highlightAddNote,
+        es.flashcardsFromSelection,
+        es.highlightAddToTimeline,
+      ]) {
+        expect(find.byTooltip(tooltip), findsNothing, reason: tooltip);
+      }
+      expect(find.byTooltip(es.highlightCopy), findsOneWidget);
+      expect(find.byTooltip(es.highlightListen), findsOneWidget);
+
+      // A las notas del documento procesado (decisión J).
+      extractNote.outcome = const ExtractedToProcessed(
+        documentId: 'procesado',
+        created: false,
+        unchanged: true,
+        undo: ProcessUndo(
+          documentId: 'procesado',
+          previousStatus: ProcessedDocumentStatus.active,
+          previous: {},
+        ),
+      );
+      addTearDown(() {
+        extractNote
+          ..outcome = const ExtractLooseNote()
+          ..asked.clear();
+      });
+      await tap(tester, find.byTooltip(es.detailExtractSelection));
+
+      expect(extractNote.asked.last.itemId, 'procesado');
+      expect(selection.asked, isEmpty);
+    });
+
+    testWidgets('lo de la fuente sigue con su barrita entera', (tester) async {
+      await pump(tester);
+
+      expect(find.byType(HighlightColorDot), findsNWidgets(9));
+      expect(find.byKey(const Key('highlight-underline')), findsOneWidget);
+      expect(find.byTooltip(es.highlightAddNote), findsOneWidget);
     });
   });
 }

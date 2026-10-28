@@ -13,6 +13,7 @@ import 'package:sinapsis/features/processed/domain/entities/processed_query.dart
 import 'package:sinapsis/features/processed/domain/entities/processed_source_material.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_study_text.dart';
 import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
+import 'package:sinapsis/features/processed/domain/usecases/drop_original_copy.dart';
 import 'package:sinapsis/features/processed/domain/usecases/extract_note_to_processed.dart';
 import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 
@@ -22,6 +23,14 @@ final processedRepositoryProvider = Provider<ProcessedRepository>(
     database: ref.watch(appDatabaseProvider),
     telemetry: ref.watch(telemetryServiceProvider),
     files: ref.watch(fileStoreProvider),
+  ),
+);
+
+/// «Borrar la copia del original, quedarme con el texto» (decisión K).
+final dropOriginalCopyProvider = Provider<DropOriginalCopy>(
+  (ref) => DropOriginalCopy(
+    repository: ref.watch(processedRepositoryProvider),
+    process: ref.watch(processSourceUseCaseProvider),
   ),
 );
 

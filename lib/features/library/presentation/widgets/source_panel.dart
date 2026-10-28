@@ -18,6 +18,7 @@ import 'package:sinapsis/features/library/presentation/widgets/reextract_text.da
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_more.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
+import 'package:sinapsis/features/processed/domain/services/consultation_source.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
@@ -42,8 +43,10 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// 2. **Lo que está pasando**: bajando el audio, extrayendo o volviendo a
 ///    extraer el texto, un fallo con su único "Reintentar", el modelo que
 ///    falta. Ver [SourcePanelStatus].
-/// 3. **Cuatro mosaicos** iguales (decisión A): Leer, Resumir, Copiar y
-///    Más —en una nota de bloques, Editar en vez de Más—. Ver
+/// 3. **Los mosaicos** iguales (decisión A): Leer, Copiar y Más. Una nota
+///    propia suma Resumir, y en una nota de bloques Editar va en vez de Más.
+///    Una fuente no resume acá: queda de consulta y se estudia en su
+///    documento procesado (F41, decisión K) —ver `isConsultationSource`—. Ver
 ///    [SourcePanelTile].
 /// 4. Lo que se le sume después, en [extraSections].
 ///
@@ -53,15 +56,10 @@ class SourcePanel extends ConsumerWidget {
   const SourcePanel({
     required this.item,
     this.extraSections = const [],
-    this.onSummarize,
     super.key,
   });
 
   final KnowledgeItem item;
-
-  /// Lo que hace «Resumir», si no es el resumen de siempre en un diálogo: en
-  /// lo que se estudia, prender el resumen en el original (F36).
-  final VoidCallback? onSummarize;
 
   /// Secciones de más, debajo de los mosaicos y con el mismo separador: el
   /// lugar donde F27 cuenta lo que la IA organizó sola ("La IA organizó
@@ -83,7 +81,7 @@ class SourcePanel extends ConsumerWidget {
           playerKey: const Key('video-audio-player'),
         ),
       if (_hasStatus(item)) _ProcessingStatus(item: item),
-      _ActionTiles(item: item, onSummarize: onSummarize),
+      _ActionTiles(item: item),
       ...extraSections,
     ];
 
@@ -293,16 +291,14 @@ String _emptyStateMessage(
   return fromFile ? l10n.detailNoContentYetFile : l10n.detailNoContentYet;
 }
 
-/// Las cuatro acciones a la vista (F26, decisión A), siempre las mismas y en
-/// el mismo lugar: sin texto todavía —o mientras se vuelve a extraer— se ven
-/// apagadas, no desaparecen.
+/// Las acciones a la vista (F26, decisión A), siempre las mismas y en el
+/// mismo lugar: sin texto todavía —o mientras se vuelve a extraer— se ven
+/// apagadas, no desaparecen. «Resumir», solo en una nota propia (F41,
+/// decisión K).
 class _ActionTiles extends ConsumerWidget {
-  const _ActionTiles({required this.item, this.onSummarize});
+  const _ActionTiles({required this.item});
 
   final KnowledgeItem item;
-
-  /// Ver [SourcePanel.onSummarize].
-  final VoidCallback? onSummarize;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -335,9 +331,8 @@ class _ActionTiles extends ConsumerWidget {
                   : null,
             ),
           ),
-          Expanded(
-            child: _SummarizeTile(content: text, onSummarize: onSummarize),
-          ),
+          if (!isConsultationSource(item))
+            Expanded(child: _SummarizeTile(content: text)),
           Expanded(
             child: SourcePanelTile(
               key: const Key('source-panel-copy'),
@@ -394,16 +389,12 @@ class _ActionTiles extends ConsumerWidget {
 }
 
 /// "Resumir" con el mismo comportamiento que el botón de siempre —ver
-/// [SummarizeOnDemand]—: mientras espera el resumen, el ícono gira. En lo que
-/// se estudia hace [onSummarize] (F36).
+/// [SummarizeOnDemand]—: mientras espera el resumen, el ícono gira.
 class _SummarizeTile extends ConsumerStatefulWidget {
-  const _SummarizeTile({required this.content, this.onSummarize});
+  const _SummarizeTile({required this.content});
 
   /// Lo que se resume; `null` si todavía no hay texto.
   final String? content;
-
-  /// Ver [SourcePanel.onSummarize].
-  final VoidCallback? onSummarize;
 
   @override
   ConsumerState<_SummarizeTile> createState() => _SummarizeTileState();
@@ -424,11 +415,7 @@ class _SummarizeTileState extends ConsumerState<_SummarizeTile>
           ? l10n.sourcePanelNeedsText
           : l10n.summarizeAction,
       busy: summarizing,
-      onTap: switch ((content, widget.onSummarize)) {
-        (null, _) => null,
-        (_, final onSummarize?) => onSummarize,
-        (final content?, null) => () => unawaited(summarize(content)),
-      },
+      onTap: content == null ? null : () => unawaited(summarize(content)),
     );
   }
 }

@@ -1,17 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart'
     show StudyMarksCompanion;
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organized_line.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/generate_quiz_button.dart';
+import 'package:sinapsis/features/graph/presentation/widgets/local_graph_panel.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
+import 'package:sinapsis/features/notes/presentation/widgets/generate_derived_note_button.dart';
+import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
+import 'package:sinapsis/features/processed/domain/usecases/drop_original_copy.dart';
+import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
@@ -19,6 +35,7 @@ import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/trash/presentation/screens/trash_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/fake_ai_organize_queue.dart';
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 import '../processed_ui_fixture.dart';
@@ -555,8 +572,22 @@ void main() {
       });
       await pumpPhoneWithLargeText(tester, harness);
       await pushAndSettle(tester, harness, RoutePaths.processedDocument(id));
+      // Arriba va la tarjeta de estudiar (decisión K): el texto, más abajo.
+      expect(tester.takeException(), isNull);
+      await tester.dragUntilVisible(
+        find.text(es.processedSectionText),
+        find.byType(ListView),
+        const Offset(0, -200),
+      );
+      await tester.ensureVisible(find.text(es.processedSectionText));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(es.processedSectionText));
       await tester.pumpAndSettle();
+      await tester.dragUntilVisible(
+        find.byKey(const Key('processed-page-of')),
+        find.byType(ListView),
+        const Offset(0, -200),
+      );
 
       expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('processed-page-of')), findsOneWidget);
@@ -568,4 +599,326 @@ void main() {
       expect(find.text(es.processedDocumentNotFound), findsOneWidget);
     });
   });
+
+  group('se estudia acá (decisión K)', () {
+    testWidgets('su Mapa y sus Tarjetas de repaso, las piezas de siempre '
+        'sobre el documento, debajo de sus secciones', (tester) async {
+      final id = await harness.processTextAndNotes('roma');
+      await open(tester, id);
+
+      final map = find.byType(LocalGraphPanel);
+      final cards = find.byType(FlashcardSection);
+      expect(map, findsOneWidget);
+      expect(cards, findsOneWidget);
+      expect(tester.widget<LocalGraphPanel>(map).item.id, id);
+      final flashcards = tester.widget<FlashcardSection>(cards);
+      expect(flashcards.item.id, id);
+      expect(flashcards.processed, isTrue);
+      expect(flashcards.fromSourceItemId, 'roma');
+      expect(
+        tester.getTopLeft(map).dy,
+        greaterThan(tester.getTopLeft(section(ProcessedSection.text)).dy),
+      );
+    });
+
+    testWidgets('la tarjeta de estudiar sobre su texto propio, con el '
+        'resumen, la síntesis y las palabras clave para leer: acá se estudia', (
+      tester,
+    ) async {
+      final id = await harness.processTextAndNotes('roma');
+      await open(tester, id);
+
+      expect(find.byKey(const Key('study-document-card')), findsOneWidget);
+      for (final key in [
+        'study-extract-summary',
+        'study-extract-synthesis',
+        'study-extract-keywords',
+      ]) {
+        expect(find.byKey(Key(key)), findsOneWidget, reason: key);
+      }
+    });
+
+    testWidgets('sin texto propio —solo notas— no hay qué estudiar', (
+      tester,
+    ) async {
+      final id = await harness.process('roma', {
+        ProcessedSection.notes: SectionEdit.add(
+          const SectionInput.drafts([ProcessedDraft.written('Una idea')]),
+        ),
+      });
+      await open(tester, id);
+
+      expect(find.byKey(const Key('study-document-card')), findsNothing);
+    });
+
+    testWidgets('«De la fuente»: las tarjetas que ya tenía, plegadas, sin '
+        'moverse de ella', (tester) async {
+      final id = await harness.processTextAndNotes('roma');
+      await harness.container
+          .read(flashcardRepositoryProvider)
+          .create(itemId: 'roma', front: '¿Quién cruzó?', back: 'César');
+      await open(tester, id);
+
+      final group = find.byKey(const Key('flashcards-from-source'));
+      expect(group, findsOneWidget);
+      expect(find.text(es.flashcardsFromSourceCount(1)), findsOneWidget);
+      expect(find.text('¿Quién cruzó?'), findsNothing);
+
+      await tester.tap(find.text(es.flashcardsFromSource));
+      await tester.pumpAndSettle();
+
+      expect(find.text('¿Quién cruzó?'), findsOneWidget);
+      final rows = await harness.database
+          .select(harness.database.flashcards)
+          .get();
+      expect(rows.single.itemId, 'roma');
+    });
+
+    testWidgets('arriba, el derivado ✨, el quiz y «Más» con organizar y '
+        'buscar fechas sobre el documento; sin copia del original, no se '
+        'ofrece borrarla', (tester) async {
+      final queue = FakeAiOrganizeQueue();
+      harness = await LibraryHarness.create(
+        extraOverrides: [aiOrganizeQueueProvider.overrideWithValue(queue)],
+      );
+      await harness.saveTextSource('roma', title: 'Roma');
+      final id = await harness.processTextAndNotes('roma');
+      await open(tester, id);
+
+      final bar = find.byType(AppBar);
+      expect(
+        find.descendant(
+          of: bar,
+          matching: find.byType(GenerateDerivedNoteButton),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: bar, matching: find.byType(GenerateQuizButton)),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('processed-more')));
+      await tester.pumpAndSettle();
+      expect(find.text(es.sourcePanelOrganizeWithAi), findsOneWidget);
+      expect(find.text(es.processedOrganizeWithAiHint), findsOneWidget);
+      expect(find.text(es.sourcePanelFindDates), findsOneWidget);
+      expect(find.text(es.processedDeleteOriginalCopy), findsNothing);
+
+      await tester.tap(find.text(es.sourcePanelOrganizeWithAi));
+      await tester.pumpAndSettle();
+      expect(queue.organizeNowCalls, [id]);
+
+      await tester.tap(find.byKey(const Key('processed-more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.sourcePanelFindDates));
+      await tester.pumpAndSettle();
+      expect(queue.dateRequests, [
+        [id],
+      ]);
+    });
+
+    testWidgets('lo que la IA organizó con el documento, en su línea', (
+      tester,
+    ) async {
+      harness = await LibraryHarness.create(
+        extraOverrides: [
+          aiItemSummaryProvider.overrideWith(
+            (ref, itemId) => itemId == harness.documentOf('roma')
+                ? const AiItemSummary(undone: true)
+                : const AiItemSummary(),
+          ),
+        ],
+      );
+      await harness.saveTextSource('roma', title: 'Roma');
+      final id = await harness.processTextAndNotes('roma');
+      await open(tester, id);
+
+      final line = find.byType(AiOrganizedLine);
+      expect(line, findsOneWidget);
+      expect(tester.widget<AiOrganizedLine>(line).itemId, id);
+    });
+
+    testWidgets('sin nada que contar de la IA, ni la línea', (tester) async {
+      final id = await harness.processTextAndNotes('roma');
+      await open(tester, id);
+
+      expect(find.byType(AiOrganizedLine), findsNothing);
+      expect(find.byKey(const Key('processed-ai-line')), findsNothing);
+    });
+
+    testWidgets('en la papelera se lee, pero no se estudia ni se le pide nada '
+        'a la IA', (tester) async {
+      final id = await harness.processTextAndNotes('roma');
+      await trashItemRows(harness.database, id);
+      await open(tester, id);
+
+      expect(find.byType(LocalGraphPanel), findsNothing);
+      expect(find.byType(FlashcardSection), findsNothing);
+      expect(find.byType(GenerateQuizButton), findsNothing);
+      expect(find.byType(GenerateDerivedNoteButton), findsNothing);
+      expect(find.byKey(const Key('processed-more')), findsNothing);
+    });
+  });
+
+  group(
+    '«Borrar la copia del original, quedarme con el texto» (decisión K)',
+    () {
+      late _FakeDrop drop;
+      late _UndoSpy process;
+
+      Future<String> openWithCopy(
+        WidgetTester tester, {
+        bool keptText = true,
+        Failure? failure,
+      }) async {
+        drop = _FakeDrop(keptText: keptText, failure: failure);
+        harness = await LibraryHarness.create(
+          extraOverrides: [
+            processedOriginalProvider.overrideWith(
+              (ref, id) => Stream.value(_copyOf(id)),
+            ),
+            dropOriginalCopyProvider.overrideWithValue(drop),
+            processSourceUseCaseProvider.overrideWith(
+              (ref) =>
+                  process = _UndoSpy(ref.watch(processedRepositoryProvider)),
+            ),
+          ],
+        );
+        await harness.saveTextSource('roma', title: 'Roma');
+        final id = await harness.processTextAndNotes('roma');
+        await open(tester, id);
+        await tester.tap(find.byKey(const Key('processed-more')));
+        await tester.pumpAndSettle();
+        return id;
+      }
+
+      testWidgets('con copia, «Más» la ofrece con lo que hace; sin preguntar, '
+          'la suelta de la fuente viva y avisa que el texto quedó, con '
+          '«Deshacer»', (tester) async {
+        await openWithCopy(tester);
+
+        expect(find.text(es.processedDeleteOriginalCopyHint), findsOneWidget);
+        await tester.tap(find.text(es.processedDeleteOriginalCopy));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(drop.calls, ['roma']);
+        expect(
+          find.text(es.processedOriginalCopyDroppedKeptText),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.text(es.contentTrashUndo));
+        await tester.pumpAndSettle();
+
+        expect(process.undone, [drop.undo]);
+      });
+
+      testWidgets('si ya tenía su Texto, el aviso solo dice dónde quedó la '
+          'copia', (tester) async {
+        await openWithCopy(tester, keptText: false);
+        await tester.tap(find.text(es.processedDeleteOriginalCopy));
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.processedOriginalCopyDropped), findsOneWidget);
+      });
+
+      testWidgets('si no se pudo, dice por qué', (tester) async {
+        const failure = Failure.validation(message: 'la fuente no está');
+        await openWithCopy(tester, failure: failure);
+        await tester.tap(find.text(es.processedDeleteOriginalCopy));
+        await tester.pumpAndSettle();
+
+        expect(find.text(failure.localizedMessage(es)), findsOneWidget);
+        expect(find.text(es.contentTrashUndo), findsNothing);
+      });
+
+      testWidgets('sin copia no se ofrece', (tester) async {
+        final id = await harness.processTextAndNotes('roma');
+        await open(tester, id);
+        await tester.tap(find.byKey(const Key('processed-more')));
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.processedDeleteOriginalCopy), findsNothing);
+      });
+
+      testWidgets('con la fuente en la papelera tampoco: la copia es lo '
+          'único que queda de su original', (tester) async {
+        harness = await LibraryHarness.create(
+          extraOverrides: [
+            processedOriginalProvider.overrideWith(
+              (ref, id) => Stream.value(_copyOf(id)),
+            ),
+          ],
+        );
+        await harness.saveTextSource('roma', title: 'Roma');
+        final id = await harness.processTextAndNotes('roma');
+        await trashItemRows(harness.database, 'roma');
+        await open(tester, id);
+        await tester.tap(find.byKey(const Key('processed-more')));
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.sourcePanelOrganizeWithAi), findsOneWidget);
+        expect(find.text(es.processedDeleteOriginalCopy), findsNothing);
+      });
+    },
+  );
+}
+
+/// Una copia del original de [documentId], como la deja el paso 1b.
+ProcessedOriginal _copyOf(String documentId) => ProcessedOriginal(
+  documentId: documentId,
+  renditionId: 'copia-$documentId',
+  relativePath: 'originales/$documentId/original/roma.pdf',
+  kind: RenditionKind.pdf,
+  sizeBytes: 2048,
+  copiedAt: DateTime(2026, 10, 28),
+  sourceFilePath: 'originales/roma/roma.pdf',
+);
+
+/// Soltar la copia sin la base: lo que importa acá es lo que hace la pantalla.
+class _FakeDrop implements DropOriginalCopy {
+  _FakeDrop({required this.keptText, this.failure});
+
+  final bool keptText;
+  final Failure? failure;
+  final calls = <String>[];
+  final undo = const ProcessUndo(
+    documentId: 'procesado',
+    previousStatus: ProcessedDocumentStatus.active,
+    previous: {},
+  );
+
+  @override
+  Future<Either<Failure, DroppedOriginalCopy>> call(String sourceItemId) async {
+    calls.add(sourceItemId);
+    final failure = this.failure;
+    if (failure != null) return left(failure);
+    return right(
+      DroppedOriginalCopy(
+        outcome: ProcessOutcome(
+          documentId: 'procesado',
+          created: false,
+          sections: const {},
+          undo: undo,
+          original: OriginalOutcome.removed,
+        ),
+        keptText: keptText,
+      ),
+    );
+  }
+}
+
+/// El caso de uso de siempre, que anota lo que se deshace sin hacerlo.
+class _UndoSpy extends ProcessSourceUseCase {
+  _UndoSpy(super.repository);
+
+  final undone = <ProcessUndo>[];
+
+  @override
+  Future<Either<Failure, Unit>> undo(ProcessUndo undo) async {
+    undone.add(undo);
+    return right(unit);
+  }
 }

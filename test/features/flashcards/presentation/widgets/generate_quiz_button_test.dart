@@ -67,6 +67,7 @@ KnowledgeItem _fixtureItem(String id) => KnowledgeItem(
 QuizQuestionResult _fixtureQuestion(String question) => QuizQuestionResult(
   question: question,
   correctAnswer: 'la correcta',
+  correctSourceItemId: 'fuente',
   correctSourceCharStart: 0,
   correctSourceCharEnd: 12,
   distractors: [

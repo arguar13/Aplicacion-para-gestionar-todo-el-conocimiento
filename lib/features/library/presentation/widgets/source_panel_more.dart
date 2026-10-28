@@ -14,6 +14,7 @@ import 'package:sinapsis/features/content_trash/presentation/content_trash_actio
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/reextract_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
+import 'package:sinapsis/features/processed/domain/services/consultation_source.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -37,10 +38,6 @@ enum SourceMoreAction {
   /// Quitar las marcas de tiempo de una transcripción (F22).
   removeTimestamps,
 
-  /// Borrar el archivo pesado y quedarse con el texto: el archivo va a la
-  /// papelera de la app por 30 días (F30, decisión 68).
-  deleteOriginalFile,
-
   /// Borrar el texto de un libro o un documento y quedarse con el archivo: el
   /// texto va a la papelera de la app por 30 días y no se vuelve a extraer
   /// solo (F30, decisión 68).
@@ -51,19 +48,29 @@ enum SourceMoreAction {
 }
 
 /// Las opciones de "Más" que aplican a [item], en el orden de la hoja: solo
-/// las que se pueden hacer ahora. A una página web o una nota lista solo se
-/// le puede pedir que la organice la IA; mientras algo se procesa, o si
-/// falló sin texto, no hay nada que ofrecer.
+/// las que se pueden hacer ahora. A una nota lista solo se le puede pedir que
+/// la organice la IA; mientras algo se procesa, o si falló sin texto, no hay
+/// nada que ofrecer.
+///
+/// Una fuente queda de consulta (F41, decisión K, `isConsultationSource`):
+/// organizarla o buscarle fechas con la IA se hace en su documento procesado,
+/// sobre lo procesado, y su archivo no se suelta para quedarse con el texto —de
+/// la Biblioteca nada se borra—. Le queda lo que trabaja su original: volver a
+/// extraer el texto, quitar las marcas de tiempo, soltar el texto de un libro
+/// y verlo a pantalla completa.
 List<SourceMoreAction> sourceMoreActionsFor(KnowledgeItem item) {
   final hasText = item.renditions.whereType<TextRendition>().isNotEmpty;
+  final note = !isConsultationSource(item);
   return [
     // Solo lo que está listo, como la cola de la IA: organizar a medio
     // procesar sería vincular y hacer tarjetas de un texto que va a cambiar.
-    if (item.processingState == ProcessingState.ready)
+    if (note && item.processingState == ProcessingState.ready)
       SourceMoreAction.organizeWithAi,
     // Lo mismo, y con algo escrito que leer: sin texto no hay fechas que
     // buscar.
-    if (item.processingState == ProcessingState.ready && _hasWrittenText(item))
+    if (note &&
+        item.processingState == ProcessingState.ready &&
+        _hasWrittenText(item))
       SourceMoreAction.findDatesWithAi,
     // También en «solo el libro» (F30, decisión 68): sin texto a propósito,
     // la persona sí puede pedir que se vuelva a extraer.
@@ -74,8 +81,6 @@ List<SourceMoreAction> sourceMoreActionsFor(KnowledgeItem item) {
     // leyendo de nuevo.
     if (!item.isBeingProcessed && _timestamped(item).isNotEmpty)
       SourceMoreAction.removeTimestamps,
-    if (!item.isBeingProcessed && canKeepOnlyText(item))
-      SourceMoreAction.deleteOriginalFile,
     if (!item.isBeingProcessed && canKeepOnlyFile(item))
       SourceMoreAction.deleteText,
     if (item.source.kind == SourceKind.document &&
@@ -104,28 +109,6 @@ List<TextRendition> _timestamped(KnowledgeItem item) {
           hasTimestamps(rendition.content))
         rendition,
   ];
-}
-
-/// Si tiene sentido ofrecer "borrar el archivo, quedarme con el texto".
-///
-/// Hace falta que el original sea un video, un audio, una publicación o un
-/// libro o documento (F30) —los formatos pesados, donde soltar el archivo
-/// cambia algo— y que ya haya un texto guardado aparte: sin él, soltar el
-/// archivo se llevaría todo el contenido del elemento.
-bool canKeepOnlyText(KnowledgeItem item) {
-  const keepable = {
-    SourceKind.youtube,
-    SourceKind.audio,
-    SourceKind.video,
-    SourceKind.socialPost,
-    SourceKind.document,
-  };
-  if (!keepable.contains(item.source.kind)) return false;
-  // Sin archivo no hay nada que soltar: un video de YouTube cuyo audio no se
-  // bajó —ya no se baja solo (F21)— tiene transcripción pero ningún archivo.
-  if (item.source.originalFilePath == null) return false;
-
-  return _hasOwnText(item);
 }
 
 /// Si tiene sentido ofrecer "borrar el texto, quedarme con el libro" (F30,
@@ -173,8 +156,6 @@ Future<void> showSourceMoreSheet(
       await reextractText(context, ref, item);
     case SourceMoreAction.removeTimestamps:
       await _removeTimestamps(context, ref, item);
-    case SourceMoreAction.deleteOriginalFile:
-      await trashOriginalFile(context, ref, item);
     case SourceMoreAction.deleteText:
       await trashExtractedText(context, ref, item);
     case SourceMoreAction.fullScreen:
@@ -247,9 +228,7 @@ extension on SourceMoreAction {
       this == SourceMoreAction.findDatesWithAi;
 
   /// Lo que suelta algo del elemento se ve como lo que es.
-  SourcePanelTone get tone =>
-      this == SourceMoreAction.deleteOriginalFile ||
-          this == SourceMoreAction.deleteText
+  SourcePanelTone get tone => this == SourceMoreAction.deleteText
       ? SourcePanelTone.error
       : SourcePanelTone.neutral;
 
@@ -258,7 +237,6 @@ extension on SourceMoreAction {
     SourceMoreAction.findDatesWithAi => Icons.timeline,
     SourceMoreAction.reextract => Icons.refresh,
     SourceMoreAction.removeTimestamps => Icons.timer_off_outlined,
-    SourceMoreAction.deleteOriginalFile => Icons.delete_sweep_outlined,
     SourceMoreAction.deleteText => Icons.notes_outlined,
     SourceMoreAction.fullScreen => Icons.open_in_full,
   };
@@ -268,7 +246,6 @@ extension on SourceMoreAction {
     SourceMoreAction.findDatesWithAi => l10n.sourcePanelFindDates,
     SourceMoreAction.reextract => l10n.detailReextract,
     SourceMoreAction.removeTimestamps => l10n.detailRemoveTimestamps,
-    SourceMoreAction.deleteOriginalFile => l10n.detailDeleteOriginalFile,
     SourceMoreAction.deleteText => l10n.detailDeleteText,
     SourceMoreAction.fullScreen => l10n.detailExpandViewer,
   };
@@ -278,7 +255,6 @@ extension on SourceMoreAction {
     SourceMoreAction.findDatesWithAi => l10n.sourcePanelFindDatesHint,
     SourceMoreAction.reextract => l10n.sourcePanelReextractHint,
     SourceMoreAction.removeTimestamps => l10n.sourcePanelRemoveTimestampsHint,
-    SourceMoreAction.deleteOriginalFile => l10n.sourcePanelTrashFileHint,
     SourceMoreAction.deleteText => l10n.sourcePanelDeleteTextHint,
     SourceMoreAction.fullScreen => l10n.sourcePanelFullScreenHint,
   };

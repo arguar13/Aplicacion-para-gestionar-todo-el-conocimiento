@@ -46,6 +46,13 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   Solo aparece si el formato del original se puede marcar.
 /// - En su menú, **«Volver a analizar»**, que pregunta antes: reemplaza
 ///   también las palabras elegidas a mano.
+///
+/// **En una fuente de la Biblioteca** ([studiedRows] en `false`, F41, decisión
+/// K) la tarjeta marca el original —los tres botones, la leyenda, el avance— y
+/// su «Extraer» lleva solo el texto y las fotos: el resumen, la síntesis y las
+/// palabras clave para leer y escuchar se extraen en su documento procesado,
+/// que es donde se estudia. Lo marcado acá es lo que la hoja de triar lleva a
+/// Procesado.
 class StudyDocumentCard extends ConsumerWidget {
   const StudyDocumentCard({
     required this.text,
@@ -57,10 +64,15 @@ class StudyDocumentCard extends ConsumerWidget {
     this.extractedTextController,
     this.photoCount = 0,
     this.photos,
+    this.studiedRows = true,
     super.key,
   });
 
   final StudyText text;
+
+  /// Si «Extraer» lleva el resumen, la síntesis y las palabras clave. En una
+  /// fuente no: ver la clase.
+  final bool studiedRows;
 
   /// El elemento, para descargar su original marcado. Sin él no hay botón
   /// «Descargar».
@@ -159,21 +171,25 @@ class StudyDocumentCard extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            Divider(
-              height: 1,
-              endIndent: 12,
-              color: scheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 4),
-              child: Text(
-                l10n.studyExtractTitle,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: scheme.onSurfaceVariant,
+            if (studiedRows ||
+                extractedText != null ||
+                (photos != null && photoCount > 0)) ...[
+              const SizedBox(height: 8),
+              Divider(
+                height: 1,
+                endIndent: 12,
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 4),
+                child: Text(
+                  l10n.studyExtractTitle,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-            ),
+            ],
             if (extractedText case final builder?)
               _ExtractRow(
                 key: const Key('study-extract-text'),
@@ -203,32 +219,34 @@ class StudyDocumentCard extends ConsumerWidget {
                 subtitle: l10n.studyPhotoCount(photoCount),
                 child: Builder(builder: builder),
               ),
-            _SentencesRow(
-              key: const Key('study-extract-summary'),
-              title: l10n.studyExtractSummary,
-              color: StudyPalette.of(theme.brightness).summary,
-              text: text,
-              study: study,
-              listening: listening,
-              kind: StudyMarkKind.summary,
-              onManual: extractedTextController?.expand,
-            ),
-            _SentencesRow(
-              key: const Key('study-extract-synthesis'),
-              title: l10n.studyExtractSynthesis,
-              color: StudyPalette.of(theme.brightness).synthesis,
-              text: text,
-              study: study,
-              listening: listening,
-              kind: StudyMarkKind.synthesis,
-              onManual: extractedTextController?.expand,
-            ),
-            _KeywordsRow(
-              text: text,
-              study: study,
-              listening: listening,
-              onManual: extractedTextController?.expand,
-            ),
+            if (studiedRows) ...[
+              _SentencesRow(
+                key: const Key('study-extract-summary'),
+                title: l10n.studyExtractSummary,
+                color: StudyPalette.of(theme.brightness).summary,
+                text: text,
+                study: study,
+                listening: listening,
+                kind: StudyMarkKind.summary,
+                onManual: extractedTextController?.expand,
+              ),
+              _SentencesRow(
+                key: const Key('study-extract-synthesis'),
+                title: l10n.studyExtractSynthesis,
+                color: StudyPalette.of(theme.brightness).synthesis,
+                text: text,
+                study: study,
+                listening: listening,
+                kind: StudyMarkKind.synthesis,
+                onManual: extractedTextController?.expand,
+              ),
+              _KeywordsRow(
+                text: text,
+                study: study,
+                listening: listening,
+                onManual: extractedTextController?.expand,
+              ),
+            ],
           ],
         ),
       ),
@@ -293,7 +311,9 @@ class _StudyLegend extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 6),
-        Text(label, style: style),
+        // Con la letra grande en un teléfono angosto, el nombre se parte en
+        // vez de desbordar.
+        Flexible(child: Text(label, style: style)),
       ],
     );
 

@@ -16,6 +16,7 @@ import 'package:sinapsis/features/flashcards/domain/usecases/generate_quiz_useca
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 
 final flashcardRepositoryProvider = Provider<FlashcardRepository>((ref) {
@@ -43,6 +44,7 @@ final generateQuizUseCaseProvider = Provider<GenerateQuizUseCase>((ref) {
     flashcards: ref.watch(flashcardRepositoryProvider),
     generator: ref.watch(quizQuestionGeneratorProvider),
     distractorSourcer: ref.watch(distractorSourcerProvider),
+    processed: ref.watch(processedRepositoryProvider),
   );
 });
 

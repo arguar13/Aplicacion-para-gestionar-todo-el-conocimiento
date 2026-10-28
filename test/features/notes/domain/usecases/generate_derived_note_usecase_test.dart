@@ -293,6 +293,81 @@ void main() {
     expect(relations.single.sourceCharEnd, 10);
   });
 
+  group('desde un único documento procesado (F41, decisión K)', () {
+    /// Una afirmación anclada a cada fuente que llega, en su lugar.
+    DerivedNoteDraft oneClaimPerSource(List<ChatSource> sources) =>
+        DerivedNoteDraft(
+          type: DerivedNoteType.outline,
+          sections: [
+            DerivedSection(
+              claims: [
+                for (final source in sources)
+                  DerivedClaim(
+                    text: 'de ${source.itemId}',
+                    sourceItemId: source.itemId,
+                    sourceCharStart: source.sourceCharStart!,
+                    sourceCharEnd: source.sourceCharEnd!,
+                  ),
+              ],
+            ),
+          ],
+        );
+
+    test('lee lo procesado y lo cita en la fuente, en el pasaje que copió: '
+        'el ✨ de su barra', () async {
+      await seedSource('fuente', '  Cartago debe ser destruida.');
+      final documentId = await process('fuente');
+      final generator = FakeDerivedNoteGenerator(
+        const DerivedNoteDraft(type: DerivedNoteType.outline, sections: []),
+        draftFor: oneClaimPerSource,
+      );
+
+      final result = await useCase(generator)(
+        GenerateDerivedNoteParams(
+          type: DerivedNoteType.outline,
+          title: 'Esquema',
+          model: 'gemma-3n',
+          itemId: documentId,
+        ),
+      );
+
+      final cited = generator.calls.single.single;
+      expect(cited.itemId, 'fuente');
+      expect(cited.excerpt, 'Cartago debe ser destruida.');
+      expect(cited.sourceCharStart, 2);
+      final saved = result.getRight().toNullable()!.note;
+      final relations = await organize.watchRelationsForItem(saved.id).first;
+      expect(relations.single.otherItemId, 'fuente');
+    });
+
+    test('con solo lo escrito no hay qué citar: no genera nada', () async {
+      await seedSource('fuente', 'Cartago debe ser destruida.');
+      final documentId = await process('fuente', {
+        ProcessedSection.notes: SectionEdit.add(
+          const SectionInput.drafts([
+            ProcessedDraft.written('Lo que pienso de Cartago.'),
+          ]),
+        ),
+      });
+      final generator = FakeDerivedNoteGenerator(
+        const DerivedNoteDraft(type: DerivedNoteType.outline, sections: []),
+        draftFor: oneClaimPerSource,
+      );
+
+      final result = await useCase(generator)(
+        GenerateDerivedNoteParams(
+          type: DerivedNoteType.outline,
+          title: 'Esquema',
+          model: 'gemma-3n',
+          itemId: documentId,
+        ),
+      );
+
+      expect(result.isLeft(), isTrue);
+      expect(generator.calls, isEmpty);
+    });
+  });
+
   test(
     'el derivado de un elemento va a los temas de ese elemento (F37)',
     () async {

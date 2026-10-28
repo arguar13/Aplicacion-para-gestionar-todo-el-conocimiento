@@ -9,6 +9,8 @@ import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator
 import 'package:sinapsis/features/flashcards/domain/services/quiz_question_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/source_quote_locator.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
+import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_card_text.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 
 /// Una pregunta de quiz generada y YA LISTA para guardarse —anclada de
@@ -16,7 +18,7 @@ import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 /// la revise (F20, «revisión obligatoria antes»).
 ///
 /// Lo que trae es todo real: [correctSourceCharStart]/
-/// [correctSourceCharEnd] son del texto de la fuente, no del modelo
+/// [correctSourceCharEnd] son del texto de [correctSourceItemId], no del modelo
 /// —`GenerateQuizUseCase.generate` ya descartó cualquier pregunta cuya cita
 /// no se pudo anclar—, y [distractors] ya vienen de `DistractorSourcer`, con
 /// su propio chunk real cada uno.
@@ -24,6 +26,7 @@ class QuizQuestionResult {
   const QuizQuestionResult({
     required this.question,
     required this.correctAnswer,
+    required this.correctSourceItemId,
     required this.correctSourceCharStart,
     required this.correctSourceCharEnd,
     required this.distractors,
@@ -31,6 +34,11 @@ class QuizQuestionResult {
 
   final String question;
   final String correctAnswer;
+
+  /// De dónde sale la respuesta correcta: el elemento mismo, o —en un
+  /// documento procesado (F41, decisión K)— la fuente de la Biblioteca, en el
+  /// pasaje que el procesado copió de ella.
+  final String correctSourceItemId;
   final int correctSourceCharStart;
   final int correctSourceCharEnd;
 
@@ -53,15 +61,18 @@ class GenerateQuizUseCase {
     required FlashcardRepository flashcards,
     required QuizQuestionGenerator generator,
     required DistractorSourcer distractorSourcer,
+    required ProcessedRepository processed,
   }) : _library = library,
        _flashcards = flashcards,
        _generator = generator,
-       _distractorSourcer = distractorSourcer;
+       _distractorSourcer = distractorSourcer,
+       _processed = processed;
 
   final LibraryRepository _library;
   final FlashcardRepository _flashcards;
   final QuizQuestionGenerator _generator;
   final DistractorSourcer _distractorSourcer;
+  final ProcessedRepository _processed;
 
   /// Mínimo de distractores reales para que una pregunta se ofrezca: uno
   /// solo alcanza —ver el doc comment de [QuizQuestionResult.distractors]—,
@@ -84,13 +95,41 @@ class GenerateQuizUseCase {
   /// [DistractorSourcer] ya no encontró—; con un solo distractor real, la
   /// pregunta se ofrece como opción múltiple de dos opciones en vez de un
   /// tipo de tarjeta aparte.
+  ///
+  /// De un documento procesado (F41, decisión K), el quiz sale del mismo
+  /// texto que sus tarjetas (`readProcessedCardText`), y cada respuesta se
+  /// ancla en la fuente, en el pasaje que el procesado copió de ella
+  /// (`ProcessedCardText.sourceAnchorOf`): lo que la persona escribió o editó
+  /// no está en la fuente, así que una pregunta cuya respuesta sale de ahí se
+  /// descarta, por la misma regla. Los distractores salen de otros elementos
+  /// que no sean esa fuente. Si su texto no se puede leer, se dice: no se cae
+  /// al de la fuente.
   Future<Either<Failure, List<QuizQuestionResult>>> generate({
     required KnowledgeItem item,
     int count = 5,
   }) async {
-    final sourceText =
-        (extractableRendition(item)?.content ?? item.searchableText).trim();
-    if (sourceText.isEmpty) {
+    final read = await readProcessedCardText(_processed, item.id);
+    if (read.getLeft().toNullable() case final failure?) return left(failure);
+    final processed = read.getRight().toNullable();
+    final String? sourceItemId;
+    if (processed == null) {
+      sourceItemId = item.id;
+    } else {
+      try {
+        sourceItemId = (await _processed.watchDocument(item.id).first)
+            ?.summary
+            .sourceItemId;
+        // La consulta ya registró su fallo (`watchQuery`).
+      } on Object {
+        return left(
+          const Failure.unexpected(message: 'No se pudo leer el documento.'),
+        );
+      }
+    }
+    final sourceText = processed != null
+        ? processed.content
+        : (extractableRendition(item)?.content ?? item.searchableText).trim();
+    if (sourceText.trim().isEmpty) {
       return left(
         const Failure.validation(
           message: 'Este elemento no tiene texto del que generar un quiz.',
@@ -114,11 +153,18 @@ class GenerateQuizUseCase {
 
     final results = <QuizQuestionResult>[];
     for (final draft in drafts) {
-      final range = locateQuote(sourceText, draft.quote);
+      final located = locateQuote(sourceText, draft.quote);
+      if (located == null || sourceItemId == null) continue;
+      final range = processed == null
+          ? (start: located.start, end: located.end)
+          : switch (processed.sourceAnchorOf(located.start, located.end)) {
+              null => null,
+              final anchor => (start: anchor.start, end: anchor.end),
+            };
       if (range == null) continue;
 
       final distractors = await _distractorSourcer.sourceDistractors(
-        seedItemId: item.id,
+        seedItemId: sourceItemId,
         excludeContent: draft.back,
       );
       if (distractors.length < _minDistractors) continue;
@@ -127,6 +173,7 @@ class GenerateQuizUseCase {
         QuizQuestionResult(
           question: draft.front,
           correctAnswer: draft.back,
+          correctSourceItemId: sourceItemId,
           correctSourceCharStart: range.start,
           correctSourceCharEnd: range.end,
           distractors: distractors,
@@ -156,7 +203,7 @@ class GenerateQuizUseCase {
               FlashcardOptionDraft(
                 content: result.correctAnswer,
                 isCorrect: true,
-                sourceItemId: itemId,
+                sourceItemId: result.correctSourceItemId,
                 sourceCharStart: result.correctSourceCharStart,
                 sourceCharEnd: result.correctSourceCharEnd,
               ),

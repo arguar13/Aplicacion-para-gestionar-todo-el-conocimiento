@@ -662,7 +662,8 @@ abajo dice dónde engancharlas.
   - **Para el 8**: la barrita de los visores sigue ofreciendo sus acciones sobre la copia, con
     `itemId` = el procesado y la clave de la copia. Resaltar ahí no tiene dónde guardarse (la clave no
     es una forma) y lo avisa; «Extraer nota», «Tarjeta» y «Línea de tiempo» quedan apuntando al
-    procesado, como pide K: revisarlas cuando se muden.
+    procesado, como pide K: revisarlas cuando se muden. *(Resuelto en el paso 8: la copia es de
+    solo lectura, y la barrita queda con Copiar, Escuchar y «Extraer como nota».)*
 - **El conmutador «El original» en la hoja «¿Qué va a Procesado?»**, en «De la fuente».
   - Solo aparece si la fuente lo ofrece (`ProcessedSourceMaterial.original`: documentos de texto y
     páginas archivadas) o si el documento ya tiene la copia. Dice cuánto ocupa con `formatFileSize`.
@@ -686,7 +687,7 @@ abajo dice dónde engancharlas.
 - **Lo que queda para otros**: `ProcessedStudySlot` define su propio `processedStudyTextProvider`
   (el hueco del paso 2, que devuelve `null`) con el mismo nombre que el del 1b en
   `processed_providers.dart`. Conectar la tarjeta de estudiar del procesado es «Resumir» en el
-  documento: del 8, que puede borrar el del hueco y usar el del 1b.
+  documento: del 8, que puede borrar el del hueco y usar el del 1b. *(Resuelto en el paso 8.)*
 
 Verificación:
 
@@ -1123,3 +1124,129 @@ Verificación:
 - Sin probar en el emulador ni en el teléfono: la grilla y la galería con fotos de verdad
   decodificándose (en las pruebas los archivos no son imágenes y se ve el ícono), el pellizco del
   zoom, y una página guardada de verdad con su «Contenido» bajado.
+
+### Paso 8: la fuente de consulta (decisión K)
+
+Hecho sobre los pasos 1b, 2 (las dos tandas), 3, 4, 5 y la decisión J, ya en main; lo que depende
+del paso 6 queda señalado al final.
+
+- **Un solo criterio**: `isConsultationSource` (`processed/domain/services/consultation_source.dart`).
+  Una fuente es todo lo que no es una nota propia —documento, libro, página, publicación, imagen,
+  audio, video, referencia—; un documento procesado no llega al detalle (tiene su pantalla). Lo
+  leen el detalle, el panel de la fuente y su hoja «Más».
+- **Lo que sale del detalle de una fuente** (una nota propia no cambia):
+  - de la tarjeta de estudiar, «Extraer resumen», «Extraer síntesis» y «Extraer palabras clave»
+    (`StudyDocumentCard.studiedRows` en `false`). Quedan los tres botones que marcan el original,
+    la leyenda, el avance y «Extraer» con el texto, la transcripción y las fotos; sin ninguno de
+    los dos, ni el título «Extraer». El lector en voz alta sigue ofreciendo lo estudiado;
+  - el mosaico «Resumir»: el panel de una fuente queda en Leer · Copiar · Más. Con él se fueron
+    `SourcePanel.onSummarize`, la llave de la tarjeta a la que llevaba y `showStudyLayer`, que solo
+    servían a eso;
+  - de «Más», «Organizar con IA», «Buscar fechas con IA» y «Borrar archivo, quedarme con el
+    texto». Este último no aplicaba a ninguna nota, así que salió entero: la acción, su
+    `canKeepOnlyText` y `trashOriginalFile` (el repositorio sigue sabiendo soltar el archivo, para
+    la unión de bóvedas y la papelera). «Borrar el texto, quedarme con el libro» queda: el dueño no
+    lo marcó;
+  - la línea «La IA organizó esto»: lo que la IA hizo en la fuente no se borra, solo deja de verse;
+  - el Mapa (`LocalGraphPanel`), las Tarjetas de repaso (`FlashcardSection`) y, en la barra, la nota
+    derivada ✨ y el quiz.
+- **La línea que lleva a estudiarlo** (`SourceStudyLine`), donde estaba el Mapa:
+  - con documento procesado —vivo o en la papelera—, «Se estudia en Procesado: …» con
+    «Estudiarlo en Procesado»;
+  - sin él, «Para estudiarlo, triálo», con el botón que abre la hoja «¿Qué va a Procesado?» por el
+    camino de «Volver a triar» (`retriageAction`, paso 4), que tría también lo que todavía espera en
+    la Bandeja, con su «Deshacer». En la Bandeja dice «Triar»; ya triada o descartada, «Volver a
+    triar». Sin texto, el botón espera apagado con su motivo (`InboxActions`), y se prende solo. Un
+    solo camino: no hay un triar del detalle aparte del de «Volver a triar»;
+  - una referencia sin texto no dice nada: no hay qué estudiar (decisión E).
+- **El documento procesado se estudia ahí**, con las piezas de siempre sobre el documento (es un
+  elemento de la bóveda, decisión A), sin copias:
+  - debajo de sus secciones, su Mapa (`LocalGraphPanel`) y sus Tarjetas (`FlashcardSection` con
+    `processed`), en `ProcessedStudyTools`. En la papelera no se ven —el elemento de la papelera no
+    se sirve—: se lee y se restaura;
+  - **«De la fuente»**: en la sección de tarjetas, plegado, con cuántas son, las que ya tenía la
+    fuente. Son las mismas filas —no se mueven ni se copian—, siguen en Repasar con su historial,
+    su «Ver en la fuente» lleva al pasaje de la fuente, y se editan, se rechazan y se borran como
+    las demás. Sin ninguna, no ocupa lugar;
+  - arriba, la línea «La IA organizó esto» del documento (`ProcessedAiLine`), cuando hay algo que
+    contar;
+  - en la barra, el ✨ de la nota derivada, el quiz y «Más» (`ProcessedMoreMenu`) con «Organizar
+    con IA» y «Buscar fechas con IA» sobre el documento: los mismos puntos de entrada de la cola
+    (`organizeNowWithAi`, `findDatesNowWithAi`) con su id. Que la cola trabaje su texto procesado
+    es del paso 6;
+  - **«Borrar la copia del original, quedarme con el texto»** (`DropOriginalCopy`): va por el
+    mismo camino del 1b para quitar el original al volver a triar (`ProcessSourceUseCase` con
+    `OriginalEdit(remove)`): la copia va a la papelera del contenido —se recupera de ahí, y el
+    archivo se borra recién al vencer—, y el aviso trae «Deshacer» (el comprobante del procesado).
+    Nunca toca el archivo de la fuente. No pregunta antes, como soltar un archivo en la fuente.
+  - **Que el documento no quede mudo.** Sin sección Texto, su texto propio es el de la fuente que
+    es el de la copia (decisión I): soltarla lo dejaba sin qué estudiar, y sin el texto sobre el que
+    están su resumen, su síntesis y sus palabras clave. La opción promete «quedarme con el texto»,
+    así que lo cumple sin preguntar: en el mismo guardado, el texto de la fuente entra como su
+    sección Texto. Es el mismo texto con las mismas posiciones, así que lo estudiado en el
+    documento sigue en su lugar; «Deshacer» deshace las dos cosas. Avisar y ofrecer guardarlo
+    sería una pregunta cuya única respuesta sensata es «sí». Si la fuente no tiene texto, solo se
+    suelta la copia.
+  - No se ofrece sin copia, ni con la fuente en la papelera o borrada: procesar se arma contra la
+    fuente viva, y sin ella la copia es lo único que queda de su original.
+  - **La tarjeta de estudiar del documento** (`ProcessedStudySlot`) quedó conectada a
+    `processedStudyTextProvider` del 1b —su sección Texto o la copia—, con la clave del procesado:
+    Resumir · Sintetizar · Palabras clave sobre lo procesado y, en «Extraer», el resumen, la
+    síntesis y las palabras clave para leer, copiar y escuchar. Salió el proveedor provisorio que
+    devolvía `null`: queda un solo `processedStudyTextProvider`, el de `processed_providers.dart`.
+  - **La barrita sobre la copia del original** (la vista del paso 2, `ProcessedOriginalScreen`): la
+    copia es de solo lectura (`isReadOnlyStudyKey`, sobre la clave `procesado-original:<id>`). Lo
+    marcado ahí es lo elegido del procesado, en las posiciones del texto de la fuente: no hay una
+    forma de texto donde caiga un resaltado, una nota, una tarjeta o un hecho de la línea de tiempo,
+    y redirigirlos a la fuente rompería que nada de lo que se hace sobre la copia cae en ella. Así
+    que se quitan, no se redirigen: la barrita queda con Copiar, Escuchar y «Extraer como nota», que
+    va a las notas del documento (decisión J). `HighlightToolbar` aprendió a no dibujar los colores
+    ni «Subrayar» sin sus callbacks; lo deciden en un solo lugar `documentHighlightToolbar` (PDF y
+    página) y `buildHighlightMenu` (lector y texto extraído).
+- **De qué texto sale lo que se estudia**: el texto de las tarjetas del paso 5
+  (`readProcessedCardText`), uno solo para todo lo que se estudia con IA de un documento procesado.
+  - **Las tarjetas con IA** de la sección salen de ahí, sin pasaje: el procesado no tiene una forma
+    de texto donde caer, y la de la fuente es de otro elemento. La sección lo lee solo si quien la
+    muestra dice que es un procesado (`processed`); si no se puede leer, lo dice y no cae a la
+    fuente.
+  - **El quiz** también, y cada respuesta se ancla **en la fuente**, en el pasaje que el procesado
+    copió de ella (`ProcessedCardText.sourceAnchorOf`): «Ver en la fuente» lleva a la Biblioteca,
+    como un fragmento. Lo escrito o editado a mano no está en la fuente y no se cita —la pregunta se
+    descarta, por la misma regla de siempre: ninguna opción sin pasaje real—. La respuesta correcta
+    guarda su propio elemento (`QuizQuestionResult.correctSourceItemId`), y los distractores salen
+    de otros elementos que no sean esa fuente.
+  - **La nota derivada** de un solo documento procesado va por lo que el paso 5 armó para los
+    cuadernos (`_citableProcessed`): lo primero copiado tal cual, citado en la fuente.
+
+**Lo que falta, del paso 6:** el Mapa y la cola de la IA sobre procesados. Hoy el grafo local de un
+procesado no tiene vínculos, y la Biblioteca filtra los procesados de los vecinos que dibuja;
+«Organizar con IA» y «Buscar fechas con IA» del documento ya piden por su id. Además,
+`processedStudyTextProvider` es un `FutureProvider`: no se rehace solo cuando cambian las páginas;
+«Borrar la copia» lo invalida.
+
+Verificación:
+
+- `flutter analyze`: 19.
+- Pruebas nuevas: soltar la copia, con la base real (5); la línea del detalle (8); lo que sale del
+  detalle en seis tipos de fuente y lo que queda en una nota (7); el documento que se estudia —Mapa,
+  tarjetas, «De la fuente», la barra, la línea de la IA, la papelera, la tarjeta de estudiar y la
+  copia— (13); las tarjetas del procesado y «De la fuente» (5); el quiz del procesado (2); la nota
+  derivada de un procesado (2); la barrita sobre la copia (2); la tarjeta de estudiar de una fuente
+  (2); el panel de una fuente y de una nota (2). Las del panel, el detalle, la lectura en voz alta,
+  la línea de la IA y la tarjeta se ajustaron a lo que salió.
+- Con la tarjeta de estudiar arriba del documento, la prueba de la letra al doble en un teléfono
+  encontró tres desbordes de piezas de siempre, que ahora se parten en vez de desbordar: la leyenda
+  de la tarjeta de estudiar, el título de las Tarjetas de repaso y el vacío del grafo local.
+- La suite entera, antes de rebasar sobre los pasos 2 (segunda tanda), 4, 5 y J: 11.105 pasan y 46 se
+  saltean; las 16 que fallaron en esa corrida pasan después —las 15 de la línea «La IA organizó
+  esto», que ahora mira el detalle de una nota, y «Medir GPU y CPU», que depende del tiempo con la
+  máquina cargada—. Después de rebasar: pasan 4.335 de procesado, tarjetas, notas, visores,
+  organizar, Biblioteca, estudiar, Bandeja, IA que organiza, diseño, lectura y línea de tiempo, más
+  las pruebas que se sumaron después.
+- Mutaciones: 60 en la primera tanda, 57 muertas. De las tres que sobrevivieron, una era de un
+  código que se fue al unificar con el texto de tarjetas del paso 5; otra —que una fuente descartada
+  dijera «Triar»— se mató probando los dos estados, y la tercera era equivalente —el documento en la
+  papelera ya no se sirve, así que la regla aparte sobraba— y se sacó la regla. Después de rebasar,
+  29 sobre lo nuevo y lo que cambió (el quiz y las tarjetas sobre el texto de tarjetas, la nota
+  derivada de un procesado, la barrita de solo lectura, la línea y el documento): todas muertas.
+- Sin probar en el emulador ni en el teléfono.

@@ -101,14 +101,13 @@ class _LocalGraphPanelBody extends StatelessWidget {
     ];
 
     if (neighborIds.isEmpty) {
-      return Row(
+      // En un renglón si entra; con la letra grande en un teléfono, el botón
+      // baja al siguiente en vez de desbordar.
+      return Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Expanded(
-            child: Text(
-              l10n.graphEmpty,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
+          Text(l10n.graphEmpty, style: Theme.of(context).textTheme.bodyMedium),
           TextButton(
             onPressed: () => _openFull(context),
             child: Text(l10n.localGraphPanelOpenFull),

@@ -8,6 +8,7 @@ import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_selection_aloud.dart';
 import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/domain/services/pdf_study_pages.dart';
@@ -30,6 +31,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// que no se pudo ubicar ahí —una página escaneada, un texto que se volvió a
 /// extraer— se avisa y no se hace. Copiar y Escuchar usan lo que se ve, así
 /// que andan igual.
+///
+/// Sobre la copia del original de un documento procesado (F41,
+/// `isReadOnlyStudyKey`) no hay texto extraído donde guardar nada: quedan
+/// Copiar, Escuchar y «Extraer como nota» —a las notas del procesado,
+/// decisión J—, sin colores, nota, tarjeta ni línea de tiempo.
 Widget documentHighlightToolbar(
   BuildContext context,
   WidgetRef ref, {
@@ -40,6 +46,7 @@ Widget documentHighlightToolbar(
   double systemToolbarExtent = 0,
   List<HighlightToolbarAction> moreActions = const [],
 }) {
+  final readOnly = isReadOnlyStudyKey(text.renditionId);
   void highlight(HighlightColor color, HighlightStyle style) {
     ref.read(lastHighlightColorProvider.notifier).state = color;
     unawaited(
@@ -51,8 +58,12 @@ Widget documentHighlightToolbar(
     anchors: anchors,
     systemToolbarExtent: systemToolbarExtent,
     underlineColor: ref.read(lastHighlightColorProvider),
-    onHighlight: (color) => highlight(color, HighlightStyle.fill),
-    onUnderline: (color) => highlight(color, HighlightStyle.underline),
+    onHighlight: readOnly
+        ? null
+        : (color) => highlight(color, HighlightStyle.fill),
+    onUnderline: readOnly
+        ? null
+        : (color) => highlight(color, HighlightStyle.underline),
     // Un PDF puede no dejar copiar su texto.
     onCopy: !canCopy
         ? null
@@ -67,19 +78,21 @@ Widget documentHighlightToolbar(
       await selection.clear();
       await readSelectionAloud(ref, text: selected);
     }()),
-    onNote: () => unawaited(() async {
-      if (await _located(context, selection) == null) return;
-      final excerpt = await selection.text();
-      if (!context.mounted) return;
-      final note = await askHighlightNote(context, excerpt: excerpt);
-      if (note == null || !context.mounted) return;
-      await highlightAndReport(
-        context,
-        selection,
-        color: ref.read(lastHighlightColorProvider),
-        note: note.text,
-      );
-    }()),
+    onNote: readOnly
+        ? null
+        : () => unawaited(() async {
+            if (await _located(context, selection) == null) return;
+            final excerpt = await selection.text();
+            if (!context.mounted) return;
+            final note = await askHighlightNote(context, excerpt: excerpt);
+            if (note == null || !context.mounted) return;
+            await highlightAndReport(
+              context,
+              selection,
+              color: ref.read(lastHighlightColorProvider),
+              note: note.text,
+            );
+          }()),
     onExtract: () => unawaited(() async {
       final range = await _located(context, selection);
       if (range == null || !context.mounted) return;
@@ -95,35 +108,39 @@ Widget documentHighlightToolbar(
         end: range.end,
       );
     }()),
-    onCreateFlashcard: () => unawaited(() async {
-      final range = await _located(context, selection);
-      if (range == null || !context.mounted) return;
-      await selection.clear();
-      if (!context.mounted) return;
-      await createFlashcardFromRange(
-        context,
-        ref,
-        itemId: text.itemId,
-        content: text.content,
-        start: range.start,
-        end: range.end,
-      );
-    }()),
-    onAddToTimeline: () => unawaited(() async {
-      final range = await _located(context, selection);
-      if (range == null || !context.mounted) return;
-      await selection.clear();
-      if (!context.mounted) return;
-      await addRangeToTimeline(
-        context,
-        ref,
-        itemId: text.itemId,
-        renditionId: text.renditionId,
-        content: text.content,
-        start: range.start,
-        end: range.end,
-      );
-    }()),
+    onCreateFlashcard: readOnly
+        ? null
+        : () => unawaited(() async {
+            final range = await _located(context, selection);
+            if (range == null || !context.mounted) return;
+            await selection.clear();
+            if (!context.mounted) return;
+            await createFlashcardFromRange(
+              context,
+              ref,
+              itemId: text.itemId,
+              content: text.content,
+              start: range.start,
+              end: range.end,
+            );
+          }()),
+    onAddToTimeline: readOnly
+        ? null
+        : () => unawaited(() async {
+            final range = await _located(context, selection);
+            if (range == null || !context.mounted) return;
+            await selection.clear();
+            if (!context.mounted) return;
+            await addRangeToTimeline(
+              context,
+              ref,
+              itemId: text.itemId,
+              renditionId: text.renditionId,
+              content: text.content,
+              start: range.start,
+              end: range.end,
+            );
+          }()),
     // Mientras se corta del original para Procesado (F41).
     onToProcessed: !cuttingForProcessed(ref, text.itemId)
         ? null

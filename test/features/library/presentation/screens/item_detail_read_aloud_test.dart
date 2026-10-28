@@ -480,18 +480,15 @@ void main() {
       expect(document.offers(ReadScope.keywords), isTrue);
       expect(document.defaultScope, ReadScope.summary);
 
-      // Desplegada, la transcripción se ofrece entera y trae «Escuchar», como
-      // el resumen: es la misma regla que en el detalle.
+      // Desplegada, la transcripción se ofrece entera y trae «Escuchar». Lo
+      // estudiado se sigue ofreciendo al lector; su fila para leerlo está en
+      // el documento procesado (F41, decisión K).
       await unfoldText(tester);
       expect(offered()!.ownAudio, isTrue);
       expect(offered()!.offers(ReadScope.all), isTrue);
       expect(offered()!.defaultScope, ReadScope.summary);
       expect(find.byKey(const Key('study-listen-all')), findsOneWidget);
-      final summary = find.byKey(const Key('study-extract-summary'));
-      await tester.ensureVisible(summary);
-      await tester.tap(summary);
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('study-listen-summary')), findsOneWidget);
+      expect(find.byKey(const Key('study-extract-summary')), findsNothing);
 
       await tester.pumpWidget(const SizedBox());
     });

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -15,6 +16,11 @@ import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator
 import 'package:sinapsis/features/flashcards/domain/services/quiz_question_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/usecases/generate_quiz_usecase.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
+import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
@@ -73,6 +79,7 @@ void main() {
   late AppDatabase db;
   late LibraryRepositoryImpl library;
   late FlashcardRepositoryImpl flashcards;
+  late ProcessedRepositoryImpl processed;
 
   const text = 'La Tierra es redonda. Orbita alrededor del Sol.';
   final now = DateTime(2026, 9, 25, 14);
@@ -90,6 +97,13 @@ void main() {
       database: db,
       telemetry: MockTelemetryService(),
       ids: FakeIdGenerator(prefix: 'fc'),
+      clock: () => now,
+    );
+    processed = ProcessedRepositoryImpl(
+      database: db,
+      telemetry: MockTelemetryService(),
+      files: InMemoryFileStore(),
+      ids: FakeIdGenerator(prefix: 'parte'),
       clock: () => now,
     );
   });
@@ -132,6 +146,7 @@ void main() {
     flashcards: flashcards,
     generator: FakeQuizQuestionGenerator(drafts),
     distractorSourcer: FakeDistractorSourcer(distractorsByItem),
+    processed: processed,
   );
 
   group('generate', () {
@@ -158,6 +173,7 @@ void main() {
         expect(questions, hasLength(1));
         expect(questions.single.question, '¿Qué órbita la Tierra?');
         expect(questions.single.correctAnswer, 'el Sol');
+        expect(questions.single.correctSourceItemId, 'seed');
         expect(questions.single.distractors, hasLength(1));
       },
     );
@@ -231,11 +247,97 @@ void main() {
         flashcards: flashcards,
         generator: FakeQuizQuestionGenerator(const [], throws: true),
         distractorSourcer: FakeDistractorSourcer(const {}),
+        processed: processed,
       );
 
       final result = await useCase.generate(item: item);
 
       expect(result.isLeft(), isTrue);
+    });
+  });
+
+  group('de un documento procesado (F41, decisión K)', () {
+    /// El procesado de la fuente `seed`, con lo que se pida —su texto entero
+    /// copiado tal cual y una nota escrita, si no—, como elemento.
+    Future<KnowledgeItem> processedOf([
+      Map<ProcessedSection, SectionEdit>? edits,
+    ]) async {
+      await seedItem();
+      final result = await ProcessSourceUseCase(processed)(
+        'seed',
+        edits ??
+            {
+              ProcessedSection.text: SectionEdit.add(
+                const SectionInput.fromSource(),
+              ),
+              ProcessedSection.notes: SectionEdit.add(
+                const SectionInput.drafts([
+                  ProcessedDraft.written('Mi nota: Marte es rojo.'),
+                ]),
+              ),
+            },
+      );
+      expect(result.isRight(), isTrue, reason: '$result');
+      final item = await library.findById(processedDocumentIdFor('seed'));
+      return item.getRight().toNullable()!;
+    }
+
+    test(
+      'sale del texto de sus tarjetas, y la respuesta se ancla en la '
+      'fuente, con los distractores de otros elementos que no sean ella',
+      () async {
+        final item = await processedOf();
+        final generator = FakeQuizQuestionGenerator(const [
+          FlashcardDraft(
+            front: '¿Qué órbita la Tierra?',
+            back: 'el Sol',
+            quote: 'Orbita alrededor del Sol.',
+          ),
+        ]);
+        final useCase = GenerateQuizUseCase(
+          library: library,
+          flashcards: flashcards,
+          generator: generator,
+          distractorSourcer: FakeDistractorSourcer({
+            'seed': [_candidate('other', 'la Luna')],
+          }),
+          processed: processed,
+        );
+
+        final result = await useCase.generate(item: item);
+
+        final question = result.getRight().toNullable()!.single;
+        expect(question.correctSourceItemId, 'seed');
+        expect(
+          text.substring(
+            question.correctSourceCharStart,
+            question.correctSourceCharEnd,
+          ),
+          'Orbita alrededor del Sol.',
+        );
+        expect(question.distractors.single.itemId, 'other');
+      },
+    );
+
+    test('una respuesta que sale de lo escrito a mano no se puede anclar en '
+        'la fuente: la pregunta se descarta', () async {
+      final item = await processedOf();
+      final useCase = useCaseWith(
+        drafts: const [
+          FlashcardDraft(
+            front: '¿De qué color es Marte?',
+            back: 'rojo',
+            quote: 'Marte es rojo.',
+          ),
+        ],
+        distractorsByItem: {
+          'seed': [_candidate('other', 'azul')],
+        },
+      );
+
+      final result = await useCase.generate(item: item);
+
+      expect(result.getRight().toNullable(), isEmpty);
     });
   });
 
@@ -278,6 +380,7 @@ void main() {
           QuizQuestionResult(
             question: '¿Qué órbita la Tierra?',
             correctAnswer: 'el Sol',
+            correctSourceItemId: item.id,
             correctSourceCharStart: 0,
             correctSourceCharEnd: 4,
             distractors: [_candidate('other', 'la Luna')],
@@ -293,8 +396,51 @@ void main() {
       )).getRight().toNullable()!;
       expect(options.map((o) => o.content), ['el Sol', 'la Luna']);
       expect(options[0].isCorrect, isTrue);
+      expect(options[0].sourceItemId, item.id);
       expect(options[1].isCorrect, isFalse);
       expect(options[1].sourceChunkId, isNotNull);
+    });
+
+    test('la respuesta correcta se ancla en su propio elemento —la fuente de '
+        'un procesado—, no en el de la tarjeta', () async {
+      final item = await seedItem();
+      final owner = await library.save(
+        KnowledgeItem(
+          id: 'procesado',
+          title: 'La Tierra',
+          source: Source(
+            id: 'procesado',
+            kind: SourceKind.manualNote,
+            capturedAt: now,
+          ),
+          processingState: ProcessingState.ready,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      final useCase = useCaseWith(drafts: const []);
+
+      final saved = await useCase.save(
+        itemId: owner.getRight().toNullable()!.id,
+        confirmed: [
+          QuizQuestionResult(
+            question: '¿Qué órbita la Tierra?',
+            correctAnswer: 'el Sol',
+            correctSourceItemId: item.id,
+            correctSourceCharStart: 22,
+            correctSourceCharEnd: 47,
+            distractors: [_candidate('seed', 'la Luna')],
+          ),
+        ],
+      );
+
+      final card = saved.getRight().toNullable()!.single;
+      expect(card.itemId, 'procesado');
+      final options = (await flashcards.optionsFor(
+        card.id,
+      )).getRight().toNullable()!;
+      expect(options.first.sourceItemId, 'seed');
+      expect(options.first.sourceCharStart, 22);
     });
 
     test('una lista vacía no guarda nada ni falla', () async {
@@ -321,6 +467,7 @@ void main() {
           QuizQuestionResult(
             question: 'Primera, válida',
             correctAnswer: 'el Sol',
+            correctSourceItemId: item.id,
             correctSourceCharStart: 0,
             correctSourceCharEnd: 4,
             distractors: [_candidate('other', 'la Luna')],
@@ -328,6 +475,7 @@ void main() {
           const QuizQuestionResult(
             question: 'Segunda, sin distractores',
             correctAnswer: 'algo',
+            correctSourceItemId: 'seed',
             correctSourceCharStart: 0,
             correctSourceCharEnd: 4,
             distractors: [],

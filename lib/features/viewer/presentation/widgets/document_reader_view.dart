@@ -17,6 +17,7 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/readable_tex
 import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
@@ -791,6 +792,7 @@ class _ReaderPageState extends ConsumerState<_ReaderPage> {
                     menuContext,
                     ref,
                     editable,
+                    readOnly: isReadOnlyStudyKey(study.renditionId),
                     onHighlight: (color, style) {
                       final (start, end) = textRange();
                       unawaited(

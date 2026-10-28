@@ -254,19 +254,6 @@ class StudySuggestion extends ConsumerWidget {
   }
 }
 
-/// Prende [layer] en [text] —si ya estaba, queda— y analiza lo que falte
-/// (F36): «Resumir» del panel de la fuente.
-Future<void> showStudyLayer(
-  WidgetRef ref,
-  BuildContext context,
-  StudyText text,
-  StudyLayer layer,
-) async {
-  final view = ref.read(studyViewProvider(text.renditionId).notifier);
-  view.state = view.state.withLayer(layer, on: true);
-  await analyzeForStudyIfNeeded(ref, context, text);
-}
-
 /// Muestra u oculta las palabras clave de [text] (F36). Sin ninguna
 /// todavía, ofrece armarlas con la IA o a mano (F39); con alguna, mostrarlas
 /// sigue un análisis que quedó a mitad.
