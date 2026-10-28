@@ -29,6 +29,7 @@ import 'package:sinapsis/features/library/presentation/widgets/library_calendar_
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_kanban_view.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
+import 'package:sinapsis/features/library/presentation/widgets/list_controls.dart';
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/library/presentation/widgets/saved_views_sheet.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_filter_section.dart';
@@ -316,7 +317,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           },
         ),
         if (canLoadMore)
-          _LoadMoreBar(
+          LoadMoreBar(
             isLoading: isLoadingMore,
             onPressed: () =>
                 ref.read(libraryQueryNotifierProvider.notifier).loadMore(),
@@ -523,13 +524,9 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
     // podido hacer nada distinto para evitarlo.
     final hasSelection = selectedCount > 0;
 
-    return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.close),
-        tooltip: l10n.libraryExitSelectionTooltip,
-        onPressed: onCancel,
-      ),
-      title: Text(l10n.librarySelectedCount(selectedCount)),
+    return SelectionModeAppBar(
+      selectedCount: selectedCount,
+      onCancel: onCancel,
       actions: [
         IconButton(
           icon: const Icon(Icons.drive_file_move_outline),
@@ -568,13 +565,12 @@ class _SearchAndFilters extends ConsumerWidget {
   /// debajo de la búsqueda —ver [build]—.
   final Space? currentSpace;
 
-  static const _searchRowHeight = 64.0;
-
   /// El alto que ocupa, que la barra de arriba necesita saber antes de
   /// construirla (`PreferredSize`): la fila de la búsqueda siempre, y la del
   /// tema solo mientras se esté parado en uno.
   static double heightFor({required Space? currentSpace}) =>
-      _searchRowHeight + (currentSpace == null ? 0 : CurrentSpaceChip.extent);
+      ListSearchRow.height +
+      (currentSpace == null ? 0 : CurrentSpaceChip.extent);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -607,34 +603,11 @@ class _SearchAndFilters extends ConsumerWidget {
         // al cambiarle los temas—, ver `showSpacesPickerSheet`, salvo el
         // primero, que la
         // sección de temas del panel ofrece mientras no haya ninguno.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  onChanged: notifier.search,
-                  textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    hintText: l10n.librarySearchHint,
-                    prefixIcon: const Icon(Icons.search),
-                    isDense: true,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              Badge(
-                label: Text('$activeFilterCount'),
-                isLabelVisible: activeFilterCount > 0,
-                child: IconButton(
-                  icon: const Icon(Icons.tune),
-                  tooltip: l10n.libraryFiltersTooltip,
-                  isSelected: activeFilterCount > 0,
-                  onPressed: () => _showFilters(context, tags),
-                ),
-              ),
-            ],
-          ),
+        ListSearchRow(
+          hintText: l10n.librarySearchHint,
+          onChanged: notifier.search,
+          activeFilterCount: activeFilterCount,
+          onOpenFilters: () => _showFilters(context, tags),
         ),
         // Sin la fila de temas a la vista, esto es lo que dice en qué tema
         // se está parado —ver `CurrentSpaceChip`—.
@@ -649,13 +622,8 @@ class _SearchAndFilters extends ConsumerWidget {
   }
 
   Future<void> _showFilters(BuildContext context, List<Tag> tags) {
-    return showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      // Sin esto, el panel queda topeado a la mitad de la pantalla aunque
-      // haya de sobra más abajo: con muchas etiquetas puestas, ese tope fijo
-      // es lo que obligaría a desplazarse antes de lo necesario.
-      isScrollControlled: true,
+    return showListFiltersSheet(
+      context,
       builder: (context) => _FiltersSheet(tags: tags),
     );
   }
@@ -677,128 +645,80 @@ class _FiltersSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
     final query = ref.watch(libraryQueryNotifierProvider);
     final notifier = ref.read(libraryQueryNotifierProvider.notifier);
 
-    // `SingleChildScrollView` y no un `Column` a secas: cuántas líneas
-    // ocupan los chips de tipo y de etiquetas depende de cuántas etiquetas
-    // existan y de qué tan angosta sea la pantalla, y un panel que no puede
-    // crecer más allá de lo que el sistema le da de entrada —un teléfono en
-    // horizontal, una ventana partida— tiene que poder desplazarse en vez de
-    // desbordar.
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return ListFiltersSheet(
+      onClear: notifier.hasActiveFilters ? notifier.clearFilters : null,
+      children: [
+        // Arriba de todo, a pedido del usuario: el tema es la forma
+        // principal de recortar la biblioteca. A diferencia de las
+        // etiquetas, más abajo, está aunque no haya ninguno: ver
+        // `SpaceFilterSection`.
+        FilterSectionLabel(l10n.libraryFilterSpaceLabel),
+        const SizedBox(height: 8),
+        SpaceFilterSection(
+          selectedSpaceId: query.spaceId,
+          onChanged: notifier.selectSpace,
+        ),
+        const SizedBox(height: 20),
+        FilterSectionLabel(l10n.libraryFilterTypeLabel),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.libraryFiltersTooltip,
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-                if (notifier.hasActiveFilters)
-                  TextButton(
-                    onPressed: notifier.clearFilters,
-                    child: Text(l10n.libraryClearFilters),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Arriba de todo, a pedido del usuario: el tema es la forma
-            // principal de recortar la biblioteca. A diferencia de las
-            // etiquetas, más abajo, está aunque no haya ninguno: ver
-            // `SpaceFilterSection`.
-            _FilterSectionLabel(l10n.libraryFilterSpaceLabel),
-            const SizedBox(height: 8),
-            SpaceFilterSection(
-              selectedSpaceId: query.spaceId,
-              onChanged: notifier.selectSpace,
-            ),
-            const SizedBox(height: 20),
-            _FilterSectionLabel(l10n.libraryFilterTypeLabel),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final kind in SourceKind.values)
-                  FilterChip(
-                    avatar: Icon(kind.icon, size: 18),
-                    label: Text(kind.label(l10n)),
-                    selected: query.sourceKinds.contains(kind),
-                    onSelected: (_) => notifier.toggleSourceKind(kind),
-                  ),
-              ],
-            ),
-            // Lo que pasó por la Bandeja (F28): sin esto, triar o descartar
-            // algo lo dejaba en la Biblioteca sin ninguna marca, y no había
-            // cómo volver a encontrar lo decidido.
-            const SizedBox(height: 20),
-            _FilterSectionLabel(l10n.libraryFilterInboxLabel),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final status in InboxStatus.values)
-                  FilterChip(
-                    avatar: Icon(status.icon, size: 18),
-                    label: Text(status.filterLabel(l10n)),
-                    selected: query.inboxStatuses.contains(status),
-                    onSelected: (_) => notifier.toggleInboxStatus(status),
-                  ),
-              ],
-            ),
-            // Sin nada en el vocabulario todavía, esta sección no tiene qué
-            // mostrar: ocuparía lugar para decir "no hay etiquetas por las
-            // que filtrar", que no es información que alguien necesite ver
-            // siempre.
-            if (tags.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              _FilterSectionLabel(l10n.libraryFilterTagsLabel),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final tag in tags)
-                    FilterChip(
-                      avatar: const Icon(Icons.label_outline, size: 18),
-                      label: Text(tag.name),
-                      selected: query.tagIds.contains(tag.id),
-                      onSelected: (_) => notifier.toggleTagId(tag.id),
-                    ),
-                ],
+            for (final kind in SourceKind.values)
+              FilterChip(
+                avatar: Icon(kind.icon, size: 18),
+                label: Text(kind.label(l10n)),
+                selected: query.sourceKinds.contains(kind),
+                onSelected: (_) => notifier.toggleSourceKind(kind),
               ),
-            ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _FilterSectionLabel extends StatelessWidget {
-  const _FilterSectionLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Text(
-      text.toUpperCase(),
-      style: theme.textTheme.labelMedium?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
-        letterSpacing: 0.5,
-      ),
+        // Lo que pasó por la Bandeja (F28): sin esto, triar o descartar
+        // algo lo dejaba en la Biblioteca sin ninguna marca, y no había
+        // cómo volver a encontrar lo decidido.
+        const SizedBox(height: 20),
+        FilterSectionLabel(l10n.libraryFilterInboxLabel),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final status in InboxStatus.values)
+              FilterChip(
+                avatar: Icon(status.icon, size: 18),
+                label: Text(status.filterLabel(l10n)),
+                selected: query.inboxStatuses.contains(status),
+                onSelected: (_) => notifier.toggleInboxStatus(status),
+              ),
+          ],
+        ),
+        // Sin nada en el vocabulario todavía, esta sección no tiene qué
+        // mostrar: ocuparía lugar para decir "no hay etiquetas por las
+        // que filtrar", que no es información que alguien necesite ver
+        // siempre.
+        if (tags.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          FilterSectionLabel(l10n.libraryFilterTagsLabel),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tag in tags)
+                FilterChip(
+                  avatar: const Icon(Icons.label_outline, size: 18),
+                  label: Text(tag.name),
+                  selected: query.tagIds.contains(tag.id),
+                  onSelected: (_) => notifier.toggleTagId(tag.id),
+                ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
@@ -855,43 +775,6 @@ class _ItemList extends StatelessWidget {
               onSelectedChanged(item.id, selected: value),
         );
       },
-    );
-  }
-}
-
-/// El pie de "cargar más": trae la próxima tanda sin tener que desplazarse
-/// para descubrir que hay una.
-///
-/// Un botón explícito y no una carga automática al llegar al final del
-/// scroll a propósito: las tres vistas —lista, tabla, tablero— comparten
-/// este mismo pie, y solo una de ellas tiene un único scroll vertical del
-/// que "llegar al final" tendría un sentido obvio.
-class _LoadMoreBar extends StatelessWidget {
-  const _LoadMoreBar({required this.isLoading, required this.onPressed});
-
-  final bool isLoading;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Center(
-          child: isLoading
-              ? const SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : OutlinedButton(
-                  onPressed: onPressed,
-                  child: Text(l10n.libraryLoadMore),
-                ),
-        ),
-      ),
     );
   }
 }

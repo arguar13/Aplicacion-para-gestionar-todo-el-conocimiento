@@ -9916,5 +9916,275 @@
         "type": "int"
       }
     }
+  },
+  "navProcessed": "Procesado",
+  "@navProcessed": {
+    "description": "Destino de «Organizar» (F41): la información que la persona sacó de cada fuente al triarla."
+  },
+  "navProcessedHint": "La información que sacaste de cada fuente",
+  "@navProcessedHint": {
+    "description": "Para qué sirve «Procesado», debajo de su nombre en la lista de «Organizar» (F41)."
+  },
+  "processedTitle": "Procesado",
+  "@processedTitle": {
+    "description": "Título de la pantalla «Procesado» (F41)."
+  },
+  "processedSearchHint": "Buscar en lo procesado",
+  "@processedSearchHint": {
+    "description": "Pista del buscador de «Procesado» (F41): busca en el título y en el texto de sus partes."
+  },
+  "processedFilterPartsLabel": "Qué partes tiene",
+  "@processedFilterPartsLabel": {
+    "description": "Rótulo de la sección de filtros de «Procesado» por las partes que tiene un documento (F41)."
+  },
+  "processedFilterSourceLabel": "De qué fuente salió",
+  "@processedFilterSourceLabel": {
+    "description": "Rótulo de la sección de filtros de «Procesado» por el tipo de la fuente de origen (F41)."
+  },
+  "processedSortTooltip": "Ordenar",
+  "@processedSortTooltip": {
+    "description": "Botón que abre el menú de orden de «Procesado» (F41)."
+  },
+  "processedSortUpdatedAt": "Lo último que trabajaste",
+  "@processedSortUpdatedAt": {
+    "description": "Orden de «Procesado»: por la última vez que se tocó (F41)."
+  },
+  "processedSortCreatedAt": "Cuándo lo procesaste",
+  "@processedSortCreatedAt": {
+    "description": "Orden de «Procesado»: por cuándo se procesó por primera vez (F41)."
+  },
+  "processedSortTitle": "Por título, de la A a la Z",
+  "@processedSortTitle": {
+    "description": "Orden de «Procesado»: alfabético (F41)."
+  },
+  "processedUpdatedOn": "Actualizado el {date}",
+  "@processedUpdatedOn": {
+    "description": "Fila de «Procesado»: cuándo se tocó por última vez el documento (F41).",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "processedEmptyTitle": "Todavía no procesaste nada. Triá una fuente en la Bandeja.",
+  "@processedEmptyTitle": {
+    "description": "Vacío de «Procesado» (F41)."
+  },
+  "processedEmptyAction": "Ir a la Bandeja",
+  "@processedEmptyAction": {
+    "description": "Botón del vacío de «Procesado» que abre la Bandeja (F41)."
+  },
+  "processedEmptyPending": "{count, plural, =1{Tenés 1 fuente que triaste antes de que existiera Procesado: volvé a triarla para elegir qué pasa.} other{Tenés {count} fuentes que triaste antes de que existiera Procesado: volvé a triarlas para elegir qué pasa.}}",
+  "@processedEmptyPending": {
+    "description": "Vacío de «Procesado» (F41, decisión D): hay fuentes triadas antes de que existiera, que no se procesaron solas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedSearchEmpty": "Nada de lo procesado coincide con «{query}»",
+  "@processedSearchEmpty": {
+    "description": "Búsqueda sin resultados en «Procesado» (F41).",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "processedFilterEmpty": "Nada de lo procesado cumple estos filtros",
+  "@processedFilterEmpty": {
+    "description": "Filtros sin resultados en «Procesado» (F41)."
+  },
+  "processedRetriage": "Volver a triar",
+  "@processedRetriage": {
+    "description": "Acción para volver a elegir qué de una fuente va a su documento procesado (F41, paso 4)."
+  },
+  "processedRetriageSoon": "Volver a triar: próximamente",
+  "@processedRetriageSoon": {
+    "description": "Ayuda del botón «Volver a triar» mientras todavía no está (F41): llega en el paso siguiente."
+  },
+  "processedSectionText": "Texto",
+  "@processedSectionText": {
+    "description": "Sección de un documento procesado: el texto extraído entero o la transcripción (F41)."
+  },
+  "processedSectionSummary": "Resumen",
+  "@processedSectionSummary": {
+    "description": "Sección de un documento procesado: las oraciones del resumen (F41)."
+  },
+  "processedSectionSynthesis": "Síntesis",
+  "@processedSectionSynthesis": {
+    "description": "Sección de un documento procesado: las oraciones de la síntesis (F41)."
+  },
+  "processedSectionNotes": "Notas",
+  "@processedSectionNotes": {
+    "description": "Sección de un documento procesado: lo que antes era «Extraer nota» (F41)."
+  },
+  "processedSectionFragments": "Fragmentos",
+  "@processedSectionFragments": {
+    "description": "Sección de un documento procesado: los pasajes cortados a mano del original (F41)."
+  },
+  "processedPageCount": "{count, plural, =1{1 página} other{{count} páginas}}",
+  "@processedPageCount": {
+    "description": "Cuántas páginas tiene el texto de un documento procesado (F41).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedNoteCount": "{count, plural, =1{1 nota} other{{count} notas}}",
+  "@processedNoteCount": {
+    "description": "Cuántas notas tiene un documento procesado (F41).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedFragmentCount": "{count, plural, =1{1 fragmento} other{{count} fragmentos}}",
+  "@processedFragmentCount": {
+    "description": "Cuántos fragmentos tiene un documento procesado (F41).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedEditedCount": "{count, plural, =1{1 con cambios tuyos} other{{count} con cambios tuyos}}",
+  "@processedEditedCount": {
+    "description": "Cuántas partes copiadas de la fuente editó la persona, en una sección de un documento procesado (F41).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedPartEdited": "Con cambios tuyos",
+  "@processedPartEdited": {
+    "description": "Marca de una parte copiada de la fuente que la persona editó (F41): «Actualizar» ya no la pisa."
+  },
+  "processedPartOwn": "Escrita por vos",
+  "@processedPartOwn": {
+    "description": "Marca de una nota que escribió la persona, no copiada de la fuente (F41)."
+  },
+  "processedOpenSource": "Ver el original en la Biblioteca",
+  "@processedOpenSource": {
+    "description": "Enlace de un documento procesado a su fuente (F41)."
+  },
+  "processedSourceInTrash": "La fuente está en la papelera. Restaurala para volver a verla en la Biblioteca.",
+  "@processedSourceInTrash": {
+    "description": "Aviso de un documento procesado cuya fuente está en la papelera (F41)."
+  },
+  "processedOpenTrash": "Abrir la papelera",
+  "@processedOpenTrash": {
+    "description": "Botón del aviso de una fuente en la papelera, en un documento procesado (F41)."
+  },
+  "processedSourceGone": "La fuente se borró. Este documento conserva lo que sacaste de ella.",
+  "@processedSourceGone": {
+    "description": "Aviso de un documento procesado cuya fuente se borró de verdad (F41)."
+  },
+  "processedDocumentInTrash": "Este documento procesado está en la papelera.",
+  "@processedDocumentInTrash": {
+    "description": "Aviso arriba de un documento procesado que está en la papelera (F41)."
+  },
+  "processedDocumentNotFound": "Este documento procesado ya no existe.",
+  "@processedDocumentNotFound": {
+    "description": "Un documento procesado que se abrió por un enlace y ya no está (F41)."
+  },
+  "processedDocumentEmpty": "No le queda ninguna parte. Volvé a triar la fuente para sumarle algo.",
+  "@processedDocumentEmpty": {
+    "description": "Un documento procesado al que se le quitaron todas las partes (F41)."
+  },
+  "processedOpenInOriginal": "Abrir en el original",
+  "@processedOpenInOriginal": {
+    "description": "Abre la fuente justo en el pasaje del que salió una parte de un documento procesado (F41)."
+  },
+  "processedPartMenu": "Opciones de esta parte",
+  "@processedPartMenu": {
+    "description": "Botón de tres puntos de una parte de un documento procesado (F41)."
+  },
+  "processedPartEdit": "Editar",
+  "@processedPartEdit": {
+    "description": "Editar una parte de un documento procesado (F41)."
+  },
+  "processedPartRemove": "Quitar",
+  "@processedPartRemove": {
+    "description": "Quitar una parte de un documento procesado (F41), con «Deshacer»."
+  },
+  "processedPartEditTitle": "Editar en {section}",
+  "@processedPartEditTitle": {
+    "description": "Título del diálogo que edita una parte de un documento procesado (F41): el nombre de su sección.",
+    "placeholders": {
+      "section": {
+        "type": "String"
+      }
+    }
+  },
+  "processedPartSave": "Guardar",
+  "@processedPartSave": {
+    "description": "Guarda la edición de una parte de un documento procesado (F41)."
+  },
+  "processedPartSaved": "Cambio guardado",
+  "@processedPartSaved": {
+    "description": "Aviso tras editar una parte de un documento procesado (F41), con «Deshacer»."
+  },
+  "processedPartRemoved": "Parte quitada",
+  "@processedPartRemoved": {
+    "description": "Aviso tras quitar una parte de un documento procesado (F41), con «Deshacer»."
+  },
+  "processedPageOf": "Página {page} de {total}",
+  "@processedPageOf": {
+    "description": "Por qué página va el texto de un documento procesado (F41).",
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "processedPagePrevious": "Página anterior",
+  "@processedPagePrevious": {
+    "description": "Botón del texto de un documento procesado (F41)."
+  },
+  "processedPageNext": "Página siguiente",
+  "@processedPageNext": {
+    "description": "Botón del texto de un documento procesado (F41)."
+  },
+  "processedPageFirst": "Primera página",
+  "@processedPageFirst": {
+    "description": "Botón del texto de un documento procesado (F41)."
+  },
+  "processedPageLast": "Última página",
+  "@processedPageLast": {
+    "description": "Botón del texto de un documento procesado (F41)."
+  },
+  "processedPageJump": "Ir a la página",
+  "@processedPageJump": {
+    "description": "Diálogo para saltar a una página del texto de un documento procesado (F41)."
+  },
+  "processedPageJumpHint": "Del 1 al {total}",
+  "@processedPageJumpHint": {
+    "description": "Pista del campo que salta a una página del texto de un documento procesado (F41).",
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "processedPageJumpGo": "Ir",
+  "@processedPageJumpGo": {
+    "description": "Botón que salta a la página elegida del texto de un documento procesado (F41)."
+  },
+  "processedRowParts": "Tiene: {parts}",
+  "@processedRowParts": {
+    "description": "Para el lector de pantalla, en una fila de «Procesado»: qué partes tiene el documento (F41).",
+    "placeholders": {
+      "parts": {
+        "type": "String"
+      }
+    }
   }
 }

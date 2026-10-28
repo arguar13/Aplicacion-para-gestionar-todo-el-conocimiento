@@ -78,6 +78,7 @@ void main() {
           ShellBranch.atlas => RoutePaths.atlas,
           ShellBranch.notebooks => RoutePaths.notebooks,
           ShellBranch.timeline => RoutePaths.timeline,
+          ShellBranch.processed => RoutePaths.processed,
         },
     ]);
   });
@@ -92,6 +93,22 @@ void main() {
 
     expect(branchPaths, contains(RoutePaths.timeline));
     expect(topLevel().where((r) => r.path == RoutePaths.timeline), isEmpty);
+  });
+
+  test('«Procesado» (F41) es una rama de la barra, y su documento se abre '
+      'encima, en la raíz, como el detalle de un elemento', () {
+    final branch = shell().branches[ShellBranch.processed.index];
+    final list = branch.routes.single as GoRoute;
+    final document = list.routes.single as GoRoute;
+
+    expect(list.path, RoutePaths.processed);
+    expect(
+      '${list.path}/${document.path}',
+      RoutePaths.processedDocumentPattern,
+    );
+    // En la raíz: se abre desde pantallas que están encima del shell.
+    expect(document.parentNavigatorKey, isNotNull);
+    expect(topLevel().where((r) => r.path == RoutePaths.processed), isEmpty);
   });
 
   test('el material de un tema (el Explorador de antes) ya no es una rama de '

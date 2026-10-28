@@ -42,6 +42,18 @@ abstract final class RoutePaths {
   /// La Bandeja de entrada: lo recién procesado, esperando triaje.
   static const inbox = '/inbox';
 
+  /// «Procesado» (F41): la información que se sacó de cada fuente al triarla.
+  /// Un destino de navegación principal, en «Organizar».
+  static const processed = '/processed';
+
+  /// Un documento procesado. Se arma con [processedDocument], mismo criterio
+  /// que [itemDetail]. No hace falta llegar acá a propósito: un documento
+  /// procesado que se abre con [itemDetail] —desde la búsqueda, el chat, el
+  /// Mapa— se redirige solo (`processedDocumentRedirect`).
+  static const processedDocumentPattern = '$processed/:id';
+
+  static String processedDocument(String id) => '$processed/$id';
+
   /// Guardar algo nuevo.
   static const capture = '/capture';
 
@@ -227,6 +239,8 @@ abstract final class RouteNames {
   static const notebooks = 'notebooks';
   static const notebookDetail = 'notebook-detail';
   static const inbox = 'inbox';
+  static const processed = 'processed';
+  static const processedDocument = 'processed-document';
   static const capture = 'capture';
   static const transcriptionModel = 'transcription-model';
   static const vaultBackup = 'vault-backup';

@@ -75,9 +75,9 @@ class NavStepGroup {
 /// el índice de cada una es su posición en el árbol de rutas. Una prueba
 /// compara las dos listas (`app_router_branches_test.dart`).
 ///
-/// Con nombre y no con números sueltos: el Atlas, los cuadernos y la línea de
-/// tiempo (F40) se sumaron al final para no correr las de arriba, y el
-/// Explorador salió de la barra
+/// Con nombre y no con números sueltos: el Atlas, los cuadernos, la línea de
+/// tiempo (F40) y Procesado (F41) se sumaron al final para no correr las de
+/// arriba, y el Explorador salió de la barra
 /// (F36) —ahora se abre desde el Atlas y el Mapa—, así que sacar o sumar una
 /// rama corre las demás, y un número escrito a mano en otro lado quedaría
 /// apuntando a otra pantalla.
@@ -91,11 +91,12 @@ enum ShellBranch {
   atlas,
   notebooks,
   timeline,
+  processed,
 }
 
 /// Arma la lista de destinos principales, en el orden de uso en que se ven
-/// (F34): biblioteca; bandeja de entrada, atlas, línea de tiempo, mapa y
-/// cuadernos; chat; repaso; ajustes. Cada uno sabe su rama
+/// (F34): biblioteca; bandeja de entrada, procesado, atlas, línea de tiempo,
+/// mapa y cuadernos; chat; repaso; ajustes. Cada uno sabe su rama
 /// ([NavDestinationSpec.branchIndex]) y su paso ([NavDestinationSpec.step]).
 ///
 /// El riel de escritorio los muestra todos; la barra del celular, agrupados
@@ -137,8 +138,20 @@ List<NavDestinationSpec> buildNavDestinations({
       hint: l10n.navInboxHint,
       badgeCount: pendingInboxCount,
     ),
-    // El índice dinámico de lo que se sabe y de lo que falta (F13): justo
-    // después de lo que entra y arriba de la Línea de tiempo (pedido del
+    // La información que se sacó de cada fuente (F41): justo después de la
+    // Bandeja, donde se elige qué pasa, y arriba del Atlas, que se arma con
+    // lo procesado. `summarize` —una hoja con renglones—, que no usa ningún
+    // otro destino ni pantalla: `article` ya es el de una página web.
+    NavDestinationSpec(
+      branchIndex: ShellBranch.processed.index,
+      step: NavStep.organize,
+      icon: const Icon(Icons.summarize_outlined),
+      selectedIcon: const Icon(Icons.summarize),
+      label: l10n.navProcessed,
+      hint: l10n.navProcessedHint,
+    ),
+    // El índice dinámico de lo que se sabe y de lo que falta (F13): después
+    // de lo procesado y arriba de la Línea de tiempo (pedido del
     // dueño), que es una vista más del mismo saber. `account_tree` porque es un
     // árbol de temas; ningún otro destino usa ese ícono.
     NavDestinationSpec(

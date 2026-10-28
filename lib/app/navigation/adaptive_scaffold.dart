@@ -76,6 +76,10 @@ class AdaptiveScaffold extends ConsumerWidget {
               selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
               onDestinationSelected: onSelect,
               labelType: NavigationRailLabelType.all,
+              // Diez destinos con su nombre (F41) no entran en una ventana
+              // baja, ni con la letra al doble: el riel se desplaza en vez de
+              // desbordar.
+              scrollable: true,
               destinations: [
                 for (final d in destinations)
                   NavigationRailDestination(

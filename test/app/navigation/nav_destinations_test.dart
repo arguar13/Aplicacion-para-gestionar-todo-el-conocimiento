@@ -42,6 +42,7 @@ void main() {
         NavStep.save: at([ShellBranch.library]),
         NavStep.organize: at([
           ShellBranch.inbox,
+          ShellBranch.processed,
           ShellBranch.atlas,
           ShellBranch.timeline,
           ShellBranch.graph,
@@ -113,6 +114,7 @@ void main() {
 
     expect(labels, [
       es.navInbox,
+      es.navProcessed,
       es.navAtlas,
       es.navTimeline,
       es.navMap,
@@ -123,10 +125,40 @@ void main() {
     expect(timeline.hint, es.navTimelineHint);
   });
 
-  test('la rama de la línea de tiempo está al final: sumarla no corrió el '
-      'índice de ninguna de las de antes', () {
-    expect(ShellBranch.timeline.index, ShellBranch.values.length - 1);
+  test('las ramas de la línea de tiempo y de Procesado están al final: '
+      'sumarlas no corrió el índice de ninguna de las de antes', () {
+    expect(ShellBranch.processed.index, ShellBranch.values.length - 1);
+    expect(ShellBranch.timeline.index, ShellBranch.processed.index - 1);
     expect(ShellBranch.notebooks.index, ShellBranch.timeline.index - 1);
+  });
+
+  test('Procesado (F41) va en «Organizar», justo después de la Bandeja y '
+      'arriba del Atlas, con su línea y un ícono que no usa otro destino', () {
+    final organize = groups()[1];
+    final branches = [for (final d in organize.destinations) d.branchIndex];
+    final processed = organize.destinations.singleWhere(
+      (d) => d.branchIndex == ShellBranch.processed.index,
+    );
+
+    expect(branches.take(3), [
+      ShellBranch.inbox.index,
+      ShellBranch.processed.index,
+      ShellBranch.atlas.index,
+    ]);
+    expect(processed.label, es.navProcessed);
+    expect(processed.hint, 'La información que sacaste de cada fuente');
+    expect((processed.icon as Icon).icon, Icons.summarize_outlined);
+    expect((processed.selectedIcon as Icon).icon, Icons.summarize);
+
+    IconData? iconOf(Widget icon) =>
+        icon is Icon ? icon.icon : ((icon as Badge).child! as Icon).icon;
+    for (final group in groups()) {
+      for (final other in group.destinations) {
+        if (other.branchIndex == ShellBranch.processed.index) continue;
+        expect(iconOf(other.icon), isNot(Icons.summarize_outlined));
+        expect(iconOf(other.selectedIcon), isNot(Icons.summarize));
+      }
+    }
   });
 
   test('los pendientes de la Bandeja se ven en «Organizar»', () {
@@ -188,6 +220,7 @@ void main() {
       {
         ShellBranch.library.index: es.navLibraryHint,
         ShellBranch.inbox.index: es.navInboxHint,
+        ShellBranch.processed.index: es.navProcessedHint,
         ShellBranch.timeline.index: es.navTimelineHint,
         ShellBranch.atlas.index: es.navAtlasHint,
         ShellBranch.graph.index: es.navMapHint,

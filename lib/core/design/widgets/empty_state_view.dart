@@ -8,7 +8,8 @@ import 'package:flutter/material.dart';
 /// sobre la pantalla: le da presencia sin necesitar una ilustración de
 /// verdad, que pesaría más en tiempo de armado del que vale una pantalla
 /// que casi nadie mira dos veces. Entra con una animación breve, para que
-/// la pantalla no salte de golpe de "cargando" a "vacío".
+/// la pantalla no salte de golpe de "cargando" a "vacío" —salvo con «sin
+/// animaciones» en el sistema, que aparece de una—.
 class EmptyStateView extends StatelessWidget {
   const EmptyStateView({
     required this.icon,
@@ -16,6 +17,7 @@ class EmptyStateView extends StatelessWidget {
     this.message,
     this.actionLabel,
     this.onAction,
+    this.secondary,
     super.key,
   });
 
@@ -27,6 +29,10 @@ class EmptyStateView extends StatelessWidget {
   /// tienen sentido.
   final String? actionLabel;
   final VoidCallback? onAction;
+
+  /// Algo más que ofrecer, debajo de la acción y con menos peso: un segundo
+  /// camino para salir del vacío (F41, «Volver a triar» en «Procesado»).
+  final Widget? secondary;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +46,9 @@ class EmptyStateView extends StatelessWidget {
           padding: const EdgeInsets.all(24),
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 320),
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 320),
             curve: Curves.easeOut,
             builder: (context, t, child) => Opacity(
               opacity: t,
@@ -86,6 +94,10 @@ class EmptyStateView extends StatelessWidget {
                     onPressed: onAction,
                     child: Text(actionLabel!),
                   ),
+                ],
+                if (secondary case final secondary?) ...[
+                  const SizedBox(height: 12),
+                  secondary,
                 ],
               ],
             ),

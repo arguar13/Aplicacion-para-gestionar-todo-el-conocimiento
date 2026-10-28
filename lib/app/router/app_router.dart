@@ -37,6 +37,10 @@ import 'package:sinapsis/features/links/presentation/screens/broken_links_screen
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
 import 'package:sinapsis/features/notebooks/presentation/screens/notebook_detail_screen.dart';
 import 'package:sinapsis/features/notebooks/presentation/screens/notebooks_screen.dart';
+import 'package:sinapsis/features/processed/presentation/processed_routes.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_screen.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_backfill_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_model_screen.dart';
@@ -277,7 +281,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             LocalGraphScreen(itemId: state.pathParameters['id']!),
       ),
-      // Los nueve destinos principales, cada uno con su propio `Navigator` —
+      // Los diez destinos principales, cada uno con su propio `Navigator` —
       // así cambiar de pestaña y volver conserva el scroll y los filtros de
       // cada una—, envueltos por `AdaptiveScaffold`: una barra abajo en
       // celular, un riel al costado en escritorio. Reemplaza al AppBar de
@@ -310,10 +314,20 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   // salía en blanco (en `debug`, con una aserción del
                   // `Navigator`). En la raíz es un solo destino que se abre
                   // igual desde todos lados.
+                  //
+                  // Es además el despachador de un elemento por su id: todo lo
+                  // que abre «un elemento» —la búsqueda, las citas del chat,
+                  // el Mapa, un enlace— pasa por acá. Un documento procesado
+                  // (F41) es una nota para la base, pero no se ve como una: se
+                  // redirige a su pantalla, en este solo lugar.
                   GoRoute(
                     parentNavigatorKey: rootNavigatorKey,
                     path: ':id',
                     name: RouteNames.itemDetail,
+                    redirect: (context, state) => processedDocumentRedirect(
+                      ref.read(processedRepositoryProvider),
+                      state.pathParameters['id']!,
+                    ),
                     builder: (context, state) =>
                         ItemDetailScreen(itemId: state.pathParameters['id']!),
                   ),
@@ -409,6 +423,31 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 path: RoutePaths.timeline,
                 name: RouteNames.timeline,
                 builder: (context, state) => const TimelineScreen(),
+              ),
+            ],
+          ),
+          // «Procesado» (F41), mismo criterio que el Atlas: se ve justo
+          // después de la Bandeja, pero va al final para no correr ninguna
+          // rama. Su documento se dibuja en la raíz, como el detalle de un
+          // elemento y por lo mismo: se abre desde cualquier pantalla —la
+          // búsqueda, el chat, el Mapa, la Línea de tiempo—, y varias están
+          // encima del shell.
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.processed,
+                name: RouteNames.processed,
+                builder: (context, state) => const ProcessedScreen(),
+                routes: [
+                  GoRoute(
+                    parentNavigatorKey: rootNavigatorKey,
+                    path: ':id',
+                    name: RouteNames.processedDocument,
+                    builder: (context, state) => ProcessedDocumentScreen(
+                      documentId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

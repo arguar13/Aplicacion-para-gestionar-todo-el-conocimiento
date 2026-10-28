@@ -396,3 +396,80 @@ Verificación:
   que no escucha los textos, que espera un evento que no llega, y dos del rótulo de la tarjeta, que
   fallan y dejan el temporizador de drift.
 - Sin probar en el emulador ni en el teléfono.
+
+### Paso 2: la pantalla Procesado y el documento
+
+- **El destino**, en «Organizar», justo después de la Bandeja y arriba del Atlas: Bandeja · Procesado ·
+  Atlas · Línea de tiempo · Mapa · Cuadernos. Ícono `summarize`, que no usa ningún otro destino, y su
+  línea: *«La información que sacaste de cada fuente»*. La rama va **al final de `ShellBranch`**
+  (`processed`), como la línea de tiempo, así que no corrió ningún índice. Con diez destinos el riel de
+  escritorio no entraba en una ventana baja: ahora se desplaza (`scrollable`) en vez de desbordar.
+- **La lista, como la Biblioteca.** Las piezas que la Biblioteca tenía privadas se mudaron a
+  `list_controls.dart` y las usan las dos pantallas, sin copias: la búsqueda con el botón de filtros y su
+  número, el marco del panel de filtros con «Limpiar filtros», el rótulo de cada sección, «Cargar más» y
+  la barra del modo de selección.
+  - Filtros por tema (el `SpaceFilterSection` de siempre), por el tipo de la fuente de origen y por las
+    partes que tiene; orden por lo último trabajado, por cuándo se procesó o por título.
+  - Cada fila (`ProcessedDocumentCard`): el ícono del origen, el título, los chips de las partes —para el
+    lector de pantalla, en una sola frase— y «Actualizado el…». Con el lenguaje de una nota: lo procesado
+    es lo que sacó la persona.
+  - Selección de a varios: «Elegir temas» y «Eliminar», por el mismo camino que cualquier elemento
+    (decisión A).
+  - La lista es `processedDocumentsProvider(ProcessedQuery)` en tandas de 100: nunca trae el texto.
+- **El documento abierto** (`RoutePaths.processedDocument(id)`, dibujado en la raíz como el detalle de un
+  elemento):
+  - arriba, su fuente: «Ver el original en la Biblioteca»; si la fuente está en la papelera lo dice y
+    ofrece «Abrir la papelera»; si se borró de verdad, dice que el documento conserva lo que se sacó;
+  - **sus secciones, recorridas genéricamente**: las que el documento tiene, en el orden de
+    `ProcessedSection`, cada una plegable (`ProcessedSectionPanel`) con cuánto tiene y cuántas partes se
+    editaron. Lo que cambia por sección —su ícono y su nombre, si arranca desplegada, qué se escucha, si
+    se copia entera, cómo se ve el cuerpo— está en `switch` exhaustivos: sumar Palabras clave y Original
+    es sumar sus casos. Lo elegido arranca desplegado; el texto, plegado si hay algo más. Plegada, una
+    sección no pide nada a la base. Respeta «sin animaciones»;
+  - cada parte (`ProcessedPartTile`) con «Editar» y «Quitar», los dos con «Deshacer»
+    (`editPart`/`removePart`/`restorePart`), y la marca «Con cambios tuyos» o «Escrita por vos»;
+  - **el texto, de a una página** (`ProcessedTextPages`): `processedPartsProvider` con un tramo de uno,
+    con primera, anterior, «Página n de N» (que salta a una), siguiente, última y las flechas del
+    teclado. El lector paginado de los visores no encaja: arma sus páginas partiendo el texto entero en
+    memoria, que es lo que esto evita. Lo demás, de a tandas de 50;
+  - cada fragmento con «Abrir en el original» a la vista, y lo demás con ancla en su menú, por el mismo
+    camino de las tarjetas y las citas (`RoutePaths.reading` con el tramo). Sin fuente viva no aparece;
+  - en la papelera se lee igual, lo dice y se restaura de un toque.
+- **«Volver a triar»**: un solo punto, `retriageAction` en `retriage.dart`, que hoy devuelve `null`; el
+  botón (`RetriageButton`) se ve **apagado, con «Volver a triar: próximamente»** en su ayuda, que el
+  lector de pantalla anuncia. Apagado y no escondido: el plan lo promete ahí, esconderlo correría la
+  pantalla cuando llegue, y un botón que hace como que anda enseña a desconfiar de los que sí andan. El
+  paso 4 lo implementa en ese punto y todos se prenden solos.
+- **Escuchar** (`processedReadableProvider`): el botón flotante lee el documento entero, sección por
+  sección, como el detalle de un elemento, y empieza en la página que se mira (`startAt`). El resumen y
+  la síntesis se escuchan también solos. Cada parte es su propio `sourceKey`, así que lo que suena se
+  resalta en su lugar. Se arma fuera de la pantalla: las partes vienen de la base, en su hilo, y se
+  parten en otro (`compute`) si son largas.
+- **El vacío**: *«Todavía no procesaste nada. Triá una fuente en la Bandeja.»* con «Ir a la Bandeja».
+  Si hay fuentes triadas (decisión D) lo dice y ofrece «Volver a triar», por el mismo punto.
+  `EmptyStateView` sumó un segundo camino (`secondary`) y dejó de animar su entrada con «sin
+  animaciones».
+- **Abrir por id**: la ruta del detalle (`/library/:id`) es el despachador de todo lo que abre un
+  elemento por su id —la búsqueda, las citas del chat, la papelera, el Mapa, la Línea—. Un `redirect`
+  ahí (`processedDocumentRedirect`) manda un documento procesado, vivo o en la papelera, a su pantalla;
+  si la base falla, sigue al detalle. Nadie más tiene que acordarse.
+- **Preparado para la decisión I y el paso 1b**: la tarjeta de estudiar de siempre
+  (`StudyDocumentCard`) está puesta en el documento (`ProcessedStudySlot`) y se muestra sola cuando
+  `processedStudyTextProvider` dé el texto del procesado; hasta entonces devuelve `null`. Las acciones de
+  cada sección (`_SectionActions`) son el lugar de sus atajos.
+
+**Lo que falta del paso 2** —entra con el 1b—: Palabras clave (la lista compacta y, plegables, las
+oraciones con la clave marcada) y el Original (la copia en el visor de siempre con las marcas), y
+llenar `processedStudyTextProvider`.
+
+Verificación:
+
+- `flutter analyze`: 19.
+- Pruebas: 19 del documento abierto, 9 de la lista, 7 de abrir por id, 3 del vacío compartido, y las de
+  navegación ajustadas (destinos, riel, ramas). Pasan 3.556 en `test/app`, `test/core/design`, procesado,
+  Biblioteca, Mapa, Línea, Atlas, Bandeja, grafo, lectura, tarjetas, IA, captura, salud, relaciones,
+  sugerencias, Explorador, cuadernos, papelera y narración.
+- 34 mutaciones, todas muertas. La que primero sobrevivió —pedir tres páginas para mostrar una— se mató
+  con una prueba que fija que se pide una sola.
+- Sin probar en el emulador ni en el teléfono: el lector en voz alta con un motor de voz real, y un libro
+  de verdad en el teléfono.

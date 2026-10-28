@@ -23,22 +23,23 @@ saltar directo a la sección que te haga falta con el índice de abajo.
 14. [Cuadernos](#cuadernos)
 15. [Línea de tiempo](#línea-de-tiempo)
 16. [Bandeja de entrada y sugerencias](#bandeja-de-entrada-y-sugerencias)
-17. [El Atlas](#el-atlas)
-18. [El Mapa](#el-mapa)
-19. [Grafo local de un elemento](#grafo-local-de-un-elemento)
-20. [Tensión: contradicciones entre notas](#tensión-contradicciones-entre-notas)
-21. [Chat con la IA](#chat-con-la-ia)
-22. [Citas bibliográficas](#citas-bibliográficas)
-23. [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)
-24. [Notas generadas por IA](#notas-generadas-por-ia)
-25. [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios)
-26. [Tu hábito de repaso](#tu-hábito-de-repaso)
-27. [Anki: exportar e importar](#anki-exportar-e-importar)
-28. [Los modelos de IA descargables](#los-modelos-de-ia-descargables)
-29. [Ajustes](#ajustes)
-30. [Mantenimiento de la bóveda](#mantenimiento-de-la-bóveda)
-31. [Que siga con la app cerrada](#que-siga-con-la-app-cerrada)
-32. [Preguntas frecuentes](#preguntas-frecuentes)
+17. [Procesado](#procesado)
+18. [El Atlas](#el-atlas)
+19. [El Mapa](#el-mapa)
+20. [Grafo local de un elemento](#grafo-local-de-un-elemento)
+21. [Tensión: contradicciones entre notas](#tensión-contradicciones-entre-notas)
+22. [Chat con la IA](#chat-con-la-ia)
+23. [Citas bibliográficas](#citas-bibliográficas)
+24. [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)
+25. [Notas generadas por IA](#notas-generadas-por-ia)
+26. [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios)
+27. [Tu hábito de repaso](#tu-hábito-de-repaso)
+28. [Anki: exportar e importar](#anki-exportar-e-importar)
+29. [Los modelos de IA descargables](#los-modelos-de-ia-descargables)
+30. [Ajustes](#ajustes)
+31. [Mantenimiento de la bóveda](#mantenimiento-de-la-bóveda)
+32. [Que siga con la app cerrada](#que-siga-con-la-app-cerrada)
+33. [Preguntas frecuentes](#preguntas-frecuentes)
 
 ---
 
@@ -85,8 +86,9 @@ En el celular, la barra tiene **cinco botones fijos, que son los pasos del
 trabajo en el orden en que los usás**, de izquierda a derecha:
 
 1. **Biblioteca**: guardás y encontrás todo. Se abre directo.
-2. **Organizar**: una lista con **Bandeja**, **Atlas**, **Línea de tiempo**,
-   **Mapa** y **Cuadernos**, en ese orden. Primero revisás lo que entró,
+2. **Organizar**: una lista con **Bandeja**, **Procesado**, **Atlas**,
+   **Línea de tiempo**, **Mapa** y **Cuadernos**, en ese orden. Primero
+   revisás lo que entró, en **Procesado** tenés lo que sacaste de cada fuente,
    después ves qué sabés y qué te falta, lo ves sobre un eje de fechas, lo
    conectás y, en un cuaderno, juntás un grupo para acotar el chat a él.
    El número de pendientes de la Bandeja se ve en el mismo botón. (El **Explorador** ya no está en la lista: repetía la
@@ -103,7 +105,7 @@ marcada. Tocá una para ir. Para cerrar la lista sin elegir, deslizala hacia
 abajo o tocá afuera. Mientras estés en cualquiera de sus pantallas, el botón
 del paso queda marcado. Ya no hay botón **«Más»**: todo está en algún paso.
 
-En la computadora se ven las nueve pantallas juntas en el costado, en el mismo
+En la computadora se ven las diez pantallas juntas en el costado, en el mismo
 orden y sin listas.
 
 Vas a ver estos nombres una y otra vez en esta guía; cada uno tiene su propia
@@ -1732,6 +1734,84 @@ Vas a ver un aviso importante: *"No se aplica nada que no marques. Mirá cada
 elemento antes: el modelo puede equivocarse."* Cada grupo se puede desplegar
 para revisar los elementos uno por uno antes de aceptarlos o descartarlos
 todos juntos con los botones de abajo.
+
+---
+
+## Procesado
+
+Es lo que **sacaste de cada fuente** al triarla: la información pura, un
+documento por fuente. La Biblioteca sigue siendo la base de consulta, entera y
+sin tocar; Procesado es lo trabajado. Acá no hay audios, videos ni fichas
+bibliográficas: solo texto.
+
+**Cómo llegar:** ítem **"Procesado"** en la navegación (en el celular, la
+segunda de **"Organizar"**, justo debajo de la Bandeja).
+
+### La lista
+
+Se ve y se maneja como la [Biblioteca](#la-biblioteca):
+
+- **Buscar**: escribí arriba y busca en el título y en el texto de cada
+  documento, aunque las palabras estén en partes distintas.
+- **Filtros** (el botón de la perilla, con el número de los que tenés
+  puestos): por **tema**, por **de qué fuente salió** (un libro, una página,
+  un video…) y por **qué partes tiene**. Con un filtro que no deja nada, ofrece
+  **"Limpiar filtros"**.
+- **Ordenar** (el botón de las rayitas): **lo último que trabajaste** (el de
+  siempre), **cuándo lo procesaste** o **por título, de la A a la Z**.
+- **Elegir varios**: mantené apretada una fila y aparecen las casillas, con
+  **"Elegir temas"** y **"Eliminar"** (a la papelera, con "Deshacer"; de la
+  fuente no se toca nada).
+
+Cada fila muestra el ícono del tipo de fuente de la que salió, el título, las
+partes que tiene —**Texto · Resumen · Síntesis · Notas · Fragmentos**— y cuándo
+se actualizó por última vez.
+
+**Vacío:** *"Todavía no procesaste nada. Triá una fuente en la Bandeja."*, con
+un botón **"Ir a la Bandeja"**. Si tenés fuentes que triaste **antes** de que
+existiera Procesado, lo dice y ofrece **"Volver a triar"**: no se pasaron solas,
+porque inventar qué partes querías sería decidir por vos. (**"Volver a triar"**
+todavía se ve apagado, con *"próximamente"* al mantenerlo apretado o pasar el
+puntero: llega en el paso que sigue.)
+
+### El documento
+
+Tocá una fila para abrirlo. Arriba está **su fuente**, con **"Ver el original
+en la Biblioteca"**, que la abre. Si la fuente está en la papelera, lo dice y
+ofrece **"Abrir la papelera"** para recuperarla; si se borró de verdad, lo dice:
+el documento conserva lo que sacaste de ella. Al lado, **"Volver a triar"**.
+
+Debajo, **sus secciones**, cada una plegable con su nombre y cuánto tiene (por
+ejemplo *"12 páginas"* o *"8 oraciones"*, y *"2 con cambios tuyos"* si editaste
+algo). Lo elegido —resumen, síntesis, notas, fragmentos— se abre desplegado; el
+**texto entero** se abre plegado si hay algo más, para no tapar el resto.
+
+- **El texto** se lee **de a una página**, sin cargar el libro entero: arriba
+  tenés primera, anterior, *"Página 3 de 390"* (tocalo para ir a una página por
+  su número), siguiente y última; en la computadora, también con las flechas
+  del teclado.
+- **Cada parte** —una página, una oración, una nota, un fragmento— tiene su
+  menú de tres puntos con **"Editar"** y **"Quitar"**, los dos con
+  **"Deshacer"** en el aviso de abajo. Lo que editás queda marcado *"Con cambios
+  tuyos"* y, al volver a triar con "Actualizar", no se pisa. Una parte no se
+  puede dejar vacía: para sacarla, quitala.
+- **Cada fragmento** tiene **"Abrir en el original"**: abre la fuente en modo
+  lectura, justo en ese pasaje, como las tarjetas y las citas. Las oraciones y
+  las notas que salieron de un pasaje lo tienen en su menú. Si la fuente está en
+  la papelera, no aparece.
+- **"Copiar"** copia una sección entera (menos el texto, que se copia
+  seleccionándolo), y **"Escuchar"** lee el texto, el resumen o la síntesis.
+- Arriba a la derecha, **"Eliminar"** lo manda a la papelera, con
+  "Deshacer". Un documento procesado que está en la papelera se puede abrir y
+  leer igual: lo dice arriba, con **"Restaurar"**.
+
+**Escuchar:** el botón redondo del [lector en voz alta](#escuchar-el-lector-en-voz-alta)
+lee el documento entero, sección por sección, y empieza por la página del texto
+que estás mirando. Lo que suena se resalta en amarillo en su lugar.
+
+**Abrirlo desde otro lado:** un documento procesado que te aparece en la
+búsqueda, en una cita del chat, en el Mapa o en la Línea de tiempo abre esta
+misma pantalla, no la de una nota.
 
 ---
 

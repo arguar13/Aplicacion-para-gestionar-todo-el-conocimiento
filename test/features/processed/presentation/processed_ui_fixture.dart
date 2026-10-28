@@ -1,0 +1,188 @@
+import 'package:drift/drift.dart' show Value;
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/app/router/app_router.dart';
+import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
+import 'package:sinapsis/core/domain/entities/item_state.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
+import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/source.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
+import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
+
+import '../../../support/library_harness.dart';
+
+/// Lo que las pruebas de las pantallas de «Procesado» (F41) necesitan armar:
+/// fuentes con texto y sus documentos procesados, por el caso de uso real y
+/// sobre la base real en memoria de [LibraryHarness].
+extension ProcessedUiFixture on LibraryHarness {
+  /// Guarda una fuente con [text] en su forma `rend-<id>`.
+  Future<void> saveTextSource(
+    String id, {
+    String? title,
+    String text = 'La república romana cayó. César cruzó el Rubicón.',
+    SourceKind kind = SourceKind.webPage,
+    DateTime? at,
+  }) async {
+    final when = at ?? DateTime(2026, 10, 20, 12);
+    final item = KnowledgeItem(
+      id: id,
+      title: title ?? 'Fuente $id',
+      source: Source(
+        id: id,
+        kind: kind,
+        capturedAt: when,
+        url: 'https://ejemplo.org/$id',
+      ),
+      processingState: ProcessingState.ready,
+      createdAt: when,
+      updatedAt: when,
+      renditions: [
+        Rendition.text(
+          id: 'rend-$id',
+          itemId: id,
+          kind: RenditionKind.markdown,
+          content: text,
+          isPrimary: true,
+          createdAt: when,
+        ),
+      ],
+    );
+    final saved = await container.read(libraryRepositoryProvider).save(item);
+    saved.getOrElse((failure) => throw StateError('$failure'));
+  }
+
+  /// Procesa [sourceId] con [edits] y devuelve el id del documento.
+  Future<String> process(
+    String sourceId,
+    Map<ProcessedSection, SectionEdit> edits,
+  ) async {
+    final result = await container.read(processSourceUseCaseProvider)(
+      sourceId,
+      edits,
+    );
+    return result
+        .getOrElse((failure) => throw StateError('$failure'))
+        .documentId;
+  }
+
+  /// El texto entero de la fuente y, además, las [notes] escritas.
+  Future<String> processTextAndNotes(
+    String sourceId, {
+    List<String> notes = const [],
+  }) => process(sourceId, {
+    ProcessedSection.text: SectionEdit.add(const SectionInput.fromSource()),
+    if (notes.isNotEmpty)
+      ProcessedSection.notes: SectionEdit.add(
+        SectionInput.drafts([for (final n in notes) ProcessedDraft.written(n)]),
+      ),
+  });
+
+  /// Un fragmento cortado de [text] —el texto de la fuente— en [passage].
+  SectionEdit fragmentOf(String sourceId, String text, String passage) {
+    final start = text.indexOf(passage);
+    return SectionEdit.add(
+      SectionInput.drafts([
+        ProcessedDraft.cut(
+          ProcessedAnchor(
+            renditionId: 'rend-$sourceId',
+            start: start,
+            end: start + passage.length,
+          ),
+        ),
+      ]),
+    );
+  }
+
+  /// Una oración del resumen de [sourceId] —una marca de estudio— sobre
+  /// [passage] de [text].
+  Future<String> addSummarySentence(
+    String sourceId,
+    String text,
+    String passage, {
+    StudyMarkKind kind = StudyMarkKind.summary,
+  }) async {
+    final start = text.indexOf(passage);
+    final id = 'marca-${passage.hashCode}';
+    await database
+        .into(database.studyMarks)
+        .insert(
+          StudyMarksCompanion.insert(
+            id: id,
+            renditionId: 'rend-$sourceId',
+            kind: kind,
+            origin: ContentOrigin.ai,
+            startOffset: start,
+            endOffset: start + passage.length,
+            excerpt: passage,
+            createdAt: DateTime(2026, 10, 20, 12),
+          ),
+        );
+    return id;
+  }
+
+  /// Deja la fuente [id] triada, como la dejaba la Bandeja antes de F41.
+  Future<void> markTriaged(String id) =>
+      (database.update(
+        database.knowledgeEntries,
+      )..where((e) => e.id.equals(id))).write(
+        const KnowledgeEntriesCompanion(state: Value(ItemState.triaged)),
+      );
+
+  /// El id del documento procesado de [sourceId].
+  String documentOf(String sourceId) => processedDocumentIdFor(sourceId);
+}
+
+/// Monta la app con su router de verdad, en un ancho de escritorio y alto de
+/// sobra, y espera a que se asiente.
+Future<void> pumpApp(WidgetTester tester, LibraryHarness harness) async {
+  tester.view.physicalSize = const Size(1200, 2400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(harness.wrapWithAppRouter());
+  await tester.pumpAndSettle();
+}
+
+/// Lo mismo que [pumpApp], en un teléfono angosto y con la letra al doble: lo
+/// que no puede desbordar.
+Future<void> pumpPhoneWithLargeText(
+  WidgetTester tester,
+  LibraryHarness harness,
+) async {
+  tester.view.physicalSize = const Size(400, 900);
+  tester.view.devicePixelRatio = 1;
+  tester.platformDispatcher.textScaleFactorTestValue = 2;
+  addTearDown(tester.view.reset);
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  await tester.pumpWidget(harness.wrapWithAppRouter());
+  await tester.pumpAndSettle();
+}
+
+/// Lleva el router a [location], apilando, y espera.
+Future<void> pushAndSettle(
+  WidgetTester tester,
+  LibraryHarness harness,
+  String location,
+) async {
+  harness.pushTo(location);
+  await tester.pumpAndSettle();
+}
+
+/// Va a [location] reemplazando la pila, y espera.
+Future<void> goAndSettle(
+  WidgetTester tester,
+  LibraryHarness harness,
+  String location,
+) async {
+  harness.container.read(goRouterProvider).go(location);
+  await tester.pumpAndSettle();
+}

@@ -1251,6 +1251,10 @@ void main() {
         await tester.pumpWidget(harness.wrapWithAppRouter());
         await tester.pumpAndSettle();
 
+        // Con diez destinos (F41), en una ventana baja el riel se desplaza:
+        // Ajustes, el último, puede quedar debajo, como para una persona.
+        await tester.ensureVisible(find.byIcon(Icons.settings_outlined));
+        await tester.pumpAndSettle();
         await tester.tap(find.byIcon(Icons.settings_outlined));
         await tester.pumpAndSettle();
         // Ajustes crece con cada sección —la IA de F27 empujó los modelos
