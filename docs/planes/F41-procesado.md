@@ -64,6 +64,19 @@
 >   y me quede con el documento original o todo el texto extraído, que también me dejara hacer un
 >   resumen ahí, independientemente de si ya lo hice o no antes de procesar, así no dependa tanto
 >   del archivo original"* → el documento procesado **se estudia solo** (decisión I).
+>
+> **Segundo ajuste del dueño, con los pasos 1 a 3 construidos** (2026-10-28), con cuatro capturas
+> del detalle de un video de la Biblioteca marcadas en naranja:
+> - *"Cuando entro a un elemento desde la sección de Biblioteca, quiero que todo lo que te marque
+>   … desaparezca y pase a formar parte de cada elemento procesado. Porque se supone que de ahí lo
+>   voy a estudiar"* → lo marcado es: **«Extraer resumen», «Extraer síntesis» y «Extraer palabras
+>   clave»** de la tarjeta de estudiar, el mosaico **«Resumir»** del panel de la fuente, el
+>   **Mapa** y las **Tarjetas de repaso**. Salen del detalle de la fuente y van al documento
+>   procesado (decisión K).
+> - *"Que en elementos procesados yo pueda guardar y conservar las imágenes y que me deje elegir
+>   qué imágenes conservar … ya sea porque el documento original sea una imagen, una página o una
+>   publicación … que yo pueda elegir si conservo todas o si conservo algunas o cuáles"* → una
+>   sección **Imágenes**, con todas, ninguna o las que se elijan, una por una (decisión L).
 
 ## Lo que hay hoy
 
@@ -239,6 +252,31 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
     porque no tiene documento procesado. Dentro de un documento procesado, lo extraído va a sus
     propias notas (decisión I). Una fuente en la papelera no acepta notas: lo dice y ofrece
     restaurarla.
+- **K. La fuente queda de consulta; se estudia en Procesado** (segundo ajuste del dueño). El
+  detalle de una fuente deja de mostrar lo que es estudiarla: «Extraer resumen», «Extraer
+  síntesis» y «Extraer palabras clave», el mosaico «Resumir», el Mapa y las Tarjetas de repaso.
+  Todo eso vive en su documento procesado, que ya se estudia solo (decisión I).
+  - **Lo que queda en la fuente**: el original y su texto («Extraer transcripción»), escuchar,
+    los resaltados a mano, «Relacionado», lo que organizó la IA, y la tarjeta de estudiar con
+    Resumir · Sintetizar · Palabras clave marcando el original. Eso último hace falta porque es
+    de donde la hoja de triar trae el resumen, la síntesis y las palabras clave (paso 3).
+  - **El documento procesado suma su Mapa** (el grafo local de sus vínculos entre procesados,
+    paso 6) **y sus Tarjetas de repaso**, hechas con IA o a mano **de su propio texto**.
+  - **Nada se borra.** Las tarjetas que ya tiene una fuente siguen en Repasar, con su historial,
+    y se ven en su documento procesado, en un grupo «De la fuente», plegado. Para verlas no hace
+    falta moverlas: su «Abrir en el original» sigue llevando al pasaje de la fuente.
+  - **Sin documento procesado**, el detalle de la fuente lo dice en una línea: «Para estudiarlo,
+    triálo», con el botón que abre la hoja.
+- **L. Las imágenes van a Procesado elegidas una por una** (segundo ajuste del dueño). Una sección
+  nueva, **Imágenes**, para una fuente que es una imagen o que trae imágenes: una página web
+  guardada o una publicación.
+  - En la hoja de triar se ven en una grilla, con «Todas», «Ninguna» y la elección de cada una
+    tocándola. Con muchas, se cargan de a tandas y en miniatura.
+  - Cada imagen elegida es **una copia propia**, como el original (decisión H): ocupa su espacio,
+    la hoja dice cuánto, y viaja con el documento en la papelera, la copia y la unión de bóvedas.
+  - En el documento procesado, una galería: se abre a pantalla completa, se quita una con
+    «Deshacer» y se suman más con «Volver a triar».
+  - Las imágenes de dentro de un PDF, un Word o un EPUB no entran en este ajuste.
 - **G. Triar nunca borra ni suelta nada de la fuente** (el principio de arriba). La hoja de F30
   sale de la Bandeja. Cualquier otro camino que hoy suelte el archivo o el texto de una fuente se
   revisa en el paso 3, y queda solo si lo pide el dueño a mano y de a uno.
@@ -275,6 +313,12 @@ toca la fuente. Procesado es una copia aparte, y su enlace vuelve siempre al ori
    - la cola de la IA sobre documentos procesados, no sobre fuentes;
    - Atlas, Mapa, grafo local y Línea de tiempo leen solo procesados, empezando de cero;
    - los accesos del detalle y los vacíos.
+8. **Las imágenes en Procesado** (decisión L), después del 1b y del 4:
+   - los datos, en un esquema nuevo, con sus censos de papelera, copia y unión de bóvedas;
+   - la grilla de la hoja y la galería del documento.
+9. **La fuente de consulta** (decisión K), después de los pasos 5 y 6:
+   - lo que sale del detalle de la fuente;
+   - el Mapa y las Tarjetas de repaso del documento procesado, con «De la fuente».
 7. **Cierre:**
    - la GUÍA, la decisión en `docs/arquitectura.md`, CONTEXTO y el «Avance»;
    - la suite entera y `verify_commit`;
