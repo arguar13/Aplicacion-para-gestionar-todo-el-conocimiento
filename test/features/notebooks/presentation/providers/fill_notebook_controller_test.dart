@@ -11,15 +11,17 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_coverage_reader.dart';
-import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
+
 import 'package:sinapsis/features/notebooks/data/repositories/notebook_repository_impl.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/fill_notebook_controller.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/notes/domain/usecases/generate_derived_note_usecase.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
 
 import '../../../../support/fake_id_generator.dart';
+
 import '../../../../support/in_memory_file_store.dart';
-import '../../../../support/item_rows.dart';
+import '../../../../support/processed_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -74,7 +76,6 @@ KnowledgeItem _noteLike(String id) => KnowledgeItem(
 void main() {
   late AppDatabase db;
   late NotebookRepositoryImpl notebooks;
-  late LibraryRepositoryImpl library;
   late String notebookId;
 
   /// Lo que pasó, en orden: «cards» y «guide».
@@ -86,17 +87,18 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     notebooks = NotebookRepositoryImpl(
       database: db,
+      processed: ProcessedRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        files: InMemoryFileStore(),
+      ),
       telemetry: MockTelemetryService(),
       ids: FakeIdGenerator(),
       clock: () => DateTime(2026, 10, 8),
     );
-    library = LibraryRepositoryImpl(
-      database: db,
-      telemetry: MockTelemetryService(),
-      files: InMemoryFileStore(),
-    );
+    // Un cuaderno tiene solo documentos procesados (F41, paso 5).
     for (final id in ['a', 'b', 'c']) {
-      await insertItemRows(db, id: id, title: 'Elemento $id');
+      await insertProcessedRows(db, id: id, title: 'Elemento $id');
     }
     notebookId = (await notebooks.create(
       name: 'Roma',
@@ -119,7 +121,6 @@ void main() {
   }) => FillNotebookController(
     notebookId: notebookId,
     notebooks: notebooks,
-    library: library,
     coverage:
         coverage ?? _FakeCoverage(eligible: ['a', 'b', 'c'], withCards: {'b'}),
     makeFlashcards: (ids) {
@@ -134,7 +135,7 @@ void main() {
           params.onProgress?.call(0, 2);
           params.onProgress?.call(2, 2);
           return right(
-            DerivedNoteResult(note: _noteLike('guia'), inNotebook: true),
+            DerivedNoteResult(note: _noteLike('guia'), inNotebook: false),
           );
         },
   );
@@ -190,7 +191,7 @@ void main() {
     expect(state.running, isFalse);
     expect(state.cardsOutcome!.queued, 2);
     expect(state.cardsOutcome!.eligible, 3);
-    expect(state.guideOutcome!.result!.inNotebook, isTrue);
+    expect(state.guideOutcome!.result!.inNotebook, isFalse);
     expect(state.guideOutcome!.failure, isNull);
   });
 

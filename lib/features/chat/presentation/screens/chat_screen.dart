@@ -39,7 +39,6 @@ import 'package:sinapsis/features/chat/presentation/widgets/chat_model_notice.da
 import 'package:sinapsis/features/chat/presentation/widgets/chat_stage_transition.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_top_bar.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_welcome.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
@@ -717,22 +716,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return '${prefix}Contenido de los documentos adjuntos:\n\n$content';
   }
 
-  /// Los elementos de [_notebookId], resueltos en el momento (F16, D1):
-  /// `null` si no hay cuaderno elegido —"toda la bóveda"—, sea manual o por
-  /// consulta guardada, `NotebookRepository.resolveQuery` ya deja una sola
-  /// `LibraryQuery` para las dos formas.
+  /// Los documentos procesados de [_notebookId], resueltos en el momento (F16,
+  /// D1; F41, paso 5): `null` si no hay cuaderno elegido —"toda la bóveda"—.
+  /// Manual o por consulta, `NotebookRepository.memberIds` responde lo mismo
+  /// para las dos formas, y solo con procesados: el chat acotado a un cuaderno
+  /// lee solo su texto procesado.
   Future<Set<String>?> _resolveScopeIds() async {
     final notebookId = _notebookId;
     if (notebookId == null) return null;
-    final query = await ref
+    final result = await ref
         .read(notebookRepositoryProvider)
-        .resolveQuery(notebookId);
-    // Solo hacen falta los ids, no los elementos enteros —el benchmark de
-    // F16 (16.2, commit 13) encontró que `list()` arma cada `KnowledgeItem`
-    // con sus renditions/etiquetas/propiedades para descartarlas todas acá
-    // mismo, y eso sacaba a un cuaderno de 500 elementos del objetivo de
-    // 300 ms; `matchingIds()` es la misma consulta sin ese armado—.
-    final result = await ref.read(libraryRepositoryProvider).matchingIds(query);
+        .memberIds(notebookId);
     return result.match((_) => const {}, (ids) => ids.toSet());
   }
 

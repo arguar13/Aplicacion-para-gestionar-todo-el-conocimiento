@@ -27,9 +27,12 @@ class ItemVectorIndexImpl implements ItemVectorIndex {
     List<double> query, {
     required int limit,
     required double minSimilarity,
+    Iterable<String>? among,
   }) async {
     if (query.isEmpty || limit <= 0) return const [];
-    final vectors = await _vectorsByItem();
+    final only = among?.toSet().toList();
+    if (only != null && only.isEmpty) return const [];
+    final vectors = await _vectorsByItem(only: only);
     if (vectors.isEmpty) return const [];
     final scores = await compute(_bestPerItem, (
       query: query,

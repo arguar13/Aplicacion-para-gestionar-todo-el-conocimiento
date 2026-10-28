@@ -16,10 +16,12 @@ import 'package:sinapsis/features/flashcards/domain/services/study_scope_resolve
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/notebooks/data/repositories/notebook_repository_impl.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/item_rows.dart';
+import '../../../../support/processed_rows.dart';
 
 class _MockTelemetry extends Mock implements TelemetryService {}
 
@@ -49,6 +51,11 @@ void main() {
     );
     notebooks = NotebookRepositoryImpl(
       database: db,
+      processed: ProcessedRepositoryImpl(
+        database: db,
+        telemetry: telemetry,
+        files: InMemoryFileStore(),
+      ),
       telemetry: telemetry,
       ids: FakeIdGenerator(prefix: 'nb'),
       clock: () => now,
@@ -781,48 +788,60 @@ void main() {
       expect(await studied(const StudyScope.value('gre')), {'c-grecia'});
     });
 
-    test('un cuaderno manual: los elementos que tiene hoy', () async {
-      final book = await notebooks.create(
-        name: 'Para el examen',
-        mode: NotebookMode.manual,
-      );
-      await notebooks.addItem(notebookId: book.id, itemId: 'roma');
-      await notebooks.addItem(notebookId: book.id, itemId: 'suelto');
+    test(
+      'un cuaderno manual: los documentos procesados que tiene hoy (F41)',
+      () async {
+        for (final id in ['p-roma', 'p-suelto']) {
+          await insertProcessedRows(db, id: id, title: id);
+          await card('c-$id', itemId: id, dueAt: daysFromNow(-1));
+        }
+        final book = await notebooks.create(
+          name: 'Para el examen',
+          mode: NotebookMode.manual,
+        );
+        await notebooks.addItem(notebookId: book.id, itemId: 'p-roma');
+        await notebooks.addItem(notebookId: book.id, itemId: 'p-suelto');
+        // Una fuente de la Biblioteca no entra en un cuaderno.
+        await notebooks.addItem(notebookId: book.id, itemId: 'roma');
 
-      expect(await studied(StudyScope.notebook(book.id)), {
-        'c-roma',
-        'c-suelto',
-      });
+        expect(await studied(StudyScope.notebook(book.id)), {
+          'c-p-roma',
+          'c-p-suelto',
+        });
 
-      // Es lo que es HOY: sacar uno lo saca de la cola.
-      await notebooks.removeItem(notebookId: book.id, itemId: 'suelto');
-      await db
-          .into(db.flashcards)
-          .insert(
-            FlashcardsCompanion.insert(
-              id: 'otra',
-              itemId: 'roma',
-              front: 'f',
-              back: 'b',
-              dueAt: daysFromNow(-1),
-              createdAt: DateTime(2026, 9),
-            ),
-          );
-      expect(await studied(StudyScope.notebook(book.id)), {'otra'});
-    });
+        // Es lo que es HOY: sacar uno lo saca de la cola.
+        await notebooks.removeItem(notebookId: book.id, itemId: 'p-suelto');
+        await db
+            .into(db.flashcards)
+            .insert(
+              FlashcardsCompanion.insert(
+                id: 'otra',
+                itemId: 'p-roma',
+                front: 'f',
+                back: 'b',
+                dueAt: daysFromNow(-1),
+                createdAt: DateTime(2026, 9),
+              ),
+            );
+        expect(await studied(StudyScope.notebook(book.id)), {'otra'});
+      },
+    );
 
-    test('un cuaderno por consulta: lo que la consulta encuentra', () async {
+    test('un cuaderno por consulta: los procesados que la consulta '
+        'encuentra, no las fuentes', () async {
+      await insertProcessedRows(db, id: 'p-grecia', title: 'Grecia');
+      await card('c-p-grecia', itemId: 'p-grecia', dueAt: daysFromNow(-1));
       await db
           .into(db.spaces)
           .insert(SpacesCompanion.insert(id: 'sp', name: 'Sp', createdAt: now));
-      await placeItemRowsInSpace(db, ['grecia'], 'sp');
+      await placeItemRowsInSpace(db, ['grecia', 'p-grecia'], 'sp');
       final book = await notebooks.create(
         name: 'Por espacio',
         mode: NotebookMode.query,
         query: const LibraryQuery(spaceId: 'sp'),
       );
 
-      expect(await studied(StudyScope.notebook(book.id)), {'c-grecia'});
+      expect(await studied(StudyScope.notebook(book.id)), {'c-p-grecia'});
     });
 
     test('un recorte sin ningún elemento no tiene nada', () async {

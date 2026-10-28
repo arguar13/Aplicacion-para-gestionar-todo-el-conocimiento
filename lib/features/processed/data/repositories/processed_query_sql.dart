@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/search_index.dart';
+import 'package:sinapsis/features/library/data/repositories/library_query_sql.dart'
+    show valuesWithDescendantsSql;
 import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
 
 /// El SQL de una [ProcessedQuery] (F41): qué documentos procesados entran, en
@@ -38,6 +40,17 @@ class ProcessedQuerySql {
         'WHERE s.item_id = item.id AND s.space_id = ?)',
       );
       _args.add(Variable.withString(spaceId));
+    }
+    // Lo mismo que la Biblioteca: un valor trae también lo que cuelga de él, y
+    // una subconsulta en vez de un join para no repetir el documento.
+    for (final valueIds in [query.tagIds, query.propertyValueIds]) {
+      if (valueIds.isEmpty) continue;
+      _where.add(
+        'item.id IN (SELECT item_id FROM item_property_values '
+        'WHERE property_value_id IN '
+        '(${valuesWithDescendantsSql(valueIds.length)}))',
+      );
+      _args.addAll(valueIds.map(Variable.withString));
     }
     if (query.sourceKinds.isNotEmpty) {
       _where.add('pd.source_kind IN (${_marks(query.sourceKinds.length)})');

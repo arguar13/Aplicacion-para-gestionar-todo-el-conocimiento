@@ -13,10 +13,12 @@ import 'package:sinapsis/features/organize/data/repositories/organize_repository
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/item_rows.dart';
+import '../../../../support/processed_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
-/// Contra SQLite real, en memoria (F30).
+/// Contra SQLite real, en memoria (F30). Lo que se cuenta son documentos
+/// procesados (F41, paso 5): un cuaderno sugerido se llena con ellos.
 void main() {
   late AppDatabase db;
   late NotebookTopicReaderImpl reader;
@@ -45,8 +47,12 @@ void main() {
 
   tearDown(() => db.close());
 
-  Future<void> item(String id, {DateTime? createdAt}) =>
-      insertItemRows(db, id: id, title: 'Título $id', createdAt: createdAt);
+  Future<void> item(String id, {DateTime? createdAt}) => insertProcessedRows(
+    db,
+    id: id,
+    title: 'Título $id',
+    createdAt: createdAt,
+  );
 
   Future<String> tag(String name, {String? parent}) async {
     final created = (await organize.getOrCreateTag(
@@ -138,6 +144,28 @@ void main() {
     expect(byName['Grecia']!.itemCount, 1);
     expect(byName.containsKey('Sin elementos'), isFalse);
     expect(byName.values.every((t) => t.kind == NotebookTopicKind.tag), isTrue);
+  });
+
+  test('las fuentes de la Biblioteca no cuentan: solo lo procesado', () async {
+    final roma = (await organize.createSpace('Roma')).getRight().toNullable()!;
+    await tag('Imperio');
+    for (final id in ['f1', 'f2', 'f3']) {
+      await insertItemRows(db, id: id, title: 'Fuente $id');
+      await library.setSpaces(itemIds: [id], spaceIds: {roma.id});
+      await label(id, 'Imperio');
+    }
+    await item('p1');
+    await library.setSpaces(itemIds: ['p1'], spaceIds: {roma.id});
+    await label('p1', 'Imperio');
+
+    final found = await topics();
+
+    expect(
+      {for (final t in found) t.name: t.itemCount},
+      {'Roma': 1, 'Imperio': 1},
+    );
+    final suggestion = NotebookSuggestion(topic: found.first);
+    expect(await reader.sampleTitles(suggestion), ['Título p1']);
   });
 
   test('se actualiza solo cuando entra algo', () async {

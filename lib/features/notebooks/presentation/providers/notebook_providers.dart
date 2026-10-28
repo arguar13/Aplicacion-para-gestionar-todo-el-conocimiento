@@ -8,12 +8,15 @@ import 'package:sinapsis/features/notebooks/data/services/notebook_candidate_fin
 import 'package:sinapsis/features/notebooks/domain/entities/notebook.dart';
 import 'package:sinapsis/features/notebooks/domain/repositories/notebook_repository.dart';
 import 'package:sinapsis/features/notebooks/domain/services/notebook_candidates.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 
 /// Cascada de inyección de los cuadernos (F16).
 final notebookRepositoryProvider = Provider<NotebookRepository>((ref) {
   return NotebookRepositoryImpl(
     database: ref.watch(appDatabaseProvider),
+    processed: ref.watch(processedRepositoryProvider),
     telemetry: ref.watch(telemetryServiceProvider),
     ids: ref.watch(idGeneratorProvider),
     clock: ref.watch(clockProvider),
@@ -37,6 +40,17 @@ final notebookItemIdsProvider = StreamProvider.autoDispose
       return ref.watch(notebookRepositoryProvider).watchItemIds(notebookId);
     });
 
+/// Qué documentos procesados pide un cuaderno (F41, paso 5) —ver
+/// `NotebookRepository.resolveQuery`—, otra vez cada vez que cambia: el
+/// cuaderno —su modo o su consulta— o lo que se le agregó o sacó.
+final notebookProcessedQueryProvider = FutureProvider.autoDispose
+    .family<ProcessedQuery, String>((ref, notebookId) async {
+      ref
+        ..watch(notebookByIdProvider(notebookId))
+        ..watch(notebookItemIdsProvider(notebookId));
+      return ref.watch(notebookRepositoryProvider).resolveQuery(notebookId);
+    });
+
 /// Qué modelos hay para los cuadernos con IA (F30): el de lenguaje —el
 /// elegido, bajado o en la nube (F32)— revisa y nombra; el de vínculos busca
 /// por sentido.
@@ -54,6 +68,7 @@ final notebookCandidateFinderProvider =
     Provider.autoDispose<NotebookCandidateFinder>(
       (ref) => NotebookCandidateFinderImpl(
         database: ref.watch(appDatabaseProvider),
+        processed: ref.watch(processedRepositoryProvider),
         retriever: ref.watch(vaultRetrieverProvider),
         vectors: ref.watch(itemVectorIndexProvider),
         embeddings: ref.watch(embeddingServiceProvider),

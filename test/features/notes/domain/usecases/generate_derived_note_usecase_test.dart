@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -23,6 +24,11 @@ import 'package:sinapsis/features/notes/domain/services/derived_note_generator.d
 import 'package:sinapsis/features/notes/domain/services/derived_note_parts.dart';
 import 'package:sinapsis/features/notes/domain/usecases/generate_derived_note_usecase.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
+import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 import 'package:sinapsis/features/relations/data/services/item_vector_index_impl.dart';
 
 import '../../../../support/fake_id_generator.dart';
@@ -71,6 +77,7 @@ void main() {
   late AppDatabase db;
   late LibraryRepositoryImpl library;
   late NotebookRepositoryImpl notebooks;
+  late ProcessedRepositoryImpl processed;
   late OrganizeRepositoryImpl organize;
   late DerivedNoteRepositoryImpl derivedNotes;
   late FakeIdGenerator ids;
@@ -86,8 +93,16 @@ void main() {
       ids: FakeIdGenerator(prefix: 'lib'),
       clock: () => now,
     );
+    processed = ProcessedRepositoryImpl(
+      database: db,
+      telemetry: MockTelemetryService(),
+      files: InMemoryFileStore(),
+      ids: FakeIdGenerator(prefix: 'parte'),
+      clock: () => now,
+    );
     notebooks = NotebookRepositoryImpl(
       database: db,
+      processed: processed,
       telemetry: MockTelemetryService(),
       ids: FakeIdGenerator(prefix: 'nb'),
       clock: () => now,
@@ -114,6 +129,7 @@ void main() {
   }) => GenerateDerivedNoteUseCase(
     library: library,
     notebooks: notebooks,
+    processed: processed,
     organize: organize,
     derivedNotes: derivedNotes,
     generator: generator,
@@ -152,79 +168,94 @@ void main() {
     return result.getRight().toNullable()!.id;
   }
 
-  test(
-    'genera un derivado desde un cuaderno manual, con sus relaciones',
-    () async {
-      await seedSource('a', 'primer contenido real');
-      await seedSource('b', 'segundo contenido real');
-      final notebook = await notebooks.create(
-        name: 'Cuaderno',
-        mode: NotebookMode.manual,
-      );
-      await notebooks.addItem(notebookId: notebook.id, itemId: 'a');
-      await notebooks.addItem(notebookId: notebook.id, itemId: 'b');
+  /// Pasa la fuente [sourceId] a Procesado tal cual —o con [edits], lo que se
+  /// pida— y devuelve el id de su documento procesado: lo único que puede
+  /// estar en un cuaderno (F41, paso 5).
+  Future<String> process(
+    String sourceId, [
+    Map<ProcessedSection, SectionEdit>? edits,
+  ]) async {
+    final use = ProcessSourceUseCase(processed);
+    final result = edits == null
+        ? await use.passUnchanged(sourceId)
+        : await use(sourceId, edits);
+    expect(result.isRight(), isTrue);
+    return processedDocumentIdFor(sourceId);
+  }
 
-      const draft = DerivedNoteDraft(
-        type: DerivedNoteType.studyGuide,
-        sections: [
-          DerivedSection(
-            heading: 'Tema uno',
-            claims: [
-              DerivedClaim(
-                text: 'afirmación de a',
-                sourceItemId: 'a',
-                sourceCharStart: 0,
-                sourceCharEnd: 6,
-              ),
-              DerivedClaim(
-                text: 'afirmación de b',
-                sourceItemId: 'b',
-                sourceCharStart: 7,
-                sourceCharEnd: 14,
-              ),
-            ],
-          ),
-        ],
-      );
+  test('genera un derivado desde un cuaderno, con sus relaciones a las fuentes '
+      'de sus procesados', () async {
+    await seedSource('a', 'primer contenido real');
+    await seedSource('b', 'segundo contenido real');
+    final notebook = await notebooks.create(
+      name: 'Cuaderno',
+      mode: NotebookMode.manual,
+    );
+    await notebooks.addItems(
+      notebookId: notebook.id,
+      itemIds: [await process('a'), await process('b')],
+    );
 
-      final result = await useCase(FakeDerivedNoteGenerator(draft))(
-        GenerateDerivedNoteParams(
-          type: DerivedNoteType.studyGuide,
-          title: 'Guía de estudio',
-          model: 'gemma-3n',
-          notebookId: notebook.id,
+    const draft = DerivedNoteDraft(
+      type: DerivedNoteType.studyGuide,
+      sections: [
+        DerivedSection(
+          heading: 'Tema uno',
+          claims: [
+            DerivedClaim(
+              text: 'afirmación de a',
+              sourceItemId: 'a',
+              sourceCharStart: 0,
+              sourceCharEnd: 6,
+            ),
+            DerivedClaim(
+              text: 'afirmación de b',
+              sourceItemId: 'b',
+              sourceCharStart: 7,
+              sourceCharEnd: 14,
+            ),
+          ],
         ),
-      );
+      ],
+    );
 
-      final saved = result.getRight().toNullable()!.note;
-      expect(saved.title, 'Guía de estudio');
-      expect(saved.source.kind, SourceKind.manualNote);
+    final result = await useCase(FakeDerivedNoteGenerator(draft))(
+      GenerateDerivedNoteParams(
+        type: DerivedNoteType.studyGuide,
+        title: 'Guía de estudio',
+        model: 'gemma-3n',
+        notebookId: notebook.id,
+      ),
+    );
 
-      final rendition = saved.renditions.whereType<TextRendition>().single;
-      expect(decodeContentBlocks(rendition.content), [
-        const ContentBlock.heading(text: 'Tema uno', level: 2),
-        const ContentBlock.bulletItem(text: 'afirmación de a'),
-        const ContentBlock.bulletItem(text: 'afirmación de b'),
-      ]);
+    final saved = result.getRight().toNullable()!.note;
+    expect(saved.title, 'Guía de estudio');
+    expect(saved.source.kind, SourceKind.manualNote);
 
-      final mark = await derivedNotes.watchMark(saved.id).first;
-      expect(mark!.model, 'gemma-3n');
-      expect(mark.generatedAt, now);
-      expect(mark.edited, isFalse);
+    final rendition = saved.renditions.whereType<TextRendition>().single;
+    expect(decodeContentBlocks(rendition.content), [
+      const ContentBlock.heading(text: 'Tema uno', level: 2),
+      const ContentBlock.bulletItem(text: 'afirmación de a'),
+      const ContentBlock.bulletItem(text: 'afirmación de b'),
+    ]);
 
-      final relations = await organize.watchRelationsForItem(saved.id).first;
-      expect(relations, hasLength(2));
-      expect(
-        relations.every((r) => r.direction == RelationDirection.outgoing),
-        isTrue,
-      );
-      expect(
-        relations.every((r) => r.kind == RelationKind.extractedFrom),
-        isTrue,
-      );
-      expect(relations.map((r) => r.otherItemId), containsAll(['a', 'b']));
-    },
-  );
+    final mark = await derivedNotes.watchMark(saved.id).first;
+    expect(mark!.model, 'gemma-3n');
+    expect(mark.generatedAt, now);
+    expect(mark.edited, isFalse);
+
+    final relations = await organize.watchRelationsForItem(saved.id).first;
+    expect(relations, hasLength(2));
+    expect(
+      relations.every((r) => r.direction == RelationDirection.outgoing),
+      isTrue,
+    );
+    expect(
+      relations.every((r) => r.kind == RelationKind.extractedFrom),
+      isTrue,
+    );
+    expect(relations.map((r) => r.otherItemId), containsAll(['a', 'b']));
+  });
 
   test('genera un derivado desde un único elemento', () async {
     await seedSource('a', 'contenido de un solo elemento');
@@ -405,42 +436,16 @@ void main() {
   });
 
   group('por partes (F30)', () {
-    /// Una nota manual: no se fragmenta, así que no se puede citar.
-    Future<void> seedNote(String id, String content) async {
-      await library.save(
-        KnowledgeItem(
-          id: id,
-          title: 'Nota $id',
-          source: Source(
-            id: 'src-$id',
-            kind: SourceKind.manualNote,
-            capturedAt: now,
-          ),
-          processingState: ProcessingState.ready,
-          createdAt: now,
-          updatedAt: now,
-          renditions: [
-            Rendition.text(
-              id: 'rend-$id',
-              itemId: id,
-              kind: RenditionKind.blocks,
-              content: encodeContentBlocks([
-                ContentBlock.paragraph(text: content),
-              ]),
-              isPrimary: true,
-              createdAt: now,
-            ),
-          ],
-        ),
-      );
-    }
-
-    Future<String> notebookOf(List<String> itemIds) async {
+    /// Un cuaderno con los documentos procesados de [sourceIds].
+    Future<String> notebookOf(List<String> sourceIds) async {
       final notebook = await notebooks.create(
         name: 'Roma',
         mode: NotebookMode.manual,
       );
-      await notebooks.addItems(notebookId: notebook.id, itemIds: itemIds);
+      await notebooks.addItems(
+        notebookId: notebook.id,
+        itemIds: [for (final id in sourceIds) await process(id)],
+      );
       return notebook.id;
     }
 
@@ -562,39 +567,114 @@ void main() {
       expect(result.isRight(), isTrue);
     });
 
-    test(
-      'las notas del cuaderno no van al modelo: no se podrían citar',
-      () async {
-        await seedSource(
-          'fuente',
-          'El Senado romano tenía trescientos miembros.',
-        );
-        await seedNote('nota', 'Lo que pienso del Senado.');
-        final notebookId = await notebookOf(['fuente', 'nota']);
-        final generator = FakeDerivedNoteGenerator(
-          const DerivedNoteDraft(
-            type: DerivedNoteType.studyGuide,
-            sections: [],
+    test('de cada procesado se cita lo primero copiado tal cual, en su '
+        'lugar del texto de la fuente', () async {
+      await seedSource(
+        'fuente',
+        '   El Senado romano tenía trescientos miembros.',
+      );
+      final notebookId = await notebookOf(['fuente']);
+      final generator = FakeDerivedNoteGenerator(
+        const DerivedNoteDraft(type: DerivedNoteType.studyGuide, sections: []),
+        draftFor: oneClaimPerSource,
+      );
+
+      await useCase(generator)(
+        GenerateDerivedNoteParams(
+          type: DerivedNoteType.studyGuide,
+          title: 'Guía',
+          model: 'gemma-3n',
+          notebookId: notebookId,
+        ),
+      );
+
+      final cited = generator.calls.single.single;
+      expect(cited.itemId, 'fuente');
+      expect(cited.itemTitle, 'Fuente fuente');
+      expect(cited.excerpt, 'El Senado romano tenía trescientos miembros.');
+      expect(cited.sourceCharStart, 3);
+      expect(cited.sourceCharEnd, 3 + cited.excerpt.length);
+    });
+
+    test('lo escrito o editado en un procesado no va al modelo: no se podría '
+        'citar', () async {
+      await seedSource(
+        'fuente',
+        'El Senado romano tenía trescientos miembros.',
+      );
+      await seedSource('notas', 'Las legiones marchaban.');
+      await seedSource('editada', 'Los cónsules eran dos.');
+      final notebookId = await notebookOf(['fuente']);
+      final notes = await process('notas', {
+        ProcessedSection.notes: SectionEdit.add(
+          const SectionInput.drafts([
+            ProcessedDraft.written('Lo que pienso de las legiones.'),
+          ]),
+        ),
+      });
+      final edited = await process('editada');
+      final page = (await processed.partsOf(
+        edited,
+      )).getRight().toNullable()!.single;
+      await processed.editPart(page.id, 'Los cónsules, según yo.');
+      await notebooks.addItems(
+        notebookId: notebookId,
+        itemIds: [notes, edited],
+      );
+      final generator = FakeDerivedNoteGenerator(
+        const DerivedNoteDraft(type: DerivedNoteType.studyGuide, sections: []),
+        draftFor: oneClaimPerSource,
+      );
+
+      await useCase(generator)(
+        GenerateDerivedNoteParams(
+          type: DerivedNoteType.studyGuide,
+          title: 'Guía',
+          model: 'gemma-3n',
+          notebookId: notebookId,
+        ),
+      );
+
+      expect(generator.calls.single.map((s) => s.itemId), ['fuente']);
+    });
+
+    test('un cuaderno con solo lo escrito no llama al modelo', () async {
+      await seedSource('notas', 'Las legiones marchaban.');
+      final notebook = await notebooks.create(
+        name: 'Roma',
+        mode: NotebookMode.manual,
+      );
+      await notebooks.addItem(
+        notebookId: notebook.id,
+        itemId: await process('notas', {
+          ProcessedSection.notes: SectionEdit.add(
+            const SectionInput.drafts([
+              ProcessedDraft.written('Lo que pienso de las legiones.'),
+            ]),
           ),
-          draftFor: oneClaimPerSource,
-        );
+        }),
+      );
+      final generator = FakeDerivedNoteGenerator(
+        const DerivedNoteDraft(type: DerivedNoteType.studyGuide, sections: []),
+      );
 
-        await useCase(generator)(
-          GenerateDerivedNoteParams(
-            type: DerivedNoteType.studyGuide,
-            title: 'Guía',
-            model: 'gemma-3n',
-            notebookId: notebookId,
-          ),
-        );
+      final result = await useCase(generator)(
+        GenerateDerivedNoteParams(
+          type: DerivedNoteType.studyGuide,
+          title: 'Guía',
+          model: 'gemma-3n',
+          notebookId: notebook.id,
+        ),
+      );
 
-        expect(generator.calls.single.map((s) => s.itemId), ['fuente']);
-      },
-    );
+      expect(result.isLeft(), isTrue);
+      expect(generator.calls, isEmpty);
+    });
 
-    test('un cuaderno con solo notas no llama al modelo', () async {
-      await seedNote('nota', 'Lo que pienso del Senado.');
-      final notebookId = await notebookOf(['nota']);
+    test('un procesado cuya fuente está en la papelera no se cita', () async {
+      await seedSource('a', 'El Senado romano');
+      final notebookId = await notebookOf(['a']);
+      await library.delete('a');
       final generator = FakeDerivedNoteGenerator(
         const DerivedNoteDraft(type: DerivedNoteType.studyGuide, sections: []),
       );
@@ -613,7 +693,8 @@ void main() {
     });
   });
 
-  group('queda adentro del cuaderno (F30)', () {
+  group('queda en la Biblioteca: un cuaderno tiene solo procesados '
+      '(F41, paso 5)', () {
     DerivedNoteDraft citeAll(List<ChatSource> sources) => DerivedNoteDraft(
       type: DerivedNoteType.studyGuide,
       sections: [
@@ -652,89 +733,49 @@ void main() {
       return result.getRight().toNullable()!;
     }
 
-    test('en uno manual, se agrega a sus elementos', () async {
+    test('en uno manual, la nota no entra y el cuaderno no cambia', () async {
       await seedSource('a', 'El Senado romano');
       final notebook = await notebooks.create(
         name: 'Roma',
         mode: NotebookMode.manual,
       );
-      await notebooks.addItem(notebookId: notebook.id, itemId: 'a');
-
-      final result = await generateFrom(notebook.id);
-
-      expect(result.inNotebook, isTrue);
-      expect((await notebooks.resolveQuery(notebook.id)).ids, {
-        'a',
-        result.note.id,
-      });
-    });
-
-    test('en uno por tema, la nota recibe el tema y entra sola', () async {
-      final space = (await organize.createSpace(
-        'Roma',
-      )).getRight().toNullable()!;
-      await seedSource('a', 'El Senado romano');
-      await library.setSpaces(itemIds: ['a'], spaceIds: {space.id});
-      final notebook = await notebooks.create(
-        name: 'Roma',
-        mode: NotebookMode.query,
-        query: LibraryQuery(spaceId: space.id),
-      );
-
-      final result = await generateFrom(notebook.id);
-
-      expect(result.inNotebook, isTrue);
-      expect(result.note.spaceIds, {space.id});
-      final inside = (await library.matchingIds(
-        LibraryQuery(spaceId: space.id),
-      )).getRight().toNullable()!;
-      expect(inside, contains(result.note.id));
-    });
-
-    test('en uno por etiqueta, la nota recibe la etiqueta', () async {
-      final tag = (await organize.getOrCreateTag(
-        'Roma',
-      )).getRight().toNullable()!;
-      final source = (await library.findById(
-        await seedSource('a', 'El Senado romano'),
-      )).getRight().toNullable()!;
-      await library.save(source.copyWith(tags: [tag]));
-      final notebook = await notebooks.create(
-        name: 'Roma',
-        mode: NotebookMode.query,
-        query: LibraryQuery(tagIds: {tag.id}),
-      );
-
-      final result = await generateFrom(notebook.id);
-
-      expect(result.inNotebook, isTrue);
-      final saved = (await library.findById(
-        result.note.id,
-      )).getRight().toNullable()!;
-      expect(saved.tags.map((t) => t.id), [tag.id]);
-    });
-
-    test('si la consulta pide algo que una nota no tiene, queda en la '
-        'Biblioteca y lo dice, sin tocarle el tema', () async {
-      final space = (await organize.createSpace(
-        'Roma',
-      )).getRight().toNullable()!;
-      await seedSource('a', 'El Senado romano');
-      await library.setSpaces(itemIds: ['a'], spaceIds: {space.id});
-      final notebook = await notebooks.create(
-        name: 'Solo páginas',
-        mode: NotebookMode.query,
-        query: LibraryQuery(
-          spaceId: space.id,
-          sourceKinds: const {SourceKind.webPage},
-        ),
-      );
+      final doc = await process('a');
+      await notebooks.addItem(notebookId: notebook.id, itemId: doc);
 
       final result = await generateFrom(notebook.id);
 
       expect(result.inNotebook, isFalse);
-      expect(result.note.spaceIds, isEmpty);
+      expect((await notebooks.memberIds(notebook.id)).getRight().toNullable(), [
+        doc,
+      ]);
     });
+
+    test(
+      'en uno por tema, la nota no recibe el tema: no entraría igual',
+      () async {
+        final space = (await organize.createSpace(
+          'Roma',
+        )).getRight().toNullable()!;
+        await seedSource('a', 'El Senado romano');
+        final doc = await process('a');
+        await library.setSpaces(itemIds: [doc], spaceIds: {space.id});
+        final notebook = await notebooks.create(
+          name: 'Roma',
+          mode: NotebookMode.query,
+          query: LibraryQuery(spaceId: space.id),
+        );
+
+        final result = await generateFrom(notebook.id);
+
+        expect(result.inNotebook, isFalse);
+        expect(result.note.spaceIds, isEmpty);
+        expect(result.note.tags, isEmpty);
+        expect(
+          (await notebooks.memberIds(notebook.id)).getRight().toNullable(),
+          [doc],
+        );
+      },
+    );
 
     test('de un elemento suelto, no hay cuaderno que mirar', () async {
       await seedSource('a', 'El Senado romano');

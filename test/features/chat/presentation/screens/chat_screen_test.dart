@@ -11,13 +11,12 @@ import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_conversations_panel.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/chat_actions.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// Firma PNG mínima: ocho bytes alcanzan para que `detectFileFormat`
 /// reconozca el formato por magia y no le haga falta el resto del archivo
@@ -817,25 +816,22 @@ void main() {
 
     /// Dos elementos que la búsqueda de texto encuentra a los dos —los
     /// títulos comparten la palabra "cuaderno"—, y un cuaderno manual que
-    /// solo tiene el primero: lo que distingue "encontrado por texto" de
-    /// "adentro del alcance".
+    /// solo tiene el primero, un documento procesado (F41, paso 5): lo que
+    /// distingue "encontrado por texto" de "adentro del alcance".
     Future<String> seedScopedNotebook(WidgetTester tester) async {
-      await harness.capture('Adentro del cuaderno');
+      await insertProcessedRows(
+        harness.database,
+        id: 'adentro',
+        title: 'Adentro del cuaderno',
+      );
       await harness.capture('Afuera del cuaderno');
-      final items =
-          (await harness.container
-                  .read(libraryRepositoryProvider)
-                  .list(const LibraryQuery()))
-              .getRight()
-              .toNullable()!;
-      final inside = items.firstWhere((i) => i.title == 'Adentro del cuaderno');
 
       final notebook = await harness.container
           .read(notebookRepositoryProvider)
           .create(name: 'Mi cuaderno', mode: NotebookMode.manual);
       await harness.container
           .read(notebookRepositoryProvider)
-          .addItem(notebookId: notebook.id, itemId: inside.id);
+          .addItem(notebookId: notebook.id, itemId: 'adentro');
       await tester.pumpAndSettle();
       return notebook.id;
     }

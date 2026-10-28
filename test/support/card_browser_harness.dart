@@ -8,6 +8,7 @@ import 'package:sinapsis/features/flashcards/data/repositories/card_browser_repo
 import 'package:sinapsis/features/flashcards/domain/services/study_scope_resolver.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/notebooks/data/repositories/notebook_repository_impl.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
 
 import 'fake_id_generator.dart';
 import 'in_memory_file_store.dart';
@@ -48,6 +49,11 @@ class CardBrowserHarness {
     );
     final notebooks = NotebookRepositoryImpl(
       database: db,
+      processed: ProcessedRepositoryImpl(
+        database: db,
+        telemetry: telemetry,
+        files: InMemoryFileStore(),
+      ),
       telemetry: telemetry,
       ids: FakeIdGenerator(prefix: 'nb'),
       clock: clock,

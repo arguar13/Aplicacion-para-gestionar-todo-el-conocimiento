@@ -8,6 +8,8 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/notebooks/domain/services/notebook_suggestions.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_suggestions_controller.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 
 /// Cuántos títulos recientes alimentan las sugerencias: uno por sugerencia
 /// que los usa (resumir, preguntar, qué dice).
@@ -16,28 +18,42 @@ const _kRecentTitles = 3;
 /// Dónde se pregunta: el modo y, con la bóveda, el cuaderno (`null` es toda).
 typedef ChatSuggestionScope = ({ChatConversationMode mode, String? notebookId});
 
-/// Lo último que se guardó **y ya se procesó** —lo pendiente todavía no tiene
-/// texto que resumir ni sobre qué preguntar—, en el alcance elegido. Con un
-/// cuaderno, su consulta, que se vuelve a resolver si cambia lo que tiene.
-final _recentQueryProvider = FutureProvider.autoDispose
-    .family<LibraryQuery, String?>((ref, notebookId) async {
-      const recent = LibraryQuery(
-        processingStates: {ProcessingState.ready},
-        limit: _kRecentTitles,
-      );
-      if (notebookId == null) return recent;
-      // Un cuaderno a mano cambia cuando se le agrega o se le saca algo.
-      ref.watch(notebookItemIdsProvider(notebookId));
-      final scoped = await ref
-          .watch(notebookRepositoryProvider)
-          .resolveQuery(notebookId);
-      return scoped.copyWith(
-        processingStates: {ProcessingState.ready},
-        sortBy: LibrarySort.capturedAt,
-        descending: true,
-        limit: _kRecentTitles,
-        offset: 0,
-      );
+/// Los títulos de lo último que se guardó **y ya se procesó** —lo pendiente
+/// todavía no tiene texto que resumir ni sobre qué preguntar—, en el alcance
+/// elegido. `null` mientras se buscan.
+///
+/// Con un cuaderno, los de sus documentos procesados (F41, paso 5), lo último
+/// que se procesó primero: es lo único que un cuaderno tiene, y el chat acotado
+/// a él lee solo eso.
+final _recentTitlesProvider = Provider.autoDispose
+    .family<List<String>?, String?>((ref, notebookId) {
+      if (notebookId == null) {
+        const recent = LibraryQuery(
+          processingStates: {ProcessingState.ready},
+          limit: _kRecentTitles,
+        );
+        final items = ref.watch(libraryItemsProvider(recent)).valueOrNull;
+        return items == null ? null : [for (final item in items) item.title];
+      }
+      final scoped = ref
+          .watch(notebookProcessedQueryProvider(notebookId))
+          .valueOrNull;
+      if (scoped == null) return null;
+      final documents = ref
+          .watch(
+            processedDocumentsProvider(
+              scoped.copyWith(
+                sortBy: ProcessedSort.createdAt,
+                descending: true,
+                limit: _kRecentTitles,
+                offset: 0,
+              ),
+            ),
+          )
+          .valueOrNull;
+      return documents == null
+          ? null
+          : [for (final document in documents) document.title];
     });
 
 /// Las sugerencias del chat vacío (F42), al día con lo que entra: con la
@@ -48,11 +64,7 @@ final chatSuggestionsProvider = Provider.autoDispose
     .family<List<ChatSuggestion>, ChatSuggestionScope>((ref, scope) {
       if (scope.mode == ChatConversationMode.free) return freeChatSuggestions;
 
-      final query = ref.watch(_recentQueryProvider(scope.notebookId));
-      final recent = switch (query.valueOrNull) {
-        final query? => ref.watch(libraryItemsProvider(query)).valueOrNull,
-        null => null,
-      };
+      final recent = ref.watch(_recentTitlesProvider(scope.notebookId));
       if (recent == null) return const [];
 
       final notebookId = scope.notebookId;
@@ -60,7 +72,7 @@ final chatSuggestionsProvider = Provider.autoDispose
           ? null
           : ref.watch(notebookByIdProvider(notebookId)).valueOrNull?.name;
       return vaultChatSuggestions(
-        recentTitles: [for (final item in recent) item.title],
+        recentTitles: recent,
         notebookName: notebookName,
         topTopic: notebookId == null
             ? topNotebookTopic(ref.watch(notebookTopicsProvider).valueOrNull)

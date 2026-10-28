@@ -20,6 +20,8 @@ import 'package:sinapsis/features/library/data/repositories/library_repository_i
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/notebooks/data/repositories/notebook_repository_impl.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
+import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 import 'package:sinapsis/features/timeline/data/repositories/timeline_repository_impl.dart';
 import 'package:sinapsis/features/vocabulary/data/repositories/vocabulary_repository_impl.dart';
 import 'package:sinapsis/features/vocabulary/domain/services/merge_candidates.dart';
@@ -154,19 +156,30 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
       ids: FakeIdGenerator(prefix: 'org'),
       clock: () => vault.now,
     );
+    final processed = ProcessedRepositoryImpl(
+      database: db,
+      telemetry: telemetry,
+      files: InMemoryFileStore(),
+      ids: FakeIdGenerator(prefix: 'pro'),
+      clock: () => vault.now,
+    );
     notebooks = NotebookRepositoryImpl(
       database: db,
+      processed: processed,
       telemetry: telemetry,
       ids: FakeIdGenerator(prefix: 'nb'),
       clock: () => vault.now,
     );
     retriever = ChunkPassageRetriever(database: db);
 
-    // Un cuaderno manual de 500 elementos (F16, D1), para medir el chat
-    // acotado a un cuaderno GRANDE (16, 13): 500 es el tamaño que propone
-    // el propio plan, no un número arbitrario. Insertado con SQL directo,
-    // no `addItem` 500 veces —acá lo que se mide es la búsqueda, no el
-    // armado del cuaderno—. `insertOnConflictUpdate`/borrar-y-rearmar
+    // Un cuaderno manual de 500 documentos procesados (F16, D1; F41, paso 5),
+    // para medir el chat acotado a un cuaderno GRANDE (16, 13): 500 es el
+    // tamaño que propone el propio plan, no un número arbitrario. Los
+    // procesados salen de «pasar todo sin modificar» —el texto entero de su
+    // fuente, el caso más pesado—, y solo los que falten: la bóveda queda en
+    // disco entre corridas. El cuaderno se llena con SQL directo, no con
+    // `addItem` 500 veces —acá lo que se mide es la búsqueda, no el armado
+    // del cuaderno—. `insertOnConflictUpdate`/borrar-y-rearmar
     // porque la bóveda queda cacheada en disco entre corridas (F16, D2 ya
     // documentó lo mismo para otros escenarios): sin esto, la segunda
     // corrida choca contra la fila que dejó la primera.
@@ -185,9 +198,22 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
       'DELETE FROM notebook_item WHERE notebook_id = ?',
       [bigNotebookId],
     );
+    final unprocessed = await db
+        .customSelect(
+          "SELECT i.id AS id FROM item i WHERE i.kind = 'source' "
+          'AND i.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM '
+          'processed_documents pd WHERE pd.source_item_id = i.id) '
+          'ORDER BY i.id LIMIT MAX(0, 500 - '
+          '(SELECT COUNT(*) FROM processed_documents))',
+        )
+        .get();
+    final process = ProcessSourceUseCase(processed);
+    for (final row in unprocessed) {
+      await process.passUnchanged(row.read<String>('id'));
+    }
     await db.customStatement(
       'INSERT INTO notebook_item (notebook_id, item_id) '
-      "SELECT ?, id FROM item WHERE kind = 'source' LIMIT 500",
+      'SELECT ?, item_id FROM processed_documents LIMIT 500',
       [bigNotebookId],
     );
 
@@ -335,8 +361,7 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
         await measure(
           'cuaderno de 500: $label',
           () async {
-            final query = await notebooks.resolveQuery(bigNotebookId);
-            final scoped = await library.matchingIds(query);
+            final scoped = await notebooks.memberIds(bigNotebookId);
             final scopeIds = scoped.match(
               (_) => const <String>{},
               (ids) => ids.toSet(),

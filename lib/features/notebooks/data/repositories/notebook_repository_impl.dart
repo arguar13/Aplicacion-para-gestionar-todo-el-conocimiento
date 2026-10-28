@@ -1,9 +1,13 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/processed_entries.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
+import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
@@ -11,22 +15,35 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query_json.dart';
 import 'package:sinapsis/features/notebooks/domain/entities/notebook.dart';
 import 'package:sinapsis/features/notebooks/domain/repositories/notebook_repository.dart';
+import 'package:sinapsis/features/notebooks/domain/services/notebook_scope.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
+import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
 
+/// [NotebookRepository] sobre la base. Lo que tiene un cuaderno lo responde
+/// «Procesado» ([ProcessedRepository.matchingIds]): un solo motor para «qué
+/// procesados cumplen esto», el mismo de la pantalla Procesado.
 class NotebookRepositoryImpl implements NotebookRepository {
   NotebookRepositoryImpl({
     required AppDatabase database,
+    required ProcessedRepository processed,
     required TelemetryService telemetry,
     required IdGenerator ids,
     required Clock clock,
   }) : _db = database,
+       _processed = processed,
        _telemetry = telemetry,
        _ids = ids,
        _clock = clock;
 
   final AppDatabase _db;
+  final ProcessedRepository _processed;
   final TelemetryService _telemetry;
   final IdGenerator _ids;
   final Clock _clock;
+
+  /// Cuántos ids entran en una sola consulta: por debajo del tope de
+  /// parámetros de SQLite.
+  static const _idsPerQuery = 400;
 
   @override
   Stream<List<Notebook>> watchAll() {
@@ -127,41 +144,35 @@ class NotebookRepositoryImpl implements NotebookRepository {
   }
 
   @override
-  Future<void> addItem({
-    required String notebookId,
-    required String itemId,
-  }) async {
-    await _db.transaction(() async {
-      await _db
-          .into(_db.notebookItems)
-          .insert(
-            NotebookItemsCompanion.insert(
-              notebookId: notebookId,
-              itemId: itemId,
-            ),
-            mode: InsertMode.insertOrIgnore,
-          );
-      await _touch(notebookId);
-    });
-  }
+  Future<void> addItem({required String notebookId, required String itemId}) =>
+      addItems(notebookId: notebookId, itemIds: [itemId]);
 
   @override
   Future<void> addItems({
     required String notebookId,
     required Iterable<String> itemIds,
   }) async {
-    final ids = itemIds.toSet();
+    final ids = itemIds.toSet().toList();
     if (ids.isEmpty) return;
     await _db.transaction(() async {
-      await _db.batch((batch) {
-        batch.insertAll(_db.notebookItems, [
-          for (final itemId in ids)
-            NotebookItemsCompanion.insert(
-              notebookId: notebookId,
-              itemId: itemId,
-            ),
-        ], mode: InsertMode.insertOrIgnore);
-      });
+      // La regla (F41, paso 5): de lo pedido, entra solo lo que es un
+      // documento procesado vivo —uno en la papelera no se ofrece, y no
+      // entraría a la vista—. La misma consulta inserta y filtra, así que
+      // nada puede colarse entre mirar y escribir.
+      for (var start = 0; start < ids.length; start += _idsPerQuery) {
+        final slice = ids.skip(start).take(_idsPerQuery).toList();
+        await _db.customInsert(
+          'INSERT OR IGNORE INTO notebook_item (notebook_id, item_id) '
+          'SELECT ?, item.id FROM item '
+          'WHERE item.id IN (${List.filled(slice.length, '?').join(', ')}) '
+          'AND $kActiveItemSql AND ${isProcessedSql('item.id')}',
+          variables: [
+            Variable.withString(notebookId),
+            for (final id in slice) Variable.withString(id),
+          ],
+          updates: {_db.notebookItems},
+        );
+      }
       await _touch(notebookId);
     });
   }
@@ -186,19 +197,43 @@ class NotebookRepositoryImpl implements NotebookRepository {
   }
 
   @override
-  Future<LibraryQuery> resolveQuery(String notebookId) async {
+  Future<ProcessedQuery> resolveQuery(String notebookId) async {
     final row = await (_db.select(
       _db.notebooks,
     )..where((n) => n.id.equals(notebookId))).getSingle();
+    return _queryOf(row);
+  }
+
+  Future<ProcessedQuery> _queryOf(NotebookRow row) async {
+    final notebookId = row.id;
     if (row.mode == NotebookMode.query) {
-      return libraryQueryFromJson(
-        jsonDecode(row.queryJson!) as Map<String, Object?>,
+      return processedQueryForView(
+        libraryQueryFromJson(
+          jsonDecode(row.queryJson!) as Map<String, Object?>,
+        ),
       );
     }
     final items = await (_db.select(
       _db.notebookItems,
     )..where((n) => n.notebookId.equals(notebookId))).get();
-    return LibraryQuery(ids: {for (final i in items) i.itemId});
+    return processedQueryForMembers({for (final i in items) i.itemId});
+  }
+
+  @override
+  Future<Either<Failure, List<String>>> memberIds(String notebookId) async {
+    final row = await (_db.select(
+      _db.notebooks,
+    )..where((n) => n.id.equals(notebookId))).getSingleOrNull();
+    if (row == null) {
+      // Un alcance que apunta a un cuaderno borrado no tiene nada adentro, y
+      // se dice.
+      return left(
+        const Failure.unexpected(
+          message: 'El cuaderno ya no existe; puede que se haya borrado.',
+        ),
+      );
+    }
+    return _processed.matchingIds(await _queryOf(row));
   }
 
   Notebook _toEntity(NotebookRow row) => Notebook(

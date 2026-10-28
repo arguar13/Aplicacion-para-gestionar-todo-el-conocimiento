@@ -9,8 +9,10 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/notebooks/data/repositories/notebook_repository_impl.dart';
 import 'package:sinapsis/features/notebooks/domain/services/notebook_suggestions.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_suggestions_controller.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
 
 import '../../../../support/fake_id_generator.dart';
+import '../../../../support/in_memory_file_store.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -66,6 +68,11 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     notebooks = NotebookRepositoryImpl(
       database: db,
+      processed: ProcessedRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        files: InMemoryFileStore(),
+      ),
       telemetry: MockTelemetryService(),
       ids: FakeIdGenerator(),
       clock: () => DateTime(2026, 10, 8),

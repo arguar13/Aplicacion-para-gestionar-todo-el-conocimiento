@@ -31,6 +31,14 @@ sealed class ProcessedQuery with _$ProcessedQuery {
     /// Uno de sus temas (F37). `null` es «todos».
     String? spaceId,
 
+    /// Sus etiquetas, cada una con todas sus ramas, como en la Biblioteca:
+    /// basta con una.
+    @Default(<String>{}) Set<String> tagIds,
+
+    /// Sus valores de propiedad, con sus ramas: basta con uno. Junto con
+    /// [tagIds], tienen que cumplirse los dos, como en `LibraryQuery`.
+    @Default(<String>{}) Set<String> propertyValueIds,
+
     /// De qué tipo era la fuente: un libro, un video, una página.
     @Default(<SourceKind>{}) Set<SourceKind> sourceKinds,
 

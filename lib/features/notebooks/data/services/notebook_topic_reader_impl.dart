@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/processed_entries.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_tree.dart';
@@ -8,14 +9,16 @@ import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_query_sql.dart';
 import 'package:sinapsis/features/notebooks/domain/services/notebook_suggestions.dart';
 
-/// [NotebookTopicReader] contra `AppDatabase` (F30).
+/// [NotebookTopicReader] contra `AppDatabase` (F30), contando **solo
+/// documentos procesados** (F41, paso 5): un cuaderno sugerido se llena con
+/// ellos, así que un tema da para uno cuando junta procesados, no fuentes.
 ///
-/// - **Temas**: cuántos elementos vivos tiene cada espacio (`item_spaces`).
-/// - **Etiquetas**: los valores de la categoría de sistema, cada uno con lo
-///   asignado a él y a todo lo que cuelga de él (`VocabularyTree`): lo mismo
-///   que trae filtrar por la etiqueta en la Biblioteca. Se arma en una pasada
-///   sobre las asignaciones, no con una consulta por etiqueta: un árbol puede
-///   tener miles de ramas.
+/// - **Temas**: cuántos procesados vivos tiene cada espacio (`item_spaces`).
+/// - **Etiquetas**: los valores de la categoría de sistema, cada uno con los
+///   procesados asignados a él y a todo lo que cuelga de él
+///   (`VocabularyTree`): lo mismo que trae el cuaderno por esa etiqueta. Se
+///   arma en una pasada sobre las asignaciones, no con una consulta por
+///   etiqueta: un árbol puede tener miles de ramas.
 class NotebookTopicReaderImpl implements NotebookTopicReader {
   NotebookTopicReaderImpl({
     required AppDatabase database,
@@ -35,6 +38,7 @@ class NotebookTopicReaderImpl implements NotebookTopicReader {
       _db.propertyValues,
       _db.itemPropertyValues,
       _db.knowledgeEntries,
+      _db.processedDocuments,
     ],
     read: _read,
     telemetry: _telemetry,
@@ -59,7 +63,12 @@ class NotebookTopicReaderImpl implements NotebookTopicReader {
                 ),
               ])
               ..addColumns([memberships.spaceId, count])
-              ..where(_db.knowledgeEntries.isActive)
+              ..where(
+                _db.knowledgeEntries.isActive &
+                    CustomExpression<bool>(
+                      isProcessedSql('item_spaces.item_id'),
+                    ),
+              )
               ..groupBy([memberships.spaceId]))
             .get();
     final counts = {
@@ -98,7 +107,10 @@ class NotebookTopicReaderImpl implements NotebookTopicReader {
               ..addColumns([itemId, valueId])
               ..where(
                 _db.propertyValues.definitionId.equals(temaId) &
-                    itemIsActive(_db, itemId),
+                    itemIsActive(_db, itemId) &
+                    CustomExpression<bool>(
+                      isProcessedSql('item_property_values.item_id'),
+                    ),
               ))
             .get();
     final direct = <String, Set<String>>{};
@@ -152,7 +164,8 @@ class NotebookTopicReaderImpl implements NotebookTopicReader {
     final rows = await _db
         .customSelect(
           'SELECT i.title AS title FROM item i '
-          'WHERE ${activeItemSql('i')} AND $inTopic '
+          'WHERE ${activeItemSql('i')} AND ${isProcessedSql('i.id')} '
+          'AND $inTopic '
           'ORDER BY i.created_at DESC LIMIT ?',
           variables: [Variable.withString(topic.id), Variable.withInt(limit)],
           readsFrom: {
@@ -160,6 +173,7 @@ class NotebookTopicReaderImpl implements NotebookTopicReader {
             _db.itemSpaces,
             _db.itemPropertyValues,
             _db.propertyValues,
+            _db.processedDocuments,
           },
         )
         .get();

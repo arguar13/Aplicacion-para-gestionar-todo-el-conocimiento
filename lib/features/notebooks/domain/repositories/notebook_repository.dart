@@ -1,9 +1,19 @@
+import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
+import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/notebooks/domain/entities/notebook.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
 
 /// Los cuadernos (F16, D1): un subconjunto con nombre de la bóveda, manual o
 /// por consulta guardada.
+///
+/// **Solo con documentos procesados** (F41, paso 5): lo que está en un
+/// cuaderno es información pura que la persona sacó de sus fuentes, nunca una
+/// fuente de la Biblioteca ni una nota suelta. Este repositorio es el único
+/// lugar que decide qué puede ser miembro ([addItems]) y qué tiene un cuaderno
+/// ([resolveQuery], [memberIds]); el chat, los repasos y «Llenar con IA» lo
+/// preguntan acá.
 abstract interface class NotebookRepository {
   /// Todos, emitiendo de nuevo cada vez que algo cambia.
   Stream<List<Notebook>> watchAll();
@@ -30,13 +40,19 @@ abstract interface class NotebookRepository {
 
   Future<void> delete(String id);
 
-  /// Agrega [itemId] a un cuaderno [NotebookMode.manual]. Ya estar adentro
-  /// no es un error: no hace nada.
+  /// Agrega [itemId] a un cuaderno [NotebookMode.manual], si es un documento
+  /// procesado —ver [addItems]—. Ya estar adentro no es un error: no hace
+  /// nada.
   Future<void> addItem({required String notebookId, required String itemId});
 
   /// [addItem] para varios a la vez (F30): una sola transacción —todos o
   /// ninguno— y un solo aviso a quien mira el cuaderno, no uno por elemento.
   /// Los que ya estaban adentro no cambian nada.
+  ///
+  /// **Solo entran documentos procesados vivos** (F41, paso 5): una fuente
+  /// de la Biblioteca, una nota, uno en la papelera o un id que no existe se
+  /// quedan afuera, sin error —quien ofrece qué agregar ya ofrece solo
+  /// procesados; esto es la regla, no la pantalla—.
   Future<void> addItems({
     required String notebookId,
     required Iterable<String> itemIds,
@@ -47,8 +63,17 @@ abstract interface class NotebookRepository {
   /// cuaderno.
   Future<void> removeItem({required String notebookId, required String itemId});
 
-  /// Qué buscar para traer los elementos de este cuaderno: la consulta
-  /// guardada en modo [NotebookMode.query], o [LibraryQuery.ids] con lo que
-  /// [addItem]/[removeItem] dejaron en modo [NotebookMode.manual].
-  Future<LibraryQuery> resolveQuery(String notebookId);
+  /// Qué documentos procesados tiene este cuaderno, como consulta de
+  /// «Procesado»: la vista guardada traducida a procesados en modo
+  /// [NotebookMode.query] (`processedQueryForView`), o [ProcessedQuery.ids]
+  /// con lo que [addItem]/[removeItem] dejaron en modo [NotebookMode.manual].
+  /// Lo que está en la papelera no entra nunca.
+  ///
+  /// Falla con un [StateError] si el cuaderno no existe.
+  Future<ProcessedQuery> resolveQuery(String notebookId);
+
+  /// Los ids de los documentos procesados de este cuaderno, en el orden de
+  /// [resolveQuery], sin armar cada documento: lo que acota el chat, los
+  /// repasos y «Llenar con IA». Falla si el cuaderno ya no existe.
+  Future<Either<Failure, List<String>>> memberIds(String notebookId);
 }

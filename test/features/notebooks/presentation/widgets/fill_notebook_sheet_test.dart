@@ -12,8 +12,8 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_coverage_reader.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/ai_flashcards_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/screens/notebook_detail_screen.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
@@ -24,14 +24,31 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/fake_ai_organize_queue.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
+
+/// Cada cosa que se le pregunta puede tener tarjetas y ninguna las tiene: acá
+/// importa la hoja, no de qué texto salen las tarjetas.
+class _AllEligible implements FlashcardCoverageReader {
+  @override
+  Future<Either<Failure, FlashcardCoverage>> coverageOf(
+    Iterable<String>? itemIds,
+  ) async =>
+      right(FlashcardCoverage(eligible: [...?itemIds], withCards: const {}));
+
+  @override
+  Stream<int> watchWithoutCardsCount() => Stream.value(0);
+
+  @override
+  Stream<bool> watchHasCards() => Stream.value(false);
+}
 
 /// Devuelve el resultado que se le da y guarda con qué lo llamaron: acá
 /// importa la hoja, no la orquestación del caso de uso.
 class _FakeGenerateDerivedNoteUseCase implements GenerateDerivedNoteUseCase {
-  _FakeGenerateDerivedNoteUseCase({this.failure, this.inNotebook = true});
+  // De un cuaderno, la nota queda en la Biblioteca (F41, paso 5).
+  _FakeGenerateDerivedNoteUseCase({this.failure});
 
   final Failure? failure;
-  final bool inNotebook;
   final calls = <GenerateDerivedNoteParams>[];
 
   @override
@@ -57,7 +74,7 @@ class _FakeGenerateDerivedNoteUseCase implements GenerateDerivedNoteUseCase {
           createdAt: DateTime(2026, 10, 8),
           updatedAt: DateTime(2026, 10, 8),
         ),
-        inNotebook: inNotebook,
+        inNotebook: false,
       ),
     );
   }
@@ -70,15 +87,11 @@ void main() {
   late FakeAiOrganizeQueue queue;
   late _FakeGenerateDerivedNoteUseCase useCase;
 
+  /// Un cuaderno con dos documentos procesados (F41, paso 5).
   Future<String> seedNotebook() async {
-    await harness.capture('Roma antigua');
-    await harness.capture('El Senado');
-    final ids =
-        (await harness.container
-                .read(libraryRepositoryProvider)
-                .matchingIds(const LibraryQuery()))
-            .getRight()
-            .toNullable()!;
+    const ids = ['roma', 'senado'];
+    await insertProcessedRows(harness.database, id: ids[0], title: 'Roma');
+    await insertProcessedRows(harness.database, id: ids[1], title: 'Senado');
     final repository = harness.container.read(notebookRepositoryProvider);
     final notebook = await repository.create(
       name: 'Roma',
@@ -130,6 +143,7 @@ void main() {
       chatModelReady: chatModelReady,
       extraOverrides: [
         aiOrganizeQueueProvider.overrideWithValue(queue),
+        flashcardCoverageReaderProvider.overrideWithValue(_AllEligible()),
         generateDerivedNoteUseCaseProvider.overrideWithValue(useCase),
         // El que escribe de verdad (F32): con la nube, no la opción de Gemma.
         languageModelNameProvider.overrideWithValue(() => 'gemini-3.8-flash'),
@@ -142,8 +156,8 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('pide las tarjetas y la nota, y la nota queda en el cuaderno: '
-      'se ve qué quedó hecho', (tester) async {
+  testWidgets('pide las tarjetas y la nota, y la nota queda en la '
+      'Biblioteca: se ve qué quedó hecho', (tester) async {
     await setUpHarness();
     final notebookId = await seedNotebook();
     await pumpDetail(tester, notebookId: notebookId);
@@ -163,7 +177,7 @@ void main() {
     expect(find.text(es.fillNotebookCardsQueued(2)), findsOneWidget);
     expect(
       find.text(
-        es.fillNotebookGuideDone(es.derivedNoteTitleStudyGuide('Roma')),
+        es.fillNotebookGuideElsewhere(es.derivedNoteTitleStudyGuide('Roma')),
       ),
       findsOneWidget,
     );
@@ -194,7 +208,9 @@ void main() {
     expect(queue.flashcardRequests, isEmpty);
     expect(useCase.calls.single.type, DerivedNoteType.timeline);
     expect(
-      find.text(es.fillNotebookGuideDone(es.derivedNoteTitleTimeline('Roma'))),
+      find.text(
+        es.fillNotebookGuideElsewhere(es.derivedNoteTitleTimeline('Roma')),
+      ),
       findsOneWidget,
     );
   });
@@ -214,25 +230,6 @@ void main() {
           .widget<FilledButton>(find.byKey(const Key('fill-notebook-start')))
           .onPressed,
       isNull,
-    );
-  });
-
-  testWidgets('si la nota queda fuera del cuaderno, lo dice', (tester) async {
-    await setUpHarness(
-      generate: _FakeGenerateDerivedNoteUseCase(inNotebook: false),
-    );
-    final notebookId = await seedNotebook();
-    await pumpDetail(tester, notebookId: notebookId);
-
-    await openSheet(tester);
-    await tester.tap(find.byKey(const Key('fill-notebook-start')));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text(
-        es.fillNotebookGuideElsewhere(es.derivedNoteTitleStudyGuide('Roma')),
-      ),
-      findsOneWidget,
     );
   });
 

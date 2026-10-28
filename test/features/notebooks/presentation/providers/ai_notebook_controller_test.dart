@@ -10,9 +10,11 @@ import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/notebooks/data/repositories/notebook_repository_impl.dart';
 import 'package:sinapsis/features/notebooks/domain/services/notebook_candidates.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/ai_notebook_controller.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
 
 import '../../../../support/fake_id_generator.dart';
-import '../../../../support/item_rows.dart';
+import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/processed_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -79,6 +81,11 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     notebooks = NotebookRepositoryImpl(
       database: db,
+      processed: ProcessedRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        files: InMemoryFileStore(),
+      ),
       telemetry: MockTelemetryService(),
       ids: FakeIdGenerator(),
       clock: () => DateTime(2026, 10, 4),
@@ -201,9 +208,9 @@ void main() {
 
   test('crear arma un cuaderno manual con los marcados, de una vez, y lo que '
       'faltaba revisar ya no cambia nada', () async {
-    await insertItemRows(db, id: 'e0', title: 'Elemento 0');
-    await insertItemRows(db, id: 'e1', title: 'Elemento 1');
-    await insertItemRows(db, id: 'e2', title: 'Elemento 2');
+    await insertProcessedRows(db, id: 'e0', title: 'Elemento 0');
+    await insertProcessedRows(db, id: 'e1', title: 'Elemento 1');
+    await insertProcessedRows(db, id: 'e2', title: 'Elemento 2');
     final gate = Completer<Set<int>?>();
     final notifier = controller(
       candidates: [_candidate(0), _candidate(1), _candidate(2, text: false)],

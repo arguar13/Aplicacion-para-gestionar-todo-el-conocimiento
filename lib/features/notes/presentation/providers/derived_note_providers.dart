@@ -10,6 +10,7 @@ import 'package:sinapsis/features/notes/domain/entities/derived_note_mark.dart';
 import 'package:sinapsis/features/notes/domain/repositories/derived_note_repository.dart';
 import 'package:sinapsis/features/notes/domain/usecases/generate_derived_note_usecase.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 
 final derivedNoteRepositoryProvider = Provider<DerivedNoteRepository>((ref) {
@@ -32,6 +33,7 @@ final generateDerivedNoteUseCaseProvider =
       return GenerateDerivedNoteUseCase(
         library: ref.watch(libraryRepositoryProvider),
         notebooks: ref.watch(notebookRepositoryProvider),
+        processed: ref.watch(processedRepositoryProvider),
         organize: ref.watch(organizeRepositoryProvider),
         derivedNotes: ref.watch(derivedNoteRepositoryProvider),
         generator: ref.watch(derivedNoteGeneratorProvider),

@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
-import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/notebooks/domain/entities/notebook.dart';
+import 'package:sinapsis/features/notebooks/presentation/notebook_navigation.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/widgets/fill_notebook_sheet.dart';
-import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
+import 'package:sinapsis/features/notebooks/presentation/widgets/pick_processed_dialog.dart';
+import 'package:sinapsis/features/notebooks/presentation/widgets/processed_member.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// El panel de un cuaderno (F16, D1): sus elementos, y en modo manual,
-/// agregar y sacar sin tocar la bóveda —solo la pertenencia a este
-/// cuaderno—. En modo por consulta la lista es de solo lectura: cambia sola
-/// con lo que la consulta guardada trae.
+/// El panel de un cuaderno (F16, D1): sus documentos procesados (F41, paso 5),
+/// y en modo manual, agregar y sacar sin tocar la bóveda —solo la pertenencia
+/// a este cuaderno—. En modo por consulta la lista es de solo lectura: cambia
+/// sola con los procesados que cumplen la consulta guardada.
+///
+/// Cada fila es un documento procesado —el ícono de su fuente, su título y
+/// los chips de sus partes— y tocarla lo abre ([openProcessedDocument]).
 class NotebookDetailScreen extends ConsumerWidget {
   const NotebookDetailScreen({required this.notebookId, super.key});
 
@@ -53,7 +56,7 @@ class NotebookDetailScreen extends ConsumerWidget {
       floatingActionButton: notebook.mode == NotebookMode.manual
           ? FloatingActionButton(
               onPressed: () => _addItem(context, ref, notebook),
-              tooltip: l10n.notebookDetailAddItems,
+              tooltip: l10n.notebookPickProcessedTitle,
               child: const Icon(Icons.add),
             )
           : null,
@@ -129,16 +132,9 @@ class NotebookDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     Notebook notebook,
   ) async {
-    final l10n = AppLocalizations.of(context)!;
     final inside =
         ref.read(notebookItemIdsProvider(notebook.id)).valueOrNull ?? const {};
-    final itemIds = await showDialog<Set<String>>(
-      context: context,
-      builder: (context) => PickItemsDialog(
-        title: l10n.notebookDetailAddItems,
-        alreadyIn: inside,
-      ),
-    );
+    final itemIds = await showPickProcessedDialog(context, alreadyIn: inside);
     if (itemIds == null || itemIds.isEmpty) return;
     await ref
         .read(notebookRepositoryProvider)
@@ -153,52 +149,140 @@ class _NotebookItemsPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final query = notebook.mode == NotebookMode.query
-        ? (notebook.query ?? const LibraryQuery())
-        : LibraryQuery(
-            ids:
-                ref.watch(notebookItemIdsProvider(notebook.id)).valueOrNull ??
-                const {},
-          );
-    final items = ref.watch(libraryItemsProvider(query)).valueOrNull;
+    final query = ref
+        .watch(notebookProcessedQueryProvider(notebook.id))
+        .valueOrNull;
+    final documents = query == null
+        ? null
+        : ref.watch(processedDocumentsProvider(query)).valueOrNull;
 
-    if (items == null) {
+    if (documents == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(
-            l10n.notebookDetailEmpty,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ),
-      );
-    }
+    if (documents.isEmpty) return _EmptyNotebook(mode: notebook.mode);
 
     return ListView.builder(
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return ListTile(
-          key: Key('notebook-item-${item.id}'),
-          leading: Icon(item.source.kind.icon),
-          title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-          trailing: notebook.mode == NotebookMode.manual
-              ? IconButton(
-                  icon: const Icon(Icons.close),
-                  tooltip: l10n.notebookDetailRemoveItem,
-                  onPressed: () => ref
-                      .read(notebookRepositoryProvider)
-                      .removeItem(notebookId: notebook.id, itemId: item.id),
-                )
-              : null,
-          onTap: () => context.push(RoutePaths.itemDetail(item.id)),
-        );
-      },
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: documents.length,
+      itemBuilder: (context, index) =>
+          _MemberTile(notebook: notebook, document: documents[index]),
+    );
+  }
+}
+
+/// Un documento procesado del cuaderno: el ícono de su fuente, su título y
+/// los chips de sus partes. Tocarlo lo abre; en modo manual, la «X» lo saca
+/// del cuaderno sin tocarlo.
+class _MemberTile extends ConsumerWidget {
+  const _MemberTile({required this.notebook, required this.document});
+
+  final Notebook notebook;
+  final ProcessedDocumentSummary document;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListTile(
+      key: Key('notebook-item-${document.id}'),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      leading: ProcessedOriginBadge(document: document),
+      // El ícono y los chips no se leen sueltos: el título dice todo junto.
+      title: Semantics(
+        label: processedMemberSemantics(l10n, document),
+        excludeSemantics: true,
+        child: Text(
+          document.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: ProcessedPartChips(document: document),
+      ),
+      trailing: notebook.mode == NotebookMode.manual
+          ? IconButton(
+              key: Key('notebook-remove-${document.id}'),
+              icon: const Icon(Icons.close),
+              tooltip: l10n.notebookDetailRemoveItem,
+              onPressed: () => ref
+                  .read(notebookRepositoryProvider)
+                  .removeItem(notebookId: notebook.id, itemId: document.id),
+            )
+          : null,
+      onTap: () => openProcessedDocument(context, document.id),
+    );
+  }
+}
+
+/// El vacío de un cuaderno (F41, paso 5): se llena con documentos procesados,
+/// y lleva a donde se consiguen —«Procesado» y la Bandeja, a triar—.
+class _EmptyNotebook extends StatelessWidget {
+  const _EmptyNotebook({required this.mode});
+
+  final NotebookMode mode;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Column(
+            key: const Key('notebook-detail-empty'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ExcludeSemantics(
+                child: Icon(
+                  Icons.auto_stories_outlined,
+                  size: 48,
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                l10n.notebookDetailEmptyTitle,
+                style: theme.textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                mode == NotebookMode.manual
+                    ? l10n.notebookDetailEmptyManual
+                    : l10n.notebookDetailEmptyQuery,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  if (processedListPath case final path?)
+                    FilledButton.tonalIcon(
+                      key: const Key('notebook-empty-processed'),
+                      onPressed: () => context.go(path),
+                      icon: const Icon(Icons.article_outlined),
+                      label: Text(l10n.notebookDetailGoToProcessed),
+                    ),
+                  OutlinedButton.icon(
+                    key: const Key('notebook-empty-inbox'),
+                    onPressed: () => openInboxToTriage(context),
+                    icon: const Icon(Icons.inbox_outlined),
+                    label: Text(l10n.notebookDetailGoToInbox),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

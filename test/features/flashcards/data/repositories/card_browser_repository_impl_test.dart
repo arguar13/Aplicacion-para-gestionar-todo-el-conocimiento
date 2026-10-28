@@ -11,6 +11,7 @@ import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 
 import '../../../../support/card_browser_harness.dart';
 import '../../../../support/item_rows.dart';
+import '../../../../support/processed_rows.dart';
 
 /// «Mis tarjetas» contra SQLite real, en memoria (F31, ola 2, decisión 72): qué
 /// entra en cada filtro, el orden, la búsqueda, las páginas y las dos
@@ -227,10 +228,13 @@ void main() {
     test(
       'un elemento, un tema y un cuaderno: los de la cola de estudio',
       () async {
-        for (final id in ['roma', 'grecia', 'suelto']) {
+        for (final id in ['roma', 'grecia']) {
           await insertItemRows(h.db, id: id, title: id);
           await h.card('c-$id', itemId: id);
         }
+        // Un cuaderno tiene solo documentos procesados (F41, paso 5).
+        await insertProcessedRows(h.db, id: 'suelto', title: 'suelto');
+        await h.card('c-suelto', itemId: 'suelto');
         await h.db
             .into(h.db.spaces)
             .insert(

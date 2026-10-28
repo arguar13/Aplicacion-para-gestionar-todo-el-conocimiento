@@ -34,10 +34,14 @@ abstract interface class ItemVectorIndex {
   ///
   /// El más parecido y no el promedio: un libro que habla de Roma en un
   /// capítulo es de Roma aunque el resto sea de otra cosa.
+  ///
+  /// Con [among], solo entre esos elementos: el tope [limit] se llena con
+  /// ellos, y no con lo que se descartaría después (F41, paso 5).
   Future<List<ItemSimilarity>> nearestTo(
     List<double> query, {
     required int limit,
     required double minSimilarity,
+    Iterable<String>? among,
   });
 
   /// [itemIds] en un orden que cubre lo más variado primero: cuando no se

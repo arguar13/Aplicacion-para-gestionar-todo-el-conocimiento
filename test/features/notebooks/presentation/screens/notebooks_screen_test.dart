@@ -3,12 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
-import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/notebooks/domain/services/notebook_candidates.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_suggestions_controller.dart';
@@ -19,6 +20,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// Lo que «encuentra» Crear con IA: lo que la prueba le da.
 class _FakeFinder implements NotebookCandidateFinder {
@@ -69,6 +71,10 @@ void main() {
         path: RoutePaths.itemDetailPattern,
         builder: (_, state) =>
             Scaffold(body: Text('detalle de ${state.pathParameters['id']}')),
+      ),
+      GoRoute(
+        path: RoutePaths.inbox,
+        builder: (_, _) => const Scaffold(body: Text('la Bandeja')),
       ),
     ],
     initialLocation: RoutePaths.notebooks,
@@ -139,16 +145,12 @@ void main() {
 
     testWidgets('«Crear con IA»: se escribe de qué es, se destilda o tilda lo '
         'propuesto y se crea con los marcados (F30)', (tester) async {
-      await harness.capture('El foro romano');
-      await harness.capture('El Senado');
-      final items =
-          (await harness.container
-                  .read(libraryRepositoryProvider)
-                  .list(const LibraryQuery()))
-              .getRight()
-              .toNullable()!;
-      final foro = items.firstWhere((i) => i.title == 'El foro romano');
-      final senado = items.firstWhere((i) => i.title == 'El Senado');
+      // Lo que propone son documentos procesados (F41, paso 5).
+      final db = harness.database;
+      await insertProcessedRows(db, id: 'foro', title: 'El foro romano');
+      await insertProcessedRows(db, id: 'senado', title: 'El Senado');
+      const foro = (id: 'foro', title: 'El foro romano');
+      const senado = (id: 'senado', title: 'El Senado');
       finder.candidates = [
         NotebookCandidate(
           itemId: foro.id,
@@ -213,7 +215,9 @@ void main() {
       );
     });
 
-    /// Un tema con [count] elementos, y la lista de cuadernos abierta.
+    /// Un tema con [count] documentos procesados (F41, paso 5) —y, para que
+    /// se vea que no cuentan, tantas fuentes de la Biblioteca como haga
+    /// falta para sugerirlo—.
     Future<String> seedTopic(int count, {String name = 'Roma'}) async {
       final space =
           (await harness.container
@@ -221,15 +225,25 @@ void main() {
                   .createSpace(name))
               .getRight()
               .toNullable()!;
+      final ids = <String>[];
       for (var i = 0; i < count; i++) {
-        await harness.capture('$name $i');
+        await insertProcessedRows(
+          harness.database,
+          id: '$name-$i',
+          title: '$name $i',
+        );
+        ids.add('$name-$i');
       }
-      final ids =
-          (await harness.container
-                  .read(libraryRepositoryProvider)
-                  .matchingIds(const LibraryQuery()))
-              .getRight()
-              .toNullable()!;
+      for (var i = 0; i < 3; i++) {
+        await harness.capture('Fuente de $name $i');
+      }
+      ids.addAll(
+        (await harness.container
+                .read(libraryRepositoryProvider)
+                .matchingIds(const LibraryQuery()))
+            .getRight()
+            .toNullable()!,
+      );
       await harness.container
           .read(libraryRepositoryProvider)
           .setSpaces(itemIds: ids, spaceIds: {space.id});
@@ -366,91 +380,211 @@ void main() {
   });
 
   group('el detalle de un cuaderno manual', () {
-    testWidgets('agregar y sacar un elemento cambia el panel, no la bóveda', (
-      tester,
-    ) async {
-      await harness.capture('Un artículo cualquiera');
+    Future<void> openNotebook(WidgetTester tester, String notebookId) async {
+      await pumpNotebooks(tester);
+      await tester.tap(find.byKey(Key('notebook-$notebookId')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('vacío, explica que se llena con documentos procesados y '
+        'lleva a la Bandeja (F41, paso 5)', (tester) async {
       final notebook = await harness.container
           .read(notebookRepositoryProvider)
           .create(name: 'A mano', mode: NotebookMode.manual);
 
-      await pumpNotebooks(tester);
-      await tester.tap(find.byKey(Key('notebook-${notebook.id}')));
+      await openNotebook(tester, notebook.id);
+
+      expect(find.byKey(const Key('notebook-detail-empty')), findsOneWidget);
+      expect(find.text(es.notebookDetailEmptyTitle), findsOneWidget);
+      expect(find.text(es.notebookDetailEmptyManual), findsOneWidget);
+      await tester.tap(find.byKey(const Key('notebook-empty-inbox')));
       await tester.pumpAndSettle();
+      expect(find.text('la Bandeja'), findsOneWidget);
+    });
 
-      expect(find.text(es.notebookDetailEmpty), findsOneWidget);
+    testWidgets('agregar y sacar un procesado cambia el panel, no la bóveda; '
+        'las fuentes de la Biblioteca no se ofrecen', (tester) async {
+      await insertProcessedRows(
+        harness.database,
+        id: 'articulo',
+        title: 'Un artículo procesado',
+      );
+      await harness.capture('Una fuente de la Biblioteca');
+      final notebook = await harness.container
+          .read(notebookRepositoryProvider)
+          .create(name: 'A mano', mode: NotebookMode.manual);
 
+      await openNotebook(tester, notebook.id);
       await tester.tap(find.byIcon(Icons.add));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Un artículo cualquiera'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('pick-items-confirm')));
-      await tester.pumpAndSettle();
 
-      expect(find.text('Un artículo cualquiera'), findsOneWidget);
-
-      await tester.tap(find.byIcon(Icons.close));
+      expect(find.text(es.notebookPickProcessedTitle), findsOneWidget);
+      expect(find.text('Una fuente de la Biblioteca'), findsNothing);
+      await tester.tap(find.text('Un artículo procesado'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pick-processed-confirm')));
       await tester.pumpAndSettle();
 
-      expect(find.text(es.notebookDetailEmpty), findsOneWidget);
-      // Sigue en la biblioteca: sacarlo del cuaderno no lo borró.
-      final items =
-          (await harness.container
-                  .read(libraryRepositoryProvider)
-                  .list(const LibraryQuery()))
-              .getRight()
-              .toNullable()!;
-      expect(items, hasLength(1));
+      expect(find.text('Un artículo procesado'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('notebook-remove-articulo')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('notebook-detail-empty')), findsOneWidget);
+      // Sigue en Procesado: sacarlo del cuaderno no lo borró.
+      final rows = await harness.database
+          .select(harness.database.processedDocuments)
+          .get();
+      expect(rows.map((r) => r.itemId), ['articulo']);
+    });
+
+    testWidgets('cada procesado se ve con el ícono de su fuente y los chips de '
+        'sus partes, y tocarlo lo abre', (tester) async {
+      await insertProcessedRows(
+        harness.database,
+        id: 'libro',
+        title: 'Un libro procesado',
+        parts: {
+          ProcessedSection.text: ['El texto.'],
+          ProcessedSection.summary: ['Lo principal.'],
+          ProcessedSection.fragments: ['Un pasaje.'],
+        },
+      );
+      final repository = harness.container.read(notebookRepositoryProvider);
+      final notebook = await repository.create(
+        name: 'A mano',
+        mode: NotebookMode.manual,
+      );
+      await repository.addItem(notebookId: notebook.id, itemId: 'libro');
+
+      await openNotebook(tester, notebook.id);
+
+      final row = find.byKey(const Key('notebook-item-libro'));
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.byIcon(SourceKind.document.icon),
+        ),
+        findsOneWidget,
+      );
+      for (final section in [
+        ProcessedSection.text,
+        ProcessedSection.summary,
+        ProcessedSection.fragments,
+      ]) {
+        expect(
+          find.byKey(Key('processed-part-libro-${section.name}')),
+          findsOneWidget,
+        );
+      }
+      expect(find.byKey(const Key('processed-part-libro-notes')), findsNothing);
+      expect(find.text(es.processedSectionSummary), findsOneWidget);
+      // El lector de pantalla oye todo junto, en una frase.
+      expect(
+        find.bySemanticsLabel(
+          es.notebookMemberSemantics(
+            'Un libro procesado',
+            es.sourceKindDocument,
+            [
+              es.processedSectionText,
+              es.processedSectionSummary,
+              es.processedSectionFragments,
+            ].join(', '),
+          ),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Un libro procesado'));
+      await tester.pumpAndSettle();
+      expect(find.text('detalle de libro'), findsOneWidget);
     });
 
     testWidgets('se agregan varios a la vez, y los que ya están se ven '
         'marcados sin poder tocarlos (F30)', (tester) async {
-      await harness.capture('Roma antigua');
-      await harness.capture('El Senado');
-      await harness.capture('Las guerras púnicas');
-      final items =
-          (await harness.container
-                  .read(libraryRepositoryProvider)
-                  .list(const LibraryQuery()))
-              .getRight()
-              .toNullable()!;
-      KnowledgeItem titled(String title) =>
-          items.firstWhere((i) => i.title == title);
-      final first = titled('Roma antigua');
-      final second = titled('El Senado');
-      final third = titled('Las guerras púnicas');
+      final db = harness.database;
+      await insertProcessedRows(db, id: 'roma', title: 'Roma antigua');
+      await insertProcessedRows(db, id: 'senado', title: 'El Senado');
+      await insertProcessedRows(
+        db,
+        id: 'punicas',
+        title: 'Las guerras púnicas',
+      );
       final repository = harness.container.read(notebookRepositoryProvider);
       final notebook = await repository.create(
         name: 'Roma',
         mode: NotebookMode.manual,
       );
-      await repository.addItem(notebookId: notebook.id, itemId: first.id);
+      await repository.addItem(notebookId: notebook.id, itemId: 'roma');
 
-      await pumpNotebooks(tester);
-      await tester.tap(find.byKey(Key('notebook-${notebook.id}')));
-      await tester.pumpAndSettle();
+      await openNotebook(tester, notebook.id);
       await tester.tap(find.byIcon(Icons.add));
       await tester.pumpAndSettle();
 
       final already = tester.widget<CheckboxListTile>(
-        find.byKey(Key('pick-items-${first.id}')),
+        find.byKey(const Key('pick-processed-roma')),
       );
       expect(already.value, isTrue);
       expect(already.onChanged, isNull);
       expect(find.text(es.pickItemsAlreadyIn), findsOneWidget);
 
-      await tester.tap(find.byKey(Key('pick-items-${second.id}')));
-      await tester.tap(find.byKey(Key('pick-items-${third.id}')));
+      await tester.tap(find.byKey(const Key('pick-processed-senado')));
+      await tester.tap(find.byKey(const Key('pick-processed-punicas')));
+      await tester.pump();
+      // Destildar uno lo saca de lo elegido.
+      await tester.tap(find.byKey(const Key('pick-processed-punicas')));
+      await tester.pump();
+      expect(find.text(es.pickItemsAdd(1)), findsOneWidget);
+      await tester.tap(find.byKey(const Key('pick-processed-punicas')));
       await tester.pump();
       expect(find.text(es.pickItemsAdd(2)), findsOneWidget);
-      await tester.tap(find.byKey(const Key('pick-items-confirm')));
+      await tester.tap(find.byKey(const Key('pick-processed-confirm')));
       await tester.pumpAndSettle();
 
       expect((await repository.resolveQuery(notebook.id)).ids, {
-        first.id,
-        second.id,
-        third.id,
+        'roma',
+        'senado',
+        'punicas',
       });
+    });
+
+    testWidgets('el selector busca en Procesado y dice cuando no hay nada', (
+      tester,
+    ) async {
+      final notebook = await harness.container
+          .read(notebookRepositoryProvider)
+          .create(name: 'Roma', mode: NotebookMode.manual);
+
+      await openNotebook(tester, notebook.id);
+      await tester.tap(find.byIcon(Icons.add));
+      await tester.pumpAndSettle();
+      expect(find.text(es.notebookPickProcessedNone), findsOneWidget);
+
+      await insertProcessedRows(
+        harness.database,
+        id: 'senado',
+        title: 'El Senado',
+        parts: {
+          ProcessedSection.notes: ['Trescientos miembros.'],
+        },
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('pick-processed-search')),
+        'trescientos',
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pick-processed-senado')), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const Key('pick-processed-search')),
+        'cartago',
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(es.notebookPickProcessedNoMatches('cartago')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('renombrar cambia el título de la pantalla', (tester) async {
@@ -458,9 +592,7 @@ void main() {
           .read(notebookRepositoryProvider)
           .create(name: 'Antes', mode: NotebookMode.manual);
 
-      await pumpNotebooks(tester);
-      await tester.tap(find.byKey(Key('notebook-${notebook.id}')));
-      await tester.pumpAndSettle();
+      await openNotebook(tester, notebook.id);
 
       await tester.tap(find.byIcon(Icons.edit_outlined));
       await tester.pumpAndSettle();
@@ -477,8 +609,7 @@ void main() {
   });
 
   group('el detalle de un cuaderno por consulta', () {
-    testWidgets('la lista es de solo lectura', (tester) async {
-      await harness.capture('Coincide con la vista');
+    Future<String> queryNotebook() async {
       final view = await harness.container
           .read(savedViewRepositoryProvider)
           .create(
@@ -493,14 +624,63 @@ void main() {
             mode: NotebookMode.query,
             query: view.query,
           );
+      return notebook.id;
+    }
+
+    testWidgets('la lista es de solo lectura, y solo con procesados', (
+      tester,
+    ) async {
+      await insertProcessedRows(
+        harness.database,
+        id: 'coincide',
+        title: 'Coincide con la vista',
+      );
+      await harness.capture('Una fuente de la Biblioteca');
+      final notebookId = await queryNotebook();
 
       await pumpNotebooks(tester);
-      await tester.tap(find.byKey(Key('notebook-${notebook.id}')));
+      await tester.tap(find.byKey(Key('notebook-$notebookId')));
       await tester.pumpAndSettle();
 
       expect(find.text('Coincide con la vista'), findsOneWidget);
+      expect(find.text('Una fuente de la Biblioteca'), findsNothing);
       expect(find.byIcon(Icons.close), findsNothing);
       expect(find.byType(FloatingActionButton), findsNothing);
+    });
+
+    testWidgets('vacío, dice que se llena solo con lo procesado que cumple su '
+        'vista', (tester) async {
+      await harness.capture('Una fuente de la Biblioteca');
+      final notebookId = await queryNotebook();
+
+      await pumpNotebooks(tester);
+      await tester.tap(find.byKey(Key('notebook-$notebookId')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.notebookDetailEmptyQuery), findsOneWidget);
+      expect(find.byKey(const Key('notebook-empty-inbox')), findsOneWidget);
+    });
+
+    testWidgets('al crearlo, se avisa que la vista se mira sobre Procesado', (
+      tester,
+    ) async {
+      await harness.container
+          .read(savedViewRepositoryProvider)
+          .create(
+            name: 'Todo',
+            query: const LibraryQuery(),
+            viewMode: LibraryViewMode.list,
+          );
+
+      await pumpNotebooks(tester);
+      await tester.tap(find.byKey(const Key('notebook-new')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('notebook-new-manual')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.notebooksModeQuery));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.notebooksQueryProcessedHint), findsOneWidget);
     });
   });
 }

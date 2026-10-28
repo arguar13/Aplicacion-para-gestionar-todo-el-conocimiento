@@ -3,28 +3,32 @@ import 'package:meta/meta.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
-import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/domain/services/chat_source_builder.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/notebooks/domain/repositories/notebook_repository.dart';
 import 'package:sinapsis/features/notes/domain/repositories/derived_note_repository.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_parts.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
+import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
 import 'package:sinapsis/features/relations/domain/services/item_vector_index.dart';
+
+/// Cuántas partes de cada sección se miran, como mucho, buscando una que se
+/// pueda citar: lo copiado tal cual suele estar al principio, y un libro no
+/// se recorre página por página.
+const _kCitablePartsLooked = 8;
 
 /// A qué generar un derivado (F16, 12b): de todo lo que resuelve un
 /// cuaderno, o de un único elemento. Nunca los dos ni ninguno —lo exige el
@@ -73,10 +77,9 @@ class DerivedNoteResult {
 
   final KnowledgeItem note;
 
-  /// `true` si la nota es parte del cuaderno del que salió; `false` si es un
-  /// cuaderno por consulta que pide algo que una nota no tiene —un texto, un
-  /// tipo de fuente— y quedó solo en la Biblioteca; `null` si salió de un
-  /// elemento.
+  /// `false` si salió de un cuaderno: un cuaderno tiene solo documentos
+  /// procesados (F41, paso 5), así que la nota queda en la Biblioteca y la
+  /// hoja lo dice; `null` si salió de un elemento.
   final bool? inNotebook;
 }
 
@@ -106,16 +109,18 @@ class DerivedNoteResult {
 ///   uno solo), y lo que dio cada uno se junta en una
 ///   sola nota ([mergeDerivedSections]).
 ///
-/// **Queda adentro del cuaderno** (F30). En uno manual, se agrega a sus
-/// elementos en la misma transacción. En uno por consulta, la pertenencia la
-/// decide la consulta: si pide un tema o etiquetas —los cuadernos sugeridos—,
-/// la nota los recibe y entra sola; si pide algo que una nota no tiene, queda
-/// en la Biblioteca y el resultado lo dice ([DerivedNoteResult.inNotebook]).
+/// **De un cuaderno, lee sus documentos procesados** (F41, paso 5): de cada
+/// uno, lo primero que copió tal cual de su fuente, con su ancla en el texto
+/// principal de la fuente. Las afirmaciones se anclan a la fuente de la
+/// Biblioteca, que es donde está el original. La nota **queda en la
+/// Biblioteca**: un cuaderno tiene solo procesados, y el resultado lo dice
+/// ([DerivedNoteResult.inNotebook]).
 class GenerateDerivedNoteUseCase
     implements UseCase<DerivedNoteResult, GenerateDerivedNoteParams> {
   const GenerateDerivedNoteUseCase({
     required LibraryRepository library,
     required NotebookRepository notebooks,
+    required ProcessedRepository processed,
     required OrganizeRepository organize,
     required DerivedNoteRepository derivedNotes,
     required DerivedNoteGenerator generator,
@@ -125,6 +130,7 @@ class GenerateDerivedNoteUseCase
     required ModelTextBudget Function() textBudget,
   }) : _library = library,
        _notebooks = notebooks,
+       _processed = processed,
        _organize = organize,
        _derivedNotes = derivedNotes,
        _generator = generator,
@@ -135,6 +141,7 @@ class GenerateDerivedNoteUseCase
 
   final LibraryRepository _library;
   final NotebookRepository _notebooks;
+  final ProcessedRepository _processed;
   final OrganizeRepository _organize;
   final DerivedNoteRepository _derivedNotes;
   final DerivedNoteGenerator _generator;
@@ -196,14 +203,6 @@ class GenerateDerivedNoteUseCase
       );
     }
 
-    final notebookId = params.notebookId;
-    final notebook = notebookId == null
-        ? null
-        : await _notebooks.watchById(notebookId).first;
-    final joinQuery = notebook?.mode == NotebookMode.query
-        ? notebook!.query
-        : null;
-    final joinsByTopic = joinQuery != null && _joinsByTopic(joinQuery);
     // La de un elemento va a sus temas (F37): es material del mismo asunto, y
     // así queda al lado de lo que resume en vez de suelta.
     final itemId = params.itemId;
@@ -224,8 +223,7 @@ class GenerateDerivedNoteUseCase
       processingState: ProcessingState.ready,
       createdAt: now,
       updatedAt: now,
-      spaceIds: {if (joinsByTopic) ?joinQuery.spaceId, ...?fromItem?.spaceIds},
-      tags: joinsByTopic ? await _tagsOf(joinQuery.tagIds) : const [],
+      spaceIds: {...?fromItem?.spaceIds},
       renditions: [
         Rendition.text(
           id: _ids.next(),
@@ -265,62 +263,26 @@ class GenerateDerivedNoteUseCase
             }
           }
 
-          if (notebook?.mode == NotebookMode.manual) {
-            await _notebooks.addItem(
-              notebookId: notebook!.id,
-              itemId: saved.id,
-            );
-          }
-
           return right(saved);
         });
 
     final failure = saved.getLeft().toNullable();
     if (failure != null) return left(failure);
     final note = saved.getRight().toNullable()!;
-    if (notebook == null) return right(DerivedNoteResult(note: note));
-
-    // En uno por consulta, se pregunta: la consulta es la que decide.
-    final query = joinQuery;
-    final inNotebook =
-        query == null ||
-        (await _library.matchingIds(
-          query.copyWith(ids: {note.id}, limit: null, offset: 0),
-        )).getOrElse((_) => const []).contains(note.id);
-    return right(DerivedNoteResult(note: note, inNotebook: inNotebook));
-  }
-
-  /// Si un cuaderno por consulta pide un tema o etiquetas y nada que una nota
-  /// generada no pueda tener: ahí la nota entra con solo recibirlos. Un texto
-  /// buscado, otro tipo de fuente, un estado o unos elementos puntuales no se
-  /// le pueden dar.
-  bool _joinsByTopic(LibraryQuery query) =>
-      (query.spaceId != null || query.tagIds.isNotEmpty) &&
-      !query.hasSearchText &&
-      (query.sourceKinds.isEmpty ||
-          query.sourceKinds.contains(SourceKind.manualNote)) &&
-      query.propertyValueIds.isEmpty &&
-      query.ids == null &&
-      (query.processingStates.isEmpty ||
-          query.processingStates.contains(ProcessingState.ready)) &&
-      query.inboxStatuses.isEmpty;
-
-  /// Las etiquetas de [tagIds] que existen, con su nombre.
-  Future<List<Tag>> _tagsOf(Set<String> tagIds) async {
-    if (tagIds.isEmpty) return const [];
-    final all = await _organize.watchAllTags().first;
-    return [
-      for (final tag in all)
-        if (tagIds.contains(tag.id)) tag,
-    ];
+    return right(
+      DerivedNoteResult(
+        note: note,
+        inNotebook: params.notebookId == null ? null : false,
+      ),
+    );
   }
 
   /// Las fuentes que se pueden citar de un cuaderno —las más representativas
   /// primero, como mucho [kDerivedNoteMaxSources]— o de un único elemento.
   ///
-  /// Los ids salen sin traer los elementos (`matchingIds`), y se trae de a
-  /// uno solo lo que se va a leer: un cuaderno de cien libros no se carga
-  /// entero en memoria para usar el principio de dieciocho.
+  /// Los ids salen sin traer los documentos (`memberIds`), y se lee de a uno
+  /// solo lo que se va a citar: un cuaderno de cien libros no se carga entero
+  /// en memoria para usar el principio de dieciocho.
   Future<List<ChatSource>> _resolveSources(
     GenerateDerivedNoteParams params,
   ) async {
@@ -330,18 +292,77 @@ class GenerateDerivedNoteUseCase
       return source == null ? const [] : [source];
     }
 
-    final query = await _notebooks.resolveQuery(notebookId);
-    final ids = (await _library.matchingIds(query)).getOrElse((_) => const []);
-    final ordered = ids.length <= kDerivedNoteMaxSources
-        ? ids
-        : await _vectors.representativeOrder(ids, take: kDerivedNoteMaxSources);
+    final ids = (await _notebooks.memberIds(
+      notebookId,
+    )).getOrElse((_) => const []);
+    // Lo representativo lo dicen los vectores, que son de las fuentes.
+    final sourceOf = <String, String>{};
+    for (final id in ids) {
+      final document = await _processed.watchDocument(id).first;
+      final sourceId = document?.summary.sourceItemId;
+      if (sourceId != null) sourceOf[sourceId] = id;
+    }
+    final sourceIds = sourceOf.keys.toList();
+    final ordered = sourceIds.length <= kDerivedNoteMaxSources
+        ? sourceIds
+        : await _vectors.representativeOrder(
+            sourceIds,
+            take: kDerivedNoteMaxSources,
+          );
     final sources = <ChatSource>[];
-    for (final id in ordered) {
+    for (final sourceId in ordered) {
       if (sources.length == kDerivedNoteMaxSources) break;
-      final source = await _citableSource(id);
+      final source = await _citableProcessed(sourceOf[sourceId]!, sourceId);
       if (source != null) sources.add(source);
     }
     return sources;
+  }
+
+  /// Lo que se puede citar del documento procesado [documentId], de la fuente
+  /// [sourceItemId]: la primera parte —en el orden en que se lee el
+  /// documento— que sigue siendo, letra por letra, el texto principal de la
+  /// fuente, con su posición ahí. Es la misma coordenada que usa una cita
+  /// (`buildChatSource`), así que la afirmación se ancla al original.
+  ///
+  /// Una parte editada, una nota escrita o una sin ancla no se pueden citar:
+  /// lo que el modelo dijera de ellas no tendría dónde anclarse. Si no queda
+  /// ninguna, o la fuente ya no está, el documento no se cita.
+  Future<ChatSource?> _citableProcessed(
+    String documentId,
+    String sourceItemId,
+  ) async {
+    final material = (await _processed.materialOf(
+      sourceItemId,
+      countWords: false,
+    )).getRight().toNullable();
+    final renditionId = material?.textRenditionId;
+    if (material == null || renditionId == null) return null;
+    for (final section in ProcessedSection.values) {
+      final parts = await _processed
+          .watchParts(documentId, section, limit: _kCitablePartsLooked)
+          .first;
+      for (final part in parts) {
+        final anchor = part.anchor;
+        if (!part.isPristineCopy || anchor?.renditionId != renditionId) {
+          continue;
+        }
+        final raw = part.content;
+        final trimmed = raw.trim();
+        if (trimmed.isEmpty) continue;
+        final start = anchor!.start + raw.indexOf(trimmed);
+        final sliced = trimmed.length <= kChatSourceExcerptLength
+            ? trimmed
+            : trimmed.substring(0, kChatSourceExcerptLength);
+        return ChatSource(
+          itemId: sourceItemId,
+          itemTitle: material.title,
+          excerpt: sliced.length < trimmed.length ? '$sliced…' : sliced,
+          sourceCharStart: start,
+          sourceCharEnd: start + sliced.length,
+        );
+      }
+    }
+    return null;
   }
 
   /// La fuente de [itemId], si se puede citar: con texto y con su posición en

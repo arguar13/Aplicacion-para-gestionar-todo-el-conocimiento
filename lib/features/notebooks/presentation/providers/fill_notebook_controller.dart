@@ -5,8 +5,6 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_coverage_reader.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/ai_flashcards_providers.dart';
-import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/domain/repositories/notebook_repository.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
@@ -103,8 +101,9 @@ class FillNotebookState {
 }
 
 /// «Llenar» un cuaderno (F30, decisión B): una nota derivada —por defecto, la
-/// guía de estudio— que **queda adentro del cuaderno**, y las tarjetas de
-/// repaso de lo que tiene.
+/// guía de estudio— de lo que tiene, y las tarjetas de repaso de lo que tiene.
+/// La nota es de la persona y queda en la Biblioteca: un cuaderno tiene solo
+/// documentos procesados (F41, paso 5).
 ///
 /// Primero se piden las tarjetas, que no esperan: van a la cola de la IA
 /// (`AiOrganizeQueue.makeFlashcards`), solo de los elementos del cuaderno que
@@ -116,7 +115,6 @@ class FillNotebookController extends StateNotifier<FillNotebookState> {
   FillNotebookController({
     required this.notebookId,
     required NotebookRepository notebooks,
-    required LibraryRepository library,
     required FlashcardCoverageReader coverage,
     required void Function(Iterable<String> itemIds) makeFlashcards,
     required Future<Either<Failure, DerivedNoteResult>> Function(
@@ -124,7 +122,6 @@ class FillNotebookController extends StateNotifier<FillNotebookState> {
     )
     generate,
   }) : _notebooks = notebooks,
-       _library = library,
        _coverage = coverage,
        _makeFlashcards = makeFlashcards,
        _generate = generate,
@@ -132,7 +129,6 @@ class FillNotebookController extends StateNotifier<FillNotebookState> {
 
   final String notebookId;
   final NotebookRepository _notebooks;
-  final LibraryRepository _library;
   final FlashcardCoverageReader _coverage;
   final void Function(Iterable<String> itemIds) _makeFlashcards;
   final Future<Either<Failure, DerivedNoteResult>> Function(
@@ -196,8 +192,7 @@ class FillNotebookController extends StateNotifier<FillNotebookState> {
   /// Pide tarjetas de lo del cuaderno que puede tenerlas y todavía no las
   /// tiene.
   Future<FillCardsOutcome> _requestCards() async {
-    final query = await _notebooks.resolveQuery(notebookId);
-    final ids = await _library.matchingIds(query);
+    final ids = await _notebooks.memberIds(notebookId);
     final failure = ids.getLeft().toNullable();
     if (failure != null) {
       return FillCardsOutcome(queued: 0, eligible: 0, failure: failure);
@@ -226,7 +221,6 @@ final fillNotebookControllerProvider = StateNotifierProvider.autoDispose
       (ref, notebookId) => FillNotebookController(
         notebookId: notebookId,
         notebooks: ref.watch(notebookRepositoryProvider),
-        library: ref.watch(libraryRepositoryProvider),
         coverage: ref.watch(flashcardCoverageReaderProvider),
         makeFlashcards: ref.read(aiOrganizeQueueProvider).makeFlashcards,
         generate: (params) =>

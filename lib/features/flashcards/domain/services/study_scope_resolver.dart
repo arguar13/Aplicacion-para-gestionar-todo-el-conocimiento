@@ -8,9 +8,10 @@ import 'package:sinapsis/features/notebooks/domain/repositories/notebook_reposit
 /// De un [StudyScope] a los elementos que lo componen (F31, decisión 69).
 ///
 /// Usa los MISMOS filtros que la Biblioteca (`LibraryRepository.matchingIds`) y
-/// lo que un cuaderno es hoy (`NotebookRepository.resolveQuery`): "qué entra en
-/// «Roma»" tiene una sola respuesta, y no un segundo motor que pueda
-/// discrepar. Un valor del vocabulario trae también sus ramas.
+/// lo que un cuaderno tiene hoy (`NotebookRepository.memberIds`: sus documentos
+/// procesados, F41): "qué entra en «Roma»" tiene una sola respuesta, y no un
+/// segundo motor que pueda discrepar. Un valor del vocabulario trae también sus
+/// ramas.
 class StudyScopeResolver {
   const StudyScopeResolver({
     required LibraryRepository library,
@@ -34,20 +35,10 @@ class StudyScopeResolver {
       case StudyScopeKind.value:
         return _matching(LibraryQuery(propertyValueIds: {scope.id!}));
       case StudyScopeKind.notebook:
-        final LibraryQuery query;
-        try {
-          query = await _notebooks.resolveQuery(scope.id!);
-          // `resolveQuery` falla si el cuaderno ya no existe: un recorte que
-          // apunta a algo borrado no tiene nada que estudiar, y se dice.
-          // ignore: avoid_catches_without_on_clauses
-        } catch (_) {
-          return left(
-            const Failure.unexpected(
-              message: 'El cuaderno ya no existe; puede que se haya borrado.',
-            ),
-          );
-        }
-        return _matching(query);
+        // Falla si el cuaderno ya no existe: un recorte que apunta a algo
+        // borrado no tiene nada que estudiar, y se dice.
+        final ids = await _notebooks.memberIds(scope.id!);
+        return ids.map((ids) => ids.toSet());
     }
   }
 

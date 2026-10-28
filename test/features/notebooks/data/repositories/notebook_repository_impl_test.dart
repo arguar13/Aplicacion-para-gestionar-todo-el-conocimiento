@@ -1,20 +1,28 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/notebooks/data/repositories/notebook_repository_impl.dart';
+import 'package:sinapsis/features/notebooks/domain/services/notebook_scope.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
 
 import '../../../../support/fake_id_generator.dart';
+import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/item_rows.dart';
+import '../../../../support/processed_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
 /// Contra SQLite real, en memoria: lo que importa es que un cuaderno manual
 /// resuelve por sus elementos (`notebook_item`) y uno por consulta por su
-/// `LibraryQuery` guardada, y que sacar un elemento de un cuaderno no lo
+/// vista guardada, traducida a procesados; que en un cuaderno entran solo
+/// documentos procesados (F41, paso 5); y que sacar uno de un cuaderno no lo
 /// borra de la bóveda.
 void main() {
   late AppDatabase db;
@@ -28,6 +36,11 @@ void main() {
     now = DateTime(2026, 9, 24, 10);
     repository = NotebookRepositoryImpl(
       database: db,
+      processed: ProcessedRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        files: InMemoryFileStore(),
+      ),
       telemetry: MockTelemetryService(),
       ids: ids,
       clock: () => now,
@@ -70,15 +83,18 @@ void main() {
         expect(notebook.query, query);
         final all = await repository.watchAll().first;
         expect(all.single.query, query);
-        expect(await repository.resolveQuery(notebook.id), query);
+        expect(
+          await repository.resolveQuery(notebook.id),
+          processedQueryForView(query),
+        );
       },
     );
   });
 
   group('addItem / removeItem', () {
     test('agregar y sacar cambian a quién resuelve la consulta', () async {
-      await insertItemRows(db, id: 'a', title: 'Uno');
-      await insertItemRows(db, id: 'b', title: 'Dos');
+      await insertProcessedRows(db, id: 'a', title: 'Uno');
+      await insertProcessedRows(db, id: 'b', title: 'Dos');
       final notebook = await repository.create(
         name: 'A mano',
         mode: NotebookMode.manual,
@@ -97,7 +113,7 @@ void main() {
     });
 
     test('agregar el mismo elemento dos veces no es un error', () async {
-      await insertItemRows(db, id: 'a', title: 'Uno');
+      await insertProcessedRows(db, id: 'a', title: 'Uno');
       final notebook = await repository.create(
         name: 'A mano',
         mode: NotebookMode.manual,
@@ -111,9 +127,9 @@ void main() {
 
     test('addItems agrega varios de una vez, con un solo aviso, y los que '
         'ya estaban no cambian nada (F30)', () async {
-      await insertItemRows(db, id: 'a', title: 'Uno');
-      await insertItemRows(db, id: 'b', title: 'Dos');
-      await insertItemRows(db, id: 'c', title: 'Tres');
+      await insertProcessedRows(db, id: 'a', title: 'Uno');
+      await insertProcessedRows(db, id: 'b', title: 'Dos');
+      await insertProcessedRows(db, id: 'c', title: 'Tres');
       final notebook = await repository.create(
         name: 'A mano',
         mode: NotebookMode.manual,
@@ -158,7 +174,7 @@ void main() {
     });
 
     test('agregar o sacar un elemento actualiza `updatedAt`', () async {
-      await insertItemRows(db, id: 'a', title: 'Uno');
+      await insertProcessedRows(db, id: 'a', title: 'Uno');
       final notebook = await repository.create(
         name: 'A mano',
         mode: NotebookMode.manual,
@@ -209,7 +225,7 @@ void main() {
 
   group('watchItemIds', () {
     test('se actualiza solo con addItem/removeItem', () async {
-      await insertItemRows(db, id: 'a', title: 'Uno');
+      await insertProcessedRows(db, id: 'a', title: 'Uno');
       final notebook = await repository.create(
         name: 'A mano',
         mode: NotebookMode.manual,
@@ -235,8 +251,231 @@ void main() {
     });
   });
 
+  group('solo documentos procesados (F41, paso 5)', () {
+    test('una fuente, una nota, uno en la papelera o un id que no existe no '
+        'entran: solo el procesado vivo', () async {
+      await insertItemRows(db, id: 'fuente', title: 'Una fuente');
+      await insertItemRows(
+        db,
+        id: 'nota',
+        title: 'Una nota',
+        kind: SourceKind.manualNote,
+      );
+      await insertProcessedRows(db, id: 'pro', title: 'Procesado');
+      await insertProcessedRows(db, id: 'borrado', title: 'En la papelera');
+      await trashItemRows(db, 'borrado');
+      final notebook = await repository.create(
+        name: 'A mano',
+        mode: NotebookMode.manual,
+      );
+
+      await repository.addItems(
+        notebookId: notebook.id,
+        itemIds: ['fuente', 'nota', 'fantasma', 'borrado', 'pro'],
+      );
+      await repository.addItem(notebookId: notebook.id, itemId: 'fuente');
+
+      expect(await repository.watchItemIds(notebook.id).first, {'pro'});
+      expect(
+        (await repository.memberIds(notebook.id)).getRight().toNullable(),
+        ['pro'],
+      );
+    });
+
+    test('memberIds deja afuera lo que está en la papelera, y vuelve cuando '
+        'se recupera', () async {
+      await insertProcessedRows(db, id: 'a', title: 'Uno');
+      await insertProcessedRows(db, id: 'b', title: 'Dos');
+      final notebook = await repository.create(
+        name: 'A mano',
+        mode: NotebookMode.manual,
+      );
+      await repository.addItems(notebookId: notebook.id, itemIds: ['a', 'b']);
+
+      await trashItemRows(db, 'a');
+      expect(
+        (await repository.memberIds(notebook.id)).getRight().toNullable(),
+        ['b'],
+      );
+
+      await restoreItemRows(db, 'a');
+      expect(
+        (await repository.memberIds(notebook.id)).getRight().toNullable(),
+        unorderedEquals(['a', 'b']),
+      );
+    });
+
+    test('uno por consulta trae los procesados que cumplen su vista, nunca '
+        'las fuentes', () async {
+      await insertItemRows(db, id: 'fuente', title: 'Roma antigua');
+      await insertProcessedRows(
+        db,
+        id: 'roma',
+        title: 'Apuntes',
+        parts: {
+          ProcessedSection.summary: ['Los acueductos de Roma.'],
+        },
+      );
+      await insertProcessedRows(db, id: 'grecia', title: 'Atenas');
+      final notebook = await repository.create(
+        name: 'Roma',
+        mode: NotebookMode.query,
+        query: const LibraryQuery(searchText: 'roma'),
+      );
+
+      expect(
+        (await repository.memberIds(notebook.id)).getRight().toNullable(),
+        ['roma'],
+      );
+    });
+
+    group('la vista, sobre lo que tiene un procesado', () {
+      Future<List<String>?> membersOf(LibraryQuery query) async {
+        final notebook = await repository.create(
+          name: 'Vista',
+          mode: NotebookMode.query,
+          query: query,
+        );
+        return (await repository.memberIds(
+          notebook.id,
+        )).getRight().toNullable();
+      }
+
+      Future<void> value(String id, {String? parent}) => db
+          .into(db.propertyValues)
+          .insert(
+            PropertyValuesCompanion.insert(
+              id: id,
+              definitionId: 'cat',
+              value: id,
+              createdAt: now,
+              parentId: Value(parent),
+            ),
+          );
+
+      Future<void> assign(String itemId, String valueId) => db
+          .into(db.itemPropertyValues)
+          .insert(
+            ItemPropertyValuesCompanion.insert(
+              itemId: itemId,
+              propertyValueId: valueId,
+            ),
+          );
+
+      setUp(() async {
+        await db
+            .into(db.propertyDefinitions)
+            .insert(
+              PropertyDefinitionsCompanion.insert(
+                id: 'cat',
+                name: 'Período',
+                createdAt: now,
+              ),
+            );
+        await value('antigua');
+        await value('roma', parent: 'antigua');
+        await value('grecia', parent: 'antigua');
+        await insertProcessedRows(
+          db,
+          id: 'p-roma',
+          title: 'Roma',
+          sourceKind: SourceKind.youtube,
+        );
+        await insertProcessedRows(db, id: 'p-grecia', title: 'Grecia');
+        await insertProcessedRows(db, id: 'p-suelto', title: 'Suelto');
+        // Una fuente con la misma etiqueta: no es de un cuaderno.
+        await insertItemRows(db, id: 'fuente', title: 'Fuente');
+        await assign('p-roma', 'roma');
+        await assign('p-grecia', 'grecia');
+        await assign('fuente', 'roma');
+        await db
+            .into(db.spaces)
+            .insert(
+              SpacesCompanion.insert(id: 'sp', name: 'Sp', createdAt: now),
+            );
+        await placeItemRowsInSpace(db, ['p-roma'], 'sp');
+      });
+
+      test('una etiqueta o un valor trae también sus ramas', () async {
+        expect(
+          await membersOf(const LibraryQuery(tagIds: {'antigua'})),
+          unorderedEquals(['p-roma', 'p-grecia']),
+        );
+        expect(
+          await membersOf(const LibraryQuery(propertyValueIds: {'roma'})),
+          ['p-roma'],
+        );
+        // Entre los dos filtros, se cumplen los dos.
+        expect(
+          await membersOf(
+            const LibraryQuery(
+              tagIds: {'antigua'},
+              propertyValueIds: {'grecia'},
+            ),
+          ),
+          ['p-grecia'],
+        );
+      });
+
+      test('un tema, y el tipo de la fuente de origen', () async {
+        expect(await membersOf(const LibraryQuery(spaceId: 'sp')), ['p-roma']);
+        expect(
+          await membersOf(
+            const LibraryQuery(sourceKinds: {SourceKind.youtube}),
+          ),
+          ['p-roma'],
+        );
+      });
+
+      test('se ordena como pide la vista', () async {
+        expect(
+          await membersOf(
+            const LibraryQuery(sortBy: LibrarySort.title, descending: false),
+          ),
+          ['p-grecia', 'p-roma', 'p-suelto'],
+        );
+      });
+
+      test('cambiar las etiquetas de un procesado cambia lo que trae, en '
+          'vivo', () async {
+        final notebook = await repository.create(
+          name: 'Grecia',
+          mode: NotebookMode.query,
+          query: const LibraryQuery(tagIds: {'grecia'}),
+        );
+        final processed = ProcessedRepositoryImpl(
+          database: db,
+          telemetry: MockTelemetryService(),
+          files: InMemoryFileStore(),
+        );
+        final query = await repository.resolveQuery(notebook.id);
+        final emitted = <List<String>>[];
+        final subscription = processed
+            .watchDocuments(query)
+            .listen((docs) => emitted.add([for (final d in docs) d.id]));
+        await pumpEventQueue();
+
+        await assign('p-suelto', 'grecia');
+        await pumpEventQueue();
+        await subscription.cancel();
+
+        expect(emitted.first, ['p-grecia']);
+        expect(emitted.last, unorderedEquals(['p-grecia', 'p-suelto']));
+      });
+    });
+
+    test(
+      'memberIds de un cuaderno que ya no existe falla, y lo dice',
+      () async {
+        final result = await repository.memberIds('no-existe');
+
+        expect(result.isLeft(), isTrue);
+      },
+    );
+  });
+
   test('borrar un elemento lo saca de sus cuadernos manuales', () async {
-    await insertItemRows(db, id: 'a', title: 'Uno');
+    await insertProcessedRows(db, id: 'a', title: 'Uno');
     final notebook = await repository.create(
       name: 'A mano',
       mode: NotebookMode.manual,

@@ -89,6 +89,9 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
     _db.processedOriginals,
     _db.knowledgeEntries,
     _db.itemSpaces,
+    // Lo que filtran las etiquetas y las propiedades (paso 5).
+    _db.itemPropertyValues,
+    _db.propertyValues,
   ];
 
   // --- La lista ---------------------------------------------------------

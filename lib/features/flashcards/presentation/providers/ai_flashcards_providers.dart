@@ -60,8 +60,8 @@ class AiFlashcardsScope {
 /// Los elementos de un alcance que pueden tener tarjetas, y cuáles ya tienen; o
 /// el fallo, para decirlo. Un tema o una etiqueta, con los mismos filtros
 /// que la Biblioteca (`LibraryRepository.matchingIds`); un cuaderno, con lo
-/// que es hoy (`NotebookRepository.resolveQuery`): uno por consulta trae lo
-/// que la consulta encuentra ahora.
+/// que tiene hoy (`NotebookRepository.memberIds`, sus documentos procesados):
+/// uno por consulta trae lo que la consulta encuentra ahora.
 final aiFlashcardsCoverageProvider = FutureProvider.autoDispose
     .family<Either<Failure, FlashcardCoverage>, AiFlashcardsScope>((
       ref,
@@ -69,14 +69,17 @@ final aiFlashcardsCoverageProvider = FutureProvider.autoDispose
     ) async {
       final reader = ref.watch(flashcardCoverageReaderProvider);
       final library = ref.watch(libraryRepositoryProvider);
-      final query = switch (scope.kind) {
+      final ids = switch (scope.kind) {
         AiFlashcardsScopeKind.library => null,
-        AiFlashcardsScopeKind.space => LibraryQuery(spaceId: scope.id),
-        AiFlashcardsScopeKind.tag => LibraryQuery(tagIds: {scope.id!}),
+        AiFlashcardsScopeKind.space => await library.matchingIds(
+          LibraryQuery(spaceId: scope.id),
+        ),
+        AiFlashcardsScopeKind.tag => await library.matchingIds(
+          LibraryQuery(tagIds: {scope.id!}),
+        ),
         AiFlashcardsScopeKind.notebook =>
-          await ref.watch(notebookRepositoryProvider).resolveQuery(scope.id!),
+          await ref.watch(notebookRepositoryProvider).memberIds(scope.id!),
       };
-      if (query == null) return reader.coverageOf(null);
-      final ids = await library.matchingIds(query);
+      if (ids == null) return reader.coverageOf(null);
       return ids.match((failure) async => left(failure), reader.coverageOf);
     });

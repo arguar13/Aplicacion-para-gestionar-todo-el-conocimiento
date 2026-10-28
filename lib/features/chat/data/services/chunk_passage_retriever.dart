@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_passages.dart';
 import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 
@@ -90,11 +91,16 @@ class ChunkPassageRetriever implements VaultRetriever {
           'JOIN item i ON i.id = c.item_id '
           'UNION ALL '
           // Los títulos y las notas: de una nota, su texto; de una fuente
-          // que coincide por el título, su primer fragmento.
+          // que coincide por el título, su primer fragmento; de un procesado,
+          // su primera parte en el orden en que se lee.
           'SELECT i.id, i.title, '
           "CASE WHEN ts.body <> '' THEN ts.body ELSE COALESCE(( "
           'SELECT fc.content FROM chunks fc WHERE fc.item_id = i.id '
-          "ORDER BY fc.seq LIMIT 1), i.subtitle, '') END, "
+          'ORDER BY fc.seq LIMIT 1), ( '
+          'SELECT fp.content FROM processed_parts fp '
+          'WHERE fp.document_id = i.id '
+          'ORDER BY $_sectionOrder, fp.position LIMIT 1), '
+          "i.subtitle, '') END, "
           "CASE WHEN ts.body <> '' THEN NULL ELSE ( "
           'SELECT fc.char_start FROM chunks fc WHERE fc.item_id = i.id '
           'ORDER BY fc.seq LIMIT 1) END, '
@@ -189,6 +195,14 @@ class ChunkPassageRetriever implements VaultRetriever {
       "NOT (fp.section = 'text' AND fp.edited = 0 AND EXISTS ( "
       'SELECT 1 FROM renditions sr JOIN item si ON si.id = sr.item_id '
       'WHERE sr.id = fp.source_rendition_id AND si.deleted_at IS NULL)) ';
+
+  /// El orden de las secciones de un procesado, el de [ProcessedSection].
+  static final _sectionOrder = [
+    'CASE fp.section',
+    for (final section in ProcessedSection.values)
+      "WHEN '${section.name}' THEN ${section.index}",
+    'END',
+  ].join(' ');
 
   static bool _isSpace(int unit) =>
       unit == 0x20 || unit == 0x0A || unit == 0x0D || unit == 0x09;

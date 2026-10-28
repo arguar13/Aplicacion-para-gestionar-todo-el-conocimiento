@@ -19,6 +19,7 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/item_rows.dart';
 import '../../../../support/my_cards_screen_fixture.dart';
+import '../../../../support/processed_rows.dart';
 
 class _MockBrowser extends Mock implements CardBrowserRepository {}
 
@@ -232,13 +233,19 @@ void main() {
       expect(find.text('4 tarjetas'), findsOneWidget);
     });
 
-    testWidgets('el recorte por cuaderno', (tester) async {
+    testWidgets('el recorte por cuaderno: las de sus documentos procesados '
+        '(F41)', (tester) async {
+      await insertProcessedRows(f.db, id: 'p-grecia', title: 'Grecia');
+      await f.card('pro', front: 'De lo procesado', itemId: 'p-grecia');
       final notebooks = f.harness.container.read(notebookRepositoryProvider);
       final book = await notebooks.create(
         name: 'Para el examen',
         mode: NotebookMode.manual,
       );
-      await notebooks.addItem(notebookId: book.id, itemId: 'grecia');
+      await notebooks.addItems(
+        notebookId: book.id,
+        itemIds: ['p-grecia', 'grecia'],
+      );
       await f.pump(tester);
 
       await tester.tap(find.byKey(const Key('my-cards-scope')));
@@ -246,7 +253,8 @@ void main() {
       await tester.tap(find.byKey(Key('my-cards-scope-notebook-${book.id}')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Algo nuevo'), findsOneWidget);
+      expect(find.text('De lo procesado'), findsOneWidget);
+      expect(find.text('Algo nuevo'), findsNothing);
       expect(find.text('1 tarjeta'), findsOneWidget);
     });
 

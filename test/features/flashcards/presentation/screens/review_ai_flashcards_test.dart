@@ -18,6 +18,7 @@ import 'package:sinapsis/features/notebooks/presentation/providers/notebook_prov
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// La cola de la IA de mentira: anota lo que la pantalla le pide. Cómo hace
 /// las tarjetas lo prueba `ai_organize_queue_test.dart`.
@@ -143,17 +144,27 @@ void main() {
       expect(queue.requests.single.anotherBatch, isTrue);
     });
 
-    testWidgets('de un cuaderno: hay que elegirlo, y cuenta solo lo suyo', (
-      tester,
-    ) async {
+    testWidgets('de un cuaderno: hay que elegirlo, y cuenta solo lo suyo —sus '
+        'procesados, que todavía no tienen una forma de texto de la que salgan '
+        'tarjetas—', (tester) async {
       await setUpWith();
       final ids = await seed();
+      // Un cuaderno tiene solo documentos procesados (F41, paso 5): la
+      // fuente se queda afuera.
+      await insertProcessedRows(
+        harness.database,
+        id: 'p-roma',
+        title: 'Roma procesada',
+      );
       final notebooks = harness.container.read(notebookRepositoryProvider);
       final notebook = await notebooks.create(
         name: 'Tesis',
         mode: NotebookMode.manual,
       );
-      await notebooks.addItem(notebookId: notebook.id, itemId: ids['Roma']!);
+      await notebooks.addItems(
+        notebookId: notebook.id,
+        itemIds: ['p-roma', ids['Roma']!],
+      );
       await pumpReview(tester);
       await openSheet(tester);
 
@@ -172,10 +183,16 @@ void main() {
       await tester.tap(find.text('Tesis').last);
       await tester.pumpAndSettle();
 
-      expect(find.text(es.reviewAiCoverage(1)), findsOneWidget);
-      await tester.tap(find.text(es.reviewAiStart(1)));
-      await tester.pumpAndSettle();
-      expect(queue.requests.single.ids, [ids['Roma']]);
+      // La fuente que se quiso meter no cuenta; el procesado, sin forma de
+      // texto, todavía no da tarjetas.
+      expect(find.text(es.reviewAiCoverage(0)), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('ai-cards-start')))
+            .onPressed,
+        isNull,
+      );
+      expect(queue.requests, isEmpty);
     });
 
     testWidgets('sin el modelo de lenguaje no se puede, y ofrece bajarlo', (

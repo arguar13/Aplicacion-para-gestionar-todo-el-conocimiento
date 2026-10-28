@@ -2828,7 +2828,7 @@
   "@notebooksEmptyTitle": {
     "description": "Título del estado vacío de la pantalla de cuadernos."
   },
-  "notebooksEmptyMessage": "A notebook groups a subset of what you saved, manually or from a saved view, to scope the chat to just that.",
+  "notebooksEmptyMessage": "A notebook groups processed documents —by hand, with AI or from a saved view— to scope the chat to just that.",
   "@notebooksEmptyMessage": {
     "description": "Mensaje del estado vacío de la pantalla de cuadernos."
   },
@@ -7685,7 +7685,7 @@
   "@notebooksNewWithAi": {
     "description": "Cuadernos (F30): crear un cuaderno contándole a la IA de qué es."
   },
-  "notebooksNewWithAiHint": "Say what it is about and the AI finds what fits in your library.",
+  "notebooksNewWithAiHint": "Say what it is about and the AI finds what fits in Processed.",
   "@notebooksNewWithAiHint": {
     "description": "Cuadernos (F30): debajo de «Crear con IA»."
   },
@@ -7693,7 +7693,7 @@
   "@notebooksNewManual": {
     "description": "Cuadernos (F30): crear un cuaderno eligiendo uno los elementos, o con una vista guardada."
   },
-  "notebooksNewManualHint": "Pick the items yourself, or let a saved view decide.",
+  "notebooksNewManualHint": "Pick the processed documents yourself, or let a saved view decide.",
   "@notebooksNewManualHint": {
     "description": "Cuadernos (F30): debajo de «A mano»."
   },
@@ -7701,7 +7701,7 @@
   "@aiNotebookTitle": {
     "description": "Crear con IA (F30): el título de la hoja."
   },
-  "aiNotebookIntro": "Say what the notebook is about. The AI searches your library and suggests items, already checked: uncheck what doesn't fit and you're done.",
+  "aiNotebookIntro": "Say what the notebook is about. The AI searches Processed and suggests documents, already checked: uncheck what doesn't fit and you're done.",
   "@aiNotebookIntro": {
     "description": "Crear con IA (F30): qué hace."
   },
@@ -7729,11 +7729,11 @@
   "@aiNotebookReviewOff": {
     "description": "Crear con IA (F30): sin el modelo de lenguaje."
   },
-  "aiNotebookSearching": "Searching your library…",
+  "aiNotebookSearching": "Searching Processed…",
   "@aiNotebookSearching": {
     "description": "Crear con IA (F30): mientras busca."
   },
-  "aiNotebookNothing": "I found nothing about “{topic}” in your library.",
+  "aiNotebookNothing": "I found nothing about “{topic}” in Processed.",
   "@aiNotebookNothing": {
     "description": "Crear con IA (F30): la búsqueda no encontró nada.",
     "placeholders": {
@@ -7988,7 +7988,7 @@
       }
     }
   },
-  "fillNotebookGuideElsewhere": "“{title}” was created, but it stayed in the Library: this notebook asks for something a note doesn't have.",
+  "fillNotebookGuideElsewhere": "“{title}” was created and stayed in the Library: a notebook holds only processed documents.",
   "@fillNotebookGuideElsewhere": {
     "description": "Llenar un cuaderno (F30): la nota no cumple la consulta del cuaderno.",
     "placeholders": {
@@ -11589,5 +11589,41 @@
   "processedTriageEmptied": "Left empty",
   "@processedTriageEmptied": {
     "description": "Vista previa al volver a triar: la sección se queda sin partes (F41, paso 4)."
+  },
+  "notebookPartText": "Text",
+  "notebookPartSummary": "Summary",
+  "notebookPartSynthesis": "Synthesis",
+  "notebookPartNotes": "Notes",
+  "notebookPartFragments": "Excerpts",
+  "notebookDetailEmptyTitle": "This notebook is empty",
+  "notebookDetailEmptyManual": "A notebook is filled with processed documents: what you chose to keep from each source when you triaged it in the Inbox. Add them with “+”.",
+  "notebookDetailEmptyQuery": "It fills itself with the processed documents that match its saved view. None does yet: triage in the Inbox and what you process will show up here.",
+  "notebookDetailGoToProcessed": "Go to Processed",
+  "notebookDetailGoToInbox": "Go to the Inbox",
+  "notebookPickProcessedTitle": "Add processed documents",
+  "notebookPickProcessedSearchHint": "Search Processed",
+  "notebookPickProcessedNone": "You haven't processed anything yet. Triage a source in the Inbox and its processed document will show up here.",
+  "notebookPickProcessedNoMatches": "Nothing processed matches “{query}”",
+  "@notebookPickProcessedNoMatches": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "notebooksQueryProcessedHint": "It fills itself with the processed documents that match the view.",
+  "notebookMemberSemantics": "{title}. Processed from {origin}. Has: {parts}",
+  "@notebookMemberSemantics": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "origin": {
+        "type": "String"
+      },
+      "parts": {
+        "type": "String"
+      }
+    }
   }
 }

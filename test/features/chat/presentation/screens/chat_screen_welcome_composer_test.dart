@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
@@ -13,14 +14,13 @@ import 'package:sinapsis/features/capture/domain/services/camera_chooser.dart';
 import 'package:sinapsis/features/chat/domain/services/dictation.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_ambient_glow.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/features/settings/presentation/providers/owner_name.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/chat_actions.dart';
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// Firma PNG mínima: alcanza para que el formato se reconozca por los bytes.
 final _png = Uint8List.fromList(const [
@@ -283,20 +283,20 @@ void main() {
 
     testWidgets('acotadas a un cuaderno, sale el cuaderno', (tester) async {
       await pumpChat(tester);
-      await harness.capture('Adentro\n\nalgo');
+      // Lo último de la Biblioteca no cuenta: un cuaderno tiene solo
+      // documentos procesados (F41, paso 5).
+      await harness.capture('De la Biblioteca\n\nalgo');
+      await insertProcessedRows(
+        harness.database,
+        id: 'adentro',
+        title: 'Adentro',
+      );
       final notebook = await harness.container
           .read(notebookRepositoryProvider)
           .create(name: 'Tesis', mode: NotebookMode.manual);
-      final inside =
-          (await harness.container
-                  .read(libraryRepositoryProvider)
-                  .list(const LibraryQuery()))
-              .getRight()
-              .toNullable()!
-              .single;
       await harness.container
           .read(notebookRepositoryProvider)
-          .addItem(notebookId: notebook.id, itemId: inside.id);
+          .addItem(notebookId: notebook.id, itemId: 'adentro');
       await tester.pumpAndSettle();
 
       await chooseChatScope(tester, 'Tesis');
@@ -306,6 +306,10 @@ void main() {
         findsOneWidget,
       );
       expect(find.text(es.chatSuggestionSummarize('Adentro')), findsOneWidget);
+      expect(
+        find.text(es.chatSuggestionSummarize('De la Biblioteca')),
+        findsNothing,
+      );
     });
   });
 
@@ -559,25 +563,21 @@ void main() {
     testWidgets('el cuaderno elegido desde el «+» se ve en la fila y acota '
         'lo que llega al modelo', (tester) async {
       await pumpChat(tester, chatModelReady: true, chatModelResponse: 'ok');
-      await harness.capture('Adentro del cuaderno\n\nalgo de adentro');
+      await insertProcessedRows(
+        harness.database,
+        id: 'adentro',
+        title: 'Adentro del cuaderno',
+        parts: {
+          ProcessedSection.notes: ['algo de adentro'],
+        },
+      );
       await harness.capture('Afuera del cuaderno\n\nalgo de afuera');
-      final items =
-          (await harness.container
-                  .read(libraryRepositoryProvider)
-                  .list(const LibraryQuery()))
-              .getRight()
-              .toNullable()!;
       final notebook = await harness.container
           .read(notebookRepositoryProvider)
           .create(name: 'Mi cuaderno', mode: NotebookMode.manual);
       await harness.container
           .read(notebookRepositoryProvider)
-          .addItem(
-            notebookId: notebook.id,
-            itemId: items
-                .firstWhere((i) => i.title == 'Adentro del cuaderno')
-                .id,
-          );
+          .addItem(notebookId: notebook.id, itemId: 'adentro');
       await tester.pumpAndSettle();
 
       await chooseChatScope(tester, 'Mi cuaderno', fromAddSheet: true);

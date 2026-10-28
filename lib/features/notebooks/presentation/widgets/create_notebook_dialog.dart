@@ -92,13 +92,35 @@ class _CreateNotebookDialogState extends ConsumerState<_CreateNotebookDialog> {
                 DropdownButtonFormField<SavedView>(
                   key: const Key('notebook-source-view'),
                   initialValue: _sourceView,
-                  hint: Text(l10n.notebooksSourceViewHint),
+                  // Que la pista y el nombre de la vista se corten en vez de
+                  // desbordar el diálogo, con la letra al doble o en un
+                  // teléfono angosto.
+                  isExpanded: true,
+                  hint: Text(
+                    l10n.notebooksSourceViewHint,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   items: [
                     for (final view in views)
-                      DropdownMenuItem(value: view, child: Text(view.name)),
+                      DropdownMenuItem(
+                        value: view,
+                        child: Text(view.name, overflow: TextOverflow.ellipsis),
+                      ),
                   ],
                   onChanged: (view) => setState(() => _sourceView = view),
                 ),
+              if (views.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                // La vista se guardó en la Biblioteca, pero un cuaderno se
+                // llena solo con procesados (F41, paso 5): se dice antes.
+                Text(
+                  l10n.notebooksQueryProcessedHint,
+                  key: const Key('notebook-query-processed-hint'),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ],
         ),

@@ -19,6 +19,7 @@ import 'package:sinapsis/features/organize/presentation/providers/organize_provi
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// La entrada a Repasar (F31, ola 2): cuánto hay para hoy, qué estudiar y el
 /// camino a la sesión.
@@ -218,15 +219,28 @@ void main() {
       expect(countOf(tester, 'review-entry-new'), '2');
     });
 
-    testWidgets('un cuaderno: los elementos que tiene', (tester) async {
-      await addCards('Roma', ['¿Roma 1?']);
+    testWidgets('un cuaderno: los documentos procesados que tiene (F41)', (
+      tester,
+    ) async {
+      // Un cuaderno tiene solo documentos procesados: las tarjetas de la
+      // fuente quedan afuera.
+      await insertProcessedRows(
+        harness.database,
+        id: 'p-roma',
+        title: 'Roma procesada',
+      );
+      items['Roma procesada'] = 'p-roma';
+      await addCards('Roma procesada', ['¿Roma 1?']);
       await addCards('Grecia', ['¿Grecia 1?']);
       final notebooks = harness.container.read(notebookRepositoryProvider);
       final notebook = await notebooks.create(
         name: 'Para el examen',
         mode: NotebookMode.manual,
       );
-      await notebooks.addItem(notebookId: notebook.id, itemId: items['Roma']!);
+      await notebooks.addItems(
+        notebookId: notebook.id,
+        itemIds: ['p-roma', items['Grecia']!],
+      );
       await openEntry(tester);
 
       await chooseScope(tester, StudyScopeKind.notebook, notebook.id);

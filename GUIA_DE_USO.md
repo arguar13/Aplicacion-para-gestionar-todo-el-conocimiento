@@ -1388,10 +1388,17 @@ dos, la otra deja de filtrar por él sola.
 
 ## Cuadernos
 
-Un cuaderno junta un subconjunto de lo que guardaste — a mano, con ayuda de la
-IA, o automáticamente a partir de un tema, una etiqueta o una Vista guardada —
-para poder acotar cosas a solo ese grupo (por ejemplo, para que el Chat con la
-IA busque únicamente ahí adentro).
+Un cuaderno junta **documentos procesados** —lo que elegiste quedarte de cada
+fuente al triarla en la Bandeja— a mano, con ayuda de la IA, o automáticamente
+a partir de un tema, una etiqueta o una Vista guardada, para poder acotar cosas
+a solo ese grupo (por ejemplo, para que el Chat con la IA busque únicamente ahí
+adentro).
+
+**Solo con lo procesado.** Una fuente de la Biblioteca —un PDF, un video, una
+página tal como entró— no se puede meter en un cuaderno por ningún camino: la
+Biblioteca es la base de consulta y queda entera; un cuaderno se arma con la
+información pura que sacaste de ella. Para que algo entre a un cuaderno,
+primero triá su fuente en la Bandeja (o pasala tal cual a Procesado).
 
 **Cómo llegar:** ítem **"Cuadernos"** en la navegación (en el celular,
 dentro de **"Organizar"**, debajo de **"Mapa"**).
@@ -1407,30 +1414,56 @@ Botón flotante **"Nuevo cuaderno"**. Te pregunta cómo:
   [más abajo](#cuadernos-sugeridos).
 - **"A mano"**: se abre el diálogo **"Cuaderno nuevo"**. Escribí un nombre y
   elegí el modo:
-  - **"A mano"**: lo vas a ir armando vos, elemento por elemento.
-  - **"Por consulta"**: se llena solo con lo que trae una Vista guardada que
-    elijas de una lista (necesitás tener guardada al menos una vista antes).
+  - **"A mano"**: lo vas a ir armando vos, documento por documento.
+  - **"Por consulta"**: se llena solo con los **documentos procesados** que
+    cumplen una Vista guardada que elijas de una lista (necesitás tener
+    guardada al menos una vista antes). La vista se guardó en la Biblioteca,
+    pero acá se mira sobre Procesado, y el diálogo lo avisa debajo:
+    - lo que buscás se busca en el título y en las partes de cada procesado
+      —lo que elegiste quedarte—, no en la fuente entera;
+    - el tipo de fuente es el de la fuente de la que salió («libros» trae lo
+      procesado de libros);
+    - los temas, las etiquetas y las propiedades son los del documento
+      procesado;
+    - una vista de «Por revisar», «Triado» o «Descartado», o de lo que se está
+      procesando o falló, no trae ninguno: eso es de las fuentes.
 
   Y tocá **"Crear"**.
 
+**Lo que se ve adentro.** Cada fila es un documento procesado: el ícono de la
+fuente de la que salió, su título y unos chips con las partes que tiene
+—**Texto**, **Resumen**, **Síntesis**, **Notas**, **Fragmentos**—. Tocarla abre
+el documento procesado. Con el lector de pantalla, la fila se lee en una sola
+frase: el título, de qué tipo era la fuente y qué partes tiene.
+
 Dentro de un cuaderno hecho "a mano" hay un botón **"+"** para **agregar
-elementos**: el selector deja tildar **varios a la vez** —lo tildado se
-mantiene aunque cambies la búsqueda, y lo que ya está en el cuaderno aparece
-marcado y no se puede tocar— y se agregan todos juntos con **"Agregar N"**. Cada
-fila tiene una "X" para sacarlos (esto no borra el elemento de la bóveda, solo
-lo saca del cuaderno). Un cuaderno "por consulta" es de solo lectura: se
-actualiza solo, según lo que la consulta vaya trayendo.
+documentos procesados**: el selector busca en Procesado (en el título y en el
+texto de sus partes), deja tildar **varios a la vez** —lo tildado se mantiene
+aunque cambies la búsqueda, y lo que ya está en el cuaderno aparece marcado y
+no se puede tocar— y se agregan todos juntos con **"Agregar N"**. Las fuentes de
+la Biblioteca no aparecen. Si todavía no procesaste nada, el selector te lo dice
+y te manda a la Bandeja. Cada fila tiene una "X" para sacarla (esto no borra el
+documento procesado, solo lo saca del cuaderno). Un cuaderno "por consulta" es
+de solo lectura: se actualiza solo, según los procesados que la vista vaya
+trayendo.
+
+**Vacío.** Un cuaderno sin nada explica que se llena con documentos procesados
+y ofrece **"Ir a la Bandeja"**, para triar. (Cuando esté la pantalla
+**Procesado**, ofrece también **"Ir a Procesado"**.)
 
 ### Crear un cuaderno con IA
 
 1. **"Nuevo cuaderno"** → **"Crear con IA"** (también está en la pantalla de
    Cuadernos cuando todavía no hay ninguno).
-2. Escribí de qué lo querés, por ejemplo *"mi tesis sobre Roma"*. La hoja te
+2. Escribí de qué lo querés, por ejemplo *"mi tesis sobre Roma"*. Busca **solo
+   en Procesado**: en el texto que elegiste quedarte de cada fuente. La hoja te
    avisa qué modelos hay: con el **modelo de vínculos** busca también por
-   sentido —encuentra "el Senado" buscando "Roma" aunque no diga Roma—; con el
-   **modelo de lenguaje** la IA revisa lo que encontró. Sin ninguno de los dos
-   igual busca, por palabras.
-3. Te muestra los elementos que encontró, **ya marcados**. Las palabras de para
+   sentido —encuentra "el Senado" buscando "Roma" aunque no diga Roma; el
+   parecido se mide sobre la fuente de cada procesado, y lo que te muestra es el
+   texto del procesado—; con el **modelo de lenguaje** la IA revisa lo que
+   encontró. Sin ninguno de los dos igual busca, por palabras. Una fuente que
+   todavía no procesaste no se propone nunca.
+3. Te muestra los documentos procesados que encontró, **ya marcados**. Las palabras de para
    qué es el cuaderno ("tesis", "apuntes", "parcial") no se buscan: se busca de
    qué trata. Con el modelo de lenguaje, la IA revisa los primeros 24 de a 8 y
    debajo de cada uno dice si lo ve del tema; la lista aparece enseguida y las
@@ -1446,7 +1479,9 @@ no encuentra nada, te deja probar con otras palabras.
 ### Cuadernos sugeridos
 
 La app mira tus **temas** y tus **etiquetas** y, cuando alguno junta **tres
-elementos o más**, te propone un cuaderno con ese nombre.
+documentos procesados o más**, te propone un cuaderno con ese nombre. Las
+fuentes de la Biblioteca no cuentan: un tema con cien fuentes y ningún
+procesado no se sugiere.
 
 - Arriba de la lista de Cuadernos aparece un aviso —*"2 cuadernos
   sugeridos"*— con **"Ver"** y **"Ahora no"**. "Ahora no" lo deja de mostrar, y
@@ -1458,7 +1493,7 @@ elementos o más**, te propone un cuaderno con ese nombre.
   mientras mirás; sin él, o si falla, queda el nombre del tema o la etiqueta
   (lo podés renombrar después).
 - Cada cuaderno sugerido es **por consulta**: un tema, o una etiqueta **con
-  todas sus ramas**. Por eso **se mantiene al día solo**: lo que guardes
+  todas sus ramas**. Por eso **se mantiene al día solo**: lo que proceses
   después y entre en ese tema o etiqueta aparece en el cuaderno sin que hagas
   nada.
 - No te sugiere lo que ya tenés: ni un cuaderno que ya pide ese tema o esa
@@ -1474,18 +1509,22 @@ cuaderno no la guarda.
 El botón **✨ "Llenar con IA"** del detalle de un cuaderno arma, con lo que
 tiene adentro:
 
-- **Una nota de estudio**, que **queda adentro del cuaderno**. Por defecto es
-  una guía de estudio; también podés elegir preguntas abiertas, esquema o
-  cronología. Cada afirmación queda anclada a su fuente. Un cuaderno grande se
-  lee **por partes** (hasta tres, de las fuentes más representativas) y ves
-  cuántas lleva; con Gemini casi siempre entra de una sola vez. En un cuaderno "a mano" la nota se agrega; en uno por tema o
-  etiqueta, recibe el tema o la etiqueta y entra sola. Si el cuaderno es por una
-  consulta que una nota no cumple (por ejemplo, solo páginas web), la nota queda
-  en la Biblioteca y la hoja te lo dice.
+- **Una nota de estudio**, que **queda en la Biblioteca**: un cuaderno tiene
+  solo documentos procesados, así que la nota no entra, y la hoja te lo dice al
+  terminar, con **"Ver"** para abrirla. Por defecto es una guía de estudio;
+  también podés elegir preguntas abiertas, esquema o cronología. Lee de cada
+  documento procesado lo que copiaste tal cual de su fuente, y cada afirmación
+  queda anclada a esa fuente, en su lugar del original. Lo que escribiste o
+  editaste vos en un procesado no se cita (no tendría dónde anclarse). Un
+  cuaderno grande se lee **por partes** (hasta tres, de los documentos más
+  representativos) y ves cuántas lleva; con Gemini casi siempre entra de una
+  sola vez.
 - **Las tarjetas de repaso** de lo que todavía no tiene: es el mismo pedido de
   "solo tarjetas" de [Repasar](#repasar-con-tarjetas-y-cuestionarios), se hace en
   segundo plano y aparecen en Repasar. La hoja te cuenta antes cuántos
-  elementos entran y cuántos ya tienen. Las tarjetas se piden **antes** de
+  elementos entran y cuántos ya tienen. Por ahora un documento procesado no da
+  tarjetas por su cuenta —sus tarjetas salen de la fuente—, así que en un
+  cuaderno la hoja suele decir que no entra ninguno. Las tarjetas se piden **antes** de
   crear la nota, así la nota no da tarjetas de tarjetas.
 
 Podés elegir una cosa, la otra o las dos. Necesita el modelo de lenguaje (si
@@ -2166,8 +2205,12 @@ Arriba hay solo tres cosas:
   **"Conversación libre"**. Está siempre a la vista para que no te olvides
   dónde estás preguntando. Tocala y se abre **"Dónde pregunto"**: elegís
   el modo y, con la bóveda, **en qué cuaderno** (la primera opción siempre
-  es "Toda la bóveda"). Elegir un cuaderno con una conversación en curso
-  arranca una nueva: lo ya hablado no cambia de alcance.
+  es "Toda la bóveda"). Con un cuaderno, el chat **lee solo el texto de sus
+  documentos procesados**: nunca un pasaje de una fuente de la Biblioteca, ni
+  siquiera de la fuente de la que salió un procesado. Una cita de un procesado
+  no tiene página ni minuto propios: tocarla abre el documento. Elegir un
+  cuaderno con una conversación en curso arranca una nueva: lo ya hablado no
+  cambia de alcance.
 - **✎, a la derecha**: una conversación nueva. No borra la que tenías:
   queda en el panel. Si la conversación ya está vacía, el lápiz se ve
   apagado.
@@ -2231,8 +2274,9 @@ afuera, con "atrás" o deslizándolo hacia la izquierda.
 - **Sugerencias tocables**, armadas con lo tuyo: *"Resumime «…»"* con lo
   último que guardaste (ya procesado), *"Preguntame sobre «…»"*, *"¿Qué dice
   «…» sobre…?"* y *"¿Qué tengo guardado sobre…?"* con el tema que más cosas
-  tiene. Si acotaste la pregunta a un Cuaderno, salen de ese cuaderno, con
-  *"¿Qué ideas se repiten en «…»?"*. Las que son una pregunta entera **se
+  tiene. Si acotaste la pregunta a un Cuaderno, salen de sus documentos
+  procesados —lo último que procesaste—, con *"¿Qué ideas se repiten en
+  «…»?"*. Las que son una pregunta entera **se
   mandan al tocarlas**; las que terminan en "…" **quedan escritas en el
   campo** para que las completes. En conversación libre son tres comienzos
   (*"Explicame de forma simple…"*, *"Ayudame a pensar ideas para…"*,

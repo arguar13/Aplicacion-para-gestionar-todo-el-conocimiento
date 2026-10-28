@@ -2153,7 +2153,7 @@
   "@notebooksEmptyTitle": {
     "description": "Título del estado vacío de la pantalla de cuadernos."
   },
-  "notebooksEmptyMessage": "Un cuaderno junta un subconjunto de lo guardado, a mano o por una vista guardada, para acotar el chat a solo eso.",
+  "notebooksEmptyMessage": "Un cuaderno junta documentos procesados —a mano, con la IA o por una vista guardada— para acotar el chat a solo eso.",
   "@notebooksEmptyMessage": {
     "description": "Mensaje del estado vacío de la pantalla de cuadernos."
   },
@@ -6661,7 +6661,7 @@
   "@notebooksNewWithAi": {
     "description": "Cuadernos (F30): crear un cuaderno contándole a la IA de qué es."
   },
-  "notebooksNewWithAiHint": "Contás de qué lo querés y la IA busca en tu biblioteca lo que va.",
+  "notebooksNewWithAiHint": "Contás de qué lo querés y la IA busca en Procesado lo que va.",
   "@notebooksNewWithAiHint": {
     "description": "Cuadernos (F30): debajo de «Crear con IA»."
   },
@@ -6669,7 +6669,7 @@
   "@notebooksNewManual": {
     "description": "Cuadernos (F30): crear un cuaderno eligiendo uno los elementos, o con una vista guardada."
   },
-  "notebooksNewManualHint": "Elegís vos los elementos, o que una vista guardada los decida.",
+  "notebooksNewManualHint": "Elegís vos los documentos procesados, o que una vista guardada los decida.",
   "@notebooksNewManualHint": {
     "description": "Cuadernos (F30): debajo de «A mano»."
   },
@@ -6677,7 +6677,7 @@
   "@aiNotebookTitle": {
     "description": "Crear con IA (F30): el título de la hoja."
   },
-  "aiNotebookIntro": "Contá de qué querés el cuaderno. La IA busca en tu biblioteca y te propone los elementos ya marcados: sacás lo que no va y listo.",
+  "aiNotebookIntro": "Contá de qué querés el cuaderno. La IA busca en Procesado y te propone los documentos ya marcados: sacás lo que no va y listo.",
   "@aiNotebookIntro": {
     "description": "Crear con IA (F30): qué hace."
   },
@@ -6705,11 +6705,11 @@
   "@aiNotebookReviewOff": {
     "description": "Crear con IA (F30): sin el modelo de lenguaje."
   },
-  "aiNotebookSearching": "Buscando en tu biblioteca…",
+  "aiNotebookSearching": "Buscando en Procesado…",
   "@aiNotebookSearching": {
     "description": "Crear con IA (F30): mientras busca."
   },
-  "aiNotebookNothing": "No encontré nada sobre «{topic}» en tu biblioteca.",
+  "aiNotebookNothing": "No encontré nada sobre «{topic}» en Procesado.",
   "@aiNotebookNothing": {
     "description": "Crear con IA (F30): la búsqueda no encontró nada.",
     "placeholders": {
@@ -6964,7 +6964,7 @@
       }
     }
   },
-  "fillNotebookGuideElsewhere": "Se creó «{title}», pero quedó en la Biblioteca: este cuaderno pide algo que una nota no tiene.",
+  "fillNotebookGuideElsewhere": "Se creó «{title}» y quedó en la Biblioteca: un cuaderno tiene solo documentos procesados.",
   "@fillNotebookGuideElsewhere": {
     "description": "Llenar un cuaderno (F30): la nota no cumple la consulta del cuaderno.",
     "placeholders": {
@@ -10565,5 +10565,85 @@
   "processedTriageEmptied": "Queda vacía",
   "@processedTriageEmptied": {
     "description": "Vista previa al volver a triar: la sección se queda sin partes (F41, paso 4)."
+  },
+  "notebookPartText": "Texto",
+  "@notebookPartText": {
+    "description": "Chip de un documento procesado en un cuaderno (F41, paso 5): tiene la sección Texto, el texto extraído entero o la transcripción."
+  },
+  "notebookPartSummary": "Resumen",
+  "@notebookPartSummary": {
+    "description": "Chip de un documento procesado en un cuaderno: tiene la sección Resumen."
+  },
+  "notebookPartSynthesis": "Síntesis",
+  "@notebookPartSynthesis": {
+    "description": "Chip de un documento procesado en un cuaderno: tiene la sección Síntesis."
+  },
+  "notebookPartNotes": "Notas",
+  "@notebookPartNotes": {
+    "description": "Chip de un documento procesado en un cuaderno: tiene la sección Notas."
+  },
+  "notebookPartFragments": "Fragmentos",
+  "@notebookPartFragments": {
+    "description": "Chip de un documento procesado en un cuaderno: tiene la sección Fragmentos, los pasajes cortados a mano del original."
+  },
+  "notebookDetailEmptyTitle": "Este cuaderno está vacío",
+  "@notebookDetailEmptyTitle": {
+    "description": "Título del vacío del detalle de un cuaderno (F41, paso 5)."
+  },
+  "notebookDetailEmptyManual": "Un cuaderno se llena con documentos procesados: lo que elegiste quedarte de cada fuente al triarla en la Bandeja. Agregalos con «+».",
+  "@notebookDetailEmptyManual": {
+    "description": "Cuerpo del vacío de un cuaderno a mano: con qué se llena y cómo."
+  },
+  "notebookDetailEmptyQuery": "Se llena solo con los documentos procesados que cumplen su vista guardada. Todavía ninguno la cumple: triá en la Bandeja y lo que proceses va a aparecer acá.",
+  "@notebookDetailEmptyQuery": {
+    "description": "Cuerpo del vacío de un cuaderno por consulta: se llena solo con los procesados que cumplen la vista."
+  },
+  "notebookDetailGoToProcessed": "Ir a Procesado",
+  "@notebookDetailGoToProcessed": {
+    "description": "Botón del vacío de un cuaderno: abre la pantalla Procesado."
+  },
+  "notebookDetailGoToInbox": "Ir a la Bandeja",
+  "@notebookDetailGoToInbox": {
+    "description": "Botón del vacío de un cuaderno: abre la Bandeja para triar."
+  },
+  "notebookPickProcessedTitle": "Agregar documentos procesados",
+  "@notebookPickProcessedTitle": {
+    "description": "Título del selector con el que se agregan documentos procesados a un cuaderno a mano (F41, paso 5)."
+  },
+  "notebookPickProcessedSearchHint": "Buscá en Procesado",
+  "@notebookPickProcessedSearchHint": {
+    "description": "Pista del buscador del selector de documentos procesados."
+  },
+  "notebookPickProcessedNone": "Todavía no procesaste nada. Triá una fuente en la Bandeja y su documento procesado va a aparecer acá.",
+  "@notebookPickProcessedNone": {
+    "description": "El selector de documentos procesados cuando no hay ninguno."
+  },
+  "notebookPickProcessedNoMatches": "Nada procesado coincide con «{query}»",
+  "@notebookPickProcessedNoMatches": {
+    "description": "El selector de documentos procesados cuando la búsqueda no encuentra nada.",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "notebooksQueryProcessedHint": "Se llena solo con los documentos procesados que cumplen la vista.",
+  "@notebooksQueryProcessedHint": {
+    "description": "Debajo de la vista elegida al crear un cuaderno por consulta: la vista se evalúa sobre los documentos procesados, no sobre la Biblioteca."
+  },
+  "notebookMemberSemantics": "{title}. Procesado de {origin}. Tiene: {parts}",
+  "@notebookMemberSemantics": {
+    "description": "Lo que lee el lector de pantalla de un documento procesado en un cuaderno: su título, de qué tipo era la fuente y qué partes tiene.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "origin": {
+        "type": "String"
+      },
+      "parts": {
+        "type": "String"
+      }
+    }
   }
 }
