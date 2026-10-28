@@ -11,6 +11,8 @@ import 'package:sinapsis/features/ai_organize/domain/services/flashcard_target.d
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcards_by_parts.dart';
+import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_card_text.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 
@@ -39,23 +41,31 @@ const kMaxFlashcardsForReview = 3;
 ///
 /// Es también el que hace **solo** las tarjetas que pide el ✨ de Repasar
 /// (F30, [AiFlashcardMaker]): las mismas, con la misma regla.
+///
+/// **De un documento procesado, del texto procesado** (F41, decisión I): sus
+/// partes en el orden en que se leen (`readProcessedCardText`), nunca la
+/// fuente. Un procesado no tiene una forma de texto a la que apuntar, así que
+/// sus tarjetas quedan sin fragmento, como las de una nota de bloques.
 class AutoFlashcardsStep implements AiOrganizeStep, AiFlashcardMaker {
   const AutoFlashcardsStep({
     required FlashcardGenerator generator,
     required FlashcardRepository flashcards,
     required SuggestionRepository suggestions,
     required AiRunRepository runs,
+    required ProcessedRepository processed,
     required ModelTextBudget Function() textBudget,
   }) : _generator = generator,
        _flashcards = flashcards,
        _suggestions = suggestions,
        _runs = runs,
+       _processed = processed,
        _textBudget = textBudget;
 
   final FlashcardGenerator _generator;
   final FlashcardRepository _flashcards;
   final SuggestionRepository _suggestions;
   final AiRunRepository _runs;
+  final ProcessedRepository _processed;
 
   /// Cuánto lee por pedido el modelo elegido: se pregunta al empezar cada
   /// elemento, porque se puede cambiar de modelo con la cola andando.
@@ -74,12 +84,20 @@ class AutoFlashcardsStep implements AiOrganizeStep, AiFlashcardMaker {
     required String runId,
     bool anotherBatch = false,
   }) async {
+    // De un procesado, lo procesado (decisión I). Si no se puede leer, no se
+    // cae a la fuente: se dice.
+    final processed = (await readProcessedCardText(
+      _processed,
+      item.id,
+    )).orThrowStep('leer el texto procesado');
     // El mismo texto que abre la lectura —como el botón a mano—: el rango de
     // una cita tiene que ser de ESE texto para que «Ver en la fuente» caiga en
     // el lugar. Una nota de bloques no tiene: se usa el texto que se busca, y
-    // la tarjeta queda sin fragmento.
-    final sourceText = extractableRendition(item)?.content;
-    final text = sourceText ?? item.searchableText;
+    // la tarjeta queda sin fragmento; un procesado tampoco.
+    final sourceText = processed == null
+        ? extractableRendition(item)?.content
+        : null;
+    final text = processed?.content ?? sourceText ?? item.searchableText;
     if (text.trim().isEmpty) return AiStepReport.nothing;
 
     // Lo que ya tiene cuenta: una nota que se vuelve a organizar porque

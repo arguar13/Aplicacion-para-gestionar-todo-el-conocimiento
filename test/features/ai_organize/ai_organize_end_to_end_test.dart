@@ -171,6 +171,7 @@ void main() {
           flashcards: vault.flashcards,
           suggestions: vault.suggestions,
           runs: vault.runs,
+          processed: vault.processed,
           textBudget: () => kSmallWindowTextBudget,
         ),
       ],

@@ -145,8 +145,7 @@ void main() {
     });
 
     testWidgets('de un cuaderno: hay que elegirlo, y cuenta solo lo suyo —sus '
-        'procesados, que todavía no tienen una forma de texto de la que salgan '
-        'tarjetas—', (tester) async {
+        'documentos procesados—', (tester) async {
       await setUpWith();
       final ids = await seed();
       // Un cuaderno tiene solo documentos procesados (F41, paso 5): la
@@ -183,16 +182,12 @@ void main() {
       await tester.tap(find.text('Tesis').last);
       await tester.pumpAndSettle();
 
-      // La fuente que se quiso meter no cuenta; el procesado, sin forma de
-      // texto, todavía no da tarjetas.
-      expect(find.text(es.reviewAiCoverage(0)), findsOneWidget);
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('ai-cards-start')))
-            .onPressed,
-        isNull,
-      );
-      expect(queue.requests, isEmpty);
+      // La fuente que se quiso meter no cuenta; el procesado, sí: sus
+      // tarjetas salen de su texto procesado (decisión I).
+      expect(find.text(es.reviewAiCoverage(1)), findsOneWidget);
+      await tester.tap(find.text(es.reviewAiStart(1)));
+      await tester.pumpAndSettle();
+      expect(queue.requests.single.ids, ['p-roma']);
     });
 
     testWidgets('sin el modelo de lenguaje no se puede, y ofrece bajarlo', (

@@ -1523,9 +1523,9 @@ tiene adentro:
 - **Las tarjetas de repaso** de lo que todavía no tiene: es el mismo pedido de
   "solo tarjetas" de [Repasar](#repasar-con-tarjetas-y-cuestionarios), se hace en
   segundo plano y aparecen en Repasar. La hoja te cuenta antes cuántos
-  elementos entran y cuántos ya tienen. Por ahora un documento procesado no da
-  tarjetas por su cuenta —sus tarjetas salen de la fuente—, así que en un
-  cuaderno la hoja suele decir que no entra ninguno. Las tarjetas se piden **antes** de
+  elementos entran y cuántos ya tienen. Las de un documento procesado salen de
+  **su texto procesado** —sus partes, en el orden en que se leen—, nunca de la
+  fuente; por eso no tienen un fragmento al que volver, como las de una nota. Las tarjetas se piden **antes** de
   crear la nota, así la nota no da tarjetas de tarjetas.
 
 Podés elegir una cosa, la otra o las dos. Necesita el modelo de lenguaje (si

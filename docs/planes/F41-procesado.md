@@ -893,14 +893,30 @@ Verificación:
   en la Biblioteca y la hoja lo dice: no puede ser miembro.
 - Arreglado de paso: el desplegable de vistas del diálogo «Cuaderno nuevo» desbordaba con una pista
   larga (`isExpanded`).
+- **Las tarjetas de un procesado salen de su texto procesado** (decisión I), nunca de la fuente.
+  - Un solo lugar arma «el texto que se estudia»: `readProcessedStudyText`
+    (`processed_study_text.dart`). Son sus partes en el orden en que se leen, separadas por un
+    renglón en blanco.
+  - Cada tramo sabe de qué parte sale y, si es copia intacta, dónde está en el original
+    (`sourceAnchorOf`).
+  - Un libro se junta en otro hilo desde `kProcessedInlineChars`. No inventa formas de texto.
+  - Lo usan el paso de tarjetas de la IA (`AutoFlashcardsStep`, que ya no cae a la fuente) y la
+    cobertura (`FlashcardCoverageReaderImpl`, con `processedHasStudyTextSql`, la misma regla en
+    SQL).
+  - Así «Tarjetas con IA», las tarjetas de «Llenar con IA» y el ✨ de Repasar cuentan y hacen las
+    de los procesados.
+  - Las tarjetas de un procesado quedan sin fragmento, como las de una nota: la tabla de tarjetas
+    apunta a posiciones del elemento, y un procesado no tiene forma de texto.
+  - Qué secciones se estudian lo dice un `switch` (`isStudiedSection`): una sección nueva, como
+    las palabras clave del 1b, obliga a decidirlo.
+  - `processedStudyTextProvider` (el de resumir, del 1b) es otra cosa: necesita una forma de
+    texto donde guardar las marcas. No se tocó.
+  - Mutaciones de esta parte: 13. Murieron 12. La que queda es equivalente: juntar el texto
+    siempre en este hilo da el mismo resultado, solo cuesta más con un libro.
 
 **Falta:**
 
 - **El aviso del vaciado**: espera la columna `emptied_for_processed_at` del paso 1b (v46).
-- **Tarjetas de un procesado**: la cobertura (`FlashcardCoverageReaderImpl`) y la cola de la IA
-  leen formas de texto, y un procesado no tiene. En un cuaderno, «Tarjetas con IA» y las tarjetas
-  de «Llenar con IA» cuentan cero. Hace falta decidir si salen del texto procesado (cola de la IA,
-  paso 6 o decisión I).
 - El benchmark del chat acotado arma ahora 500 procesados («pasar todo sin modificar»); no se
   corrió.
 

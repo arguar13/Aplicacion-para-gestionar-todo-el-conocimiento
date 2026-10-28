@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
@@ -8,8 +9,11 @@ import 'package:sinapsis/features/ai_organize/data/steps/auto_flashcards_step.da
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_target.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 
 import '../../../../support/ai_organize_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// Un modelo de tarjetas de mentira: una tarjeta por oración del tramo que
 /// recibe, con la oración como cita. [inventedQuote] agrega primero una cuya
@@ -89,6 +93,7 @@ void main() {
       flashcards: vault.flashcards,
       suggestions: vault.suggestions,
       runs: vault.runs,
+      processed: vault.processed,
       textBudget: () => budget,
     );
   });
@@ -135,6 +140,71 @@ void main() {
       expect(card.dueAt.isAfter(vault.now), isFalse);
     }
   });
+
+  test('de un documento procesado, del texto procesado y nunca de la fuente, '
+      'sin fragmento (F41, decisión I)', () async {
+    await vault.source('a', title: 'Roma', content: article);
+    final process = ProcessSourceUseCase(vault.processed);
+    expect((await process.passUnchanged('a')).isRight(), isTrue);
+    final docId = processedDocumentIdFor('a');
+    final page = (await vault.processed.partsOf(
+      docId,
+    )).getRight().toNullable()!.single;
+    const edited =
+        'Cartago fue destruida en el año 146. Aníbal cruzó los Alpes. '
+        'Las guerras púnicas fueron tres.';
+    await vault.processed.editPart(page.id, edited);
+    final document = (await vault.library.findById(
+      docId,
+    )).getRight().toNullable()!;
+
+    final report = await step.organize(
+      document,
+      runId: await vault.startRun(docId),
+    );
+
+    final cards = await vault.db.select(vault.db.flashcards).get();
+    expect(report.applied, cards.length);
+    expect(cards, isNotEmpty);
+    for (final card in cards) {
+      expect(card.itemId, docId);
+      expect(edited, contains(card.back));
+      expect(article, isNot(contains(card.back)));
+      expect(card.sourceCharStart, isNull);
+      expect(card.sourceCharEnd, isNull);
+    }
+  });
+
+  test(
+    'un procesado con solo palabras clave da tarjetas de sus oraciones',
+    () async {
+      await insertProcessedRows(
+        vault.db,
+        id: 'claves',
+        title: 'Roma',
+        parts: {
+          ProcessedSection.keywords: [article],
+        },
+      );
+      final document = (await vault.library.findById(
+        'claves',
+      )).getRight().toNullable()!;
+
+      final report = await step.organize(
+        document,
+        runId: await vault.startRun('claves'),
+      );
+
+      final cards = await vault.db.select(vault.db.flashcards).get();
+      expect(cards, isNotEmpty);
+      expect(report.applied, cards.length);
+      for (final card in cards) {
+        expect(card.itemId, 'claves');
+        expect(article, contains(card.back));
+        expect(card.sourceCharStart, isNull);
+      }
+    },
+  );
 
   test('la tarjeta cuya cita no se ubica no entra sola: va a «Para '
       'revisar» (F30)', () async {

@@ -8,6 +8,7 @@ import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_coverage_reader.dart';
+import 'package:sinapsis/features/processed/data/processed_card_sql.dart';
 
 /// [FlashcardCoverageReader] contra la base: una consulta por `item`, con
 /// `source`, `renditions` y `flashcards` por sus índices de `item_id`. Con
@@ -30,20 +31,23 @@ class FlashcardCoverageReaderImpl implements FlashcardCoverageReader {
   static final _done = SourceProcessingStatus.done.name;
 
   /// Lo que puede tener tarjetas, sobre `item i` (ver
-  /// [FlashcardCoverageReader]). El texto de una forma no vacía: una nota de
-  /// bloques sin nada guarda `[]`.
+  /// [FlashcardCoverageReader]). El texto de una forma no vacía —una nota de
+  /// bloques sin nada guarda `[]`—, o, de un documento procesado, el texto de
+  /// sus tarjetas: sus partes (F41, decisión I). Un procesado no tiene formas;
+  /// sus tarjetas salen de lo procesado, nunca de la fuente.
   static final _eligibleSql =
       '''
       ${activeItemSql('i')}
       AND (i.kind = '$_note' OR EXISTS (
             SELECT 1 FROM source s
              WHERE s.item_id = i.id AND s.processing_status = '$_done'))
-      AND EXISTS (
+      AND (EXISTS (
             SELECT 1 FROM renditions r
              WHERE r.item_id = i.id
                AND r.content IS NOT NULL
                AND length(trim(r.content)) > 0
-               AND r.content <> '[]')''';
+               AND r.content <> '[]')
+           OR ${processedHasCardTextSql('i.id')})''';
 
   static const _hasCardsSql =
       'EXISTS (SELECT 1 FROM flashcards f WHERE f.item_id = i.id)';
@@ -52,6 +56,7 @@ class FlashcardCoverageReaderImpl implements FlashcardCoverageReader {
     _db.knowledgeEntries,
     _db.knowledgeSources,
     _db.renditions,
+    _db.processedParts,
     _db.flashcards,
   ];
 

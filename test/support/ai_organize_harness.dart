@@ -13,6 +13,7 @@ import 'package:sinapsis/features/duplicates/data/usecases/merge_duplicate_items
 import 'package:sinapsis/features/flashcards/data/repositories/flashcard_repository_impl.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
 import 'package:sinapsis/features/suggestions/data/repositories/suggestion_repository_impl.dart';
 
 import 'fake_id_generator.dart';
@@ -59,6 +60,15 @@ class AiOrganizeHarness {
   late final runs = AiRunRepositoryImpl(
     database: db,
     telemetry: telemetry,
+    ids: ids,
+    clock: clock,
+  );
+
+  /// Los documentos procesados (F41): de ellos salen sus tarjetas.
+  late final processed = ProcessedRepositoryImpl(
+    database: db,
+    telemetry: telemetry,
+    files: files,
     ids: ids,
     clock: clock,
   );

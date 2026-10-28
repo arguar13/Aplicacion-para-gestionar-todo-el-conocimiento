@@ -42,6 +42,7 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dar
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/timeline/presentation/providers/dated_event_providers.dart';
@@ -121,6 +122,7 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
       flashcards: ref.watch(flashcardRepositoryProvider),
       suggestions: suggestions,
       runs: runs,
+      processed: ref.watch(processedRepositoryProvider),
       textBudget: ref.watch(languageModelTextBudgetProvider),
     ),
     // El Atlas, al final: trabaja con los temas que dejaron los de arriba.
