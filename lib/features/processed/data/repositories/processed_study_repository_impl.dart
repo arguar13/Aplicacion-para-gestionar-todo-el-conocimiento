@@ -119,7 +119,8 @@ class ProcessedStudyRepositoryImpl implements StudyRepository {
           }
         case ProcessedSection.text ||
             ProcessedSection.notes ||
-            ProcessedSection.fragments:
+            ProcessedSection.fragments ||
+            ProcessedSection.images:
           break;
       }
     }

@@ -18,6 +18,7 @@ import 'package:sinapsis/features/processed/domain/services/triage_offer.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_cut_screen.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/triage/triage_image_grid.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/triage_section_texts.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
@@ -111,6 +112,9 @@ Future<bool> showProcessedTriageSheet(
 ///   resumen o síntesis, ofrece armarlo con la IA o a mano, como la tarjeta de
 ///   estudiar —el mismo [StudySuggestion] y sus mismos caminos—, y mientras
 ///   la IA lo arma, la misma franja con «Parar».
+/// - **Las imágenes** (decisión L), si la fuente trae: una grilla con
+///   «Todas», «Ninguna» y la elección de cada una tocándola, con lo que va a
+///   ocupar su copia.
 /// - **Lo tuyo**: las notas —escritas, o extraídas del original— y los
 ///   fragmentos cortados a mano, cada uno en su lista, con «Quitar».
 /// - **La vista previa en vivo**: cuántas partes y palabras va a tener cada
@@ -318,6 +322,10 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
     // La copia del original (decisión H): si la fuente la ofrece, o si el
     // documento ya tiene una —para actualizarla, reemplazarla o quitarla—.
     final offersOriginal = loaded.original != null || triage.originalExists;
+    final galleries = [
+      for (final section in offered)
+        if (triageShapeOf(section) == TriageSectionShape.gallery) section,
+    ];
     final sheet = _SheetContext(
       triage: triage,
       material: loaded,
@@ -383,7 +391,9 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  if (whole.isNotEmpty || offersOriginal) ...[
+                  if (whole.isNotEmpty ||
+                      offersOriginal ||
+                      galleries.isNotEmpty) ...[
                     _GroupTitle(l10n.processedTriageFromSource),
                     for (final section in whole)
                       _WholeSection(
@@ -409,6 +419,16 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
                         ),
                         onChange: (change) =>
                             _controller.setOriginal(on: true, change: change),
+                      ),
+                    for (final section in galleries)
+                      _GallerySection(
+                        section: section,
+                        sheet: sheet,
+                        onChange: (change) => _controller.setSection(
+                          section,
+                          on: true,
+                          change: change,
+                        ),
                       ),
                   ],
                   if (clips.isNotEmpty) ...[
@@ -865,6 +885,70 @@ class _ClipsSection extends StatelessWidget {
   }
 }
 
+/// Lo que la fuente ofrece para elegir de a una —sus imágenes, decisión L—:
+/// cuántas trae y cuánto pesan, lo que va a ocupar lo elegido y la grilla.
+class _GallerySection extends ConsumerWidget {
+  const _GallerySection({
+    required this.section,
+    required this.sheet,
+    required this.onChange,
+  });
+
+  final ProcessedSection section;
+  final _SheetContext sheet;
+  final ValueChanged<ProcessedChange> onChange;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final offer = sheet.material.images;
+    final existing = sheet.triage.existing[section] ?? 0;
+    final controller = ref.read(
+      processedTriageProvider(sheet.triage.sourceItemId).notifier,
+    );
+    final offerText = l10n.processedTriageImagesOffer(
+      offer.count,
+      formatFileSize(offer.sizeBytes, l10n.localeName),
+    );
+    final removing =
+        sheet.triage.choices[section]?.change == ProcessedChange.remove;
+
+    return Column(
+      key: Key('triage-section-${section.name}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(triageSectionIcon(section)),
+          title: Text(triageSectionLabel(l10n, section)),
+          subtitle: sheet.triage.edits.containsKey(section)
+              ? _PreviewText(sheet: sheet, section: section)
+              : Text(
+                  [
+                    if (existing > 0) l10n.processedTriageExisting(existing),
+                    offerText,
+                  ].join(' · '),
+                ),
+        ),
+        _ChangeChoice(section: section, sheet: sheet, onChange: onChange),
+        // Quitar la sección entera no elige nada: la grilla no hace falta.
+        if (!removing)
+          Padding(
+            padding: const EdgeInsets.only(left: 40, bottom: 8),
+            child: TriageImageGrid(
+              sourceItemId: sheet.triage.sourceItemId,
+              count: offer.count,
+              choice: sheet.triage.images,
+              onToggle: controller.toggleImage,
+              onAll: controller.chooseAllImages,
+              onNone: controller.chooseNoImages,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// Cuánto va a tener [section]: «12 páginas · 3.400 palabras», en vivo.
 class _PreviewText extends ConsumerWidget {
   const _PreviewText({required this.sheet, required this.section});
@@ -901,18 +985,26 @@ class _PreviewText extends ConsumerWidget {
 /// Al volver a triar una sección que ya tiene [existing] partes, dice además
 /// cuánto cambia —«suma 2 · saca 1», o «sin cambios»—, y si se queda sin
 /// nada, que queda vacía.
+///
+/// En las imágenes, en vez de las palabras, lo que va a ocupar la copia de lo
+/// que se suma: «8 imágenes · ocupa 4,3 MB».
 String previewText(
   AppLocalizations l10n,
   ProcessedSection section,
   SectionPreview preview, {
   int existing = 0,
 }) {
+  final parts = triagePartsText(l10n, section, preview.parts);
   final size = preview.parts == 0
       ? (existing > 0
             ? l10n.processedTriageEmptied
             : l10n.processedTriageNothingYet)
-      : '${triagePartsText(l10n, section, preview.parts)} · '
-            '${l10n.processedTriageWordCount(preview.words)}';
+      : section.holdsFiles
+      ? l10n.processedTriageImagesSize(
+          parts,
+          formatFileSize(preview.addedBytes, l10n.localeName),
+        )
+      : '$parts · ${l10n.processedTriageWordCount(preview.words)}';
   if (existing == 0) return size;
   final tally = preview.tally;
   final changes = [
@@ -1075,10 +1167,9 @@ class _Actions extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final empty = sheet.triage.isEmpty;
-    final words = _watchPreviews(
-      ref,
-      sheet,
-    ).values.fold<int>(0, (sum, preview) => sum + preview.words);
+    final previews = _watchPreviews(ref, sheet).values;
+    final words = previews.fold<int>(0, (sum, p) => sum + p.words);
+    final bytes = previews.fold<int>(0, (sum, p) => sum + p.addedBytes);
 
     return Material(
       color: scheme.surfaceContainerLow,
@@ -1110,7 +1201,13 @@ class _Actions extends ConsumerWidget {
                   child: Text(
                     empty
                         ? l10n.processedTriageNothingChosen
-                        : l10n.processedTriageTotalWords(words),
+                        : [
+                            l10n.processedTriageTotalWords(words),
+                            if (bytes > 0)
+                              l10n.processedTriageTotalImages(
+                                formatFileSize(bytes, l10n.localeName),
+                              ),
+                          ].join(' · '),
                     key: const Key('triage-total'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,

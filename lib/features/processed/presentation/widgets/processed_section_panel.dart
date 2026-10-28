@@ -9,6 +9,7 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_c
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/images/processed_image_gallery.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_keywords_view.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_part_tile.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_section_presentation.dart';
@@ -110,6 +111,10 @@ class ProcessedSectionPanel extends StatelessWidget {
               count: count,
               sourceItemId: sourceItemId,
             ),
+            ProcessedSection.images => ProcessedImageGallery(
+              documentId: document.id,
+              count: count,
+            ),
           },
         ],
       ),
@@ -119,22 +124,24 @@ class ProcessedSectionPanel extends StatelessWidget {
 
 /// Qué se lee al tocar «Escuchar» en [section], o `null` si no tiene una
 /// lectura propia —las palabras clave, las notas y los fragmentos se escuchan
-/// con el botón flotante, que lee todo—. Las palabras clave no van con
-/// `ReadScope.keywords`: esa capa lee las palabras sueltas, y acá cada parte
-/// es la oración entera que las lleva.
+/// con el botón flotante, que lee todo; las imágenes no se leen—. Las palabras
+/// clave no van con `ReadScope.keywords`: esa capa lee las palabras sueltas, y
+/// acá cada parte es la oración entera que las lleva.
 ReadScope? _listenScopeOf(ProcessedSection section) => switch (section) {
   ProcessedSection.text => ReadScope.all,
   ProcessedSection.summary => ReadScope.summary,
   ProcessedSection.synthesis => ReadScope.synthesis,
   ProcessedSection.keywords ||
   ProcessedSection.notes ||
-  ProcessedSection.fragments => null,
+  ProcessedSection.fragments ||
+  ProcessedSection.images => null,
 };
 
 /// Si «Copiar» copia la sección entera: el texto de un libro no —se copia
-/// de a una página, seleccionándola—; lo elegido sí.
+/// de a una página, seleccionándola—; lo elegido sí. Las imágenes no son
+/// texto que copiar.
 bool _copiesWhole(ProcessedSection section) => switch (section) {
-  ProcessedSection.text => false,
+  ProcessedSection.text || ProcessedSection.images => false,
   ProcessedSection.summary ||
   ProcessedSection.synthesis ||
   ProcessedSection.keywords ||

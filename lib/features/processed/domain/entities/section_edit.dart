@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_image.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 
 part 'section_edit.freezed.dart';
@@ -41,6 +42,10 @@ sealed class SectionInput with _$SectionInput {
   /// Lo que la persona puso: notas (escritas o extraídas) y fragmentos
   /// (cortados).
   const factory SectionInput.drafts(List<ProcessedDraft> drafts) = FromDrafts;
+
+  /// Las imágenes de la fuente que se eligieron (decisión L): todas, o solo
+  /// algunas.
+  const factory SectionInput.images(ImageChoice choice) = FromImages;
 }
 
 /// Lo que se le pide a una sección: un cambio y, si hace falta, de dónde sale
@@ -103,6 +108,8 @@ sealed class SectionEdit with _$SectionEdit {
         drafts,
         cutsOnly: true,
       ),
+      (ProcessedSection.images, FromImages(:final choice)) =>
+        choice == ImageChoice.none ? 'No se eligió ninguna imagen.' : null,
       _ => 'La sección ${section.name} no admite eso.',
     };
   }

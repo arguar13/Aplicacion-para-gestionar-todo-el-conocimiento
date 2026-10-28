@@ -205,7 +205,8 @@ void main() {
     for (final section in ProcessedSection.values) {
       expect(
         find.byKey(Key('triage-section-${section.name}')),
-        findsOneWidget,
+        // Una página sin fotos no ofrece imágenes (decisión L).
+        section.holdsFiles ? findsNothing : findsOneWidget,
         reason: section.name,
       );
     }

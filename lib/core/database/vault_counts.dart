@@ -121,6 +121,11 @@ class VaultCounts {
     'processed_originals',
   ];
 
+  /// Las imágenes de los documentos procesados (F41, v47). Aparte por lo mismo
+  /// que las anteriores: los pasos hasta v47 cuentan las otras listas, y esta
+  /// tabla todavía no existía cuando corrían.
+  static const processedImageTables = <String>['processed_images'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

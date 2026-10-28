@@ -1018,3 +1018,108 @@ Verificación:
 - Sobre el 1b (v46): pasan 2.183 de cuadernos, procesado, tarjetas, IA que organiza, notas, chat y
   el censo.
 - Sin probar en el emulador ni en el teléfono.
+
+### Paso 7: las imágenes en Procesado, esquema v47 (decisión L)
+
+- **Una sección más, Imágenes** (`ProcessedSection.images`), la única que no es texto
+  (`holdsFiles`). Es sección para quien pide —la hoja, el caso de uso, «Volver a triar», los chips
+  de la fila y el filtro «qué partes tiene»— porque eso es para la persona; se guarda aparte porque
+  no es una parte de texto: nada de `processed_parts`, ni de su índice de texto, ni del lector en
+  voz alta. Los `switch` de cada sección la nombran (`triageShapeOf` con una forma nueva,
+  `TriageSectionShape.gallery`, `triageSectionsOffered`, los textos, el panel, los de la copia del
+  original y de estudiar el procesado, y el de las tarjetas: de una imagen no sale ninguna,
+  `isCardSection`).
+- **Cómo guarda hoy sus imágenes cada fuente**, y de dónde se listan (`SourceImagesReader`, una sola
+  forma, de a tramos y sin abrir ninguna):
+  - una imagen o una captura, y un enlace directo a una foto: su archivo (`original_blob_path`);
+  - una publicación: su primera foto es su archivo, si no trae video; las demás del carrusel van a
+    su «Contenido» (F30);
+  - una página guardada: las fotos de su artículo, en su versión más grande, en su «Contenido»
+    (F30). La página archivada trae además una copia de cada una incrustada como datos, junto con
+    los íconos y la decoración de toda la página: esas no se listan. Son las mismas fotos,
+    repetidas, y sacarlas obligaría a leer y decodificar un archivo de hasta 25 MB para armar una
+    grilla.
+  - Fuera quedan los SVG (no hay con qué dibujarlos para elegir mirando) y, como pide el plan, las
+    imágenes de dentro de un PDF, un Word o un EPUB.
+- **Cada imagen elegida es una copia propia, por el mismo camino que la copia del original
+  (decisión H):** una forma del procesado (`renditions`, de tipo imagen, sin `position`: no es
+  «Contenido» y nada la transcribe), copiada con `FileStore.copy` a `originales/<procesado>/imagenes/`,
+  con su id derivado del procesado y del archivo de la fuente (`processedImageRenditionIdFor`), y su
+  fila en `processed_images` (lugar en la galería, de qué archivo salió y cuánto pesaba; la misma
+  imagen no entra dos veces en un documento, lo garantiza la base). Por ser una forma la cuentan
+  `isFileReferenced`, el borrado de verdad, la copia de la bóveda (toda la carpeta `originales/`) y
+  la unión (`OriginalFilesMerge`). Soltar el archivo de la fuente no toca la copia, y al revés.
+- **Quitar una imagen** —de la galería, o al reemplazar o quitar la sección— la manda a la papelera
+  del contenido del procesado, como la copia del original: la fila guarda lo de su
+  `processed_images` (`content_trash.processed_image`) y su archivo espera 30 días. «Deshacer» la
+  devuelve a su lugar, corriendo las demás; la papelera del contenido la recupera en su galería, no
+  como el archivo de una fuente.
+- **El caso de uso** planea la galería aparte de las partes (`planImagesChange`, pura): agregar suma
+  al final lo que no está, reemplazar deja exactamente lo elegido en el orden de la fuente
+  —conservando la copia de lo que ya estaba— y quitar saca todo; «Actualizar» no aplica (otro
+  archivo es otra imagen). «Todas» no enumera nada en la hoja (`ImageChoice.all(except:)`): la lista
+  se lee de la fuente al guardar. Las copias se hacen antes del guardado, fuera de la base; si el
+  guardado no llega, se borran. Deshacer saca lo que entró —y borra esas copias del disco—, devuelve
+  lo que salió y deja cada una en su lugar. La vista previa dice cuántas van y lo que va a ocupar lo
+  que se suma, sin copiar nada.
+- **La hoja**: dentro de «De la fuente», cuántas trae y cuánto pesan, «Todas», «Ninguna», cuántas
+  van elegidas y una grilla de miniaturas que se eligen tocándolas, de a 60 con «Mostrar más», cada
+  una decodificada al tamaño en que se ve. Con Tab se llega a cada una y se elige con Espacio o
+  Enter; el lector de pantalla dice cuál es, de cuántas, su nombre y si está elegida. La letra al
+  doble en 360 de ancho no la desborda, y sin animaciones cambia de una vez. Al volver a triar
+  ofrece Agregar · Reemplazar · Quitar, y Quitar esconde la grilla. El total de abajo suma lo que
+  van a ocupar.
+- **La Bandeja**: una foto sin letras se puede triar —lleva sus imágenes y las notas—, una vez que
+  terminó de leerse (`offersImages`). Vincular y extraer siguen necesitando texto. «Pasar todo sin
+  modificar» sigue siendo solo el texto, como lo pidió el dueño.
+- **El documento**: la sección Imágenes es una galería de miniaturas, de a tandas; tocar una la abre
+  a pantalla completa (`ProcessedImageViewerScreen`) con pellizco para acercar, deslizando o con las
+  flechas para pasar de una a otra y Escape para volver. «Quitar de Procesado» está en la pantalla
+  completa, con Suprimir sobre la miniatura enfocada y como acción del lector de pantalla, siempre
+  con «Deshacer».
+- **Los censos**: `processed_images` en los conteos que son compuerta de la migración, en «nunca se
+  achica» y en las referencias rotas de la unión; la unión suma las de la copia cuya forma llegó,
+  sin repetir la forma ni el archivo de la fuente, después de las de acá; el resultado lo cuenta
+  (`processedImagesAdded`) y la vista previa lo cuenta en los archivos nuevos. Una forma con
+  archivo que espera en la papelera del contenido acá —la copia del original o una imagen— ya no
+  vuelve con la unión, igual que un texto soltado.
+- **Para la decisión 87 (cambio de regla en la unión):** `rendition_merge.dart` marca como «soltado
+  acá» (`dropped_here`) cualquier forma de la copia cuyo `rendition_id` espera en la papelera del
+  contenido de esta bóveda, no solo un texto. Hoy las únicas formas con archivo que la papelera
+  guarda con su id son la copia del original y las imágenes de un procesado: así lo que la persona
+  quitó acá no vuelve con la unión. Vale también para la copia del original del 1b.
+- **Con el conmutador «El original» del paso 2**: en «De la fuente» van las secciones enteras, el
+  original —con el número que sigue a ellas— y al final la grilla de imágenes, que no tiene número
+  (se recorre con Tab). «Va a quedar» muestra las dos cosas: el original con su peso y las imágenes
+  con lo que ocupan, y abajo el total suma lo que ocupan las imágenes.
+
+Verificación:
+
+- `flutter analyze`: 19.
+- Pruebas nuevas: el plan de la galería y la elección, 12; lo que ofrece cada fuente, 11; la galería
+  en la base, 8; el caso de uso y el repositorio con imágenes —crear, «Todas», vista previa,
+  copias que no llegan, deshacer, volver a triar, quitar con «Deshacer», la papelera del contenido,
+  la papelera del documento y el borrado de verdad, soltar el archivo de la fuente, el filtro—, 17;
+  el modelo de la hoja, 7; la grilla de la hoja, 8; la galería y la pantalla completa, 6; la unión
+  y la copia de la bóveda, 4; la Bandeja, 1; la migración 46→47, 4.
+- Ajustadas a lo nuevo: la hoja recorre las secciones sin Imágenes en una página sin fotos, y una
+  foto sin letras que falló o terminó sin texto ya se puede triar.
+- Suite entera: 11.132 pasan. Cuatro fallaron solo con la suite entera en marcha —tres de tiempos
+  (el banco del modelo, partir en otro hilo, los candidatos de vocabulario) y una lectura de una
+  copia vieja— y pasan corridas solas.
+- Rebasado sobre la decisión J y los pasos 4 y 5: pasan 3.458 de procesado, Bandeja, cuadernos,
+  tarjetas, unión de bóvedas, base, papelera, Biblioteca y lectura. Las tarjetas no salen de una
+  imagen, y su prueba lo dice.
+- Rebasado sobre el paso 2, segunda tanda (el conmutador «El original»): pasan 2.655 de procesado,
+  Bandeja, cuadernos, unión, base, papelera y Biblioteca —una de la copia entrante falló solo con
+  todo en marcha y pasa sola—, con una prueba más de la hoja: una página guardada ofrece su
+  original y sus fotos, el número del original sigue a las secciones enteras, la grilla va al final
+  y «Va a quedar» y «Listo» llevan las dos.
+- 40 mutaciones: 38 muertas. Las dos que sobrevivían eran equivalentes —«ya tiene esa imagen» y
+  «es la misma imagen en la unión» se comprobaban dos veces, por la forma y por el archivo de la
+  fuente, y como el id de la forma sale de los dos es la misma comprobación—: se sacó lo repetido.
+  Otras dos se mataron sumando lo que faltaba probar: una forma que apunta al archivo de la fuente
+  no lo ofrece dos veces, y reemplazar sin ninguna elegida no pide nada.
+- Sin probar en el emulador ni en el teléfono: la grilla y la galería con fotos de verdad
+  decodificándose (en las pruebas los archivos no son imágenes y se ve el ícono), el pellizco del
+  zoom, y una página guardada de verdad con su «Contenido» bajado.

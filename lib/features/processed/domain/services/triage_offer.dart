@@ -10,6 +10,8 @@ import 'package:sinapsis/features/processed/domain/entities/processed_source_mat
 /// - Las notas, no: una nota escrita a mano entra aunque la fuente todavía no
 ///   tenga texto propio (una publicación con el texto solo en su
 ///   «Contenido»).
+/// - Las imágenes, si la fuente trae alguna (decisión L): una foto sin letras
+///   no tiene texto y sí tiene qué llevar.
 ///
 /// Un `switch` sin caso por defecto a propósito: una sección nueva no compila
 /// hasta decir acá cuándo se ofrece, y con eso la hoja ya la muestra.
@@ -24,6 +26,7 @@ List<ProcessedSection> triageSectionsOffered(
       ProcessedSection.keywords ||
       ProcessedSection.fragments => material.hasText,
       ProcessedSection.notes => true,
+      ProcessedSection.images => material.images.count > 0,
     })
       section,
 ];

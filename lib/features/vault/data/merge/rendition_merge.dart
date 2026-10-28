@@ -135,7 +135,7 @@ class RenditionMergePlanner {
       SELECT r.id AS r_id, r.item_id AS item_id, m.id AS m_id,
              mi.kind AS item_kind,
              EXISTS (SELECT 1 FROM main.content_trash t
-                      WHERE t.kind = 'text' AND t.rendition_id = r.id)
+                      WHERE t.rendition_id = r.id)
                AS dropped_here,
              (SELECT x.id FROM main.renditions x
                WHERE x.item_id = r.item_id AND x.id <> r.id
@@ -177,7 +177,10 @@ class RenditionMergePlanner {
       // (F30, decisión 68) no vuelve con la fusión: la persona lo sacó de
       // este elemento, y traerlo de nuevo desharía su decisión. Si lo quiere
       // de vuelta, lo recupera de la papelera; si ya venció y el otro lado
-      // todavía lo tiene, entra como un texto más.
+      // todavía lo tiene, entra como un texto más. Lo mismo la copia del
+      // original o una imagen que se soltaron de un procesado (F41, decisiones
+      // H y L): las únicas formas con archivo que la papelera guarda con su
+      // identificador.
       if (row.read<bool>('dropped_here')) {
         notPlaced[incomingId] = null;
         continue;

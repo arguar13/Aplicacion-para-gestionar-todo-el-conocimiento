@@ -93,6 +93,12 @@ class TrashedContents extends Table {
   /// recuperarla. Nulo en todo lo demás.
   TextColumn get processedOriginal => text().nullable()();
 
+  /// Si lo soltado es una imagen de un documento procesado (F41, v47,
+  /// decisión L): lo que tenía su fila de `processed_images`, en JSON
+  /// (`encodeTrashedProcessedImage`), para volver a su galería, en su lugar,
+  /// al recuperarla. Nulo en todo lo demás.
+  TextColumn get processedImage => text().nullable()();
+
   /// Cuándo se soltó: a los 30 días se borra de verdad.
   DateTimeColumn get trashedAt => dateTime()();
 

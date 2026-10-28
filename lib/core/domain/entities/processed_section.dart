@@ -2,11 +2,12 @@
 /// que se leen.
 ///
 /// Un documento procesado guarda texto —nunca audio, video ni la ficha
-/// bibliográfica—, repartido en estas seis, y, si se eligió, la copia del
+/// bibliográfica—, repartido en estas secciones; si se eligió, la copia del
 /// original (`processed_originals`, decisión H), que no es una sección: es un
-/// archivo. Cada sección es una lista ordenada de partes (`processed_parts`), y
-/// cada parte sabe de dónde salió: es lo que deja elegir, al volver a triar,
-/// entre agregar, actualizar, reemplazar y quitar sin adivinar.
+/// archivo; y las imágenes que se eligen de la fuente ([images]). Cada sección
+/// de texto es una lista ordenada de partes (`processed_parts`), y cada parte
+/// sabe de dónde salió: es lo que deja elegir, al volver a triar, entre
+/// agregar, actualizar, reemplazar y quitar sin adivinar.
 enum ProcessedSection {
   /// El texto extraído entero, o la transcripción. Se guarda en páginas —ver
   /// `kProcessedTextPageChars`—: un libro de millones de caracteres nunca viaja
@@ -30,7 +31,14 @@ enum ProcessedSection {
 
   /// Los pasajes que la persona cortó a mano del original, cada uno con su
   /// ancla para «Abrir en el original».
-  fragments;
+  fragments,
+
+  /// Las imágenes de la fuente que la persona eligió, una por una (segundo
+  /// ajuste del dueño, decisión L): la imagen guardada, o las fotos de una
+  /// página o de una publicación. Son la única sección que no es texto: cada
+  /// una es **una copia propia del archivo** (`processed_images`), como la
+  /// copia del original, y no una parte de `processed_parts`.
+  images;
 
   /// Si la fuente tiene una «versión de ahora» de esta sección que
   /// «Actualizar» pueda traer: su texto, su resumen, su síntesis y sus
@@ -39,7 +47,15 @@ enum ProcessedSection {
   /// quitan.
   bool get canUpdate => switch (this) {
     text || summary || synthesis || keywords => true,
-    notes || fragments => false,
+    // Una imagen tampoco: otro archivo de la fuente es otra imagen.
+    notes || fragments || images => false,
+  };
+
+  /// Si guarda copias de archivos y no texto: las imágenes. Lo que es texto
+  /// —lo que se lee, se escucha, se busca y se pagina— son las demás.
+  bool get holdsFiles => switch (this) {
+    images => true,
+    text || summary || synthesis || keywords || notes || fragments => false,
   };
 
   /// Si es lo que se estudia (F36): el resumen, la síntesis y las palabras
@@ -47,7 +63,7 @@ enum ProcessedSection {
   /// el propio procesado (decisión I).
   bool get isStudy => switch (this) {
     summary || synthesis || keywords => true,
-    text || notes || fragments => false,
+    text || notes || fragments || images => false,
   };
 }
 

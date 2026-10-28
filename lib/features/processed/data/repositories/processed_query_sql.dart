@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/search_index.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/features/library/data/repositories/library_query_sql.dart'
     show valuesWithDescendantsSql;
 import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
@@ -57,21 +58,30 @@ class ProcessedQuerySql {
       _args.addAll(query.sourceKinds.map((k) => Variable.withString(k.name)));
     }
     // Qué partes tiene: cualquiera de las secciones pedidas, o la copia del
-    // original (decisión H).
+    // original (decisión H). Las imágenes no son partes de texto: viven en su
+    // tabla (decisión L).
+    final texts = [
+      for (final section in query.sections)
+        if (!section.holdsFiles) section,
+    ];
     final inSections =
         'EXISTS (SELECT 1 FROM processed_parts ps '
         'WHERE ps.document_id = item.id '
-        'AND ps.section IN (${_marks(query.sections.length)}))';
+        'AND ps.section IN (${_marks(texts.length)}))';
     const withOriginal =
         'EXISTS (SELECT 1 FROM processed_originals po '
         'WHERE po.document_id = item.id)';
+    const withImages =
+        'EXISTS (SELECT 1 FROM processed_images pi '
+        'WHERE pi.document_id = item.id)';
     final has = [
-      if (query.sections.isNotEmpty) inSections,
+      if (texts.isNotEmpty) inSections,
+      if (query.sections.contains(ProcessedSection.images)) withImages,
       if (query.withOriginal) withOriginal,
     ];
     if (has.isNotEmpty) {
       _where.add('(${has.join(' OR ')})');
-      _args.addAll(query.sections.map((s) => Variable.withString(s.name)));
+      _args.addAll(texts.map((s) => Variable.withString(s.name)));
     }
     final ids = query.ids;
     if (ids != null) {

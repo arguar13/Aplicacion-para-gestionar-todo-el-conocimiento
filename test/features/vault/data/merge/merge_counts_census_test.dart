@@ -42,6 +42,7 @@ void main() {
       result: 'processedPartsAdded',
     ),
     'processed_originals': (preview: null, result: 'processedOriginalsAdded'),
+    'processed_images': (preview: null, result: 'processedImagesAdded'),
   };
 
   /// Las tablas que la vista previa no cuenta aparte, y por qué. Una tabla
@@ -64,6 +65,8 @@ void main() {
     'processed_originals':
         'la copia del original entra con su forma y su archivo: se cuenta en '
         'las formas nuevas y en los archivos que trae la copia',
+    'processed_images':
+        'una imagen entra con su archivo: se cuenta en los archivos nuevos',
   };
 
   /// Campos de la vista previa que no entran en «hay algo nuevo» ni son un

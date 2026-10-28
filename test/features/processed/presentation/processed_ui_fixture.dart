@@ -76,6 +76,61 @@ extension ProcessedUiFixture on LibraryHarness {
     saved.getOrElse((failure) => throw StateError('$failure'));
   }
 
+  /// Guarda una imagen [id] —sin texto— con [extra] fotos más en su
+  /// «Contenido» (decisión L), y devuelve las rutas de todas, en orden.
+  Future<List<String>> saveImageSource(String id, {int extra = 2}) async {
+    final when = DateTime(2026, 10, 28, 12);
+    final own = await files.save(
+      bytes: Uint8List(100),
+      suggestedName: 'foto.png',
+      id: id,
+    );
+    final saved = await container
+        .read(libraryRepositoryProvider)
+        .save(
+          KnowledgeItem(
+            id: id,
+            title: 'Imagen $id',
+            source: Source(
+              id: id,
+              kind: SourceKind.image,
+              capturedAt: when,
+              originalFilePath: own,
+            ),
+            processingState: ProcessingState.ready,
+            createdAt: when,
+            updatedAt: when,
+          ),
+        );
+    saved.getOrElse((failure) => throw StateError('$failure'));
+    final paths = [own];
+    for (var i = 0; i < extra; i++) {
+      final path = await files.saveStream(
+        bytes: Stream.value(List.filled(10, 0)),
+        suggestedName: 'f$i.jpg',
+        id: id,
+        folder: 'contenido',
+      );
+      await database
+          .into(database.renditions)
+          .insert(
+            RenditionsCompanion.insert(
+              id: 'foto-$id-$i',
+              itemId: id,
+              kind: RenditionKind.image,
+              relativePath: Value(path),
+              isPrimary: false,
+              createdAt: when,
+              position: Value(i),
+              sizeBytes: const Value(10),
+              title: Value('Foto $i'),
+            ),
+          );
+      paths.add(path);
+    }
+    return paths;
+  }
+
   /// Procesa [sourceId] con [edits] y devuelve el id del documento.
   Future<String> process(
     String sourceId,

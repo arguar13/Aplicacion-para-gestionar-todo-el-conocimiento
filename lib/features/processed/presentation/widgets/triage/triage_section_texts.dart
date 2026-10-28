@@ -25,6 +25,7 @@ String triageSectionLabel(
   ProcessedSection.keywords => l10n.processedTriageSectionKeywords,
   ProcessedSection.notes => l10n.processedTriageSectionNotes,
   ProcessedSection.fragments => l10n.processedTriageSectionFragments,
+  ProcessedSection.images => l10n.processedSectionImages,
 };
 
 /// El ícono de [section]: los de estudiar para el resumen, la síntesis y las
@@ -36,11 +37,12 @@ IconData triageSectionIcon(ProcessedSection section) => switch (section) {
   ProcessedSection.keywords => Icons.key_outlined,
   ProcessedSection.notes => Icons.sticky_note_2_outlined,
   ProcessedSection.fragments => Icons.format_quote_outlined,
+  ProcessedSection.images => Icons.photo_library_outlined,
 };
 
 /// Cuántas partes son [count], dicho como se cuentan en [section]: páginas
 /// del texto, oraciones —también las de las palabras clave: cada parte es la
-/// oración que las lleva—, notas o fragmentos.
+/// oración que las lleva—, notas, fragmentos o imágenes.
 String triagePartsText(
   AppLocalizations l10n,
   ProcessedSection section,
@@ -52,6 +54,7 @@ String triagePartsText(
   ProcessedSection.keywords => l10n.processedTriageSentenceCount(count),
   ProcessedSection.notes => l10n.processedTriageNoteCount(count),
   ProcessedSection.fragments => l10n.processedTriageFragmentCount(count),
+  ProcessedSection.images => l10n.processedImageCount(count),
 };
 
 /// Lo que se estudia de la fuente para armar [section], si lo arma estudiar
@@ -64,7 +67,8 @@ StudyMarkKind? triageStudyKindOf(ProcessedSection section) => switch (section) {
   ProcessedSection.keywords => StudyMarkKind.keyword,
   ProcessedSection.text ||
   ProcessedSection.notes ||
-  ProcessedSection.fragments => null,
+  ProcessedSection.fragments ||
+  ProcessedSection.images => null,
 };
 
 /// Cuánto trae hoy la fuente de lo que se estudia para [section]

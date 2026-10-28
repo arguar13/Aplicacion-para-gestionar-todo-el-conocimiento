@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_image.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_triage.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
@@ -57,6 +58,16 @@ class ProcessedTriageController extends StateNotifier<ProcessedTriage> {
 
   /// Saca el pasaje [clipId].
   void remove(String clipId) => state = state.withoutClip(clipId);
+
+  /// Elige —o suelta— la imagen [path] de la grilla (decisión L).
+  void toggleImage(String path) =>
+      state = state.withImages(state.images.toggled(path));
+
+  /// «Todas» las imágenes de la fuente.
+  void chooseAllImages() => state = state.withImages(const ImageChoice.all());
+
+  /// «Ninguna».
+  void chooseNoImages() => state = state.withImages(ImageChoice.none);
 
   bool _add(ProcessedSection section, ProcessedDraft draft, String excerpt) {
     final next = state.withClip(section, draft, excerpt: excerpt);

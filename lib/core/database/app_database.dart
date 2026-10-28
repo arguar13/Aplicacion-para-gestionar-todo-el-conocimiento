@@ -35,6 +35,7 @@ import 'package:sinapsis/core/database/tables/note_templates.dart';
 import 'package:sinapsis/core/database/tables/notebook_items.dart';
 import 'package:sinapsis/core/database/tables/notebooks.dart';
 import 'package:sinapsis/core/database/tables/processed_documents.dart';
+import 'package:sinapsis/core/database/tables/processed_images.dart';
 import 'package:sinapsis/core/database/tables/processing_checkpoints.dart';
 import 'package:sinapsis/core/database/tables/properties.dart';
 import 'package:sinapsis/core/database/tables/relations.dart';
@@ -143,6 +144,7 @@ part 'app_database.g.dart';
     ProcessedDocuments,
     ProcessedParts,
     ProcessedOriginals,
+    ProcessedImages,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -187,7 +189,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 46;
+  static const currentSchemaVersion = 47;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -1295,6 +1297,43 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createTable(processedOriginals);
           await _emptyNotebooksForProcessed();
           await _requireSameCounts(before, step: 'v46', tables: tables);
+        }
+
+        // Las imágenes en Procesado (F41, decisión L): `processed_images`, con
+        // la copia propia de cada imagen elegida —su archivo es una forma del
+        // procesado—, y `content_trash.processed_image`, la que se quitó de la
+        // galería y espera para volver a su lugar. Solo se agrega: los conteos
+        // de todo lo demás son compuerta.
+        if (from < 47) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+            ...VaultCounts.studyTables,
+            ...VaultCounts.itemSpaceTables,
+            ...VaultCounts.datedEventTables,
+            ...VaultCounts.processedTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.createTable(processedImages);
+          await migrator.createIndex(idxProcessedImagesDocument);
+          if (!await _columnExists(
+            'content_trash',
+            trashedContents.processedImage.name,
+          )) {
+            await migrator.addColumn(
+              trashedContents,
+              trashedContents.processedImage,
+            );
+          }
+          await _requireSameCounts(before, step: 'v47', tables: tables);
         }
       });
     },

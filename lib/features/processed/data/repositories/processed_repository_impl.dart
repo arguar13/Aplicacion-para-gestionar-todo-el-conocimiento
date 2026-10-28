@@ -3,6 +3,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/file_references.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/knowledge_row_mapping.dart';
 import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
@@ -25,12 +26,15 @@ import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/core/util/text_anchor_locator.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_images_store.dart';
 import 'package:sinapsis/features/processed/data/repositories/processed_original_trash.dart';
 import 'package:sinapsis/features/processed/data/repositories/processed_query_sql.dart';
 import 'package:sinapsis/features/processed/data/repositories/processed_rows.dart';
+import 'package:sinapsis/features/processed/data/repositories/source_images_reader.dart';
 import 'package:sinapsis/features/processed/domain/entities/extract_note_target.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_image.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
@@ -38,6 +42,7 @@ import 'package:sinapsis/features/processed/domain/entities/processed_source_mat
 import 'package:sinapsis/features/processed/domain/entities/processed_study_text.dart';
 import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_images_planner.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_section_planner.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_study_layout.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_text.dart';
@@ -51,7 +56,9 @@ export 'package:sinapsis/features/processed/data/repositories/processed_rows.dar
 const kProcessedOriginalFolder = 'original';
 
 /// [ProcessedRepository] sobre la base (`processed_documents`,
-/// `processed_parts` y `processed_originals`) y el almacén de archivos.
+/// `processed_parts`, `processed_originals` y `processed_images`, v47) y el
+/// almacén de archivos, donde viven la copia del original y las de las
+/// imágenes.
 ///
 /// El elemento del procesado —su fila de `item` y su `note`— lo escribe
 /// [KnowledgeEntryWriter], como todo elemento; sus partes y la copia de su
@@ -87,6 +94,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
     _db.processedDocuments,
     _db.processedParts,
     _db.processedOriginals,
+    _db.processedImages,
     _db.knowledgeEntries,
     _db.itemSpaces,
     // Lo que filtran las etiquetas y las propiedades (paso 5).
@@ -170,6 +178,20 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
               .get()) {
         (counts[row.read<String>('document_id')] ??= {})[ProcessedSection.values
             .byName(row.read<String>('section'))] = row.read<int>(
+          'n',
+        );
+      }
+      // Las imágenes no son partes de texto: se cuentan en su tabla.
+      for (final row
+          in await _db
+              .customSelect(
+                'SELECT document_id, COUNT(*) AS n FROM processed_images '
+                'WHERE document_id IN ($marks) GROUP BY document_id',
+                variables: variables,
+              )
+              .get()) {
+        (counts[row.read<String>('document_id')] ??=
+            {})[ProcessedSection.images] = row.read<int>(
           'n',
         );
       }
@@ -271,6 +293,12 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
           parts: row.read<int>('n'),
           characters: row.read<int>('chars'),
           edited: row.read<int>('edited'),
+        ),
+      if (summary.partCounts[ProcessedSection.images] case final images?)
+        ProcessedSection.images: ProcessedSectionStats(
+          parts: images,
+          characters: 0,
+          edited: 0,
         ),
     };
     ProcessedSourceLink? source;
@@ -478,7 +506,10 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
           }
         case ProcessedSection.fragments:
           fragments.add(ProcessedSpan(start: anchor.start, end: anchor.end));
-        case ProcessedSection.text || ProcessedSection.notes:
+        // Las imágenes no son texto: nada que marcar sobre la copia.
+        case ProcessedSection.text ||
+            ProcessedSection.notes ||
+            ProcessedSection.images:
           break;
       }
     }
@@ -760,6 +791,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
         synthesis: of(StudyMarkKind.synthesis),
         keywords: keywords,
         original: await _originalOffer(source),
+        images: await _sourceImages.summary(sourceItemId),
       ),
     );
   });
@@ -807,6 +839,8 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
     }
     return result;
   }
+
+  SourceImagesReader get _sourceImages => SourceImagesReader(_db, _files);
 
   Future<String> _textOf(String renditionId) async {
     final r = _db.renditions;
@@ -913,6 +947,24 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
         );
       }
     }
+    final images = commit.images;
+    if (images != null) {
+      final now = {
+        if (status != ProcessedDocumentStatus.absent)
+          for (final image in await processedImagesOf(_db, documentId))
+            image.renditionId,
+      };
+      final planned = {
+        for (final image in images.plan.images)
+          if (image is KeptImage) image.image.renditionId,
+        for (final image in images.plan.removed) image.renditionId,
+      };
+      if (now.length != planned.length || !now.containsAll(planned)) {
+        throw const _Stale(
+          'Las imágenes del documento procesado cambiaron mientras tanto.',
+        );
+      }
+    }
 
     final at = _clock();
     switch (status) {
@@ -945,6 +997,18 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
         ? null
         : await _applyOriginal(documentId, commit.original!, at);
     if (original != null) changed = true;
+    ProcessedImagesUndo? imagesUndo;
+    if (images != null && !images.plan.isNoOp) {
+      changed = true;
+      imagesUndo = await applyProcessedImagesPlan(
+        _db,
+        documentId: documentId,
+        plan: images.plan,
+        staged: images.staged,
+        ids: _ids,
+        at: at,
+      );
+    }
     if (changed) {
       await _relayout(documentId);
       if (textChanges) await _resetStudy(documentId);
@@ -964,6 +1028,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
       textRanges: textRanges,
       study: study,
       original: original,
+      images: imagesUndo,
     );
   }
 
@@ -1280,14 +1345,22 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
             );
     }
     final filesToDelete = <String>[];
+    // Las copias de las imágenes que entraron con el procesado (decisión L):
+    // se borran del disco después de la base, si ya nada las usa.
+    final copies = <String>[];
     await _db.transaction(() async {
       if (undo.previousStatus == ProcessedDocumentStatus.absent) {
         // Nació con este procesado: deshacer es que no exista. Por el
         // escritor, como todo borrado de un elemento —primero a la papelera,
-        // después de verdad—, y con él se van sus partes y su original.
+        // después de verdad—, y con él se van sus partes, su original y sus
+        // imágenes.
         await _writer.trash([id]);
         await _writer.purge(id);
         if (undo.original?.copiedPath case final path?) filesToDelete.add(path);
+        copies.addAll([
+          for (final image in undo.images?.created ?? <ProcessedImage>[])
+            image.relativePath,
+        ]);
         return;
       }
       for (final MapEntry(key: section, value: parts)
@@ -1318,6 +1391,9 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
       if (undo.original case final original?) {
         filesToDelete.addAll(await _undoOriginal(id, original));
       }
+      if (undo.images case final images?) {
+        copies.addAll(await undoProcessedImages(_db, images));
+      }
       if (undo.previousStatus == ProcessedDocumentStatus.trashed &&
           status == ProcessedDocumentStatus.active) {
         await _writer.trash([id]);
@@ -1335,6 +1411,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
         ),
       );
     }
+    await _deleteUnusedCopies(copies);
     return right(unit);
   });
 
@@ -1369,6 +1446,25 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
       if (row != null) await restoreTrashedProcessedOriginal(_db, row);
     }
     return orphaned;
+  }
+
+  /// Borra del disco las copias [paths] que ya nada usa. Lo que no se pudo
+  /// borrar queda: es un archivo de más, no uno de menos.
+  Future<void> _deleteUnusedCopies(Iterable<String> paths) async {
+    for (final path in paths) {
+      try {
+        if (!await isFileReferenced(_db, path)) await _files.delete(path);
+        // Cualquier falla del disco —también un `Error`— deja el archivo y
+        // nada más: la base ya quedó como tenía que quedar.
+        // ignore: avoid_catches_without_on_clauses
+      } catch (e, stackTrace) {
+        _telemetry.recordError(
+          e,
+          stackTrace,
+          hint: 'ProcessedRepositoryImpl: quedó la copia $path',
+        );
+      }
+    }
   }
 
   /// Vuelve a poner [parts] tal como estaban —su id, su texto, su lugar, su
@@ -1624,6 +1720,154 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
     )..where((p) => p.id.equals(partId))).getSingleOrNull();
     return row == null ? null : processedPartFromRow(row);
   }
+
+  // --- Las imágenes (decisión L) -------------------------------------------
+
+  @override
+  Future<Either<Failure, List<SourceImage>>> sourceImages(
+    String sourceItemId, {
+    int offset = 0,
+    int? limit,
+  }) => _guard(
+    'sourceImages',
+    () async => right(
+      await _sourceImages.list(sourceItemId, offset: offset, limit: limit),
+    ),
+  );
+
+  @override
+  Stream<List<ProcessedImage>> watchImages(
+    String documentId, {
+    int offset = 0,
+    int? limit,
+  }) => watchQuery(
+    db: _db,
+    tables: [_db.processedImages, _db.renditions],
+    read: () =>
+        processedImagesOf(_db, documentId, offset: offset, limit: limit),
+    telemetry: _telemetry,
+    hint: 'ProcessedRepositoryImpl.watchImages',
+  );
+
+  @override
+  Future<Either<Failure, List<ProcessedImage>>> imagesOf(String documentId) =>
+      _guard(
+        'imagesOf',
+        () async => right(await processedImagesOf(_db, documentId)),
+      );
+
+  @override
+  Future<Either<Failure, List<StagedImage>>> stageImages(
+    String sourceItemId,
+    List<SourceImage> images,
+  ) => _guard('stageImages', () async {
+    if (images.isEmpty) return right(const []);
+    final offered = {
+      for (final image in await _sourceImages.list(sourceItemId)) image.path,
+    };
+    if (!images.every((image) => offered.contains(image.path))) {
+      return left(_imageNotOffered);
+    }
+    final documentId = processedDocumentIdFor(sourceItemId);
+    final staged = <StagedImage>[];
+    try {
+      for (final image in images) {
+        final copy = await _copy(image.path, documentId);
+        if (copy == null) {
+          await discardStagedImages(staged);
+          return left(
+            const Failure.validation(
+              message:
+                  'Una de las imágenes elegidas ya no está en el teléfono: '
+                  'no se copió ninguna.',
+            ),
+          );
+        }
+        staged.add(
+          StagedImage(
+            source: image,
+            relativePath: copy,
+            sizeBytes: await _files.sizeOf(copy) ?? image.sizeBytes,
+          ),
+        );
+      }
+      // Una copia a medias —el disco lleno— no deja las demás.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      await discardStagedImages(staged);
+      rethrow;
+    }
+    return right(staged);
+  });
+
+  /// Copia [path] a la carpeta de imágenes del procesado [documentId], sin
+  /// pisar una que ya esté —como la copia del original, la hace el almacén, sin
+  /// pasar por la memoria—, y devuelve la ruta de la copia; `null` si el
+  /// archivo ya no está.
+  Future<String?> _copy(String path, String documentId) =>
+      _files.copy(path, id: documentId, folder: kProcessedImagesFolder);
+
+  @override
+  Future<void> discardStagedImages(List<StagedImage> staged) =>
+      _deleteUnusedCopies([for (final image in staged) image.relativePath]);
+
+  @override
+  Future<Either<Failure, ProcessedImageRemoval>> removeImage(
+    String renditionId,
+  ) => _guard('removeImage', () async {
+    final removal = await _db.transaction(() async {
+      final row = await (_db.select(
+        _db.processedImages,
+      )..where((i) => i.renditionId.equals(renditionId))).getSingleOrNull();
+      if (row == null) return null;
+      final rendition = await (_db.select(
+        _db.renditions,
+      )..where((r) => r.id.equals(renditionId))).getSingle();
+      final image = processedImageFromRows(row, rendition);
+      final trashedId = await trashProcessedImage(
+        _db,
+        renditionId: renditionId,
+        ids: _ids,
+        at: _clock(),
+      );
+      await shiftProcessedImages(_db, image, by: -1);
+      await _writer.markContentChanged(image.documentId);
+      return ProcessedImageRemoval(trashedId: trashedId, image: image);
+    });
+    return removal == null
+        ? left(
+            const Failure.validation(
+              message: 'Esa imagen ya no está en el documento procesado.',
+            ),
+          )
+        : right(removal);
+  });
+
+  @override
+  Future<Either<Failure, Unit>> restoreImage(ProcessedImageRemoval removal) =>
+      _guard('restoreImage', () async {
+        final restored = await _db.transaction(() async {
+          final row = await (_db.select(
+            _db.trashedContents,
+          )..where((t) => t.id.equals(removal.trashedId))).getSingleOrNull();
+          if (row == null) return false;
+          final image = await restoreTrashedProcessedImage(_db, row);
+          if (image == null) return false;
+          await _writer.markContentChanged(image.documentId);
+          return true;
+        });
+        return restored
+            ? right(unit)
+            : left(
+                const Failure.validation(
+                  message: 'Esa imagen ya no se puede devolver a su lugar.',
+                ),
+              );
+      });
+
+  static const _imageNotOffered = Failure.validation(
+    message: 'Una de las imágenes elegidas no es de esta fuente.',
+  );
 
   static const _missingPart = Failure.validation(
     message: 'Esa parte ya no está en el documento procesado.',

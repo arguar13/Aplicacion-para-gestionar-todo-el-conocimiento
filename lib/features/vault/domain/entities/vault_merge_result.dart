@@ -81,9 +81,10 @@ sealed class VaultMergeResult with _$VaultMergeResult {
     @Default(0) int studyMarksAdded,
     @Default(0) int datedEventsAdded,
 
-    /// Los documentos procesados (F41) y sus partes.
+    /// Los documentos procesados (F41), sus partes y sus imágenes.
     @Default(0) int processedDocumentsAdded,
     @Default(0) int processedPartsAdded,
+    @Default(0) int processedImagesAdded,
 
     /// La copia del original de un procesado (F41, v46).
     @Default(0) int processedOriginalsAdded,
@@ -125,6 +126,7 @@ sealed class VaultMergeResult with _$VaultMergeResult {
       processedDocumentsAdded == 0 &&
       processedPartsAdded == 0 &&
       processedOriginalsAdded == 0 &&
+      processedImagesAdded == 0 &&
       aiRunsAdded == 0 &&
       aiRejectionsAdded == 0;
 }

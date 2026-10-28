@@ -23,6 +23,7 @@ class SetUnionResult {
     this.processedDocuments = 0,
     this.processedParts = 0,
     this.processedOriginals = 0,
+    this.processedImages = 0,
   });
 
   final int relations;
@@ -49,10 +50,12 @@ class SetUnionResult {
   /// Los hechos fechados dentro de un documento (F40).
   final int datedEvents;
 
-  /// Los documentos procesados (F41), sus partes y la copia de su original.
+  /// Los documentos procesados (F41), sus partes, la copia de su original y
+  /// sus imágenes.
   final int processedDocuments;
   final int processedParts;
   final int processedOriginals;
+  final int processedImages;
 }
 
 /// Las columnas de cada tabla que se une, en el orden en que se copian. Un test
@@ -163,6 +166,17 @@ const kProcessedOriginalColumns = [
   'source_file_path',
   'source_file_size',
   'text_hash',
+  'copied_at',
+];
+
+/// Las imágenes de un procesado (v47, decisión L): su forma —con el archivo—
+/// ya entró con las formas de los elementos.
+const kProcessedImageColumns = [
+  'rendition_id',
+  'document_id',
+  'position',
+  'source_file_path',
+  'source_file_size',
   'copied_at',
 ];
 const kFlashcardColumns = [
@@ -603,6 +617,22 @@ class SetUnionMerge {
       SetUnionRules.processedOriginalsFrom,
     );
 
+    // Sus imágenes (decisión L): su forma, con el archivo, ya entró —o no, si
+    // acá se había soltado—; sin su forma no hay copia que anotar. Las de la
+    // copia van después de las de acá, en su orden.
+    final processedImages = await _union(
+      _db.processedImages,
+      'processed_images',
+      kProcessedImageColumns,
+      SetUnionRules.processedImagesFrom,
+      select: {
+        'position':
+            'x.position + COALESCE((SELECT MAX(m.position) + 1 '
+            'FROM main.processed_images m '
+            'WHERE m.document_id = x.document_id), 0)',
+      },
+    );
+
     return SetUnionResult(
       relations: relations,
       highlights: highlights,
@@ -619,6 +649,7 @@ class SetUnionMerge {
       processedDocuments: processedDocuments,
       processedParts: processedParts,
       processedOriginals: processedOriginals,
+      processedImages: processedImages,
     );
   }
 

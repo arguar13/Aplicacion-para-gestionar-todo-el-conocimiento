@@ -3,12 +3,14 @@ import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/text_parts.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_image.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_source_material.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_images_planner.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_section_planner.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_text.dart';
 
@@ -24,6 +26,12 @@ import 'package:sinapsis/features/processed/domain/services/processed_text.dart'
 /// Lo pesado —paginar un libro, comparar sus páginas— corre en otro hilo
 /// cuando el texto es largo ([runProcessedWork]): procesar un libro no frena la
 /// interfaz.
+///
+/// **Las imágenes** (decisión L) son una sección más para quien pide: entran,
+/// se reemplazan y se quitan como las demás, en el mismo guardado y con el
+/// mismo «Deshacer». Lo que cambia es que cada una es una copia propia de un
+/// archivo: las copias se hacen antes de guardar, fuera de la base, y si el
+/// guardado no llega se borran.
 class ProcessSourceUseCase {
   const ProcessSourceUseCase(
     this._repository, {
@@ -48,8 +56,9 @@ class ProcessSourceUseCase {
   /// Falla, sin escribir nada, si algún pedido no vale para su sección
   /// (`SectionEdit.problemFor`), si la fuente no es una fuente viva, si un
   /// corte no cae dentro de un texto de la fuente o si una oración elegida no
-  /// es de ella, si se pide copiar un original que la fuente no ofrece; y,
-  /// para un documento que todavía no existe, si no queda nada que guardar.
+  /// es de ella, si se pide copiar un original que la fuente no ofrece, si
+  /// una imagen elegida ya no está en la fuente o no se pudo copiar; y, para
+  /// un documento que todavía no existe, si no queda nada que guardar.
   Future<Either<Failure, ProcessOutcome>> call(
     String sourceItemId,
     Map<ProcessedSection, SectionEdit> edits, {
@@ -57,12 +66,24 @@ class ProcessSourceUseCase {
   }) async {
     final planned = await _plan(sourceItemId, edits, original);
     return planned.match(left, (planned) async {
-      StagedOriginal? staged;
+      StagedOriginal? stagedOriginal;
       if (planned.original == _OriginalStep.copy) {
         final copy = await _repository.stageOriginal(sourceItemId);
         if (copy.isLeft()) return left(copy.getLeft().toNullable()!);
-        staged = copy.getRight().toNullable();
+        stagedOriginal = copy.getRight().toNullable();
       }
+      final images = planned.images;
+      final fresh = images?.fresh ?? const <SourceImage>[];
+      final stagedImages = fresh.isEmpty
+          ? right<Failure, List<StagedImage>>(const [])
+          : await _repository.stageImages(sourceItemId, fresh);
+      if (stagedImages.isLeft()) {
+        if (stagedOriginal != null) {
+          await _repository.discardStagedOriginal(stagedOriginal);
+        }
+        return left(stagedImages.getLeft().toNullable()!);
+      }
+      final staged = stagedImages.getRight().toNullable()!;
       final committed = await _repository.commit(
         ProcessedCommit(
           sourceItemId: sourceItemId,
@@ -70,14 +91,23 @@ class ProcessSourceUseCase {
           expectedStatus: planned.status,
           original: switch (planned.original) {
             _OriginalStep.none => null,
-            _OriginalStep.copy => PutOriginal(staged!),
+            _OriginalStep.copy => PutOriginal(stagedOriginal!),
             _OriginalStep.refresh => const RefreshOriginal(),
             _OriginalStep.remove => const RemoveOriginal(),
           },
+          images: images == null
+              ? null
+              : ProcessedImagesCommit(
+                  plan: images,
+                  staged: {for (final copy in staged) copy.source.path: copy},
+                ),
         ),
       );
-      if (committed.isLeft() && staged != null) {
-        await _repository.discardStagedOriginal(staged);
+      if (committed.isLeft()) {
+        if (stagedOriginal != null) {
+          await _repository.discardStagedOriginal(stagedOriginal);
+        }
+        if (staged.isNotEmpty) await _repository.discardStagedImages(staged);
       }
       return committed.map(
         (undo) => ProcessOutcome(
@@ -89,6 +119,12 @@ class ProcessSourceUseCase {
                 added: plan.added,
                 removed: plan.removed.length,
                 kept: plan.kept,
+              ),
+            if (images != null)
+              ProcessedSection.images: SectionChangeTally(
+                added: images.added,
+                removed: images.removed.length,
+                kept: images.kept,
               ),
           },
           undo: undo,
@@ -168,6 +204,19 @@ class ProcessSourceUseCase {
           ),
         );
       }
+      if (planned.images case final images?) {
+        previews[ProcessedSection.images] = SectionPreview(
+          parts: images.images.length,
+          words: 0,
+          tally: SectionChangeTally(
+            added: images.added,
+            removed: images.removed.length,
+            kept: images.kept,
+          ),
+          sizeBytes: images.sizeBytes,
+          addedBytes: images.addedBytes,
+        );
+      }
       return right(previews);
     });
   }
@@ -245,14 +294,20 @@ class ProcessSourceUseCase {
           return left(originalStep.getLeft().toNullable()!);
         }
         final step = originalStep.getRight().toNullable()!;
-        final existing = status == ProcessedDocumentStatus.absent
+        // Las imágenes no son partes de texto: se planean aparte.
+        final textEdits = {
+          for (final MapEntry(key: section, value: edit) in edits.entries)
+            if (!section.holdsFiles) section: edit,
+        };
+        final existing =
+            status == ProcessedDocumentStatus.absent || textEdits.isEmpty
             ? const <ProcessedPart>[]
             : await _repository
-                  .partsOf(documentId, sections: edits.keys.toSet())
+                  .partsOf(documentId, sections: textEdits.keys.toSet())
                   .then((parts) => parts.getOrElse((_) => const []));
         final texts = _SourceTexts(_repository, sourceItemId, material);
         final plans = <ProcessedSection, SectionPlan>{};
-        for (final MapEntry(key: section, value: edit) in edits.entries) {
+        for (final MapEntry(key: section, value: edit) in textEdits.entries) {
           final current = [
             for (final part in existing)
               if (part.section == section) part,
@@ -275,9 +330,21 @@ class ProcessSourceUseCase {
             size: size,
           );
         }
+        ImagesPlan? images;
+        if (edits[ProcessedSection.images] case final edit?) {
+          final planned = await _imagesPlan(
+            sourceItemId,
+            documentId,
+            status,
+            edit,
+          );
+          if (planned.isLeft()) return left(planned.getLeft().toNullable()!);
+          images = planned.getRight().toNullable();
+        }
         if (status == ProcessedDocumentStatus.absent &&
             step != _OriginalStep.copy &&
-            plans.values.every((plan) => plan.parts.isEmpty)) {
+            plans.values.every((plan) => plan.parts.isEmpty) &&
+            (images?.images.isEmpty ?? true)) {
           return left(
             const Failure.validation(
               message: 'No hay nada que procesar todavía en esta fuente.',
@@ -290,6 +357,58 @@ class ProcessSourceUseCase {
             status: status,
             plans: plans,
             original: step,
+            images: images,
+          ),
+        );
+      });
+    });
+  }
+
+  /// Cómo queda la galería de [documentId] con [edit]: lo elegido se lee de la
+  /// lista de la fuente —«Todas» no enumera nada hasta acá—, en su orden.
+  Future<Either<Failure, ImagesPlan>> _imagesPlan(
+    String sourceItemId,
+    String documentId,
+    ProcessedDocumentStatus status,
+    SectionEdit edit,
+  ) async {
+    final existing = status == ProcessedDocumentStatus.absent
+        ? right<Failure, List<ProcessedImage>>(const [])
+        : await _repository.imagesOf(documentId);
+    return existing.match(left, (existing) async {
+      final choice = switch (edit.input) {
+        FromImages(:final choice) => choice,
+        _ => null,
+      };
+      if (choice == null) {
+        return right(
+          planImagesChange(
+            existing: existing,
+            change: edit.change,
+            chosen: const [],
+          ),
+        );
+      }
+      final offered = await _repository.sourceImages(sourceItemId);
+      return offered.match(left, (offered) {
+        if (choice case SomeImages(:final paths)) {
+          final known = {for (final image in offered) image.path};
+          if (!known.containsAll(paths)) {
+            return left(
+              const Failure.validation(
+                message: 'Una imagen elegida ya no está en esta fuente.',
+              ),
+            );
+          }
+        }
+        return right(
+          planImagesChange(
+            existing: existing,
+            change: edit.change,
+            chosen: [
+              for (final image in offered)
+                if (choice.includes(image.path)) image,
+            ],
           ),
         );
       });
@@ -308,6 +427,13 @@ class ProcessSourceUseCase {
     switch (input) {
       case null:
         return right(const []);
+      // Las imágenes no son partes de texto: las planea `_imagesPlan`.
+      case FromImages():
+        return left(
+          const Failure.validation(
+            message: 'Las imágenes no son partes de texto.',
+          ),
+        );
       case FromSource() when section == ProcessedSection.text:
         final text = await texts.main();
         return text.match(left, (text) async {
@@ -528,12 +654,16 @@ class _Planned {
     required this.status,
     required this.plans,
     required this.original,
+    this.images,
   });
 
   final String documentId;
   final ProcessedDocumentStatus status;
   final Map<ProcessedSection, SectionPlan> plans;
   final _OriginalStep original;
+
+  /// Cómo queda la galería, si se pidió.
+  final ImagesPlan? images;
 }
 
 /// Qué se le va a hacer a la copia del original.

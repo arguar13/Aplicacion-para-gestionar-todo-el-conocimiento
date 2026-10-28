@@ -1769,11 +1769,28 @@ dice el nombre de la fuente, y debajo hay dos grupos:
   - **Fragmentos**: **"Cortar del original"** abre el texto para cortar a mano
     los pasajes que querés llevar tal cual.
   - Cada nota y cada fragmento se ve en su lista, con una **X** para quitarlo.
+- **Imágenes**, si la fuente trae (una foto o una captura guardada, las fotos
+  de una página guardada o las de una publicación): arriba dice cuántas trae y
+  cuánto pesan (*"La fuente trae 12 imágenes · 4,3 MB"*), y debajo están **en
+  una grilla de miniaturas**. Tocá una para elegirla (se marca con un tilde y
+  un borde) o volvé a tocarla para soltarla; **"Todas"** las elige todas y
+  **"Ninguna"** las suelta. Arriba de la grilla dice *"3 de 12 elegidas"* y, en
+  la sección, cuánto va a ocupar (*"3 imágenes · ocupa 840 kB"*). Con muchas
+  fotos se muestran de a 60, con **"Mostrar 40 más"**. Cada imagen que elegís
+  se **copia** al documento procesado: es una copia propia, que ocupa su lugar
+  en el teléfono y viaja con el documento a la papelera, la copia de seguridad
+  y la unión de bóvedas; borrar la foto de la fuente no la toca, y al revés.
+  En la computadora, cada miniatura se alcanza con Tab y se elige con Espacio
+  o Enter; con el lector de pantalla, cada una dice cuál es (*"Imagen 3 de
+  12"*, y su nombre si lo tiene) y si está elegida. Una foto sin letras (sin
+  texto que leer) igual se puede triar: lleva sus imágenes y tus notas. Los
+  SVG y las imágenes de dentro de un PDF, un Word o un EPUB no se ofrecen.
 
 Al final de la hoja, **"Va a quedar"** muestra en chips cada parte que va
 (*"Texto extraído · 12 páginas"*, *"Resumen · 14 oraciones"*, *"El original ·
 2,3 MB"*), y abajo, fijo,
-cuántas palabras van en total. Todo se actualiza **en vivo** mientras elegís,
+cuántas palabras van en total (y cuánto ocupan las imágenes, si elegiste
+alguna). Todo se actualiza **en vivo** mientras elegís,
 sin guardar nada.
 
 **"Listo"** arma el documento procesado y deja la fuente triada; el aviso dice
@@ -1962,7 +1979,7 @@ todos juntos con los botones de abajo.
 Es lo que **sacaste de cada fuente** al triarla: la información pura, un
 documento por fuente. La Biblioteca sigue siendo la base de consulta, entera y
 sin tocar; Procesado es lo trabajado. Acá no hay audios, videos ni fichas
-bibliográficas: solo texto.
+bibliográficas: texto y, si las elegís, las imágenes de la fuente.
 
 **Cómo llegar:** ítem **"Procesado"** en la navegación (en el celular, la
 segunda de **"Organizar"**, justo debajo de la Bandeja).
@@ -1986,7 +2003,7 @@ Se ve y se maneja como la [Biblioteca](#la-biblioteca):
 
 Cada fila muestra el ícono del tipo de fuente de la que salió, el título, las
 partes que tiene —**Texto · Resumen · Síntesis · Palabras clave · Notas ·
-Fragmentos · Original**— y cuándo se actualizó por última vez.
+Fragmentos · Original · Imágenes**— y cuándo se actualizó por última vez.
 
 **Vacío:** *"Todavía no procesaste nada. Triá una fuente en la Bandeja."*, con
 un botón **"Ir a la Bandeja"**. Si tenés fuentes que triaste **antes** de que
@@ -2044,6 +2061,16 @@ abre desplegado; el
   seleccionándolo), y **"Escuchar"** lee el texto, el resumen o la síntesis
   (las palabras clave, las notas y los fragmentos se escuchan con el botón
   redondo, que lee todo).
+- **Las imágenes** se ven en una **galería** de miniaturas (de a 60, con
+  "Mostrar más"). Tocá una para verla **a pantalla completa**: pellizcá para
+  acercar, deslizá (o usá las flechas, en pantalla o en el teclado) para pasar
+  a la siguiente, y Escape para volver. El tacho de arriba —**"Quitar de
+  Procesado"**— la saca del documento, con **"Deshacer"**; en la galería,
+  también con la tecla Suprimir sobre la miniatura enfocada. La imagen quitada
+  espera 30 días en la papelera del contenido antes de borrarse del teléfono.
+  Para sumar más, **"Volver a triar"**: ahí la sección Imágenes ofrece
+  **Agregar** (suma las que elijas sin repetir las que ya están),
+  **Reemplazar** (deja solo las elegidas) o **Quitar** (todas).
 - Arriba a la derecha, **"Eliminar"** lo manda a la papelera, con
   "Deshacer". Un documento procesado que está en la papelera se puede abrir y
   leer igual: lo dice arriba, con **"Restaurar"**.

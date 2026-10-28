@@ -78,10 +78,14 @@ void main() {
       );
     });
 
-    test('las tarjetas salen de todas las secciones de hoy, también de las '
-        'palabras clave', () {
-      expect(cardSections, ProcessedSection.values);
+    test('las tarjetas salen de todas las secciones de texto, también de las '
+        'palabras clave; de las imágenes, no', () {
+      expect(cardSections, [
+        for (final section in ProcessedSection.values)
+          if (!section.holdsFiles) section,
+      ]);
       expect(isCardSection(ProcessedSection.keywords), isTrue);
+      expect(isCardSection(ProcessedSection.images), isFalse);
     });
 
     test('un procesado con solo palabras clave tiene texto para tarjetas, en '

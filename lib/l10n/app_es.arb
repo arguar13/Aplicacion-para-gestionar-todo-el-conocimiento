@@ -10756,5 +10756,108 @@
         "type": "String"
       }
     }
+  },
+  "processedSectionImages": "Imágenes",
+  "@processedSectionImages": {
+    "description": "Sección del documento procesado: las imágenes copiadas de la fuente."
+  },
+  "processedImageCount": "{count, plural, =1{1 imagen} other{{count} imágenes}}",
+  "@processedImageCount": {
+    "description": "Cuántas imágenes tiene la sección Imágenes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageImagesChosen": "{chosen} de {count} elegidas",
+  "@processedTriageImagesChosen": {
+    "description": "Cuántas imágenes de la fuente se eligieron en la hoja de triar.",
+    "placeholders": {
+      "chosen": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageImagesAll": "Todas",
+  "@processedTriageImagesAll": {
+    "description": "Botón de la hoja de triar: elegir todas las imágenes."
+  },
+  "processedTriageImagesNone": "Ninguna",
+  "@processedTriageImagesNone": {
+    "description": "Botón de la hoja de triar: no elegir ninguna imagen."
+  },
+  "processedTriageImagesMore": "Mostrar {count} más",
+  "@processedTriageImagesMore": {
+    "description": "Botón para mostrar otra tanda de imágenes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageImagesOffer": "{count, plural, =1{La fuente trae 1 imagen · {size}} other{La fuente trae {count} imágenes · {size}}}",
+  "@processedTriageImagesOffer": {
+    "description": "Lo que ofrece la fuente en la sección Imágenes, con lo que pesan todas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "processedTriageImagesSize": "{images} · ocupa {size}",
+  "@processedTriageImagesSize": {
+    "description": "Vista previa de la sección Imágenes: cuántas van y lo que va a ocupar su copia.",
+    "placeholders": {
+      "images": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "processedTriageTotalImages": "{size} de imágenes",
+  "@processedTriageTotalImages": {
+    "description": "Al lado del total de palabras: lo que van a ocupar las copias de las imágenes.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "processedImagePosition": "Imagen {index} de {count}",
+  "@processedImagePosition": {
+    "description": "El lugar de una imagen en la grilla o la galería, para el lector de pantalla y la pantalla completa.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedImageRemove": "Quitar de Procesado",
+  "@processedImageRemove": {
+    "description": "Acción para quitar una imagen del documento procesado."
+  },
+  "processedImageRemoved": "Imagen quitada de Procesado",
+  "@processedImageRemoved": {
+    "description": "Aviso después de quitar una imagen, con «Deshacer»."
+  },
+  "processedImagePrevious": "Imagen anterior",
+  "@processedImagePrevious": {
+    "description": "Botón de la pantalla completa de imágenes."
+  },
+  "processedImageNext": "Imagen siguiente",
+  "@processedImageNext": {
+    "description": "Botón de la pantalla completa de imágenes."
   }
 }

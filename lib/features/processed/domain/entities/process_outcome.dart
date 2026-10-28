@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_image.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 
 /// En qué está el documento procesado de una fuente.
@@ -30,6 +31,7 @@ class ProcessUndo {
     this.textRanges = const {},
     this.study,
     this.original,
+    this.images,
   });
 
   final String documentId;
@@ -38,7 +40,8 @@ class ProcessUndo {
   /// estaba en la papelera, vuelve a ella.
   final ProcessedDocumentStatus previousStatus;
 
-  /// Las secciones tocadas, tal como estaban —vacías si no tenían nada—.
+  /// Las secciones de texto tocadas, tal como estaban —vacías si no tenían
+  /// nada—.
   final Map<ProcessedSection, List<ProcessedPart>> previous;
 
   /// Si se tocó el texto: dónde estaba, en el texto propio, cada parte de las
@@ -50,6 +53,9 @@ class ProcessUndo {
 
   /// Si se tocó la copia del original (decisión H).
   final ProcessedOriginalUndo? original;
+
+  /// Si se tocó la galería (decisión L), cómo dejarla como estaba.
+  final ProcessedImagesUndo? images;
 }
 
 /// Cómo deshacer lo que se hizo con la copia del original.
@@ -149,16 +155,25 @@ class SectionPreview {
     required this.parts,
     required this.words,
     required this.tally,
+    this.sizeBytes = 0,
+    this.addedBytes = 0,
   });
 
-  /// Cuántas partes queda teniendo: páginas, oraciones, notas o fragmentos.
+  /// Cuántas partes queda teniendo: páginas, oraciones, notas, fragmentos o
+  /// imágenes.
   final int parts;
 
-  /// Cuántas palabras suma.
+  /// Cuántas palabras suma. En las imágenes, ninguna.
   final int words;
 
   /// Cuánto cambia respecto de lo que hay.
   final SectionChangeTally tally;
+
+  /// En las imágenes (decisión L): lo que ocupa la galería como va a quedar,
+  /// en bytes, y lo que suman las copias nuevas —el espacio que se ocupa de
+  /// más—. En las secciones de texto, 0.
+  final int sizeBytes;
+  final int addedBytes;
 }
 
 /// Qué pasaría con la copia del original, para la vista previa: sin copiar

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_image.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
@@ -14,6 +15,10 @@ enum TriageSectionShape {
   /// Una lista que arma la persona, de a un pasaje: las notas y los
   /// fragmentos cortados.
   clips,
+
+  /// Una grilla de lo que ofrece la fuente, que se elige tocando, de a una o
+  /// todas juntas: las imágenes (decisión L).
+  gallery,
 }
 
 /// La forma de [section] en la hoja. Es el único lugar que lo decide: una
@@ -25,6 +30,7 @@ TriageSectionShape triageShapeOf(ProcessedSection section) => switch (section) {
   ProcessedSection.keywords => TriageSectionShape.whole,
   ProcessedSection.notes ||
   ProcessedSection.fragments => TriageSectionShape.clips,
+  ProcessedSection.images => TriageSectionShape.gallery,
 };
 
 /// Un pasaje de la lista de una sección —una nota o un fragmento—: lo que se
@@ -62,24 +68,40 @@ class TriageClip {
 }
 
 /// Lo que se le pide a una sección en la hoja: un cambio y, si es una lista,
-/// sus pasajes.
+/// sus pasajes; si es una grilla, lo elegido.
 @immutable
 class TriageChoice {
-  const TriageChoice(this.change, {this.clips = const []});
+  const TriageChoice(
+    this.change, {
+    this.clips = const [],
+    this.images = ImageChoice.none,
+  });
 
   final ProcessedChange change;
 
   /// Los pasajes de una sección de lista (ver [TriageSectionShape.clips]).
   final List<TriageClip> clips;
 
+  /// Las imágenes elegidas de una grilla (ver [TriageSectionShape.gallery]).
+  final ImageChoice images;
+
+  /// La misma, con otro cambio o con otros pasajes.
+  TriageChoice copyWith({ProcessedChange? change, List<TriageClip>? clips}) =>
+      TriageChoice(
+        change ?? this.change,
+        clips: clips ?? this.clips,
+        images: images,
+      );
+
   @override
   bool operator ==(Object other) =>
       other is TriageChoice &&
       other.change == change &&
-      listEquals(other.clips, clips);
+      listEquals(other.clips, clips) &&
+      other.images == images;
 
   @override
-  int get hashCode => Object.hash(change, Object.hashAll(clips));
+  int get hashCode => Object.hash(change, Object.hashAll(clips), images);
 }
 
 /// Lo que la persona va eligiendo en la hoja «¿Qué va a Procesado?» (F41),
@@ -129,6 +151,10 @@ class ProcessedTriage {
       };
       choices[section] = TriageChoice(
         edit.change,
+        images: switch (edit.input) {
+          FromImages(:final choice) => choice,
+          _ => ImageChoice.none,
+        },
         clips: [
           for (final draft in drafts)
             TriageClip(
@@ -232,6 +258,16 @@ class ProcessedTriage {
             SectionInput.drafts(drafts),
           ),
         };
+      case TriageSectionShape.gallery:
+        final images = SectionInput.images(choice.images);
+        return switch (choice.change) {
+          ProcessedChange.remove => SectionEdit.remove(),
+          // Una imagen no tiene una versión en la fuente que traer.
+          ProcessedChange.update => null,
+          _ when choice.images == ImageChoice.none => null,
+          ProcessedChange.add => SectionEdit.add(images),
+          ProcessedChange.replace => SectionEdit.replace(images),
+        };
     }
   }
 
@@ -245,7 +281,9 @@ class ProcessedTriage {
   }) {
     final choices = {...this.choices};
     if (on) {
-      choices[section] = TriageChoice(change, clips: clipsOf(section));
+      choices[section] =
+          this.choices[section]?.copyWith(change: change) ??
+          TriageChoice(change);
     } else {
       choices.remove(section);
     }
@@ -313,6 +351,31 @@ class ProcessedTriage {
     );
   }
 
+  /// Elige [images] de la grilla de la sección Imágenes. Elegir ninguna deja de
+  /// llevarla, salvo que se haya pedido quitarla entera o reemplazarla; elegir
+  /// algo sobre una sección pedida quitar es reemplazarla.
+  ProcessedTriage withImages(ImageChoice images) {
+    const section = ProcessedSection.images;
+    final current = choices[section];
+    final next = {...choices};
+    if (images == ImageChoice.none &&
+        (current == null || current.change == ProcessedChange.add)) {
+      next.remove(section);
+    } else {
+      next[section] = TriageChoice(switch (current?.change) {
+        null => ProcessedChange.add,
+        ProcessedChange.remove when images != ImageChoice.none =>
+          ProcessedChange.replace,
+        final change => change,
+      }, images: images);
+    }
+    return _copy(choices: next);
+  }
+
+  /// Las imágenes elegidas, o ninguna.
+  ImageChoice get images =>
+      choices[ProcessedSection.images]?.images ?? ImageChoice.none;
+
   /// Saca el pasaje [clipId] de donde esté. Una lista que queda vacía deja de
   /// ir, salvo que se haya pedido quitarla entera.
   ProcessedTriage withoutClip(String clipId) {
@@ -326,7 +389,7 @@ class ProcessedTriage {
       if (emptied && triageShapeOf(section) == TriageSectionShape.clips) {
         continue;
       }
-      choices[section] = TriageChoice(choice.change, clips: clips);
+      choices[section] = choice.copyWith(clips: clips);
     }
     return _copy(choices: choices);
   }
@@ -335,8 +398,7 @@ class ProcessedTriage {
   ProcessedTriage withExcerpts(Map<ProcessedAnchor, String> excerpts) => _copy(
     choices: {
       for (final MapEntry(key: section, value: choice) in choices.entries)
-        section: TriageChoice(
-          choice.change,
+        section: choice.copyWith(
           clips: [
             for (final clip in choice.clips)
               if (clip.excerpt.isEmpty && excerpts[clip.anchor] != null)

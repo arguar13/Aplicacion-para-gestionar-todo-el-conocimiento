@@ -770,6 +770,11 @@ void main() {
         kProcessedOriginalColumns.toSet(),
         await columnsOf('processed_originals'),
       );
+      // Sus imágenes (v47, decisión L).
+      expect(
+        kProcessedImageColumns.toSet(),
+        await columnsOf('processed_images'),
+      );
       // Las pasadas de la IA, lo que «no era» y las asignaciones de
       // propiedades, que ahora llevan su pasada (F27).
       expect(kAiRunColumns.toSet(), await columnsOf('ai_runs'));

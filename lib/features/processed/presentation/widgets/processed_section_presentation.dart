@@ -17,6 +17,7 @@ extension ProcessedSectionPresentation on ProcessedSection {
     ProcessedSection.keywords => Icons.key_outlined,
     ProcessedSection.notes => Icons.sticky_note_2_outlined,
     ProcessedSection.fragments => Icons.content_cut,
+    ProcessedSection.images => Icons.photo_library_outlined,
   };
 
   String label(AppLocalizations l10n) => switch (this) {
@@ -26,6 +27,7 @@ extension ProcessedSectionPresentation on ProcessedSection {
     ProcessedSection.keywords => l10n.processedSectionKeywords,
     ProcessedSection.notes => l10n.processedSectionNotes,
     ProcessedSection.fragments => l10n.processedSectionFragments,
+    ProcessedSection.images => l10n.processedSectionImages,
   };
 
   /// Cuántas partes tiene, con su nombre: «12 páginas», «8 oraciones». Una
@@ -37,17 +39,20 @@ extension ProcessedSectionPresentation on ProcessedSection {
     ProcessedSection.keywords => l10n.studySentenceCount(count),
     ProcessedSection.notes => l10n.processedNoteCount(count),
     ProcessedSection.fragments => l10n.processedFragmentCount(count),
+    ProcessedSection.images => l10n.processedImageCount(count),
   };
 
   /// Si se abre desplegada. El texto entero no, si hay algo más que leer: un
   /// libro taparía todo lo demás; lo elegido —resumen, síntesis, palabras
-  /// clave, notas, fragmentos— es corto y es lo que se vino a ver.
+  /// clave, notas, fragmentos, imágenes— es corto y es lo que se vino a ver.
+  /// Las imágenes se piden de a tandas y en miniatura.
   bool startsExpanded({required bool alone}) => switch (this) {
     ProcessedSection.text => alone,
     ProcessedSection.summary ||
     ProcessedSection.synthesis ||
     ProcessedSection.keywords ||
     ProcessedSection.notes ||
-    ProcessedSection.fragments => true,
+    ProcessedSection.fragments ||
+    ProcessedSection.images => true,
   };
 }

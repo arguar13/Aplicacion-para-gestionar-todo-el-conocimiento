@@ -27,6 +27,8 @@ bool isCardSection(ProcessedSection section) => switch (section) {
   ProcessedSection.keywords ||
   ProcessedSection.notes ||
   ProcessedSection.fragments => true,
+  // Las imágenes no son texto del que salga una tarjeta (decisión L).
+  ProcessedSection.images => false,
 };
 
 /// Las secciones de las que salen las tarjetas, en el orden en que se leen.

@@ -249,7 +249,10 @@ void main() {
     await pumpInbox(tester);
 
     expect(find.text(es.inboxTextFailed), findsOneWidget);
-    expect(find.byTooltip(es.inboxTextNeededFailed), findsNWidgets(4));
+    // Triar no espera el texto de una foto (decisión L): lleva sus imágenes.
+    // Lo demás sí lo necesita.
+    expect(find.byTooltip(es.inboxTextNeededFailed), findsNWidgets(3));
+    expect(enabled(tester, es.inboxActionTriage), isTrue);
     expect(enabled(tester, es.inboxActionDiscard), isTrue);
 
     await tester.tap(find.byKey(const Key('pending-text-retry')));
@@ -275,7 +278,8 @@ void main() {
 
     expect(find.text(es.inboxTextMissing), findsOneWidget);
     expect(find.byKey(const Key('pending-text-reextract')), findsOneWidget);
-    expect(find.byTooltip(es.inboxTextNeededMissing), findsNWidgets(4));
+    expect(find.byTooltip(es.inboxTextNeededMissing), findsNWidgets(3));
+    expect(enabled(tester, es.inboxActionTriage), isTrue);
 
     await tester.tap(find.text(es.inboxActionDiscard));
     await tester.pumpAndSettle();

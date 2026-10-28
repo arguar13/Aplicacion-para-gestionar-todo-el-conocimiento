@@ -159,6 +159,25 @@ abstract final class SetUnionRules {
          SELECT 1 FROM main.processed_originals m
           WHERE m.document_id = x.document_id OR m.rendition_id = x.rendition_id)''';
 
+  /// Las imágenes de los procesados (v47, decisión L) que entran: las de la
+  /// copia cuya forma —con su archivo— está acá, en un documento de acá, y que
+  /// el documento todavía no tiene. La misma imagen es la misma forma: su id
+  /// sale del documento y del archivo de la fuente
+  /// (`processedImageRenditionIdFor`), así que dos dispositivos que copiaron
+  /// la misma no la repiten.
+  static const processedImagesFrom =
+      '''
+      FROM $_incoming.processed_images x
+     WHERE EXISTS (
+             SELECT 1 FROM main.processed_documents d
+              WHERE d.item_id = x.document_id)
+       AND EXISTS (
+             SELECT 1 FROM main.renditions r
+              WHERE r.id = x.rendition_id AND r.item_id = x.document_id)
+       AND NOT EXISTS (
+         SELECT 1 FROM main.processed_images m
+          WHERE m.rendition_id = x.rendition_id)''';
+
   /// Las partes de documentos procesados (F41) que entran —con `lr` como la
   /// forma de texto de acá donde cae su ancla, si cae—.
   ///

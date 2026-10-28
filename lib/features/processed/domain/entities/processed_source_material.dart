@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_image.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 
 part 'processed_source_material.freezed.dart';
@@ -94,6 +95,10 @@ sealed class ProcessedSourceMaterial with _$ProcessedSourceMaterial {
     /// El original que se puede copiar, o `null` si la fuente no lo ofrece: no
     /// es un documento de texto ni una página web, o su archivo ya no está.
     ProcessedOriginalOffer? original,
+
+    /// Cuántas imágenes ofrece y cuánto pesan (decisión L): la sección
+    /// Imágenes de la hoja. La lista se pide aparte, de a tandas.
+    @Default(SourceImagesSummary.none) SourceImagesSummary images,
   }) = _ProcessedSourceMaterial;
 
   const ProcessedSourceMaterial._();

@@ -6,11 +6,13 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/processed/domain/entities/extract_note_target.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_image.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_source_material.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_study_text.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_images_planner.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_section_planner.dart';
 
 /// Un texto de una fuente, para copiar de él (F41).
@@ -82,6 +84,7 @@ class ProcessedCommit {
     required this.plans,
     required this.expectedStatus,
     this.original,
+    this.images,
   });
 
   /// La fuente: de ella salen el id, el título y el tipo del documento si
@@ -97,6 +100,20 @@ class ProcessedCommit {
 
   /// Qué se le hace a la copia del original; `null`, nada.
   final ProcessedOriginalPlan? original;
+
+  /// Cómo queda la galería, si se tocó (decisión L).
+  final ProcessedImagesCommit? images;
+}
+
+/// Lo que [ProcessedCommit] hace con la galería: su plan, armado sobre lo que
+/// había, y las copias de lo nuevo, ya hechas
+/// ([ProcessedRepository.stageImages]), por la ruta de su archivo de la fuente.
+@immutable
+class ProcessedImagesCommit {
+  const ProcessedImagesCommit({required this.plan, required this.staged});
+
+  final ImagesPlan plan;
+  final Map<String, StagedImage> staged;
 }
 
 /// Los documentos procesados (F41): la información pura que la persona sacó de
@@ -236,4 +253,46 @@ abstract interface class ProcessedRepository {
   /// Devuelve [part] tal como estaba —su texto, su lugar y su ancla—: deshace
   /// [editPart] o [removePart].
   Future<Either<Failure, Unit>> restorePart(ProcessedPart part);
+
+  // --- Las imágenes (decisión L) -------------------------------------------
+
+  /// Las imágenes que ofrece la fuente [sourceItemId], en orden: con [limit],
+  /// solo el tramo desde [offset]. Nunca sus bytes.
+  Future<Either<Failure, List<SourceImage>>> sourceImages(
+    String sourceItemId, {
+    int offset = 0,
+    int? limit,
+  });
+
+  /// Las imágenes de [documentId], en orden —con [limit], solo ese tramo
+  /// desde [offset]—, y cada cambio.
+  Stream<List<ProcessedImage>> watchImages(
+    String documentId, {
+    int offset = 0,
+    int? limit,
+  });
+
+  /// Todas las imágenes de [documentId], en orden.
+  Future<Either<Failure, List<ProcessedImage>>> imagesOf(String documentId);
+
+  /// Copia [images] de la fuente [sourceItemId] a la carpeta de su procesado,
+  /// sin guardar nada en la base: lo que entra con [commit]. Si una ya no
+  /// está, no deja ninguna copia y falla.
+  Future<Either<Failure, List<StagedImage>>> stageImages(
+    String sourceItemId,
+    List<SourceImage> images,
+  );
+
+  /// Borra copias que no llegaron a guardarse.
+  Future<void> discardStagedImages(List<StagedImage> staged);
+
+  /// Quita la imagen [renditionId] de su documento: su copia va a la papelera
+  /// del contenido —de donde se recupera durante 30 días— y las que la
+  /// seguían se corren. Devuelve el comprobante para [restoreImage].
+  Future<Either<Failure, ProcessedImageRemoval>> removeImage(
+    String renditionId,
+  );
+
+  /// Devuelve a su lugar la imagen que sacó [removeImage].
+  Future<Either<Failure, Unit>> restoreImage(ProcessedImageRemoval removal);
 }

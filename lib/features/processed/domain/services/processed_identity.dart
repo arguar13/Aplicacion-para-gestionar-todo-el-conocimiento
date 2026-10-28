@@ -16,6 +16,16 @@ const _namespace = '3b0f8a52-2c71-4e0d-9a61-5d7f41c0e2b9';
 String processedDocumentIdFor(String sourceItemId) =>
     const Uuid().v5(_namespace, 'sinapsis/procesado/$sourceItemId');
 
+/// El id de la forma que guarda, en el procesado [documentId], la copia de la
+/// imagen [sourceFilePath] de su fuente (decisión L): sale de los dos por lo
+/// mismo que el del documento —dos dispositivos que copian la misma imagen al
+/// mismo procesado llegan a la misma forma, y la unión no trae una segunda—.
+String processedImageRenditionIdFor(String documentId, String sourceFilePath) =>
+    const Uuid().v5(
+      _namespace,
+      'sinapsis/procesado/imagen/$documentId/$sourceFilePath',
+    );
+
 /// El id de la forma que guarda la copia del original del procesado
 /// [documentId] (decisión H): sale del documento por lo mismo que el suyo —dos
 /// dispositivos que copian el original del mismo procesado llegan a la misma

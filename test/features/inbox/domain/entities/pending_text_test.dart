@@ -115,6 +115,54 @@ void main() {
       }
     });
 
+    test('una foto sin letras se tría por sus imágenes (decisión L), cuando '
+        'termina de leerse; vincular y extraer siguen necesitando texto', () {
+      KnowledgeItem photo(String path, {SourceKind kind = SourceKind.image}) =>
+          item().copyWith(
+            source: Source(
+              id: 'x',
+              kind: kind,
+              capturedAt: now,
+              originalFilePath: path,
+            ),
+          );
+
+      for (final text in [PendingText.missing, PendingText.failed]) {
+        final actions = InboxActions.of(photo('originales/x/foto.png'), text);
+        expect(
+          (actions.triage, actions.extract, actions.link, actions.review),
+          (true, false, false, false),
+          reason: text.name,
+        );
+      }
+      // Mientras se lee la foto se espera: la hoja la ofrece con su texto.
+      expect(
+        InboxActions.of(
+          photo('originales/x/foto.png'),
+          PendingText.arriving,
+        ).triage,
+        isFalse,
+      );
+      // La foto de una publicación también; su video, no; un SVG, tampoco.
+      expect(
+        InboxActions.of(
+          photo('originales/x/post.jpg', kind: SourceKind.socialPost),
+          PendingText.missing,
+        ).triage,
+        isTrue,
+      );
+      for (final path in ['originales/x/post.mp4', 'originales/x/logo.svg']) {
+        expect(
+          InboxActions.of(
+            photo(path, kind: SourceKind.socialPost),
+            PendingText.missing,
+          ).triage,
+          isFalse,
+          reason: path,
+        );
+      }
+    });
+
     test('sin nada a la vista, ninguna', () {
       const none = InboxActions.none;
 

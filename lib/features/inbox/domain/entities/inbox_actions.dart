@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/features/inbox/domain/entities/pending_text.dart';
+import 'package:sinapsis/features/processed/domain/services/offered_images.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 
 /// Qué se puede hacer con lo que está arriba del mazo, según su texto (F41):
@@ -12,6 +13,10 @@ import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 /// Extraer una nota y «Pasar todo sin modificar», además, el del elemento: la
 /// nota se corta de él (`extractableRendition`), y lo que se pasa entero a
 /// «Procesado» es él, no un archivo de su «Contenido».
+///
+/// Triar se puede también sin texto si la fuente trae imágenes (decisión L):
+/// una foto sin letras tiene qué llevar a Procesado. Mientras el texto está
+/// llegando se espera igual, para que la hoja lo ofrezca junto con ellas.
 @immutable
 class InboxActions {
   const InboxActions({
@@ -28,7 +33,7 @@ class InboxActions {
         ready &&
         (extractableRendition(item)?.content.trim().isNotEmpty ?? false);
     return InboxActions(
-      triage: ready,
+      triage: ready || (text != PendingText.arriving && offersImages(item)),
       extract: ownText,
       link: ready,
       review: ready,
