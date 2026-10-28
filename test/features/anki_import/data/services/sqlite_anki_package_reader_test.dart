@@ -1304,22 +1304,23 @@ void main() {
 
   group('desde un archivo', () {
     late Directory dir;
+    late Directory work;
 
-    setUp(() => dir = Directory.systemTemp.createTempSync('sinapsis-anki-t-'));
+    setUp(() {
+      dir = Directory.systemTemp.createTempSync('sinapsis-anki-t-');
+      work = Directory(p.join(dir.path, 'trabajo'))..createSync();
+    });
     tearDown(() => dir.deleteSync(recursive: true));
 
-    int leftovers() => Directory.systemTemp
-        .listSync()
-        .whereType<Directory>()
-        .where((d) => p.basename(d.path).startsWith('sinapsis-anki-'))
-        .where((d) => !d.path.startsWith(dir.path))
-        .where(
-          (d) =>
-              !p.basename(d.path).startsWith('sinapsis-anki-t-') &&
-              !p.basename(d.path).startsWith('sinapsis-anki-test-') &&
-              !p.basename(d.path).startsWith('sinapsis-anki-fixture-'),
-        )
-        .length;
+    // La carpeta de trabajo de cada lectura nace dentro de una propia de la
+    // prueba y no en la temporal del sistema: ahí también crean y borran las
+    // suyas otras pruebas y otros procesos al mismo tiempo, y contar en un
+    // lugar compartido mide lo que hacen ellos.
+    SqliteAnkiPackageReader reader() => SqliteAnkiPackageReader(
+      workDirectory: () => work.createTemp('sinapsis-anki-'),
+    );
+
+    int leftovers() => work.listSync().length;
 
     test('lee un .apkg del disco y no deja temporales', () async {
       final file = File(p.join(dir.path, 'mazo.apkg'))
@@ -1335,7 +1336,7 @@ void main() {
         );
       final before = leftovers();
 
-      final package = await const SqliteAnkiPackageReader().readFile(file.path);
+      final package = await reader().readFile(file.path);
 
       expect(single(package).front, 'a');
       expect(leftovers(), before);
@@ -1354,7 +1355,7 @@ void main() {
       final before = leftovers();
 
       await expectLater(
-        const SqliteAnkiPackageReader().readFile(file.path),
+        reader().readFile(file.path),
         throwsA(isA<AnkiImportException>()),
       );
       expect(leftovers(), before);
@@ -1362,7 +1363,7 @@ void main() {
 
     test('un archivo que no existe y uno vacío', () async {
       await expectLater(
-        const SqliteAnkiPackageReader().readFile(p.join(dir.path, 'no.apkg')),
+        reader().readFile(p.join(dir.path, 'no.apkg')),
         throwsA(
           isA<AnkiImportException>().having(
             (e) => e.failure,
@@ -1374,7 +1375,7 @@ void main() {
 
       final empty = File(p.join(dir.path, 'vacio.apkg'))..writeAsBytesSync([]);
       await expectLater(
-        const SqliteAnkiPackageReader().readFile(empty.path),
+        reader().readFile(empty.path),
         throwsA(
           isA<AnkiImportException>().having(
             (e) => e.failure,
@@ -1390,7 +1391,7 @@ void main() {
         ..writeAsStringSync('esto no es un zip' * 100);
 
       await expectLater(
-        const SqliteAnkiPackageReader().readFile(file.path),
+        reader().readFile(file.path),
         throwsA(
           isA<AnkiImportException>().having(
             (e) => e.failure,

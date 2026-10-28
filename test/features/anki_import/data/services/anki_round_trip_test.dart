@@ -229,6 +229,10 @@ void main() {
     expect(imported.back, 'Привет 漢字');
   });
 
+  // Arma y vuelve a leer un paquete real de mil tarjetas, con SQLite y zip de
+  // verdad: mide que no se pierda nada, no cuánto tarda. Con la máquina
+  // ocupada pasa los 30 segundos de siempre, así que lleva su propio margen,
+  // como las demás pruebas de disco real.
   test('mil tarjetas en varios mazos', () async {
     final cards = [
       for (var i = 0; i < 1000; i++)
@@ -243,7 +247,7 @@ void main() {
     expect(package.cardCount, 1000);
     expect(package.decks, hasLength(7));
     expect(package.cards.map((c) => c.guid).toSet(), hasLength(1000));
-  });
+  }, timeout: const Timeout(Duration(minutes: 3)));
 
   test('sin tarjetas: un mazo vacío con aviso, no un error', () async {
     final package = await roundTrip(const []);
