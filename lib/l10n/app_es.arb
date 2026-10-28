@@ -10000,10 +10000,6 @@
   "@processedRetriage": {
     "description": "Acción para volver a elegir qué de una fuente va a su documento procesado (F41, paso 4)."
   },
-  "processedRetriageSoon": "Volver a triar: próximamente",
-  "@processedRetriageSoon": {
-    "description": "Ayuda del botón «Volver a triar» mientras todavía no está (F41): llega en el paso siguiente."
-  },
   "processedSectionText": "Texto",
   "@processedSectionText": {
     "description": "Sección de un documento procesado: el texto extraído entero o la transcripción (F41)."
@@ -10492,5 +10488,82 @@
   "processedNoteSourceRestored": "Fuente restaurada: ya podés extraerle notas.",
   "@processedNoteSourceRestored": {
     "description": "Aviso después de restaurar la fuente desde el aviso de extraer."
+  },
+  "processedRetriagePickerIntro": "Elegí una fuente de la Biblioteca: la hoja se abre con lo que su documento procesado ya tiene.",
+  "@processedRetriagePickerIntro": {
+    "description": "Debajo del título del selector de «Volver a triar» (F41, paso 4)."
+  },
+  "processedRetriagePickerSearchHint": "Buscá una fuente de la Biblioteca",
+  "@processedRetriagePickerSearchHint": {
+    "description": "Buscador del selector de «Volver a triar» (F41, paso 4)."
+  },
+  "processedRetriageProcessedChip": "Procesado",
+  "@processedRetriageProcessedChip": {
+    "description": "Chip de una fuente que ya tiene su documento procesado, en el selector de «Volver a triar» (F41, paso 4)."
+  },
+  "processedRetriagePickerEmpty": "Todavía no hay fuentes en la Biblioteca.",
+  "@processedRetriagePickerEmpty": {
+    "description": "El selector de «Volver a triar» sin ninguna fuente (F41, paso 4)."
+  },
+  "processedRetriageSourceInTrash": "La fuente está en la papelera: restaurala para volver a triar.",
+  "@processedRetriageSourceInTrash": {
+    "description": "Por qué «Volver a triar» está apagado en un documento procesado cuya fuente está en la papelera (F41, paso 4)."
+  },
+  "processedRetriageTriagedSnack": "Triado y a Procesado: {title}",
+  "@processedRetriageTriagedSnack": {
+    "description": "Aviso después de «Volver a triar» una fuente que todavía no estaba triada: ahora lo está (F41, paso 4).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "processedRetriageUpdatedSnack": "Procesado actualizado: {title}",
+  "@processedRetriageUpdatedSnack": {
+    "description": "Aviso después de «Volver a triar» una fuente ya triada (F41, paso 4).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "processedRetriageUnchangedSnack": "Sin cambios en Procesado: {title}",
+  "@processedRetriageUnchangedSnack": {
+    "description": "Aviso después de «Volver a triar» cuando todo lo pedido ya estaba (F41, paso 4).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxRetriageTooltip": "Volver a triar: elegí cualquier fuente de la Biblioteca (R)",
+  "@inboxRetriageTooltip": {
+    "description": "Ayuda del botón «Volver a triar» de arriba de la Bandeja, con su tecla (F41, paso 4)."
+  },
+  "processedTriageTallyAdds": "{count, plural, =1{suma 1} other{suma {count}}}",
+  "@processedTriageTallyAdds": {
+    "description": "Vista previa al volver a triar: cuántas partes nuevas entran a la sección (F41, paso 4).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageTallyRemoves": "{count, plural, =1{saca 1} other{saca {count}}}",
+  "@processedTriageTallyRemoves": {
+    "description": "Vista previa al volver a triar: cuántas partes salen de la sección (F41, paso 4).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageTallyNone": "sin cambios",
+  "@processedTriageTallyNone": {
+    "description": "Vista previa al volver a triar: la sección queda como estaba (F41, paso 4)."
+  },
+  "processedTriageEmptied": "Queda vacía",
+  "@processedTriageEmptied": {
+    "description": "Vista previa al volver a triar: la sección se queda sin partes (F41, paso 4)."
   }
 }

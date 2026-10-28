@@ -32,6 +32,7 @@ import 'package:sinapsis/features/library/presentation/widgets/entity_presentati
 import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
+import 'package:sinapsis/features/processed/presentation/retriage.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_triage_sheet.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/metadata_suggestion_banner.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
@@ -68,6 +69,12 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Triar nunca suelta nada de la fuente (F41, decisión G): de la Biblioteca
 /// nada se borra. La hoja de F30 que preguntaba «texto y libro, solo el texto,
 /// solo el libro» y mandaba la otra mitad a la papelera ya no existe.
+///
+/// **«Volver a triar»** (F41, paso 4) está arriba siempre —también con la
+/// Bandeja vacía— y con la R: elige cualquier fuente de la Biblioteca, triada
+/// o no, y abre la misma hoja con lo que su documento ya tiene. Su aviso trae
+/// su propio «Deshacer»; no entra al historial del mazo, que es de las
+/// decisiones sobre las tarjetas.
 ///
 /// Nada se pierde (F28): cada decisión deja un aviso con «Ver» y «Deshacer»;
 /// se deshace de a un paso con el botón, con Ctrl+Z o desde el aviso, y el
@@ -231,6 +238,11 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   ///
   /// Con [cutting], la hoja abre directo «Cortar del original»: «Extraer
   /// nota», cuyas notas van al documento procesado (decisión C).
+  ///
+  /// Si la fuente ya tiene su documento procesado —se le extrajo una nota
+  /// antes de triarla (decisión J)—, la hoja lo lee y no lo pisa: cada
+  /// sección dice lo que ya tiene, agrega por defecto, y se puede elegir
+  /// actualizar, reemplazar o quitar como al volver a triar.
   Future<void> _triage(KnowledgeItem item, {bool cutting = false}) async {
     final message = AppLocalizations.of(
       context,
@@ -240,6 +252,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       context,
       sourceItemId: item.id,
       startCutting: cutting,
+      changes: kRetriageChanges,
       onDone: (edits) async {
         final result = await triage(item.id, edits);
         if (!mounted) return result.getLeft().toNullable();
@@ -388,6 +401,14 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                 : '${l10n.inboxUndo}: ${last.title}',
             onPressed: last == null ? null : _undo,
           ),
+          // «Volver a triar» (F41, paso 4), siempre: también con la Bandeja
+          // vacía, que es cuando más se busca algo ya triado.
+          IconButton(
+            key: const Key('inbox-retriage'),
+            icon: const Icon(Icons.replay_outlined),
+            tooltip: l10n.inboxRetriageTooltip,
+            onPressed: retriageAction(context, ref),
+          ),
           const ReviewSuggestionsAction(),
           // «N pendientes» abre la cola entera (F28): antes era un texto sin
           // acción, y la Bandeja no dejaba ver qué quedaba.
@@ -426,6 +447,10 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
               _withCurrent(_extract, allowed: (actions) => actions.extract),
           const SingleActivator(LogicalKeyboardKey.keyZ, control: true): _undo,
           const SingleActivator(LogicalKeyboardKey.keyZ, meta: true): _undo,
+          const SingleActivator(LogicalKeyboardKey.keyR): retriageAction(
+            context,
+            ref,
+          ),
         },
         child: Focus(
           autofocus: true,

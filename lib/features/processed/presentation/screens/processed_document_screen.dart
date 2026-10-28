@@ -250,7 +250,14 @@ class _SourceCard extends StatelessWidget {
                       icon: const Icon(Icons.open_in_new),
                       label: Text(l10n.processedOpenSource),
                     ),
-                  RetriageButton(sourceItemId: source.itemId),
+                  // Una fuente en la papelera no se procesa: primero se
+                  // restaura.
+                  RetriageButton(
+                    sourceItemId: source.itemId,
+                    disabledReason: source.inTrash
+                        ? l10n.processedRetriageSourceInTrash
+                        : null,
+                  ),
                 ],
               ),
             ],

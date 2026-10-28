@@ -1,4 +1,5 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
@@ -43,6 +44,12 @@ abstract interface class InboxRepository {
   /// `null` si no tiene nada que ver con ella —una nota, algo que ya no
   /// existe—. Ver [InboxStanding].
   Stream<InboxStanding?> watchStanding(String itemId);
+
+  /// Dónde está [itemId] respecto de la Bandeja ahora, de una sola lectura:
+  /// lo que necesita quien decide algo según eso —«Volver a triar» (F41,
+  /// paso 4) tría solo lo que no estaba triado—. `null` si no es una fuente
+  /// viva: una nota, algo en la papelera o que ya no existe.
+  Future<Either<Failure, InboxStatus?>> statusOf(String itemId);
 
   /// Cuánto es [itemId]: las páginas de un PDF o lo que dura un audio o un
   /// video, para la línea de datos de la tarjeta (F30, decisión 68). Ver

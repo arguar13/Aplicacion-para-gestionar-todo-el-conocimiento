@@ -1680,7 +1680,7 @@ sepan. La podés resolver de tres formas:
   si hay, "Revisar sugerencias".
 - **Con el teclado**, en computadora: flecha izquierda = Descartar, derecha =
   Triado, Shift + flecha derecha = Pasar todo sin modificar, arriba = Extraer,
-  Ctrl+Z = deshacer.
+  Ctrl+Z = deshacer, R = [Volver a triar](#volver-a-triar).
 
 #### La hoja "¿Qué va a Procesado?"
 
@@ -1755,6 +1755,53 @@ y en una **lista viva abajo**, que dice cuántos fragmentos y notas llevás; la
 corta dos veces: si lo intentás, te avisa. **"Listo"** (o Escape) vuelve a la
 hoja, con todo lo cortado en sus listas. "A Procesado" aparece solo acá: en el
 detalle o en "Leer como libro" la barrita es la de siempre.
+
+**Si la fuente ya tiene su documento procesado** —por ejemplo, porque antes le
+extrajiste una nota desde el detalle o el modo lectura—, la hoja lo muestra y
+**no lo pisa**: cada parte dice lo que ya tiene (*"Ya tiene 1 parte"*), todo
+arranca en **"Agregar"**, y podés elegir actualizar, reemplazar o quitar como
+al [volver a triar](#volver-a-triar).
+
+#### Volver a triar
+
+Para agregarle algo a lo que ya procesaste, traer la versión de ahora de un
+resumen o sacar una parte. Está en cuatro lugares:
+
+- **Arriba en la Bandeja, siempre** (el botón de la flecha en círculo, o la
+  tecla **R**), aunque la Bandeja esté vacía. Abre un **selector con todas las
+  fuentes de la Biblioteca** —triadas, por revisar o descartadas; no tus notas
+  propias—, con su buscador y sus filtros (tema, tipo y "Bandeja"), de a cien
+  con **"Cargar más"**. Las que ya tienen su documento procesado llevan el chip
+  **"Procesado"**. Tocá una para elegirla; Escape cierra sin elegir.
+- En el **documento procesado**, al lado de "Ver el original en la Biblioteca".
+- En el **vacío de Procesado**, si tenés fuentes triadas de antes.
+- En el **detalle de una fuente** ya triada o descartada, al lado de "Volver a
+  la Bandeja". (Las notas propias no lo tienen: no tienen documento procesado.)
+
+Se abre **la misma hoja "¿Qué va a Procesado?"**, con lo que el documento ya
+tiene. En cada parte que ya tiene algo elegís:
+
+- **Agregar**: suma lo nuevo sin repetir lo que ya está (por ejemplo, más notas
+  o más fragmentos).
+- **Actualizar** (texto, resumen y síntesis): trae la versión de ahora de la
+  fuente y conserva lo que editaste a mano.
+- **Reemplazar**: pisa la parte entera con lo nuevo.
+- **Quitar**: saca la parte.
+
+En las partes de la fuente, primero prendé el interruptor y después elegí; en
+Notas y Fragmentos la elección está siempre a la vista, así podés quitarlas sin
+sumar nada antes. La vista previa dice, en vivo, cómo va a quedar cada parte y
+cuánto cambia (*"12 páginas · 3.400 palabras · suma 2 · saca 1"*, *"sin
+cambios"* o *"Queda vacía"*).
+
+Con **"Listo"**, el aviso dice *"Procesado actualizado: …"*, con **"Ver"** (abre
+el documento, salvo que ya lo estés mirando) y **"Deshacer"**, que deja el
+documento como estaba. Si la fuente **no estaba triada** (esperaba en la Bandeja
+o la habías descartado), queda triada —*"Triado y a Procesado: …"*— y
+"Deshacer" la devuelve adonde estaba. Si ya estaba triada, su estado no cambia.
+Si pediste algo que ya estaba, dice *"Sin cambios en Procesado: …"*. Este
+"Deshacer" es el del aviso: la flecha de arriba de la Bandeja deshace las
+decisiones sobre las tarjetas del mazo.
 
 #### Pasar todo sin modificar
 
@@ -1886,17 +1933,20 @@ se actualizó por última vez.
 
 **Vacío:** *"Todavía no procesaste nada. Triá una fuente en la Bandeja."*, con
 un botón **"Ir a la Bandeja"**. Si tenés fuentes que triaste **antes** de que
-existiera Procesado, lo dice y ofrece **"Volver a triar"**: no se pasaron solas,
-porque inventar qué partes querías sería decidir por vos. (**"Volver a triar"**
-todavía se ve apagado, con *"próximamente"* al mantenerlo apretado o pasar el
-puntero: llega en el paso que sigue.)
+existiera Procesado, lo dice y ofrece **"Volver a triar"** (ver
+[Volver a triar](#volver-a-triar)): no se pasaron solas, porque inventar qué
+partes querías sería decidir por vos. En el selector, **Filtros → "Bandeja" →
+"Triado"** te junta justo esas.
 
 ### El documento
 
 Tocá una fila para abrirlo. Arriba está **su fuente**, con **"Ver el original
 en la Biblioteca"**, que la abre. Si la fuente está en la papelera, lo dice y
 ofrece **"Abrir la papelera"** para recuperarla; si se borró de verdad, lo dice:
-el documento conserva lo que sacaste de ella. Al lado, **"Volver a triar"**.
+el documento conserva lo que sacaste de ella. Al lado, **"Volver a triar"**
+abre la hoja de esa fuente con lo que el documento ya tiene (ver
+[Volver a triar](#volver-a-triar)); con la fuente en la papelera está apagado
+y dice que primero la restaures.
 
 Debajo, **sus secciones**, cada una plegable con su nombre y cuánto tiene (por
 ejemplo *"12 páginas"* o *"8 oraciones"*, y *"2 con cambios tuyos"* si editaste

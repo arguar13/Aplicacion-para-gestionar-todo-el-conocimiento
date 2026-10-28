@@ -14,6 +14,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_cut_screen.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_triage_sheet.dart';
@@ -494,6 +495,146 @@ void main() {
       expect(
         received.single[ProcessedSection.summary],
         SectionEdit.replace(const SectionInput.fromSource()),
+      );
+    });
+
+    testWidgets('una lista que ya tiene partes ofrece quitarla sin sumarle '
+        'nada antes, y lo dice en la vista previa', (tester) async {
+      await seedSource();
+      await harness.container.read(processSourceUseCaseProvider)('fuente', {
+        ProcessedSection.notes: SectionEdit.add(
+          const SectionInput.drafts([ProcessedDraft.written('Una idea mía')]),
+        ),
+      });
+      await pumpSheet(
+        tester,
+        existing: const {ProcessedSection.notes: 1},
+        changes: ProcessedChange.values.toSet(),
+      );
+
+      final segmented = find.byKey(const Key('triage-change-notes'));
+      expect(
+        tester.widget<SegmentedButton<ProcessedChange>>(segmented).selected,
+        {ProcessedChange.add},
+      );
+      // Una lista no tiene versión en la fuente que traer.
+      expect(
+        find.descendant(
+          of: segmented,
+          matching: find.text(es.processedTriageChangeUpdate),
+        ),
+        findsNothing,
+      );
+      expect(find.text(es.processedTriageExisting(1)), findsOneWidget);
+
+      await tester.ensureVisible(segmented);
+      await tester.tap(
+        find.descendant(
+          of: segmented,
+          matching: find.text(es.processedTriageChangeRemove),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          '${es.processedTriageEmptied} · ${es.processedTriageTallyRemoves(1)}',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('triage-done')));
+      await tester.pumpAndSettle();
+      expect(received.single, {ProcessedSection.notes: SectionEdit.remove()});
+    });
+
+    testWidgets('sobre lo que ya tiene, la vista previa dice cuánto suma y '
+        'cuánto saca', (tester) async {
+      await seedSource();
+      await harness.container.read(processSourceUseCaseProvider)('fuente', {
+        ProcessedSection.text: SectionEdit.add(const SectionInput.fromSource()),
+      });
+      await pumpSheet(
+        tester,
+        existing: const {ProcessedSection.text: 1, ProcessedSection.notes: 0},
+        changes: ProcessedChange.values.toSet(),
+      );
+
+      await toggle(tester, ProcessedSection.text);
+      expect(
+        find.text(
+          '${es.processedTriagePageCount(1)} · '
+          '${es.processedTriageWordCount(10)} · '
+          '${es.processedTriageTallyNone}',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('triage-change-text')),
+          matching: find.text(es.processedTriageChangeRemove),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          '${es.processedTriageEmptied} · ${es.processedTriageTallyRemoves(1)}',
+        ),
+        findsOneWidget,
+      );
+
+      // Escribir una nota en una lista vacía no dice cuánto cambia: no había
+      // nada.
+      await tester.tap(find.byKey(const Key('triage-write-note')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('triage-note-field')),
+        'Otra',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('triage-note-add')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          '${es.processedTriageNoteCount(1)} · '
+          '${es.processedTriageWordCount(1)}',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('al sumar a una sección que tenía, la vista previa lo cuenta', (
+      tester,
+    ) async {
+      await seedSource();
+      await harness.container.read(processSourceUseCaseProvider)('fuente', {
+        ProcessedSection.notes: SectionEdit.add(
+          const SectionInput.drafts([ProcessedDraft.written('Una idea mía')]),
+        ),
+      });
+      await pumpSheet(
+        tester,
+        existing: const {ProcessedSection.notes: 1},
+        changes: ProcessedChange.values.toSet(),
+      );
+
+      await tester.tap(find.byKey(const Key('triage-write-note')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('triage-note-field')),
+        'Otra',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('triage-note-add')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          '${es.processedTriageNoteCount(2)} · '
+          '${es.processedTriageWordCount(4)} · '
+          '${es.processedTriageTallyAdds(1)}',
+        ),
+        findsOneWidget,
       );
     });
 

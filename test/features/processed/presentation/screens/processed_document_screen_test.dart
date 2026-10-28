@@ -90,8 +90,8 @@ void main() {
       expect(find.text(es.processedRetriage), findsNothing);
     });
 
-    testWidgets('«Volver a triar» está, apagado y con su motivo, hasta el '
-        'paso 4', (tester) async {
+    testWidgets('«Volver a triar» está al lado del enlace, prendido (paso 4: '
+        'ver `retriage_test.dart`)', (tester) async {
       final id = await harness.processTextAndNotes('roma');
       await open(tester, id);
 
@@ -101,8 +101,7 @@ void main() {
           matching: find.byType(OutlinedButton),
         ),
       );
-      expect(button.onPressed, isNull);
-      expect(find.byTooltip(es.processedRetriageSoon), findsOneWidget);
+      expect(button.onPressed, isNotNull);
     });
   });
 

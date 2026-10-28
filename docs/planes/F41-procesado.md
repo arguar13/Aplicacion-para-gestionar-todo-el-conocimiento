@@ -772,4 +772,76 @@ Verificación:
 - 16 mutaciones, todas muertas.
 - Pasan 4.828 de inbox, processed, viewer, organize, study, library, reading, timeline, core,
   narration y flashcards.
+
+### Paso 4: «Volver a triar»
+
+- **Un solo punto, `retriageAction`** (`processed/presentation/retriage.dart`): con una fuente, la
+  hoja de esa fuente; sin ella, el selector y después la hoja. Lo usan los cuatro accesos, y los
+  botones del paso 2 se prendieron solos. Salió «Volver a triar: próximamente».
+  - **Arriba en la Bandeja, siempre** —también vacía—, con la R.
+  - **En el documento procesado**, al lado del enlace. Con la fuente en la papelera queda apagado y
+    dice que primero se restaure (`RetriageButton.disabledReason`): procesar una fuente en la
+    papelera falla.
+  - **En el vacío de «Procesado»** (decisión D), abre el selector.
+  - **En el detalle de una fuente** triada o descartada, en la línea de la Bandeja
+    (`InboxStandingLine`), al lado de «Volver a la Bandeja». Lo que espera tiene «Triar ahora»; una
+    nota propia no tiene esa línea.
+- **El selector** (`RetriagePicker`): la consulta de la Biblioteca, con su mismo
+  `LibraryQueryNotifier` —buscar ordena por relevancia, cada filtro vuelve a la primera tanda,
+  «Cargar más» de a cien— en un proveedor propio que se suelta al cerrarse, así que no toca los
+  filtros de la Biblioteca. Usa las piezas de `list_controls.dart`: el buscador con su botón de
+  filtros, el marco del panel, el rótulo de cada sección y «Cargar más». Filtros: tema, tipo y
+  Bandeja («Triado» junta lo de antes de F41).
+  - **Solo fuentes** (`retriageCandidatesOf`): sin un filtro de la Bandeja se piden los tres
+    estados, que en la consulta de la Biblioteca es `item.kind = source`. Sin columnas ni SQL nuevos.
+  - **El chip «Procesado»** sale de `processedSourceIdsProvider`, el del paso 1: los ids de las
+    fuentes con documento vivo, nunca el texto ni las filas.
+  - Cada fila es un solo botón para el lector de pantalla, con título, tipo y «Procesado» en una
+    frase. Escape cierra sin elegir.
+- **La misma hoja, que lee lo que el documento ya tiene.** `existing` pasó a ser opcional: sin él,
+  la hoja lo lee al abrirse (`processedDocumentForSourceProvider`: las cuentas de la fila de
+  «Procesado», vivo o en la papelera, nunca el texto) con la ruedita de siempre. Se abre en el
+  acto, sin esperar a la base antes.
+  - **Decisión J, la parte de la Bandeja**: «Triado» abre la hoja así, con todos los cambios. Una
+    fuente con documento —por una nota extraída antes— muestra lo que tiene y arranca en
+    «Agregar»: no se pisa nada.
+  - **Las listas que ya tienen partes** (notas, fragmentos) muestran Agregar · Reemplazar · Quitar
+    sin sumarles nada antes. Si no, quitar las notas pedía cortar una primero.
+  - **La vista previa dice cuánto cambia** sobre lo que ya hay: «suma 2 · saca 1», «sin cambios» o
+    «Queda vacía». Sale del mismo `SectionPreview.tally` del paso 1.
+- **Guardar** (`TriageIntoProcessed.retriage`): si la fuente ya estaba triada o destilada, solo el
+  documento; si no —esperaba o se descartó—, el documento y el triado, las dos cosas o ninguna, por
+  el mismo camino que la Bandeja. `RetriageOutcome.triagedFrom` dice desde dónde se trió. El estado
+  se lee de una vez (`InboxRepository.statusOf`, nuevo) y no con `.first` de un stream de la base.
+  Cortar esos streams espera a que drift suelte su aviso de cambios, y en las pruebas de pantalla
+  eso no llegaba nunca. Por lo mismo, la hoja escucha el documento (`listenManual`) en vez de
+  pedirle el primer valor.
+  - `undoRetriage` deshace primero el documento y después devuelve la fuente adonde estaba: a la
+    Bandeja (`returnToInbox`) o a descartada. Si el documento no se puede deshacer, la fuente no se
+    mueve.
+  - El aviso: «Procesado actualizado», «Triado y a Procesado» o «Sin cambios en Procesado» (este,
+    sin «Deshacer»). «Ver» abre el documento, salvo que ya se lo esté mirando.
+  - El «Deshacer» es el del aviso. No entra al historial del mazo, que es de las tarjetas.
+- **Para los pasos que siguen**: la hoja recorre las secciones sola, así que las del 1b entran sin
+  tocar nada de acá. No se agregó ningún `switch` sobre `ProcessedSection`.
+
+Verificación:
+
+- `flutter analyze`: 19, y `verify_commit` aprueba el commit solo.
+- Pruebas nuevas:
+  - «Volver a triar» de punta a punta, contra la base del arnés: 18. Cubren el selector, la R y
+    Escape, de a cien, una fuente triada, una que espera, «Ver», «Sin cambios», cerrar sin
+    guardar, la decisión J, los cuatro accesos, la letra al doble en un teléfono angosto y con y
+    sin animaciones.
+  - `TriageIntoProcessed.retriage` y `undoRetriage`: 7.
+  - La hoja: 3, con las listas que ya tienen partes y lo que dice la vista previa.
+- Las del paso 2 que esperaban el botón apagado se pasaron a prendido.
+- Pasan 1.485 de inbox, processed, library, app, study y notebooks, ya sobre el paso 1b.
+- Mutaciones: 35, todas muertas o sacadas por equivalentes. Sobrevivieron tres la primera vez:
+  - Escape en el selector: lo cierra la hoja misma (`DismissIntent`), así que se sacó el atajo
+    propio.
+  - Mostrar Agregar · … en una sección entera apagada: nunca se dibuja apagada, así que se sacó la
+    rama.
+  - «Sin animaciones»: la prueba solo miraba que el selector estuviera. Ahora compara su lugar en
+    el primer cuadro con el final, y otra prueba fija que con animaciones sube desde abajo.
 - Sin probar en el emulador ni en el teléfono.

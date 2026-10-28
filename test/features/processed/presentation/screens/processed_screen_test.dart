@@ -61,9 +61,7 @@ void main() {
     });
 
     testWidgets('con fuentes triadas antes de que existiera Procesado ofrece '
-        '«Volver a triar», apagado hasta el paso 4 y diciendo por qué', (
-      tester,
-    ) async {
+        '«Volver a triar» (paso 4: ver `retriage_test.dart`)', (tester) async {
       await insertItemRows(harness.database, id: 'a', title: 'Vieja');
       await insertItemRows(harness.database, id: 'b', title: 'Otra vieja');
       await harness.markTriaged('a');
@@ -79,8 +77,7 @@ void main() {
           matching: find.byType(OutlinedButton),
         ),
       );
-      expect(button.onPressed, isNull);
-      expect(find.byTooltip(es.processedRetriageSoon), findsOneWidget);
+      expect(button.onPressed, isNotNull);
     });
   });
 

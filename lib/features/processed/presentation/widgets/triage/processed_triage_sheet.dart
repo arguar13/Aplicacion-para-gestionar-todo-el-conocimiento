@@ -37,7 +37,10 @@ typedef ProcessedTriageDone =
 /// **El contrato, para triar y para «Volver a triar» (paso 4):**
 ///
 /// - [existing]: cuántas partes tiene ya cada sección del documento
-///   procesado; vacío si todavía no existe.
+///   procesado; vacío si todavía no existe. Sin darlo (`null`), la hoja lo lee
+///   del documento al abrirse (`processedDocumentForSourceProvider`): es lo
+///   que hacen la Bandeja —una fuente puede tener documento antes de triarse,
+///   por una nota extraída (decisión J)— y «Volver a triar».
 /// - [initial]: lo que la hoja trae pedido al abrirse, como lo recibe
 ///   `ProcessSourceUseCase`.
 /// - [changes]: qué se puede pedir por sección. Triar algo nuevo ofrece solo
@@ -53,7 +56,7 @@ Future<bool> showProcessedTriageSheet(
   BuildContext context, {
   required String sourceItemId,
   required ProcessedTriageDone onDone,
-  Map<ProcessedSection, int> existing = const {},
+  Map<ProcessedSection, int>? existing,
   Map<ProcessedSection, SectionEdit> initial = const {},
   Set<ProcessedChange> changes = const {ProcessedChange.add},
   bool startCutting = false,
@@ -108,7 +111,7 @@ class ProcessedTriageSheet extends ConsumerStatefulWidget {
   const ProcessedTriageSheet({
     required this.sourceItemId,
     required this.onDone,
-    this.existing = const {},
+    this.existing,
     this.initial = const {},
     this.changes = const {ProcessedChange.add},
     this.startCutting = false,
@@ -118,7 +121,9 @@ class ProcessedTriageSheet extends ConsumerStatefulWidget {
 
   final String sourceItemId;
   final ProcessedTriageDone onDone;
-  final Map<ProcessedSection, int> existing;
+
+  /// Lo que el documento ya tiene, o `null` para leerlo de él.
+  final Map<ProcessedSection, int>? existing;
   final Map<ProcessedSection, SectionEdit> initial;
   final Set<ProcessedChange> changes;
   final bool startCutting;
@@ -144,15 +149,36 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _controller.triage = ProcessedTriage.from(
-        widget.sourceItemId,
-        existing: widget.existing,
-        edits: widget.initial,
+      if (widget.existing case final existing?) {
+        _start(existing);
+        return;
+      }
+      // Lo que el documento ya tiene, del documento mismo —vivo o en la
+      // papelera, de donde procesar lo saca con lo que tenía—: sus cuentas
+      // por sección, las de su fila de «Procesado», nunca su texto. Hasta que
+      // llegan, la hoja espera con la ruedita, como mientras lee la fuente.
+      // Si la lectura falla, la hoja sigue como si no hubiera nada: agregar
+      // no repite lo que ya está, así que no se pisa nada.
+      ref.listenManual(
+        processedDocumentForSourceProvider(widget.sourceItemId),
+        (_, document) {
+          if (_started || document.isLoading) return;
+          _start(document.valueOrNull?.summary.partCounts ?? const {});
+        },
+        fireImmediately: true,
       );
-      setState(() => _started = true);
-      unawaited(_readMissingExcerpts());
-      if (widget.startCutting) _cut();
     });
+  }
+
+  void _start(Map<ProcessedSection, int> existing) {
+    _controller.triage = ProcessedTriage.from(
+      widget.sourceItemId,
+      existing: existing,
+      edits: widget.initial,
+    );
+    setState(() => _started = true);
+    unawaited(_readMissingExcerpts());
+    if (widget.startCutting) _cut();
   }
 
   /// Los pasajes que trae [ProcessedTriageSheet.initial] sin su texto: se
@@ -574,6 +600,11 @@ class _WholeSection extends ConsumerWidget {
 /// Al volver a triar una sección que ya tiene algo (paso 4): agregar,
 /// actualizar, reemplazar o quitar. Con un solo cambio posible —triar algo
 /// nuevo—, no se muestra nada.
+///
+/// Una sección entera la muestra solo prendida: se elige al prenderla. Una
+/// lista —las notas, los fragmentos— no tiene interruptor, así que la
+/// muestra siempre que ya tenga partes, en «Agregar» mientras no se pida otra
+/// cosa: se puede quitar o empezar de nuevo sin sumarle nada antes.
 class _ChangeChoice extends StatelessWidget {
   const _ChangeChoice({
     required this.section,
@@ -588,8 +619,9 @@ class _ChangeChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final changes = sheet.changesFor(section);
-    final current = sheet.triage.choices[section]?.change;
-    if (changes.length < 2 || current == null) return const SizedBox.shrink();
+    final current =
+        sheet.triage.choices[section]?.change ?? ProcessedChange.add;
+    if (changes.length < 2) return const SizedBox.shrink();
     final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.only(left: 40, bottom: 8),
@@ -670,7 +702,8 @@ class _ClipsSection extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           leading: Icon(triageSectionIcon(section)),
           title: Text(triageSectionLabel(l10n, section)),
-          subtitle: clips.isNotEmpty
+          // Con algo pedido —pasajes, o quitarla entera—, cómo va a quedar.
+          subtitle: sheet.triage.edits.containsKey(section)
               ? _PreviewText(sheet: sheet, section: section)
               : Text(
                   existing > 0
@@ -717,7 +750,12 @@ class _PreviewText extends ConsumerWidget {
         null => l10n.processedTriageCounting,
         final result => result.match(
           (_) => l10n.processedTriageNothingYet,
-          (preview) => previewText(l10n, section, preview),
+          (preview) => previewText(
+            l10n,
+            section,
+            preview,
+            existing: sheet.triage.existing[section] ?? 0,
+          ),
         ),
       },
     );
@@ -725,14 +763,33 @@ class _PreviewText extends ConsumerWidget {
 }
 
 /// «12 páginas · 3.400 palabras»: lo que va a tener una sección.
+///
+/// Al volver a triar una sección que ya tiene [existing] partes, dice además
+/// cuánto cambia —«suma 2 · saca 1», o «sin cambios»—, y si se queda sin
+/// nada, que queda vacía.
 String previewText(
   AppLocalizations l10n,
   ProcessedSection section,
-  SectionPreview preview,
-) => preview.parts == 0
-    ? l10n.processedTriageNothingYet
-    : '${triagePartsText(l10n, section, preview.parts)} · '
-          '${l10n.processedTriageWordCount(preview.words)}';
+  SectionPreview preview, {
+  int existing = 0,
+}) {
+  final size = preview.parts == 0
+      ? (existing > 0
+            ? l10n.processedTriageEmptied
+            : l10n.processedTriageNothingYet)
+      : '${triagePartsText(l10n, section, preview.parts)} · '
+            '${l10n.processedTriageWordCount(preview.words)}';
+  if (existing == 0) return size;
+  final tally = preview.tally;
+  final changes = [
+    if (tally.added > 0) l10n.processedTriageTallyAdds(tally.added),
+    if (tally.removed > 0) l10n.processedTriageTallyRemoves(tally.removed),
+  ];
+  final change = changes.isEmpty
+      ? l10n.processedTriageTallyNone
+      : changes.join(' · ');
+  return '$size · $change';
+}
 
 /// La vista previa de cada sección que va, de las que ya se sabe: para la
 /// tarjeta «Va a quedar» y el total de abajo. Las mismas claves que las de

@@ -11024,10 +11024,6 @@
   "@processedRetriage": {
     "description": "Acción para volver a elegir qué de una fuente va a su documento procesado (F41, paso 4)."
   },
-  "processedRetriageSoon": "Triage again: coming soon",
-  "@processedRetriageSoon": {
-    "description": "Ayuda del botón «Volver a triar» mientras todavía no está (F41): llega en el paso siguiente."
-  },
   "processedSectionText": "Text",
   "@processedSectionText": {
     "description": "Sección de un documento procesado: el texto extraído entero o la transcripción (F41)."
@@ -11516,5 +11512,82 @@
   "processedNoteSourceRestored": "Source restored: you can extract notes from it now.",
   "@processedNoteSourceRestored": {
     "description": "Aviso después de restaurar la fuente desde el aviso de extraer."
+  },
+  "processedRetriagePickerIntro": "Pick a source from the Library: the sheet opens with what its processed document already has.",
+  "@processedRetriagePickerIntro": {
+    "description": "Debajo del título del selector de «Volver a triar» (F41, paso 4)."
+  },
+  "processedRetriagePickerSearchHint": "Search a source in the Library",
+  "@processedRetriagePickerSearchHint": {
+    "description": "Buscador del selector de «Volver a triar» (F41, paso 4)."
+  },
+  "processedRetriageProcessedChip": "Processed",
+  "@processedRetriageProcessedChip": {
+    "description": "Chip de una fuente que ya tiene su documento procesado, en el selector de «Volver a triar» (F41, paso 4)."
+  },
+  "processedRetriagePickerEmpty": "There are no sources in the Library yet.",
+  "@processedRetriagePickerEmpty": {
+    "description": "El selector de «Volver a triar» sin ninguna fuente (F41, paso 4)."
+  },
+  "processedRetriageSourceInTrash": "The source is in the trash: restore it to triage again.",
+  "@processedRetriageSourceInTrash": {
+    "description": "Por qué «Volver a triar» está apagado en un documento procesado cuya fuente está en la papelera (F41, paso 4)."
+  },
+  "processedRetriageTriagedSnack": "Triaged and to Processed: {title}",
+  "@processedRetriageTriagedSnack": {
+    "description": "Aviso después de «Volver a triar» una fuente que todavía no estaba triada: ahora lo está (F41, paso 4).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "processedRetriageUpdatedSnack": "Processed updated: {title}",
+  "@processedRetriageUpdatedSnack": {
+    "description": "Aviso después de «Volver a triar» una fuente ya triada (F41, paso 4).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "processedRetriageUnchangedSnack": "No changes in Processed: {title}",
+  "@processedRetriageUnchangedSnack": {
+    "description": "Aviso después de «Volver a triar» cuando todo lo pedido ya estaba (F41, paso 4).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxRetriageTooltip": "Triage again: pick any source from the Library (R)",
+  "@inboxRetriageTooltip": {
+    "description": "Ayuda del botón «Volver a triar» de arriba de la Bandeja, con su tecla (F41, paso 4)."
+  },
+  "processedTriageTallyAdds": "{count, plural, =1{adds 1} other{adds {count}}}",
+  "@processedTriageTallyAdds": {
+    "description": "Vista previa al volver a triar: cuántas partes nuevas entran a la sección (F41, paso 4).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageTallyRemoves": "{count, plural, =1{removes 1} other{removes {count}}}",
+  "@processedTriageTallyRemoves": {
+    "description": "Vista previa al volver a triar: cuántas partes salen de la sección (F41, paso 4).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageTallyNone": "no changes",
+  "@processedTriageTallyNone": {
+    "description": "Vista previa al volver a triar: la sección queda como estaba (F41, paso 4)."
+  },
+  "processedTriageEmptied": "Left empty",
+  "@processedTriageEmptied": {
+    "description": "Vista previa al volver a triar: la sección se queda sin partes (F41, paso 4)."
   }
 }

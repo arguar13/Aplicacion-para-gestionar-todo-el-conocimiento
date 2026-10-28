@@ -201,6 +201,22 @@ class InboxRepositoryImpl implements InboxRepository {
   }
 
   @override
+  Future<Either<Failure, InboxStatus?>> statusOf(String itemId) async {
+    try {
+      final entry = await (_db.select(
+        _db.knowledgeEntries,
+      )..where((e) => e.id.equals(itemId) & e.isActive)).getSingleOrNull();
+      return right(
+        entry == null ? null : InboxStatus.of(entry.kind, entry.state),
+      );
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(_unexpected(e, stackTrace, 'InboxRepositoryImpl.statusOf'));
+    }
+  }
+
+  @override
   Stream<SourceExtent> watchExtent(String itemId) {
     return watchQuery(
       db: _db,

@@ -1,6 +1,9 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
@@ -14,12 +17,17 @@ import 'package:sinapsis/features/inbox/domain/repositories/inbox_repository.dar
 import 'package:sinapsis/features/inbox/domain/usecases/triage_into_processed.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
+import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 
+import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 
 class _FailingInbox extends Mock implements InboxRepository {}
+
+class _FailingProcess extends Mock implements ProcessSourceUseCase {}
 
 /// Triar a Procesado (F41): el documento procesado y el estado de la fuente,
 /// las dos cosas o ninguna. Contra la base real del arnés.
@@ -139,5 +147,131 @@ void main() {
     );
     expect(await documents(), 0);
     expect(await stateOf('fuente'), ItemState.processed);
+  });
+
+  group('«Volver a triar» (paso 4)', () {
+    final text = {
+      ProcessedSection.text: SectionEdit.add(const SectionInput.fromSource()),
+    };
+    final note = {
+      ProcessedSection.notes: SectionEdit.add(
+        const SectionInput.drafts([ProcessedDraft.written('Una idea mía')]),
+      ),
+    };
+
+    Future<void> setState(ItemState state) =>
+        (harness.database.update(harness.database.knowledgeEntries)
+              ..where((e) => e.id.equals('fuente')))
+            .write(KnowledgeEntriesCompanion(state: Value(state)));
+
+    test('una fuente ya triada cambia solo su documento: su estado no se '
+        'toca, y deshacer deja el documento como estaba', () async {
+      await triage()('fuente', text);
+      final before = await stateOf('fuente');
+
+      final outcome = (await triage().retriage(
+        'fuente',
+        note,
+      )).getOrElse((failure) => throw StateError('$failure'));
+
+      expect(outcome.triagedFrom, isNull);
+      expect(outcome.sourceItemId, 'fuente');
+      expect(await stateOf('fuente'), before);
+      expect(await sections(), {ProcessedSection.text, ProcessedSection.notes});
+
+      expect((await triage().undoRetriage(outcome)).isRight(), isTrue);
+      expect(await sections(), {ProcessedSection.text});
+      expect(await stateOf('fuente'), ItemState.triaged);
+    });
+
+    test(
+      'una destilada cuenta como triada: tampoco cambia de estado',
+      () async {
+        await setState(ItemState.distilled);
+
+        final outcome = await triage().retriage('fuente', text);
+
+        expect(outcome.getRight().toNullable()!.triagedFrom, isNull);
+        expect(await stateOf('fuente'), ItemState.distilled);
+        expect(await documents(), 1);
+      },
+    );
+
+    test('una que espera en la Bandeja queda triada, y deshacer la devuelve '
+        'sin su documento', () async {
+      final outcome = (await triage().retriage(
+        'fuente',
+        text,
+      )).getOrElse((failure) => throw StateError('$failure'));
+
+      expect(outcome.triagedFrom, InboxStatus.pending);
+      expect(await stateOf('fuente'), ItemState.triaged);
+      expect(await documents(), 1);
+
+      expect((await triage().undoRetriage(outcome)).isRight(), isTrue);
+      expect(await documents(), 0);
+      expect(await stateOf('fuente'), ItemState.processed);
+    });
+
+    test('una descartada queda triada, y deshacer la vuelve a descartar —no '
+        'a la Bandeja—', () async {
+      await setState(ItemState.discarded);
+
+      final outcome = (await triage().retriage(
+        'fuente',
+        text,
+      )).getOrElse((failure) => throw StateError('$failure'));
+
+      expect(outcome.triagedFrom, InboxStatus.discarded);
+      expect(await stateOf('fuente'), ItemState.triaged);
+
+      expect((await triage().undoRetriage(outcome)).isRight(), isTrue);
+      expect(await documents(), 0);
+      expect(await stateOf('fuente'), ItemState.discarded);
+    });
+
+    test(
+      'si no hay nada que guardar, una que espera sigue esperando',
+      () async {
+        final outcome = await triage().retriage('fuente', const {});
+
+        expect(outcome.isLeft(), isTrue);
+        expect(await stateOf('fuente'), ItemState.processed);
+        expect(await documents(), 0);
+      },
+    );
+
+    test('una fuente en la papelera no se vuelve a triar, y no se escribe '
+        'nada', () async {
+      await trashItemRows(harness.database, 'fuente');
+
+      final outcome = await triage().retriage('fuente', text);
+
+      expect(outcome.getLeft().toNullable(), isA<ValidationFailure>());
+      expect(await documents(), 0);
+    });
+
+    test('si el documento no se puede deshacer, la fuente no se mueve: queda '
+        'triada con su documento, sin contradecirse', () async {
+      final outcome = (await triage().retriage(
+        'fuente',
+        text,
+      )).getOrElse((failure) => throw StateError('$failure'));
+      final process = _FailingProcess();
+      when(() => process.undo(outcome.processed.undo)).thenAnswer(
+        (_) async => left(const Failure.cache(message: 'Cambió mientras.')),
+      );
+      final inbox = _FailingInbox();
+      final useCase = TriageIntoProcessed(inbox: inbox, process: process);
+
+      final undone = await useCase.undoRetriage(outcome);
+
+      expect(
+        undone.getLeft().toNullable(),
+        const Failure.cache(message: 'Cambió mientras.'),
+      );
+      verifyNever(() => inbox.returnToInbox(any()));
+      expect(await stateOf('fuente'), ItemState.triaged);
+    });
   });
 }

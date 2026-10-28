@@ -9,11 +9,12 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/inbox_status_presentation.dart';
+import 'package:sinapsis/features/processed/presentation/retriage.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// En el detalle de una fuente, qué se decidió en la Bandeja y cuándo (F28):
-/// «Triado el 3 oct» con «Volver a la Bandeja», o «En la Bandeja» con
-/// «Triar ahora».
+/// «Triado el 3 oct» con «Volver a la Bandeja» y «Volver a triar» (F41, paso
+/// 4), o «En la Bandeja» con «Triar ahora».
 ///
 /// Es la otra mitad de la sección «Bandeja» de los filtros: lo triado se
 /// encuentra filtrando, y al abrirlo se ve que se trió y se puede deshacer
@@ -90,6 +91,16 @@ class InboxStandingLine extends ConsumerWidget {
               onPressed: () => _backToInbox(context, ref),
               icon: const Icon(Icons.undo, size: 18),
               label: Text(l10n.inboxBackToInbox),
+            ),
+          // Lo que ya se decidió se puede volver a triar desde acá (F41, paso
+          // 4): la hoja de siempre, con lo que su documento procesado ya
+          // tiene. Lo que espera tiene «Triar ahora».
+          if (standing.status != InboxStatus.pending)
+            TextButton.icon(
+              key: const Key('detail-retriage'),
+              onPressed: retriageAction(context, ref, sourceItemId: itemId),
+              icon: const Icon(Icons.replay_outlined, size: 18),
+              label: Text(l10n.processedRetriage),
             ),
         ],
       ),
