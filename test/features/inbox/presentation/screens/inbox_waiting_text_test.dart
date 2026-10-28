@@ -109,12 +109,13 @@ void main() {
     expect(enabled(tester, es.inboxActionDiscard), isTrue);
     for (final label in [
       es.inboxActionTriage,
+      es.inboxActionPassUnchanged,
       es.inboxActionExtract,
       es.inboxActionLink,
     ]) {
       expect(enabled(tester, label), isFalse, reason: label);
     }
-    expect(find.byTooltip(es.inboxTextNeededArriving), findsNWidgets(3));
+    expect(find.byTooltip(es.inboxTextNeededArriving), findsNWidgets(4));
     expect(await stateOf(audio.id), ItemState.captured);
 
     // Llega la transcripción: el procesamiento la guarda, como siempre.
@@ -132,6 +133,7 @@ void main() {
     expect(find.byKey(const Key('pending-excerpt')), findsOneWidget);
     for (final label in [
       es.inboxActionTriage,
+      es.inboxActionPassUnchanged,
       es.inboxActionExtract,
       es.inboxActionLink,
     ]) {
@@ -148,6 +150,13 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
+    // Tampoco «Pasar todo sin modificar» (F41): no hay texto que pasar.
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+    // Ni lo intenta: no hay un fallo que avisar.
+    expect(find.byType(SnackBar), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
     await tester.drag(find.text('Una clase grabada'), const Offset(400, 0));
@@ -240,7 +249,7 @@ void main() {
     await pumpInbox(tester);
 
     expect(find.text(es.inboxTextFailed), findsOneWidget);
-    expect(find.byTooltip(es.inboxTextNeededFailed), findsNWidgets(3));
+    expect(find.byTooltip(es.inboxTextNeededFailed), findsNWidgets(4));
     expect(enabled(tester, es.inboxActionDiscard), isTrue);
 
     await tester.tap(find.byKey(const Key('pending-text-retry')));
@@ -266,7 +275,7 @@ void main() {
 
     expect(find.text(es.inboxTextMissing), findsOneWidget);
     expect(find.byKey(const Key('pending-text-reextract')), findsOneWidget);
-    expect(find.byTooltip(es.inboxTextNeededMissing), findsNWidgets(3));
+    expect(find.byTooltip(es.inboxTextNeededMissing), findsNWidgets(4));
 
     await tester.tap(find.text(es.inboxActionDiscard));
     await tester.pumpAndSettle();
@@ -275,8 +284,10 @@ void main() {
   });
 
   testWidgets('una página sin texto propio que trae el de un archivo de su '
-      '«Contenido» se tría, pero «Extraer nota» sigue apagada: la lectura '
-      'trabaja sobre el texto del elemento', (tester) async {
+      '«Contenido» se tría, pero «Extraer nota» y «Pasar todo sin modificar» '
+      'siguen apagadas: las dos trabajan sobre el texto del elemento', (
+    tester,
+  ) async {
     final pagina = await save(
       sourceItem(
         title: 'Una página',
@@ -318,6 +329,11 @@ void main() {
     expect(enabled(tester, es.inboxActionExtract), isFalse);
     expect(
       find.byTooltip(es.inboxActionExtractDisabledTooltip),
+      findsOneWidget,
+    );
+    expect(enabled(tester, es.inboxActionPassUnchanged), isFalse);
+    expect(
+      find.byTooltip(es.inboxActionPassUnchangedDisabledTooltip),
       findsOneWidget,
     );
   });

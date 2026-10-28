@@ -15,6 +15,8 @@ import 'package:sinapsis/features/inbox/domain/entities/pending_source.dart';
 import 'package:sinapsis/features/inbox/domain/entities/pending_text.dart';
 import 'package:sinapsis/features/inbox/domain/entities/source_extent.dart';
 import 'package:sinapsis/features/inbox/domain/repositories/inbox_repository.dart';
+import 'package:sinapsis/features/inbox/domain/usecases/triage_into_processed.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 
 /// Cascada de inyección del feature. La capa de presentación depende de
 /// este repositorio; nunca de la base de datos directamente.
@@ -25,6 +27,15 @@ final inboxRepositoryProvider = Provider<InboxRepository>((ref) {
     clock: ref.watch(clockProvider),
   );
 });
+
+/// Triar a Procesado (F41): el documento procesado y el estado de la fuente,
+/// las dos cosas o ninguna.
+final triageIntoProcessedProvider = Provider<TriageIntoProcessed>(
+  (ref) => TriageIntoProcessed(
+    inbox: ref.watch(inboxRepositoryProvider),
+    process: ref.watch(processSourceUseCaseProvider),
+  ),
+);
 
 /// Los ids de las fuentes que esperan triaje, actualizándose solos.
 /// `autoDispose`: sin nadie mirando la Bandeja ni la insignia de la

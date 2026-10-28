@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_layers.dart';
 import 'package:sinapsis/features/study/domain/services/study_pick.dart';
@@ -202,21 +203,24 @@ List<PaintedRange> paintsWithin(
 ///
 /// [brightness] fija los colores en vez del tema: la página de un PDF es
 /// blanca también en modo oscuro.
+///
+/// Mientras se corta del original para Procesado (F41), lleva encima los
+/// cortes: así cada visor que pinta lo estudiado —el texto extraído, el
+/// lector, el PDF— marca también lo cortado, sin saber de Procesado.
 List<PaintedRange> watchStudyPaints(
   WidgetRef ref,
   BuildContext context,
   String renditionId, {
   Brightness? brightness,
 }) {
+  final shade = brightness ?? Theme.of(context).brightness;
+  final cuts = watchProcessedCutPaints(ref, renditionId, brightness: shade);
   final view = ref.watch(studyViewProvider(renditionId));
-  if (view.showsNothing) return const [];
+  if (view.showsNothing) return cuts;
   final study = ref.watch(documentStudyProvider(renditionId)).valueOrNull;
-  if (study == null) return const [];
-  return studyPaints(
-    study,
-    view,
-    StudyPalette.of(brightness ?? Theme.of(context).brightness),
-  );
+  if (study == null) return cuts;
+  final paints = studyPaints(study, view, StudyPalette.of(shade));
+  return cuts.isEmpty ? paints : [...paints, ...cuts];
 }
 
 /// Eligiendo a mano, se tocó la posición [offset] de [content] (F36, F39):

@@ -1,14 +1,20 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 
 part 'inbox_step.freezed.dart';
 
 /// Qué se hizo con una fuente en la Bandeja.
 enum InboxStepKind {
   discarded,
+
+  /// Se trió con la hoja «¿Qué va a Procesado?» (F41): su documento procesado
+  /// guarda lo elegido —el texto, el resumen, la síntesis, las notas
+  /// extraídas, los fragmentos cortados— y queda triada.
   triaged,
 
-  /// Se abrió para extraerle notas: queda triada.
-  extracted,
+  /// «Pasar todo sin modificar» (F41): su documento procesado guarda el texto
+  /// original entero, y queda triada.
+  passedUnchanged,
 
   /// Se vinculó a una nota viva: queda triada.
   linked,
@@ -41,7 +47,8 @@ sealed class LinkedNote with _$LinkedNote {
 /// transcribirse antes de que se deshiciera (F41).
 ///
 /// Triar nunca suelta nada de la fuente (F41, decisión G): no hay archivo ni
-/// texto que recuperar al deshacer.
+/// texto que recuperar al deshacer. Lo que sí se deshace es lo que triar armó
+/// en «Procesado» ([processUndo]).
 @freezed
 sealed class InboxStep with _$InboxStep {
   const factory InboxStep({
@@ -51,5 +58,10 @@ sealed class InboxStep with _$InboxStep {
 
     /// Con [InboxStepKind.linked], el vínculo que deshacer.
     LinkedNote? linkedNote,
+
+    /// Con [InboxStepKind.triaged] o [InboxStepKind.passedUnchanged], cómo
+    /// dejar el documento procesado como estaba (F41): si nació al triar, se
+    /// va; si ya existía, vuelve a lo que tenía.
+    ProcessUndo? processUndo,
   }) = _InboxStep;
 }

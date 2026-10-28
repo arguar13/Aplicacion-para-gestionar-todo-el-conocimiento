@@ -20,6 +20,8 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/readable_tex
 import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
@@ -200,6 +202,10 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
   /// Los resaltados de la persona, de abajo hacia arriba, y el pedido para
   /// pintarlos en la página; y cuál se le mandó a esta copia de la página.
   List<Highlight> _highlights = const [];
+
+  /// Lo cortado para Procesado mientras se corta de esta página (F41): se
+  /// pinta con los resaltados, encima.
+  List<ProcessedAnchor> _cuts = const [];
   String? _marks;
   String? _appliedMarks;
 
@@ -419,8 +425,9 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     unawaited(_apply());
   }
 
-  /// Arma el pedido para pintar los resaltados de la persona [_highlights] en
-  /// la copia que se ve, y lo manda si cambió (o con [force]).
+  /// Arma el pedido para pintar los resaltados de la persona [_highlights] —y,
+  /// mientras se corta para Procesado, lo cortado [_cuts]— en la copia que se
+  /// ve, y lo manda si cambió (o con [force]).
   void _updateMarks({bool force = false}) {
     final alignment = _alignment;
     if (alignment == null) return;
@@ -441,6 +448,18 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
                     : HighlightPalette.onPaper(highlight.color))
                 .toARGB32(),
         underline: underline,
+      ));
+    }
+    for (final (index, cut) in _cuts.indexed) {
+      final ranges = alignment.pageRangesOf(cut.start, cut.end);
+      if (ranges.isEmpty) continue;
+      // Tocarlo no abre ninguna ficha: no es un resaltado. Se quita desde la
+      // lista de lo cortado.
+      marks.add((
+        id: 'processed-cut-$index',
+        ranges: ranges,
+        color: ProcessedCutPalette.light.toARGB32(),
+        underline: false,
       ));
     }
     final script = archivedPageMarksScript(marks);
@@ -538,8 +557,10 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
       ref.watch(renditionHighlightsProvider(text.renditionId)).valueOrNull ??
           const <Highlight>[],
     );
-    if (!listEquals(highlights, _highlights)) {
+    final cuts = watchProcessedCuts(ref, text.renditionId);
+    if (!listEquals(highlights, _highlights) || !listEquals(cuts, _cuts)) {
       _highlights = highlights;
+      _cuts = cuts;
       _updateMarks();
     }
   }

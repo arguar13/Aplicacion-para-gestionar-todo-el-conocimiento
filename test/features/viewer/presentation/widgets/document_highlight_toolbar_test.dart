@@ -8,6 +8,7 @@ import 'package:sinapsis/core/design/highlight_toolbar.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
@@ -20,6 +21,9 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_c
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_triage.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_highlight_toolbar.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_selection.dart';
@@ -113,6 +117,7 @@ void main() {
     WidgetTester tester, {
     bool canCopy = true,
     HighlightColor? lastColor,
+    bool cutting = false,
   }) async {
     container = ProviderContainer(
       overrides: [
@@ -133,23 +138,33 @@ void main() {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
-            body: Consumer(
-              builder: (context, ref, _) => Stack(
-                children: [
-                  Positioned.fill(
-                    child: documentHighlightToolbar(
-                      context,
-                      ref,
-                      anchors: const TextSelectionToolbarAnchors(
-                        primaryAnchor: Offset(200, 300),
-                        secondaryAnchor: Offset(200, 320),
+            body: ProviderScope(
+              // Como dentro de «Cortar del original» (F41).
+              overrides: [
+                if (cutting)
+                  processedCutSourceProvider.overrideWithValue('item-1'),
+              ],
+              child: Consumer(
+                builder: (context, ref, _) {
+                  ref.watch(processedTriageProvider('item-1'));
+                  return Stack(
+                    children: [
+                      Positioned.fill(
+                        child: documentHighlightToolbar(
+                          context,
+                          ref,
+                          anchors: const TextSelectionToolbarAnchors(
+                            primaryAnchor: Offset(200, 300),
+                            secondaryAnchor: Offset(200, 320),
+                          ),
+                          selection: selection,
+                          text: text,
+                          canCopy: canCopy,
+                        ),
                       ),
-                      selection: selection,
-                      text: text,
-                      canCopy: canCopy,
-                    ),
-                  ),
-                ],
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -365,6 +380,71 @@ void main() {
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(find.text(content.substring(38, 50)), findsOneWidget);
       expect(selection.clears, 1);
+    });
+  });
+
+  group('mientras se corta del original para Procesado (F41)', () {
+    ProcessedTriage triage() =>
+        container.read(processedTriageProvider('item-1'));
+
+    testWidgets('fuera de «Cortar del original» no hay «A Procesado»', (
+      tester,
+    ) async {
+      await pump(tester);
+
+      expect(find.byKey(const Key('highlight-to-processed')), findsNothing);
+    });
+
+    testWidgets('«A Procesado» manda el tramo del texto extraído a los '
+        'fragmentos, de la primera página a la última, y quita la selección', (
+      tester,
+    ) async {
+      selection.location = const SelectionLocation.found([
+        (start: 14, end: 24),
+        (start: 38, end: 50),
+      ]);
+      await pump(tester, cutting: true);
+
+      await tap(tester, find.byKey(const Key('highlight-to-processed')));
+
+      final clip = triage().clipsOf(ProcessedSection.fragments).single;
+      expect(
+        clip.draft,
+        const ProcessedDraft.cut(
+          ProcessedAnchor(renditionId: 'r1', start: 14, end: 50),
+        ),
+      );
+      expect(clip.excerpt, content.substring(14, 50));
+      expect(selection.clears, 1);
+    });
+
+    testWidgets('lo que no se ubica se avisa y no se corta', (tester) async {
+      selection.location = const SelectionLocation.failed(
+        HighlightIssue.scanned,
+      );
+      await pump(tester, cutting: true);
+
+      await tap(tester, find.byKey(const Key('highlight-to-processed')));
+
+      expect(find.text(es.documentHighlightScanned), findsOneWidget);
+      expect(triage().edits, isEmpty);
+      expect(selection.clears, 0);
+    });
+
+    testWidgets('«Extraer como nota» va a las notas del documento procesado: '
+        'no crea ninguna nota en la Biblioteca', (tester) async {
+      await pump(tester, cutting: true);
+
+      await tap(tester, find.byTooltip(es.detailExtractSelection));
+
+      expect(
+        triage().clipsOf(ProcessedSection.notes).single.draft,
+        const ProcessedDraft.cut(
+          ProcessedAnchor(renditionId: 'r1', start: 38, end: 50),
+        ),
+      );
+      verifyNever(() => capture.call(any()));
+      expect(find.text(es.processedCutNoteAdded), findsOneWidget);
     });
   });
 }

@@ -16,11 +16,14 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/triage_sheet.dart';
 
 /// Triar nunca suelta nada de la fuente (F41, decisión G): de la Biblioteca
 /// nada se borra. La hoja de F30 —«Texto y libro / Solo el texto / Solo el
 /// libro»— mandaba el archivo o el texto a la papelera de la app; ya no
 /// existe, y lo que se soltó así antes sigue en la papelera, recuperable.
+/// Lo que se abre ahora es la hoja «¿Qué va a Procesado?», que copia de la
+/// fuente y nunca la toca.
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -83,6 +86,10 @@ void main() {
   Future<List<TrashedContentRow>> contentTrash() =>
       harness.database.select(harness.database.trashedContents).get();
 
+  Future<int> processedDocuments() async =>
+      (await harness.database.select(harness.database.processedDocuments).get())
+          .length;
+
   Future<void> pumpInbox(WidgetTester tester) async {
     tester.view.physicalSize = const Size(900, 1600);
     tester.view.devicePixelRatio = 1;
@@ -112,9 +119,17 @@ void main() {
     await tester.tap(find.text(es.inboxActionTriage));
     await tester.pumpAndSettle();
 
+    // La hoja que se abre es la de Procesado: elegir qué copiar, no qué soltar.
+    expect(find.text(es.processedTriageTitle), findsOneWidget);
+    await finishTriageWithText(tester);
+
     expect(find.byType(BottomSheet), findsNothing);
     expect(await stateOf(id), ItemState.triaged);
-    expect(find.text(es.inboxTriagedSnack('Historia de Roma')), findsOneWidget);
+    expect(await processedDocuments(), 1);
+    expect(
+      find.text(es.inboxProcessedSnack('Historia de Roma')),
+      findsOneWidget,
+    );
     await expectWhole(id, path);
   });
 
@@ -127,8 +142,10 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
+    await finishTriageWithText(tester);
     await tester.drag(find.text('Historia de Roma'), const Offset(400, 0));
     await tester.pumpAndSettle();
+    await finishTriageWithText(tester);
 
     expect(await stateOf(id), ItemState.triaged);
     expect(await stateOf(otro), ItemState.triaged);
@@ -145,10 +162,12 @@ void main() {
 
     await tester.tap(find.text(es.inboxActionTriage));
     await tester.pumpAndSettle();
+    await finishTriageWithText(tester);
     await tester.tap(find.text(es.inboxUndo).last);
     await tester.pumpAndSettle();
 
     expect(await stateOf(id), ItemState.processed);
+    expect(await processedDocuments(), 0);
     expect(find.text('Historia de Roma'), findsOneWidget);
     await expectWhole(id, path);
   });
@@ -166,6 +185,7 @@ void main() {
 
     await tester.tap(find.text(es.inboxActionTriage));
     await tester.pumpAndSettle();
+    await finishTriageWithText(tester);
 
     expect(await stateOf(id), ItemState.triaged);
     expect((await contentTrash()).map((row) => row.id), [dropped.single.id]);

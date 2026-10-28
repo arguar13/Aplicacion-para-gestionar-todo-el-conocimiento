@@ -80,6 +80,7 @@ void main() {
         (actions.triage, actions.extract, actions.link, actions.review),
         (true, true, true, true),
       );
+      expect(actions.passUnchanged, isTrue);
     });
 
     test('mientras no llega, nada de lo que necesita el texto', () {
@@ -95,12 +96,13 @@ void main() {
           (false, false, false, false),
           reason: text.name,
         );
+        expect(actions.passUnchanged, isFalse, reason: text.name);
       }
     });
 
     test('con el texto solo en su «Contenido» —o el propio en blanco— se '
-        'tría, pero no se extrae: la lectura trabaja sobre el del '
-        'elemento', () {
+        'tría, pero no se extrae ni se pasa entero: las dos trabajan sobre el '
+        'del elemento', () {
       for (final own in [null, ' \n ']) {
         final actions = InboxActions.of(item(text: own), PendingText.ready);
 
@@ -109,6 +111,7 @@ void main() {
           (true, false, true, true),
           reason: '$own',
         );
+        expect(actions.passUnchanged, isFalse, reason: '$own');
       }
     });
 
@@ -119,6 +122,7 @@ void main() {
         (none.triage, none.extract, none.link, none.review),
         (false, false, false, false),
       );
+      expect(none.passUnchanged, isFalse);
     });
   });
 }

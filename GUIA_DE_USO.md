@@ -618,7 +618,9 @@ seleccionar aparece en cambio una barrita sobre la selección:
 - **Subrayar**: lo marca con una línea del último color que elegiste (el
   amarillo, si todavía no elegiste ninguno).
 - **Copiar**, **Escuchar** (lee en voz alta lo seleccionado), **Nota** (resalta
-  y te deja escribir por qué), **Extraer como nota**, **Crear tarjeta** y
+  y te deja escribir por qué), **Extraer como nota** (mientras triás, va a las
+  notas del documento procesado: ver
+  [Cortar del original](#cortar-del-original)), **Crear tarjeta** y
   **A la línea de tiempo** (ver
   [Línea de tiempo](#línea-de-tiempo)): convierte lo seleccionado en un hecho
   fechado, con la cita ya puesta. Si lo seleccionado trae una fecha («en
@@ -1632,7 +1634,8 @@ de cuál es.
 **Cómo llegar:** ítem **"Bandeja"** en la navegación (en el celular, la
 primera de **"Organizar"**, que muestra el número de pendientes).
 
-**Triar** es decidir qué hacés con cada cosa que guardaste. La primera vez que
+**Triar** es decidir qué hacés con cada cosa que guardaste y, sobre todo,
+**elegir qué información pura de ella va a "Procesado"**. La primera vez que
 abrís la Bandeja, una tarjeta corta lo explica; se cierra con **"Entendido"** y
 no vuelve a aparecer.
 
@@ -1643,12 +1646,95 @@ arriba, sus datos: **autor**, **fecha de publicación**, **sitio**, **páginas**
 sepan. La podés resolver de tres formas:
 
 - **Arrastrando la tarjeta**: a la izquierda para "Descartar", a la derecha
-  para "Triado" (ya la revisaste, queda para trabajarla), hacia arriba para
-  "Extraer nota".
-- **Con los botones** de abajo: los mismos tres, más "Vincular a nota viva"
-  (para conectarla con una nota tuya) y, si hay, "Revisar sugerencias".
+  para "Triado" (abre la hoja **"¿Qué va a Procesado?"**, ver abajo), hacia
+  arriba para "Extraer nota".
+- **Con los botones** de abajo: los mismos tres, más **"Pasar todo sin
+  modificar"**, "Vincular a nota viva" (para conectarla con una nota tuya) y,
+  si hay, "Revisar sugerencias".
 - **Con el teclado**, en computadora: flecha izquierda = Descartar, derecha =
-  Triado, arriba = Extraer, Ctrl+Z = deshacer.
+  Triado, Shift + flecha derecha = Pasar todo sin modificar, arriba = Extraer,
+  Ctrl+Z = deshacer.
+
+#### La hoja "¿Qué va a Procesado?"
+
+"Triado" ya no deja la fuente triada de un toque: abre una hoja, sobre la
+misma tarjeta, para elegir qué va a su **documento procesado** (la información
+pura que sacás de esa fuente; la fuente queda entera en la Biblioteca). Arriba
+dice el nombre de la fuente, y debajo hay dos grupos:
+
+- **De la fuente**: **Texto extraído** (o **Transcripción**, en un audio o un
+  video), **Resumen** y **Síntesis**. Cada uno tiene su interruptor y se
+  prenden en cualquier combinación. Apagados dicen lo que trae la fuente
+  (*"2.340 palabras"*, *"14 oraciones"*); prendidos, cuánto va a quedar.
+  - Si todavía **no hay resumen o síntesis**, debajo aparecen los mismos dos
+    caminos de la tarjeta de estudiar: **"Resumir con Gemini 2.5 Flash"** (o el
+    modelo que elegiste) y **"Elegir a mano"**. Con la IA, la franja muestra cómo
+    va (*"Analizando el documento… parte 3 de 12"*, con **"Parar"**) y las
+    oraciones se van sumando solas. A mano, se abre el texto (ver "Cortar del
+    original", abajo) y tocás las oraciones que querés; **"Listo"** en la
+    barrita de estudiar termina. Elegir cualquiera de los dos prende la
+    sección.
+- **Lo tuyo**:
+  - **Notas**: **"Escribir una nota"** abre un cuadro para escribirla con tus
+    palabras. **"Extraer del original"** abre el texto para sacarlas de ahí:
+    **"Extraer nota"** ahora cae en esta sección del documento procesado, **ya
+    no crea notas sueltas en la Biblioteca** (las que ya tenías quedan donde
+    están).
+  - **Fragmentos**: **"Cortar del original"** abre el texto para cortar a mano
+    los pasajes que querés llevar tal cual.
+  - Cada nota y cada fragmento se ve en su lista, con una **X** para quitarlo.
+
+Al final de la hoja, **"Va a quedar"** muestra en chips cada parte que va
+(*"Texto extraído · 12 páginas"*, *"Resumen · 14 oraciones"*), y abajo, fijo,
+cuántas palabras van en total. Todo se actualiza **en vivo** mientras elegís,
+sin guardar nada.
+
+**"Listo"** arma el documento procesado y deja la fuente triada; el aviso dice
+*"A Procesado: El Imperio romano"*, con **"Ver"** y **"Deshacer"**, y deshacer
+deshace **las dos cosas** (el documento procesado se va y la fuente vuelve a
+la Bandeja). Sin nada elegido, "Listo" está apagado y dice *"Elegí al menos
+una parte."*. Si algo falla, la hoja queda abierta con lo que elegiste y dice
+por qué. **"Cancelar"** (o cerrar la hoja) no guarda nada: la fuente sigue en
+la Bandeja.
+
+**Con el teclado**: los números **1**, **2**, **3** prenden y apagan las partes de
+la fuente, **C** abre "Cortar del original", **N** escribe una nota,
+**Ctrl+Enter** es "Listo" y **Escape** cierra. Con la letra al doble o en un
+teléfono angosto, todo se acomoda y se desliza; con "sin animaciones", la hoja
+aparece sin deslizarse.
+
+#### Cortar del original
+
+Se abre desde la hoja ("Cortar del original", "Extraer del original", la
+tecla **C**) o directamente con **"Extraer nota"** de la tarjeta (el gesto hacia
+arriba o la flecha arriba). Muestra la fuente **en su visor de siempre**: el PDF
+real, la página web guardada, el lector de Word, EPUB y texto, o el texto
+extraído de un audio, un video o una foto (por páginas, si es un libro). En un
+PDF o una página, **"Ver el texto extraído"**, arriba, pasa a su texto (útil en
+una página escaneada) y **"Ver el original"** vuelve.
+
+Seleccionás un pasaje como siempre y aparece la barrita de resaltar (ver
+[Resaltar a mano](#resaltar-a-mano-la-barrita)), con un botón más, arriba y
+ancho: **"A Procesado"**. Tocalo y el pasaje va a los **Fragmentos**. Su
+**"Extraer como nota"** lo suma a las **Notas** del documento procesado. El
+resto de la barrita (colores, escuchar, tarjeta…) sigue igual.
+
+Cada corte se ve **marcado en el texto** con un color durazno, encima de todo,
+y en una **lista viva abajo**, que dice cuántos fragmentos y notas llevás; la
+**X** de cada uno lo quita (y se desmarca del texto). El mismo pasaje no se
+corta dos veces: si lo intentás, te avisa. **"Listo"** (o Escape) vuelve a la
+hoja, con todo lo cortado en sus listas. "A Procesado" aparece solo acá: en el
+detalle o en "Leer como libro" la barrita es la de siempre.
+
+#### Pasar todo sin modificar
+
+Un toque en la tarjeta (o **Shift + flecha derecha**), sin abrir la hoja: el
+documento procesado guarda **el texto original entero**, con su enlace a la
+fuente de la Biblioteca, y nada más (ni resumen, ni síntesis, ni notas). Nunca
+guarda audio, video ni la ficha bibliográfica. La fuente queda triada y el
+aviso dice *"Pasado sin modificar: …"*, con **"Deshacer"**. Si la fuente no tiene
+texto propio (por ejemplo, una publicación que trae el texto solo en un
+archivo de su "Contenido"), el botón está apagado y dice por qué.
 
 **Triar nunca borra nada de la fuente.** De la Biblioteca nada se borra: queda
 siempre entera, con su archivo y su texto, como base de consulta. Por eso
@@ -1664,7 +1750,7 @@ Biblioteca, y los encontrás en **Filtros → "Bandeja"** (ver
 [Filtrar](#filtrar)) o en el detalle de cada uno, que dice cuándo lo triaste.
 Además:
 
-- Cada decisión deja un aviso abajo —por ejemplo, *"Triado: El Imperio
+- Cada decisión deja un aviso abajo —por ejemplo, *"A Procesado: El Imperio
   romano"*— con **"Ver"** (abre esa fuente) y **"Deshacer"**.
 - **Deshacer** va de a un paso y podés deshacer varios seguidos, con el botón
   de la flecha arriba, con Ctrl+Z o desde el aviso. Se acuerda de lo que

@@ -1,7 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fpdart/fpdart.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -9,12 +13,25 @@ import 'package:sinapsis/features/inbox/domain/entities/inbox_step.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_history.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
+import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 
 import '../../../../support/library_harness.dart';
+
+class _MockProcess extends Mock implements ProcessSourceUseCase {}
+
+const _undo = ProcessUndo(
+  documentId: 'procesado',
+  previousStatus: ProcessedDocumentStatus.absent,
+  previous: {},
+);
 
 /// El historial de «Deshacer» de la Bandeja (F28), sin pantalla: contra la
 /// base real del arnés.
 void main() {
+  setUpAll(() => registerFallbackValue(_undo));
+
   late LibraryHarness harness;
   var counter = 0;
 
@@ -66,6 +83,10 @@ void main() {
     return step;
   }
 
+  Future<int> processedDocuments() async =>
+      (await harness.database.select(harness.database.processedDocuments).get())
+          .length;
+
   Future<ItemState> stateOf(String id) async {
     final row = await (harness.database.select(
       harness.database.knowledgeEntries,
@@ -112,6 +133,80 @@ void main() {
 
     expect(await stateOf(terminado), ItemState.processed);
     expect(await stateOf(sigue), ItemState.captured);
+  });
+
+  test('deshacer un triado a Procesado deshace las dos cosas: el documento '
+      'procesado se va y la fuente vuelve a la Bandeja (F41)', () async {
+    final now = DateTime(2026, 9, 18, 10);
+    await harness.container
+        .read(libraryRepositoryProvider)
+        .save(
+          sourceItem(counter++, ProcessingState.ready).copyWith(
+            renditions: [
+              Rendition.text(
+                id: 'rend-con-texto',
+                itemId: 'item-0',
+                kind: RenditionKind.plainText,
+                content: 'Roma no se hizo en un día.',
+                isPrimary: true,
+                createdAt: now,
+              ),
+            ],
+          ),
+        );
+    final outcome =
+        (await harness.container
+                .read(triageIntoProcessedProvider)
+                .passUnchanged('item-0'))
+            .getRight()
+            .toNullable()!;
+    history().record(
+      InboxStep(
+        itemId: 'item-0',
+        title: 'Fuente 0',
+        kind: InboxStepKind.passedUnchanged,
+        processUndo: outcome.undo,
+      ),
+    );
+    expect(await processedDocuments(), 1);
+    expect(await stateOf('item-0'), ItemState.triaged);
+
+    final undone = await history().undoLast();
+
+    expect(undone!.isRight(), isTrue);
+    expect(await processedDocuments(), 0);
+    expect(await stateOf('item-0'), ItemState.processed);
+  });
+
+  test('si lo de Procesado no se puede deshacer, la fuente no vuelve a la '
+      'Bandeja: queda triada con su documento, sin contradecirse', () async {
+    final kept = await seedSource();
+    await decide(kept, ItemState.triaged);
+    final process = _MockProcess();
+    when(() => process.undo(any())).thenAnswer(
+      (_) async => left(const Failure.validation(message: 'Cambió.')),
+    );
+    final container = harness.container;
+    final own =
+        InboxHistory(
+          inbox: () => container.read(inboxRepositoryProvider),
+          organize: () => container.read(organizeRepositoryProvider),
+          library: () => container.read(libraryRepositoryProvider),
+          process: () => process,
+        )..record(
+          InboxStep(
+            itemId: kept,
+            title: 'Fuente',
+            kind: InboxStepKind.triaged,
+            processUndo: _undo,
+          ),
+        );
+
+    final failed = await own.undoLast();
+
+    expect(failed!.getLeft().toNullable(), isA<Failure>());
+    expect(await stateOf(kept), ItemState.triaged);
+    expect(own.last, isNull);
   });
 
   test('recuerda hasta su capacidad: el más viejo se suelta', () async {

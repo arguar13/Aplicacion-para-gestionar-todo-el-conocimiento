@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fpdart/fpdart.dart' show Either;
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -12,6 +13,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_actions.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_step.dart';
 import 'package:sinapsis/features/inbox/domain/entities/pending_text.dart';
@@ -29,7 +31,8 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
-import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
+import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_triage_sheet.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/metadata_suggestion_banner.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/review_suggestions_action.dart';
@@ -47,12 +50,20 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// el texto queda apagado, con su motivo, hasta que llega; entonces se prende
 /// solo, en vivo, sin tocar nada.
 ///
-/// Cada tarjeta se resuelve con un gesto —izquierda descarta, derecha la deja
-/// triada, arriba la abre para extraer notas— o con la tecla equivalente
-/// (flechas), o con su botón; los tres caminos hacen exactamente lo mismo, y
+/// Cada tarjeta se resuelve con un gesto —izquierda descarta, derecha abre la
+/// hoja «¿Qué va a Procesado?», arriba la abre directo en el original para
+/// extraer notas— o con la tecla equivalente (flechas; Shift+→ pasa todo sin
+/// modificar), o con su botón; los tres caminos hacen exactamente lo mismo, y
 /// los tres respetan lo que el texto todavía no permite. Las propiedades que
 /// el modelo sugirió son chips: tocar uno lo acepta, tocarlo de nuevo lo
 /// deshace.
+///
+/// **Triar es elegir qué va a Procesado** (F41): la hoja arma el documento
+/// procesado de la fuente con lo elegido —el texto, el resumen, la síntesis,
+/// las notas, los fragmentos cortados a mano— y, con «Listo», la deja triada:
+/// las dos cosas o ninguna (`TriageIntoProcessed`). «Pasar todo sin modificar»
+/// hace lo mismo de un toque, con el texto original entero. «Deshacer»
+/// deshace las dos.
 ///
 /// Triar nunca suelta nada de la fuente (F41, decisión G): de la Biblioteca
 /// nada se borra. La hoja de F30 que preguntaba «texto y libro, solo el texto,
@@ -109,20 +120,47 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       _showSnack(failure.localizedMessage(AppLocalizations.of(context)!));
       return false;
     }
-
-    final step = InboxStep(
-      itemId: item.id,
-      title: item.title,
-      kind: kind,
-      linkedNote: linkedNote,
+    _record(
+      InboxStep(
+        itemId: item.id,
+        title: item.title,
+        kind: kind,
+        linkedNote: linkedNote,
+      ),
+      message,
     );
+    return true;
+  }
+
+  /// Anota [step] en el historial y lo avisa con «Ver» y «Deshacer».
+  void _record(InboxStep step, String message) {
     ref.read(inboxHistoryProvider.notifier).record(step);
     // La elegida de la cola ya se resolvió: el mazo vuelve a su orden.
     final focus = ref.read(inboxFocusedIdProvider.notifier);
-    if (focus.state == item.id) focus.state = null;
+    if (focus.state == step.itemId) focus.state = null;
     _announce(message, step);
-    return true;
   }
+
+  /// Lo que dejó triar a Procesado: si salió, lo anota con su deshacer —el del
+  /// documento procesado y el de la Bandeja— y lo avisa. Devuelve el fallo, o
+  /// `null`.
+  Failure? _processed(
+    KnowledgeItem item,
+    Either<Failure, ProcessOutcome> result, {
+    required InboxStepKind kind,
+    required String message,
+  }) => result.match((failure) => failure, (outcome) {
+    _record(
+      InboxStep(
+        itemId: item.id,
+        title: item.title,
+        kind: kind,
+        processUndo: outcome.undo,
+      ),
+      message,
+    );
+    return null;
+  });
 
   /// El aviso de lo que se hizo: «Triado: El Imperio romano · Ver ·
   /// Deshacer».
@@ -185,31 +223,57 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     message: AppLocalizations.of(context)!.inboxDiscardedSnack(item.title),
   );
 
-  /// Tría la fuente: la deja para trabajarla. Nunca pregunta qué soltar ni
-  /// suelta nada —ni el archivo ni el texto—: la fuente queda entera en la
-  /// Biblioteca (F41, decisión G).
-  Future<void> _triage(KnowledgeItem item) => _decide(
-    item,
-    kind: InboxStepKind.triaged,
-    to: ItemState.triaged,
-    message: AppLocalizations.of(context)!.inboxTriagedSnack(item.title),
-  );
+  /// Tría la fuente: abre la hoja «¿Qué va a Procesado?» y, con «Listo»,
+  /// arma su documento procesado con lo elegido y la deja triada. Cerrar la
+  /// hoja la deja en la Bandeja, como estaba. Nunca suelta nada de la fuente
+  /// —ni el archivo ni el texto—: queda entera en la Biblioteca (F41,
+  /// decisión G).
+  ///
+  /// Con [cutting], la hoja abre directo «Cortar del original»: «Extraer
+  /// nota», cuyas notas van al documento procesado (decisión C).
+  Future<void> _triage(KnowledgeItem item, {bool cutting = false}) async {
+    final message = AppLocalizations.of(
+      context,
+    )!.inboxProcessedSnack(item.title);
+    final triage = ref.read(triageIntoProcessedProvider);
+    await showProcessedTriageSheet(
+      context,
+      sourceItemId: item.id,
+      startCutting: cutting,
+      onDone: (edits) async {
+        final result = await triage(item.id, edits);
+        if (!mounted) return result.getLeft().toNullable();
+        return _processed(
+          item,
+          result,
+          kind: InboxStepKind.triaged,
+          message: message,
+        );
+      },
+    );
+  }
 
-  /// Abre la fuente para sacarle notas: la deja triada y abre la vista de
-  /// lectura para destilar. Solo se ofrece con el texto del que se sacan
-  /// —ver [InboxActions.extract]—.
-  Future<void> _extract(KnowledgeItem item) async {
-    final decided = await _decide(
+  /// Abre la fuente para sacarle notas: la hoja de triar, ya en «Cortar del
+  /// original». Solo se ofrece con el texto del que se sacan —ver
+  /// [InboxActions.extract]—.
+  Future<void> _extract(KnowledgeItem item) => _triage(item, cutting: true);
+
+  /// «Pasar todo sin modificar» (F41): de un toque, sin la hoja, el documento
+  /// procesado guarda el texto original entero, con su enlace —nunca audio,
+  /// video ni la ficha—, y la fuente queda triada. Con «Deshacer».
+  Future<void> _passUnchanged(KnowledgeItem item) async {
+    final l10n = AppLocalizations.of(context)!;
+    final result = await ref
+        .read(triageIntoProcessedProvider)
+        .passUnchanged(item.id);
+    if (!mounted) return;
+    final failure = _processed(
       item,
-      kind: InboxStepKind.extracted,
-      to: ItemState.triaged,
-      message: AppLocalizations.of(context)!.inboxTriagedSnack(item.title),
+      result,
+      kind: InboxStepKind.passedUnchanged,
+      message: l10n.inboxPassedUnchangedSnack(item.title),
     );
-    if (!decided || !mounted) return;
-
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => ReadingScreen(itemId: item.id)),
-    );
+    if (failure != null) _showSnack(failure.localizedMessage(l10n));
   }
 
   /// Revisa las sugerencias y, solo si se confirmó, tría la fuente: cerrar
@@ -351,6 +415,13 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
               _withCurrent(_discard, allowed: (_) => true),
           const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
               _withCurrent(_triage, allowed: (actions) => actions.triage),
+          const SingleActivator(
+            LogicalKeyboardKey.arrowRight,
+            shift: true,
+          ): () => _withCurrent(
+            _passUnchanged,
+            allowed: (actions) => actions.passUnchanged,
+          ),
           const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
               _withCurrent(_extract, allowed: (actions) => actions.extract),
           const SingleActivator(LogicalKeyboardKey.keyZ, control: true): _undo,
@@ -413,6 +484,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         onDiscard: () => _discard(item),
         onTriage: () => _triage(item),
         onExtract: () => _extract(item),
+        onPassUnchanged: () => _passUnchanged(item),
         onLink: () => _linkToLivingNote(item),
         onReviewSuggestions: (suggestions) =>
             _reviewSuggestions(item, suggestions),
@@ -480,6 +552,7 @@ class _PendingItemCard extends ConsumerWidget {
     required this.onDiscard,
     required this.onTriage,
     required this.onExtract,
+    required this.onPassUnchanged,
     required this.onLink,
     required this.onReviewSuggestions,
     super.key,
@@ -497,6 +570,7 @@ class _PendingItemCard extends ConsumerWidget {
   final VoidCallback onDiscard;
   final VoidCallback onTriage;
   final VoidCallback onExtract;
+  final VoidCallback onPassUnchanged;
   final VoidCallback onLink;
   final ValueChanged<List<Suggestion>> onReviewSuggestions;
 
@@ -507,6 +581,10 @@ class _PendingItemCard extends ConsumerWidget {
     final scheme = theme.colorScheme;
     // Por qué está apagado lo que necesita el texto, mientras no llega.
     final needsText = text.neededReason(l10n);
+    // «Pasar todo sin modificar» dice qué guarda, o por qué no se puede.
+    final passReason = actions.passUnchanged
+        ? l10n.inboxActionPassUnchangedTooltip
+        : needsText ?? l10n.inboxActionPassUnchangedDisabledTooltip;
     final pending =
         ref.watch(pendingSuggestionsProvider(item.id)).valueOrNull ?? const [];
     // Un duplicado queda afuera del diálogo de revisión genérico (D4, F7):
@@ -641,8 +719,21 @@ class _PendingItemCard extends ConsumerWidget {
                           ),
                         ),
                         _WhyOff(
-                          // Con texto solo en su «Contenido»: la lectura para
-                          // destilar trabaja sobre el del elemento.
+                          // Lo que se pasa entero es el texto del elemento,
+                          // no el de un archivo de su «Contenido».
+                          reason: passReason,
+                          child: OutlinedButton.icon(
+                            key: const Key('inbox-pass-unchanged'),
+                            onPressed: actions.passUnchanged
+                                ? onPassUnchanged
+                                : null,
+                            icon: const Icon(Icons.keyboard_double_arrow_right),
+                            label: Text(l10n.inboxActionPassUnchanged),
+                          ),
+                        ),
+                        _WhyOff(
+                          // Con texto solo en su «Contenido»: las notas se
+                          // cortan del texto del elemento.
                           reason: actions.extract
                               ? null
                               : needsText ??

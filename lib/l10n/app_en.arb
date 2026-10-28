@@ -4890,7 +4890,7 @@
       }
     }
   },
-  "inboxShortcutsHint": "← discard · → triaged · ↑ extract · Ctrl+Z undo",
+  "inboxShortcutsHint": "← discard · → triaged · Shift+→ pass all · ↑ extract · Ctrl+Z undo",
   "@inboxShortcutsHint": {
     "description": "Ayuda con los gestos y atajos de la Bandeja."
   },
@@ -11254,5 +11254,243 @@
   "chatSelectTitle": "Pick what you want to copy",
   "@chatSelectTitle": {"description": "Título de la hoja para seleccionar el texto de un mensaje (F42)."},
   "chatJumpToEnd": "Jump to the end",
-  "@chatJumpToEnd": {"description": "Botón «↓» que aparece al subir en la conversación (F42)."}
+  "@chatJumpToEnd": {"description": "Botón «↓» que aparece al subir en la conversación (F42)."},
+  "highlightToProcessed": "To Processed",
+  "@highlightToProcessed": {
+    "description": "Botón de la barrita de resaltar, mientras se corta del original: manda lo seleccionado a los fragmentos del documento procesado."
+  },
+  "processedCutNoteAdded": "Note added to Processed.",
+  "@processedCutNoteAdded": {
+    "description": "Aviso al extraer una nota mientras se tría: va a las notas del documento procesado."
+  },
+  "processedCutRepeated": "That passage is already in Processed.",
+  "@processedCutRepeated": {
+    "description": "Aviso al cortar o extraer un pasaje que ya estaba elegido."
+  },
+  "processedCutTitle": "Cut from the original",
+  "@processedCutTitle": {
+    "description": "Título de la pantalla de cortar y botón de la hoja que la abre."
+  },
+  "processedCutHint": "Select a passage and tap “To Processed” on the toolbar. “Extract as note” adds it to your notes.",
+  "@processedCutHint": {
+    "description": "Lo que dice la lista de lo cortado mientras está vacía."
+  },
+  "processedCutDone": "Done",
+  "@processedCutDone": {
+    "description": "Botón que cierra la pantalla de cortar o arma el documento procesado."
+  },
+  "processedCutShowText": "Show the extracted text",
+  "@processedCutShowText": {
+    "description": "Botón de la pantalla de cortar: pasa del original al texto extraído."
+  },
+  "processedCutShowOriginal": "Show the original",
+  "@processedCutShowOriginal": {
+    "description": "Botón de la pantalla de cortar: vuelve del texto extraído al original."
+  },
+  "processedCutRemove": "Remove",
+  "@processedCutRemove": {
+    "description": "Quitar un pasaje de la lista de lo cortado."
+  },
+  "processedCutNoText": "This source has no text to cut from yet.",
+  "@processedCutNoText": {
+    "description": "Pantalla de cortar sin texto."
+  },
+  "processedTriageTitle": "What goes to Processed?",
+  "@processedTriageTitle": {
+    "description": "Título de la hoja de triar."
+  },
+  "processedTriageIntro": "Choose the pure information you take from this source. The source stays whole in the Library.",
+  "@processedTriageIntro": {
+    "description": "Explicación debajo del título de la hoja de triar."
+  },
+  "processedTriageFromSource": "From the source",
+  "@processedTriageFromSource": {
+    "description": "Grupo de la hoja: lo que se copia de la fuente."
+  },
+  "processedTriageYours": "Yours",
+  "@processedTriageYours": {
+    "description": "Grupo de la hoja: las notas y los fragmentos que arma la persona."
+  },
+  "processedTriageSectionText": "Extracted text",
+  "@processedTriageSectionText": {
+    "description": "Sección del documento procesado: el texto entero."
+  },
+  "processedTriageSectionTranscript": "Transcript",
+  "@processedTriageSectionTranscript": {
+    "description": "Sección del texto, en un audio o un video."
+  },
+  "processedTriageSectionSummary": "Summary",
+  "@processedTriageSectionSummary": {
+    "description": "Sección del documento procesado."
+  },
+  "processedTriageSectionSynthesis": "Synthesis",
+  "@processedTriageSectionSynthesis": {
+    "description": "Sección del documento procesado."
+  },
+  "processedTriageSectionNotes": "Notes",
+  "@processedTriageSectionNotes": {
+    "description": "Sección del documento procesado."
+  },
+  "processedTriageSectionFragments": "Fragments",
+  "@processedTriageSectionFragments": {
+    "description": "Sección del documento procesado."
+  },
+  "processedTriagePageCount": "{count, plural, =1{1 page} other{{count} pages}}",
+  "@processedTriagePageCount": {
+    "description": "Cuántas páginas guarda el texto.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageSentenceCount": "{count, plural, =1{1 sentence} other{{count} sentences}}",
+  "@processedTriageSentenceCount": {
+    "description": "Cuántas oraciones lleva el resumen o la síntesis.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageNoteCount": "{count, plural, =1{1 note} other{{count} notes}}",
+  "@processedTriageNoteCount": {
+    "description": "Cuántas notas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageFragmentCount": "{count, plural, =1{1 fragment} other{{count} fragments}}",
+  "@processedTriageFragmentCount": {
+    "description": "Cuántos fragmentos.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageWordCount": "{count, plural, =1{1 word} other{{count} words}}",
+  "@processedTriageWordCount": {
+    "description": "Cuántas palabras.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageCounting": "Counting…",
+  "@processedTriageCounting": {
+    "description": "Mientras se arma la vista previa."
+  },
+  "processedTriageNothingYet": "Nothing yet",
+  "@processedTriageNothingYet": {
+    "description": "Una sección sin nada todavía."
+  },
+  "processedTriageWriteNote": "Write a note",
+  "@processedTriageWriteNote": {
+    "description": "Botón de la sección Notas."
+  },
+  "processedTriageExtractNote": "Extract from the original",
+  "@processedTriageExtractNote": {
+    "description": "Botón de la sección Notas: abre el original."
+  },
+  "processedTriagePreviewTitle": "What you'll keep",
+  "@processedTriagePreviewTitle": {
+    "description": "Título de la vista previa de la hoja."
+  },
+  "processedTriagePreviewEmpty": "Nothing yet: turn on a part, write a note or cut a fragment.",
+  "@processedTriagePreviewEmpty": {
+    "description": "Vista previa vacía."
+  },
+  "processedTriageTotalWords": "{count, plural, =1{1 word in total} other{{count} words in total}}",
+  "@processedTriageTotalWords": {
+    "description": "Total de la vista previa.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageNothingChosen": "Choose at least one part.",
+  "@processedTriageNothingChosen": {
+    "description": "Por qué «Listo» está apagado."
+  },
+  "processedTriageKeysHint": "1–{count} turn each part on · C cuts from the original · N writes a note · Ctrl+Enter done",
+  "@processedTriageKeysHint": {
+    "description": "Las teclas de la hoja, en la computadora.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processedTriageNoteDialogTitle": "A note for Processed",
+  "@processedTriageNoteDialogTitle": {
+    "description": "Diálogo para escribir una nota."
+  },
+  "processedTriageNoteDialogHint": "What you take from this source, in your words",
+  "@processedTriageNoteDialogHint": {
+    "description": "Pista del campo de la nota."
+  },
+  "processedTriageNoteDialogAdd": "Add",
+  "@processedTriageNoteDialogAdd": {
+    "description": "Botón del diálogo de la nota."
+  },
+  "processedTriageChangeAdd": "Add",
+  "@processedTriageChangeAdd": {
+    "description": "Qué hacer con una sección: sumar lo nuevo."
+  },
+  "processedTriageChangeUpdate": "Update",
+  "@processedTriageChangeUpdate": {
+    "description": "Qué hacer con una sección: traer la versión de ahora."
+  },
+  "processedTriageChangeReplace": "Replace",
+  "@processedTriageChangeReplace": {
+    "description": "Qué hacer con una sección: pisarla entera."
+  },
+  "processedTriageChangeRemove": "Remove",
+  "@processedTriageChangeRemove": {
+    "description": "Qué hacer con una sección: sacarla."
+  },
+  "processedTriageExisting": "{count, plural, =1{Already has 1 part} other{Already has {count} parts}}",
+  "@processedTriageExisting": {
+    "description": "Cuánto tiene ya la sección del documento procesado, al volver a triar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "inboxActionPassUnchanged": "Pass everything unchanged",
+  "@inboxActionPassUnchanged": {
+    "description": "Botón de la tarjeta de la Bandeja: el texto original entero a Procesado."
+  },
+  "inboxActionPassUnchangedTooltip": "Saves the whole original text in Processed, linked to its source. No audio, video or reference.",
+  "@inboxActionPassUnchangedTooltip": {
+    "description": "Explicación del botón «Pasar todo sin modificar»."
+  },
+  "inboxProcessedSnack": "To Processed: {title}",
+  "@inboxProcessedSnack": {
+    "description": "Aviso de la Bandeja después de triar con la hoja.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxPassedUnchangedSnack": "Passed unchanged: {title}",
+  "@inboxPassedUnchangedSnack": {
+    "description": "Aviso de la Bandeja después de «Pasar todo sin modificar».",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxActionPassUnchangedDisabledTooltip": "This item has no text of its own to pass whole.",
+  "@inboxActionPassUnchangedDisabledTooltip": {
+    "description": "Por qué «Pasar todo sin modificar» está apagado: el elemento no tiene texto propio."
+  }
 }

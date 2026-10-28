@@ -13,16 +13,19 @@ import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/swipe_card.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
-import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_cut_screen.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/triage_sheet.dart';
 
 /// La Bandeja como un mazo: gestos, teclas, deshacer y chips de propiedades.
 ///
 /// Cada gesto, cada tecla y cada botón tienen que hacer lo mismo: lo que se
 /// prueba acá es que el estado de la fuente queda igual sea cual sea el camino.
+/// Triar abre la hoja «¿Qué va a Procesado?» (F41): la fuente queda triada
+/// recién con «Listo».
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -112,24 +115,33 @@ void main() {
       expect(find.text(es.inboxEmptyTitle), findsOneWidget);
     });
 
-    testWidgets('a la derecha la deja triada', (tester) async {
+    testWidgets('a la derecha abre la hoja, y con «Listo» la deja triada', (
+      tester,
+    ) async {
       final id = await seedSource(title: 'Para triar');
       await pumpInbox(tester);
 
       await swipe(tester, const Offset(300, 0));
+      expect(triageSheet, findsOneWidget);
+      expect(await stateOf(id), ItemState.processed);
+
+      await finishTriageWithText(tester);
 
       expect(await stateOf(id), ItemState.triaged);
       expect(find.text(es.inboxEmptyTitle), findsOneWidget);
     });
 
-    testWidgets('hacia arriba la abre para extraer notas', (tester) async {
+    testWidgets('hacia arriba la abre en el original para extraer notas', (
+      tester,
+    ) async {
       final id = await seedSource();
       await pumpInbox(tester);
 
       await swipe(tester, const Offset(0, -300));
 
-      expect(await stateOf(id), ItemState.triaged);
-      expect(find.byType(ReadingScreen), findsOneWidget);
+      // Las notas van a su documento procesado: se trían con la hoja.
+      expect(find.byType(ProcessedCutScreen), findsOneWidget);
+      expect(await stateOf(id), ItemState.processed);
     });
 
     testWidgets('un arrastre corto no decide: la tarjeta vuelve a su lugar', (
@@ -225,12 +237,15 @@ void main() {
   });
 
   group('botones', () {
-    testWidgets('Triado la deja triada', (tester) async {
+    testWidgets('Triado abre la hoja, y con «Listo» la deja triada', (
+      tester,
+    ) async {
       final id = await seedSource();
       await pumpInbox(tester);
 
       await tester.tap(find.text(es.inboxActionTriage));
       await tester.pumpAndSettle();
+      await finishTriageWithText(tester);
 
       expect(await stateOf(id), ItemState.triaged);
     });
@@ -245,15 +260,17 @@ void main() {
       expect(await stateOf(id), ItemState.discarded);
     });
 
-    testWidgets('Extraer como nota la abre para extraer', (tester) async {
+    testWidgets('Extraer nota la abre en el original para extraer', (
+      tester,
+    ) async {
       final id = await seedSource();
       await pumpInbox(tester);
 
       await tester.tap(find.text(es.inboxActionExtract));
       await tester.pumpAndSettle();
 
-      expect(await stateOf(id), ItemState.triaged);
-      expect(find.byType(ReadingScreen), findsOneWidget);
+      expect(find.byType(ProcessedCutScreen), findsOneWidget);
+      expect(await stateOf(id), ItemState.processed);
     });
   });
 
@@ -267,23 +284,28 @@ void main() {
       expect(await stateOf(id), ItemState.discarded);
     });
 
-    testWidgets('flecha derecha la deja triada', (tester) async {
+    testWidgets('flecha derecha abre la hoja, y con «Listo» la deja triada', (
+      tester,
+    ) async {
       final id = await seedSource();
       await pumpInbox(tester);
 
       await key(tester, LogicalKeyboardKey.arrowRight);
+      await finishTriageWithText(tester);
 
       expect(await stateOf(id), ItemState.triaged);
     });
 
-    testWidgets('flecha arriba la abre para extraer', (tester) async {
+    testWidgets('flecha arriba la abre en el original para extraer', (
+      tester,
+    ) async {
       final id = await seedSource();
       await pumpInbox(tester);
 
       await key(tester, LogicalKeyboardKey.arrowUp);
 
-      expect(await stateOf(id), ItemState.triaged);
-      expect(find.byType(ReadingScreen), findsOneWidget);
+      expect(find.byType(ProcessedCutScreen), findsOneWidget);
+      expect(await stateOf(id), ItemState.processed);
     });
 
     testWidgets('Ctrl+Z devuelve la última a la Bandeja', (tester) async {
@@ -349,8 +371,9 @@ void main() {
       await pumpInbox(tester);
 
       await swipe(tester, const Offset(300, 0));
+      await finishTriageWithText(tester);
 
-      expect(find.text(es.inboxTriagedSnack('Triada')), findsOneWidget);
+      expect(find.text(es.inboxProcessedSnack('Triada')), findsOneWidget);
     });
 
     testWidgets('después de deshacer no queda nada más que deshacer', (
@@ -545,6 +568,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await swipe(tester, const Offset(300, 0));
+      await finishTriageWithText(tester);
 
       expect(await stateOf(id), ItemState.triaged);
       expect(await propertiesOf(id), ['Roma']);
@@ -560,6 +584,7 @@ void main() {
       expect(chip('Región: Roma'), findsOneWidget);
 
       await swipe(tester, const Offset(300, 0));
+      await finishTriageWithText(tester);
 
       expect(find.text('Segunda'), findsOneWidget);
       expect(chip('Región: Roma'), findsNothing);
@@ -581,13 +606,16 @@ void main() {
             await swipe(tester, const Offset(-300, 0));
           case 1:
             await swipe(tester, const Offset(300, 0));
+            await finishTriageWithText(tester);
           case 2:
             await key(tester, LogicalKeyboardKey.arrowLeft);
           case 3:
             await key(tester, LogicalKeyboardKey.arrowRight);
+            await finishTriageWithText(tester);
           case 4:
             await tester.tap(find.text(es.inboxActionTriage));
             await tester.pumpAndSettle();
+            await finishTriageWithText(tester);
         }
 
         // Nunca sale de la Bandeja.
@@ -614,6 +642,7 @@ void main() {
       for (var remaining = 4; remaining > 1; remaining--) {
         expect(find.text(es.inboxPendingCount(remaining)), findsOneWidget);
         await swipe(tester, const Offset(300, 0));
+        await finishTriageWithText(tester);
       }
 
       expect(find.text(es.inboxPendingCount(1)), findsOneWidget);

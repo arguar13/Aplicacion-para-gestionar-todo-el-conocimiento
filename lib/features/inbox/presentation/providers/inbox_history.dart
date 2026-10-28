@@ -9,6 +9,8 @@ import 'package:sinapsis/features/library/domain/repositories/library_repository
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 
 /// El vínculo que crea «Vincular a nota viva»: la nota cita a la fuente. Uno
 /// solo, para crearlo y para deshacerlo.
@@ -24,7 +26,8 @@ const kInboxLinkKind = RelationKind.cites;
 ///
 /// Deshacer devuelve la fuente a la Bandeja y revierte lo que la acción hizo
 /// además: el vínculo con la nota viva y, si la nota nació en esa misma
-/// acción, la manda a la papelera —de donde se recupera—. Lo que no es de la
+/// acción, la manda a la papelera —de donde se recupera—; y lo que triar armó
+/// en «Procesado» (F41), que vuelve a como estaba. Lo que no es de la
 /// acción sino de lo que se hizo después no se toca: las notas que se
 /// extrajeron leyendo, o las sugerencias que se aplicaron al revisar, quedan;
 /// se quitan desde el elemento, como cualquier otra.
@@ -33,9 +36,11 @@ class InboxHistory extends StateNotifier<List<InboxStep>> {
     required InboxRepository Function() inbox,
     required OrganizeRepository Function() organize,
     required LibraryRepository Function() library,
+    required ProcessSourceUseCase Function() process,
   }) : _inbox = inbox,
        _organize = organize,
        _library = library,
+       _process = process,
        super(const []);
 
   /// Cuántos pasos se recuerdan: más que los que alguien deshace de un tirón,
@@ -45,6 +50,7 @@ class InboxHistory extends StateNotifier<List<InboxStep>> {
   final InboxRepository Function() _inbox;
   final OrganizeRepository Function() _organize;
   final LibraryRepository Function() _library;
+  final ProcessSourceUseCase Function() _process;
 
   /// El último paso, el que deshace el próximo «Deshacer».
   InboxStep? get last => state.lastOrNull;
@@ -66,6 +72,16 @@ class InboxHistory extends StateNotifier<List<InboxStep>> {
     final step = last;
     if (step == null) return null;
     state = state.sublist(0, state.length - 1);
+
+    // Primero lo de «Procesado»: si no se puede deshacer —alguien lo cambió
+    // mientras tanto—, la fuente queda triada con su documento, como está, y
+    // no en la Bandeja con un procesado que dice lo contrario.
+    if (step.processUndo case final undo?) {
+      final undone = await _process().undo(undo);
+      if (undone.getLeft().toNullable() case final failure?) {
+        return left(failure);
+      }
+    }
 
     final note = step.linkedNote;
     if (note != null) {
@@ -96,5 +112,6 @@ final inboxHistoryProvider =
         inbox: () => ref.read(inboxRepositoryProvider),
         organize: () => ref.read(organizeRepositoryProvider),
         library: () => ref.read(libraryRepositoryProvider),
+        process: () => ref.read(processSourceUseCaseProvider),
       );
     });

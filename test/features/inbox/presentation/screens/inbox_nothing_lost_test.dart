@@ -27,6 +27,7 @@ import 'package:sinapsis/features/links/presentation/providers/link_providers.da
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/triage_sheet.dart';
 
 /// La Bandeja no se traga nada (F28): las acciones que se cancelan no
 /// deciden, cada decisión se avisa con «Ver» y «Deshacer», se deshace de a
@@ -306,8 +307,9 @@ void main() {
       await pumpInbox(tester);
 
       await swipe(tester, const Offset(300, 0));
+      await finishTriageWithText(tester);
 
-      expect(find.text(es.inboxTriagedSnack('Triada')), findsOneWidget);
+      expect(find.text(es.inboxProcessedSnack('Triada')), findsOneWidget);
       expect(find.widgetWithText(TextButton, es.inboxView), findsOneWidget);
       expect(find.widgetWithText(SnackBarAction, es.inboxUndo), findsOne);
     });
@@ -320,6 +322,7 @@ void main() {
 
       await tester.tap(find.text(es.inboxActionTriage));
       await tester.pumpAndSettle();
+      await finishTriageWithText(tester);
       await tester.tap(find.widgetWithText(TextButton, es.inboxView));
       await tester.pumpAndSettle();
 
@@ -338,6 +341,7 @@ void main() {
       await pumpInbox(tester);
       await swipe(tester, const Offset(-300, 0));
       await swipe(tester, const Offset(300, 0));
+      await finishTriageWithText(tester);
       await swipe(tester, const Offset(-300, 0));
       expect(find.text(es.inboxEmptyTitle), findsOneWidget);
 
@@ -444,6 +448,7 @@ void main() {
 
       // Y lo que se decida es sobre esa.
       await swipe(tester, const Offset(300, 0));
+      await finishTriageWithText(tester);
       expect(await stateOf(last), ItemState.triaged);
       expect(find.text('Primera'), findsOneWidget);
     });

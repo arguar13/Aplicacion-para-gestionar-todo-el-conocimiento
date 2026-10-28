@@ -21,6 +21,8 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlight_note_dialog.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/timeline/domain/entities/dated_event_seed.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart';
 import 'package:sinapsis/features/timeline/presentation/timeline_navigation.dart';
@@ -120,22 +122,41 @@ Future<({String? text})?> askHighlightNote(
   return note == null ? null : (text: note.isEmpty ? null : note);
 }
 
-/// Crea una nota atómica nueva con `[start, end)` de [content], vinculada al
-/// elemento [itemId] como su fuente.
+/// Crea una nota atómica nueva con `[start, end)` de [content] —el texto de
+/// la forma [renditionId]—, vinculada al elemento [itemId] como su fuente.
 ///
 /// Pasa por [captureItemUseCaseProvider] —el mismo camino de entrada que
 /// cualquier captura manual— en vez de armar el `KnowledgeItem` a mano: así
 /// la nota nueva recibe el mismo tratamiento (id, timestamps, guardado
 /// atómico) que cualquier otra, sin duplicar esa lógica acá.
+///
+/// **Mientras se tría para Procesado** (F41, decisión C) no crea nada en la
+/// Biblioteca: el pasaje va a las notas del documento procesado de [itemId],
+/// en la hoja «¿Qué va a Procesado?», y se guarda con ella. Así cada visor
+/// que ofrece «Extraer como nota» lo hace bien sin saber de Procesado.
 Future<void> extractRangeAsNote(
   BuildContext context,
   WidgetRef ref, {
   required String itemId,
+  required String renditionId,
   required String content,
   required int start,
   required int end,
 }) async {
+  if (start < 0 || end <= start || end > content.length) return;
   final excerpt = content.substring(start, end);
+  if (processedCutterFor(ref, itemId) case final cutter?) {
+    final added = cutter.extractNote(
+      ProcessedAnchor(renditionId: renditionId, start: start, end: end),
+      excerpt: excerpt,
+    );
+    final l10n = AppLocalizations.of(context)!;
+    _say(
+      context,
+      added ? l10n.processedCutNoteAdded : l10n.processedCutRepeated,
+    );
+    return;
+  }
 
   final result = await ref.read(captureItemUseCaseProvider)(
     CaptureRequest.text(rawInput: excerpt),
@@ -178,6 +199,39 @@ Future<void> extractRangeAsNote(
       ),
     );
 }
+
+/// «A Procesado» (F41): manda `[start, end)` de [content] —el texto de la
+/// forma [renditionId]— a los fragmentos del documento procesado de
+/// [itemId], en la hoja «¿Qué va a Procesado?». Solo hace algo mientras se
+/// corta de esa fuente (ver `processedCutSourceProvider`); un pasaje que ya
+/// estaba cortado no entra dos veces, y lo avisa.
+void cutRangeToProcessed(
+  BuildContext context,
+  WidgetRef ref, {
+  required String itemId,
+  required String renditionId,
+  required String content,
+  required int start,
+  required int end,
+}) {
+  if (start < 0 || end <= start || end > content.length) return;
+  final cutter = processedCutterFor(ref, itemId);
+  if (cutter == null) return;
+  final excerpt = content.substring(start, end);
+  if (excerpt.trim().isEmpty) return;
+  final added = cutter.cut(
+    ProcessedAnchor(renditionId: renditionId, start: start, end: end),
+    excerpt: excerpt,
+  );
+  if (!added) {
+    _say(context, AppLocalizations.of(context)!.processedCutRepeated);
+  }
+}
+
+/// Si se está cortando de [itemId] para Procesado: entonces la barrita
+/// ofrece «A Procesado».
+bool cuttingForProcessed(WidgetRef ref, String itemId) =>
+    processedCutterFor(ref, itemId) != null;
 
 /// Crea una tarjeta de repaso con `[start, end)` de [content] como respuesta
 /// (F11): la pregunta la escribe la persona, y la tarjeta guarda el rango del
@@ -355,7 +409,8 @@ List<HandMark> handMarks(
 /// La barrita de resaltado de un texto seleccionable (F38): la de
 /// [HighlightToolbar] puesta junto a la selección de [editable], con Copiar,
 /// Compartir, Seleccionar todo y Buscar en la Web de siempre, y lo propio de
-/// cada texto en los callbacks (también «A la línea de tiempo», F40).
+/// cada texto en los callbacks (también «A la línea de tiempo», F40, y,
+/// mientras se corta del original, «A Procesado», F41).
 ///
 /// Cada botón cierra la barrita antes de actuar, como las opciones de
 /// Flutter. Sin nada seleccionado, el menú común de la app.
@@ -370,6 +425,7 @@ Widget buildHighlightMenu(
   VoidCallback? onExtract,
   VoidCallback? onCreateFlashcard,
   VoidCallback? onAddToTimeline,
+  VoidCallback? onToProcessed,
 }) {
   final value = editable.textEditingValue;
   final selected = value.selection.isValid
@@ -411,6 +467,7 @@ Widget buildHighlightMenu(
     onExtract: closingOrNull(onExtract),
     onCreateFlashcard: closingOrNull(onCreateFlashcard),
     onAddToTimeline: closingOrNull(onAddToTimeline),
+    onToProcessed: closingOrNull(onToProcessed),
     moreActions: [
       for (final type in const [
         ContextMenuButtonType.share,

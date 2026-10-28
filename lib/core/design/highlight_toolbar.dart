@@ -8,7 +8,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// «Subrayar» con una línea del color elegido al final de la grilla, y debajo
 /// Copiar, Escuchar, Nota, Extraer como nota, Hacer tarjeta y A la línea de
 /// tiempo (F40). Lo que no entra —Compartir, Seleccionar todo, Buscar en la
-/// Web— queda detrás de «Más opciones».
+/// Web— queda detrás de «Más opciones». Mientras se corta del original para
+/// Procesado (F41), arriba de los colores va además **«A Procesado»**, ancho y
+/// con su nombre: es lo que se vino a hacer.
 ///
 /// **API, para quien la pone sobre cualquier documento**
 ///
@@ -36,6 +38,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///  * Los otros botones son opcionales: **sin su callback no se dibuja**, así
 ///    que un documento al que no se le puede extraer una nota simplemente no
 ///    ofrece ese botón.
+///  * [onToProcessed]: «A Procesado» (F41). Solo lo pasa quien está cortando
+///    del original; sin él, la barrita es la de siempre.
 ///  * [moreActions]: lo que va detrás de «Más opciones», ya con su texto.
 ///
 /// Se dibuja dentro de un `Overlay` —lo que arma `contextMenuBuilder`, o un
@@ -58,6 +62,7 @@ class HighlightToolbar extends StatelessWidget {
     this.onExtract,
     this.onCreateFlashcard,
     this.onAddToTimeline,
+    this.onToProcessed,
     this.moreActions = const [],
     super.key,
   });
@@ -75,6 +80,9 @@ class HighlightToolbar extends StatelessWidget {
 
   /// Convierte lo seleccionado en un hecho de la línea de tiempo (F40).
   final VoidCallback? onAddToTimeline;
+
+  /// Manda lo seleccionado a los fragmentos del documento procesado (F41).
+  final VoidCallback? onToProcessed;
   final List<HighlightToolbarAction> moreActions;
 
   /// Cuántas muestras de color hay por fila (F39: nueve colores en una grilla
@@ -85,6 +93,9 @@ class HighlightToolbar extends StatelessWidget {
   /// una de acciones— con su borde. Sirve para decidir si entra encima de la
   /// selección.
   static const _height = 160.0;
+
+  /// Lo que suma «A Procesado», en su propia fila.
+  static const _toProcessedHeight = 48.0;
 
   /// Lo que ocupa la barra flotante de Android sobre lo seleccionado en un
   /// `WebView`: 48 de alto y el aire con la selección y con lo de al lado.
@@ -119,7 +130,11 @@ class HighlightToolbar extends StatelessWidget {
         (anchors.secondaryAnchor ?? anchors.primaryAnchor) +
         const Offset(0, _distanceBelow);
     final paddingAbove = MediaQuery.paddingOf(context).top + _screenPadding;
-    var fitsAbove = _height <= anchorAbove.dy - _distanceAbove - paddingAbove;
+    final toolbarHeight = onToProcessed == null
+        ? _height
+        : _height + _toProcessedHeight;
+    var fitsAbove =
+        toolbarHeight <= anchorAbove.dy - _distanceAbove - paddingAbove;
     final system = systemToolbarExtent;
     if (system > 0) {
       // Del lado donde no está la del sistema (ver [systemToolbarExtent]).
@@ -129,7 +144,7 @@ class HighlightToolbar extends StatelessWidget {
       if (!systemAbove) {
         anchorBelow += Offset(0, system);
         fitsAbove = false;
-      } else if (anchorBelow.dy + _height <= bottom) {
+      } else if (anchorBelow.dy + toolbarHeight <= bottom) {
         fitsAbove = false;
       } else {
         anchorAbove -= Offset(0, system);
@@ -226,6 +241,16 @@ class HighlightToolbar extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (onToProcessed case final toProcessed?)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 2, 4, 4),
+                        child: FilledButton.icon(
+                          key: const Key('highlight-to-processed'),
+                          onPressed: toProcessed,
+                          icon: const Icon(Icons.content_cut, size: 18),
+                          label: Text(l10n.highlightToProcessed),
+                        ),
+                      ),
                     // Las muestras en una grilla de [_columns] columnas: la
                     // primera fila, llena; la segunda, lo que sobra y
                     // «Subrayar» en la última columna.

@@ -154,7 +154,7 @@ class StudyDocumentCard extends ConsumerWidget {
                     duration: const Duration(milliseconds: 240),
                     curve: Curves.easeOutCubic,
                     alignment: Alignment.topCenter,
-                    child: _StudyProgressStrip(text: text),
+                    child: StudyProgressStrip(text: text),
                   ),
                 ],
               ),
@@ -312,8 +312,11 @@ class _StudyLegend extends StatelessWidget {
 /// Cómo va el análisis: la parte que va y «Parar»; si se cortó,
 /// «Reintentar»; si una parte no se pudo leer, cuántas. Sin nada que
 /// contar, no ocupa lugar.
-class _StudyProgressStrip extends ConsumerWidget {
-  const _StudyProgressStrip({required this.text});
+///
+/// La de la tarjeta de estudiar, y la misma en la hoja «¿Qué va a
+/// Procesado?» (F41) mientras la IA arma el resumen que se va a llevar.
+class StudyProgressStrip extends ConsumerWidget {
+  const StudyProgressStrip({required this.text, super.key});
 
   final StudyText text;
 

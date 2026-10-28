@@ -827,6 +827,7 @@ class _ReaderPageState extends ConsumerState<_ReaderPage> {
                           context,
                           ref,
                           itemId: study.itemId,
+                          renditionId: study.renditionId,
                           content: study.content,
                           start: start,
                           end: end,
@@ -860,6 +861,21 @@ class _ReaderPageState extends ConsumerState<_ReaderPage> {
                         ),
                       );
                     },
+                    // Mientras se corta del original para Procesado (F41).
+                    onToProcessed: cuttingForProcessed(ref, study.itemId)
+                        ? () {
+                            final (start, end) = textRange();
+                            cutRangeToProcessed(
+                              context,
+                              ref,
+                              itemId: study.itemId,
+                              renditionId: study.renditionId,
+                              content: study.content,
+                              start: start,
+                              end: end,
+                            );
+                          }
+                        : null,
                   );
                 },
               ),

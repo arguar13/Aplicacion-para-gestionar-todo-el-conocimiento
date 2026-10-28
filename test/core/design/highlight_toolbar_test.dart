@@ -28,6 +28,7 @@ void main() {
     VoidCallback? onExtract,
     VoidCallback? onCreateFlashcard,
     VoidCallback? onAddToTimeline,
+    VoidCallback? onToProcessed,
     List<HighlightToolbarAction> moreActions = const [],
     Size size = const Size(400, 800),
     double systemToolbarExtent = 0,
@@ -52,6 +53,7 @@ void main() {
             onExtract: onExtract,
             onCreateFlashcard: onCreateFlashcard,
             onAddToTimeline: onAddToTimeline,
+            onToProcessed: onToProcessed,
             moreActions: moreActions,
           ),
         ),
@@ -408,6 +410,82 @@ void main() {
       final last = tester.getRect(find.byTooltip(es.highlightMore));
       expect(last.right, lessThanOrEqualTo(bar.right));
       expect(last.left, greaterThanOrEqualTo(bar.left));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('«A Procesado», mientras se corta del original (F41)', () {
+    Rect bar(WidgetTester tester) =>
+        tester.getRect(find.byKey(const Key('highlight-toolbar-card')));
+
+    testWidgets('va arriba de los colores, con su nombre, y llama a lo suyo', (
+      tester,
+    ) async {
+      final called = <String>[];
+      await pump(
+        tester,
+        onCopy: () => called.add('copiar'),
+        onToProcessed: () => called.add('procesado'),
+      );
+
+      final button = find.byKey(const Key('highlight-to-processed'));
+      expect(
+        find.descendant(
+          of: button,
+          matching: find.text(es.highlightToProcessed),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.getRect(button).bottom,
+        lessThanOrEqualTo(
+          tester
+              .getRect(find.byKey(const Key('highlight-color-lightYellow')))
+              .top,
+        ),
+      );
+      await tester.tap(button);
+
+      expect(called, ['procesado']);
+    });
+
+    testWidgets('sin su callback no se dibuja: la barrita de siempre', (
+      tester,
+    ) async {
+      await pump(tester, onCopy: () {});
+
+      expect(find.byKey(const Key('highlight-to-processed')), findsNothing);
+      expect(find.text(es.highlightToProcessed), findsNothing);
+    });
+
+    testWidgets('con él la barrita es más alta: sin lugar para eso arriba, se '
+        'para debajo', (tester) async {
+      // Lugar para la barrita de siempre encima, no para la más alta.
+      const anchors = TextSelectionToolbarAnchors(
+        primaryAnchor: Offset(200, 200),
+        secondaryAnchor: Offset(200, 220),
+      );
+      await pump(tester, onCopy: () {}, anchors: anchors);
+      expect(bar(tester).bottom, lessThanOrEqualTo(200));
+
+      await pump(tester, onCopy: () {}, onToProcessed: () {}, anchors: anchors);
+      expect(bar(tester).top, greaterThanOrEqualTo(220));
+    });
+
+    testWidgets('entra en un teléfono de 320 con todo', (tester) async {
+      await pump(
+        tester,
+        size: const Size(320, 640),
+        onCopy: () {},
+        onReadAloud: () {},
+        onNote: () {},
+        onExtract: () {},
+        onCreateFlashcard: () {},
+        onAddToTimeline: () {},
+        onToProcessed: () {},
+      );
+
+      expect(bar(tester).right, lessThanOrEqualTo(320));
       expect(tester.takeException(), isNull);
     });
   });

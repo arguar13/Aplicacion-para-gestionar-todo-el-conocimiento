@@ -75,6 +75,10 @@ void main() {
   }
 
   Future<void> pumpInbox(WidgetTester tester) async {
+    // La tarjeta entera a la vista, con todos sus botones.
+    tester.view.physicalSize = const Size(900, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(harness.wrap(const InboxScreen()));
     await tester.pumpAndSettle();
   }

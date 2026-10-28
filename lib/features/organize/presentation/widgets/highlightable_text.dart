@@ -362,6 +362,24 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
       onCreateFlashcard: () =>
           unawaited(_createFlashcardFromSelection(selection)),
       onAddToTimeline: () => unawaited(_addToTimeline(selection)),
+      // Mientras se corta del original para Procesado (F41).
+      onToProcessed: cuttingForProcessed(ref, widget.itemId)
+          ? () => _cutToProcessed(selection)
+          : null,
+    );
+  }
+
+  /// «A Procesado»: el fragmento seleccionado, a la hoja de su fuente.
+  void _cutToProcessed(TextSelection selection) {
+    final (start, end) = _rawRange(selection);
+    cutRangeToProcessed(
+      context,
+      ref,
+      itemId: widget.itemId,
+      renditionId: widget.renditionId,
+      content: widget.content,
+      start: start,
+      end: end,
     );
   }
 
@@ -387,6 +405,7 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
       context,
       ref,
       itemId: widget.itemId,
+      renditionId: widget.renditionId,
       content: widget.content,
       start: start,
       end: end,

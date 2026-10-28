@@ -473,3 +473,93 @@ Verificación:
   con una prueba que fija que se pide una sola.
 - Sin probar en el emulador ni en el teléfono: el lector en voz alta con un motor de voz real, y un libro
   de verdad en el teléfono.
+
+**Paso 3 (el resto): triar es elegir qué va a Procesado.**
+
+- **«Triado» abre la hoja «¿Qué va a Procesado?»** (`ProcessedTriageSheet`, en
+  `processed/presentation/widgets/triage/`), sobre la tarjeta de siempre: por el botón, el gesto
+  a la derecha y la flecha. Con «Listo», `TriageIntoProcessed` procesa y tría **las dos cosas o
+  ninguna**: si el estado no se puede cambiar, el procesado se deshace. «Cancelar» o cerrar la hoja
+  deja la fuente en la Bandeja.
+  - **De la fuente**: el texto (o la transcripción), el resumen y la síntesis, cada uno con su
+    interruptor, en cualquier combinación. Sin resumen o síntesis, la hoja muestra el mismo
+    `StudySuggestion` de la tarjeta de estudiar y usa `applyStudySuggestion`: «Resumir con
+    <modelo>» arranca el análisis, con la misma franja (`StudyProgressStrip`, que pasó a ser
+    pública), y «Elegir a mano» abre el texto en modo elegir oraciones. Elegir cualquiera prende la
+    sección. La hoja sostiene `studyViewProvider` mientras está abierta: si no, lo elegido a mano se
+    soltaba antes de llegar al texto.
+  - **Lo tuyo**: notas —escritas en un diálogo o extraídas del original— y fragmentos cortados, cada
+    uno en su lista con «Quitar».
+  - **Vista previa en vivo** por sección (`ProcessSourceUseCase.preview`), una por vez
+    (`processedTriagePreviewProvider`): prender el resumen no vuelve a paginar el texto de un libro.
+    Mientras la IA arma el resumen, la clave lleva una marca de sus oraciones y la vista previa se
+    rehace con cada una. Al final, «Va a quedar» en chips; abajo, fijo, las palabras en total.
+  - **Teclado**: 1–9 prenden las secciones de la fuente, C corta, N escribe una nota, Ctrl+Enter es
+    «Listo», Escape cierra. Sin animaciones, la hoja aparece sin deslizarse. Con la letra al doble
+    en 360 de ancho no se desborda: la vista previa va al final de la lista, y lo fijo es solo el
+    total y los botones.
+- **Decisión C**: mientras se corta, «Extraer como nota» de la barrita va a las notas del documento
+  procesado y no crea nada en la Biblioteca. Lo resuelve `extractRangeAsNote` mismo, así que los
+  cuatro visores lo hacen sin saber de Procesado. **Fuera de la Bandeja** —el detalle, el modo
+  lectura— sigue creando la nota suelta de siempre. Si también ahí tiene que ir a un procesado
+  (¿creándolo?, ¿sin triar la fuente?), lo decide el dueño.
+- **«Cortar del original»** (`ProcessedCutScreen`): la fuente en su visor de siempre.
+  - Se ve el PDF real o la página guardada (con «Ver el texto extraído» para pasar a su texto) o el
+    lector de Word, EPUB y texto, que pagina un libro. Un audio, un video o una foto muestran su
+    texto en ese mismo lector.
+  - Declara de qué fuente se corta con un `ProviderScope` propio (`processedCutSourceProvider`).
+    Solo adentro, la barrita (`HighlightToolbar.onToProcessed`) suma **«A Procesado»**, ancho y
+    arriba de los colores.
+  - Lo cortado se marca encima de todo, en durazno con la letra oscura. Va por `watchStudyPaints`
+    (texto extraído, lector, PDF) y por las marcas de la página web: ningún visor cambió su manera
+    de pintar.
+  - Abajo, la lista viva con «Quitar» y «Listo». Lo cortado vive en `processedTriageProvider`, la
+    misma hoja: volver no pierde nada.
+  - «Extraer nota» de la tarjeta (gesto arriba, flecha arriba) abre la hoja directo ahí.
+- **«Pasar todo sin modificar»**: un botón en la tarjeta y Shift+→, sin la hoja
+  (`TriageIntoProcessed.passUnchanged`). Guarda el texto entero, con su enlace; nunca audio, video
+  ni la ficha. `InboxActions.passUnchanged` lo prende solo con texto propio; si no, el botón dice
+  por qué.
+- **Deshacer**: `InboxStep.processUndo` guarda el comprobante del procesado. `InboxHistory` lo
+  deshace primero; si falla, la fuente queda triada con su documento, sin contradecirse. Salió
+  `InboxStepKind.extracted`, y entró `passedUnchanged`.
+- **El contrato para «Volver a triar» (paso 4)**:
+  - `showProcessedTriageSheet(context, sourceItemId:, onDone:, existing:, initial:, changes:,
+    startCutting:)`;
+  - `existing` es `Map<ProcessedSection, int>`, las partes que el documento ya tiene;
+  - `initial` es `Map<ProcessedSection, SectionEdit>`, lo que la hoja trae pedido;
+  - `onDone` recibe el `Map<ProcessedSection, SectionEdit>` armado y devuelve el `Failure` o
+    `null`.
+  - Con `changes` de más de un valor, cada sección que ya tiene partes muestra Agregar ·
+    Actualizar · Reemplazar · Quitar; «Actualizar» solo donde la fuente tiene versión. Los pasajes
+    que trae sin texto se leen de la fuente al abrir.
+  - El modelo es `ProcessedTriage` (inmutable, `edits` es lo que va al caso de uso).
+- **Para el paso 1b**: la hoja recorre las secciones de la fuente. Sumar Palabras clave y el
+  Original es un caso más en cuatro `switch` sin `default`: `triageShapeOf` (las dos, `whole`),
+  `triageSectionsOffered`, `triageSectionLabel`/`triageSectionIcon`/`triagePartsText` y
+  `triageStudyKindOf` (las palabras clave, `StudyMarkKind.keyword`). Falta solo la línea del tamaño
+  de la copia del original, debajo de su interruptor. `ProcessedTriage._editOf` las arma como
+  cualquier sección entera.
+
+Verificación:
+
+- `flutter analyze`: 19.
+- Pruebas nuevas:
+  - la hoja: 16;
+  - la pantalla de cortar: 7;
+  - el texto extraído en modo cortar: 2;
+  - la Bandeja a Procesado, de punta a punta: 5;
+  - `TriageIntoProcessed`: 4;
+  - el historial: 2;
+  - `ProcessedTriage` y lo que ofrece la fuente: 21;
+  - la barrita: 4, y la barrita del PDF y la página: 4.
+- Las de la Bandeja se pasaron a la hoja: «Triado» tría con «Listo», y «Extraer nota» abre el
+  original.
+- Pasan 4.770 de inbox, processed, viewer, organize, study, library, reading, timeline, core,
+  narration y flashcards.
+- 43 mutaciones, todas muertas. Dos sobrevivieron la primera vez y se mataron sumando lo que faltaba
+  probar: un documento con secciones vacías todavía no existe, y Shift+→ sin texto ni siquiera lo
+  intenta (el caso de uso ya lo rechazaba, así que solo se notaba en el aviso de fallo).
+- Sin probar en el emulador ni en el teléfono, ni con un PDF o una página web real en modo cortar:
+  el visor del PDF y el `WebView` no corren en las pruebas. Lo que sí se probó es la barrita que
+  usan (`documentHighlightToolbar`) en modo cortar y el lector de texto entero.
