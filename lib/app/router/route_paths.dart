@@ -178,6 +178,19 @@ abstract final class RoutePaths {
   /// Repasar las tarjetas que ya tocan.
   static const review = '/review';
 
+  /// Repasar con un recorte de Procesado ya elegido en el selector (F43, M6:
+  /// «Crear en Repasar»): [scopeKey] es el `CreationScope.storageKey`. Una
+  /// clave que no se entiende deja el recorte que había.
+  static String reviewFor(String scopeKey) =>
+      Uri(path: review, queryParameters: {'scope': scopeKey}).toString();
+
+  /// Una creación de «Lo creado» (F43), en su visor. Pantalla completa,
+  /// encima de la barra: se abre desde Repasar, desde un documento procesado
+  /// y desde un cuaderno.
+  static const creationPattern = '/creations/:id';
+
+  static String creation(String id) => '/creations/$id';
+
   /// El historial de repasos de F17, D8: curva de retención, calendario de
   /// constancia y tarjetas difíciles. Ruta plana bajo `/review`, mismo
   /// criterio que [graphTension]: es una lente sobre el hábito de repasar,
@@ -272,6 +285,7 @@ abstract final class RouteNames {
   static const review = 'review';
   static const reviewSession = 'review-session';
   static const reviewHistory = 'review-history';
+  static const creation = 'creation';
   static const settings = 'settings';
   static const ankiImport = 'anki-import';
   static const trash = 'trash';
