@@ -227,6 +227,28 @@ void main() {
     });
   });
 
+  test(
+    '«ahora» no espera la cuota de fondo que traba lo de «más tarde»',
+    () async {
+      backgroundStatus = LanguageModelBackgroundCapReached(
+        provider: AiProvider.gemini,
+        cap: 50,
+        resetsAt: DateTime(2026, 10, 29),
+      );
+      final later = (await h.creations.create(
+        request(runNow: false),
+      )).getRight().toNullable()!;
+      final now = (await h.creations.create(
+        request(),
+      )).getRight().toNullable()!;
+
+      await newQueue().resume();
+
+      expect((await settled(now.id)).status, CreationStatus.ready);
+      expect((await stored(later.id)).status, CreationStatus.queued);
+    },
+  );
+
   group('«Generar más tarde»', () {
     test('va con la cola de fondo', () async {
       final queue = newQueue();
