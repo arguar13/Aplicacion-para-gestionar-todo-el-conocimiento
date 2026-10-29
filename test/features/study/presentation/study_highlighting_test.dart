@@ -185,45 +185,48 @@ void main() {
       );
     });
 
-    test(
-      'el resumen y la síntesis juntos: cada uno con su color, y la '
-      'síntesis después —encima— en la oración que está en los dos (F39)',
-      () {
-        final first = study.of(StudyMarkKind.summary).single;
-        final both = DocumentStudy(
-          marks: [
-            ...study.marks,
-            StudyMark(
-              id: 'y2',
-              kind: StudyMarkKind.synthesis,
-              origin: ContentOrigin.ai,
-              start: first.start,
-              end: first.end,
-            ),
-          ]..sort((a, b) => a.start.compareTo(b.start)),
-          analyzedUntil: content.length,
-          complete: true,
-        );
+    test('el resumen y la síntesis juntos: cada uno con su color, la síntesis '
+        'después —encima— en la oración que está en los dos (F39), y ahí la '
+        'línea verde del resumen, para que se vean los dos (F43, paso 15)', () {
+      final first = study.of(StudyMarkKind.summary).single;
+      final both = DocumentStudy(
+        marks: [
+          ...study.marks,
+          StudyMark(
+            id: 'y2',
+            kind: StudyMarkKind.synthesis,
+            origin: ContentOrigin.ai,
+            start: first.start,
+            end: first.end,
+          ),
+        ]..sort((a, b) => a.start.compareTo(b.start)),
+        analyzedUntil: content.length,
+        complete: true,
+      );
 
-        final paints = studyPaints(
-          both,
-          const StudyView(summary: true, synthesis: true),
-          light,
-        );
+      final paints = studyPaints(
+        both,
+        const StudyView(summary: true, synthesis: true),
+        light,
+      );
 
-        expect(
-          [
-            for (final p in paints)
-              (content.substring(p.start, p.end), p.background),
-          ],
-          [
-            ('La revolución industrial cambió todo.', light.summary),
-            ('La revolución industrial cambió todo.', light.synthesis),
-            ('Las fábricas usaban vapor.', light.synthesis),
-          ],
-        );
-      },
-    );
+      expect(
+        [
+          for (final p in paints)
+            (content.substring(p.start, p.end), p.background),
+        ],
+        [
+          ('La revolución industrial cambió todo.', light.summary),
+          ('La revolución industrial cambió todo.', light.synthesis),
+          ('Las fábricas usaban vapor.', light.synthesis),
+          ('La revolución industrial cambió todo.', light.synthesis),
+        ],
+      );
+      expect(
+        [for (final p in paints) p.underline],
+        [null, null, null, StudyPalette.summaryLine],
+      );
+    });
 
     test('los colores de modo oscuro son otros, pero no el amarillo de lo '
         'que suena', () {
@@ -545,6 +548,98 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(pieces(tester).where((p) => p.$2 != null), isEmpty);
+    });
+  });
+
+  group('ninguna capa tapa a otra (F43, paso 15)', () {
+    const text = 'Roma fundó colonias. Cartago perdió la guerra.';
+    StudyMark at(String id, StudyMarkKind kind, int start, int end) =>
+        StudyMark(
+          id: id,
+          kind: kind,
+          origin: ContentOrigin.ai,
+          start: start,
+          end: end,
+        );
+    final both = DocumentStudy(
+      marks: [
+        at('r1', StudyMarkKind.summary, 0, 20),
+        at('s1', StudyMarkKind.synthesis, 0, 20),
+        at('k1', StudyMarkKind.keyword, 5, 10),
+        at('r2', StudyMarkKind.summary, 21, text.length),
+      ],
+      analyzedUntil: text.length,
+      complete: true,
+    );
+
+    test('una oración del resumen y de la síntesis se ve celeste con la '
+        'línea verde del resumen debajo; la palabra clave, rosa encima', () {
+      final paints = studyPaints(
+        both,
+        const StudyView(summary: true, synthesis: true, keywords: true),
+        light,
+      );
+
+      final lined = paints.where((p) => p.underline != null).toList();
+      expect(lined, hasLength(1));
+      expect((lined.single.start, lined.single.end), (0, 20));
+      expect(lined.single.background, light.synthesis);
+      expect(lined.single.underline, StudyPalette.summaryLine);
+      expect(lined.single.aboveHighlights, isFalse);
+      // Va encima del verde y del celeste, y debajo de la palabra clave.
+      final index = paints.indexOf(lined.single);
+      expect(
+        paints.indexWhere((p) => p.background == light.summary),
+        lessThan(index),
+      );
+      expect(
+        paints.indexWhere((p) => p.background == light.synthesis),
+        lessThan(index),
+      );
+      final keyword = paints.last;
+      expect((keyword.start, keyword.end), (5, 10));
+      expect(keyword.background, light.keyword);
+      expect(keyword.aboveHighlights, isTrue);
+      // La otra oración del resumen, sola, sin línea.
+      expect(
+        paints.where((p) => p.start == 21 && p.underline == null),
+        hasLength(1),
+      );
+    });
+
+    test('con uno solo a la vista, no hay línea', () {
+      for (final view in const [
+        StudyView(summary: true, keywords: true),
+        StudyView(synthesis: true, keywords: true),
+      ]) {
+        expect(
+          studyPaints(both, view, light).where((p) => p.underline != null),
+          isEmpty,
+        );
+      }
+    });
+
+    test('donde se pisan a medias, la línea va solo en lo que comparten', () {
+      final partial = DocumentStudy(
+        marks: [
+          at('r1', StudyMarkKind.summary, 0, 30),
+          at('s1', StudyMarkKind.synthesis, 21, 40),
+          at('s2', StudyMarkKind.synthesis, 42, 46),
+        ],
+        analyzedUntil: 46,
+        complete: true,
+      );
+
+      final lined = [
+        for (final p in studyPaints(
+          partial,
+          const StudyView(summary: true, synthesis: true),
+          light,
+        ))
+          if (p.underline != null) (p.start, p.end),
+      ];
+
+      expect(lined, [(21, 30)]);
     });
   });
 }

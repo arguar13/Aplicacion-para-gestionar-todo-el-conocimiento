@@ -14,6 +14,7 @@ void main() {
     summary: 0xFFC8F2C2,
     synthesis: 0xFFBDE6FF,
     keyword: 0xFFFFB3D9,
+    summaryLine: 0xFF2E9A48,
   );
 
   ({Document page, ArchivedPageAlignment alignment}) open(

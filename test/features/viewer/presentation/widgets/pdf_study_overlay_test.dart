@@ -425,6 +425,29 @@ void main() {
       ]);
     });
 
+    test('una oración del resumen y de la síntesis: el celeste, y la línea '
+        'verde del resumen debajo de sus letras; la palabra clave, rosa sobre '
+        'el papel (F43, paso 15)', () async {
+      const blue = Color(0xFFBDE6FF);
+      const line = Color(0xFF2E9A48);
+      final page = await shown(
+        'Hola mundo',
+        paints: const [
+          PaintedRange(0, 10, background: green),
+          PaintedRange(0, 10, background: blue),
+          PaintedRange(0, 10, background: blue, underline: line),
+          PaintedRange(4, 6, background: pink, aboveHighlights: true),
+        ],
+      );
+
+      expect(drawn(page), [
+        (const Rect.fromLTRB(0, 100, 40, 110), blue.toARGB32()),
+        (const Rect.fromLTRB(40, 100, 60, 110), pink.toARGB32()),
+        (const Rect.fromLTRB(60, 100, 100, 110), blue.toARGB32()),
+        (const Rect.fromLTRB(0, 109, 100, 110), line.toARGB32()),
+      ]);
+    });
+
     test('subrayado y de fondo a la vez: cada uno en lo suyo', () async {
       final page = await shown(
         'Hola mundo',

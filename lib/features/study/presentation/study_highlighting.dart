@@ -148,6 +148,11 @@ class StudyPalette {
   final Color synthesis;
   final Color keyword;
 
+  /// La línea del resumen debajo de una oración que también es de la
+  /// síntesis (F43, paso 15): un verde hondo, que se ve sobre el celeste y
+  /// sobre el rosa de una palabra clave, en los dos modos.
+  static const summaryLine = Color(0xFF2E9A48);
+
   /// La letra sobre cualquiera de los tres.
   static const ink = Colors.black87;
 
@@ -164,11 +169,23 @@ class StudyPalette {
 ///
 /// Las tres se prenden cada una por su lado (F39): las palabras clave que se
 /// ven son todas, estén o no en una oración resaltada.
+///
+/// **Ninguna tapa a otra** (F43, paso 15). Una palabra clave va encima de su
+/// oración con su rosa —alrededor sigue el verde o el celeste—. Una oración
+/// que es del resumen y de la síntesis a la vez se ve celeste con la línea
+/// verde del resumen debajo ([StudyPalette.summaryLine]): las dos capas a la
+/// vez, en el texto, en el PDF y en la página web.
 List<PaintedRange> studyPaints(
   DocumentStudy study,
   StudyView view,
   StudyPalette palette,
 ) {
+  final both = view.summary && view.synthesis
+      ? _overlaps(
+          studySentenceMarks(study, {StudyMarkKind.summary}),
+          studySentenceMarks(study, {StudyMarkKind.synthesis}),
+        )
+      : const <(int, int)>[];
   return [
     for (final layer in view.layers)
       for (final sentence in studySentenceMarks(study, {layer.kind}))
@@ -178,6 +195,14 @@ List<PaintedRange> studyPaints(
           background: palette.of(layer),
           foreground: StudyPalette.ink,
         ),
+    for (final (start, end) in both)
+      PaintedRange(
+        start,
+        end,
+        background: palette.synthesis,
+        foreground: StudyPalette.ink,
+        underline: StudyPalette.summaryLine,
+      ),
     if (view.showsKeywords)
       for (final keyword in study.of(StudyMarkKind.keyword))
         PaintedRange(
@@ -189,6 +214,25 @@ List<PaintedRange> studyPaints(
           aboveHighlights: true,
         ),
   ];
+}
+
+/// Dónde se pisan las oraciones de [a] con las de [b], en orden: las dos
+/// listas vienen ordenadas por su comienzo y una oración no pisa a otra de su
+/// misma lista, así que alcanza con recorrerlas juntas.
+List<(int, int)> _overlaps(List<StudyMark> a, List<StudyMark> b) {
+  final out = <(int, int)>[];
+  var j = 0;
+  for (final x in a) {
+    while (j < b.length && b[j].end <= x.start) {
+      j++;
+    }
+    for (var k = j; k < b.length && b[k].start < x.end; k++) {
+      final start = x.start > b[k].start ? x.start : b[k].start;
+      final end = x.end < b[k].end ? x.end : b[k].end;
+      if (start < end) out.add((start, end));
+    }
+  }
+  return out;
 }
 
 /// Las capas de [paints] que tocan `[start, end)`, recortadas a ese tramo y
@@ -207,6 +251,7 @@ List<PaintedRange> paintsWithin(
         foreground: paint.foreground,
         bold: paint.bold,
         aboveHighlights: paint.aboveHighlights,
+        underline: paint.underline,
       ),
 ];
 

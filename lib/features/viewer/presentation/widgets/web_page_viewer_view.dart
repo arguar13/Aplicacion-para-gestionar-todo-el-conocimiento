@@ -533,6 +533,7 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
       summary: palette.summary.toARGB32(),
       synthesis: palette.synthesis.toARGB32(),
       keyword: palette.keyword.toARGB32(),
+      summaryLine: StudyPalette.summaryLine.toARGB32(),
     );
   }
 

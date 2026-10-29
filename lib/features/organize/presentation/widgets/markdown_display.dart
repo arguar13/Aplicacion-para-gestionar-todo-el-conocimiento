@@ -214,6 +214,7 @@ class RenderedMarkdown {
       background: paint.background,
       foreground: paint.foreground,
       bold: paint.bold,
+      underline: paint.underline,
     );
     final layers = <_Layer>[
       for (final paint in paints)
@@ -833,11 +834,17 @@ class PaintedRange {
     this.foreground,
     this.bold = false,
     this.aboveHighlights = false,
+    this.underline,
   });
 
   final int start;
   final int end;
   final Color background;
+
+  /// Una línea gruesa debajo de las letras, además del fondo: lo que deja ver
+  /// una capa que quedó tapada por otra del mismo tramo —el resumen debajo de
+  /// la síntesis (F43, paso 15)—. `null`, ninguna.
+  final Color? underline;
 
   /// El color de la letra, para que se lea sobre [background] también en
   /// modo oscuro; `null` deja el que tiene.
@@ -857,11 +864,19 @@ class PaintedRange {
       other.background == background &&
       other.foreground == foreground &&
       other.bold == bold &&
-      other.aboveHighlights == aboveHighlights;
+      other.aboveHighlights == aboveHighlights &&
+      other.underline == underline;
 
   @override
-  int get hashCode =>
-      Object.hash(start, end, background, foreground, bold, aboveHighlights);
+  int get hashCode => Object.hash(
+    start,
+    end,
+    background,
+    foreground,
+    bold,
+    aboveHighlights,
+    underline,
+  );
 }
 
 /// Un subrayado a mano de la persona (F38), en posiciones del contenido

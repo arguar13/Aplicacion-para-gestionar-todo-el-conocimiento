@@ -817,4 +817,54 @@ void main() {
       });
     });
   });
+
+  group('lo estudiado, encima uno del otro (F43, paso 15)', () {
+    const green = Color(0xFFC8F2C2);
+    const blue = Color(0xFFBDE6FF);
+    const pink = Color(0xFFFFB3D9);
+    const line = Color(0xFF2E9A48);
+
+    test('una oración del resumen y de la síntesis: celeste con la línea '
+        'verde; la palabra clave, rosa, sigue con la línea debajo', () {
+      final rendered = RenderedMarkdown.plain('uno dos tres');
+
+      final span = rendered.buildSpans(
+        ThemeData.light(),
+        const [],
+        paints: const [
+          PaintedRange(0, 12, background: green),
+          PaintedRange(0, 12, background: blue),
+          PaintedRange(0, 12, background: blue, underline: line),
+          PaintedRange(4, 7, background: pink, aboveHighlights: true),
+        ],
+      );
+
+      TextStyle styleOf(String text) => span.children!
+          .cast<TextSpan>()
+          .firstWhere((s) => s.text == text)
+          .style!;
+      final word = styleOf('dos');
+      expect(word.backgroundColor, pink);
+      expect(word.decoration, TextDecoration.underline);
+      expect(word.decorationColor, line);
+      final around = styleOf('uno ');
+      expect(around.backgroundColor, blue);
+      expect(around.decoration, TextDecoration.underline);
+      expect(around.decorationColor, line);
+    });
+
+    test('sin línea pedida, no hay línea', () {
+      final rendered = RenderedMarkdown.plain('uno dos');
+
+      final span = rendered.buildSpans(
+        ThemeData.light(),
+        const [],
+        paints: const [PaintedRange(0, 7, background: green)],
+      );
+
+      final style = span.children!.cast<TextSpan>().single.style!;
+      expect(style.backgroundColor, green);
+      expect(style.decoration, isNot(TextDecoration.underline));
+    });
+  });
 }

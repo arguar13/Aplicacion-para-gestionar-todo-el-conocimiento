@@ -369,6 +369,7 @@ void main() {
             summary: 0xFF00FF00,
             synthesis: 0xFF0000FF,
             keyword: 0xFFFF0000,
+            summaryLine: 0xFF008800,
           ),
         ),
       );
@@ -507,6 +508,7 @@ void main() {
             summary: 0xFF00FF00,
             synthesis: 0xFF0000FF,
             keyword: 0xFFFF0000,
+            summaryLine: 0xFF008800,
           ),
         ),
       );
@@ -548,7 +550,7 @@ void main() {
         '<html><head></head><body><p>Hola mundo largo.</p></body></html>',
         study: (
           content: 'Hola mundo largo.',
-          colors: (summary: 0, synthesis: 0, keyword: 0),
+          colors: (summary: 0, synthesis: 0, keyword: 0, summaryLine: 0),
         ),
       );
       final script = html_parser

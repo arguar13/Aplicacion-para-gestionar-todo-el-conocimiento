@@ -128,7 +128,11 @@ class PdfStudyOverlay {
   }
 
   /// Apila las capas: las oraciones, los resaltados de la persona y las
-  /// palabras clave, en ese orden.
+  /// palabras clave, en ese orden —donde se pisan, se ve la de más arriba sola
+  /// sobre el papel: el rosa de una palabra clave queda rosa, con el verde o
+  /// el celeste de su oración alrededor—. Las líneas van aparte: los
+  /// subrayados de la persona y la del resumen debajo de una oración que
+  /// también es de la síntesis (F43, paso 15), que así se ven las dos.
   void _stack() {
     final fill = <_Layer>[
       for (final paint in _paints)
@@ -153,6 +157,9 @@ class PdfStudyOverlay {
             highlight.endOffset,
             HighlightPalette.lineOnPaper(highlight.color),
           ),
+      for (final paint in _paints)
+        if (paint.underline case final line?)
+          _Layer(paint.start, paint.end, line),
     ];
     _fill = fill;
     _lines = lines;

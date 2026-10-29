@@ -11,8 +11,14 @@ import 'package:sinapsis/features/transform/domain/archive/page_images.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_alignment.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_fidelity.dart';
 
-/// Los colores de resaltador, como `0xAARRGGBB`.
-typedef ArchivedPageColors = ({int summary, int synthesis, int keyword});
+/// Los colores de resaltador, como `0xAARRGGBB`, y la línea del resumen
+/// debajo de una oración que también es de la síntesis (F43, paso 15).
+typedef ArchivedPageColors = ({
+  int summary,
+  int synthesis,
+  int keyword,
+  int summaryLine,
+});
 
 /// El canal por el que la página avisa qué palabra se tocó.
 const archivedPageChannel = 'SinapsisStudy';
@@ -67,7 +73,10 @@ String showableArchivedPage(String html, {ArchivedPageStudy? study}) =>
 ArchivedPageAlignment? alignArchivedPage(String html, String content) =>
     showArchivedPage(
       html,
-      study: (content: content, colors: (summary: 0, synthesis: 0, keyword: 0)),
+      study: (
+        content: content,
+        colors: (summary: 0, synthesis: 0, keyword: 0, summaryLine: 0),
+      ),
     ).alignment;
 
 /// El canal por el que la página avisa lo que la persona selecciona en ella y
@@ -621,6 +630,11 @@ String _css(ArchivedPageColors colors) {
         '$weight}';
   }
 
+  // Una oración que está en el resumen y en la síntesis, con los dos a la
+  // vista: la marca de la síntesis queda adentro de la del resumen.
+  const both =
+      'html.sn-l-summary.sn-l-synthesis mark.sn-summary mark.sn-synthesis';
+  final line = _hex(colors.summaryLine);
   return [
     // Sin nada de lo que la página le ponga a `mark` —margen, borde, peso,
     // `display`—: envolver una palabra no puede mover ni una letra (F39).
@@ -631,6 +645,10 @@ String _css(ArchivedPageColors colors) {
     // las letras: no tapa nada.
     'html.sn-l-summary mark.sn-summary${paint(colors.summary)}',
     'html.sn-l-synthesis mark.sn-synthesis${paint(colors.synthesis)}',
+    // Una oración del resumen y de la síntesis a la vez: celeste, con la
+    // línea verde del resumen debajo —las dos a la vista— (F43, paso 15).
+    // También bajo sus palabras clave y lo resaltado a mano que caiga ahí.
+    '$both,$both mark{box-shadow:inset 0 -0.2em 0 $line!important}',
     '.sn-hf{color:#000!important}',
     // Las palabras clave, todas, estén o no en una oración resaltada (F39).
     'html.sn-kw mark.sn-k${paint(colors.keyword, bold: true)}',
