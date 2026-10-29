@@ -302,4 +302,43 @@ class OpfsFileStore implements FileStore {
       // Ya no estaba.
     }
   }
+
+  @override
+  Future<List<String>> filesOf(String id, {String? folder}) async {
+    final segments = [
+      _folder,
+      checkedFolderId(id),
+      if (folder != null) sanitizeFileName(folder),
+    ];
+    final directory = await _findDirectory(segments);
+    if (directory == null) return const [];
+    // `package:web` no trae el recorrido de un directorio (es un iterador
+    // asincrónico de JavaScript): se pide su `values()` y se avanza a mano.
+    final entries = directory._values();
+    final paths = <String>[];
+    while (true) {
+      final next = await entries.next().toDart;
+      if (next.done) break;
+      final entry = next.value;
+      if (entry != null && entry.kind == 'file') {
+        paths.add([...segments, entry.name].join('/'));
+      }
+    }
+    return paths..sort();
+  }
+}
+
+extension on web.FileSystemDirectoryHandle {
+  @JS('values')
+  external _AsyncIterator _values();
+}
+
+/// Lo que da `FileSystemDirectoryHandle.values()`.
+extension type _AsyncIterator._(JSObject _) implements JSObject {
+  external JSPromise<_IteratorResult> next();
+}
+
+extension type _IteratorResult._(JSObject _) implements JSObject {
+  external bool get done;
+  external web.FileSystemHandle? get value;
 }

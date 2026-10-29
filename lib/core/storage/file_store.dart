@@ -117,6 +117,16 @@ abstract interface class FileStore {
   /// [ArgumentError], para que nunca se borre más de lo pedido.
   Future<void> deleteAllOf(String id);
 
+  /// Las **rutas relativas** de los archivos guardados en la carpeta de [id]
+  /// —en su subcarpeta [folder], como [saveStream]—, sin entrar en las
+  /// subcarpetas que tenga, ordenadas. Vacío si no hay nada.
+  ///
+  /// Para barrer lo que una creación de «Lo creado» ya no usa (F43): las
+  /// ilustraciones de una versión anterior. [id] es un solo tramo, como en
+  /// [deleteAllOf]: uno vacío o con separadores se rechaza con
+  /// [ArgumentError]; [folder] se sanea como al guardar.
+  Future<List<String>> filesOf(String id, {String? folder});
+
   /// Copia lo guardado en [relativePath] a la carpeta de [id] —en su
   /// subcarpeta [folder], como [saveStream]— con el mismo nombre, sin pisar
   /// uno que ya esté («nombre-2.ext»…), y devuelve la **ruta relativa** de la

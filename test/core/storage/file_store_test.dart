@@ -415,6 +415,50 @@ void main() {
     );
   });
 
+  group('listar la carpeta de un dueño (F43)', () {
+    test('los archivos de su subcarpeta, ordenados, sin entrar en otras ni '
+        'mirar las de los demás', () async {
+      final b = await store.saveStream(
+        bytes: Stream.value(bytes('b')),
+        suggestedName: 'b.png',
+        id: 'creacion-1',
+        folder: 'ilustraciones',
+      );
+      final a = await store.saveStream(
+        bytes: Stream.value(bytes('a')),
+        suggestedName: 'a.jpg',
+        id: 'creacion-1',
+        folder: 'ilustraciones',
+      );
+      final loose = await store.save(
+        bytes: bytes('c'),
+        suggestedName: 'suelto.png',
+        id: 'creacion-1',
+      );
+      await store.saveStream(
+        bytes: Stream.value(bytes('d')),
+        suggestedName: 'x.png',
+        id: 'creacion-10',
+        folder: 'ilustraciones',
+      );
+
+      expect(await store.filesOf('creacion-1', folder: 'ilustraciones'), [
+        a,
+        b,
+      ]);
+      expect(a, 'originales/creacion-1/ilustraciones/a.jpg');
+      // Sin subcarpeta, lo de su carpeta y no lo de adentro de otras.
+      expect(await store.filesOf('creacion-1'), [loose]);
+      expect(await store.filesOf('nadie', folder: 'ilustraciones'), isEmpty);
+    });
+
+    test('un id que no es un solo tramo se rechaza', () async {
+      for (final id in ['', '.', '..', 'a/b', r'a\b']) {
+        expect(() => store.filesOf(id), throwsArgumentError, reason: id);
+      }
+    });
+  });
+
   group('exists', () {
     test('dice que sí sin necesidad de leer los bytes', () async {
       final path = await store.save(

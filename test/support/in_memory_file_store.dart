@@ -144,4 +144,19 @@ class InMemoryFileStore implements FileStore {
     deletedFolders.add(id);
     _contents.removeWhere((path, _) => path.startsWith(prefix));
   }
+
+  @override
+  Future<List<String>> filesOf(String id, {String? folder}) async {
+    final directory = [
+      'originales',
+      checkedFolderId(id),
+      if (folder != null) sanitizeFileName(folder),
+    ].join('/');
+    return [
+      for (final path in _contents.keys)
+        if (path.startsWith('$directory/') &&
+            !path.substring(directory.length + 1).contains('/'))
+          path,
+    ]..sort();
+  }
 }

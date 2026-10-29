@@ -39,6 +39,9 @@ class _RealFileStore implements FileStore {
   @override
   Future<void> deleteAllOf(String id) => throw UnimplementedError();
   @override
+  Future<List<String>> filesOf(String id, {String? folder}) =>
+      throw UnimplementedError();
+  @override
   Future<String?> copy(
     String relativePath, {
     required String id,

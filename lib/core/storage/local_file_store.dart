@@ -202,6 +202,24 @@ class LocalFileStore implements FileStore {
   }
 
   @override
+  Future<List<String>> filesOf(String id, {String? folder}) async {
+    final segments = [
+      _folder,
+      checkedFolderId(id),
+      if (folder != null) sanitizeFileName(folder),
+    ];
+    final directory = Directory(await resolve(p.posix.joinAll(segments)));
+    if (!directory.existsSync()) return const [];
+    final paths = <String>[];
+    await for (final entry in directory.list(followLinks: false)) {
+      if (entry is File) {
+        paths.add(p.posix.joinAll([...segments, p.basename(entry.path)]));
+      }
+    }
+    return paths..sort();
+  }
+
+  @override
   Future<String?> copy(
     String relativePath, {
     required String id,
