@@ -1,8 +1,7 @@
 import 'dart:async';
-import 'dart:isolate';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/creations/data/creation_files.dart';
@@ -209,7 +208,7 @@ typedef FittedIllustration = ({Uint8List bytes, String mimeType});
 
 /// [bytes] como se guardan ([fitCreationIllustrationSync]), en otro hilo si
 /// hay que leer la imagen: decodificar una PNG de un mega trabaría la
-/// pantalla.
+/// pantalla. Con `compute`, que en la web —sin hilos— lo hace ahí mismo.
 Future<FittedIllustration> fitCreationIllustration(
   Uint8List bytes,
   String mimeType, {
@@ -218,10 +217,12 @@ Future<FittedIllustration> fitCreationIllustration(
   if (maxSide == null && !_wantsJpeg(bytes, mimeType)) {
     return Future.value((bytes: bytes, mimeType: mimeType));
   }
-  return Isolate.run(
-    () => fitCreationIllustrationSync(bytes, mimeType, maxSide: maxSide),
-  );
+  return compute(_fit, (bytes: bytes, mimeType: mimeType, maxSide: maxSide));
 }
+
+FittedIllustration _fit(
+  ({Uint8List bytes, String mimeType, int? maxSide}) job,
+) => fitCreationIllustrationSync(job.bytes, job.mimeType, maxSide: job.maxSide);
 
 /// [bytes] achicada a [maxSide] de lado mayor, si se pide y es más grande, y
 /// como JPEG si no lo era y se achicó o pesa más de
