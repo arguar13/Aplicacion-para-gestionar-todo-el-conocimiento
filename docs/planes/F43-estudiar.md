@@ -728,8 +728,9 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
   «Uso de IA» con el material real y «Con tu IA actual»; se recuerda lo último elegido por tipo.
 - «Lo creado» (M9): filas planas, mantener apretado abre el menú (Descargar, Cambiar nombre, Ver
   petición y fuentes, Eliminar con «Deshacer»), deslizar a la izquierda muestra Descargar y
-  Eliminar. Compartir espera la librería de la hoja de compartir del sistema, que no se sumó sin
-  pedirla.
+  Eliminar. Compartir usa la hoja de compartir del sistema (`share_plus`, sumada a pedido del
+  dueño el 29/10), con el archivo armado en memoria y su nombre de verdad; en Linux, donde esa
+  hoja no acepta archivos, no se ofrece.
 - El visor común (`/creations/:id`) con «Ver N fuentes» como chips tocables (M6, de Repasar a
   Procesado y Cuadernos), y Repasar se abre con un recorte ya elegido (`/review?scope=`). Cada
   tipo se suma con una línea en `creationKindSpecsProvider`.

@@ -342,7 +342,7 @@ void main() {
       final shared = <(String, String)>[];
       harness = await RepasarHarness.create(
         specs: [exporting(StudyCreationKind.quiz)],
-        sharer: (file, {required title}) async =>
+        sharer: (file, {required title, origin}) async =>
             shared.add((file.fileName, title)),
       );
       final quiz = await harness.creation(
@@ -354,6 +354,29 @@ void main() {
       await menu(tester, quiz, 'share');
 
       expect(shared, [('Éxodo Cuestionario.pdf', 'Éxodo Cuestionario')]);
+    });
+
+    testWidgets('«Compartir» le dice a la hoja de dónde salir, y si la hoja '
+        'falla lo dice sin caerse', (tester) async {
+      final origins = <Rect?>[];
+      harness = await RepasarHarness.create(
+        specs: [exporting(StudyCreationKind.quiz)],
+        sharer: (file, {required title, origin}) async {
+          origins.add(origin);
+          throw StateError('sin hoja');
+        },
+      );
+      final quiz = await harness.creation(
+        StudyCreationKind.quiz,
+        title: 'Éxodo Cuestionario',
+      );
+      await harness.openRepasar(tester);
+
+      await menu(tester, quiz, 'share');
+
+      expect(origins.single, isNotNull);
+      expect(origins.single!.isEmpty, isFalse);
+      expect(find.text(es.f43StudioActionFailed), findsOneWidget);
     });
 
     testWidgets('el lector de pantalla tiene las mismas acciones', (

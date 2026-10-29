@@ -3087,8 +3087,12 @@ título en una línea y **"1 fuente · Hace 5 d"**.
   Procesado; el cuaderno o el tema sobre el que se creó, el cuaderno o el
   material del tema. Una fuente que ya no existe dice **"Fuente borrada"**.
 
-«Compartir» con otras apps todavía no está: la app no trae la hoja de compartir
-del sistema. Mientras tanto, **"Descargar"** guarda el archivo donde elijas.
+**"Compartir"** abre la hoja de compartir del teléfono (o de la compu) con el
+archivo ya armado y con su nombre —el PDF de la presentación, la imagen de la
+infografía, el texto del informe…—, para mandarlo por WhatsApp, el correo,
+Drive o la app que elijas. Si cerrás la hoja sin elegir, no pasa nada; si algo
+falla, lo dice en una línea. En Linux esa hoja no acepta archivos, así que ahí
+solo está **"Descargar"**, que guarda el archivo donde elijas.
 
 Por ahora cada tipo **muestra su visor a medida que llega**: mientras tanto, al
 abrir una creación lista dice *"Su visor está en camino"* —ya quedó guardada y

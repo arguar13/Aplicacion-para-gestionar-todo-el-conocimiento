@@ -198,6 +198,7 @@ dependencies:
   saf_stream: 4.0.0
   saf_util: ^3.1.0
   sentry_flutter: ^9.29.0
+  share_plus: ^12.0.2
   shared_preferences: ^2.3.3
   # Whisper corriendo en el dispositivo, sin clave ni cuota. Apache-2.0, y el
   # único motor con soporte parejo en los seis destinos del proyecto —

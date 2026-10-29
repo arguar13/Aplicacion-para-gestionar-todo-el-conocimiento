@@ -174,11 +174,29 @@ Future<void> _share(
   StudyCreation creation,
 ) async {
   final l10n = AppLocalizations.of(context)!;
+  final messenger = ScaffoldMessenger.of(context);
   final sharer = ref.read(creationSharerProvider);
   if (sharer == null) return;
+  // De dónde sale la hoja en un iPad o una Mac: lo que se tocó. Se mide antes
+  // de armar el archivo, que puede tardar y cerrar el menú.
+  final box = context.findRenderObject();
+  final origin = box is RenderBox && box.hasSize
+      ? box.localToGlobal(Offset.zero) & box.size
+      : null;
   final file = await _exportOf(context, ref, creation);
   if (file == null) return;
-  await sharer(file, title: studyCreationTitle(l10n, creation));
+  try {
+    await sharer(
+      file,
+      title: studyCreationTitle(l10n, creation),
+      origin: origin,
+    );
+    // Igual que al descargar: lo que falla al compartir se dice, nunca se
+    // cae. Cerrar la hoja sin elegir no llega acá.
+    // ignore: avoid_catches_without_on_clauses
+  } catch (_) {
+    _say(messenger, l10n.f43StudioActionFailed);
+  }
 }
 
 /// La guarda donde la persona elija, con el selector de siempre.

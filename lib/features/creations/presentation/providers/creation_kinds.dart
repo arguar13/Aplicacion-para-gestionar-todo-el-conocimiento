@@ -1,4 +1,7 @@
+import 'dart:ui' show Rect;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/features/creations/data/services/system_creation_sharer.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
@@ -61,12 +64,19 @@ class CreationKindRegistry {
 }
 
 /// Quien pasa el archivo de una creación a otra app («Compartir»): la hoja
-/// de compartir del sistema.
+/// de compartir del sistema. [origin] es de dónde sale la hoja en un iPad o
+/// una Mac.
 typedef CreationSharer =
-    Future<void> Function(CreationExportFile file, {required String title});
+    Future<void> Function(
+      CreationExportFile file, {
+      required String title,
+      Rect? origin,
+    });
 
-/// El que comparte, o `null` si esta app no tiene cómo: hoy no trae ningún
-/// complemento para la hoja de compartir del sistema, así que «Compartir» no
-/// se ofrece —«Descargar» sí, con el selector de archivos de siempre—. Quien
-/// lo sume lo da acá y aparece en el menú de cada creación que exporta.
-final creationSharerProvider = Provider<CreationSharer?>((ref) => null);
+/// El que comparte —la hoja del sistema, con `share_plus`—, o `null` donde
+/// esa hoja no acepta archivos (Linux): ahí «Compartir» no se ofrece y
+/// «Descargar» sí, con el selector de archivos de siempre. Aparece en el
+/// menú de cada creación que exporta.
+final creationSharerProvider = Provider<CreationSharer?>(
+  (ref) => systemShareSupportsFiles() ? SystemCreationSharer().call : null,
+);
