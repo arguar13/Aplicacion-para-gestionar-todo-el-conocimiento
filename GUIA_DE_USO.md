@@ -3277,7 +3277,11 @@ la app, con "Completar ilustraciones" para hacerlos con IA.
 
 Las ilustraciones se guardan con los originales de la bóveda: siguen ahí al
 cerrar la app, viajan en la copia de la bóveda y en la unión de bóvedas.
-Volver a generar la infografía borra las que la nueva ya no usa.
+Volver a generar la infografía borra las que la nueva ya no usa, y borrarla
+para siempre desde la Papelera se lleva también sus ilustraciones: no queda
+nada ocupando lugar. **"Ver petición y fuentes"** dice el estilo visual
+elegido (y la composición, si la cambiaste en el visor), además de la
+orientación y el detalle.
 
 ### Crear tarjetas con IA, para muchos elementos a la vez
 
