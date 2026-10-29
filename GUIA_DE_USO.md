@@ -3277,12 +3277,14 @@ Cambiar a un estilo ilustrado después también deja sus lugares dibujados por
 la app, con "Completar ilustraciones" para hacerlos con IA.
 
 Las ilustraciones se guardan con los originales de la bóveda: siguen ahí al
-cerrar la app, viajan en la copia de la bóveda y en la unión de bóvedas.
-Volver a generar la infografía borra las que la nueva ya no usa, y borrarla
-para siempre desde la Papelera se lleva también sus ilustraciones: no queda
-nada ocupando lugar. **"Ver petición y fuentes"** dice el estilo visual
-elegido (y la composición, si la cambiaste en el visor), además de la
-orientación y el detalle.
+cerrar la app, viajan en la copia de la bóveda y en la unión de bóvedas; una
+muy pesada se guarda como JPEG, sin diferencia a la vista. Volver a generar la
+infografía, o rehacer una ilustración, borra las que ya no usa **recién cuando
+lo nuevo quedó guardado**: si lo cancelás o falla, la lámina sigue con las de
+antes. Borrarla para siempre desde la Papelera se lleva también sus
+ilustraciones: no queda nada ocupando lugar. **"Ver petición y fuentes"**
+dice el estilo visual elegido (y la composición, si la cambiaste en el
+visor), además de la orientación y el detalle.
 
 #### Informes
 
@@ -3443,8 +3445,9 @@ ahora» o «Generar más tarde». Se abre desde «Lo creado».
   actual"** con lo que cuesta). Las demás llevan un dibujo de la app con un
   ícono. Si tu cuenta no puede dibujar, el mazo sale igual y arriba dice por
   qué (*"Sin ilustraciones con IA: …"*). Las ilustraciones se guardan con el
-  mazo —viajan en la copia y en la unión de bóvedas— y borrarlo para siempre
-  desde la Papelera se las lleva (sus tarjetas de repaso, no).
+  mazo —viajan en la copia y en la unión de bóvedas—; volver a generarlo
+  libera las de la vez anterior cuando el nuevo ya quedó guardado, y borrarlo
+  para siempre desde la Papelera se las lleva (sus tarjetas de repaso, no).
 - **"Descargar"** (arriba en el visor, o en el menú de la fila, donde también
   está **"Compartir"** con el mismo archivo): **Para Anki
   (.tsv)** —se importa en Anki o AnkiDroid con *Archivo → Importar*, en el mazo
@@ -3460,7 +3463,8 @@ o «Generar más tarde».
   la **dificultad**, los **tipos de pregunta** (uno o varios, mezclados
   parejo), el **tema**, el **idioma**, las **fuentes** e **"Incluir
   imágenes"** (como en las tarjetas: ilustraciones guardadas con el
-  cuestionario, que se van al borrarlo para siempre).
+  cuestionario; volver a generarlo libera las de la vez anterior, y se van
+  todas al borrarlo para siempre).
 - **Arriba**, **"6 / 14"**, el tipo de la pregunta y la barra de avance. Abajo,
   **"Anterior"** y **"Siguiente"**; en la última, **"Ver el resultado"**. Se
   puede saltear una y volver después.
@@ -3550,8 +3554,10 @@ ve el dibujo de la plantilla, y el visor dice por qué.
 la de ahora— y, con ilustraciones, su estilo.
 
 Las ilustraciones se guardan con la presentación: viajan en la copia de la
-bóveda y en la unión con otra, y se borran recién cuando la vaciás de la
-papelera.
+bóveda y en la unión con otra. Volver a generarla o volver a dibujar una
+libera las que ya no usa recién cuando lo nuevo quedó guardado —si lo
+cancelás o falla, siguen las de antes—, y todas se borran cuando la vaciás de
+la papelera.
 
 ### Crear tarjetas con IA, para muchos elementos a la vez
 
