@@ -510,6 +510,35 @@ de marcar:
 - **Lo ya guardado:** se repara con una migración que corrige solo los títulos que tienen esa
   firma exacta y que vuelven a ser texto válido al recodificarlos.
 
+### M8. El resumen y la síntesis de Repasar son los mismos que en el documento (aclaración del 29/10)
+
+- **Una sola fuente**: las marcas de estudio del documento procesado (F36).
+  - Lo que se marque en el original (M5), con IA o a mano, es exactamente lo que muestran
+    «Resumen» y «Síntesis» en Repasar.
+  - Lo que se genere desde Repasar queda marcado en el original.
+  - Nunca hay dos versiones (decisión E).
+- **Los visores de texto de Repasar** (texto completo, resumen y síntesis) traen en su hoja la
+  opción **«Resaltar las palabras clave»**, prendida por defecto, en rosa. Es la misma
+  preferencia que el «mostrar por defecto» de M5.
+- **Cada uno con su lector de voz**, en su propia pantalla: se escucha el texto, el resumen o la
+  síntesis con el renglón que se lee resaltado en amarillo en vivo (decisión 86).
+
+### M9. «Lo creado»: mantener apretado y deslizar
+
+- **Cada fila**, plana como en NotebookLM: el ícono del tipo en su color, el título en un
+  renglón y «N fuentes · Hace 5 d».
+- **Mantener apretado** abre un menú flotante redondeado, con el fondo atenuado:
+  - **Compartir** y **Descargar**, en el formato de cada tipo (PDF, PNG o texto);
+  - **Cambiar nombre**;
+  - **Ver petición y fuentes**: con qué opciones, qué modelo y cuándo se hizo, y las fuentes
+    como chips tocables;
+  - **Eliminar**, que la manda a la papelera con «Deshacer».
+  - Si corresponde, también Regenerar, Reintentar y Cancelar.
+- **Deslizar a la izquierda** muestra, a la derecha y pegados al borde, dos botones cuadrados en
+  tonos de la superficie: **Descargar** y **Eliminar**. La fila queda abierta o cerrada sin
+  quedar a medias, de a una por vez. Lo mismo se puede hacer desde el menú, para quien no
+  desliza.
+
 ## Decisiones (se pueden cambiar mientras no se llegue a su paso)
 
 - **A. Atlas se queda en Organizar**, junto a la Bandeja. El pedido no lo nombra entre los que
@@ -573,7 +602,8 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
    - la grilla;
    - «Lo creado» con sus estados y su menú;
    - la hoja de personalizar común, con «Uso de IA» y la tarjeta «Con tu IA actual»;
-   - Repasar se abre con un recorte ya elegido (para «Crear en Repasar», M6).
+   - Repasar se abre con un recorte ya elegido (para «Crear en Repasar», M6);
+   - en «Lo creado», mantener apretado y deslizar (M9).
 
 14. **Pulido (M1, M2 y M7)**: la ✕ y la cuenta atrás en los avisos, el orden de Ajustes → «IA
     y modelos» y los títulos con letras rotas, de raíz y con su reparación.
@@ -588,7 +618,8 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
 
 **Ola 3, un agente por tipo:**
 
-7. **Extraer texto completo, resumen y síntesis**, con su visor y el modo escuchar.
+7. **Extraer texto completo, resumen y síntesis**, con su visor y el modo escuchar, las mismas
+   marcas que el documento y las palabras clave resaltadas por defecto (M8).
 8. **Tarjetas didácticas y Cuestionario**, con los cuatro tipos de pregunta.
 9. **Mapa mental y Tabla de datos.**
 10. **Informes**, con sus plantillas, interactivo y documento.
