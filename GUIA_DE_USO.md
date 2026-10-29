@@ -3489,6 +3489,70 @@ o «Generar más tarde».
   con las preguntas y, al final, las respuestas con la explicación de cada
   opción.
 
+#### La presentación
+
+**Crearla.** En su hoja elegís:
+
+- **Formato**: *Detallada* (se lee sola) o *Del presentador* (poco texto en
+  cada diapositiva y, en las notas, lo que hay que decir).
+- **Duración**: *Corta* (unas ocho diapositivas) o *Estándar* (unas catorce).
+- **"Ilustraciones con IA"** y, si lo prendés, **el estilo de las
+  ilustraciones**: *Igual que la plantilla*, *Fotográfico*, *Acuarela*,
+  *Plastilina*, *Línea* o *Isométrico*, cada uno con su muestra.
+- **La plantilla, a la vista**: una tira con **"Automática"** —la elige la IA
+  según el tema— y las dieciséis, cada una con la portada de tu presentación
+  ya dibujada (con el título de la primera fuente). **"Ver todas las
+  plantillas"** abre la galería entera, por familias.
+- La descripción, para orientarla: *"para alguien que empieza"*.
+
+La IA escribe el contenido y **elige el diseño de cada diapositiva** —portada,
+viñetas, cita, cifra destacada, línea de pasos, comparación, cronología…—; el
+dibujo lo hace la app. Un libro largo se lee por partes y el último paso arma
+el relato, de la portada al cierre. Con ilustraciones, después de escribir
+dibuja **una por diapositiva que la pida**, como mucho las que avisó "Con tu IA
+actual" (cuatro en una corta, siete en una estándar) y con la cuenta que
+elegiste ahí. Mientras tanto la fila de «Lo creado» dice *"Dibujando las
+ilustraciones…"* con su avance, y **"Cancelar"** corta en cualquier momento.
+
+Si una ilustración no sale —la cuenta sin facturación, sin cuota, el proveedor
+que no quiso dibujarla—, **la presentación queda lista igual**: en su lugar se
+ve el dibujo de la plantilla, y el visor dice por qué.
+
+**El visor.**
+
+- **Las diapositivas de a una**, en 16:9 (o 4:3), deslizando con la transición
+  de su diseño (de golpe con «sin animaciones»), con ‹, "3 / 12" y › abajo. En
+  la compu, también con las flechas.
+- **La tira de miniaturas**: tocar una la muestra.
+- **"Notas"**: muestra u oculta las notas del presentador de la que se ve. En
+  *Del presentador* empiezan a la vista.
+- **Pantalla completa** (⛶ arriba): apaisada y sin las barras del sistema,
+  sobre negro. Un toque muestra los controles —salir, anterior, siguiente y las
+  notas—, que se esconden solos. Al salir vuelve todo como estaba, en la misma
+  diapositiva.
+- **Plantilla y diseño** (🎨 arriba): la paleta (seis, más un color propio), la
+  tipografía, la densidad, la transición, el formato, la numeración y el pie, y
+  **"Cambiar"** para elegir otra plantilla en la galería. **Nada de esto le
+  vuelve a pedir algo a la IA**: el contenido queda igual y el diseño se guarda
+  aparte, enseguida.
+- **"Volver a dibujar"** la ilustración de la que se ve —o **"Dibujar la
+  ilustración"** si todavía no tiene— y **"Completar N ilustraciones"**: antes
+  de pedir nada, una hoja muestra con qué cuenta se dibuja, cuánto cuesta más o
+  menos y qué parte de tu cuota de hoy; si esa cuenta no puede, por qué, y las
+  otras que sí. Recién con **"Dibujar"** se pide. Si no sale, lo dice y la de
+  antes queda.
+- **"PDF"** (y **Descargar**, en ⋮ o en «Lo creado»): una página por
+  diapositiva, con el diseño que ves; en *Del presentador*, después de cada una,
+  su página de notas para imprimir.
+
+**"Ver petición y fuentes"** dice también la plantilla —la que eligió la IA en
+*Automática* no se nombra ahí: dice *Automática*; si la cambiaste en el visor,
+la de ahora— y, con ilustraciones, su estilo.
+
+Las ilustraciones se guardan con la presentación: viajan en la copia de la
+bóveda y en la unión con otra, y se borran recién cuando la vaciás de la
+papelera.
+
 ### Crear tarjetas con IA, para muchos elementos a la vez
 
 **Cómo llegar:** pantalla "Repasar" → botón **✨** arriba ("Crear tarjetas
