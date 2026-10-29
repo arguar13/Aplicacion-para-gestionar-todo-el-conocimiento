@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/illustration_providers.dart';
@@ -13,6 +16,7 @@ import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart'
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_queue_providers.dart';
+import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_study_text.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
@@ -81,6 +85,10 @@ class ExtractHarness {
   /// Si el modelo está listo para analizar.
   bool modelReady = true;
 
+  /// La hora del repositorio de Procesado: la de verdad, salvo que la prueba
+  /// la congele para que dos cambios caigan en el mismo instante.
+  DateTime? frozenAt;
+
   ProviderContainer get container => library.container;
   FakeTextToSpeechService get tts => library.textToSpeechService;
 
@@ -97,6 +105,14 @@ class ExtractHarness {
         ),
         creationEstimateProvider.overrideWith(
           (ref, request) => fakeEstimate(request),
+        ),
+        processedRepositoryProvider.overrideWith(
+          (ref) => ProcessedRepositoryImpl(
+            database: ref.watch(appDatabaseProvider),
+            telemetry: ref.watch(telemetryServiceProvider),
+            files: ref.watch(fileStoreProvider),
+            clock: () => harness.frozenAt ?? DateTime.now(),
+          ),
         ),
       ],
     );

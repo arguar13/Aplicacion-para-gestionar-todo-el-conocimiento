@@ -158,7 +158,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
               .customSelect(
                 'SELECT item.id AS id, item.title AS title, '
                 'item.created_at AS created_at, item.updated_at AS updated_at, '
-                'pd.source_item_id AS source_item_id, '
+                'item.rev AS rev, pd.source_item_id AS source_item_id, '
                 'pd.source_kind AS source_kind '
                 'FROM processed_documents pd JOIN item ON item.id = pd.item_id '
                 'WHERE item.id IN ($marks)',
@@ -219,6 +219,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
             ),
             createdAt: head.read<DateTime>('created_at'),
             updatedAt: head.read<DateTime>('updated_at'),
+            rev: head.read<int>('rev'),
             partCounts: counts[id] ?? const {},
             sourceItemId: head.readNullable<String>('source_item_id'),
             spaceIds: spaces[id] ?? const {},

@@ -68,6 +68,19 @@ void main() {
     return id;
   }
 
+  /// Edita la página de [id] que dice [from], como desde el documento: con
+  /// [to] en su lugar.
+  Future<void> editPage(String id, String from, String to) async {
+    final repository = h.container.read(processedRepositoryProvider);
+    final parts = (await repository.partsOf(id)).getRight().toNullable()!;
+    final page = parts.firstWhere((p) => p.content.contains(from));
+    final edited = await repository.editPart(
+      page.id,
+      page.content.replaceFirst(from, to),
+    );
+    expect(edited.isRight(), isTrue, reason: '$edited');
+  }
+
   group('la lectura, una vista viva (decisión E)', () {
     testWidgets('el resumen: las oraciones marcadas en el documento, en '
         'orden, con el título arriba y las palabras clave en rosa; creado '
@@ -105,21 +118,29 @@ void main() {
       final id = await romaWithSummary();
       final full = await h.creation(StudyCreationKind.fullText, [id]);
       await h.open(tester, full);
-      expect(shown(tester), isNot(contains('el Africano')));
+      expect(shown(tester), contains('Escipión volvió a Roma.'));
 
-      final parts =
-          (await h.container.read(processedRepositoryProvider).partsOf(id))
-              .getRight()
-              .toNullable()!;
-      final page = parts.firstWhere((p) => p.content.contains('Escipión'));
-      await h.container
-          .read(processedRepositoryProvider)
-          .editPart(
-            page.id,
-            page.content.replaceFirst('Escipión', 'Escipión el Africano'),
-          );
+      await editPage(id, 'Escipión', 'Escipión el Africano');
       await tester.pumpAndSettle();
-      expect(shown(tester), contains('Escipión el Africano'));
+      expect(shown(tester), contains('Escipión el Africano volvió a Roma.'));
+    });
+
+    testWidgets('las ediciones que caen en el mismo segundo que lo anterior '
+        'también se ven: el cambio se sigue por la versión del documento, no '
+        'por su hora —que se guarda en segundos—', (tester) async {
+      h.frozenAt = DateTime(2026, 10, 29, 12);
+      final id = await romaWithSummary();
+      final full = await h.creation(StudyCreationKind.fullText, [id]);
+      await h.open(tester, full);
+      expect(shown(tester), contains('Escipión volvió a Roma.'));
+
+      await editPage(id, 'Escipión', 'Escipión el Africano');
+      await tester.pumpAndSettle();
+      expect(shown(tester), contains('Escipión el Africano volvió a Roma.'));
+
+      await editPage(id, 'Aníbal', 'Aníbal Barca');
+      await tester.pumpAndSettle();
+      expect(shown(tester), contains('Aníbal Barca cruzó los Alpes.'));
     });
 
     testWidgets('el texto completo: entero, con las palabras clave en rosa '

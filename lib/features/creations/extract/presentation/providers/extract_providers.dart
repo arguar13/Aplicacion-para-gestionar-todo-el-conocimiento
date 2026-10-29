@@ -27,12 +27,14 @@ class ExtractOwnText
     extends AutoDisposeFamilyAsyncNotifier<ProcessedStudyText?, String> {
   @override
   Future<ProcessedStudyText?> build(String documentId) async {
-    // Cuándo se tocó por última vez su contenido: cambia con cada página
-    // editada y con cada marca guardada (`markContentChanged`).
+    // La versión de su fila: sube con cada página editada o vuelta a
+    // procesar (`markContentChanged`). No su `updatedAt`, que se guarda en
+    // segundos: una edición en el mismo segundo que lo anterior no lo mueve
+    // y el texto abierto se quedaba viejo.
     ref.watch(
       processedDocumentProvider(
         documentId,
-      ).select((document) => document.valueOrNull?.summary.updatedAt),
+      ).select((document) => document.valueOrNull?.summary.rev),
     );
     final previous = state.valueOrNull;
     final read = await ref

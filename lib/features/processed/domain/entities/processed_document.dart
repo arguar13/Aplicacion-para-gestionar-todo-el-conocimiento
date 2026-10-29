@@ -24,6 +24,12 @@ sealed class ProcessedDocumentSummary with _$ProcessedDocumentSummary {
     /// lista.
     required DateTime updatedAt,
 
+    /// La versión de su fila (`item.rev`): sube con cada cambio, aunque caiga
+    /// en el mismo segundo que el anterior. Es lo que hay que mirar para saber
+    /// si cambió: [updatedAt] se guarda en segundos y dos cambios seguidos
+    /// pueden dar la misma hora.
+    required int rev,
+
     /// Cuántas partes tiene cada sección. Una sección sin partes no está.
     required Map<ProcessedSection, int> partCounts,
 
