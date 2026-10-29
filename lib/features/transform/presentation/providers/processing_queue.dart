@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
+import 'package:sinapsis/features/creations/presentation/providers/creation_queue_providers.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
@@ -484,7 +485,12 @@ final processingQueueProvider =
           // queda como consulta, y la IA organiza lo que la persona elija de
           // ella al triarla, en su documento procesado.
         },
-        onResume: () => unawaited(ref.read(aiOrganizeQueueProvider).start()),
+        onResume: () {
+          unawaited(ref.read(aiOrganizeQueueProvider).start());
+          // Lo que quedó en la cola de «Lo creado» (F43), o a medias porque la
+          // app se cerró, sigue solo.
+          unawaited(ref.read(creationQueueProvider).resume());
+        },
       );
     });
 

@@ -34,4 +34,7 @@
     <!-- Analyzing a document to study it: summary, synthesis and keywords (F36). -->
     <string name="long_work_studying_title">Sinapsis is analyzing a document</string>
     <string name="long_work_studying_progress">%1$d of %2$d parts analyzed. You can keep using your phone.</string>
+    <!-- Generating something for «Lo creado» in Review: a presentation, a mind map, a report (F43). -->
+    <string name="long_work_creating_title">Sinapsis is creating study material</string>
+    <string name="long_work_creating_progress">%1$d %% done. You can keep using your phone.</string>
 </resources>

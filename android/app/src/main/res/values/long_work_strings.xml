@@ -34,4 +34,7 @@
     <!-- Analizar un documento para estudiarlo: resumen, síntesis y palabras clave (F36). -->
     <string name="long_work_studying_title">Sinapsis está analizando un documento</string>
     <string name="long_work_studying_progress">%1$d de %2$d partes analizadas. Podés seguir usando el teléfono.</string>
+    <!-- Generar algo de «Lo creado» en Repasar: una presentación, un mapa mental, un informe (F43). -->
+    <string name="long_work_creating_title">Sinapsis está creando material de estudio</string>
+    <string name="long_work_creating_progress">%1$d %% hecho. Podés seguir usando el teléfono.</string>
 </resources>

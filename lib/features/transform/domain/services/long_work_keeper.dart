@@ -108,6 +108,12 @@ enum LongWorkOwner {
   /// con Gemma en el teléfono son muchos minutos.
   study,
 
+  /// Generar lo que se pidió en «Lo creado» de Repasar (F43): una
+  /// presentación, un mapa mental, un informe… Lo pidió la persona con
+  /// «Generar ahora» o «Generar más tarde», y con Gemma en el teléfono un
+  /// libro por partes son muchos minutos.
+  creating,
+
   /// La IA que organiza sola (F27): lo nuevo, lo pedido, las notas y, con el
   /// cargador, la biblioteca que ya existía.
   aiOrganize,

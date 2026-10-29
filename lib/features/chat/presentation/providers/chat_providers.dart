@@ -36,6 +36,7 @@ import 'package:sinapsis/features/chat/domain/services/model_backend.dart';
 import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
+import 'package:sinapsis/features/creations/domain/services/structured_writer.dart';
 import 'package:sinapsis/features/flashcards/domain/services/cloze_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/quiz_question_generator.dart';
@@ -271,6 +272,13 @@ final backgroundLanguageModelProvider = Provider<LanguageModelTasks>(
 final requestedBackgroundLanguageModelProvider = Provider<LanguageModelTasks>(
   (ref) => ref.watch(_languageModelProvider).requestedInBackground,
 );
+
+/// Quien escribe el JSON de «Lo creado» con el turno y la cuota de la persona
+/// («Generar ahora», F43). Lo de «Generar más tarde» va con
+/// [backgroundLanguageModelProvider], que también lo sabe hacer.
+final structuredWriterProvider = Provider<StructuredWriter>((ref) {
+  return ref.watch(_languageModelProvider);
+});
 
 final chatModelProvider = Provider<ChatModel>((ref) {
   return ref.watch(_languageModelProvider);

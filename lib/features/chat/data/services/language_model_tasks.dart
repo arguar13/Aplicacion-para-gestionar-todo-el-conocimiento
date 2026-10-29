@@ -16,6 +16,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/vocabulary_budget.
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/chat/domain/services/model_backend.dart';
+import 'package:sinapsis/features/creations/domain/services/structured_writer.dart';
 import 'package:sinapsis/features/flashcards/domain/services/cloze.dart';
 import 'package:sinapsis/features/flashcards/domain/services/cloze_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_draft_parser.dart';
@@ -38,6 +39,7 @@ import 'package:sinapsis/features/suggestions/domain/services/property_suggestio
 import 'package:sinapsis/features/timeline/domain/services/dated_events_extractor.dart';
 import 'package:sinapsis/features/timeline/domain/services/dated_events_reply.dart';
 import 'package:sinapsis/features/timeline/domain/services/dated_passage_selector.dart';
+import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 
 /// Le pide instrucciones tajantes de no inventar nada que no esté en el
 /// contexto: es lo único que separa una respuesta útil de una que suena
@@ -438,7 +440,8 @@ class LanguageModelTasks
         NotebookCandidateJudge,
         NotebookNamer,
         StudyMarker,
-        DatedEventsExtractor {
+        DatedEventsExtractor,
+        StructuredWriter {
   /// Cada uso pasa por [gate] (F27): esta instancia es la de la persona —el
   /// chat, resumir, las tarjetas y el quiz a mano— y [background], la de la
   /// cola de la IA. [backend] es el motor que escribe, compartido con
@@ -811,6 +814,61 @@ class LanguageModelTasks
         await chat?.close();
       }
     });
+  }
+
+  @override
+  int get contextTokens => _backend.contextTokens;
+
+  /// El pedido de JSON de «Lo creado» (F43): la orquestación —de una vez o
+  /// por partes, la corrección, el avance— es de `runStructuredRequest`; acá
+  /// solo se habla con el motor, en el turno de esta instancia, y se corta si
+  /// se cancela. Cada tipo trae su instrucción y su esquema: ninguno vive acá.
+  @override
+  Future<T> writeStructured<T>(StructuredRequest<T> request) =>
+      runStructuredRequest(
+        request,
+        (call) => _withTurn(() => _structuredReply(call, request.cancellation)),
+      );
+
+  /// Una vuelta de un pedido estructurado. Nunca más de lo que entra: con el
+  /// tokenizador del modelo, si la instrucción, el pedido y la respuesta no
+  /// caben en la ventana, se achica el material —desde el final— hasta que
+  /// quepan, como en `markPart`. Quien arma el material ya lo hizo entrar con
+  /// una cuenta conservadora; esto lo garantiza igual.
+  Future<String> _structuredReply(
+    StructuredCall call,
+    CancellationSignal? cancellation,
+  ) async {
+    if (cancellation?.isCancelled ?? false) {
+      throw const CreationCancelledException();
+    }
+    final chat = await _backend.openExchange(
+      instruction: call.instruction,
+      maxOutputTokens: call.maxOutputTokens,
+    );
+    // Cancelar corta lo que se esté escribiendo, como cuando la persona pide
+    // el modelo (F30).
+    final stopping = cancellation?.whenCancelled.then((_) => chat.stop());
+    try {
+      final room =
+          _backend.contextTokens -
+          call.maxOutputTokens -
+          await chat.countTokens(call.instruction) -
+          kPromptMarginTokens;
+      var material = call.material;
+      while (material.length > 200 &&
+          await chat.countTokens('${call.lead}$material') > room) {
+        material = material.substring(0, material.length * 3 ~/ 4);
+      }
+      final reply = await _generate(chat, '${call.lead}$material');
+      if (cancellation?.isCancelled ?? false) {
+        throw const CreationCancelledException();
+      }
+      return reply;
+    } finally {
+      unawaited(stopping);
+      await chat.close();
+    }
   }
 
   @override

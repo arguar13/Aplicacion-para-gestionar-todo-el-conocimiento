@@ -63,6 +63,9 @@ void main() {
     await platform.show(
       const LongWorkNotice(owner: LongWorkOwner.study, done: 3, total: 12),
     );
+    await platform.show(
+      const LongWorkNotice(owner: LongWorkOwner.creating, done: 40, total: 100),
+    );
     await platform.stop();
 
     expect(calls, [
@@ -71,6 +74,7 @@ void main() {
       'working sample_library 7/80 [data_sync]',
       'working reviewing 2/9 [data_sync]',
       'working studying 3/12 [data_sync]',
+      'working creating 40/100 [data_sync]',
       'idle',
     ]);
   });
