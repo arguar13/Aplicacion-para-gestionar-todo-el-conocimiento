@@ -761,6 +761,31 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
 - **Archivo**: Markdown con un apartado por documento y las palabras clave en negrita si se
   resaltan; «Compartir» pasa este mismo archivo.
 
+### Paso 9 (hecho): el Mapa mental y la Tabla de datos
+
+- **Mapa mental**: el JSON del árbol se lee con tolerancia (la raíz sola o envuelta, ramas como
+  lista o como `{"Idea": […]}`, claves en castellano o inglés; une hermanas repetidas y sube las
+  ramas de una idea sin nombre), con topes de 400 ideas y 7 niveles. Lo largo va por partes —una
+  rama cada una— y la unión las junta; la respuesta se ajusta a la ventana del modelo.
+- **El visor del mapa**: un árbol horizontal ordenado (Reingold–Tilford, para ideas de distinto
+  tamaño), con uniones curvas en el color del tipo y un tinte por nivel; cada idea se abre con «›»
+  sin que la tocada se mueva. Pellizco y arrastre, y abajo alejar, acercar, encuadrar, «Ampliar
+  todo» y «Contraer todo» (vuelve a las ramas principales). Se guarda como PNG entero, hasta ×3.
+- **Tocar una idea** abre su ruta, nota, documento y pasaje, con «Preguntarle al chat sobre esto»
+  —una conversación nueva con la idea de arriba como contexto y el recorte del mapa
+  (`ChatHandoff`, genérico en el chat)— y «Ver en el documento», que abre la lectura de la fuente
+  parada en el pasaje (o el documento procesado, o «Ver las fuentes» si no se sabe de cuál sale).
+- **Tabla de datos**: columnas y filas leídas con tolerancia (una clave nueva suma columna, el tipo
+  se deduce si falta); la «Descripción» va como el pedido de columnas. El visor tiene la primera
+  columna fija y el encabezado arriba, filas alternadas y la celda larga entera en una hoja con
+  «Copiar».
+- **Ordenar**: tocando el encabezado o desde su hoja; números como números (con «mil» y
+  «millones»), fechas como fechas (con a. C. y siglos) y texto como un diccionario (la ñ después de
+  la n, estable, vacíos al final), y «Orden original».
+- **Exportar**: «Copiar la tabla» en TSV y un CSV para Excel y Sheets (UTF-8 con BOM, CRLF,
+  comillas de RFC 4180, «;» con coma decimal), en el orden que se ve; una fórmula se desarma con
+  «'».
+
 ### Paso 10 (hecho): Informes
 
 - **Plantillas**: Resumen de aprendizaje, Guía de estudio, Documento informativo y Glosario, cada
