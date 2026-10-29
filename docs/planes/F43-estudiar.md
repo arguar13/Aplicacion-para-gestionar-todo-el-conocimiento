@@ -761,6 +761,33 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
 - **Archivo**: Markdown con un apartado por documento y las palabras clave en negrita si se
   resaltan; «Compartir» pasa este mismo archivo.
 
+### Paso 12 (hecho): la Infografía
+
+- **Generar**: la IA escribe la lámina (`writeStructured`, esquema de la infografía) con el
+  detalle, la orientación, el estilo y la descripción; «Automático» con ilustraciones elige uno de
+  los ilustrados. Un libro largo va por partes —hasta seis bloques cada una— y el último paso elige
+  y ordena los mejores. El avance llega al 70 % con el texto y sigue por cada ilustración
+  (`CreationStep.illustrating`, «Dibujando las ilustraciones…»); se puede cancelar.
+- **Ilustraciones con IA (H)**: la cabecera y los bloques con lugar para dibujo, con la pista del
+  estilo y el aspecto que corresponde, **nunca más de las estimadas** y con la cuenta que se vio en
+  el aviso. Una que falla nunca tumba la lámina: queda el dibujo de la app con su porqué; si la
+  falla es de la cuenta o la cuota, no se insiste. Cancelar borra lo dibujado en esa vuelta, y
+  volver a generar borra lo que la lámina nueva ya no usa.
+- **Dónde viven**: en el almacén de los originales (`originales/<creación>/ilustraciones/`), así
+  sobreviven al reinicio, entran en la copia y viajan en la unión de bóvedas (`studyCreationFilesSql`
+  busca las rutas `illustration_ref` del contenido). Borrar una creación para siempre —una o la
+  papelera entera— se lleva su carpeta (`FileStore.deleteAllOf`, genérico para cualquier tipo).
+- **Hoja**: el carrusel de estilos con su muestra; un estilo ilustrado sin ilustraciones avisa que
+  se verá en su versión dibujada. La estimación cuenta las imágenes (1 + 5/7/9 en un estilo
+  ilustrado).
+- **Visor**: la lámina entera con pellizco y −, «Ver la lámina entera» y +; «Cambiar el estilo»
+  cambia en vivo y se guarda sin la IA (`StudyCreationRepository.amend`, nuevo y genérico); «Guardar
+  como imagen» da un PNG al doble y Descargar o Compartir preguntan PNG o PDF. Un aviso dice cuántas
+  ilustraciones faltan y por qué, y «Completar ilustraciones» o rehacer una muestran antes el costo
+  («Con tu IA actual» solo con imágenes) y su avance.
+- **«Ver petición y fuentes»** dice el estilo visual elegido, por el gancho genérico
+  `CreationKindSpec.requestLines`.
+
 ### Paso 14 (hecho): Pulido (M1, M2 y M7)
 
 - Todo aviso con botón, largo o que se queda lleva su ✕ (`AppSnackBar`), y un censo lo exige; el
