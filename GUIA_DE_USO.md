@@ -3159,6 +3159,59 @@ de Procesado, y «atrás» vuelve al visor; el cuaderno o el tema sobre el que s
 creó abren el cuaderno o el material del tema. Si una fuente se borró, la ficha
 dice **"Fuente borrada"** y no abre nada.
 
+#### Extraer texto completo, resumen y síntesis
+
+Las tres de la primera fila **no son copias**: cada vez que las abrís muestran
+lo que el documento procesado tiene **ahora**. Si marcás algo más en el
+original, si editás una página o si borrás el resumen, la extracción cambia
+sola. Es lo mismo que marcaste en el original con los botones **Resumen**,
+**Síntesis** y **Palabras clave**: nunca hay dos versiones.
+
+- **Extraer texto completo**: el texto procesado entero, limpio, con las
+  palabras clave en rosa en todas las oraciones.
+- **Extraer resumen** y **Extraer síntesis**: solo las oraciones que el
+  resumen (o la síntesis) marcó, en el orden del documento; las que en el
+  documento están en el mismo párrafo se leen juntas.
+- **Con varios documentos** (un cuaderno, un tema, «Todo»), cada uno va con su
+  título arriba, en el orden en que se crearon.
+
+**Si a un documento le falta lo que se extrae**, su apartado lo dice
+(*"Todavía no tiene resumen"*) con dos caminos:
+
+- **"Marcar con IA"**: abre una hoja con lo que va a hacer y, en **"Con tu IA
+  actual"**, cuánto consume. Al confirmar, la IA marca el resumen, la síntesis
+  y las palabras clave **en el documento mismo** —lo vas a ver ahí y en el
+  original— y la extracción se va llenando sola mientras avanza, con su barra
+  y **"Parar"**. Si le falta a varios, arriba aparece **"Marcar los N con
+  IA"**: los hace de a uno.
+- **"Abrir el documento"**: para marcarlo a mano en el original.
+
+Un documento que ya no está dice **"Fuente borrada"**; uno sin texto propio
+(solo notas o imágenes), que no tiene texto para extraer.
+
+**Arriba, junto a ⋮:**
+
+- **🎧 Escuchar**: abre el **modo escuchar**, un reproductor grande abajo de la
+  pantalla. Se lee lo que se ve, en su orden (con varios documentos, primero el
+  título de cada uno). Lo que suena va **en amarillo**, con las palabras clave
+  **siempre en rosa encima**, y la pantalla **acompaña sola** la lectura; si te
+  movés a mano, te deja tranquilo y aparece **"Volver a la lectura"**. En el
+  reproductor: **reproducir o pausar**, **oración anterior** y **siguiente**,
+  la **barra de avance** (arrastrala y soltá donde quieras seguir), la
+  **velocidad** y la **voz**. La ✕ deja de escuchar. Mientras escuchás acá, el
+  botón redondo de leer en voz alta no aparece; si salís de la pantalla, sigue
+  leyendo y vuelve el de siempre. Con «sin animaciones», la pantalla salta en
+  vez de deslizarse.
+- **Aa Lectura**: **"Resaltar las palabras clave"**, prendido por defecto. Es
+  **la misma opción** que mostrar u ocultar las palabras clave en el original:
+  si la apagás acá se apaga allá, y al revés. Con varios documentos, se cambia
+  en todos. Debajo, el **tamaño de la letra** (el mismo de «Leer como libro»).
+
+**Descargar** y **Compartir** (en ⋮, en «Lo creado» o deslizando la fila) dan un archivo
+**Markdown** (`.md`) con el título, un apartado por documento y lo extraído,
+con las palabras clave en **negrita** si están resaltadas: se abre en
+cualquier editor de texto o en Obsidian.
+
 ### Crear tarjetas con IA, para muchos elementos a la vez
 
 **Cómo llegar:** pantalla "Repasar" → botón **✨** arriba ("Crear tarjetas
