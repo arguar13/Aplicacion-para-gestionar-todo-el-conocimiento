@@ -43,6 +43,10 @@ void main() {
     ),
     'processed_originals': (preview: null, result: 'processedOriginalsAdded'),
     'processed_images': (preview: null, result: 'processedImagesAdded'),
+    'study_creations': (
+      preview: 'newStudyCreations',
+      result: 'studyCreationsAdded',
+    ),
   };
 
   /// Las tablas que la vista previa no cuenta aparte, y por qué. Una tabla

@@ -23,10 +23,18 @@ class StudyScope {
   /// Las tarjetas de un solo elemento.
   const StudyScope.item(String this.id) : kind = StudyScopeKind.item;
 
+  /// Un recorte de Procesado (F43, decisión B): un documento procesado, un
+  /// cuaderno o un tema, dicho con la clave de su recorte
+  /// (`CreationScope.storageKey`, nunca «todo»). Cuenta las tarjetas de cada
+  /// documento procesado **y** las de su fuente —las que el documento muestra
+  /// en «De la fuente», que siguen en Repasar con su historial—: elegir un
+  /// documento en el selector de Repasar no deja afuera ninguna de las suyas.
+  const StudyScope.processed(String this.id) : kind = StudyScopeKind.processed;
+
   final StudyScopeKind kind;
 
-  /// El identificador del espacio, valor, cuaderno o elemento; `null` en
-  /// [StudyScopeKind.all].
+  /// El identificador del espacio, valor, cuaderno o elemento —o la clave del
+  /// recorte de Procesado—; `null` en [StudyScopeKind.all].
   final String? id;
 
   /// Si no restringe nada.
@@ -44,4 +52,4 @@ class StudyScope {
 }
 
 /// De qué clase es un [StudyScope].
-enum StudyScopeKind { all, space, value, notebook, item }
+enum StudyScopeKind { all, space, value, notebook, item, processed }

@@ -237,6 +237,7 @@ class VaultMerger {
       processedPartsAdded: unions.processedParts,
       processedOriginalsAdded: unions.processedOriginals,
       processedImagesAdded: unions.processedImages,
+      studyCreationsAdded: unions.studyCreations,
       aiRunsAdded: ai.runs,
       aiRejectionsAdded: ai.rejections,
     );

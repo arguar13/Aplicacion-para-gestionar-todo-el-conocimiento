@@ -25,6 +25,26 @@ void main() {
       );
     });
 
+    test('un recorte de Procesado (F43), con su clave', () {
+      expect(
+        myCardsLocation(const StudyScope.processed('notebook:n')),
+        '/cards?processed=notebook%3An',
+      );
+      expect(
+        myCardsScopeFromQuery(const {'processed': 'notebook:n'}),
+        const StudyScope.processed('notebook:n'),
+      );
+      // «Todo lo procesado» es todo, y una clave rara también.
+      expect(
+        myCardsScopeFromQuery(const {'processed': 'all'}),
+        const StudyScope.all(),
+      );
+      expect(
+        myCardsScopeFromQuery(const {'processed': 'raro'}),
+        const StudyScope.all(),
+      );
+    });
+
     test('un identificador raro se escapa', () {
       expect(
         myCardsLocation(const StudyScope.item('a b&c=d')),

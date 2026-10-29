@@ -67,6 +67,8 @@ class MergeGates {
     ...VaultCounts.processedTables,
     // Las imágenes de los procesados (decisión L): también solo suma.
     ...VaultCounts.processedImageTables,
+    // «Lo creado» de Estudiar (F43): una fusión solo suma.
+    ...VaultCounts.studyCreationTables,
   ];
 
   /// Las tablas donde una referencia rota puede venir de la fusión.

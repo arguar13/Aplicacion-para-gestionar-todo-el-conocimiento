@@ -16,6 +16,7 @@ import 'package:sinapsis/features/capture/presentation/providers/shared_content_
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/duplicates/presentation/screens/possible_duplicates_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/widgets/explorer_focus.dart';
@@ -525,6 +526,9 @@ StudyScope _studyScopeOf(Map<String, String> query) {
     'value' => StudyScope.value(id),
     'notebook' => StudyScope.notebook(id),
     'item' => StudyScope.item(id),
+    // Un recorte de Procesado (F43): solo si se entiende.
+    'processed' =>
+      CreationScope.parse(id)?.studyScope ?? const StudyScope.all(),
     _ => const StudyScope.all(),
   };
 }

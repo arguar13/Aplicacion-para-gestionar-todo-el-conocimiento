@@ -11266,5 +11266,141 @@
   "f43AiSizeLarge": "2K",
   "@f43AiSizeLarge": {"description": "Tamaño de imagen (F43)."},
   "f43AiImageModel": "Modelo de imagen",
-  "@f43AiImageModel": {"description": "Selector del modelo de imagen (F43)."}
+  "@f43AiImageModel": {"description": "Selector del modelo de imagen (F43)."},
+  "f43DataMergePreviewCreations": "{count, plural, =1{1 creación de Estudiar} other{{count} creaciones de Estudiar}}",
+  "@f43DataMergePreviewCreations": {
+    "description": "Renglón del resumen de unir bóvedas: creaciones de «Lo creado» (F43) —presentaciones, mapas mentales, informes…— que la copia trae y esta bóveda no tiene.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43DataScopeProcessed": "Un procesado",
+  "@f43DataScopeProcessed": {
+    "description": "Repasar, elegir qué estudiar: las tarjetas de un documento procesado y las de su fuente (F43)."
+  },
+  "f43DataTrashCreationsTitle": "Creaciones de Estudiar",
+  "@f43DataTrashCreationsTitle": {
+    "description": "Papelera: el título de la sección con las creaciones de «Lo creado» (F43) que se borraron."
+  },
+  "f43DataTrashRestored": "Creación restaurada",
+  "@f43DataTrashRestored": {
+    "description": "Papelera: aviso al restaurar una creación de «Lo creado»."
+  },
+  "f43DataTrashDeleteForeverConfirm": "¿Borrar «{title}» para siempre? No se puede deshacer. Los documentos procesados de los que salió no se tocan.",
+  "@f43DataTrashDeleteForeverConfirm": {
+    "description": "Papelera: la pregunta antes de borrar para siempre una creación de «Lo creado».",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "f43DataTrashEmptyCreationsConfirm": "{count, plural, =1{¿Borrar para siempre la creación que hay en la papelera? No se puede deshacer.} other{¿Borrar para siempre las {count} creaciones que hay en la papelera? No se puede deshacer.}}",
+  "@f43DataTrashEmptyCreationsConfirm": {
+    "description": "Papelera: la pregunta antes de vaciarla cuando solo tiene creaciones de «Lo creado».",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43DataTrashEmptyAlsoCreations": "{count, plural, =1{También se borra la creación de Estudiar que hay en ella.} other{También se borran las {count} creaciones de Estudiar que hay en ella.}}",
+  "@f43DataTrashEmptyAlsoCreations": {
+    "description": "Papelera: lo que se agrega a la pregunta de vaciarla cuando también tiene creaciones de «Lo creado».",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43DataKindFullText": "Texto completo",
+  "@f43DataKindFullText": {
+    "description": "Estudiar, tipo de creación: el texto procesado entero, con las palabras clave en rosa."
+  },
+  "f43DataKindSummary": "Resumen",
+  "@f43DataKindSummary": {
+    "description": "Estudiar, tipo de creación: las oraciones del resumen, en orden."
+  },
+  "f43DataKindSynthesis": "Síntesis",
+  "@f43DataKindSynthesis": {
+    "description": "Estudiar, tipo de creación: las oraciones de la síntesis, en orden."
+  },
+  "f43DataKindPresentation": "Presentación",
+  "@f43DataKindPresentation": {
+    "description": "Estudiar, tipo de creación: diapositivas."
+  },
+  "f43DataKindMindMap": "Mapa mental",
+  "@f43DataKindMindMap": {
+    "description": "Estudiar, tipo de creación: un árbol de ideas."
+  },
+  "f43DataKindReport": "Informe",
+  "@f43DataKindReport": {
+    "description": "Estudiar, tipo de creación: un informe con secciones."
+  },
+  "f43DataKindFlashcards": "Tarjetas didácticas",
+  "@f43DataKindFlashcards": {
+    "description": "Estudiar, tipo de creación: un mazo de tarjetas."
+  },
+  "f43DataKindQuiz": "Cuestionario",
+  "@f43DataKindQuiz": {
+    "description": "Estudiar, tipo de creación: un cuestionario con la explicación de cada opción."
+  },
+  "f43DataKindInfographic": "Infografía",
+  "@f43DataKindInfographic": {
+    "description": "Estudiar, tipo de creación: una lámina con bloques, íconos y cifras."
+  },
+  "f43DataKindDataTable": "Tabla de datos",
+  "@f43DataKindDataTable": {
+    "description": "Estudiar, tipo de creación: una tabla."
+  },
+  "f43DataFailureCancelled": "Se canceló.",
+  "@f43DataFailureCancelled": {
+    "description": "Lo creado: por qué falló una creación —la persona la canceló—."
+  },
+  "f43DataFailureNoSources": "No había nada que leer: sus documentos se borraron o no tienen texto.",
+  "@f43DataFailureNoSources": {
+    "description": "Lo creado: por qué falló una creación —sus fuentes ya no tienen texto—."
+  },
+  "f43DataFailureModelUnavailable": "La IA elegida no puede contestar ahora. Revisá Ajustes › IA y modelos.",
+  "@f43DataFailureModelUnavailable": {
+    "description": "Lo creado: por qué falló una creación —el modelo no está listo, sin clave o sin cuota—."
+  },
+  "f43DataFailureUnreadableReply": "La IA no devolvió lo pedido, ni después de pedirle que lo corrija.",
+  "@f43DataFailureUnreadableReply": {
+    "description": "Lo creado: por qué falló una creación —la respuesta no era el JSON pedido—."
+  },
+  "f43DataFailureInterrupted": "Quedó a medias: se cortó antes de terminar.",
+  "@f43DataFailureInterrupted": {
+    "description": "Lo creado: por qué falló una creación —la app se cerró varias veces a mitad, o llegó sin terminar de otro dispositivo—."
+  },
+  "f43DataFailureUnsupported": "Esta versión de la app todavía no sabe crear esto.",
+  "@f43DataFailureUnsupported": {
+    "description": "Lo creado: por qué falló una creación —su tipo no tiene generador en esta versión—."
+  },
+  "f43DataFailureError": "Algo salió mal al crearla.",
+  "@f43DataFailureError": {
+    "description": "Lo creado: por qué falló una creación —cualquier otro error—."
+  },
+  "f43DataStepPreparing": "Preparando el material…",
+  "@f43DataStepPreparing": {
+    "description": "Lo creado, mientras se genera: arma lo que entra en la ventana del modelo."
+  },
+  "f43DataStepWriting": "Escribiendo…",
+  "@f43DataStepWriting": {
+    "description": "Lo creado, mientras se genera: la IA escribe de una sola vez."
+  },
+  "f43DataStepReadingParts": "Leyendo por partes…",
+  "@f43DataStepReadingParts": {
+    "description": "Lo creado, mientras se genera: un texto largo, cada parte da su borrador."
+  },
+  "f43DataStepJoining": "Uniendo las partes…",
+  "@f43DataStepJoining": {
+    "description": "Lo creado, mientras se genera: el último paso une los borradores."
+  },
+  "f43DataStepFinishing": "Terminando…",
+  "@f43DataStepFinishing": {
+    "description": "Lo creado, mientras se genera: lo que el tipo hace después de la IA."
+  }
 }

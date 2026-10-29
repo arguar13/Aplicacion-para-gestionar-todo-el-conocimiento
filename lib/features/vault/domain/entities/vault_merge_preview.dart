@@ -55,6 +55,9 @@ sealed class VaultMergePreview with _$VaultMergePreview {
     /// procesado nuevo se cuenta además en los elementos nuevos.
     @Default(0) int newProcessedParts,
 
+    /// «Lo creado» de Estudiar (F43) que acá no está, con la regla de la unión.
+    @Default(0) int newStudyCreations,
+
     /// Archivos originales de la copia que esta bóveda no tiene, con cuánto
     /// pesan; y los que la copia dice tener y no trae.
     @Default(0) int newFiles,
@@ -82,5 +85,6 @@ sealed class VaultMergePreview with _$VaultMergePreview {
       newStudyMarks == 0 &&
       newDatedEvents == 0 &&
       newProcessedParts == 0 &&
+      newStudyCreations == 0 &&
       newFiles == 0;
 }

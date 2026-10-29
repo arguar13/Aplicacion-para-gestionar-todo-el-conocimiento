@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
+import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
+import 'package:sinapsis/features/creations/domain/repositories/study_creation_repository.dart';
+import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -187,6 +192,146 @@ void main() {
       expect(find.text(es.trashEmptyTitle), findsOneWidget);
       final left = await rows();
       expect(left.map((r) => r.title), ['Vivo']);
+    });
+  });
+
+  group('lo creado en la papelera (F43)', () {
+    StudyCreationRepository creations() =>
+        harness.container.read(studyCreationRepositoryProvider);
+
+    /// Una creación lista con [title], mandada a la papelera.
+    Future<String> trashedCreation(String title) async {
+      final created = (await creations().create(
+        const CreationRequest(
+          kind: StudyCreationKind.mindMap,
+          scope: CreationScope.allProcessed(),
+          sourceIds: ['doc'],
+        ),
+      )).getRight().toNullable()!;
+      await creations().complete(created.id, title: title, content: '{}');
+      await creations().trash(created.id);
+      return created.id;
+    }
+
+    Future<StudyCreation?> stored(String id) async =>
+        (await creations().find(id)).getRight().toNullable();
+
+    testWidgets('va en su sección, con su tipo y cuándo se borró', (
+      tester,
+    ) async {
+      await trashed(['Un artículo']);
+      await trashedCreation('Éxodo: Liberación y Alianza');
+
+      await pumpTrash(tester);
+
+      expect(find.text('Un artículo'), findsOneWidget);
+      expect(find.text(es.f43DataTrashCreationsTitle), findsOneWidget);
+      expect(find.text('Éxodo: Liberación y Alianza'), findsOneWidget);
+      expect(
+        find.textContaining(es.f43DataKindMindMap),
+        findsOneWidget,
+        reason: 'el tipo, junto a cuándo se borró',
+      );
+      expect(find.byTooltip(es.trashRestore), findsNWidgets(2));
+    });
+
+    testWidgets('sola, la papelera no se ve vacía, y restaurarla la saca', (
+      tester,
+    ) async {
+      final id = await trashedCreation('Para restaurar');
+      await pumpTrash(tester);
+      expect(find.text(es.trashEmptyTitle), findsNothing);
+
+      await tester.tap(find.byTooltip(es.trashRestore));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.f43DataTrashRestored), findsOneWidget);
+      expect(find.text(es.trashEmptyTitle), findsOneWidget);
+      expect((await stored(id))!.isTrashed, isFalse);
+    });
+
+    testWidgets('borrarla para siempre pide confirmación con su título', (
+      tester,
+    ) async {
+      final id = await trashedCreation('Para borrar');
+      await pumpTrash(tester);
+
+      await tester.tap(find.byTooltip(es.trashDeleteForever));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(es.f43DataTrashDeleteForeverConfirm('Para borrar')),
+        findsOneWidget,
+      );
+      await tester.tap(find.text(es.trashDeleteForever).last);
+      await tester.pumpAndSettle();
+
+      expect(await stored(id), isNull);
+      expect(find.text(es.trashEmptyTitle), findsOneWidget);
+    });
+
+    testWidgets('vaciar la papelera se lleva los elementos y las creaciones, '
+        'y lo dice', (tester) async {
+      await trashed(['Uno']);
+      final id = await trashedCreation('Una creación');
+      await pumpTrash(tester);
+
+      await tester.tap(find.byTooltip(es.trashEmptyAction));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          '${es.trashEmptyConfirm(1)} ${es.f43DataTrashEmptyAlsoCreations(1)}',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text(es.trashEmptyAction).last);
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.trashEmptyTitle), findsOneWidget);
+      expect(await rows(), isEmpty);
+      expect(await stored(id), isNull);
+    });
+
+    testWidgets('con solo creaciones, la pregunta habla de ellas', (
+      tester,
+    ) async {
+      await trashedCreation('Una');
+      await trashedCreation('Otra');
+      await pumpTrash(tester);
+
+      await tester.tap(find.byTooltip(es.trashEmptyAction));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(es.f43DataTrashEmptyCreationsConfirm(2)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a lo ancho de un teléfono y con letra grande no se desborda', (
+      tester,
+    ) async {
+      await trashed(['Un artículo con un título bastante largo para la fila']);
+      await trashedCreation(
+        'Una creación con un título larguísimo que no entra en una línea',
+      );
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        harness.wrap(
+          MediaQuery(
+            data: const MediaQueryData(
+              size: Size(360, 800),
+              textScaler: TextScaler.linear(2),
+            ),
+            child: const TrashScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text(es.f43DataTrashCreationsTitle), findsOneWidget);
     });
   });
 }

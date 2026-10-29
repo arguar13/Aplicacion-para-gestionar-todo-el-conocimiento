@@ -141,6 +141,9 @@ class VaultMergeReader {
         'SELECT COUNT(*) ${SetUnionRules.processedPartsFrom(dryRun: true)}',
         [renditionMap],
       ),
+      newStudyCreations: await _scalar(
+        'SELECT COUNT(*) ${SetUnionRules.studyCreationsFrom}',
+      ),
       newConversations: await _scalar(
         '''
         SELECT COUNT(*) FROM $_incoming.conversations c

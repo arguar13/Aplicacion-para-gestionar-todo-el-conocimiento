@@ -1,4 +1,5 @@
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 
 /// A dónde ir para ver las tarjetas de [scope] en «Mis tarjetas» (F31, ola 2,
@@ -12,6 +13,7 @@ String myCardsLocation([StudyScope scope = const StudyScope.all()]) {
     StudyScopeKind.value => 'value',
     StudyScopeKind.notebook => 'notebook',
     StudyScopeKind.item => 'item',
+    StudyScopeKind.processed => 'processed',
   };
   return key == null
       ? kRouteCards
@@ -23,6 +25,13 @@ String myCardsLocation([StudyScope scope = const StudyScope.all()]) {
 StudyScope myCardsScopeFromQuery(Map<String, String> query) {
   final item = query['item'];
   if (item != null && item.isNotEmpty) return StudyScope.item(item);
+  // Un recorte de Procesado (F43), si se entiende: uno escrito a mano que no,
+  // es «todo».
+  final processed = query['processed'];
+  if (processed != null) {
+    final scope = CreationScope.parse(processed);
+    if (scope != null) return scope.studyScope;
+  }
   final notebook = query['notebook'];
   if (notebook != null && notebook.isNotEmpty) {
     return StudyScope.notebook(notebook);

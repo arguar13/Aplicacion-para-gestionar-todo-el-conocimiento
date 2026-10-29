@@ -126,6 +126,11 @@ class VaultCounts {
   /// tabla todavía no existía cuando corrían.
   static const processedImageTables = <String>['processed_images'];
 
+  /// «Lo creado» de Estudiar (F43, v48): lo que se generó en Repasar sobre lo
+  /// procesado. Aparte por lo mismo que las anteriores: los pasos hasta v48
+  /// cuentan las otras listas, y esta tabla todavía no existía cuando corrían.
+  static const studyCreationTables = <String>['study_creations'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

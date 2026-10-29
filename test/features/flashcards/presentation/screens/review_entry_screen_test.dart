@@ -251,6 +251,30 @@ void main() {
       expect(find.text('¿Roma 1?'), findsOneWidget);
     });
 
+    testWidgets('un procesado (F43): sus tarjetas y las de su fuente, las '
+        'de «De la fuente»', (tester) async {
+      await insertProcessedRows(
+        harness.database,
+        id: 'p-roma',
+        title: 'Roma procesada',
+        sourceItemId: items['Roma'],
+      );
+      items['Roma procesada'] = 'p-roma';
+      await addCards('Roma procesada', ['¿Propia?']);
+      await addCards('Roma', ['¿De la fuente 1?', '¿De la fuente 2?']);
+      await addCards('Grecia', ['¿Grecia 1?']);
+      await openEntry(tester);
+
+      await chooseScope(tester, StudyScopeKind.processed, 'p-roma');
+
+      expect(scopeName(tester), 'Roma procesada');
+      expect(countOf(tester, 'review-entry-new'), '3');
+      expect(
+        harness.container.read(reviewEntryScopeProvider),
+        const StudyScope.processed('document:p-roma'),
+      );
+    });
+
     testWidgets('una etiqueta: solo las que se usan, con su categoría', (
       tester,
     ) async {

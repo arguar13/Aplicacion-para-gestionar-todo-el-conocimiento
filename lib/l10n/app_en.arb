@@ -12249,5 +12249,141 @@
   "f43AiSizeLarge": "2K",
   "@f43AiSizeLarge": {"description": "Tamaño de imagen (F43)."},
   "f43AiImageModel": "Image model",
-  "@f43AiImageModel": {"description": "Selector del modelo de imagen (F43)."}
+  "@f43AiImageModel": {"description": "Selector del modelo de imagen (F43)."},
+  "f43DataMergePreviewCreations": "{count, plural, =1{1 Study creation} other{{count} Study creations}}",
+  "@f43DataMergePreviewCreations": {
+    "description": "Vault merge summary line: «Lo creado» creations (F43) the backup brings that this vault doesn't have.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43DataScopeProcessed": "A processed document",
+  "@f43DataScopeProcessed": {
+    "description": "Review, choose what to study: the cards of a processed document and of its source (F43)."
+  },
+  "f43DataTrashCreationsTitle": "Study creations",
+  "@f43DataTrashCreationsTitle": {
+    "description": "Trash: title of the section with the deleted «Lo creado» creations (F43)."
+  },
+  "f43DataTrashRestored": "Creation restored",
+  "@f43DataTrashRestored": {
+    "description": "Trash: notice after restoring a «Lo creado» creation."
+  },
+  "f43DataTrashDeleteForeverConfirm": "Delete «{title}» forever? This can't be undone. The processed documents it came from are not touched.",
+  "@f43DataTrashDeleteForeverConfirm": {
+    "description": "Trash: the question before deleting a «Lo creado» creation forever.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "f43DataTrashEmptyCreationsConfirm": "{count, plural, =1{Delete the creation in the trash forever? This can't be undone.} other{Delete the {count} creations in the trash forever? This can't be undone.}}",
+  "@f43DataTrashEmptyCreationsConfirm": {
+    "description": "Trash: the question before emptying it when it only holds «Lo creado» creations.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43DataTrashEmptyAlsoCreations": "{count, plural, =1{The Study creation in it is deleted too.} other{The {count} Study creations in it are deleted too.}}",
+  "@f43DataTrashEmptyAlsoCreations": {
+    "description": "Trash: what's added to the empty-trash question when it also holds «Lo creado» creations.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43DataKindFullText": "Full text",
+  "@f43DataKindFullText": {
+    "description": "Study, creation kind: the whole processed text, with keywords in pink."
+  },
+  "f43DataKindSummary": "Summary",
+  "@f43DataKindSummary": {
+    "description": "Study, creation kind: the summary sentences, in order."
+  },
+  "f43DataKindSynthesis": "Synthesis",
+  "@f43DataKindSynthesis": {
+    "description": "Study, creation kind: the synthesis sentences, in order."
+  },
+  "f43DataKindPresentation": "Presentation",
+  "@f43DataKindPresentation": {
+    "description": "Study, creation kind: slides."
+  },
+  "f43DataKindMindMap": "Mind map",
+  "@f43DataKindMindMap": {
+    "description": "Study, creation kind: a tree of ideas."
+  },
+  "f43DataKindReport": "Report",
+  "@f43DataKindReport": {
+    "description": "Study, creation kind: a report with sections."
+  },
+  "f43DataKindFlashcards": "Flashcards",
+  "@f43DataKindFlashcards": {
+    "description": "Study, creation kind: a deck of cards."
+  },
+  "f43DataKindQuiz": "Quiz",
+  "@f43DataKindQuiz": {
+    "description": "Study, creation kind: a quiz with an explanation for each option."
+  },
+  "f43DataKindInfographic": "Infographic",
+  "@f43DataKindInfographic": {
+    "description": "Study, creation kind: a sheet with blocks, icons and figures."
+  },
+  "f43DataKindDataTable": "Data table",
+  "@f43DataKindDataTable": {
+    "description": "Study, creation kind: a table."
+  },
+  "f43DataFailureCancelled": "It was cancelled.",
+  "@f43DataFailureCancelled": {
+    "description": "Created: why a creation failed —the person cancelled it—."
+  },
+  "f43DataFailureNoSources": "There was nothing to read: its documents were deleted or have no text.",
+  "@f43DataFailureNoSources": {
+    "description": "Created: why a creation failed —its sources no longer have text—."
+  },
+  "f43DataFailureModelUnavailable": "The chosen AI can't answer right now. Check Settings › AI and models.",
+  "@f43DataFailureModelUnavailable": {
+    "description": "Created: why a creation failed —the model isn't ready, has no key or no quota—."
+  },
+  "f43DataFailureUnreadableReply": "The AI didn't return what was asked, not even after being asked to fix it.",
+  "@f43DataFailureUnreadableReply": {
+    "description": "Created: why a creation failed —the reply wasn't the requested JSON—."
+  },
+  "f43DataFailureInterrupted": "It was left halfway: it stopped before finishing.",
+  "@f43DataFailureInterrupted": {
+    "description": "Created: why a creation failed —the app closed several times midway, or it arrived unfinished from another device—."
+  },
+  "f43DataFailureUnsupported": "This version of the app can't create this yet.",
+  "@f43DataFailureUnsupported": {
+    "description": "Created: why a creation failed —its kind has no generator in this version—."
+  },
+  "f43DataFailureError": "Something went wrong while creating it.",
+  "@f43DataFailureError": {
+    "description": "Created: why a creation failed —any other error—."
+  },
+  "f43DataStepPreparing": "Preparing the material…",
+  "@f43DataStepPreparing": {
+    "description": "Created, while generating: building what fits in the model's window."
+  },
+  "f43DataStepWriting": "Writing…",
+  "@f43DataStepWriting": {
+    "description": "Created, while generating: the AI writes in one go."
+  },
+  "f43DataStepReadingParts": "Reading in parts…",
+  "@f43DataStepReadingParts": {
+    "description": "Created, while generating: a long text, each part gives its draft."
+  },
+  "f43DataStepJoining": "Joining the parts…",
+  "@f43DataStepJoining": {
+    "description": "Created, while generating: the last step joins the drafts."
+  },
+  "f43DataStepFinishing": "Finishing…",
+  "@f43DataStepFinishing": {
+    "description": "Created, while generating: what the kind does after the AI."
+  }
 }

@@ -178,6 +178,33 @@ abstract final class SetUnionRules {
          SELECT 1 FROM main.processed_images m
           WHERE m.rendition_id = x.rendition_id)''';
 
+  /// «Lo creado» de Estudiar (F43, v48) que entra: lo que acá no hay, por id.
+  /// Una creación no cuelga de ningún elemento —sus fuentes son ids sueltos,
+  /// y una fuente que acá no existe se ve como «fuente borrada»—, así que no
+  /// hace falta que nada más esté.
+  static const studyCreationsFrom =
+      '''
+      FROM $_incoming.study_creations x
+     WHERE NOT EXISTS (
+             SELECT 1 FROM main.study_creations m WHERE m.id = x.id)''';
+
+  /// Cómo entran las columnas de una creación de la copia que no se copian
+  /// tal cual: lo que estaba en la cola o generándose allá entra fallido por
+  /// interrumpido, sin avance y sin intentos —acá nadie lo pidió, y
+  /// «Reintentar» lo genera si la persona quiere—.
+  static const studyCreationIncomingColumns = {
+    'status':
+        "CASE WHEN x.status IN ('queued', 'generating') THEN 'failed' "
+        'ELSE x.status END',
+    'failure':
+        "CASE WHEN x.status IN ('queued', 'generating') THEN 'interrupted' "
+        'ELSE x.failure END',
+    'progress': 'NULL',
+    'progress_step': 'NULL',
+    'attempts': '0',
+    'run_now': '0',
+  };
+
   /// Las partes de documentos procesados (F41) que entran —con `lr` como la
   /// forma de texto de acá donde cae su ancla, si cae—.
   ///

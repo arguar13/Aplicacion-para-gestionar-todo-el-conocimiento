@@ -4,6 +4,7 @@ import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_work.dart';
 import 'package:sinapsis/features/vault/data/merge/set_union_rules.dart';
+import 'package:sinapsis/features/vault/data/merge/study_creations_merge.dart';
 
 /// Cuánto entró de lo que se une por conjuntos.
 class SetUnionResult {
@@ -24,6 +25,7 @@ class SetUnionResult {
     this.processedParts = 0,
     this.processedOriginals = 0,
     this.processedImages = 0,
+    this.studyCreations = 0,
   });
 
   final int relations;
@@ -56,6 +58,9 @@ class SetUnionResult {
   final int processedParts;
   final int processedOriginals;
   final int processedImages;
+
+  /// «Lo creado» de Estudiar (F43).
+  final int studyCreations;
 }
 
 /// Las columnas de cada tabla que se une, en el orden en que se copian. Un test
@@ -179,6 +184,7 @@ const kProcessedImageColumns = [
   'source_file_size',
   'copied_at',
 ];
+
 const kFlashcardColumns = [
   'id',
   'item_id',
@@ -633,6 +639,21 @@ class SetUnionMerge {
       },
     );
 
+    // «Lo creado» (F43): entra lo que acá no hay, por id. Lo que en la copia
+    // esperaba en la cola o se estaba generando entra fallido por
+    // interrumpido —con «Reintentar»—: generarlo solo acá gastaría la cuota de
+    // la persona sin que lo haya pedido en este dispositivo.
+    final studyCreations = await _union(
+      _db.studyCreations,
+      'study_creations',
+      kStudyCreationColumns,
+      SetUnionRules.studyCreationsFrom,
+      select: SetUnionRules.studyCreationIncomingColumns,
+    );
+    // Una que las dos tienen: la versión tocada más tarde (ver
+    // [StudyCreationsMerge]).
+    await StudyCreationsMerge(_db).adoptNewer();
+
     return SetUnionResult(
       relations: relations,
       highlights: highlights,
@@ -650,6 +671,7 @@ class SetUnionMerge {
       processedParts: processedParts,
       processedOriginals: processedOriginals,
       processedImages: processedImages,
+      studyCreations: studyCreations,
     );
   }
 

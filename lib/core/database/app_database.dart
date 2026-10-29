@@ -44,6 +44,7 @@ import 'package:sinapsis/core/database/tables/review_log.dart';
 import 'package:sinapsis/core/database/tables/saved_views.dart';
 import 'package:sinapsis/core/database/tables/source_references.dart';
 import 'package:sinapsis/core/database/tables/spaces.dart';
+import 'package:sinapsis/core/database/tables/study_creations.dart';
 import 'package:sinapsis/core/database/tables/study_marks.dart';
 import 'package:sinapsis/core/database/tables/suggestions.dart';
 import 'package:sinapsis/core/database/tables/trashed_contents.dart';
@@ -145,6 +146,7 @@ part 'app_database.g.dart';
     ProcessedParts,
     ProcessedOriginals,
     ProcessedImages,
+    StudyCreations,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -189,7 +191,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 47;
+  static const currentSchemaVersion = 48;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -1334,6 +1336,37 @@ class AppDatabase extends _$AppDatabase {
             );
           }
           await _requireSameCounts(before, step: 'v47', tables: tables);
+        }
+
+        // «Lo creado» de Estudiar (F43): `study_creations`, lo que se genera en
+        // Repasar sobre lo procesado —con su tipo, su recorte, sus fuentes, sus
+        // opciones, su contenido y su estado—. Una tabla nueva y sus índices:
+        // solo se agrega, y los conteos de todo lo demás son compuerta.
+        if (from < 48) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+            ...VaultCounts.studyTables,
+            ...VaultCounts.itemSpaceTables,
+            ...VaultCounts.datedEventTables,
+            ...VaultCounts.processedTables,
+            ...VaultCounts.processedImageTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.createTable(studyCreations);
+          await migrator.createIndex(idxStudyCreationsScope);
+          await migrator.createIndex(idxStudyCreationsCreated);
+          await migrator.createIndex(idxStudyCreationsStatus);
+          await _requireSameCounts(before, step: 'v48', tables: tables);
         }
       });
     },

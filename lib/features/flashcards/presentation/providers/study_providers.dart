@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/study_repository_impl.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_counts.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
@@ -12,11 +13,13 @@ import 'package:sinapsis/features/flashcards/presentation/providers/study_limits
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 
-/// Qué elementos componen un recorte de estudio.
+/// Qué elementos componen un recorte de estudio. Uno de Procesado (F43) lo
+/// resuelve el mismo que arma «Lo creado».
 final studyScopeResolverProvider = Provider<StudyScopeResolver>((ref) {
   return StudyScopeResolver(
     library: ref.watch(libraryRepositoryProvider),
     notebooks: ref.watch(notebookRepositoryProvider),
+    processed: ref.watch(creationScopeResolverProvider),
   );
 });
 

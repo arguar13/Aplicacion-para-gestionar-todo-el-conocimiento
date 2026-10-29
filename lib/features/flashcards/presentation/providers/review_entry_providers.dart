@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
@@ -11,8 +13,9 @@ final reviewEntryScopeProvider = StateProvider<StudyScope>(
   (ref) => const StudyScope.all(),
 );
 
-/// El nombre de lo que apunta un recorte: el tema, la etiqueta, el cuaderno o
-/// el elemento. `null` mientras se lee, o si ya no existe (se borró).
+/// El nombre de lo que apunta un recorte: el tema, la etiqueta, el cuaderno, el
+/// elemento o el recorte de Procesado. `null` mientras se lee, o si ya no
+/// existe (se borró).
 final studyScopeNameProvider = Provider.autoDispose
     .family<AsyncValue<String?>, StudyScope>((ref, scope) {
       final id = scope.id;
@@ -41,5 +44,13 @@ final studyScopeNameProvider = Provider.autoDispose
           return ref
               .watch(libraryItemProvider(id!))
               .whenData((item) => item?.title);
+        case StudyScopeKind.processed:
+          // El del selector de Procesado (F43): el documento, el cuaderno o el
+          // tema. Uno que no se entiende no tiene nombre.
+          final processed = CreationScope.parse(id!);
+          if (processed == null) return const AsyncValue.data(null);
+          return ref
+              .watch(creationScopeSummaryProvider(processed))
+              .whenData((summary) => summary.name);
       }
     });

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -28,6 +31,7 @@ String studyScopeKindLabel(AppLocalizations l10n, StudyScopeKind kind) =>
       StudyScopeKind.value => l10n.reviewEntryScopeValue,
       StudyScopeKind.notebook => l10n.reviewEntryScopeNotebook,
       StudyScopeKind.item => l10n.reviewEntryScopeItem,
+      StudyScopeKind.processed => l10n.f43DataScopeProcessed,
     };
 
 /// Un ícono para cada tipo de recorte.
@@ -37,6 +41,8 @@ IconData studyScopeKindIcon(StudyScopeKind kind) => switch (kind) {
   StudyScopeKind.value => Icons.label_outline,
   StudyScopeKind.notebook => Icons.menu_book_outlined,
   StudyScopeKind.item => Icons.description_outlined,
+  // El de Procesado en la navegación.
+  StudyScopeKind.processed => Icons.summarize_outlined,
 };
 
 /// La hoja de elegir qué estudiar. Elegir «Todo» cierra de una; los demás
@@ -99,7 +105,9 @@ class _StudyScopePickerState extends ConsumerState<StudyScopePicker> {
                 ],
               ),
               const SizedBox(height: 12),
-              if (_kind == StudyScopeKind.value || _kind == StudyScopeKind.item)
+              if (_kind == StudyScopeKind.value ||
+                  _kind == StudyScopeKind.item ||
+                  _kind == StudyScopeKind.processed)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: TextField(
@@ -164,6 +172,23 @@ class _StudyScopePickerState extends ConsumerState<StudyScopePicker> {
                   (id: i.id, name: i.title, detail: null as String?),
               ],
             ),
+      // Los documentos procesados (F43): de lo que se estudia en «Estudiar».
+      StudyScopeKind.processed =>
+        ref
+            .watch(
+              processedDocumentsProvider(
+                ProcessedQuery(
+                  searchText: _search.isEmpty ? null : _search,
+                  limit: 200,
+                ),
+              ),
+            )
+            .whenData(
+              (all) => [
+                for (final d in all)
+                  (id: d.id, name: d.title, detail: null as String?),
+              ],
+            ),
       StudyScopeKind.all =>
         const AsyncValue<List<({String id, String name, String? detail})>>.data(
           [],
@@ -173,13 +198,15 @@ class _StudyScopePickerState extends ConsumerState<StudyScopePicker> {
     final list = entries.valueOrNull;
     if (list == null) return const LinearProgressIndicator();
     final needle = _search.toLowerCase();
-    final shown = _kind == StudyScopeKind.item
+    final searchedByQuery =
+        _kind == StudyScopeKind.item || _kind == StudyScopeKind.processed;
+    final shown = searchedByQuery
         ? list
         : [
             for (final e in list)
               if (needle.isEmpty || e.name.toLowerCase().contains(needle)) e,
           ];
-    if (_kind != StudyScopeKind.item) {
+    if (!searchedByQuery) {
       shown.sort(
         (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
       );
@@ -218,5 +245,6 @@ class _StudyScopePickerState extends ConsumerState<StudyScopePicker> {
     StudyScopeKind.value => StudyScope.value(id),
     StudyScopeKind.notebook => StudyScope.notebook(id),
     StudyScopeKind.item => StudyScope.item(id),
+    StudyScopeKind.processed => CreationScope.document(id).studyScope,
   };
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
@@ -120,5 +122,12 @@ String? myCardsScopeName(WidgetRef ref, StudyScope scope) {
       return notebooks.where((n) => n.id == scope.id).firstOrNull?.name;
     case StudyScopeKind.item:
       return ref.watch(libraryItemProvider(scope.id!)).valueOrNull?.title;
+    case StudyScopeKind.processed:
+      final processed = CreationScope.parse(scope.id!);
+      if (processed == null) return null;
+      return ref
+          .watch(creationScopeSummaryProvider(processed))
+          .valueOrNull
+          ?.name;
   }
 }

@@ -2849,9 +2849,12 @@ aclara ("2 nuevas más esperan: hoy no entran por el límite"). Desde acá:
 
 - **¿Qué estudiar?** Tocás el recuadro (o **"Cambiar"**) y elegís **todo**, **un
   tema**, **una etiqueta** (con sus ramas: estudiar "Roma" incluye "Roma
-  republicana"), **un cuaderno** o **un elemento**. La etiqueta y el elemento
-  tienen buscador. Lo elegido queda mientras la app esté abierta, y los números
-  de arriba cambian al instante.
+  republicana"), **un cuaderno**, **un elemento** o **un procesado**. La
+  etiqueta, el elemento y el procesado tienen buscador. **Un procesado** estudia
+  las tarjetas del documento procesado **y** las de su fuente —las que el
+  documento muestra en «De la fuente»—, así no queda ninguna afuera. Lo elegido
+  queda mientras la app esté abierta, y los números de arriba cambian al
+  instante.
 - **Empezar** abre la sesión.
 - **Mis tarjetas** y **Estadísticas** llevan a esas pantallas.
 - Arriba: la racha, el historial, **✨** para crear tarjetas con IA y el
@@ -3523,6 +3526,13 @@ Todo lo que borrás (elementos, no las tarjetas de repaso) queda acá, no se
 destruye. Cada fila tiene dos botones: **"Restaurar"** (lo devuelve tal cual
 estaba) o **"Borrar para siempre"** (esto sí es definitivo y pide
 confirmación). También hay un botón para vaciarla entera.
+
+Lo que borrás de **«Lo creado»** en Estudiar —una presentación, un mapa
+mental, un informe— también viene acá, en su propia sección, **"Creaciones de
+Estudiar"**, con su tipo y cuándo la borraste, y los mismos dos botones.
+Vaciar la papelera se las lleva junto con los elementos. Borrar un documento
+procesado no se lleva lo que creaste con él: queda en «Lo creado», con
+«fuente borrada».
 
 ### Posibles duplicados
 

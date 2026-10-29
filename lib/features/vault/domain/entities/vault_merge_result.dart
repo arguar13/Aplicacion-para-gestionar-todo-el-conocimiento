@@ -89,6 +89,9 @@ sealed class VaultMergeResult with _$VaultMergeResult {
     /// La copia del original de un procesado (F41, v46).
     @Default(0) int processedOriginalsAdded,
 
+    /// «Lo creado» de Estudiar (F43, v48).
+    @Default(0) int studyCreationsAdded,
+
     /// Las pasadas de la IA y lo que la persona dijo que «no era» (F27).
     @Default(0) int aiRunsAdded,
     @Default(0) int aiRejectionsAdded,
@@ -127,6 +130,7 @@ sealed class VaultMergeResult with _$VaultMergeResult {
       processedPartsAdded == 0 &&
       processedOriginalsAdded == 0 &&
       processedImagesAdded == 0 &&
+      studyCreationsAdded == 0 &&
       aiRunsAdded == 0 &&
       aiRejectionsAdded == 0;
 }
