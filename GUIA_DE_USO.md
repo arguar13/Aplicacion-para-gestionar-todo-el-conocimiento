@@ -3283,6 +3283,62 @@ nada ocupando lugar. **"Ver petición y fuentes"** dice el estilo visual
 elegido (y la composición, si la cambiaste en el visor), además de la
 orientación y el detalle.
 
+#### Informes
+
+**Cómo llegar:** pantalla "Repasar" → tarjeta **Informes**.
+
+**En la hoja** elegís:
+
+- **El formato**: **Interactivo** (al final de cada sección, dos o tres
+  preguntas para probarte ahí mismo) o **Documento** (para leer de corrido,
+  imprimir o compartir).
+- **La plantilla**, en tarjetas con su ícono y lo que trae:
+  - **Resumen de aprendizaje**: introducción, las ideas centrales con sus
+    puntos, los conceptos clave y la conclusión.
+  - **Guía de estudio**: objetivos, conceptos clave con su definición, el
+    desarrollo por temas, preguntas para repasar con su respuesta, lo que no
+    hay que confundir y un resumen final.
+  - **Documento informativo**: resumen ejecutivo, contexto, puntos
+    principales, datos y citas destacados, implicancias y conclusiones.
+  - **Glosario**: los términos del material con su definición, **de la A a la
+    Z** y agrupados por letra. El orden lo pone la app, así que sale bien
+    aunque el material se haya leído por partes.
+  - **Crear la tuya ✎**: abre un campo para contar cómo lo querés —sus partes,
+    el tono, para quién—. Queda recordada: la próxima vez la hoja abre con
+    ella, y debajo aparecen **"Las que ya usaste"** para volver a usar una con
+    un toque. Sin descripción se arma un informe general.
+
+**El visor:**
+
+- Arriba, la plantilla y el formato, el título, una línea que dice de qué
+  trata y cuántas secciones y preguntas tiene.
+- **Cada sección en su tarjeta, con su número**: tocar el título la pliega con
+  **«⌃»** y la vuelve a abrir.
+- **"Índice"** (arriba del todo o el botón ☰ de la barra): tocar una sección
+  salta hasta ella —y la despliega si estaba plegada—; también tiene
+  **"Plegar todo"** y **"Desplegar todo"**.
+- El texto con sus viñetas, listas, subtítulos, citas y negritas, y **las
+  palabras clave en rosa**: las de las marcas de estudiar de tus documentos
+  —las mismas del original—, las más marcadas primero. Si todavía no tienen,
+  las que destacó la IA. El botón **"Palabras clave"** las apaga y prende; si
+  las ocultaste en todos los documentos de las fuentes, arranca apagado.
+- **En el interactivo**, al final de cada sección, **"Para probarte"**: las
+  opciones A, B, C… (siempre en el mismo orden, también en el PDF). Al tocar
+  una, la correcta se pone en verde con **"¡Exacto!"**, o la tuya en rojo con
+  **"No es esa"**, el porqué de la que elegiste y cuál era la correcta; debajo,
+  la explicación. Cuenta la primera respuesta. Respondida la sección, su
+  puntaje («2 de 3 bien») y el «2/3» junto al título; al final, **"Tu
+  puntaje"** del informe y **"Volver a intentar"**.
+
+**Descargar** y **Compartir** (el botón de la barra, ⋮, o mantener apretada
+la fila en «Lo creado»): elegís **PDF** —A4, para leer o imprimir, con las palabras clave en
+rosa; en el interactivo, las preguntas en cada sección y las respuestas en una
+página aparte al final— o **Markdown** —para Obsidian u otro editor, con las
+palabras clave en negrita—.
+
+Cambiar el formato o la plantilla de uno ya hecho es **"Volver a generar con
+otras opciones"**.
+
 ### Crear tarjetas con IA, para muchos elementos a la vez
 
 **Cómo llegar:** pantalla "Repasar" → botón **✨** arriba ("Crear tarjetas
