@@ -8,6 +8,7 @@ import 'package:sinapsis/core/design/highlight_card.dart';
 import 'package:sinapsis/core/design/highlight_palette.dart';
 import 'package:sinapsis/core/design/highlight_toolbar.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
@@ -216,7 +217,7 @@ void _announceProcessedNote(
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(
-      SnackBar(
+      AppSnackBar(
         content: Row(
           children: [
             Expanded(child: Text(l10n.processedNoteSaved)),
@@ -269,7 +270,7 @@ void _offerRestore(BuildContext context, WidgetRef ref, String sourceItemId) {
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(
-      SnackBar(
+      AppSnackBar(
         content: Text(l10n.processedNoteSourceInTrash),
         action: SnackBarAction(
           label: l10n.trashRestore,
@@ -337,7 +338,7 @@ Future<void> _extractAsLooseNote(
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(
-      SnackBar(
+      AppSnackBar(
         content: Text(l10n.detailExtractedNoteCreated(newItem.title)),
         action: SnackBarAction(
           label: l10n.detailExtractedNoteView,
@@ -456,7 +457,7 @@ Future<void> addRangeToTimeline(
     messenger
       ?..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
+        AppSnackBar(
           content: Text(l10n.timelineFactSourceNotProcessed),
           action: router == null
               ? null
@@ -482,7 +483,7 @@ Future<void> addRangeToTimeline(
   messenger
     ?..hideCurrentSnackBar()
     ..showSnackBar(
-      SnackBar(
+      AppSnackBar(
         content: Text(l10n.timelineFactAdded),
         action: SnackBarAction(
           label: l10n.timelineFactAddedSee,

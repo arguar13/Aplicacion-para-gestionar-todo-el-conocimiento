@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -55,7 +56,7 @@ Future<int?> applyPropertySuggestionBatch({
   }
 
   messenger.showSnackBar(
-    SnackBar(
+    AppSnackBar(
       content: Text(l10n.suggestionReviewAccepted(count)),
       // Más que un aviso común: deshacer un lote es una decisión, no un
       // reflejo.

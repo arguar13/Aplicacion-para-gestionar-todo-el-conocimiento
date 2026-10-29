@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart' show Either, Unit;
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -236,7 +237,7 @@ void _reportWithUndo(
       SnackBar(content: Text(failure.localizedMessage(l10n))),
     ),
     (before) => messenger.showSnackBar(
-      SnackBar(
+      AppSnackBar(
         content: Text(done),
         action: SnackBarAction(
           label: l10n.trashUndo,

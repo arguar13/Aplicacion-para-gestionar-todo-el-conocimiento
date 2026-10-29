@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
@@ -54,7 +55,7 @@ Future<void> _dropOriginalCopy(
       // El texto con que se estudia cambia de la copia a las páginas.
       container.invalidate(processedStudyTextProvider);
       messenger.showSnackBar(
-        SnackBar(
+        AppSnackBar(
           content: Text(
             dropped.keptText
                 ? l10n.processedOriginalCopyDroppedKeptText

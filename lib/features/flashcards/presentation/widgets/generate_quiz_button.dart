@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -90,7 +91,7 @@ class _GenerateQuizButtonState extends ConsumerState<GenerateQuizButton> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
+        AppSnackBar(
           content: Text(l10n.quizSaved(saved.length)),
           action: SnackBarAction(
             label: l10n.quizSessionPracticeNow,

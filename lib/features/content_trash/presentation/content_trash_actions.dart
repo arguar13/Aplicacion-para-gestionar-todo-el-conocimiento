@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/trashed_content_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -63,7 +64,7 @@ Future<void> _trash(
   }
   final trashed = outcome.getRight().getOrElse(() => const []);
   messenger.showSnackBar(
-    SnackBar(
+    AppSnackBar(
       content: Text(message),
       action: SnackBarAction(
         label: l10n.contentTrashUndo,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -36,7 +37,7 @@ Future<bool> moveToTrashWithUndo(
   }
 
   messenger.showSnackBar(
-    SnackBar(
+    AppSnackBar(
       content: Text(l10n.trashMoved(ids.length)),
       action: SnackBarAction(
         label: l10n.trashUndo,

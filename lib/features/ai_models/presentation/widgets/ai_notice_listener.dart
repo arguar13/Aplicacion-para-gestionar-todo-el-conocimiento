@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_notice.dart';
 import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
@@ -17,6 +18,10 @@ const kAiNoticeRepeatWindow = Duration(seconds: 20);
 /// agotó, a cuál se pasó y cuándo vuelve; que no queda ninguna; que hay que
 /// esperar el tope por minuto; que una clave no anda; por qué falló un
 /// pedido. Va en el `builder` de `MaterialApp`, como `GlobalErrorListener`.
+///
+/// Cada aviso lleva su ✕ y se cierra en el acto (F43, M1). El de la espera
+/// del tope por minuto cuenta hacia atrás en vivo y se va solo cuando la IA
+/// sigue.
 class AiNoticeListener extends ConsumerStatefulWidget {
   const AiNoticeListener({
     required this.child,
@@ -41,6 +46,16 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
   String? _lastKey;
   DateTime? _lastAt;
 
+  /// Los segundos que faltan para que la IA siga sola, en el aviso del tope
+  /// por minuto: bajan de a uno, en vivo.
+  final _rateSeconds = ValueNotifier<int>(0);
+  Timer? _rateTicker;
+
+  /// El aviso de la espera mientras está abierto; `null` si no hay ninguno.
+  /// Siempre es el de ahora: cada aviso de la IA cierra el anterior antes de
+  /// abrirse, y lo que muestre otra pantalla después espera detrás de él.
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _rateNotice;
+
   @override
   void initState() {
     super.initState();
@@ -50,6 +65,8 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
   @override
   void dispose() {
     unawaited(_notices?.cancel());
+    _rateTicker?.cancel();
+    _rateSeconds.dispose();
     super.dispose();
   }
 
@@ -70,6 +87,12 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
     // Los reintentos no son un aviso de arriba de todo: los muestra, en el
     // lugar, quien está esperando la respuesta («Reintentando (2 de 4)…»).
     if (notice is AiRetryNotice || notice is AiRetryEndedNotice) return;
+    // Otra espera con el aviso de la espera abierto: no se abre otro, se
+    // corrige la cuenta del que está.
+    if (notice is RateLimitWaitNotice && _rateNotice != null) {
+      _countDown(notice);
+      return;
+    }
     final key = _keyOf(notice);
     final now = widget.now();
     final last = _lastAt;
@@ -89,7 +112,7 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
       IconData icon,
       Color tone,
       String title,
-      String body,
+      Widget body,
       Duration duration,
       bool accounts,
     ) = switch (notice) {
@@ -97,16 +120,18 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
         Icons.swap_horiz,
         scheme.primary,
         l10n.noticeSwitchedTitle(to.label),
-        notice.fromResetsAt == null
-            ? l10n.noticeSwitchedBodyNoTime(
-                from.label,
-                aiFailureReason(l10n, reason),
-              )
-            : l10n.noticeSwitchedBody(
-                from.label,
-                aiFailureReason(l10n, reason),
-                at(notice.fromResetsAt!),
-              ),
+        _NoticeBody(
+          notice.fromResetsAt == null
+              ? l10n.noticeSwitchedBodyNoTime(
+                  from.label,
+                  aiFailureReason(l10n, reason),
+                )
+              : l10n.noticeSwitchedBody(
+                  from.label,
+                  aiFailureReason(l10n, reason),
+                  at(notice.fromResetsAt!),
+                ),
+        ),
         const Duration(seconds: 7),
         true,
       ),
@@ -114,25 +139,33 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
         Icons.hourglass_bottom,
         scheme.tertiary,
         l10n.noticeAllExhaustedTitle,
-        resetsAt == null
-            ? l10n.noticeAllExhaustedBodyNoTime
-            : l10n.noticeAllExhaustedBody(at(resetsAt)),
+        _NoticeBody(
+          resetsAt == null
+              ? l10n.noticeAllExhaustedBodyNoTime
+              : l10n.noticeAllExhaustedBody(at(resetsAt)),
+        ),
         const Duration(seconds: 10),
         true,
       ),
-      RateLimitWaitNotice(:final wait) => (
+      // Se va cuando la IA sigue: lo cierra la cuenta atrás (`_countDown`),
+      // no un tiempo fijo.
+      RateLimitWaitNotice() => (
         Icons.timer_outlined,
         scheme.secondary,
         l10n.noticeRateWaitTitle,
-        l10n.noticeRateWaitBody(wait.inSeconds.clamp(1, 999)),
-        wait < const Duration(seconds: 4) ? const Duration(seconds: 4) : wait,
+        ValueListenableBuilder<int>(
+          valueListenable: _rateSeconds,
+          builder: (context, seconds, _) =>
+              _NoticeBody(l10n.noticeRateWaitBody(seconds.clamp(1, 999))),
+        ),
+        kSnackBarDefaultDuration,
         false,
       ),
       AccountKeyRejectedNotice(:final account, :final reason) => (
         Icons.key_off_outlined,
         scheme.error,
         l10n.noticeKeyRejectedTitle(account.label),
-        capitalized(aiFailureReason(l10n, reason)),
+        _NoticeBody(capitalized(aiFailureReason(l10n, reason))),
         const Duration(seconds: 8),
         true,
       ),
@@ -140,9 +173,11 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
         Icons.nights_stay_outlined,
         scheme.secondary,
         l10n.noticeBackgroundCapTitle,
-        l10n.noticeBackgroundCapBody(
-          cap,
-          resetsAt == null ? '—' : at(resetsAt),
+        _NoticeBody(
+          l10n.noticeBackgroundCapBody(
+            cap,
+            resetsAt == null ? '—' : at(resetsAt),
+          ),
         ),
         const Duration(seconds: 7),
         false,
@@ -151,7 +186,7 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
         Icons.cloud_off_outlined,
         scheme.error,
         l10n.noticeRequestFailedTitle,
-        aiFailureHelp(l10n, failure),
+        _NoticeBody(aiFailureHelp(l10n, failure)),
         const Duration(seconds: 9),
         false,
       ),
@@ -161,30 +196,82 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
       ),
     };
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          key: Key('ai-notice-$key'),
-          behavior: SnackBarBehavior.floating,
-          duration: duration,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+    final rate = notice is RateLimitWaitNotice;
+    final controller = (ScaffoldMessenger.of(context)..hideCurrentSnackBar())
+        .showSnackBar(
+          AppSnackBar(
+            key: Key('ai-notice-$key'),
+            behavior: SnackBarBehavior.floating,
+            duration: duration,
+            // El de la espera se queda hasta que la IA sigue; el resto, lo
+            // que dice cada uno, también el que tiene el botón de las
+            // cuentas: con botón, un aviso se quedaría para siempre.
+            persist: rate,
+            // Todos con su ✕ (F43, M1), también los cortos: un aviso de la
+            // IA puede tapar lo que la persona está mirando, y no tiene por
+            // qué esperar a que se vaya.
+            showCloseIcon: true,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            content: _NoticeContent(
+              icon: icon,
+              tone: tone,
+              title: title,
+              body: body,
+            ),
+            action: accounts
+                ? SnackBarAction(
+                    label: l10n.noticeActionAccounts,
+                    onPressed: widget.onOpenAccounts,
+                  )
+                : null,
           ),
-          content: _NoticeContent(
-            icon: icon,
-            tone: tone,
-            title: title,
-            body: body,
-          ),
-          action: accounts
-              ? SnackBarAction(
-                  label: l10n.noticeActionAccounts,
-                  onPressed: widget.onOpenAccounts,
-                )
-              : null,
-        ),
+        );
+    if (notice is RateLimitWaitNotice) {
+      _rateNotice = controller;
+      _countDown(notice);
+      unawaited(
+        controller.closed.then((reason) {
+          if (_rateNotice != controller) return;
+          _rateNotice = null;
+          _rateTicker?.cancel();
+          // Se fue porque la IA siguió: si vuelve a tener que esperar, es
+          // algo nuevo y se avisa. Cerrado con su ✕, en cambio, se calla
+          // como cualquier aviso repetido.
+          if (reason == SnackBarClosedReason.timeout && _lastKey == key) {
+            _lastKey = null;
+          }
+        }),
       );
+    }
+  }
+
+  /// Pone la cuenta atrás del aviso de la espera en lo que falta para que la
+  /// IA siga sola, y la hace bajar de a un segundo. En cero la IA ya siguió:
+  /// el aviso se va.
+  void _countDown(RateLimitWaitNotice notice) {
+    final left = notice.at.add(notice.wait).difference(widget.now());
+    // Hacia arriba: «sigue en 1 segundo» mientras falte algo.
+    _rateSeconds.value = (left.inMilliseconds / 1000).ceil().clamp(1, 999);
+    _rateTicker?.cancel();
+    _rateTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_rateSeconds.value > 1) {
+        _rateSeconds.value--;
+        return;
+      }
+      timer.cancel();
+      _rateSeconds.value = 0;
+      _closeRateNotice();
+    });
+  }
+
+  /// Cierra el aviso de la espera, si sigue abierto.
+  void _closeRateNotice() {
+    if (_rateNotice == null || !mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).hideCurrentSnackBar(reason: SnackBarClosedReason.timeout);
   }
 
   @override
@@ -202,7 +289,7 @@ class _NoticeContent extends StatelessWidget {
   final IconData icon;
   final Color tone;
   final String title;
-  final String body;
+  final Widget body;
 
   @override
   Widget build(BuildContext context) {
@@ -233,16 +320,29 @@ class _NoticeContent extends StatelessWidget {
                 style: theme.textTheme.titleSmall?.copyWith(color: onBar),
               ),
               const SizedBox(height: 2),
-              Text(
-                body,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: onBar.withValues(alpha: 0.85),
-                ),
-              ),
+              body,
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+/// El texto de un aviso, debajo de su título.
+class _NoticeBody extends StatelessWidget {
+  const _NoticeBody(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text(
+      text,
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onInverseSurface.withValues(alpha: 0.85),
+      ),
     );
   }
 }

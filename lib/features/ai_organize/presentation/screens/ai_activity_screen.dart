@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -139,7 +140,7 @@ class _AiActivityScreenState extends ConsumerState<AiActivityScreen> {
     messenger.hideCurrentSnackBar();
     final reason = await messenger
         .showSnackBar(
-          SnackBar(
+          AppSnackBar(
             content: Text(
               accept
                   ? l10n.aiReviewAcceptedAll(ids.length)

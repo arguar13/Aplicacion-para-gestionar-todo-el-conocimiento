@@ -7,6 +7,7 @@ import 'package:fpdart/fpdart.dart' show Either;
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -187,7 +188,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
+        AppSnackBar(
           content: Row(
             children: [
               Expanded(child: Text(message)),

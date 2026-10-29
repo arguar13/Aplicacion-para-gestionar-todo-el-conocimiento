@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart' show Either;
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_operation.dart';
@@ -75,7 +76,7 @@ class VocabularyFeedback {
         SnackBar(content: Text(failure.localizedMessage(_l10n))),
       ),
       (operation) => _messenger.showSnackBar(
-        SnackBar(
+        AppSnackBar(
           content: Text(vocabularyOperationMessage(_l10n, operation)),
           action: SnackBarAction(
             label: _l10n.vocabularyUndoAction,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/relation_update_outcome.dart';
@@ -146,7 +147,7 @@ class _RelationEditSheetState extends ConsumerState<RelationEditSheet> {
   }) {
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message), action: action));
+      ..showSnackBar(AppSnackBar(content: Text(message), action: action));
   }
 
   @override

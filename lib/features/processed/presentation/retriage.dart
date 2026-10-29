@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/inbox/domain/usecases/triage_into_processed.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
@@ -138,7 +139,7 @@ void _announce(
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(
-      SnackBar(
+      AppSnackBar(
         key: const Key('retriage-snack'),
         // Como el aviso de la Bandeja: «Ver» al lado del texto, porque el
         // aviso admite una sola acción y esa es «Deshacer».

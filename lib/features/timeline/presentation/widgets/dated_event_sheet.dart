@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_badge.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -203,7 +204,7 @@ class DatedEventSheet extends ConsumerWidget {
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
+        AppSnackBar(
           content: Text(l10n.timelineFactRemoved(event.title)),
           action: SnackBarAction(
             label: l10n.timelineFactUndo,

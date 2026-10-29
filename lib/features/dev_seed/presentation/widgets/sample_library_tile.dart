@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/dev_seed/domain/entities/sample_library_progress.dart';
 import 'package:sinapsis/features/dev_seed/domain/entities/sample_resource.dart';
@@ -31,7 +32,7 @@ class SampleLibraryTile extends ConsumerWidget {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(
+          AppSnackBar(
             content: Text(
               l10n.sampleLibraryDoneSnack(
                 report.loaded,

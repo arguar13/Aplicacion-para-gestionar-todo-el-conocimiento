@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/thumbnail_decode.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_image.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_images_providers.dart';
@@ -206,7 +207,7 @@ Future<bool> removeProcessedImage(
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(
+          AppSnackBar(
             content: Text(l10n.processedImageRemoved),
             action: SnackBarAction(
               label: l10n.trashUndo,

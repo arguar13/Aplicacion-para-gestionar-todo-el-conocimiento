@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -59,7 +60,7 @@ class _TensionScreenState extends ConsumerState<TensionScreen> {
     if (!reviewed) return;
 
     messenger.showSnackBar(
-      SnackBar(
+      AppSnackBar(
         content: Text(l10n.tensionMarkedReviewed),
         action: SnackBarAction(
           label: l10n.tensionUndoAction,

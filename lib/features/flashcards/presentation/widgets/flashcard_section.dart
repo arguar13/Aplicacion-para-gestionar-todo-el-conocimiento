@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -187,7 +188,7 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(
+          AppSnackBar(
             content: Text(l10n.flashcardRejected),
             action: SnackBarAction(
               label: l10n.aiRejectionUndo,
@@ -395,7 +396,7 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(
+          AppSnackBar(
             content: Text(l10n.flashcardsModelMissing),
             action: SnackBarAction(
               label: l10n.flashcardsDownloadModel,
