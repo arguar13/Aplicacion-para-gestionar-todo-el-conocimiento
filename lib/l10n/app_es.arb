@@ -9066,22 +9066,10 @@
   "@studyExtractTitle": {"description": "Estudiar (F36): el título de la sección con lo que se puede extraer."},
   "studyExtractText": "Extraer texto",
   "@studyExtractText": {"description": "Estudiar (F36): la fila con el texto extraído del documento."},
-  "studyExtractSummary": "Extraer resumen",
-  "@studyExtractSummary": {"description": "Estudiar (F36): la fila con las oraciones del resumen como texto corrido."},
-  "studyExtractSynthesis": "Extraer síntesis",
-  "@studyExtractSynthesis": {"description": "Estudiar (F36): la fila con las oraciones de la síntesis como texto corrido."},
-  "studyExtractKeywords": "Extraer palabras clave",
-  "@studyExtractKeywords": {"description": "Estudiar (F36): la fila con las palabras clave como etiquetas."},
   "studySentenceCount": "{count, plural, =1{1 oración} other{{count} oraciones}}",
   "@studySentenceCount": {"description": "Estudiar (F36): cuántas oraciones tiene lo extraído.", "placeholders": {"count": {"type": "int"}}},
-  "studyWordCount": "{count, plural, =1{1 palabra} other{{count} palabras}}",
-  "@studyWordCount": {"description": "Estudiar (F36): cuántas palabras tiene lo extraído.", "placeholders": {"count": {"type": "int"}}},
   "studyKeywordCount": "{count, plural, =1{1 palabra clave} other{{count} palabras clave}}",
   "@studyKeywordCount": {"description": "Estudiar (F36): cuántas palabras clave hay.", "placeholders": {"count": {"type": "int"}}},
-  "studyExtractStart": "Todavía no hay: desplegá para armarlo con la IA o a mano",
-  "@studyExtractStart": {"description": "Estudiar (F36): una fila de extraer antes de analizar."},
-  "studyExtractEmpty": "Todavía no hay nada acá",
-  "@studyExtractEmpty": {"description": "Estudiar (F36): una fila de extraer analizada pero vacía."},
   "studySuggestTitleSummary": "Todavía no hay resumen",
   "@studySuggestTitleSummary": {"description": "Estudiar (F39): la sugerencia cuando todavía no hay resumen."},
   "studySuggestTitleSynthesis": "Todavía no hay síntesis",
@@ -9110,8 +9098,6 @@
   "@studyPickingKeywords": {"description": "Estudiar (F39): se están eligiendo las palabras clave a mano."},
   "studyPickingDone": "Listo",
   "@studyPickingDone": {"description": "Estudiar (F39): terminar de elegir a mano."},
-  "studyExtractRunning": "Se está analizando: aparece acá a medida que avanza.",
-  "@studyExtractRunning": {"description": "Estudiar (F39): una fila de «Extraer» vacía mientras la IA analiza."},
   "studyCopy": "Copiar",
   "@studyCopy": {"description": "Estudiar (F36): copia lo de una fila de extraer."},
   "studyCopied": "Copiado",
@@ -10240,14 +10226,6 @@
   "@processedTriageSectionTranscript": {
     "description": "Sección del texto, en un audio o un video."
   },
-  "processedTriageSectionSummary": "Resumen",
-  "@processedTriageSectionSummary": {
-    "description": "Sección del documento procesado."
-  },
-  "processedTriageSectionSynthesis": "Síntesis",
-  "@processedTriageSectionSynthesis": {
-    "description": "Sección del documento procesado."
-  },
   "processedTriageSectionNotes": "Notas",
   "@processedTriageSectionNotes": {
     "description": "Sección del documento procesado."
@@ -10417,10 +10395,6 @@
   "processedSectionKeywords": "Palabras clave",
   "@processedSectionKeywords": {
     "description": "Sección de un documento procesado: las oraciones con sus palabras clave marcadas (F41)."
-  },
-  "processedTriageSectionKeywords": "Palabras clave",
-  "@processedTriageSectionKeywords": {
-    "description": "Sección del documento procesado: las oraciones con sus palabras clave."
   },
   "processedNoteSaved": "Nota guardada en Procesado",
   "@processedNoteSaved": {

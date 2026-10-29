@@ -141,7 +141,7 @@ void main() {
         final watch = Stopwatch()..start();
         await pump(tester, book);
         final micros = watch.elapsedMicroseconds;
-        expect(find.byKey(const Key('study-extract-summary')), findsOneWidget);
+        expect(find.byKey(const Key('study-document-card')), findsOneWidget);
         await tester.pumpWidget(const SizedBox());
         return micros;
       }

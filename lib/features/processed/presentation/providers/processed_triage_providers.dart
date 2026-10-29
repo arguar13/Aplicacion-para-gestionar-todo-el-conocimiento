@@ -168,14 +168,12 @@ List<ProcessedAnchor> watchProcessedCuts(WidgetRef ref, String renditionId) {
   return ref.watch(processedTriageProvider(source)).cutsIn(renditionId);
 }
 
-/// Qué preguntar para la vista previa de una sección: la fuente, la sección,
-/// lo pedido y una marca de lo que cambió en la fuente desde la última vez —por
-/// ejemplo, cuántas oraciones lleva el resumen mientras la IA lo arma—.
+/// Qué preguntar para la vista previa de una sección: la fuente, la sección y
+/// lo pedido.
 typedef TriagePreviewKey = ({
   String sourceItemId,
   ProcessedSection section,
   SectionEdit edit,
-  int revision,
 });
 
 /// Cómo va a quedar una sección, sin guardar nada (F41): la vista previa en

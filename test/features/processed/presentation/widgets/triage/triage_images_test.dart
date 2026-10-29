@@ -451,10 +451,13 @@ void main() {
     );
 
     // El número del original es el que sigue a las secciones enteras: con
-    // texto, la fuente las ofrece todas.
+    // texto, la fuente ofrece la única que queda, el texto —el resumen, la
+    // síntesis y las palabras clave ya no se trían (F43, decisión J)—.
     final whole = [
       for (final section in ProcessedSection.values)
-        if (triageShapeOf(section) == TriageSectionShape.whole) section,
+        if (triageShapeOf(section) == TriageSectionShape.whole &&
+            section == ProcessedSection.text)
+          section,
     ];
     const numberKeys = [
       LogicalKeyboardKey.digit1,

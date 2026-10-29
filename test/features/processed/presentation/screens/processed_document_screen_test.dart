@@ -621,33 +621,48 @@ void main() {
       );
     });
 
-    testWidgets('la tarjeta de estudiar sobre su texto propio, con el '
-        'resumen, la síntesis y las palabras clave para leer: acá se estudia', (
-      tester,
-    ) async {
+    testWidgets('ya no lleva «Estudiar el documento» (F43, decisión J): ni '
+        'la tarjeta, ni sus botones, ni «Extraer» el resumen, la síntesis y '
+        'las palabras clave —se marca en el original y se extrae en '
+        'Repasar—', (tester) async {
       final id = await harness.processTextAndNotes('roma');
       await open(tester, id);
 
-      expect(find.byKey(const Key('study-document-card')), findsOneWidget);
       for (final key in [
+        'study-document-card',
+        'study-toggle-summary',
+        'study-toggle-synthesis',
+        'study-toggle-keywords',
         'study-extract-summary',
         'study-extract-synthesis',
         'study-extract-keywords',
       ]) {
-        expect(find.byKey(Key(key)), findsOneWidget, reason: key);
+        expect(find.byKey(Key(key)), findsNothing, reason: key);
       }
+      expect(find.text(es.studyCardTitle), findsNothing);
+      // Lo demás de estudiar sigue: sus secciones, su Mapa y sus tarjetas.
+      expect(section(ProcessedSection.text), findsOneWidget);
+      expect(find.byKey(const Key('processed-study-tools')), findsOneWidget);
     });
 
-    testWidgets('sin texto propio —solo notas— no hay qué estudiar', (
+    testWidgets('el resumen que ya trajo como sección se conserva y se ve', (
       tester,
     ) async {
+      await harness.addSummarySentence(
+        'roma',
+        'La república romana cayó. César cruzó el Rubicón.',
+        'César cruzó el Rubicón.',
+      );
       final id = await harness.process('roma', {
-        ProcessedSection.notes: SectionEdit.add(
-          const SectionInput.drafts([ProcessedDraft.written('Una idea')]),
+        ProcessedSection.text: SectionEdit.add(const SectionInput.fromSource()),
+        ProcessedSection.summary: SectionEdit.add(
+          const SectionInput.fromSource(),
         ),
       });
       await open(tester, id);
 
+      expect(section(ProcessedSection.summary), findsOneWidget);
+      expect(find.text(es.studySentenceCount(1)), findsOneWidget);
       expect(find.byKey(const Key('study-document-card')), findsNothing);
     });
 

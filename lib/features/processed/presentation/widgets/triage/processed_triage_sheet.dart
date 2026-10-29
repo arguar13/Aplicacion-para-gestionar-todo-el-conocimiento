@@ -20,12 +20,6 @@ import 'package:sinapsis/features/processed/presentation/providers/processed_tri
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_cut_screen.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/triage_image_grid.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/triage_section_texts.dart';
-import 'package:sinapsis/features/study/domain/entities/document_study.dart';
-import 'package:sinapsis/features/study/domain/study_target.dart';
-import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
-import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_document_card.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Lo que hace «Listo»: guardar [edits] y, si se pidió, lo de la copia del
@@ -106,12 +100,11 @@ Future<bool> showProcessedTriageSheet(
 /// La hoja «¿Qué va a Procesado?» (F41): triar es elegir qué información pura
 /// de la fuente va a su documento procesado. Ver [showProcessedTriageSheet].
 ///
-/// - **De la fuente**: el texto extraído, el resumen y la síntesis, cada uno
-///   con su interruptor, en cualquier combinación, y —si la fuente lo
-///   ofrece— la copia de su original, con lo que ocupa. Si todavía no hay
-///   resumen o síntesis, ofrece armarlo con la IA o a mano, como la tarjeta de
-///   estudiar —el mismo [StudySuggestion] y sus mismos caminos—, y mientras
-///   la IA lo arma, la misma franja con «Parar».
+/// - **De la fuente**: el texto extraído, con su interruptor, y —si la fuente
+///   lo ofrece— la copia de su original, con lo que ocupa. El resumen, la
+///   síntesis y las palabras clave ya no se eligen acá (F43, decisión J): se
+///   marcan en el original del documento procesado, con la IA o a mano, y se
+///   extraen en Repasar.
 /// - **Las imágenes** (decisión L), si la fuente trae: una grilla con
 ///   «Todas», «Ninguna» y la elección de cada una tocándola, con lo que va a
 ///   ocupar su copia.
@@ -288,13 +281,6 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
     final triage = ref.watch(processedTriageProvider(id));
     final material = ref.watch(processedSourceMaterialProvider(id));
     final item = ref.watch(libraryItemProvider(id)).valueOrNull;
-    final text = item == null ? null : studyTextOf(item);
-    final study = text == null
-        ? null
-        : ref.watch(documentStudyProvider(text.renditionId)).valueOrNull;
-    // Qué se ve y qué se elige a mano de lo estudiado vive mientras alguien lo
-    // mira: «Elegir a mano» lo prende acá y se usa en «Cortar del original».
-    if (text != null) ref.watch(studyViewProvider(text.renditionId));
 
     final loaded = material.valueOrNull?.toNullable();
     final failure = material.valueOrNull?.getLeft().toNullable();
@@ -329,19 +315,14 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
     final sheet = _SheetContext(
       triage: triage,
       material: loaded,
-      text: text,
-      study: study,
       transcript: item != null && isTranscriptSource(item.source),
       changes: widget.changes,
     );
 
     final bindings = <ShortcutActivator, VoidCallback>{
       for (final (index, section) in whole.take(9).indexed)
-        SingleActivator(_digits[index]): () {
-          if (sheet.canToggle(section)) {
-            _controller.setSection(section, on: !triage.includes(section));
-          }
-        },
+        SingleActivator(_digits[index]): () =>
+            _controller.setSection(section, on: !triage.includes(section)),
       if (offersOriginal && whole.length < 9)
         SingleActivator(_digits[whole.length]): () => _controller.setOriginal(
           on: triage.original == null,
@@ -406,7 +387,6 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
                           on: true,
                           change: change,
                         ),
-                        onManual: _cut,
                       ),
                     if (offersOriginal)
                       _OriginalSection(
@@ -486,37 +466,14 @@ class _SheetContext {
   const _SheetContext({
     required this.triage,
     required this.material,
-    required this.text,
-    required this.study,
     required this.transcript,
     required this.changes,
   });
 
   final ProcessedTriage triage;
   final ProcessedSourceMaterial material;
-
-  /// El texto que se estudia de la fuente: el de «Resumir» y «Elegir a mano».
-  final StudyText? text;
-
-  /// Lo estudiado de ese texto, en vivo.
-  final DocumentStudy? study;
   final bool transcript;
   final Set<ProcessedChange> changes;
-
-  /// Las oraciones que trae hoy la fuente para [section], si lo arma
-  /// estudiar; `null` si no.
-  int? sentencesOf(ProcessedSection section) {
-    final kind = triageStudyKindOf(section);
-    if (kind == null) return null;
-    return study?.of(kind).length ?? 0;
-  }
-
-  /// Si [section] tiene algo en la fuente que llevar: sin resumen todavía,
-  /// su interruptor espera a que lo haya.
-  bool canToggle(ProcessedSection section) => switch (sentencesOf(section)) {
-    null => true,
-    final count => count > 0 || triage.includes(section),
-  };
 
   /// Qué cambios se le pueden pedir a [section]: al triar algo nuevo, solo
   /// agregar; al volver a triar, lo que la sección admite, si ya tiene algo.
@@ -547,17 +504,7 @@ class _SheetContext {
   TriagePreviewKey? previewKeyOf(ProcessedSection section) {
     final edit = triage.edits[section];
     if (edit == null) return null;
-    final kind = triageStudyKindOf(section);
-    return (
-      sourceItemId: triage.sourceItemId,
-      section: section,
-      edit: edit,
-      // Mientras la IA arma el resumen —o se eligen sus oraciones a mano—, la
-      // vista previa se rehace con cada oración que llega.
-      revision: kind == null || study == null
-          ? 0
-          : Object.hashAll([for (final mark in study!.of(kind)) mark.id]),
-    );
+    return (sourceItemId: triage.sourceItemId, section: section, edit: edit);
   }
 }
 
@@ -584,15 +531,14 @@ class _GroupTitle extends StatelessWidget {
   }
 }
 
-/// Una sección que se copia entera de la fuente: su interruptor, cuánto va a
-/// tener y, si todavía no hay nada que copiar, cómo armarlo.
-class _WholeSection extends ConsumerWidget {
+/// Una sección que se copia entera de la fuente —el texto—: su interruptor y
+/// cuánto va a tener.
+class _WholeSection extends StatelessWidget {
   const _WholeSection({
     required this.section,
     required this.sheet,
     required this.onChanged,
     required this.onChange,
-    required this.onManual,
   });
 
   final ProcessedSection section;
@@ -600,22 +546,10 @@ class _WholeSection extends ConsumerWidget {
   final ValueChanged<bool> onChanged;
   final ValueChanged<ProcessedChange> onChange;
 
-  /// «Elegir a mano»: abre el texto donde se tocan las oraciones.
-  final VoidCallback onManual;
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final on = sheet.triage.includes(section);
-    final enabled = sheet.canToggle(section);
-    final kind = triageStudyKindOf(section);
-    final text = sheet.text;
-    final running =
-        text != null &&
-        kind != null &&
-        ref.watch(studyAnalysisProvider(text.renditionId))
-            is StudyAnalysisRunning;
-    final empty = sheet.sentencesOf(section) == 0;
     final label = triageSectionLabel(
       l10n,
       section,
@@ -635,35 +569,10 @@ class _WholeSection extends ConsumerWidget {
               ? _PreviewText(sheet: sheet, section: section)
               : Text(_offText(l10n)),
           value: on,
-          onChanged: enabled ? onChanged : null,
+          onChanged: onChanged,
         ),
         if (on)
           _ChangeChoice(section: section, sheet: sheet, onChange: onChange),
-        if (text != null && kind != null && running)
-          StudyProgressStrip(text: text),
-        // Sin nada todavía y sin nadie armándolo: los dos caminos de la
-        // tarjeta de estudiar. Elegir uno prende la sección.
-        if (text != null && kind != null && empty && !running)
-          Padding(
-            padding: const EdgeInsets.only(left: 40, bottom: 8),
-            child: StudySuggestion(
-              text: text,
-              kind: kind,
-              onChosen: (choice) {
-                onChanged(true);
-                unawaited(
-                  applyStudySuggestion(
-                    ref,
-                    context,
-                    text,
-                    kind,
-                    choice,
-                    onManual: onManual,
-                  ),
-                );
-              },
-            ),
-          ),
       ],
     );
   }
@@ -671,17 +580,10 @@ class _WholeSection extends ConsumerWidget {
   /// Lo que trae la fuente, con la sección apagada.
   String _offText(AppLocalizations l10n) {
     final existing = sheet.triage.existing[section] ?? 0;
-    final offer = switch (sheet.sentencesOf(section)) {
-      null =>
-        sheet.material.textWords > 0
-            ? l10n.processedTriageWordCount(sheet.material.textWords)
-            : '',
-      0 => l10n.processedTriageNothingYet,
-      final count => triageStudiedCountText(l10n, section, count),
-    };
+    final words = sheet.material.textWords;
     return [
       if (existing > 0) l10n.processedTriageExisting(existing),
-      if (offer.isNotEmpty) offer,
+      if (words > 0) l10n.processedTriageWordCount(words),
     ].join(' · ');
   }
 }

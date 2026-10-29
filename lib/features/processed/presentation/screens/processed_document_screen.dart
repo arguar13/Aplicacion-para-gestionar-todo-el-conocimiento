@@ -21,7 +21,6 @@ import 'package:sinapsis/features/processed/presentation/retriage.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_more_menu.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_original_card.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_section_panel.dart';
-import 'package:sinapsis/features/processed/presentation/widgets/processed_study_slot.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_study_tools.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_text_pages.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -34,8 +33,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   la abre en su visor con lo elegido marcado (`ProcessedOriginalCard`).
 /// - **Lo que la IA organizó** con el documento, con «Para revisar», «Ver»,
 ///   «Deshacer todo» y «Revisar con otro modelo», cuando hizo algo.
-/// - **La tarjeta de estudiar** sobre su propio texto (decisión I), cuando lo
-///   tenga: ver `ProcessedStudySlot`.
+/// - **Sin «Estudiar el documento»** (F43, decisión J): el resumen, la
+///   síntesis y las palabras clave se marcan en el original y se extraen en
+///   Repasar. Lo que el documento ya trajo como sección se ve en ellas.
 /// - **Sus secciones**, plegables y en el orden en que se leen, cada una con
 ///   sus partes editables. Se recorren las que el documento tiene: una
 ///   sección nueva entra sola.
@@ -171,7 +171,6 @@ class _DocumentBodyState extends ConsumerState<_DocumentBody> {
           const SizedBox(height: 12),
           ProcessedOriginalCard(documentId: document.id),
           ProcessedAiLine(document: document),
-          ProcessedStudySlot(document: document),
           if (document.summary.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),

@@ -108,7 +108,7 @@ void main() {
       ]) {
         expect(find.byKey(Key(key)), findsNothing, reason: key);
       }
-      expect(find.text(es.studyExtractSummary), findsNothing);
+      expect(find.byKey(const Key('study-extract-summary')), findsNothing);
     });
   }
 

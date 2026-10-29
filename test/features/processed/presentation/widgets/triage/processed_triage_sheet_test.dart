@@ -20,7 +20,6 @@ import 'package:sinapsis/features/processed/presentation/providers/processed_tri
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_cut_screen.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_triage_sheet.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
-import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -202,25 +201,68 @@ void main() {
 
     expect(find.text(es.processedTriageTitle), findsOneWidget);
     expect(find.text('Historia de Roma'), findsOneWidget);
-    for (final section in ProcessedSection.values) {
+    for (final section in [
+      ProcessedSection.text,
+      ProcessedSection.notes,
+      ProcessedSection.fragments,
+    ]) {
       expect(
         find.byKey(Key('triage-section-${section.name}')),
-        // Una página sin fotos no ofrece imágenes (decisión L).
-        section.holdsFiles ? findsNothing : findsOneWidget,
+        findsOneWidget,
         reason: section.name,
       );
     }
+    // Una página sin fotos no ofrece imágenes (decisión L).
+    expect(find.byKey(const Key('triage-section-images')), findsNothing);
     expect(find.text(es.processedTriagePreviewEmpty), findsOneWidget);
     expect(done(tester).onPressed, isNull);
     expect(find.text(es.processedTriageNothingChosen), findsOneWidget);
     // La sección apagada dice lo que trae la fuente.
-    expect(find.text(es.processedTriageSentenceCount(1)), findsOneWidget);
+    expect(find.text(es.processedTriageWordCount(10)), findsOneWidget);
   });
 
-  testWidgets('prender el texto y el resumen muestra, en vivo, cuántas partes '
-      'y palabras va a tener cada uno, y «Listo» manda lo pedido y cierra', (
-    tester,
-  ) async {
+  testWidgets('el resumen, la síntesis y las palabras clave ya no se eligen '
+      'al triar (F43, decisión J): ni su interruptor ni armarlos con la IA o '
+      'a mano, aunque la fuente tenga su resumen', (tester) async {
+    await seedSource();
+    await pumpSheet(tester);
+
+    for (final section in [
+      ProcessedSection.summary,
+      ProcessedSection.synthesis,
+      ProcessedSection.keywords,
+    ]) {
+      expect(
+        find.byKey(Key('triage-section-${section.name}')),
+        findsNothing,
+        reason: section.name,
+      );
+      expect(
+        find.byKey(Key('triage-switch-${section.name}')),
+        findsNothing,
+        reason: section.name,
+      );
+    }
+    for (final key in [
+      'study-suggestion-summary',
+      'study-suggestion-synthesis',
+      'study-suggestion-keyword',
+      'study-suggest-ai',
+      'study-suggest-manual',
+      'study-progress',
+    ]) {
+      expect(find.byKey(Key(key)), findsNothing, reason: key);
+    }
+
+    // Con el texto, lo pedido es solo el texto: nada del resumen de la fuente.
+    await toggle(tester, ProcessedSection.text);
+    await tester.tap(find.byKey(const Key('triage-done')));
+    await tester.pumpAndSettle();
+    expect(received.single.keys, {ProcessedSection.text});
+  });
+
+  testWidgets('prender el texto muestra, en vivo, cuántas partes y palabras '
+      'va a tener, y «Listo» manda lo pedido y cierra', (tester) async {
     await seedSource();
     await pumpSheet(tester);
 
@@ -232,28 +274,14 @@ void main() {
       ),
       findsOneWidget,
     );
-    await toggle(tester, ProcessedSection.summary);
-    expect(
-      find.text(
-        '${es.processedTriageSentenceCount(1)} · '
-        '${es.processedTriageWordCount(3)}',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text(es.processedTriageTotalWords(13)), findsOneWidget);
-    expect(
-      find.byKey(const Key('triage-preview-chip-summary')),
-      findsOneWidget,
-    );
+    expect(find.text(es.processedTriageTotalWords(10)), findsOneWidget);
+    expect(find.byKey(const Key('triage-preview-chip-text')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('triage-done')));
     await tester.pumpAndSettle();
 
     expect(received.single, {
       ProcessedSection.text: SectionEdit.add(const SectionInput.fromSource()),
-      ProcessedSection.summary: SectionEdit.add(
-        const SectionInput.fromSource(),
-      ),
     });
     expect(closedWith, isTrue);
     expect(find.text(es.processedTriageTitle), findsNothing);
@@ -270,57 +298,6 @@ void main() {
 
     expect(find.text(es.processedTriagePreviewEmpty), findsOneWidget);
     expect(done(tester).onPressed, isNull);
-  });
-
-  testWidgets('sin síntesis todavía, ofrece los dos caminos de la tarjeta de '
-      'estudiar y su interruptor espera', (tester) async {
-    await seedSource();
-    await pumpSheet(tester);
-
-    final synthesis = find.byKey(const Key('triage-section-synthesis'));
-    expect(
-      find.descendant(
-        of: synthesis,
-        matching: find.byKey(const Key('study-suggestion-synthesis')),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: synthesis,
-        matching: find.byKey(const Key('study-suggest-manual')),
-      ),
-      findsOneWidget,
-    );
-    expect(switchOf(tester, ProcessedSection.synthesis).onChanged, isNull);
-    // El resumen ya tiene: no ofrece armarlo.
-    expect(find.byKey(const Key('study-suggestion-summary')), findsNothing);
-  });
-
-  testWidgets('«Elegir a mano» prende la sección, pasa a elegir oraciones y '
-      'abre el texto para tocarlas', (tester) async {
-    await seedSource();
-    await pumpSheet(tester);
-
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const Key('triage-section-synthesis')),
-        matching: find.byKey(const Key('study-suggest-manual')),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byType(ProcessedCutScreen), findsOneWidget);
-    expect(
-      harness.container.read(studyViewProvider('rend-fuente')).pick,
-      StudyMarkKind.synthesis,
-    );
-    expect(
-      harness.container
-          .read(processedTriageProvider('fuente'))
-          .includes(ProcessedSection.synthesis),
-      isTrue,
-    );
   });
 
   testWidgets('una nota escrita entra a la lista, se cuenta y se quita', (
@@ -398,28 +375,15 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
     await tester.pumpAndSettle();
     expect(switchOf(tester, ProcessedSection.text).value, isTrue);
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
-    await tester.pumpAndSettle();
-    expect(switchOf(tester, ProcessedSection.summary).value, isTrue);
-    // La síntesis no tiene nada todavía: su número no la prende.
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
-    await tester.pumpAndSettle();
-    expect(switchOf(tester, ProcessedSection.synthesis).value, isFalse);
-    // Las palabras clave tampoco: la fuente todavía no tiene ninguna.
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit4);
-    await tester.pumpAndSettle();
-    expect(switchOf(tester, ProcessedSection.keywords).value, isFalse);
-    expect(find.text(es.processedTriageKeysHint(4)), findsOneWidget);
+    // Una sola sección entera, el texto: su número es el único.
+    expect(find.text(es.processedTriageKeysHint(1)), findsOneWidget);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pumpAndSettle();
 
-    expect(received.single.keys, {
-      ProcessedSection.text,
-      ProcessedSection.summary,
-    });
+    expect(received.single.keys, {ProcessedSection.text});
     expect(closedWith, isTrue);
   });
 
@@ -608,13 +572,13 @@ void main() {
       await seedSource();
       await pumpSheet(
         tester,
-        existing: const {ProcessedSection.summary: 3},
-        initial: {ProcessedSection.summary: SectionEdit.update()},
+        existing: const {ProcessedSection.text: 3},
+        initial: {ProcessedSection.text: SectionEdit.update()},
         changes: ProcessedChange.values.toSet(),
       );
 
-      expect(switchOf(tester, ProcessedSection.summary).value, isTrue);
-      final segmented = find.byKey(const Key('triage-change-summary'));
+      expect(switchOf(tester, ProcessedSection.text).value, isTrue);
+      final segmented = find.byKey(const Key('triage-change-text'));
       expect(segmented, findsOneWidget);
       for (final label in [
         es.processedTriageChangeAdd,
@@ -628,10 +592,6 @@ void main() {
           reason: label,
         );
       }
-      // Lo que no tiene nada todavía solo se agrega: no hay qué elegir.
-      await toggle(tester, ProcessedSection.text);
-      expect(find.byKey(const Key('triage-change-text')), findsNothing);
-
       await tester.tap(
         find.descendant(
           of: segmented,
@@ -643,7 +603,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        received.single[ProcessedSection.summary],
+        received.single[ProcessedSection.text],
         SectionEdit.replace(const SectionInput.fromSource()),
       );
     });

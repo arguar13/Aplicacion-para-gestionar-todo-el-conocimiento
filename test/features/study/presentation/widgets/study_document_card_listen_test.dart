@@ -10,9 +10,7 @@ import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
-import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
-import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_document_card.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -21,10 +19,11 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 import '../../../../support/fake_study_analysis.dart';
 import '../../../../support/fake_text_to_speech_service.dart';
 import '../../../../support/memory_study_repository.dart';
-import '../../../../support/read_aloud_test_support.dart';
 
-/// «Escuchar» en las filas de «Extraer» de la tarjeta de estudiar (F39): con
-/// el lector en voz alta de verdad y un motor de voz de mentira.
+/// «Escuchar» en «Extraer texto» de la tarjeta de estudiar (F39): con el
+/// lector en voz alta de verdad y un motor de voz de mentira. Lo que el texto
+/// ofrece al lector lleva también lo estudiado —el resumen, la síntesis y las
+/// palabras clave—, que se eligen en el reproductor.
 void main() {
   final es = AppLocalizationsEs();
   const content =
@@ -129,180 +128,30 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> sentenceDone(WidgetTester tester) async {
-    tts.completeCurrent();
-    await tester.pumpAndSettle();
-  }
-
   group('dónde está «Escuchar»', () {
-    testWidgets('en cada fila con algo, junto a «Copiar»; en el texto, '
-        'arriba', (tester) async {
+    testWidgets('arriba del texto desplegado, y solo ahí', (tester) async {
       await pump(tester, study: analyzed);
 
-      for (final row in const [
-        'study-extract-summary',
-        'study-extract-synthesis',
-        'study-extract-keywords',
-      ]) {
-        await unfold(tester, row);
-      }
       await unfold(tester, 'study-extract-text');
 
-      expect(find.text(es.studyListen), findsNWidgets(4));
-      expect(find.text(es.studyCopy), findsNWidgets(3));
-      for (final scope in const ['summary', 'synthesis', 'keywords', 'all']) {
-        expect(find.byKey(Key('study-listen-$scope')), findsOneWidget);
+      expect(find.text(es.studyListen), findsOneWidget);
+      expect(find.byKey(const Key('study-listen-all')), findsOneWidget);
+      for (final scope in const ['summary', 'synthesis', 'keywords']) {
+        expect(find.byKey(Key('study-listen-$scope')), findsNothing);
       }
-    });
-
-    testWidgets('una fila vacía no la trae: ofrece armarlo', (tester) async {
-      await pump(tester);
-
-      await unfold(tester, 'study-extract-summary');
-      await unfold(tester, 'study-extract-keywords');
-
-      expect(find.byKey(const Key('study-listen-summary')), findsNothing);
-      expect(find.byKey(const Key('study-listen-keywords')), findsNothing);
     });
 
     testWidgets('la transcripción de un audio o un video también trae '
-        '«Escuchar», como lo estudiado (F40)', (tester) async {
+        '«Escuchar» (F40)', (tester) async {
       await pump(tester, study: analyzed, kind: SourceKind.audio);
 
       await unfold(tester, 'study-extract-text');
-      await unfold(tester, 'study-extract-summary');
 
       expect(find.byKey(const Key('study-listen-all')), findsOneWidget);
-      expect(find.byKey(const Key('study-listen-summary')), findsOneWidget);
     });
   });
 
-  group('el resumen y la síntesis', () {
-    testWidgets('suenan oración por oración, en el orden del texto, con la '
-        'voz del lector', (tester) async {
-      await pump(tester, study: analyzed);
-      await unfold(tester, 'study-extract-summary');
-
-      await listen(tester, 'summary');
-
-      expect(state().scope, ReadScope.summary);
-      expect(state().document?.id, studyReadableId('r1'));
-      expect(state().playing, isTrue);
-      expect(tts.spoken, ['La revolución industrial cambió todo.']);
-
-      await sentenceDone(tester);
-      expect(tts.spoken, [
-        'La revolución industrial cambió todo.',
-        'Nada más.',
-      ]);
-    });
-
-    testWidgets('lo que suena lleva sus posiciones en el texto entero: el '
-        'texto se resalta en su lugar', (tester) async {
-      await pump(tester, study: analyzed);
-      await unfold(tester, 'study-extract-summary');
-      await listen(tester, 'summary');
-
-      final segment = state().currentSegment!;
-      expect(segment.sourceKey, 'r1');
-      expect(
-        content.substring(segment.start, segment.end),
-        'La revolución industrial cambió todo.',
-      );
-      expect(container.read(readAloudHighlightProvider('r1')), (
-        segment.start,
-        segment.end,
-      ));
-    });
-
-    testWidgets('la oración que suena se ve en amarillo en la misma fila, y '
-        'pasa a la que sigue', (tester) async {
-      await pump(tester, study: analyzed);
-      await unfold(tester, 'study-extract-summary');
-      final row = find.byKey(const Key('study-extract-summary'));
-      expect(readAloudHighlights(tester, within: row), isEmpty);
-
-      await listen(tester, 'summary');
-      expect(readAloudHighlights(tester, within: row), [
-        'La revolución industrial cambió todo.',
-      ]);
-
-      await sentenceDone(tester);
-      expect(readAloudHighlights(tester, within: row), ['Nada más.']);
-    });
-
-    testWidgets('la síntesis suena aparte, con lo suyo', (tester) async {
-      await pump(tester, study: analyzed);
-      await unfold(tester, 'study-extract-synthesis');
-
-      await listen(tester, 'synthesis');
-
-      expect(state().scope, ReadScope.synthesis);
-      expect(tts.spoken, ['Las fábricas usaban vapor.']);
-    });
-
-    testWidgets('mientras suena dice «Pausar» y pausa; en pausa vuelve a '
-        '«Escuchar» y retoma', (tester) async {
-      await pump(tester, study: analyzed);
-      await unfold(tester, 'study-extract-summary');
-      expect(find.text(es.studyListen), findsOneWidget);
-
-      await listen(tester, 'summary');
-      expect(find.text(es.mediaPlayerPause), findsOneWidget);
-
-      await listen(tester, 'summary');
-      expect(state().playing, isFalse);
-      expect(find.text(es.studyListen), findsOneWidget);
-
-      await listen(tester, 'summary');
-      expect(state().playing, isTrue);
-      expect(find.text(es.mediaPlayerPause), findsOneWidget);
-    });
-
-    testWidgets('leer otra fila no cambia el botón de esta', (tester) async {
-      await pump(tester, study: analyzed);
-      await unfold(tester, 'study-extract-summary');
-      await unfold(tester, 'study-extract-synthesis');
-
-      await listen(tester, 'synthesis');
-
-      final summary = find.byKey(const Key('study-listen-summary'));
-      expect(
-        find.descendant(of: summary, matching: find.text(es.studyListen)),
-        findsOneWidget,
-      );
-      final synthesis = find.byKey(const Key('study-listen-synthesis'));
-      expect(
-        find.descendant(
-          of: synthesis,
-          matching: find.text(es.mediaPlayerPause),
-        ),
-        findsOneWidget,
-      );
-    });
-  });
-
-  group('las palabras clave y el texto entero', () {
-    testWidgets('las palabras clave se leen una tras otra, y la que suena '
-        'se ve en amarillo', (tester) async {
-      await pump(tester, study: analyzed);
-      await unfold(tester, 'study-extract-keywords');
-
-      Color? chipColor(String word) =>
-          tester.widget<Chip>(find.widgetWithText(Chip, word)).backgroundColor;
-
-      await listen(tester, 'keywords');
-      expect(state().scope, ReadScope.keywords);
-      expect(tts.spoken, ['revolución']);
-      expect(chipColor('revolución'), RenderedMarkdown.playingColor);
-      expect(chipColor('vapor'), isNot(RenderedMarkdown.playingColor));
-
-      await sentenceDone(tester);
-      expect(tts.spoken, ['revolución', 'vapor']);
-      expect(chipColor('revolución'), isNot(RenderedMarkdown.playingColor));
-      expect(chipColor('vapor'), RenderedMarkdown.playingColor);
-    });
-
+  group('el texto entero', () {
     testWidgets('«Extraer texto» lee todo el texto, línea por línea, con '
         'las posiciones del texto', (tester) async {
       await pump(tester, study: analyzed);
@@ -323,14 +172,12 @@ void main() {
       expect(document.offers(ReadScope.keywords), isTrue);
     });
 
-    testWidgets('al escuchar lo estudiado de un audio, la transcripción '
-        'entera también se ofrece: «Todo» se puede elegir (F40)', (
-      tester,
-    ) async {
+    testWidgets('al escuchar la transcripción de un audio, lo estudiado '
+        'también se ofrece: el resumen se puede elegir (F40)', (tester) async {
       await pump(tester, study: analyzed, kind: SourceKind.audio);
-      await unfold(tester, 'study-extract-summary');
+      await unfold(tester, 'study-extract-text');
 
-      await listen(tester, 'summary');
+      await listen(tester, 'all');
 
       final document = state().document!;
       expect(document.offers(ReadScope.all), isTrue);

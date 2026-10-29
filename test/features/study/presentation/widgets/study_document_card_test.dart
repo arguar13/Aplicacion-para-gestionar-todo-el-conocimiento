@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
@@ -71,7 +70,6 @@ void main() {
     ),
     WidgetBuilder? extractedText,
     ExpansibleController? extractedTextController,
-    bool studiedRows = true,
   }) async {
     repository = MemoryStudyRepository(study);
     analysis = FakeStudyAnalysis();
@@ -105,7 +103,6 @@ void main() {
                 extractedText: extractedText,
                 extractedTextController: extractedTextController,
                 extractedTextSubtitle: 'Para buscar',
-                studiedRows: studiedRows,
               ),
             ),
           ),
@@ -474,139 +471,6 @@ void main() {
   });
 
   group('Extraer', () {
-    testWidgets('antes de analizar, cada fila dice cómo empezar', (
-      tester,
-    ) async {
-      await pump(tester);
-
-      expect(find.text(es.studyExtractStart), findsNWidgets(3));
-    });
-
-    testWidgets('analizado pero sin nada de una clase, lo dice; '
-        'desplegada, mientras sigue el análisis avisa que va a aparecer ahí', (
-      tester,
-    ) async {
-      await pump(
-        tester,
-        study: const DocumentStudy(
-          marks: [],
-          analyzedUntil: 10,
-          complete: false,
-        ),
-      );
-
-      expect(find.text(es.studyExtractEmpty), findsNWidgets(3));
-      analysis.shown = const StudyAnalysisRunning(null);
-      await tester.tap(find.text(es.studyExtractSummary));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-
-      expect(find.text(es.studyExtractRunning), findsOneWidget);
-      // No hay nada que copiar.
-      expect(find.text(es.studyCopy), findsNothing);
-    });
-
-    testWidgets('vacía y desplegada, ofrece armarlo: a mano, lo prende, pasa '
-        'a elegirlo y despliega el texto donde se toca', (tester) async {
-      final controller = ExpansibleController();
-      addTearDown(controller.dispose);
-      await pump(
-        tester,
-        extractedText: (_) => const Text('el texto entero'),
-        extractedTextController: controller,
-      );
-
-      await tester.tap(find.text(es.studyExtractKeywords));
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('study-extract-keywords')),
-          matching: find.byKey(const Key('study-suggestion-keyword')),
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('el texto entero'), findsNothing);
-
-      await tester.ensureVisible(find.byKey(const Key('study-suggest-manual')));
-      await tap(tester, 'study-suggest-manual');
-
-      expect(view().pick, StudyMarkKind.keyword);
-      expect(view().showsKeywords, isTrue);
-      expect(analysis.starts, isEmpty);
-      expect(find.text('el texto entero'), findsOneWidget);
-
-      // Terminado, lo elegido se sigue viendo.
-      await tester.ensureVisible(find.byKey(const Key('study-pick-done')));
-      await tap(tester, 'study-pick-done');
-      expect(view().pick, isNull);
-      expect(view().keywords, isTrue);
-    });
-
-    testWidgets('vacía y desplegada, con la IA analiza', (tester) async {
-      await pump(tester);
-
-      await tester.tap(find.text(es.studyExtractSummary));
-      await tester.pumpAndSettle();
-      await tap(tester, 'study-suggest-ai');
-
-      expect(view().summary, isTrue);
-      expect(analysis.starts, hasLength(1));
-    });
-
-    testWidgets('el resumen, con cuántas oraciones y palabras, como texto '
-        'corrido, y se copia', (tester) async {
-      String? copied;
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        (call) async {
-          if (call.method == 'Clipboard.setData') {
-            copied = (call.arguments as Map)['text'] as String?;
-          }
-          return null;
-        },
-      );
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          SystemChannels.platform,
-          null,
-        ),
-      );
-      await pump(tester, study: analyzed);
-
-      expect(
-        find.text('${es.studySentenceCount(1)} · ${es.studyWordCount(5)}'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('${es.studySentenceCount(1)} · ${es.studyWordCount(4)}'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text(es.studyExtractSummary));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text('La revolución industrial cambió todo.'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text(es.studyCopy));
-      await tester.pumpAndSettle();
-      expect(copied, 'La revolución industrial cambió todo.');
-      expect(find.text(es.studyCopied), findsOneWidget);
-    });
-
-    testWidgets('las palabras clave, como etiquetas en orden', (tester) async {
-      await pump(tester, study: analyzed);
-
-      expect(find.text(es.studyKeywordCount(2)), findsOneWidget);
-      await tester.tap(find.text(es.studyExtractKeywords));
-      await tester.pumpAndSettle();
-
-      final chips = tester
-          .widgetList<Chip>(find.byType(Chip))
-          .map((c) => (c.label as Text).data);
-      expect(chips, ['revolución', 'vapor']);
-    });
-
     testWidgets('el texto extraído se arma recién al desplegarlo', (
       tester,
     ) async {
@@ -637,15 +501,14 @@ void main() {
     });
   });
 
-  group('en una fuente de consulta (F41, decisión K)', () {
+  group('en una fuente de consulta (F41, decisión K; F43, decisión J)', () {
     testWidgets('marca el original y trae su texto, sin el resumen, la '
-        'síntesis ni las palabras clave para leer: se extraen en Procesado', (
+        'síntesis ni las palabras clave para leer: se extraen en Repasar', (
       tester,
     ) async {
       await pump(
         tester,
         study: analyzed,
-        studiedRows: false,
         extractedText: (_) => const Text('el texto entero'),
       );
 
@@ -663,7 +526,7 @@ void main() {
     });
 
     testWidgets('sin texto que mostrar, ni «Extraer»', (tester) async {
-      await pump(tester, study: analyzed, studiedRows: false);
+      await pump(tester, study: analyzed);
 
       expect(find.text(es.studyExtractTitle), findsNothing);
       expect(find.byKey(const Key('study-toggle-summary')), findsOneWidget);

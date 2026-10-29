@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
-import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -20,9 +19,10 @@ String triageSectionLabel(
     transcript
         ? l10n.processedTriageSectionTranscript
         : l10n.processedTriageSectionText,
-  ProcessedSection.summary => l10n.processedTriageSectionSummary,
-  ProcessedSection.synthesis => l10n.processedTriageSectionSynthesis,
-  ProcessedSection.keywords => l10n.processedTriageSectionKeywords,
+  // No se ofrecen al triar (decisión J): se nombran como en el documento.
+  ProcessedSection.summary => l10n.processedSectionSummary,
+  ProcessedSection.synthesis => l10n.processedSectionSynthesis,
+  ProcessedSection.keywords => l10n.processedSectionKeywords,
   ProcessedSection.notes => l10n.processedTriageSectionNotes,
   ProcessedSection.fragments => l10n.processedTriageSectionFragments,
   ProcessedSection.images => l10n.processedSectionImages,
@@ -56,31 +56,6 @@ String triagePartsText(
   ProcessedSection.fragments => l10n.processedTriageFragmentCount(count),
   ProcessedSection.images => l10n.processedImageCount(count),
 };
-
-/// Lo que se estudia de la fuente para armar [section], si lo arma estudiar
-/// (F36, F39): el resumen, la síntesis y las palabras clave. Para esas, la
-/// hoja ofrece «Resumir con el modelo» o «Elegir a mano» mientras no hay
-/// nada.
-StudyMarkKind? triageStudyKindOf(ProcessedSection section) => switch (section) {
-  ProcessedSection.summary => StudyMarkKind.summary,
-  ProcessedSection.synthesis => StudyMarkKind.synthesis,
-  ProcessedSection.keywords => StudyMarkKind.keyword,
-  ProcessedSection.text ||
-  ProcessedSection.notes ||
-  ProcessedSection.fragments ||
-  ProcessedSection.images => null,
-};
-
-/// Cuánto trae hoy la fuente de lo que se estudia para [section]
-/// ([triageStudyKindOf]), contado como lo cuenta estudiar: oraciones del
-/// resumen o de la síntesis, palabras clave.
-String triageStudiedCountText(
-  AppLocalizations l10n,
-  ProcessedSection section,
-  int count,
-) => triageStudyKindOf(section) == StudyMarkKind.keyword
-    ? l10n.studyKeywordCount(count)
-    : l10n.processedTriageSentenceCount(count);
 
 /// El nombre de [change], para elegirlo al volver a triar (paso 4).
 String triageChangeLabel(AppLocalizations l10n, ProcessedChange change) =>

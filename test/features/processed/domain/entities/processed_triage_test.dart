@@ -476,18 +476,34 @@ void main() {
           images: SourceImagesSummary(count: images, sizeBytes: images * 10),
         );
 
-    test('con texto e imágenes, todas las secciones, en el orden en que se '
-        'leen', () {
-      expect(
+    test('con texto e imágenes, todas las secciones que se trían, en el '
+        'orden en que se leen', () {
+      expect(triageSectionsOffered(material(images: 2)), [
+        ProcessedSection.text,
+        ProcessedSection.notes,
+        ProcessedSection.fragments,
+        ProcessedSection.images,
+      ]);
+    });
+
+    test('el resumen, la síntesis y las palabras clave no se ofrecen (F43, '
+        'decisión J): se marcan en el original del documento procesado', () {
+      for (final offered in [
         triageSectionsOffered(material(images: 2)),
-        ProcessedSection.values,
-      );
+        triageSectionsOffered(material()),
+        triageSectionsOffered(material(text: false)),
+      ]) {
+        expect(offered, isNot(contains(ProcessedSection.summary)));
+        expect(offered, isNot(contains(ProcessedSection.synthesis)));
+        expect(offered, isNot(contains(ProcessedSection.keywords)));
+      }
     });
 
     test('sin imágenes, la sección Imágenes no se ofrece', () {
       expect(triageSectionsOffered(material()), [
-        for (final section in ProcessedSection.values)
-          if (section != ProcessedSection.images) section,
+        ProcessedSection.text,
+        ProcessedSection.notes,
+        ProcessedSection.fragments,
       ]);
     });
 

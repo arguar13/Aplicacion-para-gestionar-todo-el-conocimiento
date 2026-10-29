@@ -441,7 +441,6 @@ class _DetailBodyState extends State<_DetailBody> {
                   Consumer(
                     builder: (context, ref, _) => StudyDocumentCard(
                       text: study,
-                      studiedRows: false,
                       item: item,
                       kind: item.source.kind,
                       extractedText: (context) => _ExtractedTextBody(
