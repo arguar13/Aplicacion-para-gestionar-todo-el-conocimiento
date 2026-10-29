@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/app/global_error_listener.dart';
+import 'package:sinapsis/app/repair_stored_text.dart';
 import 'package:sinapsis/app/resume_model_downloads.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/back_navigation.dart';
@@ -18,6 +19,8 @@ import 'package:sinapsis/features/chat/presentation/providers/model_memory_provi
 import 'package:sinapsis/features/keep_working/presentation/widgets/keep_working_offer_listener.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
+import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
+import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 class App extends ConsumerStatefulWidget {
@@ -53,10 +56,29 @@ class _AppState extends ConsumerState<App> {
     // descargas siguen seguidas desde antes. Si no se puede mirar alguna, el
     // error llega a la telemetría por la zona de `bootstrap`.
     unawaited(resumeModelDownloads(ref.read));
+    // Los títulos que quedaron guardados con las letras rotas —«DeclaraciÃ³n»—
+    // antes del arreglo de raíz (F43, M7): una vez por instalación, apenas
+    // se abre la bóveda —antes no hay base que tocar—. Si falla, el error
+    // llega a la telemetría por la zona de `bootstrap`, y se reintenta al
+    // abrir la app otra vez.
+    _storedTextRepair = ref.listenManual(vaultSessionControllerProvider, (
+      previous,
+      current,
+    ) {
+      if (_storedTextRepairStarted || current is! VaultUnlocked) return;
+      _storedTextRepairStarted = true;
+      unawaited(repairUtf8MojibakeOnce(ref.read));
+    }, fireImmediately: true);
   }
+
+  /// Espera a que se abra la bóveda para arreglar el texto guardado (ver
+  /// `initState`): una vez por arranque, aunque se cierre y se vuelva a abrir.
+  ProviderSubscription<VaultSession>? _storedTextRepair;
+  var _storedTextRepairStarted = false;
 
   @override
   void dispose() {
+    _storedTextRepair?.close();
     WidgetsBinding.instance.removeObserver(_modelMemory);
     _lifecycle.dispose();
     super.dispose();

@@ -260,8 +260,9 @@ void main() {
     String xmpTitle(String text) =>
         '<dc:title><rdf:Alt><rdf:li xml:lang="x-default">$text'
         '</rdf:li></rdf:Alt></dc:title>\n'
-        '<dc:creator><rdf:Seq><rdf:li>Asamblea Nacional Constituyente'
-        '</rdf:li><rdf:li>Muñoz, José</rdf:li></rdf:Seq></dc:creator>';
+        '<dc:creator><rdf:Seq>'
+        '<rdf:li>Asamblea Nacional Constituyente</rdf:li>\n'
+        '<rdf:li>Muñoz, José</rdf:li></rdf:Seq></dc:creator>';
 
     test('el título del XMP, que es UTF-8, no sale con «Ã³»: el caso de la '
         'captura', () {

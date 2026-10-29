@@ -106,6 +106,10 @@ void main() {
         'criterio que los otros tres orígenes (review_log, field_version, '
         'habit_event), que tampoco dejan de contar un día por algo que '
         'pasó más tarde—; no es una lista que se le muestre a nadie',
+    'lib/core/database/repairs/utf8_mojibake_repair.dart':
+        'arregla las letras rotas de TODOS los títulos guardados (F43, M7), '
+        'también los de la papelera: un elemento borrado puede volver, y '
+        'tiene que volver bien escrito; no lista ni muestra nada',
   };
 
   /// Lo que cuenta como «decidí qué hacer con lo borrado».
