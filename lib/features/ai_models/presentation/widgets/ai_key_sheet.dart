@@ -9,6 +9,7 @@ import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
+import 'package:sinapsis/features/ai_models/presentation/widgets/image_requirement_lines.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Abre la página donde se crea una clave de [provider]; si no se puede, dice
@@ -249,6 +250,11 @@ class _AiKeySheetState extends ConsumerState<_AiKeySheet> {
                 ),
               ],
             ),
+            if (provider == AiProvider.gemini ||
+                provider == AiProvider.openAi) ...[
+              const SizedBox(height: 12),
+              ImageRequirementLines(provider: provider),
+            ],
             const SizedBox(height: 24),
             FilledButton.icon(
               key: const Key('ai-key-save'),

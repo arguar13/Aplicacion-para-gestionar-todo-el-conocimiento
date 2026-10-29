@@ -212,15 +212,13 @@ void main() {
       );
 
       final urls = [for (final r in hf.requests) r.uri.toString()];
+      String queue(String path) =>
+          'https://router.huggingface.co/fal-ai$path?_subdomain=queue';
       expect(urls, [
-        'https://router.huggingface.co/fal-ai/fal-ai/flux/schnell'
-            '?_subdomain=queue',
-        'https://router.huggingface.co/fal-ai/fal-ai/flux/requests/r1/status'
-            '?_subdomain=queue',
-        'https://router.huggingface.co/fal-ai/fal-ai/flux/requests/r1/status'
-            '?_subdomain=queue',
-        'https://router.huggingface.co/fal-ai/fal-ai/flux/requests/r1'
-            '?_subdomain=queue',
+        queue('/fal-ai/flux/schnell'),
+        queue('/fal-ai/flux/requests/r1/status'),
+        queue('/fal-ai/flux/requests/r1/status'),
+        queue('/fal-ai/flux/requests/r1'),
         'https://v3.fal.media/files/faro.png',
       ]);
       expect(hf.bodies.first, {

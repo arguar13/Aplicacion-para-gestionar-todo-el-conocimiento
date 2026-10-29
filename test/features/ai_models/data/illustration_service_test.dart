@@ -29,7 +29,7 @@ class _FakeImageWire implements ImageWire {
   @override
   final IllustrationProvider provider;
 
-  var models = const [
+  List<ImageModelInfo> models = const [
     ImageModelInfo(id: 'modelo-caro', displayName: 'Caro'),
     ImageModelInfo(id: 'gemini-nano-banana-2.1', displayName: 'Nano Banana'),
   ];
@@ -39,7 +39,7 @@ class _FakeImageWire implements ImageWire {
   int? outputTokens = 1120;
   final requests = <ImageWireRequest>[];
   final keys = <String?>[];
-  var lists = 0;
+  int lists = 0;
 
   @override
   Future<List<ImageModelInfo>> listImageModels(ImageWireAccess access) async {
@@ -217,7 +217,7 @@ void main() {
         expect(usage.images, 1);
         expect(usage.requests, 1);
         expect(usage.imageTokens, 1160);
-        expect(usage.spentMicroUsd, ((40 * 1.5 + 1120 * 30)).round());
+        expect(usage.spentMicroUsd, (40 * 1.5 + 1120 * 30).round());
         final capability = store.capabilityOf(account.id);
         expect(capability.can, isTrue);
         expect(capability.model, 'gemini-nano-banana-2.1');

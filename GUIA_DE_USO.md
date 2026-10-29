@@ -3356,6 +3356,43 @@ tres variantes, con distinto tamaño y calidad de respuesta —la pantalla te
 explica el peso de cada una antes de descargar—. Pide el mismo token de
 Hugging Face que el modelo de relaciones.
 
+### Ilustraciones con IA y cuota diaria
+
+Las presentaciones y las infografías las dibuja siempre la app; **las
+ilustraciones** (la plastilina, lo kawaii, la acuarela…) las pinta un
+modelo de imágenes, y no todas las IA pueden:
+
+- **Gemma y Claude no generan imágenes.** Escriben el contenido igual.
+- **Gemini sí, solo con la facturación activa** en Google AI Studio: la capa
+  gratis no incluye los modelos de imagen. Cada imagen se paga aparte (desde
+  unos US$ 0,034 la de 1K).
+- **OpenAI sí, con la organización verificada** en su consola (Settings →
+  Organization). La más barata, GPT Image 1 Mini, cuesta menos de un
+  centavo de dólar la imagen estándar.
+- **Hugging Face**, para los modelos de código abierto en la nube (FLUX.1
+  [schnell], Z-Image Turbo, Stable Diffusion 3.5 Large, Sana Sprint), con un
+  token propio. Se paga con créditos de Hugging Face: las cuentas gratis no
+  traen; PRO trae US$ 2 por mes.
+
+En Ajustes → "IA y modelos" → **"Modelo de lenguaje"**, abajo de todo, está
+**"Ilustraciones y cuota diaria"**:
+
+- **"¿Qué puede cada IA?"**: la tabla con lo que escribe y dibuja cada una,
+  lo que cuesta y lo que pide, con la fecha de los precios, cada una de tus
+  cuentas marcada **puede**, **no puede** (y por qué) o **sin probar**, y
+  los modelos de código abierto con el enlace a su ficha y su licencia.
+- **"Probar ahora"**: hace un solo pedido de una imagen chica para saber si
+  esa cuenta dibuja (cuesta esa imagen). Si no, la app también se entera con
+  el primer pedido de verdad y lo recuerda con esas palabras («sin
+  facturación», «organización sin verificar», «sin créditos»).
+- **La cuota diaria de cada cuenta**: tocá una cuenta y poné tu tope de
+  pedidos, tokens, imágenes o dólares por día. Los proveedores no dicen
+  cuánto queda, así que el porcentaje que ves al crear es contra lo que
+  pongas. Hasta que lo pongas, en Gemini se usa una estimación de la capa
+  gratis (rotulada «estimado»); en las de pago se muestra el costo.
+- **"Agregar Hugging Face"**: pegás el token (de grano fino, con el permiso
+  «Make calls to Inference Providers»); se prueba antes de guardarse.
+
 ---
 
 ## Ajustes

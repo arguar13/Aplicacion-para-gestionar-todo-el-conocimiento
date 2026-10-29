@@ -21,6 +21,7 @@ import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_info.dar
 import 'package:sinapsis/features/ai_models/domain/repositories/ai_account_repository.dart';
 import 'package:sinapsis/features/ai_models/domain/repositories/ai_usage_ledger.dart';
 import 'package:sinapsis/features/ai_models/domain/services/ai_notice_bus.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/illustration_providers.dart';
 
 /// El cliente HTTP de la IA en la nube (F32), aparte del de la app a
 /// propósito:
@@ -189,6 +190,8 @@ final aiAccountActionsProvider = Provider<AiAccountActions>(
     clock: ref.watch(clockProvider),
     onCatalogChanged: () =>
         ref.read(cloudCatalogRevisionProvider.notifier).state++,
+    forgetIllustrations: (id, {required keepQuota}) =>
+        ref.read(illustrationStoreProvider).forget(id, keepQuota: keepQuota),
   ),
 );
 
@@ -206,7 +209,10 @@ class AiAccountActions {
     required AiModelSettings Function() currentSettings,
     required DateTime Function() clock,
     void Function()? onCatalogChanged,
+    Future<void> Function(String accountId, {required bool keepQuota})?
+    forgetIllustrations,
   }) : _accounts = accounts,
+       _forgetIllustrations = forgetIllustrations,
        _currentSettings = currentSettings,
        _usage = usage,
        _catalog = catalog,
@@ -221,6 +227,11 @@ class AiAccountActions {
   final AiModelSettings Function() _currentSettings;
   final DateTime Function() _clock;
   final void Function()? _onCatalogChanged;
+
+  /// Olvida lo que se sabía de una cuenta para dibujar (F43): con otra clave
+  /// puede andar distinto; borrada, se va también su cuota.
+  final Future<void> Function(String accountId, {required bool keepQuota})?
+  _forgetIllustrations;
 
   /// Cuántos modelos hay con [key]; falla con `CloudModelException` si no
   /// anda.
@@ -294,6 +305,7 @@ class AiAccountActions {
     await testKey(account.provider, key);
     await _accounts.replaceKey(account.id, key.trim());
     await _usage.clearExhausted(account.id, now: _clock());
+    await _forgetIllustrations?.call(account.id, keepQuota: true);
   }
 
   Future<void> rename(AiAccount account, String label) =>
@@ -304,6 +316,7 @@ class AiAccountActions {
   Future<void> remove(AiAccount account) async {
     await _accounts.remove(account.id);
     await _usage.forget(account.id);
+    await _forgetIllustrations?.call(account.id, keepQuota: false);
     await _settings.forgetAccount(account.provider, account.id);
   }
 }

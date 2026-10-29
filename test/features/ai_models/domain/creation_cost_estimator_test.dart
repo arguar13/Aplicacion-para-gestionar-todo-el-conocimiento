@@ -430,7 +430,7 @@ void main() {
       // Lo usado: US$ 0,90 de imágenes de antes (el texto de hoy, sin
       // tokens). Lo de ahora: texto US$ 0,125 + dos imágenes Mini.
       expect(share.percentUsed, closeTo(90, 1e-9));
-      final imagesUsd = 2 * (1056 * 8 / 1e6 + kImagePromptTokens * 2 / 1e6);
+      const imagesUsd = 2 * (1056 * 8 / 1e6 + kImagePromptTokens * 2 / 1e6);
       expect(share.percentOfQuota, closeTo((0.125 + imagesUsd) * 100, 1e-6));
       expect(share.wouldExceed, isTrue);
     });

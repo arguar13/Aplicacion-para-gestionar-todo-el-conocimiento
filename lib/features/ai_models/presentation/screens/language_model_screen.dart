@@ -15,6 +15,7 @@ import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_pro
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_account_switcher.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_key_sheet.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_model_picker.dart';
+import 'package:sinapsis/features/ai_models/presentation/widgets/illustration_settings_section.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -67,6 +68,10 @@ class LanguageModelScreen extends ConsumerWidget {
                   : const _GemmaSection(),
             ),
           ),
+          const SizedBox(height: 28),
+          // F43: quién puede dibujar y la cuota de cada cuenta, con Gemma o
+          // con la nube: dibujar no depende de quién escribe.
+          const IllustrationSettingsSection(),
         ],
       ),
     );

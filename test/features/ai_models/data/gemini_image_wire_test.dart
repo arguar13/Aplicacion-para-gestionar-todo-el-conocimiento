@@ -210,9 +210,11 @@ void main() {
         _googleError(
           429,
           'RESOURCE_EXHAUSTED',
-          'Quota exceeded for metric: generativelanguage.googleapis.com/'
-              'generate_content_free_tier_requests, limit: 0, model: '
-              'gemini-nano-banana-2.1. Please try again in 30s.',
+          [
+            'Quota exceeded for metric: generativelanguage.googleapis.com/',
+            'generate_content_free_tier_requests, limit: 0, model: ',
+            'gemini-nano-banana-2.1. Please try again in 30s.',
+          ].join(),
         ),
         status: 429,
       );
