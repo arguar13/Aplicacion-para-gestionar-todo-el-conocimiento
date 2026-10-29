@@ -38,14 +38,26 @@ const kStudyCreationColumns = [
 /// traerlo a Dart; uno roto no se abre, y una referencia que no es un
 /// original —una vacía, una de prueba— no cuenta.
 ///
+/// **Solo cuentan las rutas de la carpeta de la propia creación**
+/// (`originales/<su id>/…`, comparando el tramo entero con su `/`: la de
+/// `c1` no acepta `originales/c10/…`), sin `..` ni `\`. El contenido llega de
+/// otra bóveda y es un JSON cualquiera: una ruta que nombre el archivo de
+/// otra creación o el original de un documento no hace copiar nada —esos
+/// viajan, si corresponde, con quien de verdad los usa—.
+///
 /// Es una consulta con una sola columna, `path`: se une con las de los
 /// originales de los elementos al copiar y al contar en la vista previa.
-String studyCreationFilesSql(String schema) =>
-    'SELECT t.value AS path FROM $schema.study_creations c, '
-    'json_tree(CASE WHEN json_valid(c.content_json) '
-    "THEN c.content_json ELSE '{}' END) t "
-    "WHERE t.key = 'illustration_ref' AND t.type = 'text' "
-    "AND t.value LIKE '$kBackupOriginalsFolder/%'";
+String studyCreationFilesSql(String schema) {
+  const own = "'$kBackupOriginalsFolder/' || c.id || '/'";
+  return 'SELECT t.value AS path FROM $schema.study_creations c, '
+      'json_tree(CASE WHEN json_valid(c.content_json) '
+      "THEN c.content_json ELSE '{}' END) t "
+      "WHERE t.key = 'illustration_ref' AND t.type = 'text' "
+      'AND substr(t.value, 1, length($own)) = $own '
+      'AND length(t.value) > length($own) '
+      "AND instr(t.value, '..') = 0 "
+      'AND instr(t.value, char(92)) = 0';
+}
 
 /// «Lo creado» de Estudiar (F43) que las dos bóvedas tienen: la misma creación
 /// —el mismo id— que llegó de una unión anterior y siguió cambiando de los dos

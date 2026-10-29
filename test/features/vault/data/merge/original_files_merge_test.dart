@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -156,6 +157,47 @@ void main() {
       expect(tel.readOriginal(header), 'PNG de la cabecera');
       expect(tel.readOriginal(block), 'PNG del bloque');
     });
+
+    test(
+      'no copia un archivo ajeno que nombre su JSON: el de otra '
+      'creación, el original de un documento o una ruta que se escapa',
+      () async {
+        pc.at(3);
+        const own = 'originales/c1/ilustraciones/diapositiva-1.png';
+        const otherCreation = 'originales/c10/ilustraciones/diapositiva-1.png';
+        const libraryOriginal = 'originales/doc/informe.pdf';
+        const escaping = 'originales/c1/../doc/informe.pdf';
+        await creation(
+          pc,
+          'c1',
+          jsonEncode({
+            'slides': [
+              for (final ref in [
+                own,
+                otherCreation,
+                libraryOriginal,
+                escaping,
+                'originales/c1/',
+              ])
+                {'layout': 'cover', 'title': 'T', 'illustration_ref': ref},
+            ],
+          }),
+        );
+        for (final path in [own, otherCreation, libraryOriginal]) {
+          await pc.writeOriginal(path, 'archivo de $path');
+        }
+
+        final preview = await tel.previewFrom(pc);
+        final result = await tel.mergeFrom(pc);
+
+        expect(result.filesCopied, 1);
+        expect(preview.newFiles, 1);
+        expect(result.filesMissing, 0);
+        expect(tel.hasOriginal(own), isTrue);
+        expect(tel.hasOriginal(otherCreation), isFalse);
+        expect(tel.hasOriginal(libraryOriginal), isFalse);
+      },
+    );
 
     test('un contenido que no es JSON no rompe la fusión', () async {
       pc.at(3);
