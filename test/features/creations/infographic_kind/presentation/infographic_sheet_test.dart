@@ -9,7 +9,6 @@ import 'package:sinapsis/features/creations/infographic/presentation/widgets/inf
 import 'package:sinapsis/features/creations/infographic_kind/domain/infographic_options.dart';
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_providers.dart';
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_spec.dart';
-import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_generators.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_kinds.dart';
