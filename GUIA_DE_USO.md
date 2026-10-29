@@ -2894,23 +2894,40 @@ el contador se ve en el mismo botón **"Estudiar"**).
 
 #### La entrada
 
-Repasar abre en una pantalla que te dice **cuánto hay para hoy**: cuántas
-tarjetas **nuevas**, cuántas se están **aprendiendo** (vuelven en minutos) y
-cuántas **por repasar**. Si el límite de cada día deja algunas afuera, lo
-aclara ("2 nuevas más esperan: hoy no entran por el límite"). Desde acá:
+Repasar es ahora un **estudio**, como el «Studio» de NotebookLM: arriba elegís
+**sobre qué** estudiar, debajo está **lo de hoy**, después las **diez tarjetas
+para crear** cosas sobre eso y, al final, **lo que ya creaste**. Todo va en una
+sola lista que se desplaza: con la letra grande o en un teléfono chico no se
+corta nada.
 
-- **¿Qué estudiar?** Tocás el recuadro (o **"Cambiar"**) y elegís **todo**, **un
-  tema**, **una etiqueta** (con sus ramas: estudiar "Roma" incluye "Roma
-  republicana"), **un cuaderno**, **un elemento** o **un procesado**. La
-  etiqueta, el elemento y el procesado tienen buscador. **Un procesado** estudia
-  las tarjetas del documento procesado **y** las de su fuente —las que el
-  documento muestra en «De la fuente»—, así no queda ninguna afuera. Lo elegido
-  queda mientras la app esté abierta, y los números de arriba cambian al
-  instante.
-- **Empezar** abre la sesión.
-- **Mis tarjetas** y **Estadísticas** llevan a esas pantallas.
-- Arriba: la racha, el historial, **✨** para crear tarjetas con IA y el
-  botón de **exportar a Anki**.
+- **Arriba**, como siempre: la racha, el historial, **✨** para crear tarjetas
+  con IA y el botón de **exportar a Anki**.
+- **El selector** (la píldora ancha de arriba) dice qué está elegido —por
+  ejemplo *"Éxodo — Comentario de Alonso · 1 documento · 386 tarjetas"*—. Al
+  tocarla se abre una hoja con un **buscador**, **los recientes** (los últimos
+  cuatro que elegiste) y cuatro pestañas:
+  - **Todo lo procesado**;
+  - **Documento**: un documento procesado (cada fila dice cuántas tarjetas y
+    creaciones tiene y si ya tiene resumen o síntesis);
+  - **Cuaderno**: uno de tus cuadernos;
+  - **Tema**: uno del Atlas, por temas, etiquetas o cualquier categoría, con
+    su árbol. Solo aparecen los que tienen algo procesado.
+
+  **Todo sale de Procesado**: la Biblioteca no aparece acá. Lo elegido manda en
+  toda la pantalla —«Para hoy», las tarjetas de crear y «Lo creado» trabajan
+  sobre eso— y queda mientras la app esté abierta. Si lo elegido se borra, la
+  píldora dice **"Ya no existe"** y ofrece estudiar todo.
+- **Para hoy**, en una franja: cuántas tarjetas **nuevas**, cuántas se están
+  **aprendiendo** (vuelven en minutos) y cuántas **por repasar**, con
+  **▶ Empezar**. Si el límite de cada día deja algunas afuera, lo aclara ("2
+  nuevas más esperan: hoy no entran por el límite"). Un documento cuenta sus
+  tarjetas **y** las de su fuente —las que muestra en «De la fuente»—, así no
+  queda ninguna afuera. Si no hay nada para hoy, la franja dice por qué y
+  ofrece **"Practicar igual"** o **"Crear tarjetas con IA"** (ver [Cuando
+  Repasar está vacío](#cuando-repasar-está-vacío)).
+- **Las tarjetas de crear** y **Lo creado**: ver [Crear sobre lo
+  procesado](#crear-sobre-lo-procesado-el-estudio-de-repasar).
+- **Al final**, **Mis tarjetas** y **Estadísticas** llevan a esas pantallas.
 
 #### La sesión
 
@@ -2980,6 +2997,94 @@ ninguna, no avisa), y **tocarla abre Repasar**. La cantidad se cuenta hasta la
 hora del aviso, no solo con lo que vence ahora. Se prende, se elige la hora y
 se cambian los límites de tarjetas por día en [Aviso diario y tarjetas por
 día](#aviso-diario-y-tarjetas-por-día-ajustes--repasar).
+
+### Crear sobre lo procesado: el estudio de Repasar
+
+**Cómo llegar:** pantalla "Repasar", debajo de «Para hoy». Todo se crea sobre
+lo elegido en el selector de arriba.
+
+#### Las diez tarjetas de crear
+
+Cada una con su ícono de color y un lápiz ✎ de personalizar:
+
+- **Extraer texto completo**, **Extraer resumen** y **Extraer síntesis**, juntas
+  en la primera fila: muestran lo que el documento procesado **ya tiene**, con
+  las palabras clave en rosa. No le piden nada a la IA y siguen al documento
+  si cambia. Si a una fuente le falta el resumen, la síntesis o las palabras
+  clave, la hoja lo dice y se le pide el análisis de siempre al crearla.
+- **Presentación**, **Mapa mental**, **Informes**, **Tarjetas didácticas**,
+  **Cuestionario**, **Infografía** y **Tabla de datos**: las escribe la IA que
+  elegiste en Ajustes.
+
+En el teléfono van de a dos; en una pantalla ancha, de a tres o cuatro; con la
+letra muy grande, de a una.
+
+#### La hoja de personalizar
+
+Tocar una tarjeta abre su hoja, **ya con lo último que elegiste en ese tipo**.
+Arriba, el título y la **✕** redonda para cerrar. En el medio, solo lo de ese
+tipo:
+
+- **"Seleccionar idioma"**, en español por defecto.
+- **"Fuentes: N fuentes ▾"**: se despliega y podés **destildar** documentos
+  del recorte; **"Todas"** los vuelve a tildar. Sin ninguna tildada no se puede
+  generar.
+- **"Describí lo que querés crear"**, con un ejemplo tenue (presentación,
+  infografía y tabla de datos).
+- **El tema**, con **temas sugeridos** que salen de las palabras clave de lo
+  elegido: tocás uno y queda escrito (mapa mental, tarjetas y cuestionario).
+- Las opciones del tipo, con botones que marcan lo elegido con ✓: el
+  **formato** (*Detallada* o *Del presentador*; *Interactivo* o *Documento*), la
+  **plantilla** (las dieciséis de la presentación, o las del informe con
+  **✎ Una propia**, que abre un campo para contar cómo lo querés), la
+  **duración**, el **número** (*Menos · Estándar · Más*), la **dificultad**,
+  **incluir imágenes** (las del propio documento), los **tipos de pregunta**
+  del cuestionario (al menos uno), la **orientación** y el **detalle** de la
+  infografía, e **"Ilustraciones con IA"** en la presentación y la infografía.
+
+**Abajo, fijo** (con la letra muy grande, al final de la lista):
+
+- **"Uso de IA"**: una barra con lo que ya usaste hoy en la cuenta y, más
+  oscuro, lo que estima esta creación (con Gemma, cuánto puede tardar). Se
+  calcula con lo que de verdad se le mandaría al modelo con las fuentes
+  tildadas.
+- **"Generar más tarde"**: va a la cola de fondo y se hace cuando la IA esté
+  libre.
+- **"Generar ahora"**. Si la IA elegida no puede escribir en este momento (sin
+  clave, sin cuota), no se ofrece y la tarjeta **"Con tu IA actual"** dice por
+  qué; «más tarde» sigue disponible.
+- En las de extraer, un solo botón: **"Crear"**.
+
+Con **"Ilustraciones con IA"** prendido aparece encima la tarjeta **"Con tu IA
+actual"**: qué va a poder hacer, cuánto consume y, si tu IA no dibuja, las
+opciones —**"Seguir sin ilustraciones"** (apaga el interruptor), **usar otra
+cuenta que sí puede** o agregar una clave—.
+
+#### Lo creado
+
+Debajo de las tarjetas, **«Lo creado»** sobre lo elegido, lo más nuevo arriba.
+Cada fila lleva el ícono y el color de su tipo, el título, **"N fuentes · Hace
+X días"** y, abajo, **las fuentes como fichas tocables**: el documento abre su
+pantalla de Procesado; el cuaderno o el tema sobre el que se creó, el cuaderno
+o el material del tema. Una fuente que ya no existe dice **"Fuente
+borrada"**. Si son muchas, **"+N"** abre la lista entera.
+
+- **Mientras se genera**, la fila aparece enseguida con un brillo suave (quieto
+  si pediste «sin animaciones») y dice en qué va: en la cola, el paso y cuánto
+  falta. Podés salir de la pantalla: sigue en la cola.
+- **Si falla**, dice por qué en una línea y ofrece **"Reintentar"**.
+- **Lista**, tocarla la abre en su visor, con el título, **"Ver N fuentes"** y
+  sus fichas, y el menú ⋮.
+- **Su menú ⋮**: **Abrir**, **Renombrar**, **Volver a generar con otras
+  opciones** (abre la hoja con lo de esa creación y la rehace en su lugar),
+  **Reintentar**, **Cancelar la generación**, **Ver fuentes** y **Borrar**, que
+  la manda a la papelera con **"Deshacer"**.
+
+Por ahora cada tipo **muestra su visor a medida que llega**: mientras tanto, al
+abrir una creación lista dice *"Su visor está en camino"* —ya quedó guardada y
+se va a abrir ahí mismo, sin volver a generarla—. Lo mismo con los tipos que la
+IA todavía no sabe escribir: la fila lo dice (*"Esta versión de la app todavía
+no sabe crear esto"*) y **"Reintentar"** la rehace cuando llegue.
 
 ### Crear tarjetas con IA, para muchos elementos a la vez
 
