@@ -2,6 +2,7 @@ import 'package:async/async.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/features/creations/data/repositories/study_creation_sql.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
@@ -295,37 +296,53 @@ void main() {
       final expected = {onIt.id, viaNotebook.id, viaTopic.id};
 
       const document = CreationScope.document('doc-a');
-      Future<Duration> timed() async {
-        var best = const Duration(days: 1);
-        for (var round = 0; round < 3; round++) {
-          final watch = Stopwatch()..start();
-          final list = await h.creations.watchByScope(document).first;
-          watch.stop();
-          expect(idsOf(list).toSet(), expected);
-          if (watch.elapsed < best) best = watch.elapsed;
-        }
-        return best;
-      }
-
-      const n = 1000;
-      await fill(0, n);
-      final small = await timed();
-      await fill(n, 3 * n);
-      final large = await timed();
-
-      // Cuatro veces más filas: lineal es ~4 veces más; cuadrático, ~16. El
-      // margen deja lugar a una máquina cargada sin dejar pasar lo segundo.
-      // Por debajo de un milisegundo manda el ruido, no la base.
-      final floor = const Duration(milliseconds: 1).inMicroseconds;
-      expect(
-        large.inMicroseconds,
-        lessThan(
-          10 * (small.inMicroseconds < floor ? floor : small.inMicroseconds),
-        ),
-        reason: 'con $n: $small; con ${4 * n}: $large',
+      Future<void> onlyItsOwn() async => expect(
+        idsOf(await h.creations.watchByScope(document).first).toSet(),
+        expected,
       );
-      // Y a 4.000 creaciones sigue siendo de una pantalla que se abre.
-      expect(large, lessThan(const Duration(milliseconds: 500)));
+
+      await fill(0, 1000);
+      await onlyItsOwn();
+      await fill(1000, 3000);
+      await onlyItsOwn();
+
+      // Que crezca con la base y no más lo dice el plan de SQLite, no un
+      // reloj: medir milisegundos depende de cuán cargada esté la máquina.
+      // Una sola pasada por la tabla, y por cada fila nada más que sus
+      // fuentes (`json_each`, una tabla virtual de tres valores). Una segunda
+      // lectura de `study_creations` por fila sería crecer al cuadrado.
+      final filter = creationsInScopeSql(document);
+      final plan = [
+        for (final row
+            in await db
+                .customSelect(
+                  'EXPLAIN QUERY PLAN SELECT * FROM study_creations c '
+                  'WHERE ${filter.sql} ORDER BY c.created_at DESC, c.id DESC',
+                  variables: filter.variables,
+                )
+                .get())
+          row.read<String>('detail'),
+      ];
+      final reads = [
+        for (final step in plan)
+          if (step.startsWith('SCAN ') || step.startsWith('SEARCH ')) step,
+      ];
+      expect(
+        reads.where((step) => !step.contains('VIRTUAL TABLE')),
+        hasLength(1),
+        reason: plan.join('\n'),
+      );
+      expect(
+        reads.singleWhere((step) => !step.contains('VIRTUAL TABLE')),
+        startsWith('SCAN c'),
+        reason: plan.join('\n'),
+      );
+
+      // Y a 4.000 creaciones sigue siendo de una pantalla que se abre: una
+      // cota generosa, que solo salta si algo se rompe de verdad.
+      final watch = Stopwatch()..start();
+      await onlyItsOwn();
+      expect(watch.elapsed, lessThan(const Duration(seconds: 2)));
     });
 
     test(

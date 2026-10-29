@@ -781,3 +781,27 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
   clave copiada la marcaba editada y escondía todas sus palabras (ahora las que quedan pasan a
   elegidas); y el botón grande «Leer como libro» desbordaba con la letra al doble en 360 dp
   (también en la Biblioteca).
+
+### Paso 16 (hecho): De Procesado y Cuadernos a Repasar, y de vuelta (M6)
+
+- **«En Repasar» en cada documento procesado**: una tarjeta propia (`ScopeCreationsSection`) al
+  final, después de las secciones y antes del Mapa y las Tarjetas de repaso —el documento se lee en
+  el orden del trabajo: la fuente, el original marcado, lo procesado y cómo estudiarlo—. Trae lo
+  creado sobre él y lo que lo usó como fuente desde un cuaderno o un tema, las cinco más nuevas
+  con las mismas filas de «Lo creado» (`CreationTile`) y «Ver las N en Repasar» si hay más; sus
+  tarjetas para hoy con «Empezar» a la sesión del recorte (`openScopeReview`); «Crear en Repasar»
+  con el documento ya elegido. En la papelera no se ve, como el Mapa y las tarjetas.
+- **En cada cuaderno**: la misma tarjeta arriba de sus documentos, sobre lo creado con el
+  cuaderno (el panel pasó a una sola lista que se desplaza); un cuaderno vacío la muestra solo si
+  ya tiene algo creado (`hideWhenEmpty`).
+- **Vacío que invita a crear**: los íconos de presentación, resumen, infografía, cuestionario y
+  mapa mental, un texto propio para documento, cuaderno o tema, y el botón grande.
+- **Ida y vuelta**: tocar una creación abre su visor y «atrás» vuelve al documento o al cuaderno;
+  las fichas de las fuentes del visor y de «Ver petición y fuentes» llevan de vuelta, y una fuente
+  que ya no está dice «Fuente borrada» y no abre nada. Las direcciones directas siguen andando.
+- **Sin tabla nueva**: la regla es la misma de Repasar (`watchByScope`, ids enteros con
+  `json_each`: `doc-a` no confunde `doc-a1`), probada con 1.000 y 4.000 creaciones y un tiempo que
+  crece lineal.
+- **Dos arreglos de raíz**: el botón flotante del cuaderno repetía la etiqueta Hero al abrir un
+  visor encima (`heroTag: null`), y la fila deslizada tapa sus botones con el color de la tarjeta
+  que la contiene, no con el fondo de la pantalla.
