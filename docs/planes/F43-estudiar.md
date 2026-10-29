@@ -643,6 +643,13 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
 
 *(Se completa paso a paso al construir.)*
 
+### Paso 1 (hecho): la barra con «Estudiar»
+
+- Biblioteca · Organizar · Estudiar · Chat · Ajustes. Organizar se queda con la Bandeja y el
+  Atlas; Estudiar abre Procesado, Cuadernos, Línea de tiempo, Mapa y Repasar, con la insignia de
+  las tarjetas para hoy. El riel ancho sigue el mismo orden y la GUÍA explica cómo llegar a cada
+  lugar.
+
 ### Paso 2 (hecho): los datos de «Lo creado», esquema v48
 
 - **`study_creations`** (v48, aditiva, con los conteos como compuerta): tipo, título, recorte,
@@ -669,6 +676,72 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
 - **La cola** (`CreationQueue`): «Generar ahora» antes que «más tarde»; lo de fondo espera la
   cuota sin fallar; lo pendiente se retoma al abrir la app (tres intentos), con el servicio en
   primer plano. Cada tipo suma su generador con una línea en `creationGeneratorsProvider`.
+
+### Paso 3 (hecho): la IA de imágenes y el aviso
+
+- Los cables de imagen de Gemini (Interactions, `store: false`), OpenAI (Image API) y Hugging
+  Face (proveedores de inferencia del Hub), con la tabla fechada de precios y de modelos abiertos
+  y las cuentas de Hugging Face.
+- El servicio de ilustraciones (`illustrationServiceProvider`) y el estimador de «Con tu IA
+  actual» (`creationEstimateProvider`): qué cuenta dibuja y con qué modelo, tokens, imágenes,
+  dólares y el porcentaje de la cuota de hoy, con las alternativas tocables (`AiCapabilityCard`).
+  «¿Qué puede cada IA?», «Uso de IA» y la cuota de cada cuenta en Ajustes → IA.
+
+### Paso 3b (hecho): «Exigente — en el teléfono»
+
+- SDXS-512 y SD-Turbo (GGUF) con stable-diffusion.cpp fijado a una versión, por FFI en otro hilo;
+  la descarga se pausa y se comprueba con su huella, y el veredicto «puede / justo / no alcanza»
+  sale de la memoria y el procesador. «Medir en mi teléfono» guarda el tiempo real por imagen.
+- El motor nativo solo entra si la APK se arma con `-Psinapsis.imagenesEnElTelefono=true`
+  (suma unos 38 MB). La APK sin la bandera compila; en un teléfono real no se probó todavía.
+
+### Paso 4 (hecho): el diseño de las presentaciones
+
+- La base del diseño de todo lo creado (`lib/features/creations/design/`): seis pares de letras
+  libres empaquetados, la paleta con el contraste comprobado, los íconos por nombre, el lienzo que
+  escala y el texto que se ajusta sin desbordar nunca, texturas, la ilustración de reserva dibujada
+  por la app y el rasterizador.
+- El mazo como datos (doce diseños de diapositiva, JSON tolerante, esquema para la IA, el diseño
+  guardado aparte), las dieciséis plantillas en cinco familias, el visor con transiciones y
+  miniaturas, la galería con muestras en vivo, la hoja de personalizar y el PDF con la página de
+  notas del presentador.
+
+### Paso 5 (hecho): el diseño de las infografías
+
+- La lámina como datos: ocho tipos de bloque (cifra, hecho, paso, comparación, hito, concepto,
+  cita y gráfico), cada uno con su nivel para el detalle; los números leídos como los escribe un
+  texto («3.000.000», «40 %»); el JSON tolerante y el esquema para la IA.
+- Los dieciocho estilos (seis paletas cada uno, con el contraste comprobado; los ilustrados con su
+  pista para la IA de imágenes y terminados con su versión dibujada), las diez composiciones y los
+  gráficos (barras, anillo, avance y pictograma, que se leen en voz alta).
+- «Automático» y «Automática» se resuelven por el contenido, de forma determinista. Galería,
+  carrusel con muestra, hoja de personalizar, y PNG ×2 y PDF de una página.
+
+### Paso 6 (hecho): Repasar nuevo
+
+- El selector de Procesado (todo, documento, cuaderno y tema del Atlas, con buscador y los
+  recientes; la Biblioteca no aparece) reemplaza al viejo (fuera Espacio, Etiqueta y Elemento,
+  decisión D). «Para hoy» compacto, y toda la pantalla es una sola lista que se desplaza, sin el
+  desborde de antes.
+- La grilla de las diez tarjetas (un color vivo por tipo, de a dos en el teléfono) y la hoja de
+  personalizar común: idioma, fuentes, descripción, tema con sugeridos, las opciones de cada tipo,
+  «Uso de IA» con el material real y «Con tu IA actual»; se recuerda lo último elegido por tipo.
+- «Lo creado» (M9): filas planas, mantener apretado abre el menú (Descargar, Cambiar nombre, Ver
+  petición y fuentes, Eliminar con «Deshacer»), deslizar a la izquierda muestra Descargar y
+  Eliminar. Compartir espera la librería de la hoja de compartir del sistema, que no se sumó sin
+  pedirla.
+- El visor común (`/creations/:id`) con «Ver N fuentes» como chips tocables (M6, de Repasar a
+  Procesado y Cuadernos), y Repasar se abre con un recorte ya elegido (`/review?scope=`). Cada
+  tipo se suma con una línea en `creationKindSpecsProvider`.
+
+### Paso 14 (hecho): Pulido (M1, M2 y M7)
+
+- Todo aviso con botón, largo o que se queda lleva su ✕ (`AppSnackBar`), y un censo lo exige; el
+  de la espera de la IA cuenta hacia atrás en vivo. Los avisos con «Cuentas» ya se van solos.
+- Ajustes → «IA y modelos»: primero los tres modelos, después lo que hizo la IA.
+- «DeclaraciÃ³n», de raíz: el XMP del PDF se lee en UTF-8, el diccionario Info según su marca
+  (con PDFDocEncoding de verdad) y el nombre de las descargas web según su `filename*`; lo ya
+  guardado se repara una vez al abrir la bóveda, como una edición versionada.
 
 ### Paso 15 (hecho): Procesado y el original (M3, M4 y M5)
 
