@@ -5,28 +5,45 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
-import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
+import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/creation_customize_sheet.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/creation_kind_grid.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/creation_scope_picker.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/creation_tile.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
-import 'package:sinapsis/features/flashcards/domain/entities/study_counts.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
-import 'package:sinapsis/features/flashcards/presentation/providers/review_entry_providers.dart';
-import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_banner.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_sheet.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/review_empty_state.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/review_grade_row.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/study_scope_picker.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/review_today_strip.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// La entrada a Repasar (F31, ola 2): cuánto hay para estudiar hoy —nuevas,
-/// aprendiendo, por repasar—, qué estudiar (todo, un tema, una etiqueta, un
-/// cuaderno o un elemento) y el botón «Empezar». Desde acá también se llega a
-/// «Mis tarjetas» y a las estadísticas, al historial, a crear tarjetas con IA
-/// y a exportar a Anki.
+/// Repasar (F43, punto 2 del plan), como el «Studio» de NotebookLM, sin
+/// perder nada de lo de antes (F31):
+///
+/// - **arriba**, la racha, el historial, «Crear tarjetas con IA» y exportar a
+///   Anki, como siempre;
+/// - **el selector** de sobre qué se estudia —todo lo procesado, un
+///   documento, un cuaderno o un tema, nunca la Biblioteca—, que manda en toda
+///   la pantalla;
+/// - **«Para hoy»**, compacto, con «Empezar»;
+/// - **las diez tarjetas de crear**, que abren su hoja de personalizar;
+/// - **«Lo creado»** sobre lo elegido, lo más nuevo arriba;
+/// - **abajo**, «Mis tarjetas» y «Estadísticas».
+///
+/// Va todo en una sola lista que se desplaza: con letra grande o en un
+/// teléfono chico nada queda fijo ocupando la pantalla, ni se corta.
+///
+/// [requestedScopeKey] es el recorte que pide la dirección
+/// (`/review?scope=…`, «Crear en Repasar»): se elige al abrir y cada vez que
+/// cambia.
 class ReviewEntryScreen extends ConsumerStatefulWidget {
-  const ReviewEntryScreen({super.key});
+  const ReviewEntryScreen({this.requestedScopeKey, super.key});
+
+  final String? requestedScopeKey;
 
   @override
   ConsumerState<ReviewEntryScreen> createState() => _ReviewEntryScreenState();
@@ -35,10 +52,35 @@ class ReviewEntryScreen extends ConsumerStatefulWidget {
 class _ReviewEntryScreenState extends ConsumerState<ReviewEntryScreen> {
   var _exporting = false;
 
-  Future<void> _chooseScope() async {
-    final chosen = await showStudyScopePicker(context);
+  @override
+  void initState() {
+    super.initState();
+    _applyRequested();
+  }
+
+  @override
+  void didUpdateWidget(ReviewEntryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.requestedScopeKey != widget.requestedScopeKey) {
+      _applyRequested();
+    }
+  }
+
+  /// Elige el recorte de la dirección, si se entiende. Después del cuadro: un
+  /// proveedor no se cambia mientras se arma la pantalla.
+  void _applyRequested() {
+    final key = widget.requestedScopeKey;
+    final scope = key == null ? null : CreationScope.parse(key);
+    if (scope == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) chooseRepasarScope(ref, scope);
+    });
+  }
+
+  Future<void> _chooseScope(CreationScope current) async {
+    final chosen = await showCreationScopePicker(context, current: current);
     if (chosen == null || !mounted) return;
-    ref.read(reviewEntryScopeProvider.notifier).state = chosen;
+    chooseRepasarScope(ref, chosen);
   }
 
   void _start(StudyScope scope, {bool practice = false}) {
@@ -96,8 +138,8 @@ class _ReviewEntryScreenState extends ConsumerState<ReviewEntryScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final scope = ref.watch(reviewEntryScopeProvider);
-    final counts = ref.watch(studyCountsProvider(scope));
+    final scope = ref.watch(repasarScopeProvider);
+    final studyScope = scope.studyScope;
 
     return Scaffold(
       appBar: AppBar(
@@ -132,62 +174,80 @@ class _ReviewEntryScreenState extends ConsumerState<ReviewEntryScreen> {
         ],
       ),
       body: SafeArea(
-        child: Center(
+        child: Align(
+          alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Column(
+            constraints: const BoxConstraints(maxWidth: 1040),
+            child: CustomScrollView(
               key: const Key('review-entry'),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                  child: Column(
+              slivers: [
+                // Cómo va el pedido de tarjetas con IA (F30), si hay uno: trae
+                // su propio margen.
+                const SliverToBoxAdapter(child: AiFlashcardsBanner()),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  sliver: SliverList.list(
                     children: [
-                      // Cómo va el pedido de tarjetas con IA (F30), si hay uno.
-                      const AiFlashcardsBanner(),
-                      _ScopeTile(scope: scope, onTap: _chooseScope),
+                      CreationScopePill(
+                        scope: scope,
+                        onTap: () => unawaited(_chooseScope(scope)),
+                      ),
+                      const SizedBox(height: 12),
+                      ReviewTodayStrip(
+                        scope: studyScope,
+                        onStart: () => _start(studyScope),
+                        onPractice: () => _start(studyScope, practice: true),
+                        onResetScope: () => chooseRepasarScope(
+                          ref,
+                          const CreationScope.allProcessed(),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      CreationKindGrid(
+                        onOpen: (kind) => unawaited(
+                          showCreationCustomizeSheet(
+                            context,
+                            kind: kind,
+                            scope: scope,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _CreatedHeader(title: l10n.f43StudioCreatedTitle),
                     ],
                   ),
                 ),
-                Expanded(
-                  child: _Today(
-                    counts: counts,
-                    scope: scope,
-                    onStart: () => _start(scope),
-                    onPractice: () => _start(scope, practice: true),
-                    onResetScope: () =>
-                        ref.read(reviewEntryScopeProvider.notifier).state =
-                            const StudyScope.all(),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
+                _Created(scope: scope),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                  sliver: SliverToBoxAdapter(
+                    child: OverflowBar(
+                      alignment: MainAxisAlignment.center,
+                      spacing: 8,
+                      overflowSpacing: 8,
+                      overflowAlignment: OverflowBarAlignment.center,
+                      children: [
+                        OutlinedButton.icon(
                           key: const Key('review-entry-cards'),
                           style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(48),
+                            minimumSize: const Size(0, 48),
                           ),
                           onPressed: () => unawaited(context.push(kRouteCards)),
                           icon: const Icon(Icons.style_outlined),
                           label: Text(l10n.reviewEntryMyCards),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
+                        OutlinedButton.icon(
                           key: const Key('review-entry-stats'),
                           style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(48),
+                            minimumSize: const Size(0, 48),
                           ),
                           onPressed: () =>
                               unawaited(context.push(kRouteReviewStats)),
                           icon: const Icon(Icons.insights_outlined),
                           label: Text(l10n.reviewEntryStats),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -199,262 +259,92 @@ class _ReviewEntryScreenState extends ConsumerState<ReviewEntryScreen> {
   }
 }
 
-/// Qué se estudia ahora, y cómo cambiarlo.
-class _ScopeTile extends ConsumerWidget {
-  const _ScopeTile({required this.scope, required this.onTap});
+/// «─── Lo creado ───», como en la captura.
+class _CreatedHeader extends StatelessWidget {
+  const _CreatedHeader({required this.title});
 
-  final StudyScope scope;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final name = ref.watch(studyScopeNameProvider(scope));
-    // Para un recorte que apunta a algo, el nombre; si ya no existe, lo dice.
-    final title = scope.isAll
-        ? l10n.reviewEntryScopeAll
-        : (name.valueOrNull ??
-              (name.isLoading ? '…' : l10n.reviewEntryScopeMissing));
-
-    return Material(
-      color: scheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        key: const Key('review-entry-scope'),
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(studyScopeKindIcon(scope.kind), color: scheme.primary),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.reviewEntryScopeTitle,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    Text(
-                      title,
-                      key: const Key('review-entry-scope-name'),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: onTap,
-                child: Text(l10n.reviewEntryScopeChange),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Lo que hay para hoy en el recorte, con el botón de empezar; o por qué no
-/// hay nada.
-class _Today extends ConsumerWidget {
-  const _Today({
-    required this.counts,
-    required this.scope,
-    required this.onStart,
-    required this.onPractice,
-    required this.onResetScope,
-  });
-
-  final AsyncValue<StudyCounts> counts;
-  final StudyScope scope;
-  final VoidCallback onStart;
-  final VoidCallback onPractice;
-  final VoidCallback onResetScope;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    if (counts.hasError && !counts.hasValue) {
-      return Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          key: const Key('review-entry-count-failed'),
-          children: [
-            Text(
-              l10n.reviewEntryCountFailed,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error),
-            ),
-            if (!scope.isAll)
-              TextButton(
-                onPressed: onResetScope,
-                child: Text(l10n.reviewEntryScopeReset),
-              ),
-          ],
-        ),
-      );
-    }
-    final value = counts.valueOrNull;
-    if (value == null) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 48),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (value.isEmpty) {
-      // Nada para hoy: el vacío de siempre, que dice por qué (F30).
-      return ReviewEmptyState(onPractice: onPractice);
-    }
-
-    final minutes = value.nextLearningDue == null
-        ? null
-        : (value.nextLearningDue!
-                      .difference(ref.read(clockProvider)())
-                      .inSeconds /
-                  60)
-              .ceil();
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Container(
-        key: const Key('review-entry-counts'),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: 0.6),
-          ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              l10n.reviewEntryTodayTitle,
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                _BigCount(
-                  key: const Key('review-entry-new'),
-                  label: l10n.reviewSessionQueueNew,
-                  count: value.newCards,
-                  color: scheme.primary,
-                ),
-                _BigCount(
-                  key: const Key('review-entry-learning'),
-                  label: l10n.reviewSessionQueueLearning,
-                  count: value.learning,
-                  color: scheme.error,
-                ),
-                _BigCount(
-                  key: const Key('review-entry-review'),
-                  label: l10n.reviewSessionQueueReview,
-                  count: value.reviews,
-                  color: scheme.tertiary,
-                ),
-              ],
-            ),
-            if (value.newBeyondLimit > 0)
-              _Note(
-                key: const Key('review-entry-new-beyond'),
-                text: l10n.reviewEntryNewBeyond(value.newBeyondLimit),
-              ),
-            if (value.reviewsBeyondLimit > 0)
-              _Note(
-                key: const Key('review-entry-reviews-beyond'),
-                text: l10n.reviewEntryReviewsBeyond(value.reviewsBeyondLimit),
-              ),
-            if (minutes != null && minutes > 0)
-              _Note(
-                key: const Key('review-entry-next-learning'),
-                text: l10n.reviewEntryNextLearning(minutes),
-              ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              key: const Key('review-entry-start'),
-              style: reviewWideButtonStyle(),
-              onPressed: onStart,
-              icon: const Icon(Icons.play_arrow),
-              label: Text(l10n.reviewEntryStart),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BigCount extends StatelessWidget {
-  const _BigCount({
-    required this.label,
-    required this.count,
-    required this.color,
-    super.key,
-  });
-
-  final String label;
-  final int count;
-  final Color color;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Expanded(
-      child: Semantics(
-        label: '$label: $count',
-        excludeSemantics: true,
-        child: Column(
-          children: [
-            Text(
-              '$count',
-              style: theme.textTheme.displaySmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
+    final line = Expanded(
+      child: Divider(color: theme.colorScheme.outlineVariant),
     );
-  }
-}
-
-class _Note extends StatelessWidget {
-  const _Note({required this.text, super.key});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          line,
+          Flexible(
+            flex: 3,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          line,
+        ],
+      ),
+    );
+  }
+}
+
+/// Lo creado sobre el recorte elegido, lo más nuevo arriba.
+class _Created extends ConsumerWidget {
+  const _Created({required this.scope});
+
+  final CreationScope scope;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final creations = ref.watch(studyCreationsProvider(scope));
+    final list = creations.valueOrNull;
+
+    Widget line(String text, {Key? key, bool error = false}) => SliverPadding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+      sliver: SliverToBoxAdapter(
+        child: Text(
+          text,
+          key: key,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: error
+                ? theme.colorScheme.error
+                : theme.colorScheme.onSurfaceVariant,
+          ),
         ),
+      ),
+    );
+
+    if (list == null) {
+      // Lo que tarda en llegar es un instante: el lugar, quieto.
+      return creations.hasError
+          ? line(l10n.f43StudioCreatedFailedLoad, error: true)
+          : const SliverToBoxAdapter(child: SizedBox(height: 48));
+    }
+    if (list.isEmpty) {
+      return line(
+        l10n.f43StudioCreatedEmpty,
+        key: const Key('repasar-created-empty'),
+      );
+    }
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      sliver: SliverList.separated(
+        key: const Key('repasar-created'),
+        itemCount: list.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) => CreationTile(creation: list[index]),
       ),
     );
   }

@@ -17,6 +17,7 @@ import 'package:sinapsis/features/capture/presentation/screens/capture_screen.da
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/presentation/screens/creation_viewer_screen.dart';
 import 'package:sinapsis/features/duplicates/presentation/screens/possible_duplicates_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/widgets/explorer_focus.dart';
@@ -265,6 +266,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           startInPractice: state.uri.queryParameters['practice'] == '1',
         ),
       ),
+      // Una creación de «Lo creado» (F43) en su visor, encima de la barra:
+      // se abre desde Repasar, un documento procesado o un cuaderno.
+      GoRoute(
+        path: RoutePaths.creationPattern,
+        name: RouteNames.creation,
+        builder: (context, state) =>
+            CreationViewerScreen(creationId: state.pathParameters['id']!),
+      ),
       GoRoute(
         path: kRouteCards,
         name: kRouteNameCards,
@@ -369,7 +378,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: RoutePaths.review,
                 name: RouteNames.review,
-                builder: (context, state) => const ReviewEntryScreen(),
+                // `?scope=` elige un recorte de Procesado al llegar (F43, M6:
+                // «Crear en Repasar»).
+                builder: (context, state) => ReviewEntryScreen(
+                  requestedScopeKey: state.uri.queryParameters['scope'],
+                ),
               ),
             ],
           ),

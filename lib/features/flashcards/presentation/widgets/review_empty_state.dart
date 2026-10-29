@@ -26,10 +26,15 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// Con tarjetas que todavía no tocan, ofrece «Practicar igual»
 /// ([onPractice]): repasarlas sin esperar, sin tocar su calendario.
+///
+/// [compact] es su forma para la franja «Para hoy» de Repasar (F43, decisión
+/// B): lo mismo —el porqué, el ✨ y «Practicar igual»—, en pocas líneas y sin
+/// ocupar la pantalla, dentro de una lista que se desplaza.
 class ReviewEmptyState extends ConsumerWidget {
-  const ReviewEmptyState({this.onPractice, super.key});
+  const ReviewEmptyState({this.onPractice, this.compact = false, super.key});
 
   final VoidCallback? onPractice;
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,6 +45,14 @@ class ReviewEmptyState extends ConsumerWidget {
     final practice = anyCard ? onPractice : null;
 
     if (batch != null && !batch.finished) {
+      if (compact) {
+        return _CompactLine(
+          key: const Key('review-empty-coming'),
+          icon: Icons.auto_awesome,
+          title: l10n.reviewEmptyBatchTitle,
+          message: l10n.reviewEmptyBatchMessage,
+        );
+      }
       return EmptyStateView(
         key: const Key('review-empty-coming'),
         icon: Icons.auto_awesome,
@@ -48,6 +61,20 @@ class ReviewEmptyState extends ConsumerWidget {
       );
     }
     if (waiting == 0) {
+      if (compact) {
+        return _CompactLine(
+          key: const Key('review-empty-done'),
+          icon: Icons.check_circle_outline,
+          title: l10n.reviewAllDone,
+          action: practice == null
+              ? null
+              : TextButton(
+                  key: const Key('review-practice'),
+                  onPressed: practice,
+                  child: Text(l10n.reviewPracticeAction),
+                ),
+        );
+      }
       return EmptyStateView(
         key: const Key('review-empty-done'),
         icon: Icons.check_circle_outline,
@@ -56,16 +83,79 @@ class ReviewEmptyState extends ConsumerWidget {
         onAction: practice,
       );
     }
-    return _WithoutCards(count: waiting, onPractice: practice);
+    return _WithoutCards(
+      count: waiting,
+      onPractice: practice,
+      compact: compact,
+    );
+  }
+}
+
+/// La forma compacta de un vacío: el ícono, una línea y, si hay, una acción.
+class _CompactLine extends StatelessWidget {
+  const _CompactLine({
+    required this.icon,
+    required this.title,
+    this.message,
+    this.action,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? message;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      alignment: WrapAlignment.spaceBetween,
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 22, color: scheme.primary),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title, style: theme.textTheme.titleSmall),
+                  if (message != null)
+                    Text(
+                      message!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        ?action,
+      ],
+    );
   }
 }
 
 /// Hay [count] elementos sin tarjetas: por qué la IA no las hizo, y el ✨.
 class _WithoutCards extends ConsumerWidget {
-  const _WithoutCards({required this.count, required this.onPractice});
+  const _WithoutCards({
+    required this.count,
+    required this.onPractice,
+    this.compact = false,
+  });
 
   final int count;
   final VoidCallback? onPractice;
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -73,6 +163,42 @@ class _WithoutCards extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final reasons = _reasons(context, ref, l10n);
+    final create = FilledButton.icon(
+      key: const Key('review-empty-create'),
+      onPressed: () => unawaited(showAiFlashcardsSheet(context)),
+      icon: const Icon(Icons.auto_awesome),
+      label: Text(l10n.reviewAiCreateTooltip),
+    );
+    final practice = onPractice == null
+        ? null
+        : TextButton(
+            key: const Key('review-practice'),
+            onPressed: onPractice,
+            child: Text(l10n.reviewPracticeAction),
+          );
+
+    if (compact) {
+      return Column(
+        key: const Key('review-empty-without-cards'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _CompactLine(
+            icon: Icons.style_outlined,
+            title: l10n.reviewEmptyWithoutCards(count),
+            message: l10n.reviewEmptyWithoutCardsHint,
+          ),
+          if (reasons.isNotEmpty) ...[const SizedBox(height: 10), ...reasons],
+          const SizedBox(height: 8),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 4,
+            children: [?practice, create],
+          ),
+        ],
+      );
+    }
 
     return Center(
       child: ConstrainedBox(
@@ -121,20 +247,8 @@ class _WithoutCards extends ConsumerWidget {
                 for (final reason in reasons) reason,
               ],
               const SizedBox(height: 24),
-              FilledButton.icon(
-                key: const Key('review-empty-create'),
-                onPressed: () => unawaited(showAiFlashcardsSheet(context)),
-                icon: const Icon(Icons.auto_awesome),
-                label: Text(l10n.reviewAiCreateTooltip),
-              ),
-              if (onPractice != null) ...[
-                const SizedBox(height: 8),
-                TextButton(
-                  key: const Key('review-practice'),
-                  onPressed: onPractice,
-                  child: Text(l10n.reviewPracticeAction),
-                ),
-              ],
+              create,
+              if (practice != null) ...[const SizedBox(height: 8), practice],
             ],
           ),
         ),
