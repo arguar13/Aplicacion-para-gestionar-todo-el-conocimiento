@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/publication_date.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
@@ -165,13 +166,23 @@ ExtractedMetadata _fromXmp(String text) {
   );
 }
 
+/// El paquete XMP, ya como texto. [text] es el archivo con un byte por
+/// letra (ver [readPdfMetadata]), pero el paquete es XML en UTF-8: leído así,
+/// cada tilde salía como dos letras —«DeclaraciÃ³n»— (F43, M7). Se vuelve a
+/// leer como UTF-8; si no lo es —un generador que escribió Latin-1, contra la
+/// norma—, queda como estaba, que para ese caso es lo correcto.
 String? _xmpBlock(String text) {
   final start = text.indexOf('<x:xmpmeta');
   if (start < 0) return null;
   const closing = '</x:xmpmeta>';
   final end = text.indexOf(closing, start);
   if (end < 0) return null;
-  return text.substring(start, end + closing.length);
+  final block = text.substring(start, end + closing.length);
+  try {
+    return const Utf8Decoder().convert(latin1.encode(block));
+  } on FormatException {
+    return block;
+  }
 }
 
 /// El texto de `<tag>...</tag>`, o del primer `<rdf:li>` si es un contenedor
@@ -211,7 +222,15 @@ List<String> _xmpList(String block, String tag) {
   ].where((s) => s.isNotEmpty).toList();
 }
 
+/// Las entidades de XML: las cinco con nombre y las numéricas —`&#243;`,
+/// `&#xF3;`—, que algunos generadores usan para lo que no es ASCII. `&amp;`
+/// va última: `&amp;#243;` dice «&#243;» al pie de la letra, no «ó».
 String _unescapeXml(String text) => text
+    .replaceAllMapped(RegExp('&#(?:x([0-9A-Fa-f]{1,6})|([0-9]{1,7}));'), (m) {
+      final hex = m[1];
+      final code = hex != null ? int.parse(hex, radix: 16) : int.parse(m[2]!);
+      return code > 0 && code <= 0x10FFFF ? String.fromCharCode(code) : m[0]!;
+    })
     .replaceAll('&lt;', '<')
     .replaceAll('&gt;', '>')
     .replaceAll('&quot;', '"')
@@ -385,10 +404,19 @@ Uint8List _decodeHexBody(String body) {
   return Uint8List.fromList(out);
 }
 
-/// Los bytes de una cadena de PDF como texto: UTF-16BE si empiezan con su
-/// marca (`\xFE\xFF`) —lo que escribe casi todo lo que no es ASCII puro—, o
-/// PDFDocEncoding, que en el rango imprimible coincide con Latin-1: lo
-/// bastante para un nombre o un título en español.
+/// Los bytes de una cadena de PDF como texto, como dice la norma (7.9.2.2):
+///
+/// - UTF-16BE si empiezan con su marca (`FE FF`) —lo que escribe casi todo lo
+///   que no es ASCII puro—;
+/// - UTF-8 si empiezan con la suya (`EF BB BF`), lo que permite PDF 2.0;
+/// - y si no, PDFDocEncoding.
+///
+/// Con una excepción, que es lo que hace un lector de PDF de verdad: bytes
+/// sin marca que forman UTF-8 válido —con alguna letra de más de un byte— se
+/// leen como UTF-8. Hay generadores que lo escriben así, contra la norma, y
+/// leídos como PDFDocEncoding daban «DeclaraciÃ³n» (F43, M7). Un título
+/// escrito de verdad en PDFDocEncoding casi nunca es UTF-8 válido: la «ó»
+/// sola (`F3`) seguida de una letra no lo es.
 String _decodeTextBytes(Uint8List bytes) {
   if (bytes.length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF) {
     final units = <int>[];
@@ -398,9 +426,57 @@ String _decodeTextBytes(Uint8List bytes) {
     final text = String.fromCharCodes(units).trim();
     return text;
   }
-  final text = latin1.decode(bytes, allowInvalid: true).trim();
-  return text;
+  if (bytes.length >= 3 &&
+      bytes[0] == 0xEF &&
+      bytes[1] == 0xBB &&
+      bytes[2] == 0xBF) {
+    return utf8.decode(bytes.sublist(3), allowMalformed: true).trim();
+  }
+  if (bytes.any((byte) => byte >= 0x80)) {
+    try {
+      return const Utf8Decoder().convert(bytes).trim();
+    } on FormatException {
+      // No es UTF-8: es PDFDocEncoding, como dice la norma.
+    }
+  }
+  return decodePdfDocEncoding(bytes).trim();
 }
+
+/// [bytes] en PDFDocEncoding, la codificación de un byte de las cadenas de
+/// texto de un PDF (norma, anexo D). Coincide con Latin-1 salvo en dos
+/// tramos: del `0x18` al `0x1F`, los acentos sueltos (˘ ˇ ˆ ˙ ˝ ˛ ˚ ˜), y del
+/// `0x80` al `0xA0`, las comillas tipográficas, las rayas, las ligaduras
+/// «ﬁ» y «ﬂ», algunas letras de Europa central y el euro —donde Latin-1 tiene
+/// controles—. Los lugares que la norma deja sin definir quedan con su mismo
+/// código: un byte no se pierde aunque no tenga letra.
+@visibleForTesting
+String decodePdfDocEncoding(List<int> bytes) {
+  final buffer = StringBuffer();
+  for (final byte in bytes) {
+    buffer.writeCharCode(switch (byte) {
+      >= 0x18 && <= 0x1F => _pdfDocLow[byte - 0x18],
+      >= 0x80 && <= 0xA0 => _pdfDocHigh[byte - 0x80],
+      _ => byte,
+    });
+  }
+  return buffer.toString();
+}
+
+// dart format off
+/// Del `0x18` al `0x1F`.
+const _pdfDocLow = [
+  0x02D8, 0x02C7, 0x02C6, 0x02D9, 0x02DD, 0x02DB, 0x02DA, 0x02DC,
+];
+
+/// Del `0x80` al `0xA0`; el `0x9F` no está definido.
+const _pdfDocHigh = [
+  0x2022, 0x2020, 0x2021, 0x2026, 0x2014, 0x2013, 0x0192, 0x2044,
+  0x2039, 0x203A, 0x2212, 0x2030, 0x201E, 0x201C, 0x201D, 0x2018,
+  0x2019, 0x201A, 0x2122, 0xFB01, 0xFB02, 0x0141, 0x0152, 0x0160,
+  0x0178, 0x017D, 0x0131, 0x0142, 0x0153, 0x0161, 0x017E, 0x009F,
+  0x20AC,
+];
+// dart format on
 
 /// `D:AAAAMMDDhhmmss...`, la fecha del diccionario `Info`. El huso al final
 /// —`+02'00'`— no importa: la cita nunca llega a la hora.

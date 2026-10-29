@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:sinapsis/core/network/host_gate.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/lenient_uri.dart';
+import 'package:sinapsis/core/util/utf8_mojibake.dart';
 
 /// Lo que dejó una bajada acotada.
 class BoundedDownloadResult {
@@ -271,7 +273,7 @@ class BoundedDownloader {
   }
 }
 
-/// El nombre de un `Content-Disposition`: el `filename*` (RFC 5987, con su
+/// El nombre de un `Content-Disposition`: el `filename*` (RFC 8187, con su
 /// codificación) si lo trae, si no el `filename`. `null` si no trae ninguno.
 String? fileNameFromContentDisposition(String? header) =>
     _fileNameFromDisposition(header);
@@ -282,23 +284,57 @@ String? _fileNameFromDisposition(String? header) {
     r"filename\*\s*=\s*([^']*)'[^']*'([^;]+)",
     caseSensitive: false,
   ).firstMatch(header);
-  // Mal codificado —un `%` sin sus dos cifras, bytes que no son UTF-8—: se
-  // prueba con el `filename` de siempre.
+  // Mal codificado —un `%` sin sus dos cifras, bytes que no son de su
+  // codificación—: se prueba con el `filename` de siempre.
   final encoded = extended?[2]?.trim();
-  if (encoded != null && !RegExp('%(?![0-9A-Fa-f]{2})').hasMatch(encoded)) {
-    try {
-      final decoded = Uri.decodeComponent(encoded).trim();
-      if (decoded.isNotEmpty) return decoded;
-    } on FormatException {
-      // Ver arriba.
-    }
+  if (encoded != null) {
+    final decoded = _decodeExtendedValue(extended![1]!.trim(), encoded);
+    if (decoded != null && decoded.isNotEmpty) return decoded;
   }
   final plain = RegExp(
     r'''filename\s*=\s*(?:"([^"]*)"|([^;]+))''',
     caseSensitive: false,
   ).firstMatch(header);
   final name = (plain?[1] ?? plain?[2])?.trim();
-  return name == null || name.isEmpty ? null : name;
+  // `dart:io` lee cada byte de un encabezado como una letra de Latin-1, y
+  // muchos servidores mandan el nombre en UTF-8 crudo, sin `filename*`: la
+  // «ó» llegaba como «Ã³», y el título del documento era «DeclaraciÃ³n»
+  // (F43, M7). Se lee como lo leen los navegadores: UTF-8 si lo es.
+  return name == null || name.isEmpty ? null : withUtf8MojibakeRepaired(name);
+}
+
+final _hexPair = RegExp(r'^[0-9A-Fa-f]{2}$');
+
+/// El valor de un `filename*` en [charset]: UTF-8 o ISO-8859-1, los dos que
+/// la norma pide entender. `null` si no se puede leer.
+String? _decodeExtendedValue(String charset, String encoded) {
+  final bytes = <int>[];
+  for (var i = 0; i < encoded.length; i++) {
+    final unit = encoded.codeUnitAt(i);
+    if (unit != 0x25) {
+      bytes.add(unit);
+      continue;
+    }
+    final hex = i + 2 < encoded.length ? encoded.substring(i + 1, i + 3) : '';
+    if (!_hexPair.hasMatch(hex)) return null;
+    bytes.add(int.parse(hex, radix: 16));
+    i += 2;
+  }
+  // Lo que no viene con `%` ya son bytes —`dart:io` lee el encabezado de
+  // a uno—: una letra que no cabe en uno no salió de ahí.
+  if (bytes.any((byte) => byte > 0xFF)) return null;
+  switch (charset.toLowerCase()) {
+    case 'iso-8859-1' || 'latin1' || 'latin-1':
+      return latin1.decode(bytes).trim();
+    default:
+      // UTF-8, lo que dice casi siempre; y si dice otra cosa, lo único que
+      // vale la pena intentar.
+      try {
+        return const Utf8Decoder().convert(bytes).trim();
+      } on FormatException {
+        return null;
+      }
+  }
 }
 
 String _fileNameFromUrl(Uri url) => lastPathSegmentOf(url) ?? url.host;

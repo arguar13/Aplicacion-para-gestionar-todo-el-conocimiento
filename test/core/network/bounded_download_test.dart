@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -108,6 +109,27 @@ void main() {
     expect(result.fileName, 'Informe anual 2026.pdf');
     expect(result.savedAs, 'originales/x/Informe anual 2026.pdf');
     expect(saved['Informe anual 2026.pdf'], bytes);
+  });
+
+  test('el nombre en UTF-8 crudo, como lo deja `dart:io`, llega entero y '
+      'así se guarda (F43, M7)', () async {
+    server.routes['$pdf'] = [
+      _Reply(
+        bytes,
+        headers: {
+          'content-disposition': [
+            latin1.decode(
+              utf8.encode('attachment; filename="Declaración.pdf"'),
+            ),
+          ],
+        },
+      ),
+    ];
+
+    final result = await downloader().download(pdf, maxBytes: 100, save: save);
+
+    expect(result.fileName, 'Declaración.pdf');
+    expect(saved.keys, ['Declaración.pdf']);
   });
 
   test('sin Content-Disposition, el nombre sale de la dirección', () async {
@@ -256,6 +278,55 @@ void main() {
       );
       expect(fileNameFromContentDisposition('inline'), isNull);
       expect(fileNameFromContentDisposition(null), isNull);
+    });
+
+    group('las letras de afuera del ASCII (F43, M7)', () {
+      /// El encabezado como lo deja `dart:io`: cada byte, una letra de
+      /// Latin-1.
+      String asHeader(String sent) => latin1.decode(utf8.encode(sent));
+
+      test('un `filename` en UTF-8 crudo no sale como «DeclaraciÃ³n»', () {
+        final header = asHeader(
+          'attachment; filename="Declaración de los Derechos.pdf"',
+        );
+        expect(header, contains('Ã³'));
+
+        expect(
+          fileNameFromContentDisposition(header),
+          'Declaración de los Derechos.pdf',
+        );
+      });
+
+      test('un `filename` en Latin-1 de verdad queda como llegó', () {
+        expect(
+          fileNameFromContentDisposition('attachment; filename="Año.pdf"'),
+          'Año.pdf',
+        );
+      });
+
+      test('el `filename*` respeta su codificación: ISO-8859-1', () {
+        expect(
+          fileNameFromContentDisposition(
+            "attachment; filename*=ISO-8859-1''Declaraci%F3n.pdf",
+          ),
+          'Declaración.pdf',
+        );
+      });
+
+      test('un `filename*` mal codificado deja el `filename`', () {
+        expect(
+          fileNameFromContentDisposition(
+            "attachment; filename=\"bien.pdf\"; filename*=UTF-8''mal%F3.pdf",
+          ),
+          'bien.pdf',
+        );
+        expect(
+          fileNameFromContentDisposition(
+            "attachment; filename=\"bien.pdf\"; filename*=UTF-8''mal%-1.pdf",
+          ),
+          'bien.pdf',
+        );
+      });
     });
   });
 }

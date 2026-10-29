@@ -20,28 +20,36 @@ Uint8List _pdfWithInfo(String infoBody, {String before = ''}) =>
       ),
     );
 
-Uint8List _pdfWithXmp(String xmpFields) => Uint8List.fromList(
-  latin1.encode(
-    '%PDF-1.4\n'
-    '2 0 obj\n<< /Type /Metadata /Subtype /XML /Length 0 >>\n'
-    'stream\n<?xpacket begin="" id=""?>\n'
-    '<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
-    '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
-    '<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/" '
-    'xmlns:prism="http://prismstandard.org/namespaces/basic/2.0/">\n'
-    '$xmpFields\n'
-    '</rdf:Description>\n'
-    '</rdf:RDF>\n'
-    '</x:xmpmeta>\n<?xpacket end="w"?>\nendstream\nendobj\n'
-    'trailer\n<< /Root 1 0 R >>\n%%EOF\n',
-  ),
-);
+/// [encoding] es el de todo el archivo: la estructura es ASCII y sale igual,
+/// y lo que no lo es —un título con tilde— sale como lo escribiría un
+/// generador de verdad (XMP en UTF-8).
+Uint8List _pdfWithXmp(String xmpFields, {Encoding encoding = latin1}) =>
+    Uint8List.fromList(
+      encoding.encode(
+        '%PDF-1.4\n'
+        '2 0 obj\n<< /Type /Metadata /Subtype /XML /Length 0 >>\n'
+        'stream\n<?xpacket begin="" id=""?>\n'
+        '<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
+        '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
+        '<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/" '
+        'xmlns:prism="http://prismstandard.org/namespaces/basic/2.0/">\n'
+        '$xmpFields\n'
+        '</rdf:Description>\n'
+        '</rdf:RDF>\n'
+        '</x:xmpmeta>\n<?xpacket end="w"?>\nendstream\nendobj\n'
+        'trailer\n<< /Root 1 0 R >>\n%%EOF\n',
+      ),
+    );
 
 /// Un PDF "grande" —por encima de [pdfMetadataWholeReadLimit]—, con relleno
 /// en el medio y una tabla de referencias clásica al final, para probar la
 /// lectura por tramos: [beforePadding] va antes del relleno, [afterPadding]
 /// después. La tabla apunta al objeto 1, donde sea que haya quedado.
-Uint8List _bigPdf({String beforePadding = '', String afterPadding = ''}) {
+Uint8List _bigPdf({
+  String beforePadding = '',
+  String afterPadding = '',
+  Encoding encoding = latin1,
+}) {
   final head = '%PDF-1.4\n$beforePadding';
   final padding = ' ' * (pdfMetadataWholeReadLimit + 1024);
   final body = '$head$padding$afterPadding';
@@ -53,7 +61,7 @@ Uint8List _bigPdf({String beforePadding = '', String afterPadding = ''}) {
       '${objOffset.toString().padLeft(10, '0')} 00000 n\r\n'
       'trailer\n<< /Root 1 0 R /Info 1 0 R /Size 2 >>\n'
       'startxref\n$xrefOffset\n%%EOF\n';
-  return Uint8List.fromList(latin1.encode('$body$xref'));
+  return Uint8List.fromList(encoding.encode('$body$xref'));
 }
 
 /// Lee [bytes] como lo haría `readPdfMetadataFrom` desde el almacén, y anota
@@ -243,6 +251,94 @@ void main() {
       final bytes = Uint8List.fromList(latin1.encode('%PDF-1.4\n%%EOF\n'));
 
       expect(readPdfMetadata(bytes).isEmpty, isTrue);
+    });
+  });
+
+  group('las letras de afuera del ASCII (F43, M7)', () {
+    const title = 'Declaración de los Derechos del Hombre y del Ciudadano';
+
+    String xmpTitle(String text) =>
+        '<dc:title><rdf:Alt><rdf:li xml:lang="x-default">$text'
+        '</rdf:li></rdf:Alt></dc:title>\n'
+        '<dc:creator><rdf:Seq><rdf:li>Asamblea Nacional Constituyente'
+        '</rdf:li><rdf:li>Muñoz, José</rdf:li></rdf:Seq></dc:creator>';
+
+    test('el título del XMP, que es UTF-8, no sale con «Ã³»: el caso de la '
+        'captura', () {
+      final metadata = readPdfMetadata(
+        _pdfWithXmp(xmpTitle(title), encoding: utf8),
+      );
+
+      expect(metadata.title, title);
+      expect(metadata.title, isNot(contains('Ã')));
+      expect(
+        metadata.reference.contributors.map((c) => c.name.family),
+        contains('Muñoz'),
+      );
+    });
+
+    test('lo mismo leyendo por tramos un PDF grande (F21)', () async {
+      final (metadata, _) = await _readByRanges(
+        _bigPdf(
+          beforePadding:
+              '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF>\n'
+              '<rdf:Description>${xmpTitle(title)}</rdf:Description>'
+              '</rdf:RDF>\n</x:xmpmeta>\n',
+          afterPadding: '1 0 obj\n<< /Producer (algo) >>\nendobj\n',
+          encoding: utf8,
+        ),
+      );
+
+      expect(metadata.title, title);
+    });
+
+    test('un XMP que no es UTF-8 —Latin-1, contra la norma— se lee como '
+        'estaba', () {
+      final metadata = readPdfMetadata(_pdfWithXmp(xmpTitle(title)));
+
+      expect(metadata.title, title);
+    });
+
+    test('las entidades numéricas del XML, decimales y hexadecimales', () {
+      final metadata = readPdfMetadata(
+        _pdfWithXmp(xmpTitle('Declaraci&#243;n y Espa&#xF1;a &amp;#243;')),
+      );
+
+      expect(metadata.title, 'Declaración y España &#243;');
+    });
+
+    test('el Info con los bytes de UTF-8 sin marca, como escriben algunos '
+        'generadores', () {
+      final metadata = readPdfMetadata(
+        _pdfWithInfo(r'/Title (Declaraci\303\263n de los Derechos)'),
+      );
+
+      expect(metadata.title, 'Declaración de los Derechos');
+    });
+
+    test('el Info en UTF-8 con su marca, como permite PDF 2.0', () {
+      final metadata = readPdfMetadata(
+        _pdfWithInfo(r'/Title (\357\273\277Declaraci\303\263n)'),
+      );
+
+      expect(metadata.title, 'Declaración');
+    });
+
+    test('el Info en PDFDocEncoding: la «ó» de un byte sigue siendo «ó», y '
+        'las comillas tipográficas no son controles', () {
+      final metadata = readPdfMetadata(
+        _pdfWithInfo(r'/Title (\215Declaraci\363n\216 \204 1789 \240)'),
+      );
+
+      expect(metadata.title, '“Declaración” — 1789 €');
+    });
+
+    test('PDFDocEncoding: los acentos sueltos, las ligaduras y lo que la '
+        'norma deja sin definir', () {
+      expect(
+        decodePdfDocEncoding([0x18, 0x1F, 0x93, 0x94, 0x95, 0x9F, 0x41, 0xE9]),
+        '˘˜ﬁﬂŁ\u009FAé',
+      );
     });
   });
 
