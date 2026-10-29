@@ -246,6 +246,33 @@ desde F13):
     - cada respuesta se puede copiar, escuchar, volver a generar y marcar con 👍/👎;
     - al mantener apretado, se puede editar y reenviar;
     - con el teclado abierto, el chat ocupa toda la pantalla, con «↓» para volver al final.
+- **F43** — **«Estudiar»: un estudio para crear sobre lo procesado** (decisión 89, esquema v48).
+  - **La barra**: Biblioteca · Organizar (Bandeja y Atlas) · Estudiar (Procesado, Cuadernos,
+    Línea de tiempo, Mapa y Repasar) · Chat · Ajustes.
+  - **Repasar es el «Studio» de NotebookLM**:
+    - un selector solo de lo procesado (todo, documento, cuaderno o tema);
+    - «Para hoy» compacto;
+    - diez tarjetas de crear, con una hoja de personalizar común;
+    - «Lo creado», con su menú y deslizar.
+  - **Los diez tipos, cada uno con su visor y sus descargas**:
+    - el texto completo, el resumen y la síntesis, como vistas vivas con modo escuchar;
+    - tarjetas didácticas que suman al repaso;
+    - cuestionarios con cuatro tipos de pregunta;
+    - mapa mental y tabla de datos;
+    - informes;
+    - presentaciones con dieciséis plantillas;
+    - infografías con dieciocho estilos.
+  - **El diseño está en la app**: la IA escribe datos con su esquema (`writeStructured`), y cambiar
+    la plantilla o el estilo nunca vuelve a llamarla.
+  - **Ilustraciones con IA**:
+    - antes de generar, el aviso «Con tu IA actual» dice el costo y la cuota;
+    - se guardan en `originales/<creación>/ilustraciones/`, en un solo almacén que solo borra lo
+      propio;
+    - volver a generar libera lo que ya no se usa.
+  - **Procesado**:
+    - el original se ve incrustado y se marca ahí mismo, con IA o a mano;
+    - «Estudiar el documento» salió de Procesado;
+    - Procesado y Cuadernos muestran «En Repasar», y desde los visores se vuelve a las fuentes.
 
 ## 5. Estado actual
 
@@ -282,13 +309,23 @@ desde F13):
 > Falta mirarla en el teléfono: el dictado, la vibración, el teclado inmersivo y cómo se ven el
 > fundido y el brillo. La APK se instala solo si el dueño la pide.
 >
+> **F43 («Estudiar») está construida** (2026-10-29): `docs/planes/F43-estudiar.md`, decisión 89,
+> esquema v48. Falta mirarla en el teléfono:
+> - las ilustraciones con una clave real;
+> - «Exigente» con stable-diffusion.cpp, que solo entra con `-Psinapsis.imagenesEnElTelefono=true`;
+> - la pantalla completa apaisada;
+> - la hoja de compartir;
+> - cómo se ven las plantillas, los estilos y los PDF.
+>
+> La APK se instala solo si el dueño la pide.
+>
 > **F41 («Procesado») está construida** (2026-10-28): `docs/planes/F41-procesado.md`. Esquemas
 > v45, v46 y v47. Falta mirarla en el teléfono: el PDF y la página web sobre la copia del original
 > y en modo cortar, las fotos de verdad en la grilla y la galería, y la IA real organizando lo
 > procesado. La APK se instala solo si el dueño la pide.
 
 
-- `origin/main` = el commit «docs: cierre de F41». **Suite: 11.333 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre).
+- `origin/main` = el commit «docs: cierre de F43». **Suite: 13.142 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre).
   **Analizador: 19 avisos.** Es la línea base de `tool/verify_commit.ps1` y **no puede crecer**.
 - Hay cinco archivos con cambios de solo formato que no son de este trabajo y no se commitean:
   - `lib/core/database/tables/suggestions.dart`

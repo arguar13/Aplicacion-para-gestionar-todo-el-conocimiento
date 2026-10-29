@@ -1,7 +1,8 @@
 # F43 — «Estudiar»: un estudio para crear sobre lo procesado
 
 > **Estado: APROBADO** (2026-10-28, «aprobado» en el chat, con las ilustraciones con IA de la
-> decisión H y su aviso detallado —ver «H en detalle»—). En construcción.
+> decisión H y su aviso detallado —ver «H en detalle»—). **Construida** el 2026-10-29: los dieciséis
+> pasos y el cierre, con la decisión 89.
 >
 > Pedido del dueño, con catorce capturas de NotebookLM (la pestaña «Studio», sus hojas de
 > personalizar y cinco resultados abiertos) y una de Repasar de hoy: *"vamos a cambiar eso para
@@ -974,3 +975,13 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
   guarda en segundos: una edición en el mismo segundo que lo anterior no lo movía y se quedaba
   con el texto viejo. Ahora mira la versión de la fila (`rev`). Por eso fallaba de a ratos la
   prueba «si se edita una página».
+
+### Paso 13 (hecho): el cierre
+
+- La decisión 89 en `docs/arquitectura.md` y F43 en «Construido»; la GUÍA, al día en cada paso; y
+  F43 en `CONTEXTO_DEL_PROYECTO.md`.
+- Cada commit de la fase compila solo y da los 19 avisos de la línea base (`verify_commit.ps1`).
+- **La suite entera: 13.142 pruebas pasan, 0 fallas y 46 omitidas** (las de siempre), con
+  PDFium real.
+- Queda mirarla en el teléfono —las ilustraciones con una clave real, «Exigente», la pantalla
+  completa apaisada, compartir y cómo se ven las plantillas y los PDF— y la APK, si se pide.
