@@ -14,6 +14,9 @@ class AccountUsage {
     this.backgroundRequests = 0,
     this.inputTokens = 0,
     this.outputTokens = 0,
+    this.images = 0,
+    this.imageTokens = 0,
+    this.spentMicroUsd = 0,
     this.exhaustedUntil,
     this.lastFailure,
   });
@@ -38,6 +41,9 @@ class AccountUsage {
       backgroundRequests: count('backgroundRequests'),
       inputTokens: count('inputTokens'),
       outputTokens: count('outputTokens'),
+      images: count('images'),
+      imageTokens: count('imageTokens'),
+      spentMicroUsd: count('spentMicroUsd'),
       exhaustedUntil: until?.toUtc(),
       lastFailure: CloudModelFailure.values
           .where((f) => f.name == failure)
@@ -60,6 +66,26 @@ class AccountUsage {
   final int inputTokens;
   final int outputTokens;
 
+  /// Ilustraciones dibujadas ese día (F43). Cada una cuenta también como un
+  /// pedido; sus tokens van aparte, en [imageTokens]: [inputTokens] y
+  /// [outputTokens] siguen siendo los del texto, que se cobran a otro precio.
+  final int images;
+
+  /// Los tokens de las ilustraciones de ese día (la descripción y la imagen).
+  final int imageTokens;
+
+  /// Todos los tokens del día: los del texto y los de las ilustraciones.
+  int get totalTokens => inputTokens + outputTokens + imageTokens;
+
+  /// Lo gastado en las ilustraciones de ese día, en millonésimas de dólar
+  /// (F43): con los tokens que contó el proveedor y la tabla de precios
+  /// fechada. Es una estimación —el proveedor no dice lo cobrado—, y lo de
+  /// texto no está: sale de los tokens y el modelo, al calcularlo.
+  final int spentMicroUsd;
+
+  /// Lo gastado en ilustraciones, en dólares.
+  double get spentUsd => spentMicroUsd / 1e6;
+
   /// Hasta cuándo esta cuenta no tiene cuota, según lo último que dijo el
   /// proveedor. `null`: no se sabe que esté agotada.
   final DateTime? exhaustedUntil;
@@ -78,6 +104,9 @@ class AccountUsage {
     int? backgroundRequests,
     int? inputTokens,
     int? outputTokens,
+    int? images,
+    int? imageTokens,
+    int? spentMicroUsd,
     DateTime? exhaustedUntil,
     bool clearExhausted = false,
     CloudModelFailure? lastFailure,
@@ -89,6 +118,9 @@ class AccountUsage {
     backgroundRequests: backgroundRequests ?? this.backgroundRequests,
     inputTokens: inputTokens ?? this.inputTokens,
     outputTokens: outputTokens ?? this.outputTokens,
+    images: images ?? this.images,
+    imageTokens: imageTokens ?? this.imageTokens,
+    spentMicroUsd: spentMicroUsd ?? this.spentMicroUsd,
     exhaustedUntil: clearExhausted
         ? null
         : (exhaustedUntil ?? this.exhaustedUntil),
@@ -102,6 +134,9 @@ class AccountUsage {
     'backgroundRequests': backgroundRequests,
     'inputTokens': inputTokens,
     'outputTokens': outputTokens,
+    if (images > 0) 'images': images,
+    if (imageTokens > 0) 'imageTokens': imageTokens,
+    if (spentMicroUsd > 0) 'spentMicroUsd': spentMicroUsd,
     if (exhaustedUntil != null)
       'exhaustedUntil': exhaustedUntil!.toUtc().toIso8601String(),
     if (lastFailure != null) 'lastFailure': lastFailure!.name,
@@ -116,6 +151,9 @@ class AccountUsage {
       other.backgroundRequests == backgroundRequests &&
       other.inputTokens == inputTokens &&
       other.outputTokens == outputTokens &&
+      other.images == images &&
+      other.imageTokens == imageTokens &&
+      other.spentMicroUsd == spentMicroUsd &&
       other.exhaustedUntil == exhaustedUntil &&
       other.lastFailure == lastFailure;
 
@@ -127,6 +165,9 @@ class AccountUsage {
     backgroundRequests,
     inputTokens,
     outputTokens,
+    images,
+    imageTokens,
+    spentMicroUsd,
     exhaustedUntil,
     lastFailure,
   );

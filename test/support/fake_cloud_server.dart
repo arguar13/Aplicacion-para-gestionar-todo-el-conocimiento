@@ -8,7 +8,7 @@ import 'package:dio/dio.dart';
 /// cabeceras.
 typedef FakeCloudReply = ({
   int status,
-  String body,
+  List<int> body,
   int chunk,
   Map<String, List<String>> headers,
 });
@@ -27,11 +27,25 @@ class FakeCloudServer implements HttpClientAdapter {
     Map<String, String> headers = const {},
   }) => replies.add((
     status: status,
-    body: body,
+    body: utf8.encode(body),
     chunk: chunk,
     headers: {
       Headers.contentTypeHeader: ['application/json'],
       for (final MapEntry(:key, :value) in headers.entries) key: [value],
+    },
+  ));
+
+  /// Una respuesta binaria (F43): los bytes de una imagen, con su tipo.
+  void replyBytes(
+    List<int> bytes, {
+    int status = 200,
+    String contentType = 'image/png',
+  }) => replies.add((
+    status: status,
+    body: bytes,
+    chunk: 64,
+    headers: {
+      Headers.contentTypeHeader: [contentType],
     },
   ));
 
@@ -50,7 +64,7 @@ class FakeCloudServer implements HttpClientAdapter {
       bodies.add(jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>);
     }
     final next = replies.removeAt(0);
-    final bytes = utf8.encode(next.body);
+    final bytes = next.body;
     return ResponseBody(
       Stream.fromIterable([
         for (var i = 0; i < bytes.length; i += next.chunk)

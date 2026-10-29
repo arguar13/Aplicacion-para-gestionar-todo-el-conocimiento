@@ -21,6 +21,17 @@ abstract interface class AiUsageLedger {
     required bool background,
   });
 
+  /// Una ilustración que salió (F43): cuenta como un pedido, una imagen más,
+  /// sus tokens (aparte de los del texto) y lo que costó ([usd], estimado con
+  /// la tabla fechada).
+  Future<void> recordImage(
+    String accountId, {
+    required DateTime now,
+    required int inputTokens,
+    required int outputTokens,
+    required double usd,
+  });
+
   /// El proveedor dijo que [accountId] no tiene cuota hasta [until].
   Future<void> markExhausted(
     String accountId, {

@@ -77,6 +77,29 @@ class PrefsAiUsageLedger implements AiUsageLedger {
   }
 
   @override
+  Future<void> recordImage(
+    String accountId, {
+    required DateTime now,
+    required int inputTokens,
+    required int outputTokens,
+    required double usd,
+  }) {
+    final usage = usageOf(accountId, now: now);
+    return _write(
+      usage.copyWith(
+        requests: usage.requests + 1,
+        images: usage.images + 1,
+        imageTokens:
+            usage.imageTokens +
+            (inputTokens > 0 ? inputTokens : 0) +
+            (outputTokens > 0 ? outputTokens : 0),
+        spentMicroUsd:
+            usage.spentMicroUsd + (usd > 0 ? (usd * 1e6).round() : 0),
+      ),
+    );
+  }
+
+  @override
   Future<void> markExhausted(
     String accountId, {
     required DateTime now,

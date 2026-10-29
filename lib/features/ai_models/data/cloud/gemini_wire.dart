@@ -47,6 +47,19 @@ class GeminiWire implements CloudWire {
   @override
   Future<List<CloudModelInfo>> listModels(String key) async {
     final models = <CloudModelInfo>[];
+    for (final raw in await rawModels(key)) {
+      final info = _modelInfo(raw);
+      if (info != null) models.add(info);
+    }
+    models.sort((a, b) => a.id.compareTo(b.id));
+    return models;
+  }
+
+  /// La lista de modelos de [key] tal como la da Google, todas las páginas:
+  /// de acá salen los de texto ([listModels]) y, aparte, los de imagen (F43,
+  /// `GeminiImageWire`), sin que unos se mezclen con los otros.
+  Future<List<Map<dynamic, dynamic>>> rawModels(String key) async {
+    final models = <Map<dynamic, dynamic>>[];
     String? page;
     do {
       final response = await _send(
@@ -59,14 +72,11 @@ class GeminiWire implements CloudWire {
       final body = response.data;
       if (body is! Map) break;
       for (final raw in (body['models'] as List?) ?? const []) {
-        if (raw is! Map) continue;
-        final info = _modelInfo(raw);
-        if (info != null) models.add(info);
+        if (raw is Map) models.add(raw);
       }
       final next = body['nextPageToken'];
       page = next is String && next.isNotEmpty ? next : null;
     } while (page != null);
-    models.sort((a, b) => a.id.compareTo(b.id));
     return models;
   }
 
