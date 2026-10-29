@@ -10,6 +10,7 @@ import 'package:sinapsis/features/creations/infographic_kind/presentation/infogr
 import 'package:sinapsis/features/creations/mind_map/mind_map_kind.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
+import 'package:sinapsis/features/creations/presentation_kind/presentation/presentation_kind_spec.dart';
 import 'package:sinapsis/features/creations/quiz/presentation/quiz_kind.dart';
 import 'package:sinapsis/features/creations/report/presentation/report_kind.dart';
 
@@ -39,6 +40,7 @@ final creationKindSpecsProvider = Provider<List<CreationKindSpec>>(
     ref.watch(dataTableKindSpecProvider),
     ref.watch(flashcardsKindSpecProvider),
     ref.watch(quizKindSpecProvider),
+    ref.watch(presentationKindSpecProvider),
   ],
 );
 

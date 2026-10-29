@@ -24,6 +24,7 @@ class TemplateGallery extends StatelessWidget {
     this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 24),
     this.controller,
     this.shrinkWrap = false,
+    this.markSelected = true,
     super.key,
   });
 
@@ -34,6 +35,11 @@ class TemplateGallery extends StatelessWidget {
   final EdgeInsets padding;
   final ScrollController? controller;
   final bool shrinkWrap;
+
+  /// Si se marca con ✓ la plantilla de [design]. Apagado cuando no hay
+  /// ninguna elegida todavía (la hoja de crear, en «Automática»): [design]
+  /// pone solo cómo se ven las muestras.
+  final bool markSelected;
 
   /// El diseño con que se muestra (y se elige) la plantilla [id].
   DeckDesign previewOf(DeckTemplateId id) => design.copyWith(
@@ -84,7 +90,9 @@ class TemplateGallery extends StatelessWidget {
                                 id: templates[i],
                                 deck: deck,
                                 design: previewOf(templates[i]),
-                                selected: design.template == templates[i],
+                                selected:
+                                    markSelected &&
+                                    design.template == templates[i],
                                 illustrations: illustrations,
                                 onTap: () => onChanged(previewOf(templates[i])),
                               )
