@@ -484,9 +484,9 @@ class DeckBackgroundPainter extends CustomPainter {
         ),
         Paint()..color = _a(p.secondary, 0.3),
       );
-    if (grand) {
-      // Una ondita y unos puntos, como de cuaderno (en las de contenido
-      // quedarían debajo del número).
+    if (layout == SlideLayout.cover) {
+      // Una ondita y unos puntos, como de cuaderno: solo en la portada, que
+      // no lleva número (en las demás quedaría debajo de él).
       final wave = Path()..moveTo(size.width - h * 0.5, h * 0.9);
       for (var i = 1; i <= 6; i++) {
         wave.relativeQuadraticBezierTo(

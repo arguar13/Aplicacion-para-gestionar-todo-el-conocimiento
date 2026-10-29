@@ -361,25 +361,51 @@ class ComparisonLayout extends StatelessWidget {
             child: FitTextGroup(items: groups[i], scale: scale),
           ),
         );
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            panel(0),
-            SizedBox(width: s.gap * 0.8),
-            SizedBox(
-              width: badge,
-              child: Center(
-                child: NumberBadge(
-                  style: s,
-                  label: 'vs',
-                  size: badge,
-                  color: p.accent,
-                ),
+        // Los dos lados miden lo que pide el más largo, con aire, y quedan
+        // en el medio del lugar: con poco texto no se ven cajas vacías.
+        var needed = 0.0;
+        for (final group in groups) {
+          needed = math.max(
+            needed,
+            FitTextGroup.heightAt(
+              context,
+              group,
+              Size(
+                math.max(0, side - insets.horizontal),
+                math.max(0, constraints.maxHeight - insets.vertical),
               ),
+              scale,
             ),
-            SizedBox(width: s.gap * 0.8),
-            panel(1),
-          ],
+          );
+        }
+        final height = math.min(
+          constraints.maxHeight,
+          math.max(badge, needed + insets.vertical + s.gap * 0.9),
+        );
+        return Center(
+          child: SizedBox(
+            height: height,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                panel(0),
+                SizedBox(width: s.gap * 0.8),
+                SizedBox(
+                  width: badge,
+                  child: Center(
+                    child: NumberBadge(
+                      style: s,
+                      label: 'vs',
+                      size: badge,
+                      color: p.accent,
+                    ),
+                  ),
+                ),
+                SizedBox(width: s.gap * 0.8),
+                panel(1),
+              ],
+            ),
+          ),
         );
       },
     );
