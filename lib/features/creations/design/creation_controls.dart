@@ -5,10 +5,15 @@ import 'package:flutter/material.dart';
 /// Una opción de [CreationSegmented].
 @immutable
 class CreationSegment<T> {
-  const CreationSegment({required this.value, required this.label});
+  const CreationSegment({required this.value, required this.label, this.id});
 
   final T value;
   final String label;
+
+  /// Lo que distingue la opción en su clave; sin esto, el nombre del valor.
+  final String? id;
+
+  String get keyId => id ?? (value is Enum ? (value as Enum).name : '$value');
 }
 
 /// Los botones segmentados con ✓ de las hojas de lo creado (F43), como los
@@ -31,7 +36,7 @@ class CreationSegmented<T> extends StatelessWidget {
   final T selected;
   final ValueChanged<T> onChanged;
 
-  /// Cada opción lleva la clave `<keyPrefix>-<valor>`.
+  /// Cada opción lleva la clave `keyPrefix-id` (ver [CreationSegment.id]).
   final String keyPrefix;
 
   static const double _height = 44;
@@ -138,7 +143,7 @@ class CreationSegmented<T> extends StatelessWidget {
       child: Material(
         color: isSelected ? scheme.secondaryContainer : Colors.transparent,
         child: InkWell(
-          key: ValueKey('$keyPrefix-${segment.value}'),
+          key: ValueKey('$keyPrefix-${segment.keyId}'),
           onTap: () => onChanged(segment.value),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: _height),

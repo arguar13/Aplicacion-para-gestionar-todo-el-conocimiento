@@ -11402,5 +11402,319 @@
   "f43DataStepFinishing": "Terminando…",
   "@f43DataStepFinishing": {
     "description": "Lo creado, mientras se genera: lo que el tipo hace después de la IA."
+  },
+  "f43DeckFamilyClassic": "Clásicas",
+  "@f43DeckFamilyClassic": {
+    "description": "Familia de plantillas de presentación (F43)."
+  },
+  "f43DeckFamilyModern": "Modernas",
+  "@f43DeckFamilyModern": {
+    "description": "Familia de plantillas de presentación (F43)."
+  },
+  "f43DeckFamilyDark": "Oscuras",
+  "@f43DeckFamilyDark": {
+    "description": "Familia de plantillas de presentación (F43)."
+  },
+  "f43DeckFamilyWarm": "Cálidas y creativas",
+  "@f43DeckFamilyWarm": {
+    "description": "Familia de plantillas de presentación (F43)."
+  },
+  "f43DeckFamilyBusiness": "Sobrias de trabajo",
+  "@f43DeckFamilyBusiness": {
+    "description": "Familia de plantillas de presentación (F43)."
+  },
+  "f43DeckTemplateEditorial": "Editorial",
+  "@f43DeckTemplateEditorial": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateParchment": "Pergamino",
+  "@f43DeckTemplateParchment": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateAcademic": "Académica",
+  "@f43DeckTemplateAcademic": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateSwiss": "Minimal suizo",
+  "@f43DeckTemplateSwiss": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateBento": "Bento",
+  "@f43DeckTemplateBento": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateAurora": "Aurora",
+  "@f43DeckTemplateAurora": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateGlass": "Vidrio",
+  "@f43DeckTemplateGlass": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateMidnight": "Medianoche",
+  "@f43DeckTemplateMidnight": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateNeon": "Neón",
+  "@f43DeckTemplateNeon": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateChalkboard": "Pizarra",
+  "@f43DeckTemplateChalkboard": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateWatercolor": "Acuarela",
+  "@f43DeckTemplateWatercolor": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplatePastel": "Pastel",
+  "@f43DeckTemplatePastel": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplatePaperCut": "Papel recortado",
+  "@f43DeckTemplatePaperCut": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateCorporate": "Corporativa",
+  "@f43DeckTemplateCorporate": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateData": "Datos",
+  "@f43DeckTemplateData": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckTemplateExecutive": "Ejecutiva",
+  "@f43DeckTemplateExecutive": {
+    "description": "Plantilla de presentación (F43)."
+  },
+  "f43DeckLayoutCover": "Portada",
+  "@f43DeckLayoutCover": {
+    "description": "Diseño de diapositiva (F43)."
+  },
+  "f43DeckLayoutSection": "Sección",
+  "@f43DeckLayoutSection": {
+    "description": "Diseño de diapositiva (F43)."
+  },
+  "f43DeckLayoutBullets": "Viñetas",
+  "@f43DeckLayoutBullets": {
+    "description": "Diseño de diapositiva (F43)."
+  },
+  "f43DeckLayoutTwoColumns": "Dos columnas",
+  "@f43DeckLayoutTwoColumns": {
+    "description": "Diseño de diapositiva (F43)."
+  },
+  "f43DeckLayoutQuote": "Cita",
+  "@f43DeckLayoutQuote": {
+    "description": "Diseño de diapositiva (F43)."
+  },
+  "f43DeckLayoutBigNumber": "Cifra destacada",
+  "@f43DeckLayoutBigNumber": {
+    "description": "Diseño de diapositiva (F43)."
+  },
+  "f43DeckLayoutSteps": "Línea de pasos",
+  "@f43DeckLayoutSteps": {
+    "description": "Diseño de diapositiva (F43)."
+  },
+  "f43DeckLayoutComparison": "Comparación",
+  "@f43DeckLayoutComparison": {
+    "description": "Diseño de diapositiva (F43)."
+  },
+  "f43DeckLayoutTimeline": "Cronología",
+  "@f43DeckLayoutTimeline": {
+    "description": "Diseño de diapositiva (F43)."
+  },
+  "f43DeckLayoutImageText": "Imagen con texto",
+  "@f43DeckLayoutImageText": {
+    "description": "Diseño de diapositiva (F43)."
+  },
+  "f43DeckLayoutConceptGrid": "Cuadrícula de conceptos",
+  "@f43DeckLayoutConceptGrid": {
+    "description": "Diseño de diapositiva (F43)."
+  },
+  "f43DeckLayoutClosing": "Cierre",
+  "@f43DeckLayoutClosing": {
+    "description": "Diseño de diapositiva (F43)."
+  },
+  "f43DeckFontsEditorial": "Clásica",
+  "@f43DeckFontsEditorial": {
+    "description": "Par de letras: Playfair Display e Inter (F43)."
+  },
+  "f43DeckFontsBook": "Libro",
+  "@f43DeckFontsBook": {
+    "description": "Par de letras: Lora y Source Sans 3 (F43)."
+  },
+  "f43DeckFontsSwiss": "Suiza",
+  "@f43DeckFontsSwiss": {
+    "description": "Par de letras: Inter en negrita (F43)."
+  },
+  "f43DeckFontsTechnical": "Técnica",
+  "@f43DeckFontsTechnical": {
+    "description": "Par de letras: Space Grotesk, Inter y JetBrains Mono (F43)."
+  },
+  "f43DeckFontsFriendly": "Amable",
+  "@f43DeckFontsFriendly": {
+    "description": "Par de letras: Nunito (F43)."
+  },
+  "f43DeckFontsHandwritten": "Manuscrita",
+  "@f43DeckFontsHandwritten": {
+    "description": "Par de letras: Caveat y Nunito (F43)."
+  },
+  "f43DeckFontsOfTemplate": "La de la plantilla",
+  "@f43DeckFontsOfTemplate": {
+    "description": "La tipografía que trae la plantilla (F43)."
+  },
+  "f43DeckDensityAiry": "Aireada",
+  "@f43DeckDensityAiry": {
+    "description": "Densidad de las diapositivas (F43)."
+  },
+  "f43DeckDensityStandard": "Estándar",
+  "@f43DeckDensityStandard": {
+    "description": "Densidad de las diapositivas (F43)."
+  },
+  "f43DeckDensityCompact": "Compacta",
+  "@f43DeckDensityCompact": {
+    "description": "Densidad de las diapositivas (F43)."
+  },
+  "f43DeckTransitionFade": "Fundido",
+  "@f43DeckTransitionFade": {
+    "description": "Transición entre diapositivas (F43)."
+  },
+  "f43DeckTransitionSlide": "Deslizar",
+  "@f43DeckTransitionSlide": {
+    "description": "Transición entre diapositivas (F43)."
+  },
+  "f43DeckTransitionZoom": "Zoom suave",
+  "@f43DeckTransitionZoom": {
+    "description": "Transición entre diapositivas (F43)."
+  },
+  "f43DeckTransitionNone": "Ninguna",
+  "@f43DeckTransitionNone": {
+    "description": "Transición entre diapositivas (F43)."
+  },
+  "f43DeckDesignTitle": "Personalizar diseño",
+  "@f43DeckDesignTitle": {
+    "description": "Título de la hoja del diseño de la presentación (F43)."
+  },
+  "f43DeckDesignClose": "Cerrar",
+  "@f43DeckDesignClose": {
+    "description": "La ✕ redonda de la hoja del diseño (F43)."
+  },
+  "f43DeckDesignTemplate": "Plantilla",
+  "@f43DeckDesignTemplate": {
+    "description": "Sección de la hoja del diseño (F43)."
+  },
+  "f43DeckDesignChangeTemplate": "Cambiar",
+  "@f43DeckDesignChangeTemplate": {
+    "description": "Botón para elegir otra plantilla (F43)."
+  },
+  "f43DeckDesignPalette": "Paleta",
+  "@f43DeckDesignPalette": {
+    "description": "Sección de la hoja del diseño (F43)."
+  },
+  "f43DeckDesignPaletteNumber": "Paleta {number}",
+  "@f43DeckDesignPaletteNumber": {
+    "description": "Nombre de una paleta para el lector de pantalla (F43).",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "f43DeckDesignCustomColor": "Color propio",
+  "@f43DeckDesignCustomColor": {
+    "description": "La opción de teñir la paleta con un color elegido (F43)."
+  },
+  "f43DeckDesignHue": "Tono",
+  "@f43DeckDesignHue": {
+    "description": "El deslizador del color propio (F43)."
+  },
+  "f43DeckDesignFonts": "Tipografía",
+  "@f43DeckDesignFonts": {
+    "description": "Sección de la hoja del diseño (F43)."
+  },
+  "f43DeckDesignDensity": "Densidad",
+  "@f43DeckDesignDensity": {
+    "description": "Sección de la hoja del diseño (F43)."
+  },
+  "f43DeckDesignTransition": "Transición",
+  "@f43DeckDesignTransition": {
+    "description": "Sección de la hoja del diseño (F43)."
+  },
+  "f43DeckDesignAspect": "Formato",
+  "@f43DeckDesignAspect": {
+    "description": "Sección de la hoja del diseño: 16:9 o 4:3 (F43)."
+  },
+  "f43DeckDesignNumbering": "Numerar las diapositivas",
+  "@f43DeckDesignNumbering": {
+    "description": "Interruptor de la hoja del diseño (F43)."
+  },
+  "f43DeckDesignFooter": "Pie con el título",
+  "@f43DeckDesignFooter": {
+    "description": "Interruptor de la hoja del diseño (F43)."
+  },
+  "f43DeckGalleryTitle": "Plantillas",
+  "@f43DeckGalleryTitle": {
+    "description": "Título de la galería de plantillas (F43)."
+  },
+  "f43DeckGallerySelected": "{name}, elegida",
+  "@f43DeckGallerySelected": {
+    "description": "Una plantilla elegida, para el lector de pantalla (F43).",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "f43DeckPageOf": "{current} / {total}",
+  "@f43DeckPageOf": {
+    "description": "La diapositiva que se ve y cuántas hay (F43).",
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "f43DeckPrevious": "Diapositiva anterior",
+  "@f43DeckPrevious": {
+    "description": "Botón del visor de diapositivas (F43)."
+  },
+  "f43DeckNext": "Diapositiva siguiente",
+  "@f43DeckNext": {
+    "description": "Botón del visor de diapositivas (F43)."
+  },
+  "f43DeckThumbnail": "Diapositiva {number}: {title}",
+  "@f43DeckThumbnail": {
+    "description": "Una miniatura de la tira, para el lector de pantalla (F43).",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "f43DeckPdfNotesTitle": "Notas del presentador",
+  "@f43DeckPdfNotesTitle": {
+    "description": "Título de la página de notas del PDF (F43)."
+  },
+  "f43DeckPdfNoNotes": "Sin notas para esta diapositiva.",
+  "@f43DeckPdfNoNotes": {
+    "description": "Página de notas vacía del PDF (F43)."
+  },
+  "f43DeckPdfSlideOf": "Diapositiva {number} de {total}",
+  "@f43DeckPdfSlideOf": {
+    "description": "Encabezado de la página de notas del PDF (F43).",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

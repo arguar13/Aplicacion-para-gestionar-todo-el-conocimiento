@@ -77,7 +77,7 @@ void main() {
     expect(chosen, 'c');
     expect(
       tester.getSemantics(find.byKey(const ValueKey('seg-b'))),
-      containsSemantics(isSelected: true),
+      isSemantics(isSelected: true),
     );
   });
 

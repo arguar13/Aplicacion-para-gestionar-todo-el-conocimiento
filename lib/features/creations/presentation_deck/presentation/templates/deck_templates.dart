@@ -10,8 +10,9 @@ import 'package:sinapsis/features/creations/presentation_deck/presentation/templ
 ///
 /// Cada una con sus seis paletas: la primera es la suya, y las otras cinco la
 /// llevan a otros gustos sin perder el carácter. Las claras traen también una
-/// versión de noche; las de la familia oscura son seis noches distintas. Todos los pares de texto cumplen AA —el texto sobre
-/// el fondo y la superficie, 7:1; el tenue, 4,5:1—, y los textos sobre los
+/// versión de noche; las de la familia oscura son seis noches distintas.
+/// Todos los pares de texto cumplen AA —el texto sobre el fondo y la
+/// superficie, 7:1; el tenue, 4,5:1—, y los textos sobre los
 /// rellenos de color salen de `CreationContrast`: lo comprueba
 /// `deck_templates_test.dart`.
 abstract final class DeckTemplates {
