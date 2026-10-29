@@ -951,8 +951,8 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
   las fichas de las fuentes del visor y de «Ver petición y fuentes» llevan de vuelta, y una fuente
   que ya no está dice «Fuente borrada» y no abre nada. Las direcciones directas siguen andando.
 - **Sin tabla nueva**: la regla es la misma de Repasar (`watchByScope`, ids enteros con
-  `json_each`: `doc-a` no confunde `doc-a1`), probada con 1.000 y 4.000 creaciones y un tiempo que
-  crece lineal.
+  `json_each`: `doc-a` no confunde `doc-a1`), probada con 1.000 y 4.000 creaciones y con el plan
+  de SQLite (`EXPLAIN QUERY PLAN`): una sola lectura de la tabla, sin un recorrido por cada fila.
 - **Dos arreglos de raíz**: el botón flotante del cuaderno repetía la etiqueta Hero al abrir un
   visor encima (`heroTag: null`), y la fila deslizada tapa sus botones con el color de la tarjeta
   que la contiene, no con el fondo de la pantalla.

@@ -7027,6 +7027,118 @@ de organización, no para copiarlas. Plan, con el «Avance» de cada paso:
   - Que el lector en voz alta dice «[1]» tal cual.
   - Que los enlaces del modelo se ven como texto, sin abrirse.
 
+### 89. F43: «Estudiar» —un estudio para crear sobre lo procesado, como el «Studio» de NotebookLM, con diez tipos de creación, su visor propio y el diseño en la app—
+
+**Pedido** (2026-10-28), con catorce capturas de NotebookLM y una de Repasar: *"vamos a cambiar eso
+para hacerlo aun mas potente, no vamos a perder nada, solo vamos a potenciarlo … Ese botón se
+llamará en vez de Repasar, «Estudiar» … todo tiene que venir de la sección Procesado, nada de
+Biblioteca"*. Con la fase en marcha se sumaron nueve mejoras (M1 a M9, 28 y 29/10). Plan, con sus
+decisiones A a J y el «Avance» de cada paso: `docs/planes/F43-estudiar.md`.
+
+- **Estudiar es un destino de la barra, no una pantalla nueva** (paso 1, decisión A).
+  - La barra queda Biblioteca · Organizar · Estudiar · Chat · Ajustes.
+  - Organizar se queda con lo que ordena: la Bandeja y el Atlas.
+  - Estudiar abre Procesado, Cuadernos, Línea de tiempo, Mapa y Repasar.
+  - La insignia de las tarjetas para hoy pasa a Estudiar.
+- **Repasar es el Studio** (paso 6, decisiones B, C y D).
+  - El selector solo ofrece lo procesado: todo, un documento, un cuaderno o un tema del Atlas.
+    Espacio, Etiqueta y Elemento son de la Biblioteca y salieron.
+  - «Para hoy» queda compacto y obedece al selector.
+  - Las diez tarjetas de crear abren una sola hoja de personalizar común, con lo último que se
+    eligió en cada tipo; no hay generar a ciegas.
+  - Debajo, «Lo creado» con su estado, su menú y deslizar.
+- **Una tabla para todo lo creado** (`study_creations`, v48, aditiva).
+  - Cada tipo guarda su contenido como JSON con su esquema. Sumar un tipo no toca la base.
+  - Las fuentes van como ids sueltos, sin cascada: borrar un procesado deja la creación con
+    «Fuente borrada», no la borra.
+  - La tabla entró en los tres censos de siempre: papelera, copia y unión de bóvedas.
+  - Una tabla por tipo habría pedido diez migraciones y diez censos para lo mismo.
+- **Cada tipo se suma con una línea** en dos registros:
+  - `creationKindSpecsProvider`: la tarjeta, la hoja, el visor, la descarga y lo que dice «Ver
+    petición y fuentes»;
+  - `creationGeneratorsProvider`: cómo se genera.
+
+  La pantalla, la cola, la papelera y la unión no saben de tipos. Lo que dos tipos necesitaron se
+  hizo genérico una sola vez y lo usan todos:
+  - `StudyCreationRepository.amend`: cambiar opciones o contenido sin volver a generar;
+  - `CreationStep.illustrating`;
+  - `AiCapabilityCard(illustrationsOnly:)`;
+  - `CreationKindSpec.requestLines`;
+  - `FileStore.deleteAllOf`.
+- **Los tres de extraer son vistas vivas** (decisión E, M8). El texto completo, el resumen y la
+  síntesis no guardan copia: leen el texto propio y las marcas de estudiar de cada documento. Si se
+  marca o se edita algo, cambian solas. Lo que falta se marca en el documento mismo, con el mismo
+  análisis del original (M5). Una copia habría quedado vieja con la primera marca.
+- **Un solo camino para pedirle JSON a la IA** (`StructuredWriter.writeStructured`), para los siete
+  tipos que generan:
+  - lectura tolerante;
+  - una corrección con el error de lectura;
+  - lo largo por partes, unidas de a grupos;
+  - cancelable, sin pasarse nunca de la ventana del modelo.
+
+  Cada tipo pone solo su esquema, su lector y su unión. El material (`CreationMaterialBuilder`)
+  reparte las partes por todo el texto, así que un libro no se reduce a sus primeras páginas, y se
+  corta en otro hilo. Lo pone en fila la cola de siempre (`CreationQueue`): «ahora» antes que «más
+  tarde», la espera de la cuota sin fallar y la retoma al abrir la app.
+- **El diseño vive en la app, la IA solo escribe datos** (decisión G).
+  - La presentación es un mazo con doce diseños de diapositiva, que se dibuja con dieciséis
+    plantillas.
+  - La infografía es una lámina con ocho tipos de bloque, que se dibuja con dieciocho estilos y diez
+    composiciones; los gráficos los dibuja la app.
+  - Cambiar plantilla, diseño o estilo es un `amend` y nunca vuelve a llamar a la IA.
+  - Las letras son libres y van empaquetadas, la paleta tiene el contraste comprobado y el texto se
+    ajusta sin desbordar.
+  - Un diseño escrito por la IA (HTML o SVG) habría costado una llamada por cambio y no se habría
+    podido probar.
+- **Ilustraciones con IA, a la vista y nunca imprescindibles** (decisión H).
+  - Las dibujan Gemini, OpenAI o Hugging Face. También pueden salir del teléfono con
+    stable-diffusion.cpp («Exigente», solo en una APK armada con la bandera
+    `sinapsis.imagenesEnElTelefono`).
+  - Antes de generar, «Con tu IA actual» muestra qué cuenta dibuja, con qué modelo, cuántas
+    imágenes, cuánto cuesta y qué parte de la cuota de hoy usa. Nunca se piden más de las que se
+    estimaron.
+  - Una que falla queda dibujada por la app, con su porqué; una falla de la cuenta corta las que
+    faltan.
+  - Viven fuera de la base, en `originales/<creación>/ilustraciones/`, y el contenido guarda solo
+    la ruta (`illustration_ref`). Así la lista de «Lo creado» no lee megas y las imágenes viajan en
+    la copia.
+  - La unión de bóvedas solo copia una ruta que esté dentro de la carpeta de **esa misma**
+    creación (`studyCreationFilesSql`: el tramo entero con su barra, sin `..` ni `\`). Un JSON
+    llegado de otra bóveda no puede hacer copiar un archivo ajeno.
+  - Borrar una creación para siempre se lleva su carpeta.
+- **Las tarjetas didácticas suman al repaso** (decisión F), con el repositorio de tarjetas de
+  siempre: entran en «Para hoy» y no se duplican. Apagarlo las pausa sin borrarlas, y al volver
+  traen su historia.
+- **Estudiar sale del documento procesado** (decisión J, M4 y M5; cambia la I de F41). El resumen,
+  la síntesis y las palabras clave se marcan en el original incrustado (M3), con IA o a mano. Esas
+  marcas son la única fuente de verdad: las mismas que Repasar lee como vistas vivas, sin otro
+  guardado. Procesado y Cuadernos muestran «En Repasar» con lo creado sobre ellos, y los visores
+  llevan de vuelta a sus fuentes (M6).
+- **Nada sale del teléfono sin que se pida** (decisión I). No hay 👍/👎 porque no hay a quién
+  mandarlo. Compartir usa la hoja del sistema (`share_plus`, aprobado por el dueño el 29/10), con el
+  archivo armado en memoria.
+- **Las pruebas de escala y de hilo miden la estructura, no el reloj.**
+  - Repasar con miles de creaciones lee el plan de SQLite (`EXPLAIN QUERY PLAN`: una sola lectura de
+    la tabla).
+  - El lector y el partido en otro hilo cuentan cuántas veces se atendió la interfaz mientras
+    trabajaba (`ticksDuring`).
+  - Las versiones con milisegundos fallaban sueltas en la suite entera. Las nuevas matan la mutación
+    cuadrática y la que vuelve a partir en el hilo de la interfaz.
+- **Se descartó:**
+  - Una tabla por tipo de creación.
+  - Que la IA escriba el diseño.
+  - Guardar las ilustraciones en la base.
+  - Una copia de los tres de extraer.
+  - Los resúmenes de audio y de video, que el pedido cambió por los tres de extraer.
+  - Mandar 👍/👎 a cualquier servicio.
+- **Lo que no quedó probado:**
+  - Las ilustraciones con una clave real de Gemini, OpenAI o Hugging Face: los cables se prueban
+    con fakes.
+  - stable-diffusion.cpp en un teléfono real.
+  - Cómo se ven las plantillas, los estilos y los PDF: se prueba lo que se dibuja, no cómo queda.
+  - La pantalla completa apaisada y la hoja de compartir en un teléfono real.
+  - Importar en Anki real el mazo exportado (lo mismo que dejó abierto F17).
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -7537,6 +7649,17 @@ de organización, no para copiarlas. Plan, con el «Avance» de cada paso:
   - cada respuesta se puede copiar, escuchar, volver a generar y marcar con 👍/👎;
   - al mantener apretado se puede editar y reenviar;
   - con el teclado abierto, el chat ocupa toda la pantalla, con «↓» para volver al final.
+- **F43, «Estudiar»** (decisión 89, esquema v48):
+  - la barra con Estudiar (Procesado, Cuadernos, Línea de tiempo, Mapa y Repasar) y Organizar con
+    la Bandeja y el Atlas;
+  - Repasar como el Studio de NotebookLM: el selector de lo procesado, «Para hoy» compacto, diez
+    tarjetas de crear con una hoja común y «Lo creado»;
+  - extraer texto completo, resumen y síntesis como vistas vivas, con el modo escuchar;
+  - tarjetas didácticas que suman al repaso, cuestionarios de cuatro tipos de pregunta, mapa
+    mental, tabla de datos, informes, presentaciones con dieciséis plantillas e infografías con
+    dieciocho estilos, cada uno con su visor y sus descargas;
+  - ilustraciones con IA, con el aviso «Con tu IA actual» y su costo antes de generar;
+  - el original marcado en Procesado, y Procesado y Cuadernos conectados con Repasar.
 
 ### Por construir
 
