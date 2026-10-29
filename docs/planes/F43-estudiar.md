@@ -761,6 +761,32 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
 - **Archivo**: Markdown con un apartado por documento y las palabras clave en negrita si se
   resaltan; «Compartir» pasa este mismo archivo.
 
+### Paso 8 (hecho): Tarjetas didácticas y Cuestionario
+
+- **Generar**: `writeStructured` con el número, la dificultad, el tema y el idioma; lo largo va con
+  un pedido por parte y se junta **en la app**, repartido y sin repetir la pregunta; con Gemma se
+  piden menos por respuesta (el tope sale de la ventana). Con varias fuentes, cada tarjeta va al
+  documento que nombra la IA. Lectores tolerantes: castellano o inglés, la correcta como letra,
+  número o texto, el tipo de pregunta deducido y las opciones guardadas ya mezcladas. Mazo de
+  10/18/30 tarjetas; cuestionario de 6/12/20 preguntas.
+- **«Sumar a mi repaso»**, prendido de fábrica: crea las tarjetas en el documento procesado con el
+  repositorio de siempre, así entran en «Para hoy». Sumar no duplica (se une a una pregunta igual
+  que ya estaba) y apagarlo **pausa** sin borrar nada: al volver vienen con su historia. Se cambia
+  también desde el visor (`amend`).
+- **Visor del mazo**: la misma tarjeta de Repasar en un pasador, «3 / 20», anterior y siguiente,
+  dar vuelta, barajar sin perder la tarjeta y la pista a pedido.
+- **Cuestionario**: «6 / 14» con su tipo, A–D, «¡Exacto!» en verde o la elegida en rojo, la
+  explicación de cada opción y «Por qué»; selección múltiple con «Comprobar»; completar sin tildes
+  ni mayúsculas (el «casi» lo decide la persona); la respuesta breve la revisa la IA, o sin ella se
+  ve la esperada y uno se autocalifica. Al final, el puntaje y «Repetir solo las que fallé», y la
+  vuelta suma a la racha.
+- **«Incluir imágenes»**: pocas ilustraciones con la cuenta elegida, por el mismo camino que las de
+  la infografía —`CreationIllustrationStore`, compartido, en `originales/<creación>/ilustraciones/`
+  con su ruta en `illustration_ref`—: viajan en la copia y en la unión y se van al borrar para
+  siempre; donde faltan, el dibujo de la app con su porqué.
+- **Descargas**: el mazo para Anki (`.tsv`, con el exportador de F17), Markdown o PDF; el
+  cuestionario en PDF o Markdown con la clave de respuestas al final.
+
 ### Paso 9 (hecho): el Mapa mental y la Tabla de datos
 
 - **Mapa mental**: el JSON del árbol se lee con tolerancia (la raíz sola o envuelta, ramas como
