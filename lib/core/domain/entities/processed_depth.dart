@@ -3,13 +3,13 @@ import 'package:sinapsis/core/domain/entities/processed_section.dart';
 /// Cuánto trabajó la persona un documento procesado (F41, paso 6): lo que el
 /// Atlas y el tablero del Mapa cuentan de cada uno.
 ///
-/// Desde F41 las tres pantallas de «Organizar» leen solo lo procesado, así que
-/// la escalera de antes —fuentes, fragmentos, notas vivas— ya no describe lo
-/// que hay. Esta sale de las partes que la persona eligió al triar, de menos a
-/// más suyo: el texto copiado tal cual, lo que destiló de él —el resumen o la
-/// síntesis—, los pasajes que cortó a mano y lo que escribió ella misma. Un
-/// documento cuenta en el escalón MÁS ALTO que alcanza: uno con notas y
-/// resumen es «con notas».
+/// Desde F41 el Atlas, el Mapa y la Línea de tiempo leen solo lo procesado,
+/// así que la escalera de antes —fuentes, fragmentos, notas vivas— ya no
+/// describe lo que hay. Esta sale de las partes que la persona eligió al
+/// triar, de menos a más suyo: el texto copiado tal cual, lo que destiló de
+/// él —el resumen o la síntesis—, los pasajes que cortó a mano y lo que
+/// escribió ella misma. Un documento cuenta en el escalón MÁS ALTO que
+/// alcanza: uno con notas y resumen es «con notas».
 ///
 /// Van de menos a más, así que `index` sirve para comparar.
 enum ProcessedDepth {

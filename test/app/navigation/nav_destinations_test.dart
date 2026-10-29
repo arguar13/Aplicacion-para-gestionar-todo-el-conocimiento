@@ -3,10 +3,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/navigation/nav_destinations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
-/// Los pasos de la barra del celular (F34): qué destinos van en cada uno,
-/// en qué orden, y cómo se ve un paso con lista.
+/// Los pasos de la barra del celular (F34, F43): qué destinos van en cada
+/// uno, en qué orden, y cómo se ve un paso con lista.
 void main() {
   final es = AppLocalizationsEs();
+
+  List<NavDestinationSpec> destinations({
+    int pendingInboxCount = 0,
+    int dueFlashcardCount = 0,
+    bool includeChat = true,
+  }) => buildNavDestinations(
+    l10n: es,
+    dueFlashcardCount: dueFlashcardCount,
+    pendingInboxCount: pendingInboxCount,
+    includeChat: includeChat,
+  );
 
   List<NavStepGroup> groups({
     int pendingInboxCount = 0,
@@ -14,48 +25,63 @@ void main() {
     bool includeChat = true,
   }) => buildNavStepGroups(
     l10n: es,
-    destinations: buildNavDestinations(
-      l10n: es,
+    destinations: destinations(
       dueFlashcardCount: dueFlashcardCount,
       pendingInboxCount: pendingInboxCount,
       includeChat: includeChat,
     ),
   );
 
+  NavStepGroup stepOf(List<NavStepGroup> result, NavStep step) =>
+      result.singleWhere((g) => g.step == step);
+
   Badge badgeOf(Widget icon) => icon as Badge;
+
+  IconData? iconOf(Widget icon) =>
+      icon is Icon ? icon.icon : ((icon as Badge).child! as Icon).icon;
 
   /// Las ramas de [branches], como índices.
   List<int> at(List<ShellBranch> branches) => [
     for (final b in branches) b.index,
   ];
 
-  test('cinco pasos en orden de uso, cada destino en el suyo y en orden', () {
+  test('cinco pasos en orden de uso —Biblioteca, Organizar, Estudiar, Chat y '
+      'Ajustes (F43)—, cada destino en el suyo y en orden', () {
     final result = groups();
 
-    expect([for (final g in result) g.step], NavStep.values);
+    // Escrito a mano y no `NavStep.values`: el orden del enum ES el de la
+    // barra, y compararlo consigo mismo no probaría nada.
     expect(
-      {
-        for (final g in result)
-          g.step: [for (final d in g.destinations) d.branchIndex],
-      },
-      {
-        NavStep.save: at([ShellBranch.library]),
-        NavStep.organize: at([
-          ShellBranch.inbox,
+      [for (final g in result) g.step],
+      [
+        NavStep.save,
+        NavStep.organize,
+        NavStep.study,
+        NavStep.ask,
+        NavStep.settings,
+      ],
+    );
+    expect(
+      [
+        for (final g in result) [for (final d in g.destinations) d.branchIndex],
+      ],
+      [
+        at([ShellBranch.library]),
+        at([ShellBranch.inbox, ShellBranch.atlas]),
+        at([
           ShellBranch.processed,
-          ShellBranch.atlas,
+          ShellBranch.notebooks,
           ShellBranch.timeline,
           ShellBranch.graph,
-          ShellBranch.notebooks,
+          ShellBranch.review,
         ]),
-        NavStep.ask: at([ShellBranch.chat]),
-        NavStep.review: at([ShellBranch.review]),
-        NavStep.settings: at([ShellBranch.settings]),
-      },
+        at([ShellBranch.chat]),
+        at([ShellBranch.settings]),
+      ],
     );
     expect(
       [for (final g in result) g.hasList],
-      [false, true, false, false, false],
+      [false, true, true, false, false],
     );
   });
 
@@ -69,19 +95,68 @@ void main() {
     expect(branches, hasLength(ShellBranch.values.length));
   });
 
-  test('un paso de un solo destino se ve como ese destino', () {
-    final review = groups(dueFlashcardCount: 4)[3];
-    final only = review.destinations.single;
-
-    expect(review.label, es.navReview);
-    expect(review.icon, same(only.icon));
-    expect(review.selectedIcon, same(only.selectedIcon));
+  test('el riel sigue el mismo orden que la barra: los destinos de cada paso, '
+      'paso tras paso', () {
+    expect(
+      [for (final d in destinations()) d.label],
+      [
+        es.navLibrary,
+        es.navInbox,
+        es.navAtlas,
+        es.navProcessed,
+        es.navNotebooks,
+        es.navTimeline,
+        es.navMap,
+        es.navReview,
+        es.navChat,
+        es.navSettings,
+      ],
+    );
+    expect(
+      [
+        for (final g in groups())
+          for (final d in g.destinations) d.branchIndex,
+      ],
+      [for (final d in destinations()) d.branchIndex],
+    );
   });
 
-  test('«Preguntar» es el chat solo: se ve como el chat y lo abre directo', () {
-    final ask = groups()[2];
+  test('las ramas no se movieron: mudar destinos de paso (F43) no corre el '
+      'índice de ninguna', () {
+    expect(
+      [for (final b in ShellBranch.values) b.name],
+      [
+        'library',
+        'inbox',
+        'graph',
+        'chat',
+        'review',
+        'settings',
+        'atlas',
+        'notebooks',
+        'timeline',
+        'processed',
+      ],
+    );
+  });
+
+  test('un paso de un solo destino se ve como ese destino', () {
+    final save = stepOf(groups(), NavStep.save);
+    final only = save.destinations.single;
+
+    expect(save.label, es.navLibrary);
+    expect(save.icon, same(only.icon));
+    expect(save.selectedIcon, same(only.selectedIcon));
+  });
+
+  test('«Preguntar» es el chat solo, a la derecha de «Estudiar»: se ve como el '
+      'chat y lo abre directo', () {
+    final result = groups();
+    final ask = result[3];
     final chat = ask.destinations.single;
 
+    expect(result[2].step, NavStep.study);
+    expect(ask.step, NavStep.ask);
     expect(ask.hasList, isFalse);
     expect(chat.branchIndex, ShellBranch.chat.index);
     expect(ask.label, es.navChat);
@@ -89,40 +164,93 @@ void main() {
     expect(ask.selectedIcon, same(chat.selectedIcon));
   });
 
-  test('un paso con lista tiene su nombre y su ícono propios', () {
-    final organize = groups()[1];
+  test('«Organizar» tiene su nombre y su ícono propios', () {
+    final organize = stepOf(groups(), NavStep.organize);
 
     expect(organize.label, es.navStepOrganize);
-    expect(badgeOf(organize.icon).child, isA<Icon>());
+    expect(iconOf(organize.icon), Icons.workspaces_outlined);
+    expect(iconOf(organize.selectedIcon), Icons.workspaces);
+  });
+
+  test('«Estudiar» (F43) tiene su nombre y un ícono propio, que no usa ningún '
+      'destino ni el otro paso con lista', () {
+    final result = groups();
+    final study = stepOf(result, NavStep.study);
+
+    expect(study.label, 'Estudiar');
+    expect(study.label, es.f43NavStepStudy);
+    expect(iconOf(study.icon), Icons.history_edu_outlined);
+    expect(iconOf(study.selectedIcon), Icons.history_edu);
+
+    final others = {
+      for (final g in result)
+        if (g.step != NavStep.study) ...[
+          iconOf(g.icon),
+          iconOf(g.selectedIcon),
+        ],
+      for (final d in destinations()) ...[
+        iconOf(d.icon),
+        iconOf(d.selectedIcon),
+      ],
+    };
+    expect(others, isNot(contains(Icons.history_edu_outlined)));
+    expect(others, isNot(contains(Icons.history_edu)));
+  });
+
+  test('«Organizar» se queda con lo que ordena: la Bandeja y el Atlas', () {
+    final organize = stepOf(groups(), NavStep.organize);
+
     expect(
-      (badgeOf(organize.icon).child! as Icon).icon,
-      Icons.workspaces_outlined,
+      [for (final d in organize.destinations) d.label],
+      [es.navInbox, es.navAtlas],
     );
     expect(
-      (badgeOf(organize.selectedIcon).child! as Icon).icon,
-      Icons.workspaces,
+      [for (final d in organize.destinations) d.hint],
+      [es.navInboxHint, es.navAtlasHint],
     );
   });
 
-  test('la línea de tiempo (F40) va en «Organizar», debajo del Atlas (pedido '
-      'del dueño), con su nombre y su ícono', () {
-    final organize = groups()[1];
-    final labels = [for (final d in organize.destinations) d.label];
-    final timeline = organize.destinations.singleWhere(
+  test('«Estudiar» abre Procesado, Cuadernos, Línea de tiempo, Mapa y '
+      'Repasar, en ese orden y con para qué sirve cada uno', () {
+    final study = stepOf(groups(), NavStep.study);
+
+    expect(
+      [for (final d in study.destinations) (d.label, d.hint)],
+      [
+        (es.navProcessed, es.navProcessedHint),
+        (es.navNotebooks, es.navNotebooksHint),
+        (es.navTimeline, es.navTimelineHint),
+        (es.navMap, es.navMapHint),
+        (es.navReview, es.navReviewHint),
+      ],
+    );
+    for (final d in study.destinations) {
+      expect(d.step, NavStep.study, reason: d.label);
+    }
+  });
+
+  test('Repasar conserva su nombre, y su línea dice que además crea sobre lo '
+      'procesado (F43)', () {
+    final review = destinations().singleWhere(
+      (d) => d.branchIndex == ShellBranch.review.index,
+    );
+
+    expect(review.label, 'Repasar');
+    expect(
+      review.hint,
+      'Tus tarjetas, y presentaciones, resúmenes y cuestionarios de lo '
+      'procesado',
+    );
+    expect(iconOf(review.icon), Icons.style_outlined);
+  });
+
+  test('la línea de tiempo (F40) mantiene su nombre y su ícono', () {
+    final timeline = stepOf(groups(), NavStep.study).destinations.singleWhere(
       (d) => d.branchIndex == ShellBranch.timeline.index,
     );
 
-    expect(labels, [
-      es.navInbox,
-      es.navProcessed,
-      es.navAtlas,
-      es.navTimeline,
-      es.navMap,
-      es.navNotebooks,
-    ]);
-    expect(timeline.step, NavStep.organize);
     expect((timeline.icon as Icon).icon, Icons.timeline);
-    expect(timeline.hint, es.navTimelineHint);
+    expect(timeline.label, es.navTimeline);
   });
 
   test('las ramas de la línea de tiempo y de Procesado están al final: '
@@ -132,91 +260,117 @@ void main() {
     expect(ShellBranch.notebooks.index, ShellBranch.timeline.index - 1);
   });
 
-  test('Procesado (F41) va en «Organizar», justo después de la Bandeja y '
-      'arriba del Atlas, con su línea y un ícono que no usa otro destino', () {
-    final organize = groups()[1];
-    final branches = [for (final d in organize.destinations) d.branchIndex];
-    final processed = organize.destinations.singleWhere(
-      (d) => d.branchIndex == ShellBranch.processed.index,
-    );
+  test('Procesado (F41) es el primero de «Estudiar», con su línea y un ícono '
+      'que no usa otro destino', () {
+    final processed = stepOf(groups(), NavStep.study).destinations.first;
 
-    expect(branches.take(3), [
-      ShellBranch.inbox.index,
-      ShellBranch.processed.index,
-      ShellBranch.atlas.index,
-    ]);
+    expect(processed.branchIndex, ShellBranch.processed.index);
     expect(processed.label, es.navProcessed);
     expect(processed.hint, 'La información que sacaste de cada fuente');
     expect((processed.icon as Icon).icon, Icons.summarize_outlined);
     expect((processed.selectedIcon as Icon).icon, Icons.summarize);
 
-    IconData? iconOf(Widget icon) =>
-        icon is Icon ? icon.icon : ((icon as Badge).child! as Icon).icon;
-    for (final group in groups()) {
-      for (final other in group.destinations) {
-        if (other.branchIndex == ShellBranch.processed.index) continue;
-        expect(iconOf(other.icon), isNot(Icons.summarize_outlined));
-        expect(iconOf(other.selectedIcon), isNot(Icons.summarize));
-      }
+    for (final other in destinations()) {
+      if (other.branchIndex == ShellBranch.processed.index) continue;
+      expect(iconOf(other.icon), isNot(Icons.summarize_outlined));
+      expect(iconOf(other.selectedIcon), isNot(Icons.summarize));
     }
   });
 
-  test('los pendientes de la Bandeja se ven en «Organizar»', () {
-    final organize = groups(pendingInboxCount: 3)[1];
-
-    for (final icon in [organize.icon, organize.selectedIcon]) {
-      final badge = badgeOf(icon);
-      expect(badge.isLabelVisible, isTrue);
-      expect((badge.label! as Text).data, '3');
-    }
-  });
-
-  test('sin pendientes, «Organizar» no muestra insignia', () {
-    final organize = groups()[1];
-
-    expect(badgeOf(organize.icon).isLabelVisible, isFalse);
-    expect(badgeOf(organize.selectedIcon).isLabelVisible, isFalse);
-  });
-
-  test('las tarjetas para hoy no cuentan en «Organizar»', () {
-    final organize = groups(dueFlashcardCount: 7)[1];
-
-    expect(badgeOf(organize.icon).isLabelVisible, isFalse);
-  });
-
-  test('los cuadernos van al final de «Organizar», debajo del Mapa', () {
-    final notebooks = groups()[1].destinations.last;
+  test('los cuadernos van segundos en «Estudiar», debajo de Procesado', () {
+    final notebooks = stepOf(groups(), NavStep.study).destinations[1];
 
     expect(notebooks.branchIndex, ShellBranch.notebooks.index);
-    expect(notebooks.step, NavStep.organize);
     expect(notebooks.label, es.navNotebooks);
     expect(notebooks.hint, es.navNotebooksHint);
   });
 
-  test('sin chat (la web) no hay «Preguntar», y los cuadernos siguen en '
-      '«Organizar»', () {
-    final result = groups(includeChat: false);
+  group('insignias', () {
+    test('los pendientes de la Bandeja se ven en «Organizar», y no en '
+        '«Estudiar»', () {
+      final result = groups(pendingInboxCount: 3);
+      final organize = stepOf(result, NavStep.organize);
+
+      for (final icon in [organize.icon, organize.selectedIcon]) {
+        final badge = badgeOf(icon);
+        expect(badge.isLabelVisible, isTrue);
+        expect((badge.label! as Text).data, '3');
+      }
+      expect(
+        badgeOf(stepOf(result, NavStep.study).icon).isLabelVisible,
+        isFalse,
+      );
+    });
+
+    test('las tarjetas para hoy se ven en «Estudiar» (F43), y no en '
+        '«Organizar»', () {
+      final result = groups(dueFlashcardCount: 7);
+      final study = stepOf(result, NavStep.study);
+
+      for (final icon in [study.icon, study.selectedIcon]) {
+        final badge = badgeOf(icon);
+        expect(badge.isLabelVisible, isTrue);
+        expect((badge.label! as Text).data, '7');
+      }
+      expect(
+        badgeOf(stepOf(result, NavStep.organize).icon).isLabelVisible,
+        isFalse,
+      );
+    });
+
+    test('Repasar guarda su propia insignia, para el riel y la lista', () {
+      final review = destinations(
+        dueFlashcardCount: 5,
+      ).singleWhere((d) => d.branchIndex == ShellBranch.review.index);
+
+      expect(review.badgeCount, 5);
+      expect((badgeOf(review.icon).label! as Text).data, '5');
+      expect((badgeOf(review.selectedIcon).label! as Text).data, '5');
+    });
+
+    test('sin pendientes, ningún paso muestra insignia', () {
+      final result = groups();
+
+      for (final step in [NavStep.organize, NavStep.study]) {
+        final group = stepOf(result, step);
+        expect(badgeOf(group.icon).isLabelVisible, isFalse, reason: '$step');
+        expect(
+          badgeOf(group.selectedIcon).isLabelVisible,
+          isFalse,
+          reason: '$step',
+        );
+      }
+    });
+  });
+
+  test('sin chat (la web) no hay «Preguntar», y «Estudiar» sigue entero con '
+      'su insignia', () {
+    final result = groups(includeChat: false, dueFlashcardCount: 2);
 
     expect(
       [for (final g in result) g.step],
-      [NavStep.save, NavStep.organize, NavStep.review, NavStep.settings],
+      [NavStep.save, NavStep.organize, NavStep.study, NavStep.settings],
     );
+    final study = stepOf(result, NavStep.study);
     expect(
-      result[1].destinations.last.branchIndex,
-      ShellBranch.notebooks.index,
+      [for (final d in study.destinations) d.branchIndex],
+      at([
+        ShellBranch.processed,
+        ShellBranch.notebooks,
+        ShellBranch.timeline,
+        ShellBranch.graph,
+        ShellBranch.review,
+      ]),
     );
+    expect((badgeOf(study.icon).label! as Text).data, '2');
+    expect([
+      for (final d in destinations(includeChat: false)) d.branchIndex,
+    ], isNot(contains(ShellBranch.chat.index)));
   });
 
   test('cada destino dice para qué sirve', () {
-    final destinations = buildNavDestinations(
-      l10n: es,
-      dueFlashcardCount: 0,
-      pendingInboxCount: 0,
-      includeChat: true,
-    );
-
     expect(
-      {for (final d in destinations) d.branchIndex: d.hint},
+      {for (final d in destinations()) d.branchIndex: d.hint},
       {
         ShellBranch.library.index: es.navLibraryHint,
         ShellBranch.inbox.index: es.navInboxHint,

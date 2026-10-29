@@ -49,7 +49,7 @@ final studyCountsProvider = StreamProvider.autoDispose
     });
 
 /// Lo que hay para estudiar hoy en TODA la bóveda: el número de la insignia de
-/// Repasar en la navegación.
+/// Repasar en la navegación, que en el celular suma el botón «Estudiar» (F43).
 final studyDueTodayCountProvider = Provider.autoDispose<AsyncValue<int>>((ref) {
   return ref
       .watch(studyCountsProvider(const StudyScope.all()))

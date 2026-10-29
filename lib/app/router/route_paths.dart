@@ -43,7 +43,7 @@ abstract final class RoutePaths {
   static const inbox = '/inbox';
 
   /// «Procesado» (F41): la información que se sacó de cada fuente al triarla.
-  /// Un destino de navegación principal, en «Organizar».
+  /// Un destino de navegación principal, el primero de «Estudiar» (F43).
   static const processed = '/processed';
 
   /// Un documento procesado. Se arma con [processedDocument], mismo criterio
@@ -114,7 +114,8 @@ abstract final class RoutePaths {
   }
 
   /// La línea de tiempo de los hechos con fecha (F9), un destino de la
-  /// navegación principal desde F40: se ve en «Organizar», arriba del Atlas.
+  /// navegación principal desde F40: se ve en «Estudiar», entre los Cuadernos
+  /// y el Mapa (F43).
   /// Sin parámetros en la dirección: el filtro con el que se llega lo fija
   /// quien navega, en `timelineFilterProvider`.
   static const timeline = '/timeline';

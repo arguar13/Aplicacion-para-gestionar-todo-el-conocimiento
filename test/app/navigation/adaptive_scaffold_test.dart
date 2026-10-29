@@ -14,7 +14,9 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
+import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
@@ -42,6 +44,7 @@ void main() {
   final atlas = ShellBranch.atlas.index;
   final graph = ShellBranch.graph.index;
   final notebooks = ShellBranch.notebooks.index;
+  final review = ShellBranch.review.index;
   final es = AppLocalizationsEs();
   late SharedPreferences prefs;
 
@@ -65,7 +68,9 @@ void main() {
     );
   }
 
-  ProviderContainer buildUnlockedContainer() {
+  ProviderContainer buildUnlockedContainer({
+    List<Override> overrides = const [],
+  }) {
     final container = ProviderContainer(
       overrides: [
         vaultLocalDataSourceProvider.overrideWithValue(
@@ -84,6 +89,7 @@ void main() {
         }),
         // La pestaña del Mapa calcula en un isolate: ver `mapInlineOverrides`.
         ...mapInlineOverrides,
+        ...overrides,
       ],
     );
     addTearDown(container.dispose);
@@ -100,6 +106,25 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
+  /// Las claves de los renglones de la lista abierta, de arriba abajo.
+  List<String> sheetItemKeys(WidgetTester tester) => [
+    for (final t in tester.widgetList<ListTile>(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(ListTile),
+      ),
+    ))
+      (t.key! as ValueKey<String>).value,
+  ];
+
+  /// La insignia del botón del paso [step] en la barra.
+  Badge stepBadge(WidgetTester tester, String step) => tester.widget<Badge>(
+    find.descendant(
+      of: find.byKey(ValueKey('nav-step-$step')),
+      matching: find.byType(Badge),
+    ),
+  );
+
   group('ancho angosto (celular)', () {
     testWidgets('usa una barra de navegación abajo, no un riel', (
       tester,
@@ -114,28 +139,36 @@ void main() {
     });
 
     testWidgets(
-      'la barra son los cinco pasos en orden de uso, con Ajustes a la '
-      'derecha y sin «Más» (F34)',
+      'la barra son los cinco pasos en orden de uso —Biblioteca, Organizar, '
+      'Estudiar, Chat y Ajustes (F43)—, sin «Más»',
       (tester) async {
         setLogicalWidth(tester, 400);
 
         await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
         await tester.pumpAndSettle();
 
-        final labels = [
-          for (final d in tester.widgetList<NavigationDestination>(
-            find.byType(NavigationDestination),
-          ))
-            d.label,
-        ];
-        expect(labels, [
-          es.navLibrary,
-          es.navStepOrganize,
-          es.navChat,
-          es.navReview,
-          es.navSettings,
-        ]);
+        final destinations = tester
+            .widgetList<NavigationDestination>(
+              find.byType(NavigationDestination),
+            )
+            .toList();
+        expect(
+          [for (final d in destinations) d.label],
+          ['Biblioteca', 'Organizar', 'Estudiar', 'Chat', 'Ajustes'],
+        );
+        expect(
+          [for (final d in destinations) (d.key! as ValueKey<String>).value],
+          [
+            'nav-step-save',
+            'nav-step-organize',
+            'nav-step-study',
+            'nav-step-ask',
+            'nav-step-settings',
+          ],
+        );
         expect(find.byIcon(Icons.more_horiz), findsNothing);
+        // Repasar ya no es un botón: está en la lista de «Estudiar».
+        expect(find.text(es.navReview), findsNothing);
       },
     );
 
@@ -143,27 +176,17 @@ void main() {
     // posición del paso en la barra.
     final listed = [
       (step: 'organize', branch: inbox, screen: InboxScreen, barIndex: 1),
-      (
-        step: 'organize',
-        branch: processed,
-        screen: ProcessedScreen,
-        barIndex: 1,
-      ),
       (step: 'organize', branch: atlas, screen: AtlasScreen, barIndex: 1),
-      (step: 'organize', branch: timeline, screen: TimelineScreen, barIndex: 1),
-      (step: 'organize', branch: graph, screen: MapScreen, barIndex: 1),
-      (
-        step: 'organize',
-        branch: notebooks,
-        screen: NotebooksScreen,
-        barIndex: 1,
-      ),
+      (step: 'study', branch: processed, screen: ProcessedScreen, barIndex: 2),
+      (step: 'study', branch: notebooks, screen: NotebooksScreen, barIndex: 2),
+      (step: 'study', branch: timeline, screen: TimelineScreen, barIndex: 2),
+      (step: 'study', branch: graph, screen: MapScreen, barIndex: 2),
+      (step: 'study', branch: review, screen: ReviewEntryScreen, barIndex: 2),
     ];
 
     testWidgets(
-      '«Organizar» abre su lista: Bandeja, Procesado, Atlas, Línea de tiempo, '
-      'Mapa y Cuadernos, en ese orden y con para qué sirve cada uno —el '
-      'Explorador ya no está (F36)—',
+      '«Organizar» abre su lista: la Bandeja y el Atlas, en ese orden y con '
+      'para qué sirve cada uno',
       (tester) async {
         setLogicalWidth(tester, 400);
 
@@ -177,33 +200,11 @@ void main() {
           find.descendant(of: sheet, matching: find.text(es.navStepOrganize)),
           findsOneWidget,
         );
-        final tiles = tester
-            .widgetList<ListTile>(
-              find.descendant(of: sheet, matching: find.byType(ListTile)),
-            )
-            .toList();
-        expect(
-          [for (final t in tiles) (t.key! as ValueKey<String>).value],
-          [
-            for (final branch in [
-              inbox,
-              processed,
-              atlas,
-              timeline,
-              graph,
-              notebooks,
-            ])
-              'nav-step-item-$branch',
-          ],
-        );
-        for (final hint in [
-          es.navInboxHint,
-          es.navProcessedHint,
-          es.navAtlasHint,
-          es.navTimelineHint,
-          es.navMapHint,
-          es.navNotebooksHint,
-        ]) {
+        expect(sheetItemKeys(tester), [
+          'nav-step-item-$inbox',
+          'nav-step-item-$atlas',
+        ]);
+        for (final hint in [es.navInboxHint, es.navAtlasHint]) {
           expect(
             find.descendant(of: sheet, matching: find.text(hint)),
             findsOneWidget,
@@ -213,21 +214,102 @@ void main() {
     );
 
     testWidgets(
-      '«Preguntar» abre el chat directo, sin lista, y queda marcado',
+      '«Estudiar» (F43) abre su lista: Procesado, Cuadernos, Línea de tiempo, '
+      'Mapa y Repasar, en ese orden y con para qué sirve cada uno',
       (tester) async {
         setLogicalWidth(tester, 400);
 
         await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('nav-step-ask')));
+        await tester.tap(find.byKey(const ValueKey('nav-step-study')));
         await tester.pumpAndSettle();
 
-        expect(find.byType(BottomSheet), findsNothing);
-        expect(find.byType(ChatScreen), findsOneWidget);
-        final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-        expect(bar.selectedIndex, 2);
+        final sheet = find.byType(BottomSheet);
+        expect(
+          find.descendant(of: sheet, matching: find.text('Estudiar')),
+          findsOneWidget,
+        );
+        expect(sheetItemKeys(tester), [
+          for (final branch in [processed, notebooks, timeline, graph, review])
+            'nav-step-item-$branch',
+        ]);
+        for (final text in [
+          es.navProcessed,
+          es.navProcessedHint,
+          es.navNotebooks,
+          es.navNotebooksHint,
+          es.navTimeline,
+          es.navTimelineHint,
+          es.navMap,
+          es.navMapHint,
+          'Repasar',
+          es.navReviewHint,
+        ]) {
+          expect(
+            find.descendant(of: sheet, matching: find.text(text)),
+            findsOneWidget,
+            reason: text,
+          );
+        }
       },
     );
+
+    testWidgets(
+      'el número de tarjetas para hoy se ve en «Estudiar», y el de la Bandeja '
+      'en «Organizar» (F43)',
+      (tester) async {
+        setLogicalWidth(tester, 400);
+
+        await tester.pumpWidget(
+          buildRoutedApp(
+            buildUnlockedContainer(
+              overrides: [
+                studyDueTodayCountProvider.overrideWith(
+                  (ref) => const AsyncData(4),
+                ),
+                inboxPendingIdsProvider.overrideWith(
+                  (ref) => Stream.value(const ['a', 'b']),
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final study = stepBadge(tester, 'study');
+        expect(study.isLabelVisible, isTrue);
+        expect((study.label! as Text).data, '4');
+        final organize = stepBadge(tester, 'organize');
+        expect(organize.isLabelVisible, isTrue);
+        expect((organize.label! as Text).data, '2');
+
+        // Adentro de la lista, Repasar muestra la suya.
+        await tester.tap(find.byKey(const ValueKey('nav-step-study')));
+        await tester.pumpAndSettle();
+        final inList = tester.widget<Badge>(
+          find.descendant(
+            of: find.byKey(ValueKey('nav-step-item-$review')),
+            matching: find.byType(Badge),
+          ),
+        );
+        expect((inList.label! as Text).data, '4');
+      },
+    );
+
+    testWidgets('el chat, a la derecha de «Estudiar», se abre directo, sin '
+        'lista, y queda marcado', (tester) async {
+      setLogicalWidth(tester, 400);
+
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav-step-ask')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(ChatScreen), findsOneWidget);
+      final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(bar.selectedIndex, 3);
+    });
 
     testWidgets(
       'con el teclado abierto la barra se va y el chat usa toda la altura; '
@@ -300,30 +382,26 @@ void main() {
       );
     }
 
-    testWidgets(
-      'Biblioteca, Repasar y Ajustes abren directo, sin lista, y quedan '
-      'marcados',
-      (tester) async {
-        setLogicalWidth(tester, 400);
+    testWidgets('Biblioteca y Ajustes abren directo, sin lista, y quedan '
+        'marcados', (tester) async {
+      setLogicalWidth(tester, 400);
 
-        await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+
+      for (final (step, screen, barIndex) in [
+        ('settings', SettingsScreen, 4),
+        ('save', LibraryScreen, 0),
+      ]) {
+        await tester.tap(find.byKey(ValueKey('nav-step-$step')));
         await tester.pumpAndSettle();
 
-        for (final (step, screen, barIndex) in [
-          ('review', ReviewEntryScreen, 3),
-          ('settings', SettingsScreen, 4),
-          ('save', LibraryScreen, 0),
-        ]) {
-          await tester.tap(find.byKey(ValueKey('nav-step-$step')));
-          await tester.pumpAndSettle();
-
-          expect(find.byType(BottomSheet), findsNothing, reason: step);
-          expect(find.byType(screen), findsOneWidget, reason: step);
-          final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-          expect(bar.selectedIndex, barIndex, reason: step);
-        }
-      },
-    );
+        expect(find.byType(BottomSheet), findsNothing, reason: step);
+        expect(find.byType(screen), findsOneWidget, reason: step);
+        final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+        expect(bar.selectedIndex, barIndex, reason: step);
+      }
+    });
 
     testWidgets('la lista marca el destino que está abierto, y solo ese', (
       tester,
@@ -332,35 +410,72 @@ void main() {
 
       await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('nav-step-organize')));
+      await tester.tap(find.byKey(const ValueKey('nav-step-study')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(ValueKey('nav-step-item-$atlas')));
+      await tester.tap(find.byKey(ValueKey('nav-step-item-$timeline')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('nav-step-organize')));
+      await tester.tap(find.byKey(const ValueKey('nav-step-study')));
       await tester.pumpAndSettle();
 
       final selected = {
-        for (final branch in [
-          inbox,
-          processed,
-          timeline,
-          atlas,
-          graph,
-          notebooks,
-        ])
+        for (final branch in [processed, notebooks, timeline, graph, review])
           branch: tester
               .widget<ListTile>(find.byKey(ValueKey('nav-step-item-$branch')))
               .selected,
       };
       expect(selected, {
-        inbox: false,
         processed: false,
-        timeline: false,
-        atlas: true,
-        graph: false,
         notebooks: false,
+        timeline: true,
+        graph: false,
+        review: false,
       });
+    });
+
+    testWidgets('a 360 de ancho y con la letra al doble, la barra y la lista '
+        'de «Estudiar» entran sin desbordar', (tester) async {
+      setLogicalWidth(tester, 360);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await tester.pumpWidget(
+        buildRoutedApp(
+          buildUnlockedContainer(
+            overrides: [
+              studyDueTodayCountProvider.overrideWith(
+                (ref) => const AsyncData(128),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const ValueKey('nav-step-study')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('nav-step-study')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      // La lista se desplaza: el último, Repasar, se alcanza entero, dentro
+      // de la pantalla. (Abrirlo no es de esta prueba: cómo se ve Repasar
+      // con letra grande es cosa de su pantalla.)
+      await tester.scrollUntilVisible(
+        find.byKey(ValueKey('nav-step-item-$review')),
+        100,
+        scrollable: find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final tile = tester.getRect(
+        find.byKey(ValueKey('nav-step-item-$review')),
+      );
+      expect(tile.left, greaterThanOrEqualTo(0));
+      expect(tile.right, lessThanOrEqualTo(360));
+      expect(tile.bottom, lessThanOrEqualTo(800));
+      expect(tester.takeException(), isNull);
     });
   });
 
@@ -377,9 +492,8 @@ void main() {
       expect(find.byType(NavigationBar), findsNothing);
     });
 
-    testWidgets('el riel muestra los diez destinos, en su orden', (
-      tester,
-    ) async {
+    testWidgets('el riel muestra los diez destinos en el orden de la barra '
+        '(F43): Organizar, Estudiar y después el chat', (tester) async {
       setLogicalWidth(tester, 1200);
 
       await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
@@ -392,13 +506,13 @@ void main() {
       expect(labels, [
         es.navLibrary,
         es.navInbox,
-        es.navProcessed,
         es.navAtlas,
+        es.navProcessed,
+        es.navNotebooks,
         es.navTimeline,
         es.navMap,
-        es.navNotebooks,
-        es.navChat,
         es.navReview,
+        es.navChat,
         es.navSettings,
       ]);
     });
@@ -416,11 +530,11 @@ void main() {
 
       expect(find.byType(AtlasScreen), findsOneWidget);
       final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
-      expect(rail.selectedIndex, 3);
+      expect(rail.selectedIndex, 2);
     });
 
     testWidgets('en el riel, tocar la línea de tiempo (F40) la abre, debajo '
-        'del Atlas, y la marca', (tester) async {
+        'de los cuadernos, y la marca', (tester) async {
       setLogicalWidth(tester, 1200);
 
       await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
@@ -431,11 +545,11 @@ void main() {
 
       expect(find.byType(TimelineScreen), findsOneWidget);
       final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
-      expect(rail.selectedIndex, 4);
+      expect(rail.selectedIndex, 5);
     });
 
-    testWidgets('en el riel, tocar Procesado (F41) lo abre, entre la Bandeja '
-        'y el Atlas, y lo marca', (tester) async {
+    testWidgets('en el riel, tocar Procesado (F41) lo abre, después del Atlas, '
+        'y lo marca', (tester) async {
       setLogicalWidth(tester, 1200);
 
       await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
@@ -446,7 +560,27 @@ void main() {
 
       expect(find.byType(ProcessedScreen), findsOneWidget);
       final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
-      expect(rail.selectedIndex, 2);
+      expect(rail.selectedIndex, 3);
+    });
+
+    testWidgets('en el riel, tocar Repasar lo abre, antes del chat, y lo '
+        'marca', (tester) async {
+      setLogicalWidth(tester, 1200);
+
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationRail),
+          matching: find.text(es.navReview),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReviewEntryScreen), findsOneWidget);
+      final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+      expect(rail.selectedIndex, 7);
     });
 
     testWidgets('justo en el punto de quiebre ya es el riel, no la barra', (

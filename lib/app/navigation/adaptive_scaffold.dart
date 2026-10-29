@@ -19,22 +19,23 @@ const kNavRailBreakpoint = 600.0;
 /// El alto de `NavigationBar` cuando el tema no dice otro: el de Material 3.
 const _kNavigationBarHeight = 80.0;
 
-/// El shell de navegación principal: biblioteca, bandeja, línea de tiempo,
-/// atlas, mapa, chat, cuadernos, repaso y ajustes, cada uno con su propio
-/// `Navigator` —vía `StatefulShellRoute.indexedStack` en `app_router.dart`—
-/// para que cambiar de pestaña y volver conserve el scroll y los filtros de
-/// cada una.
+/// El shell de navegación principal: biblioteca, bandeja, atlas, procesado,
+/// cuadernos, línea de tiempo, mapa, repaso, chat y ajustes, cada uno con su
+/// propio `Navigator` —vía `StatefulShellRoute.indexedStack` en
+/// `app_router.dart`— para que cambiar de pestaña y volver conserve el scroll
+/// y los filtros de cada una.
 ///
 /// Reemplaza al AppBar de nueve íconos que tenía antes la biblioteca (ver la
 /// decisión 22 en docs/arquitectura.md): cada función pasa a tener su propio
 /// lugar, en vez de competir por espacio en una sola fila que en un celular
 /// real desbordaba.
 ///
-/// Nueve destinos no caben en una barra de celular: la barra muestra los
+/// Diez destinos no caben en una barra de celular: la barra muestra los
 /// cinco pasos del trabajo, en el orden en que se usan —Biblioteca,
-/// Organizar, Preguntar, Repasar y Ajustes—, y un paso con varios destinos
-/// abre su lista (F34, decisión 76; antes eran cinco y un «Más», F13). El
-/// riel de escritorio los muestra todos.
+/// Organizar, Estudiar, Chat y Ajustes (F43; antes «Repasar» era un paso y
+/// el chat iba antes)—, y un paso con varios destinos abre su lista (F34,
+/// decisión 76; antes eran cinco y un «Más», F13). El riel de escritorio los
+/// muestra todos, en el mismo orden.
 class AdaptiveScaffold extends ConsumerWidget {
   const AdaptiveScaffold({required this.navigationShell, super.key});
 

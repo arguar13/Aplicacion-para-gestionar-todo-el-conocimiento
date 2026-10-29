@@ -33,7 +33,8 @@ const _addLabelMinWidth = 420.0;
 const _searchDelay = Duration(milliseconds: 300);
 
 /// La línea de tiempo (F9): los hechos con fecha de la bóveda sobre un eje
-/// que se mueve y se acerca. Un destino de «Organizar», arriba del Atlas (F40).
+/// que se mueve y se acerca. Un destino de la barra (F40), en «Estudiar»
+/// (F43).
 ///
 /// Los eventos son las "Fecha del hecho" puestas en los elementos y los hechos
 /// fechados dentro de los documentos. Lo que se sabe con menos precisión —un

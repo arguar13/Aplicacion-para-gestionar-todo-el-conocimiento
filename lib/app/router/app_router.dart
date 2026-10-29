@@ -411,13 +411,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // La línea de tiempo (F40), mismo criterio: se ve arriba del Atlas,
-          // en «Organizar». Era una ruta plana que se abría encima de la
-          // barra (F9). El filtro con el que se llega —una rama del Atlas, un
-          // documento— no viaja en la dirección: lo fija quien navega en
-          // `timelineFilterProvider`, el único dueño del filtro, porque la
-          // pantalla vive en el `IndexedStack` y no se vuelve a construir al
-          // volver a ella.
+          // La línea de tiempo (F40), mismo criterio: se ve en «Estudiar»,
+          // entre los Cuadernos y el Mapa (F43). Era una ruta plana que se
+          // abría encima de la barra (F9). El filtro con el que se llega —una
+          // rama del Atlas, un documento— no viaja en la dirección: lo fija
+          // quien navega en `timelineFilterProvider`, el único dueño del
+          // filtro, porque la pantalla vive en el `IndexedStack` y no se
+          // vuelve a construir al volver a ella.
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -427,9 +427,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // «Procesado» (F41), mismo criterio que el Atlas: se ve justo
-          // después de la Bandeja, pero va al final para no correr ninguna
-          // rama. Su documento se dibuja en la raíz, como el detalle de un
+          // «Procesado» (F41), mismo criterio que el Atlas: se ve primero en
+          // «Estudiar» (F43), pero va al final para no correr ninguna rama.
+          // Su documento se dibuja en la raíz, como el detalle de un
           // elemento y por lo mismo: se abre desde cualquier pantalla —la
           // búsqueda, el chat, el Mapa, la Línea de tiempo—, y varias están
           // encima del shell.

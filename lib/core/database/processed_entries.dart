@@ -8,8 +8,8 @@
 /// único lugar que dice cómo se reconoce uno: tener su fila en
 /// `processed_documents`, buscada por su clave.
 ///
-/// Y, desde el paso 6, el corpus de «Organizar»: el Atlas, el Mapa, el grafo
-/// local y la Línea de tiempo leen solo esto.
+/// Y, desde el paso 6, el corpus del Atlas, el Mapa, el grafo local y la
+/// Línea de tiempo: leen solo esto.
 library;
 
 import 'package:sinapsis/core/domain/entities/processed_depth.dart';

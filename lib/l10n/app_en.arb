@@ -3657,7 +3657,7 @@
   },
   "navStepOrganize": "Organize",
   "@navStepOrganize": {
-    "description": "Paso de la barra del celular (F34) que agrupa Bandeja, Línea de tiempo, Atlas, Mapa y Cuadernos; tocarlo abre su lista."
+    "description": "Paso de la barra del celular (F34) que agrupa lo que ordena: Bandeja y Atlas (F43); tocarlo abre su lista."
   },
   "navLibraryHint": "Everything you saved, and where you save something new",
   "@navLibraryHint": {
@@ -3673,19 +3673,19 @@
   },
   "navMapHint": "Your vault as a network of links",
   "@navMapHint": {
-    "description": "Para qué sirve el Mapa, en una línea: debajo de su nombre en la lista del paso «Organizar» (F34)."
+    "description": "Para qué sirve el Mapa, en una línea: debajo de su nombre en la lista del paso «Estudiar» (F34, F43)."
   },
   "navChatHint": "Ask the AI about your material",
   "@navChatHint": {
-    "description": "Para qué sirve el Chat, en una línea (F34). Desde F40 «Preguntar» es solo el chat y se abre directo, sin lista."
+    "description": "Para qué sirve el Chat, en una línea (F34). Desde F40 «Preguntar» es solo el chat y se abre directo, sin lista; desde F43 va a la derecha de «Estudiar»."
   },
   "navNotebooksHint": "Group items together and narrow the chat to them",
   "@navNotebooksHint": {
-    "description": "Para qué sirven los Cuadernos, en una línea: debajo de su nombre en la lista del paso «Organizar» (F34, F40)."
+    "description": "Para qué sirven los Cuadernos, en una línea: debajo de su nombre en la lista del paso «Estudiar» (F34, F43)."
   },
-  "navReviewHint": "Cards and quizzes so you do not forget",
+  "navReviewHint": "Your cards, plus slides, summaries and quizzes from what you processed",
   "@navReviewHint": {
-    "description": "Para qué sirve Repasar, en una línea: debajo de su nombre en la lista de un paso (F34)."
+    "description": "Para qué sirve Repasar, en una línea: debajo de su nombre en la lista del paso «Estudiar», el último (F34, F43). Además de las tarjetas, desde F43 crea presentaciones, resúmenes, cuestionarios y más sobre lo procesado."
   },
   "navSettingsHint": "Language, theme, AI models, backup and more",
   "@navSettingsHint": {
@@ -10367,9 +10367,9 @@
   "aiRunCostSplit": "{input} read · {output} written",
   "@aiRunCostSplit": {"description": "Actividad (F39): descripción accesible de los tokens de una pasada, leídos y escritos; vienen con separador de miles.", "placeholders": {"input": {"type": "String"}, "output": {"type": "String"}}},
   "navTimeline": "Timeline",
-  "@navTimeline": {"description": "Destino de la navegación principal (F40), en el paso «Organizar», arriba del Atlas: los hechos con fecha sobre un eje que se acerca."},
+  "@navTimeline": {"description": "Destino de la navegación principal (F40), en el paso «Estudiar» (F43), debajo de los Cuadernos: los hechos con fecha sobre un eje que se acerca."},
   "navTimelineHint": "Your dated events on a zoomable axis",
-  "@navTimelineHint": {"description": "Para qué sirve la línea de tiempo, en una línea: debajo de su nombre en la lista del paso «Organizar» (F40)."},
+  "@navTimelineHint": {"description": "Para qué sirve la línea de tiempo, en una línea: debajo de su nombre en la lista del paso «Estudiar» (F40, F43)."},
   "timelineScopeAll": "All",
   "@timelineScopeAll": {"description": "Chip de la fila de recortes de la línea de tiempo (F40): sin recorte, todos los hechos. Es el de entrada."},
   "timelineScopeTopic": "Topic",
@@ -10892,11 +10892,11 @@
   },
   "navProcessed": "Processed",
   "@navProcessed": {
-    "description": "Destino de «Organizar» (F41): la información que la persona sacó de cada fuente al triarla."
+    "description": "Destino de «Estudiar» (F41, F43), el primero: la información que la persona sacó de cada fuente al triarla."
   },
   "navProcessedHint": "The information you took from each source",
   "@navProcessedHint": {
-    "description": "Para qué sirve «Procesado», debajo de su nombre en la lista de «Organizar» (F41)."
+    "description": "Para qué sirve «Procesado», debajo de su nombre en la lista de «Estudiar» (F41, F43)."
   },
   "processedTitle": "Processed",
   "@processedTitle": {
@@ -11919,5 +11919,9 @@
   "timelineFactSourceNotProcessed": "The timeline is built from what you triage: process this source and its dates go to its processed document.",
   "@timelineFactSourceNotProcessed": {
     "description": "«A la línea de tiempo» desde una fuente sin procesar (F41)."
+  },
+  "f43NavStepStudy": "Study",
+  "@f43NavStepStudy": {
+    "description": "Paso de la barra del celular (F43) que agrupa lo que se estudia sobre lo procesado: Procesado, Cuadernos, Línea de tiempo, Mapa y Repasar; tocarlo abre su lista y su insignia suma las tarjetas para hoy."
   }
 }
