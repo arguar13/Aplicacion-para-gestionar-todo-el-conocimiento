@@ -12835,5 +12835,312 @@
   "f43DeviceTimeLineEstimated": "≈ {time} per image (estimated)",
   "@f43DeviceTimeLineEstimated": {"description": "Tiempo por imagen sin medir (F43, paso 3b).", "placeholders": {"time": {"type": "String"}}},
   "f43DeviceTimeLineMeasured": "{time} per image (measured)",
-  "@f43DeviceTimeLineMeasured": {"description": "Tiempo por imagen medido (F43, paso 3b).", "placeholders": {"time": {"type": "String"}}}
+  "@f43DeviceTimeLineMeasured": {"description": "Tiempo por imagen medido (F43, paso 3b).", "placeholders": {"time": {"type": "String"}}},
+  "f43InfoStyleAuto": "Automatic",
+  "@f43InfoStyleAuto": {
+    "description": "Estilo de infografía que elige según el tema (F43, infografía)."
+  },
+  "f43InfoStyleEditorial": "Editorial",
+  "@f43InfoStyleEditorial": {
+    "description": "Estilo de infografía (F43, infografía)."
+  },
+  "f43InfoStyleGeometric": "Geometric",
+  "@f43InfoStyleGeometric": {
+    "description": "Estilo de infografía (F43, infografía)."
+  },
+  "f43InfoStyleSwiss": "Swiss minimal",
+  "@f43InfoStyleSwiss": {
+    "description": "Estilo de infografía (F43, infografía)."
+  },
+  "f43InfoStyleBento": "Bento",
+  "@f43InfoStyleBento": {
+    "description": "Estilo de infografía (F43, infografía)."
+  },
+  "f43InfoStyleChalkboard": "Chalkboard",
+  "@f43InfoStyleChalkboard": {
+    "description": "Estilo de infografía (F43, infografía)."
+  },
+  "f43InfoStyleNeon": "Dark neon",
+  "@f43InfoStyleNeon": {
+    "description": "Estilo de infografía (F43, infografía)."
+  },
+  "f43InfoStyleParchment": "Parchment",
+  "@f43InfoStyleParchment": {
+    "description": "Estilo de infografía (F43, infografía)."
+  },
+  "f43InfoStyleCorporate": "Corporate",
+  "@f43InfoStyleCorporate": {
+    "description": "Estilo de infografía (F43, infografía)."
+  },
+  "f43InfoStylePastel": "Pastel",
+  "@f43InfoStylePastel": {
+    "description": "Estilo de infografía (F43, infografía)."
+  },
+  "f43InfoStyleKids": "Kids",
+  "@f43InfoStyleKids": {
+    "description": "Estilo de infografía (F43, infografía)."
+  },
+  "f43InfoStyleData": "Data",
+  "@f43InfoStyleData": {
+    "description": "Estilo de infografía (F43, infografía)."
+  },
+  "f43InfoStyleClay": "Clay",
+  "@f43InfoStyleClay": {
+    "description": "Estilo de infografía con ilustraciones con IA (F43, infografía)."
+  },
+  "f43InfoStyleKawaii": "Kawaii",
+  "@f43InfoStyleKawaii": {
+    "description": "Estilo de infografía con ilustraciones con IA (F43, infografía)."
+  },
+  "f43InfoStyleWatercolor": "Watercolor",
+  "@f43InfoStyleWatercolor": {
+    "description": "Estilo de infografía con ilustraciones con IA (F43, infografía)."
+  },
+  "f43InfoStyleIsometric": "Isometric",
+  "@f43InfoStyleIsometric": {
+    "description": "Estilo de infografía con ilustraciones con IA (F43, infografía)."
+  },
+  "f43InfoStyleComic": "Comic",
+  "@f43InfoStyleComic": {
+    "description": "Estilo de infografía con ilustraciones con IA (F43, infografía)."
+  },
+  "f43InfoStylePhoto": "Photographic",
+  "@f43InfoStylePhoto": {
+    "description": "Estilo de infografía con ilustraciones con IA (F43, infografía)."
+  },
+  "f43InfoFamilyDrawn": "Drawn by the app",
+  "@f43InfoFamilyDrawn": {
+    "description": "Familia de estilos de infografía (F43, infografía)."
+  },
+  "f43InfoFamilyIllustrated": "With AI illustrations",
+  "@f43InfoFamilyIllustrated": {
+    "description": "Familia de estilos de infografía (F43, infografía)."
+  },
+  "f43InfoFamilyIllustratedNote": "Without an image AI they still look finished, with their drawn version.",
+  "@f43InfoFamilyIllustratedNote": {
+    "description": "Aclaración bajo los estilos con ilustraciones (F43, infografía)."
+  },
+  "f43InfoCompositionAuto": "Automatic",
+  "@f43InfoCompositionAuto": {
+    "description": "Composición de infografía que elige según el contenido (F43, infografía)."
+  },
+  "f43InfoCompositionBento": "Bento blocks",
+  "@f43InfoCompositionBento": {
+    "description": "Composición de infografía (F43, infografía)."
+  },
+  "f43InfoCompositionColumns": "Columns",
+  "@f43InfoCompositionColumns": {
+    "description": "Composición de infografía (F43, infografía)."
+  },
+  "f43InfoCompositionZigzag": "Zigzag",
+  "@f43InfoCompositionZigzag": {
+    "description": "Composición de infografía (F43, infografía)."
+  },
+  "f43InfoCompositionTimeline": "Timeline",
+  "@f43InfoCompositionTimeline": {
+    "description": "Composición de infografía (F43, infografía)."
+  },
+  "f43InfoCompositionProcess": "Process",
+  "@f43InfoCompositionProcess": {
+    "description": "Composición de infografía (F43, infografía)."
+  },
+  "f43InfoCompositionRadial": "Radial",
+  "@f43InfoCompositionRadial": {
+    "description": "Composición de infografía (F43, infografía)."
+  },
+  "f43InfoCompositionComparison": "Comparison",
+  "@f43InfoCompositionComparison": {
+    "description": "Composición de infografía (F43, infografía)."
+  },
+  "f43InfoCompositionPyramid": "Pyramid",
+  "@f43InfoCompositionPyramid": {
+    "description": "Composición de infografía (F43, infografía)."
+  },
+  "f43InfoCompositionStatPanel": "Stats panel",
+  "@f43InfoCompositionStatPanel": {
+    "description": "Composición de infografía (F43, infografía)."
+  },
+  "f43InfoCompositionConceptMap": "Concept map",
+  "@f43InfoCompositionConceptMap": {
+    "description": "Composición de infografía (F43, infografía)."
+  },
+  "f43InfoOrientationLandscape": "Landscape",
+  "@f43InfoOrientationLandscape": {
+    "description": "Orientación de la infografía (F43, infografía)."
+  },
+  "f43InfoOrientationPortrait": "Portrait",
+  "@f43InfoOrientationPortrait": {
+    "description": "Orientación de la infografía (F43, infografía)."
+  },
+  "f43InfoOrientationSquare": "Square",
+  "@f43InfoOrientationSquare": {
+    "description": "Orientación de la infografía (F43, infografía)."
+  },
+  "f43InfoDetailConcise": "Concise",
+  "@f43InfoDetailConcise": {
+    "description": "Detalle de la infografía (F43, infografía)."
+  },
+  "f43InfoDetailStandard": "Standard",
+  "@f43InfoDetailStandard": {
+    "description": "Detalle de la infografía (F43, infografía)."
+  },
+  "f43InfoDetailDetailed": "Detailed",
+  "@f43InfoDetailDetailed": {
+    "description": "Detalle de la infografía (F43, infografía)."
+  },
+  "f43InfoIconsSoft": "Soft",
+  "@f43InfoIconsSoft": {
+    "description": "Cómo se ven los íconos de la infografía (F43, infografía)."
+  },
+  "f43InfoIconsSolid": "Solid",
+  "@f43InfoIconsSolid": {
+    "description": "Cómo se ven los íconos de la infografía (F43, infografía)."
+  },
+  "f43InfoIconsOutline": "Outlined",
+  "@f43InfoIconsOutline": {
+    "description": "Cómo se ven los íconos de la infografía (F43, infografía)."
+  },
+  "f43InfoIconsBare": "Bare",
+  "@f43InfoIconsBare": {
+    "description": "Cómo se ven los íconos de la infografía (F43, infografía)."
+  },
+  "f43InfoIconsNone": "No icons",
+  "@f43InfoIconsNone": {
+    "description": "Cómo se ven los íconos de la infografía (F43, infografía)."
+  },
+  "f43InfoBackgroundPlain": "Plain",
+  "@f43InfoBackgroundPlain": {
+    "description": "Fondo de la infografía (F43, infografía)."
+  },
+  "f43InfoBackgroundTexture": "Texture",
+  "@f43InfoBackgroundTexture": {
+    "description": "Fondo de la infografía (F43, infografía)."
+  },
+  "f43InfoBackgroundGradient": "Gradient",
+  "@f43InfoBackgroundGradient": {
+    "description": "Fondo de la infografía (F43, infografía)."
+  },
+  "f43InfoDesignTitle": "Customize infographic",
+  "@f43InfoDesignTitle": {
+    "description": "Título de la hoja de diseño de la infografía (F43, infografía)."
+  },
+  "f43InfoDesignClose": "Close",
+  "@f43InfoDesignClose": {
+    "description": "Cerrar la hoja de diseño de la infografía (F43, infografía)."
+  },
+  "f43InfoDesignStyle": "Visual style",
+  "@f43InfoDesignStyle": {
+    "description": "Sección de la hoja de diseño de la infografía (F43, infografía)."
+  },
+  "f43InfoDesignChangeStyle": "Change",
+  "@f43InfoDesignChangeStyle": {
+    "description": "Abre la galería de estilos de infografía (F43, infografía)."
+  },
+  "f43InfoDesignComposition": "Layout",
+  "@f43InfoDesignComposition": {
+    "description": "Sección de la hoja de diseño de la infografía (F43, infografía)."
+  },
+  "f43InfoDesignPalette": "Palette",
+  "@f43InfoDesignPalette": {
+    "description": "Sección de la hoja de diseño de la infografía (F43, infografía)."
+  },
+  "f43InfoDesignPaletteNumber": "Palette {number}",
+  "@f43InfoDesignPaletteNumber": {
+    "description": "Una paleta, para el lector de pantalla (F43, infografía).",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "f43InfoDesignCustomColor": "Custom color",
+  "@f43InfoDesignCustomColor": {
+    "description": "La paleta con un color elegido (F43, infografía)."
+  },
+  "f43InfoDesignHue": "Hue",
+  "@f43InfoDesignHue": {
+    "description": "El deslizador del color propio (F43, infografía)."
+  },
+  "f43InfoDesignFonts": "Typography",
+  "@f43InfoDesignFonts": {
+    "description": "Sección de la hoja de diseño de la infografía (F43, infografía)."
+  },
+  "f43InfoFontsOfStyle": "The style's",
+  "@f43InfoFontsOfStyle": {
+    "description": "La tipografía de fábrica del estilo (F43, infografía)."
+  },
+  "f43InfoDesignOrientation": "Orientation",
+  "@f43InfoDesignOrientation": {
+    "description": "Sección de la hoja de diseño de la infografía (F43, infografía)."
+  },
+  "f43InfoDesignDetail": "Detail",
+  "@f43InfoDesignDetail": {
+    "description": "Sección de la hoja de diseño de la infografía (F43, infografía)."
+  },
+  "f43InfoDesignIcons": "Icons",
+  "@f43InfoDesignIcons": {
+    "description": "Sección de la hoja de diseño de la infografía (F43, infografía)."
+  },
+  "f43InfoDesignBackground": "Background",
+  "@f43InfoDesignBackground": {
+    "description": "Sección de la hoja de diseño de la infografía (F43, infografía)."
+  },
+  "f43InfoGallerySelected": "{name}, selected",
+  "@f43InfoGallerySelected": {
+    "description": "Un estilo o una composición elegidos, para el lector de pantalla (F43, infografía).",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "f43InfoGalleryAutoResolved": "Automatic: {name}",
+  "@f43InfoGalleryAutoResolved": {
+    "description": "Qué estilo eligió Automático para esta infografía (F43, infografía).",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "f43InfoSampleTitle": "Your topic on one sheet",
+  "@f43InfoSampleTitle": {
+    "description": "Muestra de infografía para elegir el estilo antes de generar (F43, infografía)."
+  },
+  "f43InfoSampleSubtitle": "This is how this style looks",
+  "@f43InfoSampleSubtitle": {
+    "description": "Muestra de infografía (F43, infografía)."
+  },
+  "f43InfoSampleStatLabel": "of what matters most",
+  "@f43InfoSampleStatLabel": {
+    "description": "Muestra de infografía: rótulo de la cifra (F43, infografía)."
+  },
+  "f43InfoSampleIdea1": "A key idea",
+  "@f43InfoSampleIdea1": {
+    "description": "Muestra de infografía (F43, infografía)."
+  },
+  "f43InfoSampleIdea1Detail": "With a short explanation",
+  "@f43InfoSampleIdea1Detail": {
+    "description": "Muestra de infografía (F43, infografía)."
+  },
+  "f43InfoSampleIdea2": "How it connects",
+  "@f43InfoSampleIdea2": {
+    "description": "Muestra de infografía (F43, infografía)."
+  },
+  "f43InfoSampleIdea2Detail": "What ties it to the rest",
+  "@f43InfoSampleIdea2Detail": {
+    "description": "Muestra de infografía (F43, infografía)."
+  },
+  "f43InfoSampleIdea3": "To remember",
+  "@f43InfoSampleIdea3": {
+    "description": "Muestra de infografía (F43, infografía)."
+  },
+  "f43InfoSampleIdea3Detail": "What is worth taking away",
+  "@f43InfoSampleIdea3Detail": {
+    "description": "Muestra de infografía (F43, infografía)."
+  },
+  "f43InfoSampleTakeaway": "A clear sheet is easier to remember.",
+  "@f43InfoSampleTakeaway": {
+    "description": "Muestra de infografía: idea para llevarse (F43, infografía)."
+  }
 }
