@@ -498,3 +498,30 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
 ## Avance
 
 *(Se completa paso a paso al construir.)*
+
+### Paso 2 (hecho): los datos de «Lo creado», esquema v48
+
+- **`study_creations`** (v48, aditiva, con los conteos como compuerta): tipo, título, recorte,
+  fuentes (ids sueltos, sin cascada: borrar un procesado deja la creación con «fuente borrada»),
+  opciones y contenido en JSON —nulo en las tres de extraer, que son vistas vivas (decisión E)—,
+  estado con su motivo y su avance, «ahora» o «más tarde», intentos y papelera.
+- **Los tres censos**: la papelera (sección «Creaciones de Estudiar», restaurar, borrar para siempre
+  y vaciar), la copia (la base entera) y la unión (entra lo que no hay; lo de la otra a medias
+  entra fallido por interrumpido; una que las dos tienen queda con la versión más nueva si está
+  terminada; la vista previa y el resultado la cuentan).
+- **El recorte** (`CreationScope`: todo, documento, cuaderno, tema con sus ramas y espacio) se
+  resuelve con las consultas de siempre (`ProcessedRepository.matchingIds`,
+  `NotebookRepository.memberIds`). **«Para hoy»** lo cuenta con `StudyScope.processed`: las
+  tarjetas de cada documento **y** las de su fuente («De la fuente»); «Todo lo procesado» es
+  `StudyScope.all()`. El selector viejo de Repasar ya ofrece «Un procesado».
+- **El material** (`CreationMaterialBuilder`): el texto entero, el resumen, la síntesis o por
+  partes (como mucho 24, repartidas por todo el texto). Un libro de 3.000.000 de caracteres se
+  arma en 26–32 ms (PC, flutter test): con Gemma, 1.771 partes de 2.040 caracteres (se lee el
+  1,3 % de primera mano, sin resumen ni síntesis); con Gemini, 51 partes de 60.000 (el 46 %).
+  Cortarlo corre en otro hilo.
+- **El pedido de JSON** (`StructuredWriter.writeStructured`, en `LanguageModelTasks`, genérico):
+  lectura tolerante, una corrección, por partes con unión de a grupos, cancelable, con el turno
+  de la persona o de la cola de fondo, sin pasarse nunca de la ventana.
+- **La cola** (`CreationQueue`): «Generar ahora» antes que «más tarde»; lo de fondo espera la
+  cuota sin fallar; lo pendiente se retoma al abrir la app (tres intentos), con el servicio en
+  primer plano. Cada tipo suma su generador con una línea en `creationGeneratorsProvider`.
