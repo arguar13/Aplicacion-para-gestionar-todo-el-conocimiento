@@ -2,6 +2,7 @@ import 'dart:ui' show Rect;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/creations/data/services/system_creation_sharer.dart';
+import 'package:sinapsis/features/creations/data_table/data_table_kind.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/extract/presentation/extract_kind_specs.dart';
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_spec.dart';
@@ -33,6 +34,7 @@ final creationKindSpecsProvider = Provider<List<CreationKindSpec>>(
     ref.watch(infographicKindSpecProvider),
     ref.watch(reportKindSpecProvider),
     ref.watch(mindMapKindSpecProvider),
+    ref.watch(dataTableKindSpecProvider),
   ],
 );
 

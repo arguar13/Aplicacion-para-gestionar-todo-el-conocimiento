@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/features/creations/data_table/data_table_kind.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_generator.dart';
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_providers.dart';
@@ -25,6 +26,7 @@ final creationGeneratorsProvider = Provider<List<CreationGenerator>>(
     ref.watch(infographicGeneratorProvider),
     ref.watch(reportGeneratorProvider),
     ref.watch(mindMapGeneratorProvider),
+    ref.watch(dataTableGeneratorProvider),
   ],
 );
 
