@@ -761,6 +761,29 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
 - **Archivo**: Markdown con un apartado por documento y las palabras clave en negrita si se
   resaltan; «Compartir» pasa este mismo archivo.
 
+### Paso 10 (hecho): Informes
+
+- **Plantillas**: Resumen de aprendizaje, Guía de estudio, Documento informativo y Glosario, cada
+  una con su estructura de secciones y su guía para la IA, elegidas como tarjetas. La propia se
+  escribe con ✎, la hoja vuelve a abrir con ella y «Las que ya usaste» sale de los informes ya
+  guardados en «Lo creado» —sin otro guardado, así viaja con la bóveda—.
+- **Formato**: Interactivo —dos o tres preguntas por sección con «¡Exacto!» o «No es esa», el
+  porqué de la elegida, la correcta con su letra, puntaje por sección y total, y «Volver a
+  intentar»— o Documento. Las opciones se mezclan siempre igual: la «B» de la pantalla es la del
+  PDF.
+- **Generar**: un `writeStructured` con su JSON leído con tolerancia (claves en castellano o
+  inglés, textos como cadena, lista o viñetas, la correcta como letra, número o texto; una
+  pregunta incompleta se descarta sin tumbar el informe). Lo largo va por partes y la unión lo
+  rearma en la estructura de la plantilla; con Gemma la respuesta se ajusta a la ventana. El
+  glosario lo ordena la app: junta, saca repetidos, ordena y agrupa por letra.
+- **Visor**: secciones numeradas que se pliegan con «⌃», índice que salta y pliega o despliega
+  todo, viñetas, citas y negritas en Lora y Source Sans 3, y las palabras clave en rosa sacadas de
+  las marcas de estudiar de las fuentes (o, si no hay, las que destacó la IA), con la misma
+  preferencia de mostrarlas. Las preguntas no llevan rosa, para no dar pistas.
+- **Descargar o compartir**: PDF A4 de texto con las fuentes de la app incrustadas, las palabras
+  clave en rosa y las respuestas en una página aparte, o Markdown con las palabras clave en
+  negrita.
+
 ### Paso 12 (hecho): la Infografía
 
 - **Generar**: la IA escribe la lámina (`writeStructured`, esquema de la infografía) con el
