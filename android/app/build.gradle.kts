@@ -4,6 +4,23 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// «Exigente — en el teléfono» (F43, paso 3b): dibujar ilustraciones en el
+// teléfono con stable-diffusion.cpp. Compila `libsinapsis_sd.so` (ver
+// `src/main/cpp/CMakeLists.txt`) solo si se pide, porque la primera vez baja
+// stable-diffusion.cpp (~400 MB de código) y suma ~38 MB a la app:
+//
+//   flutter build apk --flavor prod -t lib/main_prod.dart //     -Psinapsis.imagenesEnElTelefono=true
+//
+// Sin red, con una copia ya bajada en el commit fijado:
+//   -Psinapsis.sdcppSource=C:/ruta/a/stable-diffusion.cpp
+//
+// Sin la bandera la app se arma igual y la sección «Exigente» no aparece: la
+// app no encuentra la biblioteca (`SdNativeLibrary.open`).
+val imagesOnDevice =
+    (project.findProperty("sinapsis.imagenesEnElTelefono") as String?)
+        ?.toBoolean() ?: false
+val sdcppSource = project.findProperty("sinapsis.sdcppSource") as String?
+
 android {
     namespace = "app.sinapsis"
     compileSdk = flutter.compileSdkVersion
@@ -26,6 +43,30 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        if (imagesOnDevice) {
+            externalNativeBuild {
+                cmake {
+                    // Solo ARM de 64 bits: lo que tienen los teléfonos con la
+                    // memoria que piden estos modelos. Las demás ABI de la app
+                    // siguen igual, sin el motor.
+                    abiFilters += "arm64-v8a"
+                    arguments += listOf("-DANDROID_STL=c++_static", "-DCMAKE_BUILD_TYPE=Release")
+                    if (sdcppSource != null) {
+                        arguments += "-DSINAPSIS_SDCPP_SOURCE_DIR=$sdcppSource"
+                    }
+                }
+            }
+        }
+    }
+
+    if (imagesOnDevice) {
+        externalNativeBuild {
+            cmake {
+                path = file("src/main/cpp/CMakeLists.txt")
+                version = "3.22.1"
+            }
+        }
     }
 
     // Los tres flavors espejan los entry points de Dart (main_dev.dart,
