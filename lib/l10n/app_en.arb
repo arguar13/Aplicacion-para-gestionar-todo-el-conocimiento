@@ -12148,7 +12148,7 @@
   "@f43AiProbeCannot": {"description": "Resultado de probar (F43).", "placeholders": {"account": {"type": "String"}, "reason": {"type": "String"}}},
   "f43AiProbeError": "Could not test: {reason}",
   "@f43AiProbeError": {"description": "Problema del momento al probar (F43).", "placeholders": {"reason": {"type": "String"}}},
-  "f43AiOpenTitle": "Open source",
+  "f43AiOpenTitle": "Open source — in the cloud (Hugging Face)",
   "@f43AiOpenTitle": {"description": "Sección (F43)."},
   "f43AiOpenIntro": "Open models the app uses through Hugging Face, in the cloud: they need a graphics card and do not run on a phone.",
   "@f43AiOpenIntro": {"description": "Sección (F43)."},

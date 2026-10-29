@@ -11165,7 +11165,7 @@
   "@f43AiProbeCannot": {"description": "Resultado de probar (F43).", "placeholders": {"account": {"type": "String"}, "reason": {"type": "String"}}},
   "f43AiProbeError": "No se pudo probar: {reason}",
   "@f43AiProbeError": {"description": "Problema del momento al probar (F43).", "placeholders": {"reason": {"type": "String"}}},
-  "f43AiOpenTitle": "De código abierto",
+  "f43AiOpenTitle": "De código abierto — en la nube (Hugging Face)",
   "@f43AiOpenTitle": {"description": "Sección (F43)."},
   "f43AiOpenIntro": "Modelos abiertos que la app usa por Hugging Face, en la nube: piden una placa de video y no corren en un teléfono.",
   "@f43AiOpenIntro": {"description": "Sección (F43)."},

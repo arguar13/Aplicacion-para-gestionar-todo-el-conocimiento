@@ -1,12 +1,14 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/features/ai_models/data/cloud/image_wire.dart';
 import 'package:sinapsis/features/ai_models/data/repositories/prefs_ai_usage_ledger.dart';
 import 'package:sinapsis/features/ai_models/data/repositories/prefs_illustration_store.dart';
 import 'package:sinapsis/features/ai_models/data/repositories/secure_image_account_repository.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/account_usage.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_account.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/daily_quota.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/illustration_account.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/illustration_provider.dart';
@@ -325,6 +327,30 @@ void main() {
         );
       }
     });
+  });
+
+  test('cada falla de texto tiene su falla de imagen', () {
+    const expected = {
+      CloudModelFailure.invalidKey: ImageFailure.invalidKey,
+      CloudModelFailure.forbidden: ImageFailure.forbidden,
+      CloudModelFailure.rateLimited: ImageFailure.rateLimited,
+      CloudModelFailure.quotaExhausted: ImageFailure.quotaExhausted,
+      CloudModelFailure.modelNotFound: ImageFailure.modelNotFound,
+      CloudModelFailure.unavailable: ImageFailure.unavailable,
+      CloudModelFailure.blocked: ImageFailure.contentRefused,
+      CloudModelFailure.network: ImageFailure.network,
+      CloudModelFailure.timeout: ImageFailure.timeout,
+      CloudModelFailure.cutOff: ImageFailure.unavailable,
+      CloudModelFailure.badRequest: ImageFailure.badRequest,
+      CloudModelFailure.tooLong: ImageFailure.badRequest,
+      CloudModelFailure.noAccount: ImageFailure.noAccount,
+      CloudModelFailure.backgroundCap: ImageFailure.unknown,
+      CloudModelFailure.unknown: ImageFailure.unknown,
+    };
+    expect(expected.keys.toSet(), CloudModelFailure.values.toSet());
+    for (final MapEntry(:key, :value) in expected.entries) {
+      expect(imageFailureOfCloud(key), value, reason: key.name);
+    }
   });
 
   test('los píxeles de cada forma, en múltiplos de 64', () {

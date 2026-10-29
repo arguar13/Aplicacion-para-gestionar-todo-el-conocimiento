@@ -165,6 +165,30 @@ void main() {
       expect(image.mimeType, 'image/png');
     });
 
+    test('las imágenes provisorias de lo que piensa no son la respuesta', () {
+      final image = GeminiImageWire.parse({
+        'status': 'completed',
+        'steps': [
+          {
+            'type': 'thought',
+            'content': [
+              {
+                'type': 'image',
+                'data': base64Encode([0x89, 0x50, 0x4E, 0x47]),
+              },
+            ],
+          },
+          {
+            'type': 'model_output',
+            'content': [
+              {'type': 'image', 'data': base64Encode(_jpeg)},
+            ],
+          },
+        ],
+      }, model: 'm');
+      expect(image.bytes, _jpeg);
+    });
+
     test('sin imagen y con una explicación: rechazado por su contenido', () {
       google.reply(
         _interaction(

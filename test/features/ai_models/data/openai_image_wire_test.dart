@@ -136,6 +136,14 @@ void main() {
       );
     });
 
+    test('rechazado por moderación, aunque venga solo el código', () async {
+      await expectFailure(
+        _error(message: 'Blocked.', code: 'moderation_blocked'),
+        400,
+        ImageFailure.contentRefused,
+      );
+    });
+
     test('sin saldo: sin créditos (no el tope por minuto)', () async {
       await expectFailure(
         _error(

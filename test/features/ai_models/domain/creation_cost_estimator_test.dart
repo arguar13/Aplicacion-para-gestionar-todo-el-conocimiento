@@ -306,6 +306,29 @@ void main() {
     });
   });
 
+  test(
+    'con Hugging Face no se inventa un precio: cobra lo de su proveedor',
+    () {
+      final estimate = _estimator.estimate(
+        text: _text(AiProvider.anthropic, accountId: 'c'),
+        inputTokens: 10,
+        expectedOutputTokens: 10,
+        images: 2,
+        imageAccountId: 'h',
+        imageAccounts: [
+          _side(
+            'h',
+            IllustrationProvider.huggingFace,
+            model: 'black-forest-labs/FLUX.1-schnell',
+          ),
+        ],
+      );
+      expect(estimate.canIllustrate, isTrue);
+      expect(estimate.imagesUsd, isNull);
+      expect(estimate.totalUsd, isNull);
+    },
+  );
+
   test('la cuenta que escribe sin probar: se intenta, y lo dice', () {
     final estimate = _estimator.estimate(
       text: _text(AiProvider.gemini, accountId: 'g'),
