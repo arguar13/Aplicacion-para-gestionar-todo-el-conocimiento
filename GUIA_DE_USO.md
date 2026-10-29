@@ -3339,6 +3339,74 @@ palabras clave en negrita—.
 Cambiar el formato o la plantilla de uno ya hecho es **"Volver a generar con
 otras opciones"**.
 
+#### El mapa mental
+
+La tarjeta **"Mapa mental"** arma un árbol de ideas con lo elegido: la idea
+central y, hacia la derecha, sus ramas, de lo general a lo particular. En su
+hoja elegís el **idioma**, las **fuentes** y, si querés, un **tema** —el mapa
+gira alrededor de él—. Con un libro largo lo lee por partes y une las ramas
+en un solo árbol, sin repetir.
+
+Al abrirlo se ven la idea central y sus ramas principales:
+
+- **«›»** al final de una idea abre sus ramas; abierta, la flecha apunta
+  hacia atrás («‹») y otro toque la cierra. La idea que tocaste se queda
+  quieta: lo demás se acomoda alrededor.
+- **Pellizcá** para acercar o alejar y **arrastrá** para recorrerlo. Abajo, la
+  barrita tiene **alejar**, **acercar**, **"Ajustar a la pantalla"** (el mapa
+  entero a la vista), **"Ampliar todo"** (todas las ramas abiertas) y
+  **"Contraer todo"** (vuelve a las ramas principales).
+- **Tocar una idea** abre su hoja: su nombre entero, dónde está dentro del
+  mapa, la frase que la explica, **de qué documento sale** y el **pasaje**
+  donde se dice. Desde ahí:
+  - **"Preguntarle al chat sobre esto"** abre el chat con la pregunta ya
+    hecha y mandada —«Contame qué dicen mis fuentes sobre esta idea, en el
+    contexto de la de arriba»—, en una conversación nueva con tu bóveda;
+    si el mapa es de un cuaderno, acotada a ese cuaderno.
+  - **"Ver en el documento"** abre la lectura de la fuente **parada en el
+    pasaje**, marcado un momento. Si la idea no trae pasaje, o no se
+    encuentra en el texto, abre el documento procesado. Si el mapa es de
+    varios documentos y la idea no dice de cuál sale, ofrece **"Ver las
+    fuentes"**.
+- El botón de la imagen, arriba, **guarda el mapa como imagen** (PNG): el
+  árbol entero con todas las ramas abiertas, nítido, con los colores del
+  tema que estés usando. Lo mismo hace **"Descargar"** en «Lo creado».
+
+#### La tabla de datos
+
+La tarjeta **"Tabla de datos"** arma una tabla con lo elegido: cada fila, un
+elemento —una persona, un hecho, un concepto, una etapa— y cada columna, un
+dato de él. En **"Describí lo que querés crear"** podés decir **qué
+columnas** querés («personaje, papel y primera aparición»): la tabla trae
+esas, con esos nombres y en ese orden. Sin descripción, la IA elige las que
+mejor resumen el material. Lo que el material no dice queda vacío: nunca se
+inventa.
+
+En el visor:
+
+- **La primera columna queda fija** y las demás se corren de costado; **los
+  encabezados quedan arriba** al bajar. Las filas alternan dos tonos para
+  seguirlas con la vista.
+- **Tocar un encabezado ordena por esa columna**; otro toque, al revés. Los
+  números se ordenan como números (9 antes que 10), las fechas como fechas
+  —«1446 a. C.» antes que «30 d. C.»— y el texto como un diccionario: sin
+  mirar mayúsculas ni tildes, y la «ñ» después de la «n». Lo vacío va
+  siempre al final. **"Ordenar"** abre una hoja con las columnas, el ✓ en la
+  elegida, *Ascendente* o *Descendente* y **"Orden original"**; la ficha de
+  arriba dice por qué está ordenada y su ✕ vuelve al orden original.
+- **Una celda que no entra** termina en «…»: tocala y se abre entera, para
+  leerla y **copiarla**.
+- Arriba, **"Copiar la tabla"** la deja en el portapapeles lista para pegar en
+  una planilla (una celda por valor), y **"Exportar a CSV"** la guarda como
+  archivo. Las dos van **en el orden que estás viendo**.
+
+El CSV abre bien en **Excel** y en **Google Sheets**, con las tildes en su
+lugar: va en UTF-8 con su marca, y con la app en castellano (o en otro idioma
+donde la coma es la de los decimales) separa con **«;»**, que es lo que Excel
+espera en esas computadoras; en inglés, con **«,»**. Sheets entiende los dos.
+Un valor que empieza con «=» se guarda como texto: abrir el archivo nunca
+ejecuta una fórmula.
+
 ### Crear tarjetas con IA, para muchos elementos a la vez
 
 **Cómo llegar:** pantalla "Repasar" → botón **✨** arriba ("Crear tarjetas
