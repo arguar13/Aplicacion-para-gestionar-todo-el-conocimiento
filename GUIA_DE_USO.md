@@ -3048,7 +3048,8 @@ tipo:
   **plantilla** (las dieciséis de la presentación, o las del informe con
   **✎ Una propia**, que abre un campo para contar cómo lo querés), la
   **duración**, el **número** (*Menos · Estándar · Más*), la **dificultad**,
-  **incluir imágenes** (las del propio documento), los **tipos de pregunta**
+  **incluir imágenes** (ilustraciones con IA en algunas tarjetas o preguntas),
+  los **tipos de pregunta**
   del cuestionario (al menos uno), la **orientación** y el **detalle** de la
   infografía, e **"Ilustraciones con IA"** en la presentación y la infografía.
 
@@ -3065,8 +3066,8 @@ tipo:
   qué; «más tarde» sigue disponible.
 - En las de extraer, un solo botón: **"Crear"**.
 
-Con **"Ilustraciones con IA"** prendido aparece encima la tarjeta **"Con tu IA
-actual"**: qué va a poder hacer, cuánto consume y, si tu IA no dibuja, las
+Con **"Ilustraciones con IA"** (o **"Incluir imágenes"**) prendido aparece
+encima la tarjeta **"Con tu IA actual"**: qué va a poder hacer, cuánto consume y, si tu IA no dibuja, las
 opciones —**"Seguir sin ilustraciones"** (apaga el interruptor), **usar otra
 cuenta que sí puede** o agregar una clave—.
 
@@ -3406,6 +3407,87 @@ donde la coma es la de los decimales) separa con **«;»**, que es lo que Excel
 espera en esas computadoras; en inglés, con **«,»**. Sheets entiende los dos.
 Un valor que empieza con «=» se guarda como texto: abrir el archivo nunca
 ejecuta una fórmula.
+
+#### Tarjetas didácticas
+
+**Cómo llegar:** Repasar → **Tarjetas didácticas** (✎ para elegir) → «Generar
+ahora» o «Generar más tarde». Se abre desde «Lo creado».
+
+- **Qué se elige:** el **número** (*Menos* ≈ 10, *Estándar* ≈ 18, *Más* ≈ 30),
+  la **dificultad** (*Fácil*: lo principal y las definiciones; *Medio*: entender
+  y relacionar; *Difícil*: comparar, explicar y recordar detalles), el
+  **tema** (para concentrarse en uno), el **idioma**, las **fuentes** y
+  **"Incluir imágenes"**.
+- **Lo largo no se traba:** un libro entero se lee por partes; cada parte da
+  sus tarjetas y la app las junta, repartidas de principio a fin y sin repetir
+  la misma pregunta. Con Gemma en el teléfono funciona igual, solo que de a
+  pocas por parte.
+- **El visor es la tarjeta de Repasar**: tocala (o **"Dar vuelta"**) y se da
+  vuelta; deslizala o usá **‹ ›** para ir a la anterior o la siguiente. Arriba,
+  **"3 / 20"** y la barra de avance; **"Barajar"** las mezcla sin sacarte la
+  que estás mirando, y tocarlo de nuevo vuelve al orden del mazo. Si una
+  tarjeta trae pista, **"Ver la pista"** la muestra sin darla vuelta. Hojear no
+  califica nada.
+- **"Sumar a mi repaso"**, prendido de fábrica (también en la hoja): las
+  tarjetas quedan en el **documento procesado**, junto a las que ya tenía, y
+  entran en **«Para hoy»** con el calendario de siempre. Apagado, el mazo queda
+  solo para hojear. Se puede cambiar cuando quieras desde el visor:
+  - sumar dos veces no duplica nada, y una pregunta que el documento ya tenía
+    se usa en vez de crear otra;
+  - **apagarlo las pausa**: dejan de aparecer en «Para hoy», pero no se borra
+    ni la tarjeta ni lo que repasaste; volver a prenderlo las trae como
+    estaban;
+  - borrar el mazo no borra sus tarjetas: siguen en el documento.
+- **"Incluir imágenes":** la IA elige unas pocas tarjetas donde una imagen
+  ayuda y tu IA de imágenes las dibuja (la hoja muestra antes **"Con tu IA
+  actual"** con lo que cuesta). Las demás llevan un dibujo de la app con un
+  ícono. Si tu cuenta no puede dibujar, el mazo sale igual y arriba dice por
+  qué (*"Sin ilustraciones con IA: …"*). Las ilustraciones se guardan con el
+  mazo —viajan en la copia y en la unión de bóvedas— y borrarlo para siempre
+  desde la Papelera se las lleva (sus tarjetas de repaso, no).
+- **"Descargar"** (arriba en el visor, o en el menú de la fila, donde también
+  está **"Compartir"** con el mismo archivo): **Para Anki
+  (.tsv)** —se importa en Anki o AnkiDroid con *Archivo → Importar*, en el mazo
+  *Sinapsis::Estudiar::…*—, **Markdown** o **PDF** con la pregunta y la
+  respuesta una al lado de la otra.
+
+#### Cuestionario
+
+**Cómo llegar:** Repasar → **Cuestionario** (✎ para elegir) → «Generar ahora»
+o «Generar más tarde».
+
+- **Qué se elige:** el **número** (*Menos* ≈ 6, *Estándar* ≈ 12, *Más* ≈ 20),
+  la **dificultad**, los **tipos de pregunta** (uno o varios, mezclados
+  parejo), el **tema**, el **idioma**, las **fuentes** e **"Incluir
+  imágenes"** (como en las tarjetas: ilustraciones guardadas con el
+  cuestionario, que se van al borrarlo para siempre).
+- **Arriba**, **"6 / 14"**, el tipo de la pregunta y la barra de avance. Abajo,
+  **"Anterior"** y **"Siguiente"**; en la última, **"Ver el resultado"**. Se
+  puede saltear una y volver después.
+- **Opción única:** las opciones **A, B, C y D**; tocar una ya responde. La
+  correcta se pone **en verde con "¡Exacto!"**; si elegiste otra, la tuya
+  queda **en rojo** y la correcta en verde. Debajo de **cada opción** aparece
+  su explicación —por qué es o no es—, y al final el **"Por qué"** de la
+  pregunta.
+- **Selección múltiple:** tildás **todas las que correspondan** y tocás
+  **"Comprobar"**. Está bien solo si marcaste exactamente las correctas.
+- **Completar espacios:** escribís lo que falta. Se compara **sin tildes ni
+  mayúsculas** (ni puntuación, ni un artículo de más), y valen las otras formas
+  que trae la pregunta. Si hay una diferencia chica —un error de tipeo—, dice
+  **"Casi"**, muestra la diferencia y decidís vos con **"La tenía bien"** o
+  **"No la tenía"**.
+- **Respuesta breve:** escribís con tus palabras y tocás **"Comprobar"**. Con
+  una IA lista, **la IA dice si está bien y por qué** (mientras revisa se ve
+  *"La IA está revisando tu respuesta…"* con **"Cancelar"**). Sin IA, si no
+  pudo o si la cancelaste, ves la **respuesta esperada** y te calificás vos.
+- **Al final**, tu resultado: **"9 de 14"** y el porcentaje. Con alguna mal o
+  salteada, **"Repetir solo las que fallé"** arma otra vuelta solo con esas;
+  **"Empezar de nuevo"** vuelve a todas. Terminar una vuelta cuenta para la
+  racha, como la sesión de quiz, y no toca el calendario de ninguna tarjeta.
+- **"Descargar"** (o **"Compartir"**): **PDF** para imprimir y responder en
+  papel, o **Markdown**,
+  con las preguntas y, al final, las respuestas con la explicación de cada
+  opción.
 
 ### Crear tarjetas con IA, para muchos elementos a la vez
 
