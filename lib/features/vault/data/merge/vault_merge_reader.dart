@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:drift/drift.dart' show Variable;
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/features/creations/data/creation_files.dart';
 import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/entry_merge_planner.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
@@ -11,7 +12,6 @@ import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
 import 'package:sinapsis/features/vault/data/merge/rendition_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/set_union_rules.dart';
 import 'package:sinapsis/features/vault/data/merge/space_merge.dart';
-import 'package:sinapsis/features/vault/data/merge/study_creations_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/vocabulary_merge.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 

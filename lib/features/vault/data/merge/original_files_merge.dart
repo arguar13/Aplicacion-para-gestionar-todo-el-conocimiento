@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/features/creations/data/creation_files.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
-import 'package:sinapsis/features/vault/data/merge/study_creations_merge.dart';
 
 /// Lo que hizo [OriginalFilesMerge].
 class OriginalFilesResult {
