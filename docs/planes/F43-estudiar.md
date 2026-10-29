@@ -835,6 +835,30 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
   clave en rosa y las respuestas en una página aparte, o Markdown con las palabras clave en
   negrita.
 
+### Paso 11 (hecho): la Presentación
+
+- **Generar**: el modelo elegido escribe sobre el esquema de las diapositivas y elige el diseño de
+  cada una; «Del presentador» suma lo que hay que decir y la duración pone la cantidad (unas 8 en
+  Corta, unas 14 en Estándar). Lo largo va por partes —cada una sin portada ni cierre— y la unión
+  arma el relato de portada a cierre. En «Automática» la IA sugiere la plantilla. El avance llega
+  al 70 % con el texto y sigue por cada ilustración; se puede cancelar.
+- **Ilustraciones**: con la cuenta del aviso y la pista de estilo de la plantilla, primero la
+  portada y después «imagen con texto», como mucho las avisadas (4 o 7). Una que falla queda
+  dibujada por la app con su porqué; una falla de la cuenta corta las que faltan y el tope por
+  minuto espera y reintenta una vez. Se guardan como las de la infografía, así viajan en la copia
+  y en la unión y se van al vaciar la papelera.
+- **La unión de bóvedas solo copia lo propio**: una ruta `illustration_ref` cuenta solo si está
+  dentro de `originales/<esa misma creación>/` (el tramo entero: `c1` no acepta `c10`), sin `..` ni
+  `\`; una creación llegada de otra bóveda no puede hacer copiar un archivo ajeno.
+- **La hoja**: una tira con «Automática» y las dieciséis plantillas, cada una con su portada de
+  muestra, «Ver todas» con la galería, y el estilo de las ilustraciones. «Ver petición y fuentes»
+  nombra la plantilla y el estilo.
+- **El visor**: de a una diapositiva (de golpe sin animaciones), deslizar, ‹ › y teclado; tira de
+  miniaturas y «Notas» (abiertas de entrada en «Del presentador»); pantalla completa apaisada que
+  devuelve la orientación al salir; cambiar plantilla y diseño sin la IA (`amend`); volver a dibujar
+  o completar con el costo antes; y el PDF con el diseño que se ve y las notas en «Del
+  presentador».
+
 ### Paso 12 (hecho): la Infografía
 
 - **Generar**: la IA escribe la lámina (`writeStructured`, esquema de la infografía) con el
