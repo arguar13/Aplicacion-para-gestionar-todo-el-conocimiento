@@ -13988,5 +13988,195 @@
   "f43IgStepIllustrating": "Drawing the illustrations…",
   "@f43IgStepIllustrating": {
     "description": "Infografía (F43, paso 12): Paso de una creación mientras se dibujan sus ilustraciones con IA."
+  },
+  "f43IgUnreadable": "This infographic could not be read. Try “Generate again”.",
+  "@f43IgUnreadable": {
+    "description": "Infografía (F43, paso 12): El visor, con un contenido que no se puede leer."
+  },
+  "f43IgNoticeMissing": "{count, plural, =1{One illustration is missing for this style} other{{count} illustrations are missing for this style}}: the app draws their place.",
+  "@f43IgNoticeMissing": {
+    "description": "Infografía (F43, paso 12): Aviso del visor: ilustraciones que el estilo pide y no están.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43IgNoticeFailed": "{count, plural, =1{One illustration did not come out} other{{count} illustrations did not come out}}: {reason}. Their place is drawn by the app.",
+  "@f43IgNoticeFailed": {
+    "description": "Infografía (F43, paso 12): Aviso del visor: ilustraciones que fallaron, con el motivo en minúscula.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "f43IgComplete": "Complete illustrations",
+  "@f43IgComplete": {
+    "description": "Infografía (F43, paso 12): Botón del aviso del visor."
+  },
+  "f43IgIllustrations": "AI illustrations",
+  "@f43IgIllustrations": {
+    "description": "Infografía (F43, paso 12): Botón ✨ del visor de la infografía."
+  },
+  "f43IgZoomOut": "Zoom out",
+  "@f43IgZoomOut": {
+    "description": "Infografía (F43, paso 12): Botón − del visor de la infografía."
+  },
+  "f43IgZoomFit": "Fit the whole sheet",
+  "@f43IgZoomFit": {
+    "description": "Infografía (F43, paso 12): Botón «Ajustar» del visor de la infografía."
+  },
+  "f43IgZoomIn": "Zoom in",
+  "@f43IgZoomIn": {
+    "description": "Infografía (F43, paso 12): Botón + del visor de la infografía."
+  },
+  "f43IgIllustrationsTitle": "AI illustrations",
+  "@f43IgIllustrationsTitle": {
+    "description": "Infografía (F43, paso 12): Título de la hoja de ilustraciones de la infografía."
+  },
+  "f43IgIllustrationsIntro": "Every place this style illustrates. The app always sets the text, and whatever does not come out stays drawn.",
+  "@f43IgIllustrationsIntro": {
+    "description": "Infografía (F43, paso 12): Bajada de la hoja de ilustraciones."
+  },
+  "f43IgIllustrationsNone": "This style has no illustrations. Try one with AI illustrations in “Change the style”.",
+  "@f43IgIllustrationsNone": {
+    "description": "Infografía (F43, paso 12): Hoja de ilustraciones, con un estilo que no ilustra nada."
+  },
+  "f43IgSlotHeader": "Header",
+  "@f43IgSlotHeader": {
+    "description": "Infografía (F43, paso 12): Lugar de la ilustración grande, junto al título."
+  },
+  "f43IgSlotDone": "Done",
+  "@f43IgSlotDone": {
+    "description": "Infografía (F43, paso 12): Estado de una ilustración."
+  },
+  "f43IgSlotRedoFailed": "Done · could not redo it: {reason}",
+  "@f43IgSlotRedoFailed": {
+    "description": "Infografía (F43, paso 12): Estado de una ilustración que falló al rehacerse y conserva la anterior.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "f43IgSlotFailed": "Did not come out: {reason}",
+  "@f43IgSlotFailed": {
+    "description": "Infografía (F43, paso 12): Estado de una ilustración que falló.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "f43IgSlotMissing": "Not made yet: the app draws it",
+  "@f43IgSlotMissing": {
+    "description": "Infografía (F43, paso 12): Estado de una ilustración que falta."
+  },
+  "f43IgRedo": "Redo",
+  "@f43IgRedo": {
+    "description": "Infografía (F43, paso 12): Rehacer una ilustración."
+  },
+  "f43IgDraw": "Draw",
+  "@f43IgDraw": {
+    "description": "Infografía (F43, paso 12): Dibujar una ilustración que falta."
+  },
+  "f43IgCompleteMissing": "Complete the missing ones ({count})",
+  "@f43IgCompleteMissing": {
+    "description": "Infografía (F43, paso 12): Botón de la hoja de ilustraciones.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43IgDrawSaveFailed": "They were drawn but could not be saved: the infographic changed meanwhile.",
+  "@f43IgDrawSaveFailed": {
+    "description": "Infografía (F43, paso 12): Resultado de dibujar ilustraciones."
+  },
+  "f43IgDrawResult": "Done: {made} · Did not come out: {failed}",
+  "@f43IgDrawResult": {
+    "description": "Infografía (F43, paso 12): Resultado de dibujar ilustraciones.",
+    "placeholders": {
+      "made": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "f43IgDrawCancelled": "Cancelled: what was there stays as it was.",
+  "@f43IgDrawCancelled": {
+    "description": "Infografía (F43, paso 12): Resultado de cancelar el dibujo de ilustraciones."
+  },
+  "f43IgBack": "Back",
+  "@f43IgBack": {
+    "description": "Infografía (F43, paso 12): Volver de ver el costo, sin dibujar."
+  },
+  "f43IgDrawCount": "{count, plural, =1{Draw 1 illustration} other{Draw {count} illustrations}}",
+  "@f43IgDrawCount": {
+    "description": "Infografía (F43, paso 12): Confirmar el dibujo después de ver el costo.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43IgDrawing": "Drawing {done} of {total}…",
+  "@f43IgDrawing": {
+    "description": "Infografía (F43, paso 12): Avance del dibujo de ilustraciones.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "f43IgStop": "Cancel",
+  "@f43IgStop": {
+    "description": "Infografía (F43, paso 12): Cortar el dibujo de ilustraciones."
+  },
+  "f43IgChangeStyle": "Change the style",
+  "@f43IgChangeStyle": {
+    "description": "Infografía (F43, paso 12): Botón de la barra del visor de la infografía."
+  },
+  "f43IgSaveImage": "Save as image",
+  "@f43IgSaveImage": {
+    "description": "Infografía (F43, paso 12): Botón de la barra del visor de la infografía."
+  },
+  "f43IgFormatTitle": "Save the infographic",
+  "@f43IgFormatTitle": {
+    "description": "Infografía (F43, paso 12): Hoja para elegir el formato del archivo."
+  },
+  "f43IgFormatPng": "PNG image",
+  "@f43IgFormatPng": {
+    "description": "Infografía (F43, paso 12): Formato de la infografía."
+  },
+  "f43IgFormatPngDetail": "High resolution, at twice the sheet size.",
+  "@f43IgFormatPngDetail": {
+    "description": "Infografía (F43, paso 12): Detalle del formato PNG."
+  },
+  "f43IgFormatPdf": "PDF",
+  "@f43IgFormatPdf": {
+    "description": "Infografía (F43, paso 12): Formato de la infografía."
+  },
+  "f43IgFormatPdfDetail": "One page the size of the sheet, for printing.",
+  "@f43IgFormatPdfDetail": {
+    "description": "Infografía (F43, paso 12): Detalle del formato PDF."
+  },
+  "f43IgStyleDrawnInstead": "Without “AI illustrations”, {style} shows its drawn version.",
+  "@f43IgStyleDrawnInstead": {
+    "description": "Infografía (F43, paso 12): Nota del carrusel de estilos de la hoja de crear.",
+    "placeholders": {
+      "style": {
+        "type": "String"
+      }
+    }
   }
 }

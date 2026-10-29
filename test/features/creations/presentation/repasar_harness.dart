@@ -176,6 +176,10 @@ class RepasarHarness {
     List<CreationKindSpec> specs = const [],
     CreationSharer? sharer,
     int materialChars = 9000,
+
+    /// Los de la prueba, además de los de siempre: el servicio de
+    /// ilustraciones de mentira de un tipo, por ejemplo.
+    List<Override> overrides = const [],
   }) async {
     estimate = fakeEstimate;
     final estimates = <CreationEstimateRequest>[];
@@ -212,6 +216,7 @@ class RepasarHarness {
         creationSuggestedTopicsProvider.overrideWith(
           (ref, scope) async => const ['Moisés y Faraón', 'Alianza'],
         ),
+        ...overrides,
       ],
     );
     // La cola se arma al pedirla: así queda a mano desde el principio.
