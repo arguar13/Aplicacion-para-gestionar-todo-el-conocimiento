@@ -59,6 +59,11 @@ void main() {
         auto(only([event, event, fact, stat, fact, fact, fact, fact])),
         InfographicComposition.bento,
       );
+      // Ni tres hitos perdidos entre muchas otras cosas: no son la mitad.
+      expect(
+        auto(only([event, event, event, fact, fact, fact, fact, stat])),
+        InfographicComposition.bento,
+      );
       expect(
         auto(only([step, step, fact, concept, stat, fact, fact, fact])),
         InfographicComposition.bento,
