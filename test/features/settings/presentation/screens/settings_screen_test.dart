@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -582,6 +584,45 @@ void main() {
       await tester.tap(find.byKey(key));
       await tester.pumpAndSettle();
     }
+
+    testWidgets('primero se elige la IA y después lo que hace con ella '
+        '(F43, M2)', (tester) async {
+      await pumpSettings(tester);
+
+      double top(Finder finder) => tester.getTopLeft(finder).dy;
+      final models = [
+        const Key('settings-chat-model'),
+        const Key('settings-transcription-model'),
+        const Key('settings-embedding-model'),
+      ].map((key) => top(find.byKey(key))).toList();
+      final uses = [
+        top(find.byKey(const Key('settings-ai-activity'))),
+        top(find.byKey(const Key('ai-toggle-enabled'))),
+        for (final toggle in types)
+          top(find.byKey(Key('ai-toggle-${toggle.name}'))),
+      ];
+
+      // Los tres modelos, en su orden…
+      expect(models, orderedEquals([...models]..sort()));
+      // …y todos arriba de «Lo que hizo la IA» y de las llaves, que van en
+      // ese orden.
+      expect(models.last, lessThan(uses.reduce(math.min)));
+      expect(uses[0], lessThan(uses[1]));
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('settings-transcription-model')),
+          matching: find.text(es.libraryTranscriptionModelTooltip),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('settings-embedding-model')),
+          matching: find.text(es.relationsEmbeddingModelTooltip),
+        ),
+        findsOneWidget,
+      );
+    });
 
     testWidgets('«Lo que hizo la IA» abre su pantalla, con el router real', (
       tester,

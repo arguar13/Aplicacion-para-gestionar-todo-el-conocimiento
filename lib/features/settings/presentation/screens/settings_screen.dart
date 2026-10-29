@@ -136,14 +136,15 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 24),
-          // F27: primero lo que la IA hace sola —en qué anda, qué hizo y qué
-          // puede hacer—; después los modelos con que lo hace, incluido el de
-          // lenguaje, que hasta ahora solo se alcanzaba desde el chat.
+          // F43 (M2): primero se elige la IA —quién escribe, quién transcribe
+          // y quién relaciona—, y después lo que hace con ella: qué hizo y
+          // qué organiza sola. Es el orden en que se arma: sin un modelo
+          // elegido, las llaves de «Organizar con IA» no tienen con qué
+          // andar. Antes (F27) iba al revés, y los modelos quedaban al
+          // final, debajo de toda la lista de llaves.
           _SettingsSection(
             title: l10n.settingsAiSection,
             children: [
-              const AiActivitySettingsTile(),
-              const AiOrganizeSwitches(),
               // F32: un solo lugar para quién escribe —Gemini, Gemma, OpenAI o
               // Claude—, con qué cuenta y qué modelo.
               ListTile(
@@ -163,17 +164,21 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => context.push(RoutePaths.languageModel),
               ),
               ListTile(
+                key: const Key('settings-transcription-model'),
                 leading: const Icon(Icons.mic_none_outlined),
                 title: Text(l10n.libraryTranscriptionModelTooltip),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.transcriptionModel),
               ),
               ListTile(
+                key: const Key('settings-embedding-model'),
                 leading: const Icon(Icons.hub_outlined),
                 title: Text(l10n.relationsEmbeddingModelTooltip),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.embeddingModel),
               ),
+              const AiActivitySettingsTile(),
+              const AiOrganizeSwitches(),
             ],
           ),
           // F29: lo que deja seguir el trabajo con la app cerrada. Solo en
