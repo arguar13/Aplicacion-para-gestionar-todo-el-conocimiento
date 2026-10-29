@@ -342,6 +342,42 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     if (state.playing) await _speak(restart: true);
   }
 
+  /// Va al comienzo del pedazo [index] —una oración, un renglón— y, si estaba
+  /// sonando, lo dice desde ahí; en pausa, queda ahí en pausa (F43, paso 7:
+  /// «oración anterior» y «siguiente» del reproductor de los visores de
+  /// Repasar). Antes del primero, el primero; después del último, queda
+  /// terminado, como si hubiera llegado leyendo.
+  Future<void> seekToSegment(int index) async {
+    final segments = state.segments;
+    if (state.document == null || segments.isEmpty) return;
+    if (index >= segments.length) return _finishAtEnd();
+    state = state.copyWith(
+      segmentIndex: index < 0 ? 0 : index,
+      charInSegment: 0,
+    );
+    if (state.playing) await _speak(restart: true);
+  }
+
+  /// La oración anterior: la de antes de la que suena, o el comienzo de la
+  /// primera.
+  Future<void> previousSegment() => seekToSegment(state.segmentIndex - 1);
+
+  /// La oración siguiente.
+  Future<void> nextSegment() => seekToSegment(state.segmentIndex + 1);
+
+  /// Va a [fraction] de lo que se lee —de 0 a 1, contado en lo que se dice,
+  /// como [ReadAloudState.progress]—, al comienzo de una palabra: soltar la
+  /// barra de avance después de arrastrarla (F43, paso 7). Si estaba
+  /// sonando, sigue desde ahí; en pausa, queda ahí en pausa. 1 es el final.
+  Future<void> seekToFraction(double fraction) async {
+    if (state.document == null || _total == 0) return;
+    final target = (fraction.clamp(0.0, 1.0) * _total).round();
+    if (target >= _total) return _finishAtEnd();
+    final (index, char) = _locate(_wordStartAt(target));
+    state = state.copyWith(segmentIndex: index, charInSegment: char);
+    if (state.playing) await _speak(restart: true);
+  }
+
   Future<void> setSpeed(double speed) async {
     final value = speed.clamp(0.5, 2.0);
     if (value == state.speed) return;

@@ -10,6 +10,7 @@ import 'package:sinapsis/app/navigation/adaptive_scaffold.dart'
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_audio_focus.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_dock.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_speed_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_voice_sheet.dart';
@@ -215,18 +216,23 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
 
   @override
   Widget build(BuildContext context) {
-    final (panel, playing, title) = ref.watch(
+    final (panel, playing, title, reading) = ref.watch(
       readAloudControllerProvider.select(
-        (s) => (s.panel, s.playing, s.document?.title),
+        (s) => (s.panel, s.playing, s.document?.title, s.document?.id),
       ),
     );
     final offered = ref.watch(currentReadableProvider.select((d) => d != null));
     if (title != null) _title = title;
+    // Lo que suena tiene su propio reproductor en la pantalla que se ve —un
+    // visor de extraer de Repasar (F43, paso 7)—: este no lo repite.
+    final docked = ref.watch(
+      readAloudDockProvider.select((ids) => ids.contains(reading)),
+    );
 
     final media = MediaQuery.of(context);
     // Mientras se escribe o hay algo abierto encima, el lector se hace a un
     // lado; sigue leyendo igual.
-    final aside = media.viewInsets.bottom > 0 || widget.popupOnTop;
+    final aside = media.viewInsets.bottom > 0 || widget.popupOnTop || docked;
     final showButton =
         !aside &&
         switch (panel) {
