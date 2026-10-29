@@ -28,8 +28,10 @@ import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.
 ///   que siguen no se piden: fallarían igual.
 /// - **De a una**, avisando cuántas van, y **cancelable** entre una y otra y
 ///   a mitad de una: lo que se dibujó en esta vuelta se borra.
-/// - **Lo hecho se guarda** con `CreationIllustrationStore`; la ilustración
-///   que se rehizo borra la de antes.
+/// - **Lo hecho se guarda** con `CreationIllustrationStore`. La ilustración
+///   que se rehizo no borra acá la de antes: se va cuando el contenido nuevo
+///   queda guardado (`StudyCreationRepository.amend` o `complete`), que es
+///   cuando de verdad ya nadie la nombra.
 class InfographicIllustrator {
   InfographicIllustrator({
     required IllustrationService Function() service,
@@ -91,7 +93,6 @@ class InfographicIllustrator {
     var sheet = content.sheet;
     final failures = {...content.failures};
     final created = <String>[];
-    final replaced = <String>[];
     ImageFailure? stopAll;
     try {
       for (final (i, slot) in slots.indexed) {
@@ -120,11 +121,6 @@ class InfographicIllustrator {
             mimeType: result.image.mimeType,
           );
           created.add(reference);
-          final before = InfographicIllustrationPlan.referenceOf(
-            sheet,
-            slot.id,
-          );
-          if (before != null) replaced.add(before);
           sheet = InfographicIllustrationPlan.withReference(
             sheet,
             slot.id,
@@ -158,8 +154,6 @@ class InfographicIllustrator {
       await store.deleteQuietly(creationId, created);
       rethrow;
     }
-    // Lo rehecho reemplaza a lo de antes: la vieja ya no la nombra nadie.
-    await store.deleteQuietly(creationId, replaced);
     return content.copyWith(
       sheet: sheet,
       failures: failures,

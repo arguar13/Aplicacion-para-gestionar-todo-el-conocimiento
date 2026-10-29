@@ -1,4 +1,3 @@
-import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_material.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
@@ -29,13 +28,13 @@ import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spe
 ///   fallar la lámina: quedan dibujadas por la app, con su porqué.
 /// - **El avance**: el texto hasta el 70 %, y cada ilustración su parte del
 ///   resto, en el paso «Dibujando las ilustraciones».
-/// - **Volver a generar** borra las ilustraciones de la lámina anterior que
-///   la nueva ya no usa.
+/// - **Volver a generar** no borra nada acá: lo de la lámina anterior que la
+///   nueva ya no usa se va cuando la nueva queda guardada
+///   (`StudyCreationRepository.complete`), como en todos los tipos.
 class InfographicGenerator extends CreationGenerator {
-  const InfographicGenerator({required this.illustrator, required this.store});
+  const InfographicGenerator({required this.illustrator});
 
   final InfographicIllustrator illustrator;
-  final CreationIllustrationStore Function() store;
 
   /// Hasta dónde llega el avance con el texto, si después se dibuja.
   static const textShare = 0.7;
@@ -114,7 +113,6 @@ class InfographicGenerator extends CreationGenerator {
       );
     }
 
-    await _forgetPrevious(job.creation, content.sheet);
     progress(1, CreationStep.finishing);
     return CreationOutput(
       title: content.sheet.title,
@@ -126,29 +124,5 @@ class InfographicGenerator extends CreationGenerator {
   static String? _accountIdOf(Map<String, Object?> options) {
     final id = options[CreationOptionKeys.imageAccountId];
     return id is String && id.isNotEmpty ? id : null;
-  }
-
-  /// Borra las ilustraciones de lo que [creation] tenía antes —al volver a
-  /// generarla— que [sheet] ya no nombra: solo las suyas, aunque el contenido
-  /// de antes nombre otra cosa (`CreationIllustrationStore.delete`).
-  Future<void> _forgetPrevious(
-    StudyCreation creation,
-    Infographic sheet,
-  ) async {
-    final before = creation.content;
-    if (before == null || before.isEmpty) return;
-    final kept = InfographicIllustrationPlan.references(sheet);
-    final previous = InfographicIllustrationPlan.references(
-      InfographicContent.decode(before).sheet,
-    );
-    final files = store();
-    for (final reference in previous.difference(kept)) {
-      try {
-        await files.delete(creation.id, reference);
-        // Un archivo viejo que no se pudo borrar no le quita nada a la lámina
-        // nueva.
-        // ignore: avoid_catches_without_on_clauses
-      } catch (_) {}
-    }
   }
 }

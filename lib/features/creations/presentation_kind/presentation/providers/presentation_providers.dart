@@ -33,7 +33,6 @@ final deckIllustratorProvider = Provider<DeckIllustrator>(
 final presentationGeneratorProvider = Provider<CreationGenerator>(
   (ref) => PresentationGenerator(
     illustrator: () => ref.read(deckIllustratorProvider),
-    files: () => ref.read(creationIllustrationStoreProvider),
   ),
 );
 

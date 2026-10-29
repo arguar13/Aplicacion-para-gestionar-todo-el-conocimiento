@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Variable;
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/creations/data/repositories/creation_scope_resolver_impl.dart';
 import 'package:sinapsis/features/creations/data/repositories/study_creation_repository_impl.dart';
@@ -21,8 +22,15 @@ class _SilentTelemetry extends Mock implements TelemetryService {}
 /// Una bóveda de prueba con lo procesado y lo de «Lo creado» (F43), sobre
 /// SQLite real: el repositorio de creaciones, el recorte de Procesado, el
 /// armado del material y la cola de estudio de Repasar con el recorte nuevo.
+///
+/// Con `files`, el repositorio de creaciones guarda y barre ahí sus
+/// ilustraciones, como en la app.
 class CreationsHarness {
-  CreationsHarness._(this.processed, {ProcessedWorker? worker}) {
+  CreationsHarness._(
+    this.processed, {
+    ProcessedWorker? worker,
+    FileStore? files,
+  }) {
     final telemetry = _SilentTelemetry();
     notebooks = NotebookRepositoryImpl(
       database: processed.db,
@@ -42,6 +50,7 @@ class CreationsHarness {
       telemetry: telemetry,
       ids: FakeIdGenerator(prefix: 'creacion-${processed.vault.deviceId}'),
       clock: () => processed.vault.now,
+      files: files,
     );
     material = CreationMaterialBuilder(
       processed: processed.repository,
@@ -63,9 +72,11 @@ class CreationsHarness {
   static Future<CreationsHarness> create({
     ProcessedWorker? worker,
     String deviceId = 'tel',
+    FileStore? files,
   }) async => CreationsHarness._(
     await ProcessedHarness.create(worker: worker, deviceId: deviceId),
     worker: worker,
+    files: files,
   );
 
   final ProcessedHarness processed;

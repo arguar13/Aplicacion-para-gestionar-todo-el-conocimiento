@@ -64,8 +64,16 @@ class InMemoryFileStore implements FileStore {
       path = '$directory/${numberedFileName(name, attempt)}';
     }
     _contents[path] = builder.takeBytes();
+    // Ya está escrito, y quien lo guardó todavía no lo sabe.
+    await saveGate;
     return path;
   }
+
+  /// Si está, `saveStream` espera a que se complete después de escribir y
+  /// antes de devolver la ruta: el disco de verdad tarda en cerrar el
+  /// archivo, y hay pruebas de lo que pasa mientras tanto (F43: barrer las
+  /// ilustraciones de una creación mientras se guarda una).
+  Future<void>? saveGate;
 
   @override
   Future<Uint8List?> read(String relativePath) async {

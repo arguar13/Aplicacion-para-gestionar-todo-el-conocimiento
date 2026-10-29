@@ -88,7 +88,6 @@ void main() {
     generator = PresentationGenerator(
       illustrator: () =>
           DeckIllustrator(service: images, files: files, wait: (_) async {}),
-      files: () => files,
     );
     queues = [];
   });
@@ -336,7 +335,6 @@ void main() {
         );
         final again = await settled(created.id);
         expect(again.status, CreationStatus.ready);
-        await Future<void>.delayed(const Duration(milliseconds: 10));
         expect(store.deleted.toSet(), before);
         expect(store.paths, isEmpty);
       },

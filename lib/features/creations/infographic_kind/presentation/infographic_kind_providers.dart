@@ -27,7 +27,6 @@ final infographicIllustratorProvider = Provider<InfographicIllustrator>(
 final infographicGeneratorProvider = Provider<CreationGenerator>(
   (ref) => InfographicGenerator(
     illustrator: ref.watch(infographicIllustratorProvider),
-    store: () => ref.read(creationIllustrationStoreProvider),
   ),
 );
 

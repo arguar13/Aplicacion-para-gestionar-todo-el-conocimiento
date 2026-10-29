@@ -43,7 +43,8 @@ void main() {
   ];
 
   test(
-    'rehacer una la reemplaza, borra la de antes y olvida su falla',
+    'rehacer una la reemplaza y olvida su falla; la de antes queda hasta que '
+    'se guarde el contenido nuevo',
     () async {
       final first = await illustrator.illustrate(
         creationId: 'c',
@@ -72,8 +73,8 @@ void main() {
       )!;
       expect(after, isNot(before));
       expect(after, endsWith('block-2-2.png'));
-      expect(files.paths, [after]);
-      expect(files.deleted, [before]);
+      expect(files.paths, unorderedEquals([before, after]));
+      expect(files.deleted, isEmpty);
       expect(redone.failures, isEmpty);
     },
   );

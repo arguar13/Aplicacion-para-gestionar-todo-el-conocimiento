@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -8,7 +9,8 @@ import 'package:sinapsis/features/creations/data/services/creation_illustration_
 import '../../../../support/in_memory_file_store.dart';
 
 /// El almacén de las ilustraciones con IA de «Lo creado» (F43, decisión H),
-/// el de todos los tipos: lo que borra y cómo las guarda.
+/// el de todos los tipos: lo que borra, cómo las guarda y el barrido de lo
+/// que el contenido ya no nombra.
 void main() {
   late InMemoryFileStore files;
   late CreationIllustrationStore store;
@@ -155,6 +157,94 @@ void main() {
       );
       expect(kept.bytes, junk);
       expect(kept.mimeType, 'image/webp');
+    });
+  });
+
+  group('barrer lo que el contenido ya no nombra', () {
+    test(
+      'se lleva lo suyo sin nombrar y deja lo nombrado y lo de las demás',
+      () async {
+        final kept = await save('c1', 'a');
+        final unused = await save('c1', 'b');
+        final loose = await files.save(
+          bytes: png(),
+          suggestedName: 'suelto.png',
+          id: 'c1',
+        );
+        final another = await save('c10', 'a');
+
+        // Lo que el contenido nombra la primera vez: las dos.
+        await store.sweep('c1', named: () async => {kept, unused});
+        expect(files.deleted, isEmpty);
+
+        await store.sweep('c1', named: () async => {kept});
+        expect(files.deleted, [unused]);
+        // Fuera de «ilustraciones» no se barre: lo de la carpeta que no es una
+        // ilustración se va con la creación.
+        expect(files.paths, unorderedEquals([kept, loose, another]));
+      },
+    );
+
+    test('si la creación ya no está, no se barre nada', () async {
+      final path = await save('c1', 'a');
+      await store.sweep('c1', named: () async => {path});
+      await store.sweep('c1', named: () async => null);
+      expect(files.deleted, isEmpty);
+    });
+
+    test('lo guardado que el contenido todavía no nombró no se toca, hasta '
+        'que un contenido lo nombra y otro ya no', () async {
+      final before = await save('c1', 'a');
+      await store.sweep('c1', named: () async => {before});
+
+      // Un ilustrador guardó la nueva; su contenido todavía no se guardó, y
+      // otro guardado de la misma creación barre.
+      final drawn = await save('c1', 'a');
+      await store.sweep('c1', named: () async => {before});
+      expect(files.paths, contains(drawn));
+      expect(files.deleted, isEmpty);
+
+      // Llega su contenido: la vieja se va.
+      await store.sweep('c1', named: () async => {drawn});
+      expect(files.deleted, [before]);
+
+      // Y cuando un contenido ya no la nombra, se va también.
+      await store.sweep('c1', named: () async => {});
+      expect(files.deleted, [before, drawn]);
+    });
+
+    test('mientras se guarda una, el barrido espera a que termine y no la '
+        'borra, aunque su archivo ya esté en el disco', () async {
+      final old = await save('c1', 'a');
+      await store.sweep('c1', named: () async => {old});
+
+      final gate = Completer<void>();
+      files.saveGate = gate.future;
+      final saving = save('c1', 'b');
+      await pumpEventQueue();
+      final written = files.paths.firstWhere((p) => p.endsWith('b.png'));
+
+      var swept = false;
+      final sweeping = store
+          .sweep('c1', named: () async => {})
+          .then((_) => swept = true);
+      await pumpEventQueue();
+      expect(swept, isFalse);
+      expect(files.deleted, isEmpty);
+
+      files.saveGate = null;
+      gate.complete();
+      expect(await saving, written);
+      await sweeping;
+      expect(files.deleted, [old]);
+      expect(files.paths, [written]);
+    });
+
+    test('lo comparten dos almacenes sobre el mismo disco: el del ilustrador '
+        'y el del repositorio', () async {
+      final drawn = await save('c1', 'a');
+      await CreationIllustrationStore(files).sweep('c1', named: () async => {});
+      expect(files.paths, [drawn]);
     });
   });
 }

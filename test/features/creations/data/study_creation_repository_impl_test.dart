@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:async/async.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +10,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/creations/data/repositories/study_creation_repository_impl.dart';
 import 'package:sinapsis/features/creations/data/repositories/study_creation_sql.dart';
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
@@ -560,6 +565,125 @@ void main() {
         ).called(1);
       },
     );
+  });
+
+  group('guardar un contenido barre las ilustraciones que ya no nombra', () {
+    late InMemoryFileStore files;
+    late CreationIllustrationStore store;
+    late StudyCreationRepositoryImpl withFiles;
+
+    setUp(() {
+      files = InMemoryFileStore();
+      store = CreationIllustrationStore(files);
+      withFiles = StudyCreationRepositoryImpl(
+        database: h.processed.db,
+        telemetry: _Telemetry(),
+        clock: () => h.processed.vault.now,
+        files: files,
+      );
+    });
+
+    Future<String> draw(String creationId, String slotId) => store.save(
+      creationId: creationId,
+      slotId: slotId,
+      bytes: Uint8List.fromList([1, 2, 3]),
+      mimeType: 'image/png',
+    );
+
+    /// Un contenido que nombra [paths], cada una a su profundidad.
+    String naming(List<String> paths) => jsonEncode({
+      'sheet': {
+        'blocks': [
+          for (final path in paths) {'illustration_ref': path},
+        ],
+      },
+    });
+
+    test(
+      'al generarla, al volver a generarla y al retocarla: lo suyo que no '
+      'se nombra se va; lo nombrado, lo de otras y lo ajeno quedan',
+      () async {
+        final c = await create(StudyCreationKind.infographic);
+        final other = await create(StudyCreationKind.quiz);
+        final a = await draw(c.id, 'a');
+        final b = await draw(c.id, 'b');
+        // De una sesión anterior, que ningún contenido nombra.
+        final stale = await files.saveStream(
+          bytes: Stream.value([9]),
+          suggestedName: 'viejo.png',
+          id: c.id,
+          folder: 'ilustraciones',
+        );
+        final theirs = await draw(other.id, 'a');
+        final original = await files.save(
+          bytes: Uint8List.fromList([4]),
+          suggestedName: 'libro.pdf',
+          id: 'documento',
+        );
+
+        await withFiles.complete(
+          c.id,
+          title: 'Lámina',
+          content: naming([a, b, theirs, original]),
+        );
+        expect(files.deleted, [stale]);
+
+        // Rehacer «a» deja la nueva al lado; guardado el contenido, la vieja
+        // se va.
+        final a2 = await draw(c.id, 'a');
+        await withFiles.amend(c.id, content: naming([a2, b]));
+        expect(files.deleted, [stale, a]);
+
+        // Volver a generar sin ilustraciones.
+        await withFiles.complete(c.id, title: 'Lámina', content: naming([]));
+        expect(files.deleted, [stale, a, a2, b]);
+        expect(files.paths, unorderedEquals([theirs, original]));
+      },
+    );
+
+    test('nada antes de guardar: un retoque que no se guarda, uno sin '
+        'contenido o una que falla dejan todo como estaba', () async {
+      final c = await create(StudyCreationKind.presentation);
+      final a = await draw(c.id, 'a');
+      await withFiles.complete(c.id, title: 'P', content: naming([a]));
+      final b = await draw(c.id, 'b');
+
+      await withFiles.amend(c.id, options: const {'diseño': 'aurora'});
+      await withFiles.fail(c.id, CreationFailure.cancelled);
+      // Fallida no se retoca: el contenido nuevo no se guarda.
+      expect(
+        (await withFiles.amend(c.id, content: naming([b]))).isLeft(),
+        isTrue,
+      );
+      expect(files.deleted, isEmpty);
+      expect(files.paths, unorderedEquals([a, b]));
+    });
+
+    test('lo que un ilustrador está guardando para ella mientras se guarda '
+        'otro contenido no se borra', () async {
+      final c = await create(StudyCreationKind.flashcards);
+      final a = await draw(c.id, 'a');
+      await withFiles.complete(c.id, title: 'Mazo', content: naming([a]));
+
+      final gate = Completer<void>();
+      files.saveGate = gate.future;
+      final drawing = draw(c.id, 'b');
+      await pumpEventQueue();
+      final saving = withFiles.complete(
+        c.id,
+        title: 'Mazo',
+        content: naming([]),
+      );
+      await pumpEventQueue();
+      expect(files.deleted, isEmpty);
+
+      files.saveGate = null;
+      gate.complete();
+      final b = await drawing;
+      await saving;
+      expect(files.deleted, [a]);
+      expect(files.paths, [b]);
+    });
   });
 
   group('retocar una lista sin volver a generarla (decisión G)', () {

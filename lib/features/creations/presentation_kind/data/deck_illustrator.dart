@@ -18,7 +18,6 @@ class DeckIllustrationRun {
     required this.content,
     required this.drawn,
     required this.saved,
-    required this.replaced,
   });
 
   /// El contenido con las ilustraciones que salieron y las fallas de las
@@ -28,12 +27,10 @@ class DeckIllustrationRun {
   /// Cuántas salieron.
   final int drawn;
 
-  /// Los archivos nuevos que se guardaron.
+  /// Los archivos nuevos que se guardaron. Los de antes que quedaron
+  /// reemplazados se van cuando el contenido nuevo queda guardado
+  /// (`StudyCreationRepository.amend` o `complete`).
   final List<String> saved;
-
-  /// Los archivos de antes que quedaron reemplazados: se borran cuando el
-  /// contenido nuevo ya está guardado.
-  final List<String> replaced;
 }
 
 /// Quien dibuja las ilustraciones de una presentación (F43, decisión H): una
@@ -86,7 +83,6 @@ class DeckIllustrator {
     final label = account?.label ?? (await _service.defaultAccount())?.label;
     var current = content.copyWith(illustrationAccount: label);
     final saved = <String>[];
-    final replaced = <String>[];
     var drawn = 0;
     ImageFailure? stopped;
 
@@ -123,7 +119,6 @@ class DeckIllustrator {
           mimeType: result.image.mimeType,
         );
         saved.add(path);
-        if (slide.illustrationRef case final old?) replaced.add(old);
         current = current.withIllustration(index, path);
         drawn++;
       } on ImageGenerationException catch (error) {
@@ -142,12 +137,7 @@ class DeckIllustrator {
       }
     }
     onProgress?.call(slides.length, slides.length);
-    return DeckIllustrationRun(
-      content: current,
-      drawn: drawn,
-      saved: saved,
-      replaced: replaced,
-    );
+    return DeckIllustrationRun(content: current, drawn: drawn, saved: saved);
   }
 
   /// La cuenta [accountId] entre las que pueden dibujar; `null` (la de

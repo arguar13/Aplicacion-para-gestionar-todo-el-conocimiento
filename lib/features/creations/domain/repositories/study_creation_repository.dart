@@ -62,6 +62,10 @@ abstract interface class StudyCreationRepository {
   /// JSON de su tipo, su [contentVersion] y las fuentes que de verdad se
   /// leyeron ([sourceIds]; `null` deja las que tenía). Sin avance ni motivo
   /// de falla, y con los intentos en cero.
+  ///
+  /// Ya guardado, se borran sus ilustraciones que el contenido nuevo no
+  /// nombra: las de la vez anterior, al volver a generarla. Lo que un
+  /// ilustrador todavía está guardando para ella no se toca.
   Future<Either<Failure, Unit>> complete(
     String id, {
     required String title,
@@ -110,6 +114,9 @@ abstract interface class StudyCreationRepository {
   /// estaba. Solo si está lista y viva: una que se genera o falló no se
   /// retoca (la cola la va a pisar), ni una de la papelera; se dice con un
   /// `Failure.validation`.
+  ///
+  /// Con un [content] nuevo, como [complete]: lo que ya no nombra se borra
+  /// —la ilustración que se rehízo—.
   Future<Either<Failure, Unit>> amend(
     String id, {
     Map<String, Object?>? options,

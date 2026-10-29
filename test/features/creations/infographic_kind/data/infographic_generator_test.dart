@@ -50,7 +50,6 @@ void main() {
         store: () => store,
         textAccountId: () async => textAccount,
       ),
-      store: () => store,
     );
   }
 
@@ -68,9 +67,9 @@ void main() {
   }
 
   setUp(() async {
-    h = await CreationsHarness.create();
-    exodo = await h.processedDoc('exodo', title: 'Éxodo');
     files = InMemoryFileStore();
+    h = await CreationsHarness.create(files: files);
+    exodo = await h.processedDoc('exodo', title: 'Éxodo');
     images = FakeIllustrationService();
     writer = ScriptedWriter(reply: (_) => sampleReply());
     queues = [];

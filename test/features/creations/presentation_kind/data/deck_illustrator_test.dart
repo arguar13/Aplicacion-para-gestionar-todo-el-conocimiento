@@ -142,8 +142,8 @@ void main() {
     expect(run.content.deck.slides[0].illustrationRef, isNotNull);
   });
 
-  test('rehacer una: la nueva no pisa a la vieja, y la vieja queda para '
-      'borrar después de guardar', () async {
+  test('rehacer una: la nueva no pisa a la vieja, y la vieja queda —se va '
+      'cuando el contenido nuevo se guarda—', () async {
     final first = await illustrator().illustrate(
       creationId: 'c1',
       content: content,
@@ -156,8 +156,9 @@ void main() {
       slides: const [0],
       styleHint: 'x',
     );
-    expect(again.replaced, [first.saved.single]);
     expect(again.saved.single, isNot(first.saved.single));
+    expect(store.paths, containsAll([first.saved.single, again.saved.single]));
+    expect(store.deleted, isEmpty);
     expect(again.content.deck.slides[0].illustrationRef, again.saved.single);
   });
 

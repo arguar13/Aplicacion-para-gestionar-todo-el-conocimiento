@@ -14,8 +14,9 @@ import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.
 /// [creationId] —«Volver a dibujar» una, o «Completar ilustraciones»— con la
 /// cuenta [accountId] (o la elegida al crearla) y en el estilo que se eligió,
 /// para la plantilla [template] que se ve ahora. Lo que salió se guarda en
-/// el contenido (`StudyCreationRepository.amend`), y la ilustración que se
-/// reemplazó se borra del almacén.
+/// el contenido (`StudyCreationRepository.amend`), que después borra del
+/// almacén la ilustración que se reemplazó. Si no se pudo guardar, lo
+/// dibujado en esta vuelta se borra: nadie lo nombra.
 ///
 /// Lo que no sale queda con su porqué en el contenido, como al generarla:
 /// nunca se pierde lo que ya había.
@@ -51,13 +52,8 @@ Future<DeckIllustrationRun> drawPresentationIllustrations(
     content: run.content.encode(),
   );
   if (saved.isLeft()) {
-    for (final path in run.saved) {
-      unawaited(files.delete(creationId, path));
-    }
+    unawaited(files.deleteQuietly(creationId, run.saved));
     throw StateError('No se pudo guardar la ilustración.');
-  }
-  for (final path in run.replaced) {
-    unawaited(files.delete(creationId, path));
   }
   return run;
 }

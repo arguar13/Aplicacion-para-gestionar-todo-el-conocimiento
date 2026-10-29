@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_material.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
@@ -11,10 +12,12 @@ import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.
 import 'package:sinapsis/features/creations/domain/services/creation_generator.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_queue.dart';
 import 'package:sinapsis/features/creations/domain/services/structured_writer.dart';
+import 'package:sinapsis/features/creations/flashcards/data/service_study_illustrator.dart';
 import 'package:sinapsis/features/creations/flashcards/domain/deck_review.dart';
 import 'package:sinapsis/features/creations/flashcards/domain/flashcard_deck.dart';
 import 'package:sinapsis/features/creations/flashcards/domain/flashcard_deck_generator.dart';
 import 'package:sinapsis/features/creations/flashcards/domain/flashcard_deck_prompt.dart';
+import 'package:sinapsis/features/creations/flashcards/domain/item_illustrations.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/flashcard_repository_impl.dart';
@@ -23,7 +26,10 @@ import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 
 import '../../../support/fake_id_generator.dart';
+import '../../../support/in_memory_file_store.dart';
 import '../creations_harness.dart';
+import '../infographic_kind/support/infographic_kind_fakes.dart'
+    show FakeIllustrationService;
 import 'support/study_fakes.dart';
 
 class _SilentTelemetry extends Mock implements TelemetryService {}
@@ -35,11 +41,13 @@ void main() {
   late FakeModelWriter writer;
   late FakeIllustrator illustrator;
   late List<CreationQueue> queues;
+  late InMemoryFileStore files;
 
   const limits = StudyLimits(newPerDay: 999);
 
   setUp(() async {
-    h = await CreationsHarness.create();
+    files = InMemoryFileStore();
+    h = await CreationsHarness.create(files: files);
     flashcards = FlashcardRepositoryImpl(
       database: h.processed.db,
       telemetry: _SilentTelemetry(),
@@ -60,10 +68,10 @@ void main() {
 
   DeckReview review() => DeckReview(flashcards: () => flashcards);
 
-  CreationQueue queue({StructuredWriter? using}) {
+  CreationQueue queue({StructuredWriter? using, StudyIllustrator? drawing}) {
     final generator = FlashcardDeckGenerator(
       review: review(),
-      illustrator: () => illustrator.asIllustrator,
+      illustrator: () => drawing ?? illustrator.asIllustrator,
     );
     final created = CreationQueue(
       repository: () => h.creations,
@@ -421,6 +429,45 @@ void main() {
       expect(deck.illustrationAccount, 'Personal');
       expect(deck.cards.where((c) => c.illustrationRef != null), hasLength(1));
       expect(deck.inReview, isTrue);
+    });
+
+    test('volver a generar libera las ilustraciones de la vez anterior, '
+        'cuando el mazo nuevo ya quedó guardado', () async {
+      final q = queue(
+        drawing: ServiceStudyIllustrator(
+          service: FakeIllustrationService.new,
+          store: () => CreationIllustrationStore(files),
+          textAccountId: () async => 'g',
+        ).illustrate,
+      );
+      writer.reply = inOrder([
+        deckReply(4, illustrated: true),
+        deckReply(4, illustrated: true),
+      ]);
+      final created = (await q.create(
+        CreationRequest(
+          kind: StudyCreationKind.flashcards,
+          scope: CreationScope.document(exodo),
+          sourceIds: [exodo],
+          options: const {CreationOptionValues.images: true},
+        ),
+      )).getRight().toNullable()!;
+      final first = FlashcardDeckJson.decode(
+        (await settled(created.id)).decodedContent,
+      );
+      final before = {for (final card in first.cards) ?card.illustrationRef};
+      expect(before, hasLength(2));
+      expect(files.paths.toSet(), before);
+
+      await q.regenerate(created.id);
+      final again = FlashcardDeckJson.decode(
+        (await settled(created.id)).decodedContent,
+      );
+      final now = {for (final card in again.cards) ?card.illustrationRef};
+      expect(now, hasLength(2));
+      expect(now.intersection(before), isEmpty);
+      expect(files.paths.toSet(), now);
+      expect(files.deleted.toSet(), before);
     });
 
     test('sin «Incluir imágenes» no se le pide dibujar nada', () async {

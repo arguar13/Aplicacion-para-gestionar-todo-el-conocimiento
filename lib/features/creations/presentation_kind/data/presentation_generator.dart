@@ -1,7 +1,5 @@
-import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_material.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
@@ -34,16 +32,14 @@ typedef WrittenDeck = ({SlideDeck deck, DeckTemplateId? template});
 ///    presentación: queda su lugar dibujado y su porqué.
 ///
 /// El avance va de la escritura (hasta 0,7 con ilustraciones) a cada
-/// ilustración; cancelar corta en cualquiera de los dos.
+/// ilustración; cancelar corta en cualquiera de los dos. Las ilustraciones de
+/// una generación anterior que ya no se usan («Volver a generar») se van
+/// cuando la nueva queda guardada (`StudyCreationRepository.complete`).
 class PresentationGenerator extends CreationGenerator {
-  PresentationGenerator({
-    required DeckIllustrator Function() illustrator,
-    required CreationIllustrationStore Function() files,
-  }) : _illustrator = illustrator,
-       _files = files;
+  PresentationGenerator({required DeckIllustrator Function() illustrator})
+    : _illustrator = illustrator;
 
   final DeckIllustrator Function() _illustrator;
-  final CreationIllustrationStore Function() _files;
 
   /// Hasta dónde llega el avance al terminar de escribir, si después se
   /// dibuja.
@@ -130,14 +126,6 @@ class PresentationGenerator extends CreationGenerator {
       content = run.content;
     }
     _throwIfCancelled(job);
-
-    // Lo de una generación anterior que ya no se usa («Volver a generar»):
-    // sus ilustraciones se van con ella.
-    final previous = PresentationContent.decode(job.creation.content).files;
-    final files = _files();
-    for (final path in previous.difference(content.files)) {
-      unawaited(files.delete(job.creation.id, path));
-    }
 
     return CreationOutput(title: deck.title, content: content.encode());
   }

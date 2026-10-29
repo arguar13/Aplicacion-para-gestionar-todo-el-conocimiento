@@ -9,7 +9,9 @@ import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/creations/data/creation_files.dart';
 import 'package:sinapsis/features/creations/data/repositories/study_creation_sql.dart';
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
@@ -27,7 +29,8 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
        _telemetry = telemetry,
        _ids = ids,
        _clock = clock,
-       _files = files;
+       _files = files,
+       _illustrations = files == null ? null : CreationIllustrationStore(files);
 
   final AppDatabase _db;
   final TelemetryService _telemetry;
@@ -35,6 +38,10 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
   /// Donde viven los archivos de cada creación (sus ilustraciones), para
   /// borrarlos con ella; sin esto, borrar para siempre deja solo la fila.
   final FileStore? _files;
+
+  /// Sus ilustraciones, para barrer las que el contenido ya no nombra cada
+  /// vez que se guarda uno ([_sweep]); sin almacén, no se barre nada.
+  final CreationIllustrationStore? _illustrations;
   final IdGenerator _ids;
   final Clock _clock;
 
@@ -211,6 +218,7 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
         updatedAt: Value(_clock()),
       ),
     );
+    await _sweep(id);
     return right(unit);
   });
 
@@ -368,6 +376,7 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
         const Failure.validation(message: 'La creación no está lista.'),
       );
     }
+    if (content != null) await _sweep(id);
     return right(unit);
   });
 
@@ -457,6 +466,46 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
         );
       }
     }
+  }
+
+  /// Lo que viene después de guardar un contenido de [id] —al generarla, al
+  /// volver a generarla, al retocarla—, para todos los tipos por igual: se
+  /// borran sus ilustraciones que el contenido guardado ya no nombra en
+  /// ningún `illustration_ref` (`CreationIllustrationStore.sweep`).
+  ///
+  /// Siempre **después** de escribir la fila: si el guardado falla o se
+  /// cancela antes, lo de antes sigue nombrado y queda. Lo que un ilustrador
+  /// guardó y todavía no llegó al contenido no se toca. Un archivo que se
+  /// resiste se anota y no deshace lo guardado.
+  Future<void> _sweep(String id) async {
+    final illustrations = _illustrations;
+    if (illustrations == null) return;
+    try {
+      await illustrations.sweep(id, named: () => _namedFiles(id));
+      // El disco puede fallar de muchas formas, y ninguna deshace un
+      // contenido que ya quedó guardado.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      _telemetry.recordError(
+        e,
+        stackTrace,
+        hint: 'StudyCreationRepositoryImpl.sweep: no se barrió $id',
+      );
+    }
+  }
+
+  /// Los archivos de [id] que su contenido guardado nombra, con la regla de
+  /// la unión de bóvedas (`studyCreationFilesSql`); `null` si ya no está.
+  Future<Set<String>?> _namedFiles(String id) async {
+    if (await _row(id) == null) return null;
+    final rows = await _db
+        .customSelect(
+          studyCreationFilesSql('main', oneCreation: true),
+          variables: [Variable.withString(id)],
+          readsFrom: {_table},
+        )
+        .get();
+    return {for (final row in rows) row.read<String>('path')};
   }
 
   // --- Filas ----------------------------------------------------------------
