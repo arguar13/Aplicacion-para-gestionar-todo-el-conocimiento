@@ -3212,6 +3212,73 @@ Un documento que ya no está dice **"Fuente borrada"**; uno sin texto propio
 con las palabras clave en **negrita** si están resaltadas: se abre en
 cualquier editor de texto o en Obsidian.
 
+#### La infografía
+
+**Cómo llegar:** Repasar → tarjeta **Infografía**.
+
+**Al pedirla**, la hoja trae, además del idioma, las fuentes y "Describí lo
+que querés crear":
+
+- **Orientación**: *Horizontal*, *Vertical* (la de fábrica, para el teléfono)
+  o *Cuadrado*.
+- **Detalle**: *Conciso* (lo esencial), *Estándar* o *Detallado*.
+- **"Ilustraciones con IA"**: prendido, se dibujan con el modelo de imágenes de
+  tu cuenta; apagado, la lámina va con los dibujos de la app.
+- **"Estilo visual"**: los dieciocho estilos en un carrusel que se desliza de
+  costado, cada uno con una **lámina de muestra** en la orientación elegida.
+  *Automático* deja que la IA sugiera el que mejor va con el tema (con
+  ilustraciones, uno de los ilustrados). Si elegís uno ilustrado —Plastilina,
+  Kawaii, Acuarela, Isométrico, Cómic, Fotográfico— sin el interruptor, la hoja
+  avisa que se va a ver con su versión dibujada.
+
+"Uso de IA" y "Con tu IA actual" cuentan **cuántas ilustraciones** va a pedir:
+en un estilo ilustrado, la cabecera y cada bloque; en uno dibujado, solo los
+pocos bloques que más ganan con un dibujo. Nunca se dibujan más que las
+estimadas. Si se usa otra cuenta en el aviso, esa es la que dibuja.
+
+Un libro largo se lee **por partes**: cada parte propone sus mejores bloques y
+un último paso elige y ordena los mejores de todas. Mientras se genera, la fila
+dice *"Escribiendo…"* y después *"Dibujando las ilustraciones…"*, con su
+avance; se puede cancelar en cualquier momento.
+
+**En el visor** se ve **la lámina entera**:
+
+- **Pellizcá** para acercar y arrastrá para recorrerla; abajo a la derecha,
+  **−**, **"Ver la lámina entera"** y **+**.
+- **"Cambiar el estilo"** (🎨, arriba): el estilo, la composición, la paleta
+  —seis por estilo, o un color propio—, la tipografía, la orientación, el
+  detalle, los íconos y el fondo, con la lámina cambiando atrás mientras
+  elegís; **"Cambiar"** abre la galería entera de estilos, en sus dos familias.
+  **No vuelve a la IA**: el contenido queda igual y no se gasta nada. Lo
+  elegido se guarda al cerrar la hoja, y "Volver a generar" arranca con eso.
+- **"Guardar como imagen"** (🖼): un PNG al doble de la lámina, donde elijas.
+  Desde **⋮ → Descargar** o **Compartir** (o mantener apretada la fila en «Lo
+  creado») se elige **imagen PNG** o **PDF** de una página, del tamaño de la
+  lámina.
+- El lector de pantalla lee el título y cada bloque, en orden.
+
+**Las ilustraciones** que no salieron nunca dejan la lámina a medias: su lugar
+queda **dibujado por la app** y un aviso arriba dice **cuántas y por qué**
+(*"tu cuenta de Gemini «Personal» no tiene facturación activa"*, *"se quedó
+sin cuota por hoy"*…). Si una cuenta no puede, las que siguen ni se piden.
+**"Completar ilustraciones"** (o el ✨ de abajo) abre la lista de cada lugar
+que el estilo ilustra —la cabecera y los bloques—, con su miniatura y cómo
+está: *Hecha*, *No salió* con su porqué, o *Sin hacer*.
+
+- **"Rehacer"** o **"Dibujar"** en uno, o **"Completar las que faltan"**.
+- **Antes de dibujar, siempre el costo**: cuántas imágenes, con qué cuenta,
+  cuánto cuestan y cuánto de la cuota de hoy; si esa cuenta no puede, las
+  otras que sí. Recién con **"Dibujar N ilustraciones"** se pide.
+- Mientras dibuja dice *"Dibujando 2 de 5…"* y se puede cancelar: lo que ya
+  estaba queda como estaba. Una que no se pudo rehacer conserva la de antes.
+
+Cambiar a un estilo ilustrado después también deja sus lugares dibujados por
+la app, con "Completar ilustraciones" para hacerlos con IA.
+
+Las ilustraciones se guardan con los originales de la bóveda: siguen ahí al
+cerrar la app, viajan en la copia de la bóveda y en la unión de bóvedas.
+Volver a generar la infografía borra las que la nueva ya no usa.
+
 ### Crear tarjetas con IA, para muchos elementos a la vez
 
 **Cómo llegar:** pantalla "Repasar" → botón **✨** arriba ("Crear tarjetas
