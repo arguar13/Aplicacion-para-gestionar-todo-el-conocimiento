@@ -412,6 +412,104 @@ sin volver a generar, y se previsualiza en miniatura antes de elegir.
   (liso, textura o degradé).
 - **Exportar**: PNG en alta resolución, o PDF.
 
+## Mejoras pedidas el 28/10, con la fase ya en marcha
+
+Pedido del dueño con seis capturas del teléfono, más un agregado: *"que los documentos de la
+sección Procesado se conecten a los documentos de la sección Repasar … y viceversa. También lo
+mismo con los cuadernos"*. Todo lo demás de Procesado queda igual.
+
+### M1. Los avisos de la IA se cierran con una ✕
+
+- **Hoy:** el aviso «Un momento… Se pasó el tope por minuto: sigue sola en 28 segundos» queda
+  abajo hasta que vence la espera, y no hay cómo sacarlo.
+- **Pasa a ser:** todos los avisos de la IA (`AiNoticeListener`) llevan una **✕ a la derecha**
+  que los cierra en el acto. Además el de la espera **cuenta hacia atrás** en vivo y se va solo
+  cuando la IA sigue.
+- Se revisan los demás avisos largos de la app (más de 6 segundos o con un botón): todos con su ✕.
+
+### M2. En Ajustes → «IA y modelos», primero se elige la IA
+
+- **Hoy:** la sección empieza por «Lo que hizo la IA» y «Organizar con IA», y los modelos quedan
+  al final.
+- **Pasa a ser:**
+  - **Primero «Modelo de lenguaje»**, «Transcripción de audio y video» y «Modelo del motor de
+    relaciones»;
+  - **después**, lo que la IA hace con ellos: «Lo que hizo la IA», «Organizar con IA» y sus
+    llaves, y las ilustraciones y la cuota diaria (paso 3).
+
+### M3. En Procesado, el original se ve ahí mismo, como en la Biblioteca
+
+- **Hoy:** «La copia del original» es una tarjeta con «Ver el original», y hay que tocarla cada
+  vez.
+- **Pasa a ser:** el documento procesado **muestra el original incrustado**, igual que el
+  detalle de la Biblioteca (`EmbeddedFileViewer`). Se ve con las marcas encima y con sus botones
+  de estudio (M5), y el ícono de pantalla completa abre el visor de siempre.
+- El tamaño y los datos de la copia (PDF · 26 kB · copiado el…) pasan a una línea debajo, y
+  «Borrar la copia del original» sigue en «Más».
+
+### M4. Fuera «Estudiar el documento» de Procesado (y de la Bandeja)
+
+- **Qué se quita:** la tarjeta «Estudiar el documento» (`ProcessedStudySlot` con
+  `StudyDocumentCard`, más «Extraer resumen / síntesis / palabras clave») **sale de cada
+  documento procesado**.
+  - Extraer resumen y síntesis es tarea de **Repasar**.
+  - Marcar a mano y con IA queda **en el original** (M5).
+- **La Bandeja:** al triar ya no se elige quedarse con el resumen, la síntesis o las palabras
+  clave. Esas casillas salen de la hoja de triar.
+- **Nada se pierde:**
+  - las marcas que ya existen siguen guardadas y se ven en el original (M5) y en Repasar;
+  - los documentos ya procesados que trajeron un resumen o una síntesis como sección los
+    conservan;
+  - la Biblioteca no cambia.
+
+### M5. Los botones de estudio en el original, interactivos
+
+Los tres botones de arriba del original (Resumen, Síntesis, Palabras clave) pasan a ser el lugar
+de marcar:
+
+- **Resumen y Síntesis**:
+  - **Sin marcas:** el botón abre una hoja chica con dos opciones grandes: **«Con IA»**, que usa
+    el modelo elegido con su aviso de lo que consume, y **«A mano»**, que entra al modo de
+    elegir oraciones tocándolas en el texto.
+  - **Con marcas:** el botón prende y apaga el resaltado. Su menú (⋯ o mantener apretado) ofrece
+    rehacer con IA, retocar a mano, ocultar y borrar las marcas.
+- **Palabras clave**:
+  - se hacen igual, con IA o a mano;
+  - **una vez hechas quedan marcadas por defecto**, en rosa, cada vez que se abre el documento;
+  - se pueden **ocultar**, y queda recordado por documento.
+- **Se superponen:** las palabras clave se ven encima del resaltado del resumen o de la síntesis
+  (las dos capas a la vez, sin taparse), y el resumen con la síntesis también.
+- **Estilo:** botones grandes con su color de resaltador, un indicador de cuántas marcas tiene
+  cada uno, el estado (sin hacer, generándose con su avance, hecho, oculto) y la leyenda de
+  colores. Funcionan en los 9 temas, con letra grande y a 360 dp.
+
+### M6. Procesado y Cuadernos, conectados con Repasar (en los dos sentidos)
+
+- **De Procesado a Repasar:** cada documento procesado lleva una sección **«En Repasar»** con lo
+  creado sobre él:
+  - presentaciones, resúmenes, infografías, cuestionarios y el resto, con el ícono y el color de
+    cada tipo;
+  - lo que lo incluye como fuente, aunque se haya creado sobre un cuaderno o un tema;
+  - sus tarjetas para hoy.
+  Tocar una creación abre su visor. **«Crear en Repasar»** abre Repasar con el documento ya
+  elegido en el selector.
+- **De Cuadernos a Repasar:** cada cuaderno lleva la misma sección sobre todo lo creado con el
+  cuaderno como recorte, con «Crear en Repasar» con el cuaderno elegido.
+- **De Repasar a Procesado y Cuadernos:** en «Lo creado» y en cada visor, **las fuentes de cada
+  creación se ven como chips tocables** (el documento, el cuaderno o el tema) y abren su
+  pantalla. Si una fuente se borró, el chip lo dice («fuente borrada»).
+- Todo sale de los datos del paso 2 (`study_creations` con su recorte y sus fuentes): no hace
+  falta una tabla nueva.
+
+### M7. Los títulos con letras rotas («DeclaraciÃ³n»)
+
+- **Visto en las capturas:** el título «DeclaraciÃ³n de los Derechos del Hombre…» es texto UTF-8
+  leído como Latin-1.
+- **Arreglo de raíz:** se busca dónde se decodifica el nombre (el archivo, los metadatos del PDF
+  o el encabezado de la descarga) y se corrige ahí.
+- **Lo ya guardado:** se repara con una migración que corrige solo los títulos que tienen esa
+  firma exacta y que vuelven a ser texto válido al recodificarlos.
+
 ## Decisiones (se pueden cambiar mientras no se llegue a su paso)
 
 - **A. Atlas se queda en Organizar**, junto a la Bandeja. El pedido no lo nombra entre los que
@@ -433,6 +531,9 @@ sin volver a generar, y se previsualiza en miniatura antes de elegir.
   (ver «H en detalle»). Sin una IA que pueda, todo se ve terminado igual con lo dibujado.
 - **I. Sin 👍 y 👎**: en NotebookLM le avisan a Google. Acá no hay a quién mandarlo, y no se manda
   nada a ningún servicio.
+- **J. Estudiar sale del documento procesado** (mejoras del 28/10, M4 y M5): cambia la
+  decisión I de F41. Marcar el resumen, la síntesis y las palabras clave se hace en el original,
+  y crear a partir de ellas, en Repasar. Las marcas ya hechas no se tocan.
 
 ## Pasos (cada uno, su commit y su push)
 
@@ -471,7 +572,19 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
    - «Para hoy» compacto;
    - la grilla;
    - «Lo creado» con sus estados y su menú;
-   - la hoja de personalizar común, con «Uso de IA» y la tarjeta «Con tu IA actual».
+   - la hoja de personalizar común, con «Uso de IA» y la tarjeta «Con tu IA actual»;
+   - Repasar se abre con un recorte ya elegido (para «Crear en Repasar», M6).
+
+14. **Pulido (M1, M2 y M7)**: la ✕ y la cuenta atrás en los avisos, el orden de Ajustes → «IA
+    y modelos» y los títulos con letras rotas, de raíz y con su reparación.
+15. **Procesado y el original (M3, M4 y M5)**: el original incrustado, fuera «Estudiar el
+    documento» de Procesado y de la hoja de triar, y los botones de estudio interactivos en el
+    original (con IA o a mano, palabras clave marcadas por defecto, ocultar, superposición).
+
+**Ola 2½, cuando estén los pasos 6 y 15:**
+
+16. **Procesado y Cuadernos ↔ Repasar (M6)**: «En Repasar» en cada documento procesado y en
+    cada cuaderno, «Crear en Repasar», y las fuentes como chips en «Lo creado» y en los visores.
 
 **Ola 3, un agente por tipo:**
 
