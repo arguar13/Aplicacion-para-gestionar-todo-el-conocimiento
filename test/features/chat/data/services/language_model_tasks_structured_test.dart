@@ -14,7 +14,7 @@ import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.
 /// Lo que se le mandó al motor en un intercambio.
 typedef _Sent = ({String instruction, String prompt, int maxOutputTokens});
 
-/// Un motor de mentira que contesta, en orden, lo de [replies] —o lo que
+/// Un motor de mentira que contesta, en orden, lo de `replies` —o lo que
 /// arme [answer] con el pedido— y anota cada pedido.
 class _Backend implements ModelBackend {
   _Backend({
@@ -30,7 +30,7 @@ class _Backend implements ModelBackend {
 
   /// Si está, cada respuesta espera a que se complete o a que la corten.
   Completer<void>? hold;
-  var stops = 0;
+  int stops = 0;
 
   @override
   final int contextTokens;

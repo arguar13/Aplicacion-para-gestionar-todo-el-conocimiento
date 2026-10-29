@@ -40,7 +40,7 @@ class _Generator extends CreationGenerator {
   final calls =
       <({CreationJob job, CreationMaterial material, String writer})>[];
   Completer<void>? hold;
-  Object? error;
+  Exception? error;
 
   @override
   int maxOutputTokens(CreationJob job) => 500;
@@ -119,12 +119,7 @@ void main() {
 
   setUp(() async {
     h = await CreationsHarness.create();
-    exodo = await h.processedDoc(
-      'exodo',
-      title: 'Éxodo',
-      text: 'Moisés guía al pueblo. El mar se abre. Llegan al Sinaí.',
-      summary: [(0, 22)],
-    );
+    exodo = await h.processedDoc('exodo', title: 'Éxodo', summary: [(0, 22)]);
     mindMap = _Generator(StudyCreationKind.mindMap);
     keeper = _Keeper();
     personStatus = ready;
@@ -355,14 +350,14 @@ void main() {
     );
 
     test('cualquier otra falla queda anotada y se avisa', () async {
-      mindMap.error = StateError('se rompió');
+      mindMap.error = Exception('se rompió');
       final queue = newQueue();
       final created = (await queue.create(request())).getRight().toNullable()!;
 
       final failed = await settled(created.id);
       expect(failed.failure, CreationFailure.error);
       expect(failed.failureDetail, contains('se rompió'));
-      expect(errors.single, isA<StateError>());
+      expect(errors.single, isA<Exception>());
     });
 
     test('sin nada que leer: fallida por sin fuentes', () async {
@@ -384,7 +379,7 @@ void main() {
     });
 
     test('reintentar una fallida la genera de nuevo', () async {
-      mindMap.error = StateError('una vez');
+      mindMap.error = Exception('una vez');
       final queue = newQueue();
       final created = (await queue.create(request())).getRight().toNullable()!;
       await settled(created.id);
@@ -448,7 +443,10 @@ void main() {
       final again = await settled(created.id);
       expect(again.id, created.id);
       expect(mindMap.calls.last.job.options, {'tema': 'El mar'});
-      expect(jsonDecode(again.content!)['opciones'], {'tema': 'El mar'});
+      expect(
+        again.decodedContent,
+        containsPair('opciones', {'tema': 'El mar'}),
+      );
     });
   });
 

@@ -319,12 +319,12 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         harness.wrap(
-          MediaQuery(
-            data: const MediaQueryData(
+          const MediaQuery(
+            data: MediaQueryData(
               size: Size(360, 800),
               textScaler: TextScaler.linear(2),
             ),
-            child: const TrashScreen(),
+            child: TrashScreen(),
           ),
         ),
       );
