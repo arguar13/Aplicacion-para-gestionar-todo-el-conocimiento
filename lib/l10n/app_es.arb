@@ -12187,5 +12187,647 @@
   "f43OrigClose": "Cerrar",
   "@f43OrigClose": {"description": "F43, paso 15 (M5): la ✕ de las hojas de los botones de estudio."},
   "f43OrigEstimating": "Calculando lo que va a consumir…",
-  "@f43OrigEstimating": {"description": "F43, paso 15 (M5): mientras se estima lo que consume marcar con la IA."}
+  "@f43OrigEstimating": {"description": "F43, paso 15 (M5): mientras se estima lo que consume marcar con la IA."},
+  "f43StudioScopeAll": "Todo lo procesado",
+  "@f43StudioScopeAll": {
+    "description": "Repasar (F43): el recorte de todo lo procesado."
+  },
+  "f43StudioScopeMissing": "Ya no existe",
+  "@f43StudioScopeMissing": {
+    "description": "Repasar (F43): píldora del selector cuando lo elegido se borró."
+  },
+  "f43StudioScopeMissingHint": "Se borró. Tocá para elegir otro.",
+  "@f43StudioScopeMissingHint": {
+    "description": "Repasar (F43): detalle de la píldora cuando lo elegido se borró."
+  },
+  "f43StudioScopeChange": "Cambiar sobre qué estudiar",
+  "@f43StudioScopeChange": {
+    "description": "Repasar (F43): descripción de la píldora del selector."
+  },
+  "f43StudioDocuments": "{count, plural, =0{Ningún documento} =1{1 documento} other{{count} documentos}}",
+  "@f43StudioDocuments": {
+    "description": "Repasar (F43): cuántos documentos procesados tiene un recorte.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43StudioCards": "{count, plural, =1{1 tarjeta} other{{count} tarjetas}}",
+  "@f43StudioCards": {
+    "description": "Repasar (F43): cuántas tarjetas tiene un recorte.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43StudioCreations": "{count, plural, =1{1 creación} other{{count} creaciones}}",
+  "@f43StudioCreations": {
+    "description": "Repasar (F43): cuántas creaciones tiene un recorte.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43StudioHasSummary": "con resumen",
+  "@f43StudioHasSummary": {
+    "description": "Repasar (F43): fila del selector: el documento ya tiene resumen."
+  },
+  "f43StudioHasSynthesis": "con síntesis",
+  "@f43StudioHasSynthesis": {
+    "description": "Repasar (F43): fila del selector: el documento ya tiene síntesis."
+  },
+  "f43StudioPickerTitle": "¿Sobre qué estudiar?",
+  "@f43StudioPickerTitle": {
+    "description": "Repasar (F43): título de la hoja del selector."
+  },
+  "f43StudioPickerSearch": "Buscar en lo procesado",
+  "@f43StudioPickerSearch": {
+    "description": "Repasar (F43): buscador de la hoja del selector."
+  },
+  "f43StudioPickerRecent": "Recientes",
+  "@f43StudioPickerRecent": {
+    "description": "Repasar (F43): los últimos recortes elegidos, arriba de la hoja."
+  },
+  "f43StudioPickerTabAll": "Todo lo procesado",
+  "@f43StudioPickerTabAll": {
+    "description": "Repasar (F43): pestaña de la hoja del selector."
+  },
+  "f43StudioPickerTabDocument": "Documento",
+  "@f43StudioPickerTabDocument": {
+    "description": "Repasar (F43): pestaña de la hoja del selector."
+  },
+  "f43StudioPickerTabNotebook": "Cuaderno",
+  "@f43StudioPickerTabNotebook": {
+    "description": "Repasar (F43): pestaña de la hoja del selector."
+  },
+  "f43StudioPickerTabTopic": "Tema",
+  "@f43StudioPickerTabTopic": {
+    "description": "Repasar (F43): pestaña de la hoja del selector."
+  },
+  "f43StudioPickerAllHint": "Todos los documentos procesados, sus tarjetas y lo creado sobre ellos.",
+  "@f43StudioPickerAllHint": {
+    "description": "Repasar (F43): explicación de «Todo lo procesado» en la hoja."
+  },
+  "f43StudioPickerNothing": "Todavía no hay nada acá. Lo que proceses aparece en esta lista.",
+  "@f43StudioPickerNothing": {
+    "description": "Repasar (F43): pestaña vacía de la hoja del selector."
+  },
+  "f43StudioPickerNoMatch": "Nada coincide con «{query}».",
+  "@f43StudioPickerNoMatch": {
+    "description": "Repasar (F43): la búsqueda no encontró nada.",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "f43StudioPickerChosen": "Elegido",
+  "@f43StudioPickerChosen": {
+    "description": "Repasar (F43): lectura de pantalla: la fila del recorte elegido."
+  },
+  "f43StudioClose": "Cerrar",
+  "@f43StudioClose": {
+    "description": "Repasar (F43): la ✕ redonda de las hojas."
+  },
+  "f43StudioTodayTitle": "Para hoy",
+  "@f43StudioTodayTitle": {
+    "description": "Repasar (F43): la franja compacta de lo que hay para repasar hoy."
+  },
+  "f43StudioCreateTitle": "Crear",
+  "@f43StudioCreateTitle": {
+    "description": "Repasar (F43): encabezado de la grilla de tarjetas de crear."
+  },
+  "f43StudioTileExtract": "Extraer",
+  "@f43StudioTileExtract": {
+    "description": "Repasar (F43): la línea chica de las tres tarjetas de extraer."
+  },
+  "f43StudioTileReports": "Informes",
+  "@f43StudioTileReports": {
+    "description": "Repasar (F43): la tarjeta de crear informes."
+  },
+  "f43StudioTileCustomize": "Personalizar",
+  "@f43StudioTileCustomize": {
+    "description": "Repasar (F43): el lápiz de cada tarjeta de crear."
+  },
+  "f43StudioExtractFullText": "Extraer texto completo",
+  "@f43StudioExtractFullText": {
+    "description": "Repasar (F43): nombre completo de la tarjeta."
+  },
+  "f43StudioExtractSummary": "Extraer resumen",
+  "@f43StudioExtractSummary": {
+    "description": "Repasar (F43): nombre completo de la tarjeta."
+  },
+  "f43StudioExtractSynthesis": "Extraer síntesis",
+  "@f43StudioExtractSynthesis": {
+    "description": "Repasar (F43): nombre completo de la tarjeta."
+  },
+  "f43StudioSheetFullText": "Extraer el texto completo",
+  "@f43StudioSheetFullText": {
+    "description": "Repasar (F43): título de la hoja."
+  },
+  "f43StudioSheetSummary": "Extraer el resumen",
+  "@f43StudioSheetSummary": {
+    "description": "Repasar (F43): título de la hoja."
+  },
+  "f43StudioSheetSynthesis": "Extraer la síntesis",
+  "@f43StudioSheetSynthesis": {
+    "description": "Repasar (F43): título de la hoja."
+  },
+  "f43StudioSheetPresentation": "Personalizar la presentación",
+  "@f43StudioSheetPresentation": {
+    "description": "Repasar (F43): título de la hoja."
+  },
+  "f43StudioSheetMindMap": "Personalizar el mapa mental",
+  "@f43StudioSheetMindMap": {
+    "description": "Repasar (F43): título de la hoja."
+  },
+  "f43StudioSheetReport": "Crear un informe",
+  "@f43StudioSheetReport": {
+    "description": "Repasar (F43): título de la hoja."
+  },
+  "f43StudioSheetFlashcards": "Personalizar las tarjetas didácticas",
+  "@f43StudioSheetFlashcards": {
+    "description": "Repasar (F43): título de la hoja."
+  },
+  "f43StudioSheetQuiz": "Personalizar el cuestionario",
+  "@f43StudioSheetQuiz": {
+    "description": "Repasar (F43): título de la hoja."
+  },
+  "f43StudioSheetInfographic": "Personalizar la infografía",
+  "@f43StudioSheetInfographic": {
+    "description": "Repasar (F43): título de la hoja."
+  },
+  "f43StudioSheetDataTable": "Personalizar la tabla de datos",
+  "@f43StudioSheetDataTable": {
+    "description": "Repasar (F43): título de la hoja."
+  },
+  "f43StudioExtractIntro": "Muestra lo que el documento procesado ya tiene, con las palabras clave en rosa. No le pide nada a la IA y sigue al documento si cambia.",
+  "@f43StudioExtractIntro": {
+    "description": "Repasar (F43): explicación de las hojas de extraer."
+  },
+  "f43StudioExtractMissing": "{count, plural, =1{A 1 fuente le falta: se pide su análisis al crear.} other{A {count} fuentes les falta: se pide su análisis al crear.}}",
+  "@f43StudioExtractMissing": {
+    "description": "Repasar (F43): hoja de extraer: fuentes sin resumen o síntesis todavía.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43StudioLanguage": "Seleccionar idioma",
+  "@f43StudioLanguage": {
+    "description": "Repasar (F43): el desplegable del idioma."
+  },
+  "f43StudioSources": "{count, plural, =0{Fuentes: ninguna} =1{Fuentes: 1 fuente} other{Fuentes: {count} fuentes}}",
+  "@f43StudioSources": {
+    "description": "Repasar (F43): la fila que abre las fuentes del recorte.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43StudioSourcesOf": "{chosen} de {total}",
+  "@f43StudioSourcesOf": {
+    "description": "Repasar (F43): cuántas fuentes quedaron tildadas.",
+    "placeholders": {
+      "chosen": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "f43StudioSourcesEmpty": "Este recorte no tiene documentos procesados.",
+  "@f43StudioSourcesEmpty": {
+    "description": "Repasar (F43): la hoja sin fuentes."
+  },
+  "f43StudioSourcesAll": "Todas",
+  "@f43StudioSourcesAll": {
+    "description": "Repasar (F43): tildar todas las fuentes."
+  },
+  "f43StudioSourcesNoneChosen": "Elegí al menos una fuente.",
+  "@f43StudioSourcesNoneChosen": {
+    "description": "Repasar (F43): no hay fuentes tildadas."
+  },
+  "f43StudioDescribe": "Describí lo que querés crear",
+  "@f43StudioDescribe": {
+    "description": "Repasar (F43): el campo de descripción."
+  },
+  "f43StudioDescribeHint": "Por ejemplo: para alguien que empieza, centrado en las causas",
+  "@f43StudioDescribeHint": {
+    "description": "Repasar (F43): ejemplo tenue del campo de descripción."
+  },
+  "f43StudioDescribeHintTable": "Por ejemplo: los personajes, su papel y dónde aparecen",
+  "@f43StudioDescribeHintTable": {
+    "description": "Repasar (F43): ejemplo tenue de la tabla de datos."
+  },
+  "f43StudioDescribeHintInfographic": "Por ejemplo: la línea de los hechos principales",
+  "@f43StudioDescribeHintInfographic": {
+    "description": "Repasar (F43): ejemplo tenue de la infografía."
+  },
+  "f43StudioTopic": "Tema",
+  "@f43StudioTopic": {
+    "description": "Repasar (F43): el campo de tema."
+  },
+  "f43StudioTopicHint": "Sobre qué, si querés acotarlo",
+  "@f43StudioTopicHint": {
+    "description": "Repasar (F43): ejemplo tenue del campo de tema."
+  },
+  "f43StudioSuggested": "Temas sugeridos",
+  "@f43StudioSuggested": {
+    "description": "Repasar (F43): las fichas de temas sacados de las palabras clave."
+  },
+  "f43StudioAiUsage": "Uso de IA",
+  "@f43StudioAiUsage": {
+    "description": "Repasar (F43): la barra de lo que consume, abajo de la hoja."
+  },
+  "f43StudioEstimating": "Calculando lo que va a consumir…",
+  "@f43StudioEstimating": {
+    "description": "Repasar (F43): mientras se arma el material para estimar."
+  },
+  "f43StudioGenerateNow": "Generar ahora",
+  "@f43StudioGenerateNow": {
+    "description": "Repasar (F43): botón principal de la hoja."
+  },
+  "f43StudioGenerateLater": "Generar más tarde",
+  "@f43StudioGenerateLater": {
+    "description": "Repasar (F43): botón de la cola de fondo."
+  },
+  "f43StudioCreateNow": "Crear",
+  "@f43StudioCreateNow": {
+    "description": "Repasar (F43): botón de las hojas de extraer."
+  },
+  "f43StudioCreatedSnack": "Listo: está en «Lo creado».",
+  "@f43StudioCreatedSnack": {
+    "description": "Repasar (F43): aviso al crear una de extraer."
+  },
+  "f43StudioQueuedSnack": "En camino: aparece en «Lo creado» mientras se genera.",
+  "@f43StudioQueuedSnack": {
+    "description": "Repasar (F43): aviso al generar ahora."
+  },
+  "f43StudioLaterSnack": "En la cola: se hace cuando la IA esté libre.",
+  "@f43StudioLaterSnack": {
+    "description": "Repasar (F43): aviso al generar más tarde."
+  },
+  "f43StudioCreateFailed": "No se pudo crear. Probá de nuevo.",
+  "@f43StudioCreateFailed": {
+    "description": "Repasar (F43): aviso si guardar el pedido falló."
+  },
+  "f43StudioOptFormat": "Formato",
+  "@f43StudioOptFormat": {
+    "description": "Repasar (F43): opción."
+  },
+  "f43StudioOptDetailed": "Detallada",
+  "@f43StudioOptDetailed": {
+    "description": "Repasar (F43): presentación: formato."
+  },
+  "f43StudioOptPresenter": "Del presentador",
+  "@f43StudioOptPresenter": {
+    "description": "Repasar (F43): presentación: formato con notas para decir."
+  },
+  "f43StudioOptTemplate": "Plantilla",
+  "@f43StudioOptTemplate": {
+    "description": "Repasar (F43): opción."
+  },
+  "f43StudioOptTemplateAuto": "Automática",
+  "@f43StudioOptTemplateAuto": {
+    "description": "Repasar (F43): plantilla elegida según el tema."
+  },
+  "f43StudioOptDuration": "Duración",
+  "@f43StudioOptDuration": {
+    "description": "Repasar (F43): presentación: duración."
+  },
+  "f43StudioOptShort": "Corta",
+  "@f43StudioOptShort": {
+    "description": "Repasar (F43): presentación: duración."
+  },
+  "f43StudioOptStandardF": "Estándar",
+  "@f43StudioOptStandardF": {
+    "description": "Repasar (F43): opción del medio (femenino y masculino iguales)."
+  },
+  "f43StudioOptInteractive": "Interactivo",
+  "@f43StudioOptInteractive": {
+    "description": "Repasar (F43): informe: con preguntas en cada sección."
+  },
+  "f43StudioOptDocument": "Documento",
+  "@f43StudioOptDocument": {
+    "description": "Repasar (F43): informe: para leer."
+  },
+  "f43StudioOptLearningSummary": "Resumen de aprendizaje",
+  "@f43StudioOptLearningSummary": {
+    "description": "Repasar (F43): plantilla de informe."
+  },
+  "f43StudioOptStudyGuide": "Guía de estudio",
+  "@f43StudioOptStudyGuide": {
+    "description": "Repasar (F43): plantilla de informe."
+  },
+  "f43StudioOptBriefing": "Documento informativo",
+  "@f43StudioOptBriefing": {
+    "description": "Repasar (F43): plantilla de informe."
+  },
+  "f43StudioOptGlossary": "Glosario",
+  "@f43StudioOptGlossary": {
+    "description": "Repasar (F43): plantilla de informe."
+  },
+  "f43StudioOptOwnTemplate": "Una propia",
+  "@f43StudioOptOwnTemplate": {
+    "description": "Repasar (F43): plantilla de informe escrita por la persona."
+  },
+  "f43StudioOptOwnTemplateHint": "Contá cómo querés el informe: sus partes, el tono, para quién",
+  "@f43StudioOptOwnTemplateHint": {
+    "description": "Repasar (F43): campo de la plantilla propia."
+  },
+  "f43StudioOptCount": "Número",
+  "@f43StudioOptCount": {
+    "description": "Repasar (F43): cuántas tarjetas o preguntas."
+  },
+  "f43StudioOptFewer": "Menos",
+  "@f43StudioOptFewer": {
+    "description": "Repasar (F43): número."
+  },
+  "f43StudioOptMore": "Más",
+  "@f43StudioOptMore": {
+    "description": "Repasar (F43): número."
+  },
+  "f43StudioOptDifficulty": "Dificultad",
+  "@f43StudioOptDifficulty": {
+    "description": "Repasar (F43): opción."
+  },
+  "f43StudioOptEasy": "Fácil",
+  "@f43StudioOptEasy": {
+    "description": "Repasar (F43): dificultad."
+  },
+  "f43StudioOptMedium": "Medio",
+  "@f43StudioOptMedium": {
+    "description": "Repasar (F43): dificultad."
+  },
+  "f43StudioOptHard": "Difícil",
+  "@f43StudioOptHard": {
+    "description": "Repasar (F43): dificultad."
+  },
+  "f43StudioOptImages": "Incluir imágenes",
+  "@f43StudioOptImages": {
+    "description": "Repasar (F43): tarjetas y cuestionario: las imágenes del documento."
+  },
+  "f43StudioOptImagesHint": "Las del propio documento procesado: no se genera ninguna.",
+  "@f43StudioOptImagesHint": {
+    "description": "Repasar (F43): explicación de incluir imágenes."
+  },
+  "f43StudioOptQuestionTypes": "Tipos de pregunta",
+  "@f43StudioOptQuestionTypes": {
+    "description": "Repasar (F43): cuestionario."
+  },
+  "f43StudioOptSingle": "Opción única",
+  "@f43StudioOptSingle": {
+    "description": "Repasar (F43): tipo de pregunta."
+  },
+  "f43StudioOptMultiple": "Selección múltiple",
+  "@f43StudioOptMultiple": {
+    "description": "Repasar (F43): tipo de pregunta."
+  },
+  "f43StudioOptFillBlank": "Completar espacios",
+  "@f43StudioOptFillBlank": {
+    "description": "Repasar (F43): tipo de pregunta."
+  },
+  "f43StudioOptShortAnswer": "Respuesta breve",
+  "@f43StudioOptShortAnswer": {
+    "description": "Repasar (F43): tipo de pregunta."
+  },
+  "f43StudioOptOrientation": "Orientación",
+  "@f43StudioOptOrientation": {
+    "description": "Repasar (F43): infografía."
+  },
+  "f43StudioOptLandscape": "Horizontal",
+  "@f43StudioOptLandscape": {
+    "description": "Repasar (F43): orientación."
+  },
+  "f43StudioOptPortrait": "Vertical",
+  "@f43StudioOptPortrait": {
+    "description": "Repasar (F43): orientación."
+  },
+  "f43StudioOptSquare": "Cuadrado",
+  "@f43StudioOptSquare": {
+    "description": "Repasar (F43): orientación."
+  },
+  "f43StudioOptDetail": "Detalle",
+  "@f43StudioOptDetail": {
+    "description": "Repasar (F43): infografía."
+  },
+  "f43StudioOptConcise": "Conciso",
+  "@f43StudioOptConcise": {
+    "description": "Repasar (F43): detalle."
+  },
+  "f43StudioOptDetailedM": "Detallado",
+  "@f43StudioOptDetailedM": {
+    "description": "Repasar (F43): detalle."
+  },
+  "f43StudioOptIllustrations": "Ilustraciones con IA",
+  "@f43StudioOptIllustrations": {
+    "description": "Repasar (F43): interruptor de la presentación y la infografía."
+  },
+  "f43StudioOptIllustrationsHint": "Una por bloque, en el estilo elegido. El texto lo pone siempre la app.",
+  "@f43StudioOptIllustrationsHint": {
+    "description": "Repasar (F43): explicación de las ilustraciones."
+  },
+  "f43StudioCreatedTitle": "Lo creado",
+  "@f43StudioCreatedTitle": {
+    "description": "Repasar (F43): la lista de lo creado."
+  },
+  "f43StudioCreatedEmpty": "Todavía no creaste nada sobre esto. Tocá una tarjeta de arriba.",
+  "@f43StudioCreatedEmpty": {
+    "description": "Repasar (F43): lista vacía."
+  },
+  "f43StudioCreatedFailedLoad": "No se pudo leer lo creado.",
+  "@f43StudioCreatedFailedLoad": {
+    "description": "Repasar (F43): la lista no se pudo leer."
+  },
+  "f43StudioSourceCount": "{count, plural, =0{Sin fuentes} =1{1 fuente} other{{count} fuentes}}",
+  "@f43StudioSourceCount": {
+    "description": "Repasar (F43): cuántas fuentes usó una creación.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43StudioAgoNow": "Recién",
+  "@f43StudioAgoNow": {
+    "description": "Repasar (F43): cuándo se creó."
+  },
+  "f43StudioAgoMinutes": "Hace {count} min",
+  "@f43StudioAgoMinutes": {
+    "description": "Repasar (F43): cuándo se creó.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43StudioAgoHours": "{count, plural, =1{Hace 1 hora} other{Hace {count} horas}}",
+  "@f43StudioAgoHours": {
+    "description": "Repasar (F43): cuándo se creó.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43StudioAgoDays": "{count, plural, =1{Hace 1 día} other{Hace {count} días}}",
+  "@f43StudioAgoDays": {
+    "description": "Repasar (F43): cuándo se creó.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43StudioStatusQueued": "Generando… en la cola",
+  "@f43StudioStatusQueued": {
+    "description": "Repasar (F43): una creación que espera su turno."
+  },
+  "f43StudioStatusLater": "En la cola de fondo: se hace cuando la IA esté libre",
+  "@f43StudioStatusLater": {
+    "description": "Repasar (F43): una de «Generar más tarde»."
+  },
+  "f43StudioRetry": "Reintentar",
+  "@f43StudioRetry": {
+    "description": "Repasar (F43): botón de una creación fallida."
+  },
+  "f43StudioMenuTooltip": "Más opciones",
+  "@f43StudioMenuTooltip": {
+    "description": "Repasar (F43): el ⋮ de cada creación."
+  },
+  "f43StudioMenuOpen": "Abrir",
+  "@f43StudioMenuOpen": {
+    "description": "Repasar (F43): menú de una creación."
+  },
+  "f43StudioMenuRename": "Renombrar",
+  "@f43StudioMenuRename": {
+    "description": "Repasar (F43): menú de una creación."
+  },
+  "f43StudioMenuRegenerate": "Volver a generar con otras opciones",
+  "@f43StudioMenuRegenerate": {
+    "description": "Repasar (F43): menú de una creación."
+  },
+  "f43StudioMenuRetry": "Reintentar",
+  "@f43StudioMenuRetry": {
+    "description": "Repasar (F43): menú de una creación."
+  },
+  "f43StudioMenuCancel": "Cancelar la generación",
+  "@f43StudioMenuCancel": {
+    "description": "Repasar (F43): menú de una creación."
+  },
+  "f43StudioMenuSources": "Ver fuentes",
+  "@f43StudioMenuSources": {
+    "description": "Repasar (F43): menú de una creación."
+  },
+  "f43StudioMenuExport": "Exportar o compartir",
+  "@f43StudioMenuExport": {
+    "description": "Repasar (F43): menú de una creación."
+  },
+  "f43StudioMenuTrash": "Borrar",
+  "@f43StudioMenuTrash": {
+    "description": "Repasar (F43): menú de una creación: a la papelera."
+  },
+  "f43StudioTrashed": "Se mandó a la papelera.",
+  "@f43StudioTrashed": {
+    "description": "Repasar (F43): aviso al borrar una creación."
+  },
+  "f43StudioUndo": "Deshacer",
+  "@f43StudioUndo": {
+    "description": "Repasar (F43): deshacer el borrado."
+  },
+  "f43StudioRenameTitle": "Renombrar",
+  "@f43StudioRenameTitle": {
+    "description": "Repasar (F43): diálogo de renombrar."
+  },
+  "f43StudioRenameLabel": "Título",
+  "@f43StudioRenameLabel": {
+    "description": "Repasar (F43): campo del diálogo de renombrar."
+  },
+  "f43StudioRenameSave": "Guardar",
+  "@f43StudioRenameSave": {
+    "description": "Repasar (F43): botón del diálogo de renombrar."
+  },
+  "f43StudioActionFailed": "No se pudo hacer. Probá de nuevo.",
+  "@f43StudioActionFailed": {
+    "description": "Repasar (F43): una acción del menú falló."
+  },
+  "f43StudioSourceDeleted": "Fuente borrada",
+  "@f43StudioSourceDeleted": {
+    "description": "Repasar (F43): chip de una fuente que ya no existe."
+  },
+  "f43StudioMoreSources": "+{count}",
+  "@f43StudioMoreSources": {
+    "description": "Repasar (F43): chip con las fuentes que no entran.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43StudioSourcesTitle": "Fuentes",
+  "@f43StudioSourcesTitle": {
+    "description": "Repasar (F43): hoja de las fuentes de una creación."
+  },
+  "f43StudioViewSources": "{count, plural, =1{Ver 1 fuente} other{Ver {count} fuentes}}",
+  "@f43StudioViewSources": {
+    "description": "Repasar (F43): la ficha del visor que abre las fuentes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43StudioCreatedOn": "Sobre «{name}»",
+  "@f43StudioCreatedOn": {
+    "description": "Repasar (F43): chip del recorte de una creación (un cuaderno o un tema).",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "f43StudioViewerComing": "Su visor está en camino",
+  "@f43StudioViewerComing": {
+    "description": "Repasar (F43): pantalla de un tipo sin visor todavía."
+  },
+  "f43StudioViewerComingHint": "Ya quedó guardada. Cuando llegue el visor de «{kind}» se abre acá mismo, sin volver a generarla.",
+  "@f43StudioViewerComingHint": {
+    "description": "Repasar (F43): explicación del visor en camino.",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
+  "f43StudioViewerMissing": "Esta creación ya no está.",
+  "@f43StudioViewerMissing": {
+    "description": "Repasar (F43): el visor de una creación borrada."
+  },
+  "f43StudioViewerTrashed": "Está en la papelera.",
+  "@f43StudioViewerTrashed": {
+    "description": "Repasar (F43): el visor de una creación en la papelera."
+  },
+  "f43StudioViewerPending": "Se está generando. Podés salir: sigue en la cola.",
+  "@f43StudioViewerPending": {
+    "description": "Repasar (F43): el visor de una que se genera."
+  },
+  "f43StudioInRepasar": "En Repasar",
+  "@f43StudioInRepasar": {
+    "description": "Repasar (F43): sección de lo creado en un documento o un cuaderno."
+  },
+  "f43StudioCreateInRepasar": "Crear en Repasar",
+  "@f43StudioCreateInRepasar": {
+    "description": "Repasar (F43): abre Repasar con el recorte ya elegido."
+  },
+  "f43StudioInRepasarEmpty": "Todavía no hay nada creado sobre esto.",
+  "@f43StudioInRepasarEmpty": {
+    "description": "Repasar (F43): sección vacía."
+  }
 }
