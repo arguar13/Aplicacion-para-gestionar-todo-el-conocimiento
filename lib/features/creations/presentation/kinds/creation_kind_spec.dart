@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/creations/design/creation_palette.dart';
@@ -225,9 +227,28 @@ typedef CreationViewerBuilder =
 typedef CreationViewerActionsBuilder =
     List<Widget> Function(BuildContext context, StudyCreation creation);
 
-/// «Exportar o compartir» desde el ⋮ de «Lo creado».
-typedef CreationExportAction =
-    Future<void> Function(
+/// El archivo de una creación, para «Compartir» y «Descargar»: un PDF, un
+/// PNG, un Markdown, un CSV… lo arma el tipo, con su diseño.
+@immutable
+class CreationExportFile {
+  const CreationExportFile({
+    required this.fileName,
+    required this.bytes,
+    required this.mimeType,
+  });
+
+  /// Con su extensión: `Éxodo.pdf`.
+  final String fileName;
+  final Uint8List bytes;
+
+  /// `application/pdf`, `image/png`, `text/markdown`…
+  final String mimeType;
+}
+
+/// Arma el archivo de [creation] —ya lista— para compartirlo o descargarlo;
+/// `null` si no hay nada que exportar (o se canceló algo que preguntó).
+typedef CreationExporter =
+    Future<CreationExportFile?> Function(
       BuildContext context,
       WidgetRef ref,
       StudyCreation creation,
@@ -294,7 +315,7 @@ class CreationKindSpec {
     this.illustrations,
     this.viewerBuilder,
     this.viewerActions,
-    this.onExport,
+    this.exporter,
   });
 
   final StudyCreationKind kind;
@@ -343,9 +364,10 @@ class CreationKindSpec {
   /// Los botones propios de su visor en la barra común.
   final CreationViewerActionsBuilder? viewerActions;
 
-  /// «Exportar o compartir» desde el ⋮; sin esto, no se ofrece en la lista
-  /// (el visor puede tener los suyos).
-  final CreationExportAction? onExport;
+  /// Su archivo, para «Compartir» y «Descargar» en «Lo creado» (el menú de
+  /// mantener apretado y el botón que aparece al deslizar). Sin esto, esas
+  /// dos no se ofrecen: nunca un botón que no hace nada.
+  final CreationExporter? exporter;
 
   /// Lo que la IA escribe por defecto, si el tipo no dice otra cosa.
   static const defaultOutputTokens = 2000;
@@ -415,7 +437,7 @@ class CreationKindSpec {
     int Function(Map<String, Object?> options)? illustrations,
     CreationViewerBuilder? viewerBuilder,
     CreationViewerActionsBuilder? viewerActions,
-    CreationExportAction? onExport,
+    CreationExporter? exporter,
   }) => CreationKindSpec(
     kind: kind,
     accent: accent ?? this.accent,
@@ -431,6 +453,6 @@ class CreationKindSpec {
     illustrations: illustrations ?? this.illustrations,
     viewerBuilder: viewerBuilder ?? this.viewerBuilder,
     viewerActions: viewerActions ?? this.viewerActions,
-    onExport: onExport ?? this.onExport,
+    exporter: exporter ?? this.exporter,
   );
 }

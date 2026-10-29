@@ -66,11 +66,8 @@ class ScopeCreationsSection extends ConsumerWidget {
         else if (list.isEmpty)
           _Line(text: l10n.f43StudioInRepasarEmpty)
         else
-          for (final creation in list)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: CreationTile(creation: creation),
-            ),
+          // Filas planas, con su propio margen, como en Repasar.
+          for (final creation in list) CreationTile(creation: creation),
       ],
     );
   }

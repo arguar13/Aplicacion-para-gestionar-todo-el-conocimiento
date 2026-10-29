@@ -174,6 +174,7 @@ class RepasarHarness {
 
   static Future<RepasarHarness> create({
     List<CreationKindSpec> specs = const [],
+    CreationSharer? sharer,
     int materialChars = 9000,
   }) async {
     estimate = fakeEstimate;
@@ -187,6 +188,7 @@ class RepasarHarness {
           ),
         ),
         creationKindSpecsProvider.overrideWithValue(specs),
+        creationSharerProvider.overrideWithValue(sharer),
         // El armado real corta en otro hilo: acá, un material fijo de
         // [materialChars] caracteres por fuente.
         creationSheetMaterialProvider.overrideWith(
@@ -252,6 +254,7 @@ class RepasarHarness {
     CreationStep step = CreationStep.writing,
     CreationFailure failure = CreationFailure.modelUnavailable,
     bool runNow = true,
+    Map<String, Object?> options = const {},
   }) async {
     final created = (await creations.create(
       CreationRequest(
@@ -259,6 +262,7 @@ class RepasarHarness {
         scope: scope,
         sourceIds: sources,
         runNow: runNow,
+        options: options,
       ),
     )).getOrElse((f) => throw StateError('$f'));
     final id = created.id;

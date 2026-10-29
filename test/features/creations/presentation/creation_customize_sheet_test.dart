@@ -539,7 +539,9 @@ void main() {
       );
       await harness.openRepasar(tester);
 
-      await tester.tap(find.byKey(ValueKey('creation-menu-${creation.id}')));
+      await tester.longPress(
+        find.byKey(ValueKey('creation-tile-${creation.id}')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('creation-action-regenerate')),

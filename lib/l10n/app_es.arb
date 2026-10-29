@@ -12668,7 +12668,7 @@
       }
     }
   },
-  "f43StudioAgoHours": "{count, plural, =1{Hace 1 hora} other{Hace {count} horas}}",
+  "f43StudioAgoHours": "Hace {count} h",
   "@f43StudioAgoHours": {
     "description": "Repasar (F43): cuándo se creó.",
     "placeholders": {
@@ -12677,7 +12677,7 @@
       }
     }
   },
-  "f43StudioAgoDays": "{count, plural, =1{Hace 1 día} other{Hace {count} días}}",
+  "f43StudioAgoDays": "Hace {count} d",
   "@f43StudioAgoDays": {
     "description": "Repasar (F43): cuándo se creó.",
     "placeholders": {
@@ -12706,7 +12706,7 @@
   "@f43StudioMenuOpen": {
     "description": "Repasar (F43): menú de una creación."
   },
-  "f43StudioMenuRename": "Renombrar",
+  "f43StudioMenuRename": "Cambiar nombre",
   "@f43StudioMenuRename": {
     "description": "Repasar (F43): menú de una creación."
   },
@@ -12722,15 +12722,7 @@
   "@f43StudioMenuCancel": {
     "description": "Repasar (F43): menú de una creación."
   },
-  "f43StudioMenuSources": "Ver fuentes",
-  "@f43StudioMenuSources": {
-    "description": "Repasar (F43): menú de una creación."
-  },
-  "f43StudioMenuExport": "Exportar o compartir",
-  "@f43StudioMenuExport": {
-    "description": "Repasar (F43): menú de una creación."
-  },
-  "f43StudioMenuTrash": "Borrar",
+  "f43StudioMenuTrash": "Eliminar",
   "@f43StudioMenuTrash": {
     "description": "Repasar (F43): menú de una creación: a la papelera."
   },
@@ -12742,7 +12734,7 @@
   "@f43StudioUndo": {
     "description": "Repasar (F43): deshacer el borrado."
   },
-  "f43StudioRenameTitle": "Renombrar",
+  "f43StudioRenameTitle": "Cambiar nombre",
   "@f43StudioRenameTitle": {
     "description": "Repasar (F43): diálogo de renombrar."
   },
@@ -12829,5 +12821,58 @@
   "f43StudioInRepasarEmpty": "Todavía no hay nada creado sobre esto.",
   "@f43StudioInRepasarEmpty": {
     "description": "Repasar (F43): sección vacía."
+  },
+  "f43StudioMenuShare": "Compartir",
+  "@f43StudioMenuShare": {
+    "description": "Repasar (F43): menú de una creación."
+  },
+  "f43StudioMenuDownload": "Descargar",
+  "@f43StudioMenuDownload": {
+    "description": "Repasar (F43): menú de una creación: guardar su archivo."
+  },
+  "f43StudioMenuDetails": "Ver petición y fuentes",
+  "@f43StudioMenuDetails": {
+    "description": "Repasar (F43): menú de una creación."
+  },
+  "f43StudioDetailsTitle": "Petición y fuentes",
+  "@f43StudioDetailsTitle": {
+    "description": "Repasar (F43): hoja de lo pedido y las fuentes de una creación."
+  },
+  "f43StudioDetailsRequest": "Lo pedido",
+  "@f43StudioDetailsRequest": {
+    "description": "Repasar (F43): sección de las opciones con que se creó."
+  },
+  "f43StudioDetailsDefaults": "Con las opciones de fábrica.",
+  "@f43StudioDetailsDefaults": {
+    "description": "Repasar (F43): sin opciones elegidas."
+  },
+  "f43StudioDetailsLanguage": "Idioma",
+  "@f43StudioDetailsLanguage": {
+    "description": "Repasar (F43): fila de la hoja de petición."
+  },
+  "f43StudioDetailsModel": "Modelo",
+  "@f43StudioDetailsModel": {
+    "description": "Repasar (F43): fila de la hoja de petición."
+  },
+  "f43StudioDetailsCreated": "Creada",
+  "@f43StudioDetailsCreated": {
+    "description": "Repasar (F43): fila de la hoja de petición."
+  },
+  "f43StudioYes": "Sí",
+  "@f43StudioYes": {
+    "description": "Repasar (F43): un interruptor prendido, en la hoja de petición."
+  },
+  "f43StudioNo": "No",
+  "@f43StudioNo": {
+    "description": "Repasar (F43): un interruptor apagado, en la hoja de petición."
+  },
+  "f43StudioDownloaded": "Se guardó «{name}».",
+  "@f43StudioDownloaded": {
+    "description": "Repasar (F43): aviso al descargar una creación.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }

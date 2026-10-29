@@ -59,3 +59,14 @@ class CreationKindRegistry {
   /// Si [kind] ya tiene su visor.
   bool hasViewer(StudyCreationKind kind) => of(kind).viewerBuilder != null;
 }
+
+/// Quien pasa el archivo de una creación a otra app («Compartir»): la hoja
+/// de compartir del sistema.
+typedef CreationSharer =
+    Future<void> Function(CreationExportFile file, {required String title});
+
+/// El que comparte, o `null` si esta app no tiene cómo: hoy no trae ningún
+/// complemento para la hoja de compartir del sistema, así que «Compartir» no
+/// se ofrece —«Descargar» sí, con el selector de archivos de siempre—. Quien
+/// lo sume lo da acá y aparece en el menú de cada creación que exporta.
+final creationSharerProvider = Provider<CreationSharer?>((ref) => null);

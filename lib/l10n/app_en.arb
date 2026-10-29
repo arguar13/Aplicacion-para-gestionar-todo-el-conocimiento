@@ -13651,7 +13651,7 @@
       }
     }
   },
-  "f43StudioAgoHours": "{count, plural, =1{1 hour ago} other{{count} hours ago}}",
+  "f43StudioAgoHours": "{count} h ago",
   "@f43StudioAgoHours": {
     "description": "Repasar (F43): cuándo se creó.",
     "placeholders": {
@@ -13660,7 +13660,7 @@
       }
     }
   },
-  "f43StudioAgoDays": "{count, plural, =1{1 day ago} other{{count} days ago}}",
+  "f43StudioAgoDays": "{count} d ago",
   "@f43StudioAgoDays": {
     "description": "Repasar (F43): cuándo se creó.",
     "placeholders": {
@@ -13703,14 +13703,6 @@
   },
   "f43StudioMenuCancel": "Cancel generation",
   "@f43StudioMenuCancel": {
-    "description": "Repasar (F43): menú de una creación."
-  },
-  "f43StudioMenuSources": "View sources",
-  "@f43StudioMenuSources": {
-    "description": "Repasar (F43): menú de una creación."
-  },
-  "f43StudioMenuExport": "Export or share",
-  "@f43StudioMenuExport": {
     "description": "Repasar (F43): menú de una creación."
   },
   "f43StudioMenuTrash": "Delete",
@@ -13812,5 +13804,58 @@
   "f43StudioInRepasarEmpty": "Nothing has been created on this yet.",
   "@f43StudioInRepasarEmpty": {
     "description": "Repasar (F43): sección vacía."
+  },
+  "f43StudioMenuShare": "Share",
+  "@f43StudioMenuShare": {
+    "description": "Repasar (F43): menú de una creación."
+  },
+  "f43StudioMenuDownload": "Download",
+  "@f43StudioMenuDownload": {
+    "description": "Repasar (F43): menú de una creación: guardar su archivo."
+  },
+  "f43StudioMenuDetails": "View request and sources",
+  "@f43StudioMenuDetails": {
+    "description": "Repasar (F43): menú de una creación."
+  },
+  "f43StudioDetailsTitle": "Request and sources",
+  "@f43StudioDetailsTitle": {
+    "description": "Repasar (F43): hoja de lo pedido y las fuentes de una creación."
+  },
+  "f43StudioDetailsRequest": "What was asked",
+  "@f43StudioDetailsRequest": {
+    "description": "Repasar (F43): sección de las opciones con que se creó."
+  },
+  "f43StudioDetailsDefaults": "With the default options.",
+  "@f43StudioDetailsDefaults": {
+    "description": "Repasar (F43): sin opciones elegidas."
+  },
+  "f43StudioDetailsLanguage": "Language",
+  "@f43StudioDetailsLanguage": {
+    "description": "Repasar (F43): fila de la hoja de petición."
+  },
+  "f43StudioDetailsModel": "Model",
+  "@f43StudioDetailsModel": {
+    "description": "Repasar (F43): fila de la hoja de petición."
+  },
+  "f43StudioDetailsCreated": "Created",
+  "@f43StudioDetailsCreated": {
+    "description": "Repasar (F43): fila de la hoja de petición."
+  },
+  "f43StudioYes": "Yes",
+  "@f43StudioYes": {
+    "description": "Repasar (F43): un interruptor prendido, en la hoja de petición."
+  },
+  "f43StudioNo": "No",
+  "@f43StudioNo": {
+    "description": "Repasar (F43): un interruptor apagado, en la hoja de petición."
+  },
+  "f43StudioDownloaded": "Saved “{name}”.",
+  "@f43StudioDownloaded": {
+    "description": "Repasar (F43): aviso al descargar una creación.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }

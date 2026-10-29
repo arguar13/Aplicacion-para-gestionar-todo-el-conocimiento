@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +9,7 @@ import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
+import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
 import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
 import 'package:sinapsis/features/creations/presentation/screens/creation_viewer_screen.dart';
@@ -41,15 +45,15 @@ void main() {
   Finder statusOf(StudyCreation creation) =>
       find.byKey(ValueKey('creation-status-${creation.id}'));
 
+  /// Mantiene apretada la fila de [creation] y toca [action] en su menú.
   Future<void> menu(
     WidgetTester tester,
     StudyCreation creation,
     String action,
   ) async {
-    final button = find.byKey(ValueKey('creation-menu-${creation.id}'));
-    await tester.ensureVisible(button);
+    await tester.ensureVisible(tileOf(creation));
     await tester.pumpAndSettle();
-    await tester.tap(button);
+    await tester.longPress(tileOf(creation));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(ValueKey('creation-action-$action')));
     await tester.pumpAndSettle();
@@ -70,6 +74,29 @@ void main() {
         'creation-action-'.length,
       ),
   ];
+
+  /// Desliza la fila de [creation] [dx] píxeles.
+  Future<void> swipe(
+    WidgetTester tester,
+    StudyCreation creation,
+    double dx,
+  ) async {
+    await tester.drag(tileOf(creation), Offset(dx, 0));
+    await tester.pumpAndSettle();
+  }
+
+  Finder swipeButton(String action, StudyCreation creation) =>
+      find.byKey(ValueKey('creation-swipe-$action-${creation.id}'));
+
+  /// Un tipo que arma su archivo, para «Compartir» y «Descargar».
+  CreationKindSpec exporting(StudyCreationKind kind) =>
+      defaultCreationKindSpec(kind).copyWith(
+        exporter: (context, ref, creation) async => CreationExportFile(
+          fileName: '${creation.title}.pdf',
+          bytes: Uint8List.fromList([1, 2, 3]),
+          mimeType: 'application/pdf',
+        ),
+      );
 
   group('los estados de cada fila', () {
     testWidgets('lista: su título, cuántas fuentes y cuándo', (tester) async {
@@ -169,8 +196,9 @@ void main() {
     });
   });
 
-  group('el menú ⋮', () {
-    testWidgets('ofrece lo que tiene sentido en cada estado', (tester) async {
+  group('mantener apretada una fila: su menú flotante', () {
+    testWidgets('ofrece lo que tiene sentido en cada estado, en el orden de '
+        'NotebookLM', (tester) async {
       final ready = await harness.creation(StudyCreationKind.quiz);
       final queued = await harness.creation(
         StudyCreationKind.report,
@@ -183,35 +211,40 @@ void main() {
       await harness.openRepasar(tester);
 
       Future<List<String>> open(StudyCreation c) async {
-        final button = find.byKey(ValueKey('creation-menu-${c.id}'));
-        await tester.ensureVisible(button);
+        await tester.ensureVisible(tileOf(c));
         await tester.pumpAndSettle();
-        await tester.tap(button);
+        await tester.longPress(tileOf(c));
         await tester.pumpAndSettle();
+        expect(
+          find.byKey(ValueKey('creation-actions-menu-${c.id}')),
+          findsOneWidget,
+        );
         final shown = actionsIn(tester);
         await tester.tapAt(const Offset(4, 4));
         await tester.pumpAndSettle();
         return shown;
       }
 
+      // Sin archivo de su tipo, ni Compartir ni Descargar: nunca un botón
+      // que no hace nada.
       expect(await open(ready), [
         'open',
         'rename',
+        'details',
         'regenerate',
-        'sources',
         'trash',
       ]);
-      expect(await open(queued), ['cancel', 'rename', 'sources', 'trash']);
+      expect(await open(queued), ['rename', 'details', 'cancel', 'trash']);
       expect(await open(failed), [
-        'retry',
         'rename',
+        'details',
+        'retry',
         'regenerate',
-        'sources',
         'trash',
       ]);
     });
 
-    testWidgets('renombrar le cambia el título', (tester) async {
+    testWidgets('«Cambiar nombre» le cambia el título', (tester) async {
       final ready = await harness.creation(
         StudyCreationKind.report,
         title: 'Un informe',
@@ -230,7 +263,7 @@ void main() {
       expect(find.text('Un informe'), findsNothing);
     });
 
-    testWidgets('borrar la manda a la papelera, y «Deshacer» la trae', (
+    testWidgets('«Eliminar» la manda a la papelera, y «Deshacer» la trae', (
       tester,
     ) async {
       final ready = await harness.creation(
@@ -269,35 +302,291 @@ void main() {
       );
     });
 
-    testWidgets('«Exportar o compartir» solo si su tipo sabe', (tester) async {
-      final exported = <String>[];
+    testWidgets('«Descargar» guarda el archivo que arma su tipo', (
+      tester,
+    ) async {
       harness = await RepasarHarness.create(
-        specs: [
-          defaultCreationKindSpec(StudyCreationKind.quiz).copyWith(
-            onExport: (context, ref, creation) async =>
-                exported.add(creation.id),
-          ),
-        ],
+        specs: [exporting(StudyCreationKind.quiz)],
       );
-      final quiz = await harness.creation(StudyCreationKind.quiz);
+      final quiz = await harness.creation(
+        StudyCreationKind.quiz,
+        title: 'Éxodo Cuestionario',
+      );
       await harness.openRepasar(tester);
 
-      await menu(tester, quiz, 'export');
+      await tester.longPress(tileOf(quiz));
+      await tester.pumpAndSettle();
+      // Sin cómo compartir en esta app, «Compartir» no se ofrece.
+      expect(actionsIn(tester), [
+        'open',
+        'download',
+        'rename',
+        'details',
+        'regenerate',
+        'trash',
+      ]);
+      await tester.tap(find.byKey(const ValueKey('creation-action-download')));
+      await tester.pumpAndSettle();
 
-      expect(exported, [quiz.id]);
+      expect(harness.library.fileSaver.savedFileName, 'Éxodo Cuestionario.pdf');
+      expect(harness.library.fileSaver.savedBytes, [1, 2, 3]);
+      expect(
+        find.text(es.f43StudioDownloaded('Éxodo Cuestionario.pdf')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('«Compartir» solo si la app tiene cómo, y le pasa el archivo', (
+      tester,
+    ) async {
+      final shared = <(String, String)>[];
+      harness = await RepasarHarness.create(
+        specs: [exporting(StudyCreationKind.quiz)],
+        sharer: (file, {required title}) async =>
+            shared.add((file.fileName, title)),
+      );
+      final quiz = await harness.creation(
+        StudyCreationKind.quiz,
+        title: 'Éxodo Cuestionario',
+      );
+      await harness.openRepasar(tester);
+
+      await menu(tester, quiz, 'share');
+
+      expect(shared, [('Éxodo Cuestionario.pdf', 'Éxodo Cuestionario')]);
+    });
+
+    testWidgets('el lector de pantalla tiene las mismas acciones', (
+      tester,
+    ) async {
+      final ready = await harness.creation(
+        StudyCreationKind.report,
+        title: 'Un informe',
+      );
+      await harness.openRepasar(tester);
+
+      final semantics = tester.widget<Semantics>(
+        find.ancestor(
+          of: tileOf(ready),
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Semantics && w.properties.customSemanticsActions != null,
+          ),
+        ),
+      );
+      final actions = semantics.properties.customSemanticsActions!;
+      expect(actions.keys.map((a) => a.label), [
+        es.f43StudioMenuRename,
+        es.f43StudioMenuDetails,
+        es.f43StudioMenuRegenerate,
+        es.f43StudioMenuTrash,
+      ]);
+      actions[CustomSemanticsAction(label: es.f43StudioMenuTrash)]!();
+      await tester.pumpAndSettle();
+      expect(tileOf(ready), findsNothing);
+    });
+  });
+
+  group('deslizar una fila a la izquierda', () {
+    testWidgets('muestra Eliminar al ras de la derecha; tocarlo la manda a la '
+        'papelera', (tester) async {
+      final ready = await harness.creation(
+        StudyCreationKind.report,
+        title: 'La Topografía de lo Invisible',
+      );
+      await harness.openRepasar(tester);
+      expect(swipeButton('trash', ready), findsNothing);
+
+      await swipe(tester, ready, -400);
+
+      expect(swipeButton('trash', ready), findsOneWidget);
+      // Sin archivo de su tipo, no hay Descargar.
+      expect(swipeButton('download', ready), findsNothing);
+      final row = tester.getRect(tileOf(ready));
+      final button = tester.getRect(swipeButton('trash', ready));
+      expect(
+        button.right,
+        closeTo(tester.getSize(find.byType(Scaffold).first).width, 1),
+      );
+      expect(row.right, lessThanOrEqualTo(button.left + 1));
+
+      await tester.tap(swipeButton('trash', ready));
+      await tester.pumpAndSettle();
+      expect(harness.queue.calls.last.action, 'trash');
+      expect(tileOf(ready), findsNothing);
+    });
+
+    testWidgets('con archivo, Descargar al lado de Eliminar', (tester) async {
+      harness = await RepasarHarness.create(
+        specs: [exporting(StudyCreationKind.infographic)],
+      );
+      final ready = await harness.creation(
+        StudyCreationKind.infographic,
+        title: 'Lámina',
+      );
+      await harness.openRepasar(tester);
+
+      await swipe(tester, ready, -400);
+      expect(
+        tester.getCenter(swipeButton('download', ready)).dx,
+        lessThan(tester.getCenter(swipeButton('trash', ready)).dx),
+      );
+      await tester.tap(swipeButton('download', ready));
+      await tester.pumpAndSettle();
+
+      expect(harness.library.fileSaver.savedFileName, 'Lámina.pdf');
+      // Hacer algo la cierra.
+      expect(swipeButton('download', ready), findsNothing);
+    });
+
+    testWidgets('un poco no alcanza: vuelve a cerrarse sola', (tester) async {
+      final ready = await harness.creation(StudyCreationKind.report);
+      await harness.openRepasar(tester);
+
+      // Despacio —sin envión— y menos de la mitad de los botones.
+      final gesture = await tester.startGesture(
+        tester.getCenter(tileOf(ready)),
+      );
+      for (var i = 0; i < 4; i++) {
+        await gesture.moveBy(const Offset(-10, 0));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tester.getTopLeft(tileOf(ready)).dx, lessThan(0));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(swipeButton('trash', ready), findsNothing);
+      expect(tester.getTopLeft(tileOf(ready)).dx, 0);
+    });
+
+    testWidgets('una sola abierta a la vez; tocar la abierta la cierra', (
+      tester,
+    ) async {
+      final first = await harness.creation(
+        StudyCreationKind.report,
+        title: 'Primera',
+      );
+      final second = await harness.creation(
+        StudyCreationKind.quiz,
+        title: 'Segunda',
+      );
+      await harness.openRepasar(tester);
+
+      await swipe(tester, first, -400);
+      expect(swipeButton('trash', first), findsOneWidget);
+      await swipe(tester, second, -400);
+      expect(swipeButton('trash', second), findsOneWidget);
+      expect(swipeButton('trash', first), findsNothing);
+
+      // Lo que se ve de la fila corrida: su borde izquierdo.
+      await tester.tapAt(Offset(24, tester.getCenter(tileOf(second)).dy));
+      await tester.pumpAndSettle();
+      expect(swipeButton('trash', second), findsNothing);
+      // Cerrar no es abrir: sigue en Repasar.
+      expect(find.byType(CreationViewerScreen), findsNothing);
+    });
+
+    testWidgets('con la letra al doble en 360 dp, los botones entran y nada '
+        'se desborda', (tester) async {
+      harness = await RepasarHarness.create(
+        specs: [exporting(StudyCreationKind.report)],
+      );
+      final ready = await harness.creation(
+        StudyCreationKind.report,
+        title: 'Resumen Teológico y Sintético: Éxodo, el Señor de la Historia',
+      );
+      await harness.openRepasar(
+        tester,
+        size: const Size(360, 1600),
+        textScale: 2,
+      );
+      await tester.scrollUntilVisible(
+        tileOf(ready),
+        300,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const Key('review-entry')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+
+      await swipe(tester, ready, -500);
+
+      expect(swipeButton('download', ready), findsOneWidget);
+      expect(swipeButton('trash', ready), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('«Ver petición y fuentes»', () {
+    testWidgets('lo pedido con los nombres de la hoja, el idioma, el modelo '
+        'y las fuentes', (tester) async {
+      final ready = await harness.creation(
+        StudyCreationKind.presentation,
+        sources: ['p-1', 'ya-no-esta'],
+        title: 'Éxodo en diapositivas',
+        options: const {
+          CreationOptionValues.length: CreationOptionValues.short,
+          CreationOptionValues.illustrations: true,
+          CreationOptionKeys.description: 'Para chicos',
+        },
+      );
+      await harness.openRepasar(tester);
+
+      await menu(tester, ready, 'details');
+
+      final sheet = find.byKey(const Key('creation-details-sheet'));
+      expect(sheet, findsOneWidget);
+      for (final text in [
+        es.f43StudioOptDuration,
+        es.f43StudioOptShort,
+        es.f43StudioOptIllustrations,
+        es.f43StudioYes,
+        'Para chicos',
+        'Español',
+      ]) {
+        expect(
+          find.descendant(of: sheet, matching: find.text(text)),
+          findsOneWidget,
+          reason: text,
+        );
+      }
+      expect(
+        find.descendant(
+          of: sheet,
+          matching: find.byKey(const ValueKey('creation-source-ya-no-esta')),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: sheet,
+          matching: find.text(es.f43StudioSourceDeleted),
+        ),
+        findsOneWidget,
+      );
     });
   });
 
   group('las fuentes como chips (M6)', () {
+    Future<Finder> detailsOf(WidgetTester tester, StudyCreation c) async {
+      await menu(tester, c, 'details');
+      return find.byKey(const Key('creation-details-sheet'));
+    }
+
     testWidgets('un documento abre su pantalla de procesado', (tester) async {
       final ready = await harness.creation(
         StudyCreationKind.report,
         sources: ['p-2'],
       );
       await harness.openRepasar(tester);
+      final sheet = await detailsOf(tester, ready);
 
       final chip = find.descendant(
-        of: tileOf(ready),
+        of: sheet,
         matching: find.byKey(const ValueKey('creation-source-p-2')),
       );
       expect(
@@ -317,17 +606,11 @@ void main() {
         sources: ['ya-no-esta'],
       );
       await harness.openRepasar(tester);
+      final sheet = await detailsOf(tester, ready);
 
       final chip = find.descendant(
-        of: tileOf(ready),
+        of: sheet,
         matching: find.byKey(const ValueKey('creation-source-ya-no-esta')),
-      );
-      expect(
-        find.descendant(
-          of: chip,
-          matching: find.text(es.f43StudioSourceDeleted),
-        ),
-        findsOneWidget,
       );
       await tester.tap(chip);
       await tester.pumpAndSettle();
@@ -350,9 +633,10 @@ void main() {
         sources: ['p-1'],
       );
       await harness.openRepasar(tester);
+      final sheet = await detailsOf(tester, ready);
 
       final chip = find.descendant(
-        of: tileOf(ready),
+        of: sheet,
         matching: find.byKey(
           ValueKey('creation-scope-chip-${scope.storageKey}'),
         ),
@@ -386,10 +670,11 @@ void main() {
         sources: ['p-1'],
       );
       await harness.openRepasar(tester);
+      final sheet = await detailsOf(tester, ready);
 
       await tester.tap(
         find.descendant(
-          of: tileOf(ready),
+          of: sheet,
           matching: find.byKey(
             ValueKey('creation-scope-chip-${scope.storageKey}'),
           ),
@@ -400,20 +685,18 @@ void main() {
       expect(find.byType(ExplorerScreen), findsOneWidget);
     });
 
-    testWidgets('las que no entran van en «+N», que abre la lista entera', (
-      tester,
-    ) async {
+    testWidgets('en el visor, las que no entran van en «+N», que abre la '
+        'lista entera', (tester) async {
       final ready = await harness.creation(
         StudyCreationKind.report,
-        sources: ['p-1', 'p-2', 'p-3'],
+        sources: ['p-1', 'p-2', 'p-3', 'ya-no-esta'],
       );
       await harness.openRepasar(tester);
+      harness.library.pushTo('/creations/${ready.id}');
+      await tester.pumpAndSettle();
 
       expect(
-        find.descendant(
-          of: tileOf(ready),
-          matching: find.byKey(const ValueKey('creation-source-p-3')),
-        ),
+        find.byKey(const ValueKey('creation-source-ya-no-esta')),
         findsNothing,
       );
       await tester.tap(

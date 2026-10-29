@@ -339,11 +339,11 @@ class _Created extends ConsumerWidget {
       );
     }
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      sliver: SliverList.separated(
+      // Las filas son planas y traen su propio margen, como en NotebookLM.
+      padding: const EdgeInsets.only(top: 4),
+      sliver: SliverList.builder(
         key: const Key('repasar-created'),
         itemCount: list.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) => CreationTile(creation: list[index]),
       ),
     );

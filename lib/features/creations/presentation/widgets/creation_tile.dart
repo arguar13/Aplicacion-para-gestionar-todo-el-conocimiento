@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
@@ -11,87 +12,273 @@ import 'package:sinapsis/features/creations/presentation/providers/creation_kind
 import 'package:sinapsis/features/creations/presentation/providers/creation_queue_providers.dart';
 import 'package:sinapsis/features/creations/presentation/repasar_navigation.dart';
 import 'package:sinapsis/features/creations/presentation/widgets/creation_kind_icon.dart';
-import 'package:sinapsis/features/creations/presentation/widgets/creation_source_chips.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Una fila de «Lo creado» (F43, punto 2 del plan): el ícono de su tipo con su
-/// color, el título que puso la IA, «N fuentes · Hace X días» y su ⋮.
+/// Qué fila de «Lo creado» está abierta con sus botones a la vista (al
+/// deslizarla): una sola a la vez.
+final openCreationRowProvider = StateProvider<String?>((ref) => null);
+
+/// Una fila de «Lo creado» (F43), como las del Studio de NotebookLM: plana,
+/// con el ícono de su tipo en su color, el título en una línea y «N fuentes ·
+/// Hace 5 d».
 ///
-/// - **Mientras se genera** aparece con un brillo que recorre —quieto con
-///   «sin animaciones»— y dice en qué va: en la cola, el paso y cuánto falta.
-/// - **Si falló**, dice por qué en una línea y ofrece «Reintentar».
-/// - **Lista**, tocarla abre su visor.
-/// - Abajo, **sus fuentes como chips tocables** (M6): el documento, el
-///   cuaderno o el tema, con «Fuente borrada» si ya no está.
+/// - **Tocarla**, lista, abre su visor.
+/// - **Mantenerla apretada** (o el clic derecho) abre su menú flotante:
+///   Compartir y Descargar —si su tipo arma su archivo—, Cambiar nombre, Ver
+///   petición y fuentes (con las fuentes como fichas tocables, M6),
+///   reintentar, cancelar o volver a generar según su estado, y Eliminar, que
+///   la manda a la papelera con «Deshacer».
+/// - **Deslizarla a la izquierda** muestra dos botones cuadrados al ras de la
+///   derecha —Descargar y Eliminar—, y queda abierta o cerrada según hasta
+///   dónde se la llevó. Solo una abierta a la vez. Sigue al dedo; el encaje
+///   final se anima, salvo con «sin animaciones», que encaja de una.
+/// - **Mientras se genera** dice en qué va, con un brillo que recorre (quieto
+///   con «sin animaciones»); **si falló**, por qué, con «Reintentar».
+///
+/// Lo del menú está también, entero, en las acciones del lector de pantalla.
 ///
 /// La usan «Lo creado» de Repasar y la sección «En Repasar» de un documento
 /// procesado y de un cuaderno.
-class CreationTile extends ConsumerWidget {
+class CreationTile extends ConsumerStatefulWidget {
   const CreationTile({required this.creation, super.key});
 
   final StudyCreation creation;
 
-  /// Cuántas fuentes se muestran como chips; el resto va en «+N».
-  static const maxSourceChips = 2;
+  @override
+  ConsumerState<CreationTile> createState() => _CreationTileState();
+}
+
+class _CreationTileState extends ConsumerState<CreationTile>
+    with SingleTickerProviderStateMixin {
+  /// Cuánto se corrió la fila a la izquierda: 0 cerrada, `-ancho de los
+  /// botones` abierta.
+  var _offset = 0.0;
+  var _from = 0.0;
+  var _to = 0.0;
+
+  late final _snap = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+  )..addListener(_onSnapTick);
+
+  StudyCreation get creation => widget.creation;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void dispose() {
+    _snap.dispose();
+    super.dispose();
+  }
+
+  void _onSnapTick() => setState(
+    () => _offset =
+        _from + (_to - _from) * Curves.easeOutCubic.transform(_snap.value),
+  );
+
+  /// Lleva la fila a [target]: con el encaje animado, o de una con «sin
+  /// animaciones».
+  void _snapTo(double target) {
+    final open = ref.read(openCreationRowProvider.notifier);
+    if (target != 0) {
+      open.state = creation.id;
+    } else if (open.state == creation.id) {
+      open.state = null;
+    }
+    _snap.stop();
+    if (MediaQuery.disableAnimationsOf(context) || _offset == target) {
+      setState(() => _offset = target);
+      return;
+    }
+    _from = _offset;
+    _to = target;
+    unawaited(_snap.forward(from: 0));
+  }
+
+  void _onDragUpdate(DragUpdateDetails details, double width) {
+    _snap.stop();
+    setState(
+      () => _offset = (_offset + details.primaryDelta!).clamp(-width, 0),
+    );
+  }
+
+  void _onDragEnd(DragEndDetails details, double width) {
+    final velocity = details.primaryVelocity ?? 0;
+    final open = velocity < -300 || (velocity <= 300 && _offset < -width / 2);
+    _snapTo(open ? -width : 0);
+  }
+
+  Future<void> _menu() async {
+    final box = context.findRenderObject() as RenderBox?;
+    final anchor = box == null || !box.hasSize
+        ? null
+        : box.localToGlobal(Offset.zero) & box.size;
+    _snapTo(0);
+    await showCreationActionsMenu(context, ref, creation, anchor: anchor);
+  }
+
+  Future<void> _run(CreationAction action) async {
+    _snapTo(0);
+    await runCreationAction(context, ref, creation, action);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final spec = ref.watch(creationKindRegistryProvider).of(creation.kind);
     final ready = creation.status == CreationStatus.ready;
+    final actions = availableCreationActions(ref, creation);
+    final swipe = [
+      if (actions.contains(CreationAction.download)) CreationAction.download,
+      CreationAction.trash,
+    ];
+    final tileWidth = MediaQuery.textScalerOf(
+      context,
+    ).scale(76).clamp(76.0, 112.0);
+    final width = tileWidth * swipe.length;
 
-    final tile = Material(
-      color: scheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        key: ValueKey('creation-tile-${creation.id}'),
-        onTap: ready ? () => openCreation(context, creation) : null,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: CreationKindIcon(spec: spec),
+    // Si se abre otra, esta se cierra.
+    ref.listen(openCreationRowProvider, (_, open) {
+      if (open != creation.id && _offset != 0) _snapTo(0);
+    });
+
+    final row = InkWell(
+      key: ValueKey('creation-tile-${creation.id}'),
+      onTap: _offset != 0
+          ? () => _snapTo(0)
+          : ready
+          ? () => openCreation(context, creation)
+          : null,
+      onLongPress: () => unawaited(_menu()),
+      onSecondaryTap: () => unawaited(_menu()),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(
+                spec.iconData,
+                size: 26,
+                color: spec.accent.resolve(theme.brightness, scheme.surface),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      studyCreationTitle(l10n, creation),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    _Status(creation: creation),
-                    const SizedBox(height: 8),
-                    CreationSourceChips(
-                      creation: creation,
-                      maxDocuments: maxSourceChips,
-                    ),
-                  ],
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    studyCreationTitle(l10n, creation),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 2),
+                  _Status(creation: creation),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return Semantics(
+      container: true,
+      label: studyCreationKindLabel(l10n, creation.kind),
+      customSemanticsActions: {
+        for (final action in actions)
+          if (action != CreationAction.open)
+            CustomSemanticsAction(
+              label: creationActionLabel(l10n, action),
+            ): () =>
+                unawaited(_run(action)),
+      },
+      child: GestureDetector(
+        onHorizontalDragUpdate: (d) => _onDragUpdate(d, width),
+        onHorizontalDragEnd: (d) => _onDragEnd(d, width),
+        child: ClipRect(
+          child: Stack(
+            children: [
+              // Los botones, debajo, al ras de la derecha: solo mientras la
+              // fila se corre, para que nunca se toquen sin verlos.
+              if (_offset != 0)
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  right: 0,
+                  width: width,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final action in swipe)
+                        Expanded(
+                          child: _SwipeButton(
+                            key: ValueKey(
+                              'creation-swipe-${action.name}-${creation.id}',
+                            ),
+                            action: action,
+                            onTap: () => unawaited(_run(action)),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              Transform.translate(
+                offset: Offset(_offset, 0),
+                child: ColoredBox(
+                  // Corrida, tapa los botones con el fondo de la pantalla;
+                  // quieta, no pinta nada: queda sobre cualquier fondo.
+                  color: _offset == 0
+                      ? Colors.transparent
+                      : theme.scaffoldBackgroundColor,
+                  child: creation.status.isPending ? _Shimmer(child: row) : row,
                 ),
               ),
-              CreationMenuButton(creation: creation),
             ],
           ),
         ),
       ),
     );
-    return Semantics(
-      container: true,
-      label: studyCreationKindLabel(l10n, creation.kind),
-      child: creation.status.isPending ? _Shimmer(child: tile) : tile,
+  }
+}
+
+/// Un botón cuadrado de los que aparecen al deslizar una fila, como los de
+/// NotebookLM: superficie tonal e ícono de contorno (Descargar con el tinte
+/// principal).
+class _SwipeButton extends StatelessWidget {
+  const _SwipeButton({required this.action, required this.onTap, super.key});
+
+  final CreationAction action;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
+    final download = action == CreationAction.download;
+    return Material(
+      color: download
+          ? scheme.surfaceContainerHighest
+          : scheme.surfaceContainerHigh,
+      child: InkWell(
+        onTap: onTap,
+        child: Tooltip(
+          message: creationActionLabel(l10n, action),
+          child: Center(
+            child: Icon(
+              download
+                  ? Icons.download_for_offline_outlined
+                  : Icons.delete_outline,
+              size: 28,
+              color: download ? scheme.primary : scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -238,7 +425,7 @@ class _ShimmerState extends State<_Shimmer>
                 child: DecoratedBox(
                   key: const Key('creation-shimmer'),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.zero,
                     gradient: LinearGradient(
                       begin: Alignment(-1.5 + 3 * t, -0.3),
                       end: Alignment(-0.5 + 3 * t, 0.3),
