@@ -117,6 +117,13 @@ tiempo, Mapa y Repasar; Chat; y Ajustes.
 Vas a ver estos nombres una y otra vez en esta guía; cada uno tiene su propia
 sección más abajo.
 
+**Los avisos de abajo.** Una confirmación corta —«Copiado», «Guardado»— se va
+sola en unos segundos. Un aviso que trae un botón (**"Deshacer"**, **"Ver"**,
+**"Ver en el Mapa"**…), que dura más o que se queda hasta que hagas algo
+**lleva una ✕ a la derecha**: tocala para sacarlo en el acto, sin usar su
+botón. Lo mismo los avisos de la IA (ver
+[Modelo de lenguaje](#modelo-de-lenguaje-el-del-chat-y-la-ia-que-organiza-sola)).
+
 ---
 
 ## Primeros pasos: creá y desbloqueá tu bóveda
@@ -3273,7 +3280,10 @@ y te avisa con un cartel abajo: qué cuenta se agotó, a cuál pasó y cuándo
 vuelve la primera. Si se agotan todas, te dice a qué hora vuelve la más
 cercana. También avisa si hay que esperar unos segundos (el tope por
 minuto), si una clave dejó de andar o por qué falló un pedido (sin
-conexión, el proveedor saturado…). Si no querés que cambie sola, apagá
+conexión, el proveedor saturado…). **Cada cartel se cierra con su ✕**, a la
+derecha, si no querés esperar a que se vaya solo. El de la espera
+(*«Un momento… sigue sola en 28 segundos»*) **cuenta hacia atrás** y se va
+solo apenas la IA sigue. Si no querés que cambie sola, apagá
 **"Pasar sola a otra cuenta"** en la sección de cuota (Google no permite
 usar varias cuentas para pasar su tope: usarlo es tu riesgo).
 
@@ -3460,14 +3470,17 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
   voz alta y la hoja del PDF se siguen leyendo bien en cada tema (en Sepia, el
   amarillo claro se carga un poco para que se vea sobre el papel crema).
 - **Citas:** el estilo de cita por defecto (APA, MLA, etc.) y su idioma.
-- **IA y modelos:**
-  - **"Lo que hizo la IA"**, con una línea que dice en qué anda y cuántas
-    cosas esperan revisión (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
-  - El interruptor **"Organizar con IA"** y, debajo, uno por cada cosa que
-    organiza (también **"Fechas para la línea de tiempo"**), con **"Ordenar la biblioteca existente mientras carga"** y
-    cuántos le quedan.
-  - Los accesos a los tres modelos: el de lenguaje, el de transcripción y
-    el del motor de relaciones (ver sección anterior).
+- **IA y modelos:** primero se elige la IA y después lo que hace con ella.
+  - Arriba, los accesos a los tres modelos: **"Modelo de lenguaje"** (con
+    cuál escribe y si está en la nube o en el teléfono), **"Transcripción de
+    audio y video"** y **"Modelo del motor de relaciones"** (ver sección
+    anterior).
+  - Debajo, **"Lo que hizo la IA"**, con una línea que dice en qué anda y
+    cuántas cosas esperan revisión (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
+  - Y el interruptor **"Organizar con IA"** con, debajo, uno por cada cosa
+    que organiza (también **"Fechas para la línea de tiempo"**), con
+    **"Ordenar la biblioteca existente mientras carga"** y cuántos le
+    quedan.
 - **Segundo plano** (solo en Android): **"Que siga con la app cerrada"**,
   la ayuda para que el teléfono no frene a Sinapsis cuando la cerrás (ver
   [Que siga con la app cerrada](#que-siga-con-la-app-cerrada)).

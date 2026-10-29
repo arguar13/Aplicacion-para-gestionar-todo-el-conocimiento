@@ -317,12 +317,20 @@ void main() {
       expect(metadata.title, 'Declaración de los Derechos');
     });
 
-    test('el Info en UTF-8 con su marca, como permite PDF 2.0', () {
-      final metadata = readPdfMetadata(
-        _pdfWithInfo(r'/Title (\357\273\277Declaraci\303\263n)'),
+    test('el Info en UTF-8 con su marca, como permite PDF 2.0: la marca '
+        'manda aunque traiga un byte roto', () {
+      expect(
+        readPdfMetadata(
+          _pdfWithInfo(r'/Title (\357\273\277Declaraci\303\263n)'),
+        ).title,
+        'Declaración',
       );
-
-      expect(metadata.title, 'Declaración');
+      expect(
+        readPdfMetadata(
+          _pdfWithInfo(r'/Title (\357\273\277Declaraci\303\263n \377)'),
+        ).title,
+        'Declaración �',
+      );
     });
 
     test('el Info en PDFDocEncoding: la «ó» de un byte sigue siendo «ó», y '
