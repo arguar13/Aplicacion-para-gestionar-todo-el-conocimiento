@@ -17,6 +17,7 @@ import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
 import 'package:sinapsis/features/ai_models/presentation/illustration_texts.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/illustration_providers.dart';
+import 'package:sinapsis/features/ai_models/presentation/widgets/on_device_image_models.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Abre «¿Qué puede cada IA?» encima de lo que haya (una hoja de crear,
@@ -101,6 +102,10 @@ class AiCapabilitiesScreen extends ConsumerWidget {
               key: Key('ai-capabilities-on-device'),
               row: AiCapabilityRow.onDevice,
             ),
+            const SizedBox(height: 12),
+            // Cada modelo, con su enlace, su licencia, lo que exige, si este
+            // teléfono puede y sus pasos (F43, paso 3b).
+            const OnDeviceImageModelsPanel(),
           ],
         ],
       ),

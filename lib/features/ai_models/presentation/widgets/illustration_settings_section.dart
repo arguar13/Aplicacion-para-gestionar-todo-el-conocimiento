@@ -13,9 +13,11 @@ import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
 import 'package:sinapsis/features/ai_models/presentation/illustration_texts.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/illustration_providers.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/on_device_image_providers.dart';
 import 'package:sinapsis/features/ai_models/presentation/screens/ai_capabilities_screen.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/daily_quota_sheet.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/hugging_face_token_sheet.dart';
+import 'package:sinapsis/features/ai_models/presentation/widgets/on_device_image_models.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// «Ilustraciones y cuota diaria» en Ajustes → IA (F43): la entrada a «¿Qué
@@ -39,6 +41,8 @@ class IllustrationSettingsSection extends ConsumerWidget {
         side.account.id: side,
     };
     final own = ref.watch(imageAccountsProvider).valueOrNull ?? const [];
+    ref.watch(onDeviceImageChangesProvider);
+    final onDevice = ref.watch(stableDiffusionImageEngineProvider);
 
     return Column(
       key: const Key('illustration-settings'),
@@ -76,6 +80,22 @@ class IllustrationSettingsSection extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => unawaited(openAiCapabilitiesScreen(context)),
               ),
+              // «Imágenes en el teléfono (Exigente)», solo si la app trae el
+              // motor (F43, paso 3b).
+              if (onDevice != null) ...[
+                const Divider(height: 1),
+                ListTile(
+                  key: const Key('illustration-settings-on-device'),
+                  leading: Icon(
+                    Icons.smartphone_outlined,
+                    color: scheme.tertiary,
+                  ),
+                  title: Text(l10n.f43DeviceScreenTitle),
+                  subtitle: Text(onDeviceSummaryLine(l10n, onDevice)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => unawaited(openOnDeviceImageScreen(context)),
+                ),
+              ],
               for (final account in text)
                 if (account.provider.isCloud) ...[
                   const Divider(height: 1),

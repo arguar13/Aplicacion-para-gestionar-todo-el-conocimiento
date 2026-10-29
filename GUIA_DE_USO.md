@@ -3396,6 +3396,43 @@ En Ajustes → "IA y modelos" → **"Modelo de lenguaje"**, abajo de todo, está
 - **"Agregar Hugging Face"**: pegás el token (de grano fino, con el permiso
   «Make calls to Inference Providers»); se prueba antes de guardarse.
 
+#### Exigente — en el teléfono
+
+Opcional, para teléfonos de gama alta: las ilustraciones las dibuja **el
+propio teléfono**, sin internet, sin costo y sin cuota, con dos modelos
+abiertos y chicos que corren en el procesador (con stable-diffusion.cpp):
+
+- **SDXS-512**, el más rápido (842 MB; licencia OpenRAIL++, uso personal y
+  comercial con sus restricciones de uso). Anda desde 6 GB de RAM.
+- **SD-Turbo**, el de mejor calidad (1,9 GB; licencia comunitaria de
+  Stability: gratis para uso personal). Pide 8 GB de RAM y se recomiendan
+  12.
+
+**Lo que exige:** 8 GB de RAM como mínimo y 12 recomendados, entre 1 y
+2,5 GB de lugar, calienta el teléfono y gasta batería mientras dibuja, y
+dibuja a 512 px, con calidad de ilustración simple (buena para los estilos
+geométrico, acuarela o línea). El texto lo pone siempre la app.
+
+**Los pasos:** Ajustes → "IA y modelos" → "Modelo de lenguaje" →
+"Ilustraciones y cuota diaria" → **"Imágenes en el teléfono (Exigente)"**
+(también desde "¿Qué puede cada IA?"). Cada modelo tiene su tarjeta con el
+enlace a su ficha, lo que pesa y lo que pide, y **"Tu teléfono: puede /
+justo / no alcanza"** con la RAM que tiene y por qué. Después:
+
+1. **"Bajar"**: una sola vez. En Android lo baja el sistema, que sigue con
+   la app cerrada; si lo baja la app, se puede **pausar** y seguir desde
+   donde quedó. Antes de usarse se comprueba que llegó entero y sin cambios.
+2. **"Medir en mi teléfono"**: dibuja una imagen de prueba y anota cuánto
+   tarda de verdad (hasta medirlo, el tiempo dice «estimado»).
+3. **Usarlo**: aparece en «Con tu IA actual» al crear una presentación o
+   una infografía, con su tiempo. Con los dos bajados, **"Usar este"** elige
+   cuál.
+
+**"Borrar"** saca solo el archivo del modelo: tu biblioteca, lo procesado y
+lo creado no se tocan. **Si el teléfono no da** (se queda sin memoria o la
+app se cierra mientras dibuja), el modelo se apaga solo y lo dice; la
+creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
+
 ---
 
 ## Ajustes
