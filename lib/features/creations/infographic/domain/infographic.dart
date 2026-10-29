@@ -186,6 +186,9 @@ sealed class InfographicBlock with _$InfographicBlock {
     /// cada 10»); null si no hay uno.
     double? total,
     @Default('') String detail,
+
+    /// El ícono que se repite en el pictograma; null, una persona.
+    String? icon,
     @Default(InfographicLevel.essential) InfographicLevel level,
     String? illustrationPrompt,
     String? illustrationRef,
@@ -229,8 +232,9 @@ sealed class InfographicBlock with _$InfographicBlock {
     FactBlock(:final icon) ||
     StepBlock(:final icon) ||
     EventBlock(:final icon) ||
-    ConceptBlock(:final icon) => icon,
-    ComparisonBlock() || QuoteBlock() || ChartBlock() => null,
+    ConceptBlock(:final icon) ||
+    ChartBlock(:final icon) => icon,
+    ComparisonBlock() || QuoteBlock() => null,
   };
 
   /// Si el bloque quiere una ilustración: la pidió la IA o ya tiene una.

@@ -61,7 +61,8 @@ Los ocho tipos ("type") y sus campos:
   ${InfographicLimits.data} objetos {"label": texto corto, "value": número,
   "display": opcional, cómo se escribe el número}, "unit" opcional ("%",
   "años"), "total" opcional (el total contra el que se mide: 100 en un
-  porcentaje, 10 en "7 de cada 10"), "detail" opcional.
+  porcentaje, 10 en "7 de cada 10"), "detail" opcional, "icon" opcional (el
+  que se repite en el pictograma).
   - "bars" compara cantidades; "ring", un porcentaje o las partes de un todo;
     "progress", cuánto de un total; "pictogram", "N de cada M" con M hasta 20.
 

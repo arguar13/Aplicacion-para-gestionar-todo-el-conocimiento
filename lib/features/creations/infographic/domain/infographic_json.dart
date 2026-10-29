@@ -186,6 +186,7 @@ abstract final class InfographicJson {
         :final unit,
         :final total,
         :final detail,
+        :final icon,
       ):
         put('title', title);
         put('chart', chartKind?.jsonName);
@@ -206,6 +207,7 @@ abstract final class InfographicJson {
               : total;
         }
         put('detail', detail);
+        put('icon', icon);
     }
     json['level'] = block.level.value;
     put('illustration_prompt', block.illustrationPrompt);
@@ -354,6 +356,7 @@ abstract final class InfographicJson {
       unit: _text(j['unit'], InfographicLimits.unit),
       total: total != null && total > 0 ? total : null,
       detail: _text(j['detail'], InfographicLimits.detail),
+      icon: c.icon,
       level: c.level,
       illustrationPrompt: c.prompt,
       illustrationRef: c.reference,
