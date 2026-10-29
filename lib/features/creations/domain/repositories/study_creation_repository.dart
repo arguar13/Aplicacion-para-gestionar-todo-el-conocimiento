@@ -124,8 +124,9 @@ abstract interface class StudyCreationRepository {
   /// interrumpida, con «Reintentar».
   Future<Either<Failure, Unit>> restore(String id);
 
-  /// Borra de verdad las de [ids] que están en la papelera. Lo único
-  /// irreversible.
+  /// Borra de verdad las de [ids] que están en la papelera, con sus archivos
+  /// (`originales/<creación>/`: las ilustraciones, lo que haya guardado su
+  /// tipo). Lo único irreversible.
   Future<Either<Failure, Unit>> purge(List<String> ids);
 
   /// Vacía la papelera de creaciones: [purge] de todas las que hay en ella.

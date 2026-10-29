@@ -286,4 +286,20 @@ class OpfsFileStore implements FileStore {
       // Ya no estaba.
     }
   }
+
+  @override
+  Future<void> deleteAllOf(String id) async {
+    final folder = checkedFolderId(id);
+    final originales = await _findDirectory([_folder]);
+    if (originales == null) return;
+    try {
+      await originales
+          .removeEntry(folder, web.FileSystemRemoveOptions(recursive: true))
+          .toDart;
+      // No falla si no estaba: mismo contrato que `LocalFileStore`.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      // Ya no estaba.
+    }
+  }
 }

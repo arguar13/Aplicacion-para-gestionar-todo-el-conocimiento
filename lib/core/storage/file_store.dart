@@ -107,6 +107,16 @@ abstract interface class FileStore {
   /// Borra lo guardado. No falla si no estaba.
   Future<void> delete(String relativePath);
 
+  /// Borra la carpeta entera de [id] —todo lo que se guardó para él con
+  /// [save], [saveStream] o [copy], en cualquier subcarpeta—. No falla si no
+  /// había nada.
+  ///
+  /// Para lo que se borra para siempre y es dueño de su carpeta: una creación
+  /// de «Lo creado» con sus ilustraciones (F43). [id] es un solo tramo, como
+  /// al guardar; uno vacío o con separadores no es de nadie y se rechaza con
+  /// [ArgumentError], para que nunca se borre más de lo pedido.
+  Future<void> deleteAllOf(String id);
+
   /// Copia lo guardado en [relativePath] a la carpeta de [id] —en su
   /// subcarpeta [folder], como [saveStream]— con el mismo nombre, sin pisar
   /// uno que ya esté («nombre-2.ext»…), y devuelve la **ruta relativa** de la
@@ -164,6 +174,19 @@ Future<String?> copyInChunks(
     folder: folder,
     unique: true,
   );
+}
+
+/// [id] si sirve como la carpeta de alguien (`FileStore.deleteAllOf`): un solo
+/// tramo, sin separadores ni «.»/«..»; si no, [ArgumentError].
+String checkedFolderId(String id) {
+  if (id.isEmpty ||
+      id == '.' ||
+      id == '..' ||
+      id.contains('/') ||
+      id.contains(r'\')) {
+    throw ArgumentError.value(id, 'id', 'no es la carpeta de nadie');
+  }
+  return id;
 }
 
 /// Deja un nombre de archivo en algo seguro de escribir en el disco.

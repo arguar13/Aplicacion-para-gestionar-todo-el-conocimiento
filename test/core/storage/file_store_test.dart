@@ -371,6 +371,48 @@ void main() {
 
       expect(await store.read(path), isNull);
     });
+
+    test('la carpeta entera de un dueño, con sus subcarpetas, y nada de los '
+        'demás (F43)', () async {
+      final own = await store.save(
+        bytes: bytes('a'),
+        suggestedName: 'a.png',
+        id: 'creacion-1',
+      );
+      final nested = await store.saveStream(
+        bytes: Stream.value(bytes('b')),
+        suggestedName: 'header.png',
+        id: 'creacion-1',
+        folder: 'ilustraciones',
+      );
+      final other = await store.save(
+        bytes: bytes('c'),
+        suggestedName: 'a.png',
+        id: 'creacion-10',
+      );
+
+      await store.deleteAllOf('creacion-1');
+
+      expect(await store.read(own), isNull);
+      expect(await store.read(nested), isNull);
+      expect(
+        Directory(p.join(root.path, 'originales', 'creacion-1')).existsSync(),
+        isFalse,
+      );
+      expect(await store.read(other), isNotNull);
+      // Sin nada guardado, no falla.
+      await store.deleteAllOf('nadie');
+    });
+
+    test(
+      'un id que no es un solo tramo se rechaza: nunca se borra de más',
+      () async {
+        for (final id in ['', '.', '..', 'a/b', r'a\b']) {
+          expect(() => store.deleteAllOf(id), throwsArgumentError, reason: id);
+        }
+        expect(root.existsSync(), isTrue);
+      },
+    );
   });
 
   group('exists', () {

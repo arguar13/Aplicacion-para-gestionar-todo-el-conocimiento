@@ -133,4 +133,15 @@ class InMemoryFileStore implements FileStore {
     deleted.add(relativePath);
     _contents.remove(relativePath);
   }
+
+  /// Las carpetas que se borraron enteras, en orden.
+  final deletedFolders = <String>[];
+
+  @override
+  Future<void> deleteAllOf(String id) async {
+    final prefix = 'originales/${checkedFolderId(id)}/';
+    if (deleteError != null) throw deleteError!;
+    deletedFolders.add(id);
+    _contents.removeWhere((path, _) => path.startsWith(prefix));
+  }
 }

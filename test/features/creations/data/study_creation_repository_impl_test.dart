@@ -1,13 +1,19 @@
 import 'package:async/async.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/creations/data/repositories/study_creation_repository_impl.dart';
 import 'package:sinapsis/features/creations/data/repositories/study_creation_sql.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 
+import '../../../support/in_memory_file_store.dart';
 import '../creations_harness.dart';
+
+class _Telemetry extends Mock implements TelemetryService {}
 
 /// «Lo creado» en la base (F43): crear, el estado que escribe la cola, las
 /// listas por recorte que se actualizan solas y la papelera.
@@ -488,6 +494,74 @@ void main() {
     });
   });
 
+  group('borrar para siempre se lleva sus archivos', () {
+    late InMemoryFileStore files;
+    late _Telemetry telemetry;
+    late StudyCreationRepositoryImpl withFiles;
+
+    setUp(() {
+      files = InMemoryFileStore();
+      telemetry = _Telemetry();
+      withFiles = StudyCreationRepositoryImpl(
+        database: h.processed.db,
+        telemetry: telemetry,
+        clock: () => h.processed.vault.now,
+        files: files,
+      );
+    });
+
+    Future<String> withFile(String name) async {
+      final created = await create(StudyCreationKind.infographic);
+      await files.saveStream(
+        bytes: Stream.value([1, 2, 3]),
+        suggestedName: name,
+        id: created.id,
+        folder: 'ilustraciones',
+      );
+      return created.id;
+    }
+
+    test('la carpeta de cada una que se borra, y nada de las demás', () async {
+      final gone = await withFile('header.png');
+      final alive = await withFile('header.png');
+      final onlyTrashed = await withFile('header.png');
+      await withFiles.trash(gone);
+      await withFiles.trash(onlyTrashed);
+
+      // Una viva no se borra aunque se la nombre.
+      await withFiles.purge([gone, alive]);
+
+      expect(files.deletedFolders, [gone]);
+      expect(files.paths.where((p) => p.contains(gone)), isEmpty);
+      expect(files.paths.where((p) => p.contains(alive)), isNotEmpty);
+      expect(files.paths.where((p) => p.contains(onlyTrashed)), isNotEmpty);
+
+      await withFiles.emptyTrash();
+      expect(files.deletedFolders, [gone, onlyTrashed]);
+      expect(files.paths.where((p) => p.contains(onlyTrashed)), isEmpty);
+      expect((await withFiles.find(alive)).getRight().toNullable(), isNotNull);
+    });
+
+    test(
+      'un archivo que se resiste no deshace el borrado, y se anota',
+      () async {
+        final gone = await withFile('header.png');
+        await withFiles.trash(gone);
+        files.deleteError = const FileSystemFailure();
+
+        expect((await withFiles.purge([gone])).isRight(), isTrue);
+        expect((await withFiles.find(gone)).getRight().toNullable(), isNull);
+        verify(
+          () => telemetry.recordError(
+            any<dynamic>(),
+            any(),
+            hint: any(named: 'hint'),
+          ),
+        ).called(1);
+      },
+    );
+  });
+
   group('retocar una lista sin volver a generarla (decisión G)', () {
     test('cambia sus opciones o su contenido, deja lo demás y avanza la '
         'fecha', () async {
@@ -569,4 +643,9 @@ void main() {
       expect(read.scope, const CreationScope.document('doc-a'));
     },
   );
+}
+
+/// Lo que lanza el disco de mentira al borrar.
+class FileSystemFailure implements Exception {
+  const FileSystemFailure();
 }

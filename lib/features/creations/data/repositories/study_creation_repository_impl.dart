@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
@@ -21,13 +22,19 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
     required TelemetryService telemetry,
     IdGenerator ids = const UuidV7Generator(),
     Clock clock = DateTime.now,
+    FileStore? files,
   }) : _db = database,
        _telemetry = telemetry,
        _ids = ids,
-       _clock = clock;
+       _clock = clock,
+       _files = files;
 
   final AppDatabase _db;
   final TelemetryService _telemetry;
+
+  /// Donde viven los archivos de cada creación (sus ilustraciones), para
+  /// borrarlos con ella; sin esto, borrar para siempre deja solo la fila.
+  final FileStore? _files;
   final IdGenerator _ids;
   final Clock _clock;
 
@@ -404,17 +411,53 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
   Future<Either<Failure, Unit>> purge(List<String> ids) =>
       _guard('purge', () async {
         if (ids.isEmpty) return right(unit);
-        await (_db.delete(
-          _table,
-        )..where((c) => c.id.isIn(ids) & c.deletedAt.isNotNull())).go();
+        await _purgeWhere((c) => c.id.isIn(ids) & c.deletedAt.isNotNull());
         return right(unit);
       });
 
   @override
   Future<Either<Failure, Unit>> emptyTrash() => _guard('emptyTrash', () async {
-    await (_db.delete(_table)..where((c) => c.deletedAt.isNotNull())).go();
+    await _purgeWhere((c) => c.deletedAt.isNotNull());
     return right(unit);
   });
+
+  /// Borra para siempre las filas de [where] y, después, la carpeta de cada
+  /// una en el almacén (`originales/<creación>/`): sus ilustraciones y lo que
+  /// su tipo haya guardado, sea el que sea. Como en la biblioteca, las filas
+  /// se van en una transacción y los archivos fuera de ella —el disco no es
+  /// transaccional—: uno que se resiste se anota y no deshace el borrado.
+  Future<void> _purgeWhere(
+    Expression<bool> Function($StudyCreationsTable c) where,
+  ) async {
+    final purged = await _db.transaction(() async {
+      final rows =
+          await (_db.selectOnly(_table)
+                ..addColumns([_table.id])
+                ..where(where(_table)))
+              .get();
+      final ids = [for (final row in rows) row.read(_table.id)!];
+      if (ids.isNotEmpty) {
+        await (_db.delete(_table)..where((c) => c.id.isIn(ids))).go();
+      }
+      return ids;
+    });
+    final files = _files;
+    if (files == null) return;
+    for (final id in purged) {
+      try {
+        await files.deleteAllOf(id);
+        // El disco puede fallar de muchas formas, y ninguna vuelve atrás un
+        // borrado que la persona ya pidió y que en la base ya ocurrió.
+        // ignore: avoid_catches_without_on_clauses
+      } catch (e, stackTrace) {
+        _telemetry.recordError(
+          e,
+          stackTrace,
+          hint: 'StudyCreationRepositoryImpl.purge: quedaron archivos de $id',
+        );
+      }
+    }
+  }
 
   // --- Filas ----------------------------------------------------------------
 

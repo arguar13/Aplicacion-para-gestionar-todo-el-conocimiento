@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/creations/data/repositories/creation_scope_resolver_impl.dart';
@@ -18,6 +19,7 @@ final studyCreationRepositoryProvider = Provider<StudyCreationRepository>(
     database: ref.watch(appDatabaseProvider),
     telemetry: ref.watch(telemetryServiceProvider),
     clock: ref.watch(clockProvider),
+    files: ref.watch(fileStoreProvider),
   ),
 );
 

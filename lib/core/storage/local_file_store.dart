@@ -194,6 +194,14 @@ class LocalFileStore implements FileStore {
   }
 
   @override
+  Future<void> deleteAllOf(String id) async {
+    final folder = Directory(
+      await resolve(p.posix.join(_folder, checkedFolderId(id))),
+    );
+    if (folder.existsSync()) await folder.delete(recursive: true);
+  }
+
+  @override
   Future<String?> copy(
     String relativePath, {
     required String id,
