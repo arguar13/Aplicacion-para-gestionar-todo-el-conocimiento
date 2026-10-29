@@ -49,19 +49,24 @@ void main() {
       expect(off.first.spoken, startsWith('La '));
     });
 
-    test('no traba el hilo de la interfaz: partirlo acá lo deja sin atender '
-        'todo el tiempo que lleva; en otro hilo, una fracción', () async {
+    test('no traba el hilo de la interfaz: partirlo acá no lo suelta nunca; '
+        'en otro hilo, la interfaz sigue atendiendo', () async {
       final content = book(6000);
 
-      final inline = await stallShare(
-        () async => buildReadableSegments(content, sourceKey: 'r1'),
+      // Acá no suelta el hilo ni una vez; en otro hilo, la interfaz sigue
+      // atendiendo mientras se parte.
+      expect(
+        await ticksDuring(
+          () async => buildReadableSegments(content, sourceKey: 'r1'),
+        ),
+        0,
       );
-      final off = await stallShare(
-        () => buildReadableSegmentsOff(content, sourceKey: 'r1'),
+      expect(
+        await ticksDuring(
+          () => buildReadableSegmentsOff(content, sourceKey: 'r1'),
+        ),
+        greaterThan(0),
       );
-
-      expect(inline, greaterThan(0.8));
-      expect(off, lessThan(0.5));
     });
 
     test('un texto corto se parte en el momento, con lo mismo', () async {

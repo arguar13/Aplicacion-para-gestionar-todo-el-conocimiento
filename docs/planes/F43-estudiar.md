@@ -735,6 +735,32 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
   Procesado y Cuadernos), y Repasar se abre con un recorte ya elegido (`/review?scope=`). Cada
   tipo se suma con una línea en `creationKindSpecsProvider`.
 
+### Paso 7 (hecho): Extraer texto completo, resumen y síntesis
+
+- **Vistas vivas (decisión E, M8)**: las tres leen el texto propio y las marcas de estudiar de cada
+  documento (`procesado:…`), sin copia; si se marca o se edita algo, cambian solas
+  (`extractOwnTextProvider` relee al cambiar el documento y, si el texto quedó igual, no rearma
+  nada). Con varios documentos van en el orden de las fuentes, cada uno con su título; uno borrado
+  dice «Fuente borrada» y uno sin texto lo dice.
+- **Lectura**: una lista que arma solo lo que se ve —un libro entero, partido en otro hilo, no
+  traba—, con la letra y el tamaño del lector de libros, los títulos en Lora y cada documento
+  sobre su hoja más clara (radio 28). Las oraciones del resumen o la síntesis se juntan por
+  párrafo del documento; las palabras clave, en rosa (decisión 85).
+- **Lo que falta se marca en el documento mismo**: «Marcar con IA» (o «Marcar los N con IA») corre
+  el mismo análisis del original (`studyAnalysisProvider`, M5), de a un documento por vez, con
+  «Con tu IA actual» (`AiCapabilityCard`) y su avance en vivo; también «Abrir el documento».
+- **«Resaltar las palabras clave»**, en la hoja «Lectura» con el tamaño de letra: es la misma
+  preferencia del original y vale en los dos sentidos.
+- **Modo escuchar**: el mismo lector de siempre (decisión 86), con un reproductor grande abajo
+  —reproducir o pausar, oración anterior y siguiente, la barra que se arrastra, velocidad, voz y
+  «3 de 40»—. Lo que suena va en amarillo con el rosa encima y la lista acompaña sola, de un salto
+  si está lejos o sin animación si así se pidió; si se la mueve a mano aparece «Volver a la
+  lectura». El lector flotante se hace a un lado mientras tanto (`ReadAloudDock`, nuevo, y
+  `ReadAloudController` suma ir a una oración, a la anterior, a la siguiente y a un punto de la
+  barra).
+- **Archivo**: Markdown con un apartado por documento y las palabras clave en negrita si se
+  resaltan; «Compartir» pasa este mismo archivo.
+
 ### Paso 14 (hecho): Pulido (M1, M2 y M7)
 
 - Todo aviso con botón, largo o que se queda lleva su ✕ (`AppSnackBar`), y un censo lo exige; el

@@ -146,15 +146,17 @@ void main() {
       },
     );
 
-    test('no traba el hilo de la interfaz: partirlo acá lo deja sin atender '
-        'todo el tiempo que lleva; en otro hilo, una fracción', () async {
+    test('no traba el hilo de la interfaz: partirlo acá no lo suelta nunca; '
+        'en otro hilo, la interfaz sigue atendiendo', () async {
       final content = book(6000);
 
-      final inline = await stallShare(() async => readerPageRanges(content));
-      final off = await stallShare(() => readerPageRangesOff(content));
-
-      expect(inline, greaterThan(0.8));
-      expect(off, lessThan(0.5));
+      // Acá no suelta el hilo ni una vez; en otro hilo, la interfaz sigue
+      // atendiendo mientras se parte.
+      expect(await ticksDuring(() async => readerPageRanges(content)), 0);
+      expect(
+        await ticksDuring(() => readerPageRangesOff(content)),
+        greaterThan(0),
+      );
     });
 
     test(

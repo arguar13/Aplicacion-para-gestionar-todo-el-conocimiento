@@ -31,25 +31,24 @@ Future<double> timeGrowth(
   return (bestBig + floor) / (bestSmall + floor);
 }
 
-/// Qué parte del tiempo de [work] el hilo principal estuvo sin poder atender
-/// nada: el mayor hueco entre dos ticks de un temporizador, sobre lo que tardó
-/// en total. Cerca de 1 si [work] corre en el hilo y lo traba entero; una
-/// fracción chica si corre en otro. Es un cociente: la máquina cargada frena
-/// los dos números juntos.
-Future<double> stallShare(Future<void> Function() work) async {
-  var last = Stopwatch()..start();
-  var longest = 0;
-  final timer = Timer.periodic(const Duration(milliseconds: 2), (_) {
-    longest = math.max(longest, last.elapsedMicroseconds);
-    last = Stopwatch()..start();
-  });
-  final total = Stopwatch()..start();
+/// Cuántas veces el hilo principal atendió un temporizador mientras corría
+/// [work]: si [work] corre en el hilo, el código no lo suelta y da exactamente
+/// 0; si corre en otro, el hilo sigue atendiendo y da al menos 1 —con la
+/// máquina saturada, a veces solo 1—.
+///
+/// No mide tiempos: con la máquina saturada, el sistema reparte la CPU en
+/// tramos de varios milisegundos y la limpieza de memoria que comparten los
+/// hilos puede frenar a los dos, y cualquier cociente de huecos se vuelve
+/// ruido. Que el hilo se libere o no, en cambio, no depende de la máquina.
+Future<int> ticksDuring(Future<void> Function() work) async {
+  var ticks = 0;
+  final timer = Timer.periodic(const Duration(milliseconds: 2), (_) => ticks++);
   await work();
-  final took = total.elapsedMicroseconds;
-  // Un tick más, para que registre el hueco de un trabajo que no soltó el hilo.
-  await Future<void>.delayed(const Duration(milliseconds: 6));
+  // Se lee antes de volver a soltar el hilo: un tick que llega después ya no
+  // es de [work].
+  final during = ticks;
   timer.cancel();
-  return longest / math.max(took, 1);
+  return during;
 }
 
 /// Los microsegundos que tarda [work].
