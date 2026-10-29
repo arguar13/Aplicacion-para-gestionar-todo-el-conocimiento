@@ -86,17 +86,22 @@ En el celular, la barra tiene **cinco botones fijos, que son los pasos del
 trabajo en el orden en que los usás**, de izquierda a derecha:
 
 1. **Biblioteca**: guardás y encontrás todo. Se abre directo.
-2. **Organizar**: una lista con **Bandeja**, **Procesado**, **Atlas**,
-   **Línea de tiempo**, **Mapa** y **Cuadernos**, en ese orden. Primero
-   revisás lo que entró, en **Procesado** tenés lo que sacaste de cada fuente,
-   después ves qué sabés y qué te falta, lo ves sobre un eje de fechas, lo
-   conectás y, en un cuaderno, juntás un grupo para acotar el chat a él.
-   El número de pendientes de la Bandeja se ve en el mismo botón. (El **Explorador** ya no está en la lista: repetía la
-   Biblioteca. Lo suyo, el material de un tema, se abre desde el Atlas y el
-   Mapa: ver [El material de un tema](#el-material-de-un-tema).)
-3. **Chat**: te lleva directo al chat con la IA, sin lista.
-4. **Repasar**: tarjetas y cuestionarios, con el número de lo que toca hoy. Se
-   abre directo.
+2. **Organizar**: una lista con **Bandeja** y **Atlas**, en ese orden.
+   Primero revisás lo que entró y después ves qué sabés y qué te falta, por
+   tema. El número de pendientes de la Bandeja se ve en el mismo botón.
+3. **Estudiar**: una lista con **Procesado**, **Cuadernos**, **Línea de
+   tiempo**, **Mapa** y **Repasar**, en ese orden: todo lo que se estudia
+   sale de lo procesado. En **Procesado** tenés lo que sacaste de cada fuente;
+   en un cuaderno juntás un grupo para estudiarlo aparte (y acotar el chat a
+   él); en la línea de tiempo lo ves sobre un eje de fechas; en el mapa, cómo
+   se conecta; y en **Repasar** están tus tarjetas, y desde ahí creás
+   presentaciones, resúmenes, cuestionarios y más con lo procesado. El número
+   de tarjetas para hoy se ve en el mismo botón. (El **Explorador** ya no está
+   en ninguna lista: repetía la Biblioteca. Lo suyo, el material de un tema,
+   se abre desde el Atlas y el Mapa: ver
+   [El material de un tema](#el-material-de-un-tema).)
+4. **Chat**: a la derecha de Estudiar, te lleva directo al chat con la IA, sin
+   lista.
 5. **Ajustes**: siempre a la derecha. Se abre directo.
 
 Un paso con varias pantallas abre su lista desde abajo. Cada pantalla tiene su
@@ -106,7 +111,8 @@ abajo o tocá afuera. Mientras estés en cualquiera de sus pantallas, el botón
 del paso queda marcado. Ya no hay botón **«Más»**: todo está en algún paso.
 
 En la computadora se ven las diez pantallas juntas en el costado, en el mismo
-orden y sin listas.
+orden y sin listas: Biblioteca; Bandeja y Atlas; Procesado, Cuadernos, Línea de
+tiempo, Mapa y Repasar; Chat; y Ajustes.
 
 Vas a ver estos nombres una y otra vez en esta guía; cada uno tiene su propia
 sección más abajo.
@@ -1452,7 +1458,7 @@ información pura que sacaste de ella. Para que algo entre a un cuaderno,
 primero triá su fuente en la Bandeja (o pasala tal cual a Procesado).
 
 **Cómo llegar:** ítem **"Cuadernos"** en la navegación (en el celular,
-dentro de **"Organizar"**, debajo de **"Mapa"**).
+dentro de **"Estudiar"**, debajo de **"Procesado"**).
 
 ### Crear un cuaderno
 
@@ -1609,8 +1615,8 @@ triás. Vacía, lo explica y ofrece **"Ir a la Bandeja"** y **"Agregar un
 hecho"**.
 
 **Cómo llegar:** **"Línea de tiempo"** en la navegación, dentro de
-**"Organizar"** y arriba del Atlas (en la computadora, en el riel, en el mismo
-lugar). Ya no hay un ícono en la Biblioteca. También se llega desde una rama
+**"Estudiar"**, entre los Cuadernos y el Mapa (en la computadora, en el riel,
+en el mismo lugar). Ya no hay un ícono en la Biblioteca. También se llega desde una rama
 del Atlas ("Ver en la línea de tiempo") y desde el detalle de una fuente
 ("Ver en la línea de tiempo", si su documento procesado tiene fechas): en esos
 dos casos se abre ya mostrando solo esa rama o ese documento.
@@ -2046,7 +2052,7 @@ sin tocar; Procesado es lo trabajado. Acá no hay audios, videos ni fichas
 bibliográficas: texto y, si las elegís, las imágenes de la fuente.
 
 **Cómo llegar:** ítem **"Procesado"** en la navegación (en el celular, la
-segunda de **"Organizar"**, justo debajo de la Bandeja).
+primera de **"Estudiar"**).
 
 ### La lista
 
@@ -2203,7 +2209,7 @@ se llena al triar —lo que elegís va a Procesado y la IA le pone temas— y
 ofrece **"Ir a la Bandeja"**.
 
 **Cómo llegar:** ítem **"Atlas"** en la navegación (en el celular, dentro
-de **"Organizar"**).
+de **"Organizar"**, debajo de la Bandeja).
 
 Arriba, la ficha **"Agrupar por"** elige de qué es el índice:
 
@@ -2269,7 +2275,7 @@ ofrece **"Ir a la Bandeja"**. Tiene cuatro formas de mirarlo:
   temas, los más cercanos primero).
 
 **Cómo llegar:** ítem **"Mapa"** en la navegación (en el celular, dentro
-de **"Organizar"**).
+de **"Estudiar"**, debajo de la Línea de tiempo).
 
 **Agrupar por.** El tablero, el esquema y el grafo agrupan por lo que elijas
 en la ficha de arriba: tus **Temas** (lo primero que se ve si tenés alguno),
@@ -2358,8 +2364,8 @@ campo—:
 - **"Conversación libre"**: charla con el modelo como con cualquier
   asistente, sin tocar tu bóveda para nada.
 
-**Cómo llegar:** ítem **"Chat"** en la navegación (en el celular, el botón
-del medio de la barra, que lo abre directo).
+**Cómo llegar:** ítem **"Chat"** en la navegación (en el celular, el cuarto
+botón de la barra, a la derecha de **"Estudiar"**, que lo abre directo).
 
 ### La barra de arriba
 
@@ -2830,8 +2836,9 @@ propuestas para que elijas cuáles guardar antes de confirmarlas.
 
 ### Repasar día a día
 
-**Cómo llegar:** ítem **"Repasar"** en la navegación (con un contador de
-cuántas tarjetas tenés para hoy).
+**Cómo llegar:** ítem **"Repasar"** en la navegación, con un contador de
+cuántas tarjetas tenés para hoy (en el celular, el último de **"Estudiar"**, y
+el contador se ve en el mismo botón **"Estudiar"**).
 
 #### La entrada
 
