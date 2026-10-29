@@ -3062,12 +3062,9 @@ cuenta que sí puede** o agregar una clave—.
 
 #### Lo creado
 
-Debajo de las tarjetas, **«Lo creado»** sobre lo elegido, lo más nuevo arriba.
-Cada fila lleva el ícono y el color de su tipo, el título, **"N fuentes · Hace
-X días"** y, abajo, **las fuentes como fichas tocables**: el documento abre su
-pantalla de Procesado; el cuaderno o el tema sobre el que se creó, el cuaderno
-o el material del tema. Una fuente que ya no existe dice **"Fuente
-borrada"**. Si son muchas, **"+N"** abre la lista entera.
+Debajo de las tarjetas, **«Lo creado»** sobre lo elegido, lo más nuevo arriba,
+en filas planas como las de NotebookLM: el ícono de su tipo en su color, el
+título en una línea y **"1 fuente · Hace 5 d"**.
 
 - **Mientras se genera**, la fila aparece enseguida con un brillo suave (quieto
   si pediste «sin animaciones») y dice en qué va: en la cola, el paso y cuánto
@@ -3075,10 +3072,23 @@ borrada"**. Si son muchas, **"+N"** abre la lista entera.
 - **Si falla**, dice por qué en una línea y ofrece **"Reintentar"**.
 - **Lista**, tocarla la abre en su visor, con el título, **"Ver N fuentes"** y
   sus fichas, y el menú ⋮.
-- **Su menú ⋮**: **Abrir**, **Renombrar**, **Volver a generar con otras
-  opciones** (abre la hoja con lo de esa creación y la rehace en su lugar),
-  **Reintentar**, **Cancelar la generación**, **Ver fuentes** y **Borrar**, que
-  la manda a la papelera con **"Deshacer"**.
+- **Mantenerla apretada** (o el clic derecho, en la compu) abre un menú flotante
+  con el fondo oscurecido: **Compartir** y **Descargar** (cuando su tipo ya
+  sabe armar su archivo), **Cambiar nombre**, **Ver petición y fuentes**,
+  **Reintentar**, **Cancelar la generación** o **Volver a generar con otras
+  opciones** según cómo esté, y **Eliminar**, que la manda a la papelera con
+  **"Deshacer"**.
+- **Deslizarla a la izquierda** muestra dos botones cuadrados a la derecha:
+  **Descargar** (si se puede) y **Eliminar**. Si la soltás antes de la mitad,
+  vuelve a cerrarse; solo queda una abierta a la vez, y tocarla la cierra.
+- **"Ver petición y fuentes"** muestra con qué se pidió —las opciones con sus
+  nombres, la descripción, el tema y el idioma—, con qué modelo y cuándo, y
+  **las fuentes como fichas tocables**: el documento abre su pantalla de
+  Procesado; el cuaderno o el tema sobre el que se creó, el cuaderno o el
+  material del tema. Una fuente que ya no existe dice **"Fuente borrada"**.
+
+«Compartir» con otras apps todavía no está: la app no trae la hoja de compartir
+del sistema. Mientras tanto, **"Descargar"** guarda el archivo donde elijas.
 
 Por ahora cada tipo **muestra su visor a medida que llega**: mientras tanto, al
 abrir una creación lista dice *"Su visor está en camino"* —ya quedó guardada y
