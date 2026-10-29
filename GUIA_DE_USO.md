@@ -1815,28 +1815,21 @@ pura que sacás de esa fuente; la fuente queda entera en la Biblioteca). Arriba
 dice el nombre de la fuente, y debajo hay dos grupos:
 
 - **De la fuente**: **Texto extraído** (o **Transcripción**, en un audio o un
-  video), **Resumen**, **Síntesis** y **Palabras clave**. Cada uno tiene su
-  interruptor y se prenden en cualquier combinación. Apagados dicen lo que trae
-  la fuente (*"2.340 palabras"*, *"14 oraciones"*, *"9 palabras clave"*);
-  prendidos, cuánto va a quedar. Las palabras clave llegan **con su oración**:
-  cada una va dentro de la oración de la fuente donde está, para leerla en su
-  contexto.
+  video), con su interruptor. Apagado dice lo que trae la fuente (*"2.340
+  palabras"*); prendido, cuánto va a quedar.
   - **El original** (solo en documentos de texto —PDF, Word, EPUB, texto— y
     páginas web archivadas): una **copia propia del archivo** para tu documento
-    procesado, que se abre en el visor de siempre con lo que elegiste marcado
-    encima. Debajo dice cuánto ocupa (*"Una copia del archivo · 2,3 MB"*).
-    Si la fuente no lo ofrece (un audio, una foto, un archivo que ya no está),
-    no aparece. Al volver a triar un documento que ya tiene su copia, se elige
-    **Actualizar** (la vuelve a copiar solo si el archivo de la fuente es otro),
-    **Reemplazar** o **Quitar**.
-  - Si todavía **no hay resumen, síntesis o palabras clave**, debajo aparecen
-    los mismos dos caminos de la tarjeta de estudiar: **"Resumir con Gemini 2.5 Flash"** (o el
-    modelo que elegiste) y **"Elegir a mano"**. Con la IA, la franja muestra cómo
-    va (*"Analizando el documento… parte 3 de 12"*, con **"Parar"**) y las
-    oraciones se van sumando solas. A mano, se abre el texto (ver "Cortar del
-    original", abajo) y tocás las oraciones que querés; **"Listo"** en la
-    barrita de estudiar termina. Elegir cualquiera de los dos prende la
-    sección.
+    procesado, que se ve en él con lo marcado encima (ver
+    [El documento](#el-documento)). Debajo dice cuánto ocupa (*"Una copia del
+    archivo · 2,3 MB"*). Si la fuente no lo ofrece (un audio, una foto, un
+    archivo que ya no está), no aparece. Al volver a triar un documento que ya
+    tiene su copia, se elige **Actualizar** (la vuelve a copiar solo si el
+    archivo de la fuente es otro), **Reemplazar** o **Quitar**.
+  - **El resumen, la síntesis y las palabras clave ya no se eligen acá.** Se
+    marcan en el original del documento procesado, con la IA o a mano (ver
+    [Marcar en el original](#marcar-en-el-original-resumen-síntesis-y-palabras-clave)),
+    y se extraen para leer en **Repasar**. Los documentos que ya los trajeron
+    como sección los conservan, y volver a triar no los toca.
 - **Lo tuyo**:
   - **Notas**: **"Escribir una nota"** abre un cuadro para escribirla con tus
     palabras. **"Extraer del original"** abre el texto para sacarlas de ahí:
@@ -1864,7 +1857,7 @@ dice el nombre de la fuente, y debajo hay dos grupos:
   SVG y las imágenes de dentro de un PDF, un Word o un EPUB no se ofrecen.
 
 Al final de la hoja, **"Va a quedar"** muestra en chips cada parte que va
-(*"Texto extraído · 12 páginas"*, *"Resumen · 14 oraciones"*, *"El original ·
+(*"Texto extraído · 12 páginas"*, *"Notas · 2 notas"*, *"El original ·
 2,3 MB"*), y abajo, fijo,
 cuántas palabras van en total (y cuánto ocupan las imágenes, si elegiste
 alguna). Todo se actualiza **en vivo** mientras elegís,
@@ -1878,8 +1871,8 @@ una parte."*. Si algo falla, la hoja queda abierta con lo que elegiste y dice
 por qué. **"Cancelar"** (o cerrar la hoja) no guarda nada: la fuente sigue en
 la Bandeja.
 
-**Con el teclado**: los números **1**, **2**, **3** prenden y apagan las partes de
-la fuente, **C** abre "Cortar del original", **N** escribe una nota,
+**Con el teclado**: **1** prende y apaga el texto y **2**, el original (si la
+fuente lo ofrece), **C** abre "Cortar del original", **N** escribe una nota,
 **Ctrl+Enter** es "Listo" y **Escape** cierra. Con la letra al doble o en un
 teléfono angosto, todo se acomoda y se desliza; con "sin animaciones", la hoja
 aparece sin deslizarse.
@@ -2099,21 +2092,73 @@ abre la hoja de esa fuente con lo que el documento ya tiene (ver
 [Volver a triar](#volver-a-triar)); con la fuente en la papelera está apagado
 y dice que primero la restaures.
 
-Si guardaste **la copia del original**, debajo está su tarjeta: qué es (*"PDF"*,
-*"Página web archivada"* o *"Documento"*), cuánto ocupa y cuándo se copió, con
-**"Ver el original"**. Abre la copia en el visor de siempre —el de PDF, el de
-páginas o el lector— con lo que elegiste **marcado encima**: el resumen en verde,
-la síntesis en celeste y las palabras clave en rosa, como al estudiar, y los
-fragmentos en durazno, como al cortarlos. Arriba, **"Resumen"**, **"Síntesis"**
-y **"Palabras clave"** prenden y apagan cada color. Es una copia tuya: lo que
-ves marcado es de tu documento procesado, no de la fuente, y la fuente no se
-toca. Si el texto de la fuente cambió desde que lo copiaste (por ejemplo, lo
-volviste a extraer), no se marca nada y una línea arriba lo dice; un Word, un
-EPUB o un texto, que se leen por su texto, ofrecen **"Abrir con otra app"**.
-Sobre la copia, al seleccionar un pasaje, la barrita ofrece **Copiar**,
-**Escuchar** y **"Extraer como nota"** (va a las notas del documento
-procesado), pero no los colores, la nota, la tarjeta ni la línea de tiempo: la
-copia es para ver lo elegido, no se resalta a mano.
+Si guardaste **la copia del original**, debajo **se ve el original ahí
+mismo**, como en el detalle de la Biblioteca: la primera página quieta de un
+PDF o de un documento, o la página web archivada, en su marco, con lo marcado
+**encima** —el resumen en verde, la síntesis en celeste, las palabras clave en
+rosa y los fragmentos en durazno—. El botón grande del centro (**"Leer como
+libro"**, o **"Ver la página"** en una página web) y un toque en la hoja lo
+abren en el visor de siempre, a pantalla completa. Arriba del original están
+**los botones de estudio** (ver abajo), y debajo, una línea con qué es (*"PDF"*,
+*"Página web archivada"* o *"Documento"*), cuánto ocupa y cuándo se copió
+(*"PDF · 26 kB · copiado el 28 oct 2026"*). Borrar la copia sigue en **"Más"**.
+
+Es una copia tuya: lo que ves marcado es de tu documento procesado, no de la
+fuente, y la fuente no se toca. Si el texto de la fuente cambió desde que lo
+copiaste (por ejemplo, lo volviste a extraer), no se marca nada y una línea lo
+dice; un Word, un EPUB o un texto, que se leen por su texto, ofrecen **"Abrir
+con otra app"**. Sobre la copia, al seleccionar un pasaje, la barrita ofrece
+**Copiar**, **Escuchar** y **"Extraer como nota"** (va a las notas del documento
+procesado), pero no los colores de resaltar a mano, la nota, la tarjeta ni la
+línea de tiempo.
+
+#### Marcar en el original: resumen, síntesis y palabras clave
+
+Los tres botones de arriba del original —**Resumen**, **Síntesis** y
+**Palabras clave**— son el lugar donde se marca. Están en el documento y,
+iguales, arriba del original a pantalla completa. Cada uno tiene **su color de
+resaltador**, **cuántas marcas tiene** (el número a la derecha) y **su
+estado** debajo del nombre: *"Sin hacer"*, *"Generando… 40 %"*, *"Hecho"* u
+*"Oculto"*. Debajo, la leyenda de colores.
+
+- **Sin marcas**, tocarlo abre una hoja chica con dos opciones grandes:
+  - **"Con IA"**: el modelo que elegiste en Ajustes elige las oraciones del
+    documento (o propone las palabras clave de cada oración) y las marca en el
+    original. Debajo, **"Con tu IA actual"** dice qué modelo lo hace y **cuánto
+    va a consumir** (los tokens, lo que cuesta y qué parte de tu cuota de hoy;
+    con Gemma, cuánto puede tardar). Una sola pasada arma el resumen, la
+    síntesis y las palabras clave a la vez, por partes y con su avance en cada
+    botón; la franja de abajo dice la parte que va, con **"Parar"**.
+  - **"A mano"**: pasa a elegir en el original. Tocás una oración y entra al
+    resumen (o a la síntesis); tocala de nuevo y sale. En las palabras clave
+    tocás palabras, hasta cuatro por oración. Desde el documento, se abre el
+    original entero, donde se toca; **"Listo"** termina.
+  - La **✕** cierra la hoja sin tocar nada.
+- **Con marcas**, tocarlo **prende y apaga** el resaltado, y queda
+  **recordado para ese documento**: lo que ocultaste sigue oculto la próxima
+  vez que lo abrís.
+- **Las palabras clave**, una vez hechas, **se ven en rosa siempre** que abrís
+  el documento, salvo que las ocultes.
+- **Su menú** —los tres puntos del botón, o mantenerlo apretado— ofrece
+  **"Rehacer con IA"** (dice qué hace y cuánto consume antes de empezar: la IA
+  vuelve a marcar todo el documento, y lo que elegiste a mano se queda),
+  **"Retocar a mano"**, **"Ocultar"** (o **"Mostrar"**) y **"Borrar las
+  marcas"** (pregunta antes; borra las de la IA y las tuyas de esa clase, y el
+  original y la fuente no cambian).
+- **Se superponen sin taparse**: una palabra clave se ve en rosa encima del
+  verde del resumen o del celeste de la síntesis, y una oración que está en el
+  resumen y en la síntesis se ve **celeste con una línea verde** debajo (la
+  leyenda lo muestra como *"Resumen y síntesis"*). Igual en el texto, en el
+  PDF y en la página web.
+- Lo que marcás queda en **tu documento procesado**: sus secciones Resumen,
+  Síntesis y Palabras clave lo muestran, y **Repasar** lo usa para extraerlo.
+  Si el documento tiene su **Texto** y editaste una página, lo que en el
+  original cae en esa parte ya no es lo mismo que tu texto y no se puede
+  marcar: lo dice.
+
+Funciona en los nueve temas, con la letra grande y en un teléfono angosto (los
+botones se acomodan en renglones), y sin animaciones el avance se llena sin
+girar.
 
 Debajo, **sus secciones**, cada una plegable con su nombre y cuánto tiene (por
 ejemplo *"12 páginas"* o *"8 oraciones"*, y *"2 con cambios tuyos"* si editaste
@@ -2185,11 +2230,11 @@ el de la fuente):
   copia queda guardado ahí en el mismo momento, así que se sigue estudiando
   igual (con lo que ya habías resumido o marcado en su lugar). Con la fuente en
   la papelera no se ofrece: la copia es lo único que queda de su original.
-- **La tarjeta de estudiar**, arriba de las secciones, cuando el documento tiene
-  texto propio (su sección Texto o la copia del original): **Resumir**,
-  **Sintetizar** y **Palabras clave** sobre lo procesado, y en «Extraer» el
-  **resumen**, la **síntesis** y las **palabras clave** para leer, copiar y
-  escuchar.
+- **Ya no hay tarjeta «Estudiar el documento»**: el resumen, la síntesis y las
+  palabras clave se marcan en el original (ver
+  [Marcar en el original](#marcar-en-el-original-resumen-síntesis-y-palabras-clave))
+  y se extraen para leer y escuchar en **Repasar**. Lo que ya habías marcado
+  sigue guardado y se ve en el original y en sus secciones.
 
 **Escuchar:** el botón redondo del [lector en voz alta](#escuchar-el-lector-en-voz-alta)
 lee el documento entero, sección por sección, y empieza por la página del texto

@@ -669,3 +669,41 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
 - **La cola** (`CreationQueue`): «Generar ahora» antes que «más tarde»; lo de fondo espera la
   cuota sin fallar; lo pendiente se retoma al abrir la app (tres intentos), con el servicio en
   primer plano. Cada tipo suma su generador con una línea en `creationGeneratorsProvider`.
+
+### Paso 15 (hecho): Procesado y el original (M3, M4 y M5)
+
+- **El original a la vista** (`ProcessedOriginalSection`): en el mismo marco que el detalle de la
+  Biblioteca (`EmbeddedViewerFrame`, ahora público), con lo marcado encima; el botón grande y un
+  toque en la hoja abren `ProcessedOriginalScreen`. Debajo, «PDF · 26 kB · copiado el…»; borrar la
+  copia sigue en «Más». Sin copia, nada cambia. La tarjeta `ProcessedOriginalCard` salió.
+- **Fuera «Estudiar el documento»** (decisión J): sale `ProcessedStudySlot`, y de
+  `StudyDocumentCard` el camino `studiedRows` que solo usaba Procesado (las filas «Extraer
+  resumen / síntesis / palabras clave» y sus claves de texto). La hoja de triar ya no ofrece esas
+  tres secciones (`triageSectionsOffered`); procesar las sigue aceptando, así que lo ya guardado se
+  lee igual y volver a triar no lo toca. La Biblioteca no cambia.
+- **Marcar en el original** (`OriginalStudyBar`, arriba del original incrustado y del entero):
+  - la copia deja de ser de solo lectura: lo elegido sobre ella se lleva a la posición del texto
+    propio (`ProcessedStudyLayout.ownOf`) y se guarda en el procesado con la clave `procesado:…`;
+    lo que cae en una página editada no tiene dónde ir y lo dice;
+  - «Con IA» corre el análisis de siempre sobre el texto propio, con «Con tu IA actual»
+    (`planStudyAnalysis` → `creationEstimateProvider` → `AiCapabilityCard`); ya terminado, es
+    rehacer lo de la IA;
+  - con marcas, prender y apagar queda recordado por documento
+    (`processedOriginalHiddenProvider`, en el teléfono); las palabras clave hechas se ven siempre;
+  - el menú (⋯ o mantener apretado): rehacer con IA, retocar a mano, ocultar o mostrar, y borrar
+    (`StudyRepository.clearKind`, nuevo en los cuatro repositorios);
+  - estado (sin hacer, generándose con su avance que se llena sin girar, hecho, oculto), cuántas
+    marcas y la leyenda.
+- **Una sola fuente de verdad**: lo marcado en el original son las marcas de estudiar del
+  documento (F36, clave `processedStudyKeyFor`, en sus partes): las mismas que Repasar muestra
+  como vistas vivas del resumen, la síntesis y las palabras clave (decisión E). No hay otro
+  guardado. La preferencia «palabras clave a la vista», por documento, la lee cualquier pantalla
+  con `processedKeywordsShownProvider(documentId)`; se cambia con
+  `processedOriginalHiddenProvider(documentId).notifier.setHidden(...)`.
+- **Se superponen sin taparse**: una oración del resumen y de la síntesis se ve celeste con la línea
+  verde del resumen (`PaintedRange.underline`) en el texto, el PDF y la página web; la palabra
+  clave queda rosa encima.
+- **Dos arreglos de raíz que salieron en el camino**: sacarle una palabra a una oración de palabras
+  clave copiada la marcaba editada y escondía todas sus palabras (ahora las que quedan pasan a
+  elegidas); y el botón grande «Leer como libro» desbordaba con la letra al doble en 360 dp
+  (también en la Biblioteca).
