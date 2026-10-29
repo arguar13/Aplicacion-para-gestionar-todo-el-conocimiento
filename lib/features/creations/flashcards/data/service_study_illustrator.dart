@@ -1,10 +1,6 @@
 import 'dart:async';
-import 'dart:isolate';
-import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart' show CancelToken;
-import 'package:image/image.dart' as img;
 import 'package:sinapsis/features/ai_models/data/services/illustration_service.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
 import 'package:sinapsis/features/creations/data/services/creation_illustration_drawing.dart';
@@ -31,18 +27,13 @@ class ServiceStudyIllustrator {
     required IllustrationService Function() service,
     required CreationIllustrationStore Function() store,
     required Future<String?> Function() textAccountId,
-    Future<ShrunkIllustration> Function(Uint8List bytes, String mimeType)?
-    shrink,
   }) : _service = service,
        _store = store,
-       _textAccountId = textAccountId,
-       _shrink = shrink ?? shrinkStudyIllustration;
+       _textAccountId = textAccountId;
 
   final IllustrationService Function() _service;
   final CreationIllustrationStore Function() _store;
   final Future<String?> Function() _textAccountId;
-  final Future<ShrunkIllustration> Function(Uint8List bytes, String mimeType)
-  _shrink;
 
   Future<StudyIllustrations> illustrate({
     required String creationId,
@@ -96,15 +87,12 @@ class ServiceStudyIllustrator {
             cancellation,
           );
           throwIfCreationCancelled(cancellation);
-          final shrunk = await _shrink(
-            result.image.bytes,
-            result.image.mimeType,
-          );
           references[key] = await store.save(
             creationId: creationId,
             slotId: key,
-            bytes: shrunk.bytes,
-            mimeType: shrunk.mimeType,
+            bytes: result.image.bytes,
+            mimeType: result.image.mimeType,
+            maxSide: kStudyIllustrationSide,
           );
         } on CreationCancelledException {
           rethrow;
@@ -129,7 +117,7 @@ class ServiceStudyIllustrator {
         }
       }
     } on CreationCancelledException {
-      await store.deleteQuietly(references.values);
+      await store.deleteQuietly(creationId, references.values);
       rethrow;
     }
     onDrawn?.call(wanted.length, wanted.length);
@@ -141,55 +129,6 @@ class ServiceStudyIllustrator {
   }
 }
 
-/// Una ilustración lista para guardarse.
-class ShrunkIllustration {
-  const ShrunkIllustration({required this.bytes, required this.mimeType});
-
-  final Uint8List bytes;
-  final String mimeType;
-}
-
 /// El lado más largo de una ilustración guardada: alcanza para una tarjeta
 /// en una tableta, y diez de ellas pesan menos que una foto.
 const kStudyIllustrationSide = 640;
-
-/// [bytes] achicada a [kStudyIllustrationSide] como JPEG, en otro hilo. Si no
-/// se puede leer —un formato raro—, queda tal cual.
-Future<ShrunkIllustration> shrinkStudyIllustration(
-  Uint8List bytes,
-  String mimeType,
-) => Isolate.run(() => shrinkStudyIllustrationSync(bytes, mimeType));
-
-ShrunkIllustration shrinkStudyIllustrationSync(
-  Uint8List bytes,
-  String mimeType,
-) {
-  img.Image? decoded;
-  try {
-    decoded = img.decodeImage(bytes);
-    // Los bytes los manda un proveedor de afuera: un formato que el lector no
-    // entiende puede tirar cualquier cosa en vez de devolver null.
-  } on Object {
-    decoded = null;
-  }
-  if (decoded == null) {
-    return ShrunkIllustration(bytes: bytes, mimeType: mimeType);
-  }
-  final longest = math.max(decoded.width, decoded.height);
-  final resized = longest <= kStudyIllustrationSide
-      ? decoded
-      : img.copyResize(
-          decoded,
-          width: decoded.width >= decoded.height
-              ? kStudyIllustrationSide
-              : null,
-          height: decoded.height > decoded.width
-              ? kStudyIllustrationSide
-              : null,
-          interpolation: img.Interpolation.average,
-        );
-  return ShrunkIllustration(
-    bytes: img.encodeJpg(resized, quality: 80),
-    mimeType: 'image/jpeg',
-  );
-}

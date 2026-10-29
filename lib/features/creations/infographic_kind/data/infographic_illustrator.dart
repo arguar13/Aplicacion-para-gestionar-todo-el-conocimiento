@@ -155,11 +155,11 @@ class InfographicIllustrator {
         onProgress?.call(i + 1, slots.length);
       }
     } on CreationCancelledException {
-      await store.deleteQuietly(created);
+      await store.deleteQuietly(creationId, created);
       rethrow;
     }
     // Lo rehecho reemplaza a lo de antes: la vieja ya no la nombra nadie.
-    await store.deleteQuietly(replaced);
+    await store.deleteQuietly(creationId, replaced);
     return content.copyWith(
       sheet: sheet,
       failures: failures,

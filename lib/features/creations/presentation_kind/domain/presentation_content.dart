@@ -44,7 +44,7 @@ class IllustrationMiss {
 ///   para decir «tu cuenta Personal de Gemini no tiene facturación».
 ///
 /// Las ilustraciones hechas están en `Slide.illustrationRef`: la ruta del
-/// archivo en el almacén de la app (`CreationIllustrationFiles`).
+/// archivo en el almacén de la app (`CreationIllustrationStore`).
 @immutable
 class PresentationContent {
   const PresentationContent({

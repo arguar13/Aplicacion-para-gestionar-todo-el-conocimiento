@@ -6,7 +6,9 @@ import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
+import 'package:sinapsis/features/creations/data/creation_files.dart';
 import 'package:sinapsis/features/creations/data/repositories/study_creation_repository_impl.dart';
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_material.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
@@ -19,7 +21,6 @@ import 'package:sinapsis/features/creations/presentation_deck/domain/deck_design
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide_deck.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide_deck_schema_prompt.dart';
-import 'package:sinapsis/features/creations/presentation_kind/data/creation_illustration_files.dart';
 import 'package:sinapsis/features/creations/presentation_kind/data/deck_illustrator.dart';
 import 'package:sinapsis/features/creations/presentation_kind/data/presentation_generator.dart';
 import 'package:sinapsis/features/creations/presentation_kind/domain/presentation_content.dart';
@@ -83,7 +84,7 @@ void main() {
     );
     writer = FakeDeckWriter(reply: (_) => deckJson(template: 'aurora'));
     images = FakeIllustrations();
-    final files = CreationIllustrationFiles(store);
+    final files = CreationIllustrationStore(store);
     generator = PresentationGenerator(
       illustrator: () =>
           DeckIllustrator(service: images, files: files, wait: (_) async {}),
@@ -182,11 +183,7 @@ void main() {
         expect(content.files, hasLength(3));
         expect(store.paths.toSet(), content.files);
         for (final path in content.files) {
-          expect(
-            CreationIllustrationFiles.isOwnedBy(created.id, path),
-            isTrue,
-            reason: path,
-          );
+          expect(isCreationFile(created.id, path), isTrue, reason: path);
         }
       },
     );

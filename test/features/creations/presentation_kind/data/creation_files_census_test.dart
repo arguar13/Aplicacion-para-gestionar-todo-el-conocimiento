@@ -2,12 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/creations/data/repositories/study_creation_repository_impl.dart';
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide_deck.dart';
-import 'package:sinapsis/features/creations/presentation_kind/data/creation_illustration_files.dart';
 import 'package:sinapsis/features/creations/presentation_kind/domain/presentation_content.dart';
 
 import '../../../../support/fake_id_generator.dart';
@@ -97,7 +97,7 @@ void main() {
 
   test('borrarla para siempre se lleva las ilustraciones que guardó', () async {
     final store = InMemoryFileStore();
-    final files = CreationIllustrationFiles(store);
+    final files = CreationIllustrationStore(store);
     final repository = repositoryOf(tel, files: store);
     final paths = <String>[];
     final c = await ready(repository, (id) => 'originales/$id/ilustraciones/x');
@@ -105,7 +105,7 @@ void main() {
       paths.add(
         await files.save(
           creationId: c.id,
-          slide: slide,
+          slotId: 'diapositiva-${slide + 1}',
           bytes: tinyPng(slide),
           mimeType: 'image/png',
         ),

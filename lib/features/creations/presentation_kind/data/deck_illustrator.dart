@@ -5,9 +5,9 @@ import 'package:meta/meta.dart';
 import 'package:sinapsis/features/ai_models/data/services/illustration_service.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/illustration_account.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/services/structured_writer.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide.dart';
-import 'package:sinapsis/features/creations/presentation_kind/data/creation_illustration_files.dart';
 import 'package:sinapsis/features/creations/presentation_kind/domain/presentation_content.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 
@@ -50,17 +50,20 @@ class DeckIllustrationRun {
 ///
 /// Cancelar ([illustrate] con su señal) corta lo que se esté dibujando, borra
 /// lo que se guardó en esta vuelta y lanza [CreationCancelledException].
+///
+/// Lo hecho se guarda con `CreationIllustrationStore`, como en los demás
+/// tipos: una PNG grande queda como JPEG.
 class DeckIllustrator {
   DeckIllustrator({
     required IllustrationService service,
-    required CreationIllustrationFiles files,
+    required CreationIllustrationStore files,
     Future<void> Function(Duration)? wait,
   }) : _service = service,
        _files = files,
        _wait = wait ?? Future<void>.delayed;
 
   final IllustrationService _service;
-  final CreationIllustrationFiles _files;
+  final CreationIllustrationStore _files;
   final Future<void> Function(Duration) _wait;
 
   /// Cuánto se espera, como mucho, si el proveedor pide calma (el tope por
@@ -115,7 +118,7 @@ class DeckIllustrator {
         if (cancellation?.isCancelled ?? false) cancelled();
         final path = await _files.save(
           creationId: creationId,
-          slide: index,
+          slotId: 'diapositiva-${index + 1}',
           bytes: result.image.bytes,
           mimeType: result.image.mimeType,
         );

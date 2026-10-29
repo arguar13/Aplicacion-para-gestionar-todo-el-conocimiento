@@ -4,6 +4,7 @@ import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/presentation/creation_presentation.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
+import 'package:sinapsis/features/creations/presentation/providers/creation_illustration_providers.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide_deck.dart';
 import 'package:sinapsis/features/creations/presentation_deck/presentation/export/deck_pdf_exporter.dart';
 import 'package:sinapsis/features/creations/presentation_kind/domain/presentation_content.dart';
@@ -30,7 +31,7 @@ Future<CreationExportFile?> exportPresentationPdf(
   final design = ref.exists(viewer)
       ? ref.read(viewer).design
       : PresentationViewerController.designOf(creation);
-  final files = ref.read(creationIllustrationFilesProvider);
+  final files = ref.read(creationIllustrationStoreProvider);
 
   final images = <String, ImageProvider>{};
   for (final path in content.files) {

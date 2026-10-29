@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/features/creations/presentation/providers/creation_illustration_providers.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/deck_design.dart';
 import 'package:sinapsis/features/creations/presentation_kind/data/deck_illustrator.dart';
@@ -30,7 +31,7 @@ Future<DeckIllustrationRun> drawPresentationIllustrations(
   // Lo que se pide a Riverpod va antes de esperar nada: la hoja que lo
   // pidió se puede cerrar a mitad (y eso lo cancela).
   final repository = ref.read(studyCreationRepositoryProvider);
-  final files = ref.read(creationIllustrationFilesProvider);
+  final files = ref.read(creationIllustrationStoreProvider);
   final illustrator = ref.read(deckIllustratorProvider);
   final found = await repository.find(creationId);
   final creation = found.getRight().toNullable();

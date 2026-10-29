@@ -3,32 +3,27 @@ import 'dart:async';
 import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
-import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/illustration_providers.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/repositories/study_creation_repository.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_generator.dart';
+import 'package:sinapsis/features/creations/presentation/providers/creation_illustration_providers.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/deck_design.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide_deck.dart';
 import 'package:sinapsis/features/creations/presentation_deck/presentation/widgets/deck_pager.dart';
 import 'package:sinapsis/features/creations/presentation_deck/presentation/widgets/slide_view.dart';
-import 'package:sinapsis/features/creations/presentation_kind/data/creation_illustration_files.dart';
 import 'package:sinapsis/features/creations/presentation_kind/data/deck_illustrator.dart';
 import 'package:sinapsis/features/creations/presentation_kind/data/presentation_generator.dart';
 import 'package:sinapsis/features/creations/presentation_kind/domain/presentation_content.dart';
 import 'package:sinapsis/features/creations/presentation_kind/domain/presentation_options.dart';
 
-/// Dónde se guardan las ilustraciones de lo creado.
-final creationIllustrationFilesProvider = Provider<CreationIllustrationFiles>(
-  (ref) => CreationIllustrationFiles(ref.watch(fileStoreProvider)),
-);
-
-/// Quien dibuja las ilustraciones de una presentación.
+/// Quien dibuja las ilustraciones de una presentación, en el almacén de las
+/// de todos los tipos.
 final deckIllustratorProvider = Provider<DeckIllustrator>(
   (ref) => DeckIllustrator(
     service: ref.watch(illustrationServiceProvider),
-    files: ref.watch(creationIllustrationFilesProvider),
+    files: ref.watch(creationIllustrationStoreProvider),
   ),
 );
 
@@ -38,7 +33,7 @@ final deckIllustratorProvider = Provider<DeckIllustrator>(
 final presentationGeneratorProvider = Provider<CreationGenerator>(
   (ref) => PresentationGenerator(
     illustrator: () => ref.read(deckIllustratorProvider),
-    files: () => ref.read(creationIllustrationFilesProvider),
+    files: () => ref.read(creationIllustrationStoreProvider),
   ),
 );
 
@@ -47,7 +42,7 @@ final presentationGeneratorProvider = Provider<CreationGenerator>(
 final deckIllustrationImageProvider = FutureProvider.autoDispose
     .family<ImageProvider?, String>((ref, path) async {
       final bytes = await ref
-          .watch(creationIllustrationFilesProvider)
+          .watch(creationIllustrationStoreProvider)
           .read(path);
       return bytes == null ? null : MemoryImage(bytes);
     });

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_material.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
@@ -11,7 +12,6 @@ import 'package:sinapsis/features/creations/presentation_deck/domain/slide.dart'
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide_deck.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide_deck_json.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide_deck_schema_prompt.dart';
-import 'package:sinapsis/features/creations/presentation_kind/data/creation_illustration_files.dart';
 import 'package:sinapsis/features/creations/presentation_kind/data/deck_illustrator.dart';
 import 'package:sinapsis/features/creations/presentation_kind/domain/presentation_content.dart';
 import 'package:sinapsis/features/creations/presentation_kind/domain/presentation_options.dart';
@@ -38,12 +38,12 @@ typedef WrittenDeck = ({SlideDeck deck, DeckTemplateId? template});
 class PresentationGenerator extends CreationGenerator {
   PresentationGenerator({
     required DeckIllustrator Function() illustrator,
-    required CreationIllustrationFiles Function() files,
+    required CreationIllustrationStore Function() files,
   }) : _illustrator = illustrator,
        _files = files;
 
   final DeckIllustrator Function() _illustrator;
-  final CreationIllustrationFiles Function() _files;
+  final CreationIllustrationStore Function() _files;
 
   /// Hasta dónde llega el avance al terminar de escribir, si después se
   /// dibuja.

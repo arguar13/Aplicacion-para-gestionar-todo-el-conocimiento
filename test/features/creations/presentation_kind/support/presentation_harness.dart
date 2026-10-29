@@ -9,6 +9,7 @@ import 'package:sinapsis/features/ai_models/domain/services/creation_cost_estima
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/illustration_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_material.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
@@ -19,7 +20,6 @@ import 'package:sinapsis/features/creations/presentation/providers/creations_pro
 import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide_deck.dart';
-import 'package:sinapsis/features/creations/presentation_kind/data/creation_illustration_files.dart';
 import 'package:sinapsis/features/creations/presentation_kind/domain/presentation_content.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -57,8 +57,8 @@ class PresentationHarness {
   StudyCreationRepository get creations =>
       container.read(studyCreationRepositoryProvider);
 
-  CreationIllustrationFiles get files =>
-      CreationIllustrationFiles(library.files);
+  CreationIllustrationStore get files =>
+      CreationIllustrationStore(library.files);
 
   static Future<PresentationHarness> create() async {
     estimate = _withImages;
@@ -133,7 +133,7 @@ class PresentationHarness {
     for (final slide in illustrated) {
       final path = await files.save(
         creationId: created.id,
-        slide: slide,
+        slotId: 'diapositiva-${slide + 1}',
         bytes: tinyPng(slide),
         mimeType: 'image/png',
       );

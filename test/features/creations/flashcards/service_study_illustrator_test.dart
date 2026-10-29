@@ -28,9 +28,6 @@ void main() {
       service: () => images,
       store: () => CreationIllustrationStore(files),
       textAccountId: () async => textAccount,
-      // Sin otro hilo en la prueba: lo que se achica se prueba aparte.
-      shrink: (bytes, mime) async =>
-          ShrunkIllustration(bytes: bytes, mimeType: mime),
     ).illustrate;
   });
 

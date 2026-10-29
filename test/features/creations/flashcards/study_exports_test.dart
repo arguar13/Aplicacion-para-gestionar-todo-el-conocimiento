@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:image/image.dart' as img;
-import 'package:sinapsis/features/creations/flashcards/data/service_study_illustrator.dart';
 import 'package:sinapsis/features/creations/flashcards/domain/flashcard_deck.dart';
 import 'package:sinapsis/features/creations/flashcards/presentation/export/flashcard_deck_export.dart';
 import 'package:sinapsis/features/creations/quiz/domain/quiz.dart';
@@ -180,29 +178,6 @@ void main() {
       expect(file.fileName, 'Éxodo.pdf');
       expect(ascii.decode(file.bytes.sublist(0, 5)), '%PDF-');
     });
-  });
-
-  test('una ilustración se guarda achicada como JPEG; una que no se puede '
-      'leer, tal cual', () {
-    final big = img.encodePng(img.Image(width: 1600, height: 1200));
-    final shrunk = shrinkStudyIllustrationSync(big, 'image/png');
-    expect(shrunk.mimeType, 'image/jpeg');
-    final decoded = img.decodeImage(shrunk.bytes)!;
-    expect(decoded.width, kStudyIllustrationSide);
-    expect(decoded.height, 480);
-
-    final tall = img.encodePng(img.Image(width: 300, height: 1280));
-    expect(
-      img
-          .decodeImage(shrinkStudyIllustrationSync(tall, 'image/png').bytes)!
-          .height,
-      kStudyIllustrationSide,
-    );
-
-    final junk = Uint8List.fromList([1, 2, 3]);
-    final kept = shrinkStudyIllustrationSync(junk, 'image/webp');
-    expect(kept.bytes, junk);
-    expect(kept.mimeType, 'image/webp');
   });
 }
 

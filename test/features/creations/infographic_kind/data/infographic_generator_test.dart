@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show Variable;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_capability.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
@@ -335,6 +337,51 @@ void main() {
         );
       },
     );
+
+    test('volver a generar no borra lo que un JSON de otra bóveda nombra '
+        'fuera de su carpeta: ni el archivo de otra creación ni el original de '
+        'un documento', () async {
+      final q = queue();
+      final id = await create(q, options());
+      final first = await settled(id);
+      final original = await files.save(
+        bytes: Uint8List.fromList([1, 2, 3]),
+        suggestedName: 'libro.pdf',
+        id: 'documento',
+      );
+      final another = await files.saveStream(
+        bytes: Stream.value([4, 5, 6]),
+        suggestedName: 'header.png',
+        id: 'otra',
+        folder: 'ilustraciones',
+      );
+      // Así llega de una unión de bóvedas: la fila tal cual, sin pasar por
+      // el repositorio.
+      var sheet = InfographicContent.decode(first.content).sheet;
+      sheet = InfographicIllustrationPlan.withReference(
+        sheet,
+        'header',
+        original,
+      );
+      sheet = InfographicIllustrationPlan.withReference(
+        sheet,
+        'block-1',
+        another,
+      );
+      await h.processed.db.customUpdate(
+        'UPDATE study_creations SET content_json = ? WHERE id = ?',
+        variables: [
+          Variable.withString(InfographicContent(sheet: sheet).encode()),
+          Variable.withString(id),
+        ],
+      );
+
+      await q.regenerate(id, options: options(style: 'editorial'));
+      expect((await settled(id)).status, CreationStatus.ready);
+      expect(files.paths, containsAll([original, another]));
+      expect(files.deleted, isNot(contains(original)));
+      expect(files.deleted, isNot(contains(another)));
+    });
   });
 
   group('el avance', () {

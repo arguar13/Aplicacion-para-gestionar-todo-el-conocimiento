@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
@@ -76,6 +77,34 @@ void main() {
       expect(redone.failures, isEmpty);
     },
   );
+
+  test('rehacer una cuyo illustration_ref llegó de otra bóveda y nombra un '
+      'archivo ajeno no lo borra', () async {
+    final original = await files.save(
+      bytes: Uint8List.fromList([1, 2, 3]),
+      suggestedName: 'libro.pdf',
+      id: 'documento',
+    );
+    final content = InfographicContent(
+      sheet: InfographicIllustrationPlan.withReference(
+        sampleSheet(),
+        'block-2',
+        original,
+      ),
+    );
+    final redone = await illustrator.illustrate(
+      creationId: 'c',
+      content: content,
+      design: design,
+      slots: slots(content, ['block-2']),
+    );
+    expect(
+      InfographicIllustrationPlan.referenceOf(redone.sheet, 'block-2'),
+      startsWith('originales/c/ilustraciones/'),
+    );
+    expect(files.paths, contains(original));
+    expect(files.deleted, isEmpty);
+  });
 
   test('una que no se pudo rehacer conserva la de antes', () async {
     final first = await illustrator.illustrate(

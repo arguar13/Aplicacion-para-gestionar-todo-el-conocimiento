@@ -1,14 +1,12 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:image/image.dart' as img;
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/services/structured_writer.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/slide_deck.dart';
-import 'package:sinapsis/features/creations/presentation_kind/data/creation_illustration_files.dart';
 import 'package:sinapsis/features/creations/presentation_kind/data/deck_illustrator.dart';
 import 'package:sinapsis/features/creations/presentation_kind/domain/presentation_content.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
@@ -21,7 +19,7 @@ import '../support/presentation_fakes.dart';
 /// que no sale nunca tumba nada.
 void main() {
   late InMemoryFileStore store;
-  late CreationIllustrationFiles files;
+  late CreationIllustrationStore files;
   late FakeIllustrations service;
   late List<Duration> waits;
 
@@ -45,7 +43,7 @@ void main() {
 
   setUp(() {
     store = InMemoryFileStore();
-    files = CreationIllustrationFiles(store);
+    files = CreationIllustrationStore(store);
     service = FakeIllustrations();
     waits = [];
   });
@@ -209,85 +207,17 @@ void main() {
       ImageFailure.unknown,
     ]);
   });
-
-  group('CreationIllustrationFiles', () {
-    test('solo borra lo de la carpeta de la propia creación', () async {
-      final path = await files.save(
-        creationId: 'c1',
-        slide: 0,
-        bytes: tinyPng(),
-        mimeType: 'image/png',
-      );
-      await files.delete('otra', path);
-      expect(store.paths, contains(path));
-      await files.delete('c1', 'originales/c1/original.pdf');
-      await files.delete('c1', 'originales/c1/ilustraciones/../../x.pdf');
-      expect(store.deleted, isEmpty);
-      await files.delete('c1', path);
-      expect(store.deleted, [path]);
-
-      expect(CreationIllustrationFiles.isOwnedBy('c1', path), isTrue);
-      expect(
-        CreationIllustrationFiles.isOwnedBy(
-          'c1',
-          'originales/c1/ilustraciones/',
-        ),
-        isFalse,
-      );
-      expect(
-        CreationIllustrationFiles.isOwnedBy(
-          'c1',
-          'originales/c1/ilustraciones/a/b.png',
-        ),
-        isFalse,
-      );
-    });
-
-    test('una PNG grande se guarda como JPEG; una chica, tal cual', () async {
-      final noise = img.Image(width: 640, height: 640);
-      final random = math.Random(7);
-      for (final pixel in noise) {
-        pixel
-          ..r = random.nextInt(256)
-          ..g = random.nextInt(256)
-          ..b = random.nextInt(256);
-      }
-      final big = img.encodePng(noise);
-      expect(
-        big.length,
-        greaterThan(CreationIllustrationFiles.recompressAbove),
-      );
-
-      final saved = await files.save(
-        creationId: 'c1',
-        slide: 2,
-        bytes: big,
-        mimeType: 'image/png',
-      );
-      expect(saved, 'originales/c1/ilustraciones/diapositiva-3.jpg');
-      final bytes = (await store.read(saved))!;
-      expect(bytes.sublist(0, 2), [0xFF, 0xD8]);
-      expect(bytes.length, lessThan(big.length));
-
-      final small = await files.save(
-        creationId: 'c1',
-        slide: 0,
-        bytes: tinyPng(),
-        mimeType: 'image/png',
-      );
-      expect(small, endsWith('.png'));
-    });
-  });
 }
 
-class _BrokenFiles extends CreationIllustrationFiles {
+class _BrokenFiles extends CreationIllustrationStore {
   _BrokenFiles(super.store);
 
   @override
   Future<String> save({
     required String creationId,
-    required int slide,
+    required String slotId,
     required Uint8List bytes,
     required String mimeType,
+    int? maxSide,
   }) => throw StateError('disco lleno');
 }

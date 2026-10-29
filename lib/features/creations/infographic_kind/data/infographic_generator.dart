@@ -129,7 +129,8 @@ class InfographicGenerator extends CreationGenerator {
   }
 
   /// Borra las ilustraciones de lo que [creation] tenía antes —al volver a
-  /// generarla— que [sheet] ya no nombra.
+  /// generarla— que [sheet] ya no nombra: solo las suyas, aunque el contenido
+  /// de antes nombre otra cosa (`CreationIllustrationStore.delete`).
   Future<void> _forgetPrevious(
     StudyCreation creation,
     Infographic sheet,
@@ -143,7 +144,7 @@ class InfographicGenerator extends CreationGenerator {
     final files = store();
     for (final reference in previous.difference(kept)) {
       try {
-        await files.delete(reference);
+        await files.delete(creation.id, reference);
         // Un archivo viejo que no se pudo borrar no le quita nada a la lámina
         // nueva.
         // ignore: avoid_catches_without_on_clauses
