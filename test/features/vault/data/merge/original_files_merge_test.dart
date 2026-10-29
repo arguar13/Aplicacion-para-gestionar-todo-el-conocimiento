@@ -2,8 +2,10 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_gates.dart';
 import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
 
@@ -107,6 +109,61 @@ void main() {
 
       expect(again.changedNothing, isTrue);
       expect(again.filesCopied, 0);
+    });
+  });
+
+  group('las ilustraciones de «Lo creado» (F43, decisión H)', () {
+    /// Una creación lista en [vault] con [content] como contenido.
+    Future<void> creation(TestVault vault, String id, String content) => vault
+        .db
+        .into(vault.db.studyCreations)
+        .insert(
+          StudyCreationsCompanion.insert(
+            id: id,
+            kind: 'infographic',
+            scopeKind: 'all',
+            contentJson: Value(content),
+            languageCode: 'es',
+            status: 'ready',
+            createdAt: vault.now,
+            updatedAt: vault.now,
+          ),
+        );
+
+    test('las de una creación que llega se copian, a cualquier profundidad, '
+        'y la vista previa las cuenta', () async {
+      pc.at(3);
+      const header = 'originales/c1/ilustraciones/header.png';
+      const block = 'originales/c1/ilustraciones/block-1.png';
+      await creation(
+        pc,
+        'c1',
+        '{"sheet":{"title":"T","illustration_ref":"$header","blocks":['
+            '{"type":"fact","title":"x","illustration_ref":"$block"},'
+            '{"type":"fact","title":"y","illustration_ref":"cabecera"},'
+            '{"type":"fact","title":"z","illustration_ref":""}]}}',
+      );
+      await pc.writeOriginal(header, 'PNG de la cabecera');
+      await pc.writeOriginal(block, 'PNG del bloque');
+
+      final preview = await tel.previewFrom(pc);
+      final result = await tel.mergeFrom(pc);
+
+      expect(result.filesCopied, 2);
+      expect(preview.newFiles, 2);
+      // «cabecera» y la vacía no son originales: ni se buscan ni faltan.
+      expect(result.filesMissing, 0);
+      expect(tel.readOriginal(header), 'PNG de la cabecera');
+      expect(tel.readOriginal(block), 'PNG del bloque');
+    });
+
+    test('un contenido que no es JSON no rompe la fusión', () async {
+      pc.at(3);
+      await creation(pc, 'rota', '{no es json');
+
+      final result = await tel.mergeFrom(pc);
+      expect(result.filesCopied, 0);
+      expect(result.filesMissing, 0);
     });
   });
 

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
+import 'package:sinapsis/features/vault/data/merge/study_creations_merge.dart';
 
 /// Lo que hizo [OriginalFilesMerge].
 class OriginalFilesResult {
@@ -29,8 +30,9 @@ class OriginalFilesResult {
 /// Copia a la carpeta de documentos los archivos originales que la copia trae y
 /// esta bóveda necesita (F11).
 ///
-/// «Necesita» es: los que alguna fila de acá referencia —la fuente o una forma
-/// de archivo—, después de la fusión, y que en el disco no están. Así entran
+/// «Necesita» es: los que alguna fila de acá referencia —la fuente, una forma
+/// de archivo o una ilustración de «Lo creado» (`studyCreationFilesSql`)—,
+/// después de la fusión, y que en el disco no están. Así entran
 /// los de los elementos nuevos y los de un elemento que ya estaba y había
 /// perdido el suyo, y no entra un archivo que ninguna fila usa.
 ///
@@ -54,7 +56,9 @@ class OriginalFilesMerge {
        WHERE original_blob_path IS NOT NULL
       UNION
       SELECT relative_path AS path FROM main.renditions
-       WHERE relative_path IS NOT NULL''').get();
+       WHERE relative_path IS NOT NULL
+      UNION
+      ${studyCreationFilesSql('main')}''').get();
 
     final inBackup = incoming.originalPaths.toSet();
     var copied = 0;

@@ -11,6 +11,7 @@ import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
 import 'package:sinapsis/features/vault/data/merge/rendition_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/set_union_rules.dart';
 import 'package:sinapsis/features/vault/data/merge/space_merge.dart';
+import 'package:sinapsis/features/vault/data/merge/study_creations_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/vocabulary_merge.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 
@@ -186,7 +187,9 @@ class VaultMergeReader {
        WHERE original_blob_path IS NOT NULL
       UNION
       SELECT relative_path AS path FROM $_incoming.renditions
-       WHERE relative_path IS NOT NULL''').get()) {
+       WHERE relative_path IS NOT NULL
+      UNION
+      ${studyCreationFilesSql(_incoming)}''').get()) {
       referenced.add(row.read<String>('path'));
     }
 
