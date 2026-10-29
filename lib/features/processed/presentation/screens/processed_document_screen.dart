@@ -42,6 +42,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// - **Sus secciones**, plegables y en el orden en que se leen, cada una con
 ///   sus partes editables. Se recorren las que el documento tiene: una
 ///   sección nueva entra sola.
+/// - **«En Repasar»** (F43, M6), al empezar lo de estudiar: lo creado con el
+///   documento —también lo que lo usó como fuente desde un cuaderno o un
+///   tema—, sus tarjetas para hoy con «Empezar» y «Crear en Repasar», con el
+///   documento ya elegido. Tocar una creación abre su visor, y «atrás» vuelve
+///   acá.
 /// - **Su Mapa y sus Tarjetas de repaso** (decisión K): el grafo local y la
 ///   sección de tarjetas de siempre, sobre el documento. Las tarjetas con IA
 ///   salen de su texto procesado, y las que ya tenía la fuente se ven en «De

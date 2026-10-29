@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/scope_creations_section.dart';
 import 'package:sinapsis/features/notebooks/domain/entities/notebook.dart';
 import 'package:sinapsis/features/notebooks/presentation/notebook_navigation.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
@@ -20,6 +22,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// Cada fila es un documento procesado —el ícono de su fuente, su título y
 /// los chips de sus partes— y tocarla lo abre ([openProcessedDocument]).
+///
+/// Arriba de los documentos, **«En Repasar»** (F43, M6): lo creado con el
+/// cuaderno como recorte, sus tarjetas para hoy con «Empezar» y «Crear en
+/// Repasar», con el cuaderno ya elegido. Va primero porque es lo del cuaderno
+/// entero —sus documentos juntos—, y la lista de abajo puede ser larga.
 class NotebookDetailScreen extends ConsumerWidget {
   const NotebookDetailScreen({required this.notebookId, super.key});
 
@@ -67,6 +74,11 @@ class NotebookDetailScreen extends ConsumerWidget {
       ),
       floatingActionButton: notebook.mode == NotebookMode.manual
           ? FloatingActionButton(
+              // Sin héroe: el botón no vuela a ninguna parte, y con el de la
+              // Biblioteca —otra pestaña, también a la vista para el
+              // navegador principal— repetiría la etiqueta por defecto al
+              // abrir encima un visor o un documento.
+              heroTag: null,
               onPressed: () => _addItem(context, ref, notebook),
               tooltip: l10n.notebookPickProcessedTitle,
               child: const Icon(Icons.add),
@@ -171,13 +183,38 @@ class _NotebookItemsPanel extends ConsumerWidget {
     if (documents == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (documents.isEmpty) return _EmptyNotebook(mode: notebook.mode);
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: documents.length,
-      itemBuilder: (context, index) =>
-          _MemberTile(notebook: notebook, document: documents[index]),
+    // Una sola lista que se desplaza: con letra grande, la sección no queda
+    // fija tapando los documentos.
+    return CustomScrollView(
+      key: const Key('notebook-detail-list'),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          sliver: SliverToBoxAdapter(
+            child: ScopeCreationsSection(
+              scope: CreationScope.notebook(notebook.id),
+              // Vacío, no hay sobre qué crear: la sección aparece solo si ya
+              // se creó algo, para no esconderlo.
+              hideWhenEmpty: documents.isEmpty,
+            ),
+          ),
+        ),
+        if (documents.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _EmptyNotebook(mode: notebook.mode),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            sliver: SliverList.builder(
+              itemCount: documents.length,
+              itemBuilder: (context, index) =>
+                  _MemberTile(notebook: notebook, document: documents[index]),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -242,6 +242,92 @@ void main() {
       expect(idsOf(list).toSet(), {onIt.id, readIt.id});
     });
 
+    test('un documento entre miles: solo las suyas —sobre él o como fuente '
+        'desde un cuaderno o un tema—, y el tiempo crece con la base, no más '
+        '(F43, M6: «En Repasar» de cada documento)', () async {
+      final at = h.processed.vault.now;
+      final db = h.processed.db;
+
+      /// [count] creaciones más en cuadernos y temas, cada una con tres
+      /// fuentes que nunca son `doc-a`; empieza a numerar en [from].
+      Future<void> fill(int from, int count) => db.batch((batch) {
+        batch.insertAll(db.studyCreations, [
+          for (var i = from; i < from + count; i++)
+            StudyCreationsCompanion.insert(
+              id: 'relleno-$i',
+              kind: StudyCreationKind.quiz.storageKey,
+              scopeKind: i.isEven ? 'notebook' : 'topic',
+              scopeId: Value('recorte-${i % 37}'),
+              // `doc-a1` y `doc-a10` empiezan como `doc-a`: la regla compara
+              // ids enteros, no un pedazo del texto.
+              sourceIdsJson: Value(
+                '["doc-${i % 97}","doc-a${i % 11}","doc-b${i % 13}"]',
+              ),
+              languageCode: 'es',
+              status: 'ready',
+              createdAt: at.subtract(Duration(minutes: i)),
+              updatedAt: at,
+            ),
+        ]);
+      });
+
+      final onIt = await create(
+        StudyCreationKind.mindMap,
+        scope: const CreationScope.document('doc-a'),
+        sources: ['doc-a'],
+      );
+      final viaNotebook = await create(
+        StudyCreationKind.report,
+        scope: const CreationScope.notebook('recorte-3'),
+        sources: ['doc-b', 'doc-a'],
+      );
+      final viaTopic = await create(
+        StudyCreationKind.infographic,
+        scope: const CreationScope.topic('roma'),
+        sources: ['doc-a'],
+      );
+      final trashed = await create(
+        StudyCreationKind.quiz,
+        scope: const CreationScope.notebook('recorte-3'),
+        sources: ['doc-a'],
+      );
+      await h.creations.trash(trashed.id);
+      final expected = {onIt.id, viaNotebook.id, viaTopic.id};
+
+      const document = CreationScope.document('doc-a');
+      Future<Duration> timed() async {
+        var best = const Duration(days: 1);
+        for (var round = 0; round < 3; round++) {
+          final watch = Stopwatch()..start();
+          final list = await h.creations.watchByScope(document).first;
+          watch.stop();
+          expect(idsOf(list).toSet(), expected);
+          if (watch.elapsed < best) best = watch.elapsed;
+        }
+        return best;
+      }
+
+      const n = 1000;
+      await fill(0, n);
+      final small = await timed();
+      await fill(n, 3 * n);
+      final large = await timed();
+
+      // Cuatro veces más filas: lineal es ~4 veces más; cuadrático, ~16. El
+      // margen deja lugar a una máquina cargada sin dejar pasar lo segundo.
+      // Por debajo de un milisegundo manda el ruido, no la base.
+      final floor = const Duration(milliseconds: 1).inMicroseconds;
+      expect(
+        large.inMicroseconds,
+        lessThan(
+          10 * (small.inMicroseconds < floor ? floor : small.inMicroseconds),
+        ),
+        reason: 'con $n: $small; con ${4 * n}: $large',
+      );
+      // Y a 4.000 creaciones sigue siendo de una pantalla que se abre.
+      expect(large, lessThan(const Duration(milliseconds: 500)));
+    });
+
     test(
       'un cuaderno, un tema o un espacio: las creadas sobre ese recorte',
       () async {

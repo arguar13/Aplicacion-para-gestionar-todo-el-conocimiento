@@ -924,7 +924,7 @@ void main() {
         'el documento elegido', (tester) async {
       await pumpHost(tester);
 
-      expect(find.text(es.f43StudioInRepasarEmpty), findsOneWidget);
+      expect(find.text(es.f43LinkEmptyDocumentTitle), findsOneWidget);
       await tester.tap(
         find.byKey(const ValueKey('scope-creations-create-document:p-1')),
       );

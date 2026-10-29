@@ -26,6 +26,19 @@ void openRepasarWith(BuildContext context, CreationScope scope) {
   context.go(RoutePaths.reviewFor(scope.storageKey));
 }
 
+/// Empieza el repaso de hoy de [scope]: la sesión de sus tarjetas, a
+/// pantalla completa, encima de donde se esté —«atrás» vuelve al documento o
+/// al cuaderno—. Un recorte de Procesado es `StudyScope.processed`, el mismo
+/// que cuenta «Para hoy» en Repasar con ese recorte elegido.
+void openScopeReview(BuildContext context, CreationScope scope) {
+  final study = scope.studyScope;
+  unawaited(
+    context.push(
+      RoutePaths.reviewSessionFor(kind: study.kind.name, id: study.id),
+    ),
+  );
+}
+
 /// Abre el visor de [creation].
 void openCreation(BuildContext context, StudyCreation creation) =>
     unawaited(context.push(RoutePaths.creation(creation.id)));

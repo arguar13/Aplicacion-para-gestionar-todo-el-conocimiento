@@ -13857,5 +13857,56 @@
         "type": "String"
       }
     }
+  },
+  "f43LinkCreatedCount": "{count, plural, =1{1 creation} other{{count} creations}}",
+  "@f43LinkCreatedCount": {
+    "description": "In Review (F43, M6): how many creations a document or notebook has, next to the section title.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43LinkTodayCards": "{count, plural, =1{1 card for today} other{{count} cards for today}}",
+  "@f43LinkTodayCards": {
+    "description": "In Review (F43, M6): the document's or notebook's cards due today, with «Start» next to it.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43LinkSeeAll": "See {count, plural, =1{it} other{all {count}}} in Review",
+  "@f43LinkSeeAll": {
+    "description": "In Review (F43, M6): below the newest ones, opens Review with the scope chosen to see everything created.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43LinkEmptyDocumentTitle": "Study this document in Review",
+  "@f43LinkEmptyDocumentTitle": {
+    "description": "In Review (F43, M6): empty section in a processed document."
+  },
+  "f43LinkEmptyDocument": "Presentations, summaries, infographics, quizzes and more. What you create with this document —also from a notebook or a topic— shows up here.",
+  "@f43LinkEmptyDocument": {
+    "description": "In Review (F43, M6): empty section in a processed document."
+  },
+  "f43LinkEmptyNotebookTitle": "Study this notebook in Review",
+  "@f43LinkEmptyNotebookTitle": {
+    "description": "In Review (F43, M6): empty section in a notebook."
+  },
+  "f43LinkEmptyNotebook": "Presentations, summaries, infographics, quizzes and more, over all its documents together. What you create shows up here.",
+  "@f43LinkEmptyNotebook": {
+    "description": "In Review (F43, M6): empty section in a notebook."
+  },
+  "f43LinkEmptyTopicTitle": "Study this topic in Review",
+  "@f43LinkEmptyTopicTitle": {
+    "description": "In Review (F43, M6): empty section in a topic."
+  },
+  "f43LinkEmptyTopic": "Presentations, summaries, infographics, quizzes and more, over what was processed in this topic. What you create shows up here.",
+  "@f43LinkEmptyTopic": {
+    "description": "In Review (F43, M6): empty section in a topic."
   }
 }

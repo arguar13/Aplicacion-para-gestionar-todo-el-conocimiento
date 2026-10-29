@@ -12874,5 +12874,56 @@
         "type": "String"
       }
     }
+  },
+  "f43LinkCreatedCount": "{count, plural, =1{1 creación} other{{count} creaciones}}",
+  "@f43LinkCreatedCount": {
+    "description": "En Repasar (F43, M6): cuántas creaciones hay sobre un documento o un cuaderno, al lado del título de la sección.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43LinkTodayCards": "{count, plural, =1{1 tarjeta para hoy} other{{count} tarjetas para hoy}}",
+  "@f43LinkTodayCards": {
+    "description": "En Repasar (F43, M6): las tarjetas del documento o del cuaderno que tocan hoy, con «Empezar» al lado.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43LinkSeeAll": "Ver {count, plural, =1{la creación} other{las {count}}} en Repasar",
+  "@f43LinkSeeAll": {
+    "description": "En Repasar (F43, M6): debajo de las más nuevas, abre Repasar con el recorte elegido para ver todo lo creado.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43LinkEmptyDocumentTitle": "Estudiá este documento en Repasar",
+  "@f43LinkEmptyDocumentTitle": {
+    "description": "En Repasar (F43, M6): vacío de la sección en un documento procesado."
+  },
+  "f43LinkEmptyDocument": "Presentaciones, resúmenes, infografías, cuestionarios y más. Lo que crees con este documento —también desde un cuaderno o un tema— aparece acá.",
+  "@f43LinkEmptyDocument": {
+    "description": "En Repasar (F43, M6): vacío de la sección en un documento procesado."
+  },
+  "f43LinkEmptyNotebookTitle": "Estudiá este cuaderno en Repasar",
+  "@f43LinkEmptyNotebookTitle": {
+    "description": "En Repasar (F43, M6): vacío de la sección en un cuaderno."
+  },
+  "f43LinkEmptyNotebook": "Presentaciones, resúmenes, infografías, cuestionarios y más, sobre todos sus documentos juntos. Lo que crees aparece acá.",
+  "@f43LinkEmptyNotebook": {
+    "description": "En Repasar (F43, M6): vacío de la sección en un cuaderno."
+  },
+  "f43LinkEmptyTopicTitle": "Estudiá este tema en Repasar",
+  "@f43LinkEmptyTopicTitle": {
+    "description": "En Repasar (F43, M6): vacío de la sección en un tema."
+  },
+  "f43LinkEmptyTopic": "Presentaciones, resúmenes, infografías, cuestionarios y más, sobre lo procesado de este tema. Lo que crees aparece acá.",
+  "@f43LinkEmptyTopic": {
+    "description": "En Repasar (F43, M6): vacío de la sección en un tema."
   }
 }

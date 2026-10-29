@@ -230,11 +230,14 @@ class _CreationTileState extends ConsumerState<CreationTile>
               Transform.translate(
                 offset: Offset(_offset, 0),
                 child: ColoredBox(
-                  // Corrida, tapa los botones con el fondo de la pantalla;
-                  // quieta, no pinta nada: queda sobre cualquier fondo.
+                  // Corrida, tapa los botones con el fondo de lo que la tiene
+                  // —la pantalla en Repasar, la tarjeta de «En Repasar» en un
+                  // documento o un cuaderno—; quieta, no pinta nada: queda
+                  // sobre cualquier fondo.
                   color: _offset == 0
                       ? Colors.transparent
-                      : theme.scaffoldBackgroundColor,
+                      : Material.maybeOf(context)?.color ??
+                            theme.scaffoldBackgroundColor,
                   child: creation.status.isPending ? _Shimmer(child: row) : row,
                 ),
               ),

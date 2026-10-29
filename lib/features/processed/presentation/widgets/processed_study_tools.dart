@@ -2,18 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organized_line.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/scope_creations_section.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/local_graph_panel.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
 
-/// El Mapa y las Tarjetas de repaso de un documento procesado (F41, decisión
-/// K): lo que salió del detalle de la fuente, que queda de consulta, para
-/// estudiarlo acá.
+/// Dónde se estudia un documento procesado, al final, después de leerlo: lo
+/// que salió del detalle de la fuente, que queda de consulta (F41, decisión
+/// K), y lo que se creó con él en Repasar (F43, M6).
 ///
 /// Son las piezas de siempre sobre el documento —un elemento de la bóveda
 /// como cualquier otro (decisión A)—, sin copias:
 ///
+/// - **«En Repasar»** (`ScopeCreationsSection`): lo creado con el documento
+///   —también desde un cuaderno o un tema que lo usó como fuente—, sus
+///   tarjetas para hoy con «Empezar», y «Crear en Repasar», que abre Repasar
+///   con el documento ya elegido. Va primero porque es el puente entre lo que
+///   se marcó en el original, arriba, y lo que se estudia; y queda justo
+///   encima de las tarjetas que cuenta;
 /// - **el Mapa**, el grafo local del documento (`LocalGraphPanel`), con sus
 ///   vínculos entre procesados;
 /// - **las Tarjetas de repaso** (`FlashcardSection`): las suyas, a mano o con
@@ -38,6 +46,8 @@ class ProcessedStudyTools extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 4),
+        ScopeCreationsSection(scope: CreationScope.document(document.id)),
+        const SizedBox(height: 24),
         LocalGraphPanel(item: item),
         const SizedBox(height: 24),
         FlashcardSection(
