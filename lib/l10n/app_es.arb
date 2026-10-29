@@ -13001,5 +13001,9 @@
   "f43TextReadingTooltip": "Opciones de lectura",
   "@f43TextReadingTooltip": {"description": "F43, paso 7: botón de la barra del visor que abre la hoja «Lectura»."},
   "f43TextListenStatus": "{status} · {position}",
-  "@f43TextListenStatus": {"description": "F43, paso 7 (M8): cómo va la lectura y por qué oración: «Leyendo en voz alta · 3 de 40».", "placeholders": {"status": {"type": "String"}, "position": {"type": "String"}}}
+  "@f43TextListenStatus": {"description": "F43, paso 7 (M8): cómo va la lectura y por qué oración: «Leyendo en voz alta · 3 de 40».", "placeholders": {"status": {"type": "String"}, "position": {"type": "String"}}},
+  "f43IgStepIllustrating": "Dibujando las ilustraciones…",
+  "@f43IgStepIllustrating": {
+    "description": "Infografía (F43, paso 12): Paso de una creación mientras se dibujan sus ilustraciones con IA."
+  }
 }

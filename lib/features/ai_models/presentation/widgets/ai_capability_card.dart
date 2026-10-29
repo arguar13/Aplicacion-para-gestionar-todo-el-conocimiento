@@ -30,14 +30,22 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// - **ⓘ** abre «¿Qué puede cada IA?».
 ///
 /// Sin animaciones; entra en 360 dp con el texto grande.
+///
+/// Con [illustrationsOnly], para rehacer o completar ilustraciones de una
+/// creación ya escrita: sin la línea de escribir ni los tokens del texto, que
+/// no se gastan.
 class AiCapabilityCard extends ConsumerWidget {
   const AiCapabilityCard({
     required this.estimate,
     this.onAlternative,
+    this.illustrationsOnly = false,
     super.key,
   });
 
   final CreationEstimate estimate;
+
+  /// Si solo se dibuja: no se escribe nada.
+  final bool illustrationsOnly;
 
   /// Se eligió una opción que cambia lo pedido: seguir sin ilustraciones,
   /// otra cuenta o el modelo del teléfono.
@@ -93,21 +101,25 @@ class AiCapabilityCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
-                _CheckLine(
-                  key: const Key('ai-capability-text'),
-                  ok: estimate.canWriteText,
-                  text: estimate.canWriteText
-                      ? l10n.f43AiWriteWith(writer)
-                      : l10n.f43AiWriteBlocked(
-                          textProblemReason(l10n, estimate.textProblem!),
-                        ),
-                ),
+                if (!illustrationsOnly)
+                  _CheckLine(
+                    key: const Key('ai-capability-text'),
+                    ok: estimate.canWriteText,
+                    text: estimate.canWriteText
+                        ? l10n.f43AiWriteWith(writer)
+                        : l10n.f43AiWriteBlocked(
+                            textProblemReason(l10n, estimate.textProblem!),
+                          ),
+                  ),
                 if (estimate.wantsIllustrations) ...[
-                  const SizedBox(height: 6),
+                  if (!illustrationsOnly) const SizedBox(height: 6),
                   _illustrationLine(l10n),
                 ],
                 const SizedBox(height: 12),
-                _Consumption(estimate: estimate),
+                _Consumption(
+                  estimate: estimate,
+                  illustrationsOnly: illustrationsOnly,
+                ),
                 ..._quotaLines(context, l10n),
                 if (estimate.alternatives.isNotEmpty) ...[
                   const SizedBox(height: 14),
@@ -335,24 +347,27 @@ class _CheckLine extends StatelessWidget {
 
 /// Las fichas de lo que consume: tokens, imágenes y costo.
 class _Consumption extends StatelessWidget {
-  const _Consumption({required this.estimate});
+  const _Consumption({required this.estimate, this.illustrationsOnly = false});
 
   final CreationEstimate estimate;
+  final bool illustrationsOnly;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final chips = <String>[
-      l10n.f43AiTokensRead(aiTokens(context, estimate.inputTokens)),
-      l10n.f43AiTokensWrite(aiTokens(context, estimate.outputTokens)),
-    ];
+    final chips = <String>[];
     final textUsd = estimate.textUsd;
-    if (textUsd == null) {
-      chips.add(l10n.f43AiTextCostUnknown);
-    } else if (textUsd == 0) {
-      chips.add(l10n.f43AiTextFree);
-    } else {
-      chips.add(l10n.f43AiTextCost(aiUsd(context, textUsd)));
+    if (!illustrationsOnly) {
+      chips
+        ..add(l10n.f43AiTokensRead(aiTokens(context, estimate.inputTokens)))
+        ..add(l10n.f43AiTokensWrite(aiTokens(context, estimate.outputTokens)));
+      if (textUsd == null) {
+        chips.add(l10n.f43AiTextCostUnknown);
+      } else if (textUsd == 0) {
+        chips.add(l10n.f43AiTextFree);
+      } else {
+        chips.add(l10n.f43AiTextCost(aiUsd(context, textUsd)));
+      }
     }
     if (estimate.wantsIllustrations && estimate.canIllustrate) {
       final size = illustrationSizeLabel(l10n, estimate.imageSize);
@@ -370,6 +385,7 @@ class _Consumption extends StatelessWidget {
     }
     final total = estimate.totalUsd;
     final showTotal =
+        !illustrationsOnly &&
         total != null &&
         total > 0 &&
         estimate.canIllustrate &&

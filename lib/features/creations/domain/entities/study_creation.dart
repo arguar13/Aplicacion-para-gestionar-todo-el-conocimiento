@@ -92,7 +92,11 @@ enum CreationStep {
   joining('joining'),
 
   /// Lo que el tipo hace después de la IA, como guardar las tarjetas del mazo.
-  finishing('finishing');
+  finishing('finishing'),
+
+  /// Las ilustraciones con IA (decisión H), de a una, después del texto: la
+  /// infografía y la presentación.
+  illustrating('illustrating');
 
   const CreationStep(this.storageKey);
 

@@ -488,6 +488,62 @@ void main() {
     });
   });
 
+  group('retocar una lista sin volver a generarla (decisión G)', () {
+    test('cambia sus opciones o su contenido, deja lo demás y avanza la '
+        'fecha', () async {
+      h.processed.vault.at(1);
+      final created = await create(StudyCreationKind.infographic);
+      await h.creations.complete(created.id, title: 'Lámina', content: '{}');
+      h.processed.vault.at(7);
+
+      final styled = await h.creations.amend(
+        created.id,
+        options: const {'style': 'clay'},
+      );
+      expect(styled.isRight(), isTrue);
+      var now = (await h.creations.find(created.id)).getRight().toNullable()!;
+      expect(now.options, {'style': 'clay'});
+      expect(now.content, '{}');
+      expect(now.title, 'Lámina');
+      expect(now.status, CreationStatus.ready);
+      expect(now.updatedAt, h.processed.vault.now);
+
+      await h.creations.amend(created.id, content: '{"sheet":{}}');
+      now = (await h.creations.find(created.id)).getRight().toNullable()!;
+      expect(now.content, '{"sheet":{}}');
+      expect(now.options, {'style': 'clay'});
+    });
+
+    test('una en la cola, fallida o en la papelera no se retoca', () async {
+      final queued = await create(StudyCreationKind.infographic);
+      expect(
+        (await h.creations.amend(queued.id, content: 'x')).isLeft(),
+        isTrue,
+      );
+      final failed = await create(StudyCreationKind.infographic);
+      await h.creations.fail(failed.id, CreationFailure.error);
+      expect(
+        (await h.creations.amend(failed.id, content: 'x')).isLeft(),
+        isTrue,
+      );
+      final trashed = await create(StudyCreationKind.infographic);
+      await h.creations.complete(trashed.id, title: 'T', content: '{}');
+      await h.creations.trash(trashed.id);
+      expect(
+        (await h.creations.amend(trashed.id, content: 'x')).isLeft(),
+        isTrue,
+      );
+      expect(
+        (await h.creations.find(trashed.id)).getRight().toNullable()!.content,
+        '{}',
+      );
+      expect(
+        (await h.creations.amend('no-existe', content: 'x')).isLeft(),
+        isTrue,
+      );
+    });
+  });
+
   test(
     'las columnas por defecto de la base, sin pasar por el repositorio',
     () async {

@@ -13984,5 +13984,9 @@
   "f43TextReadingTooltip": "Reading options",
   "@f43TextReadingTooltip": {"description": "F43, step 7: viewer bar button that opens the «Reading» sheet."},
   "f43TextListenStatus": "{status} · {position}",
-  "@f43TextListenStatus": {"description": "F43, step 7 (M8): how reading goes and at which sentence: «Reading aloud · 3 of 40».", "placeholders": {"status": {"type": "String"}, "position": {"type": "String"}}}
+  "@f43TextListenStatus": {"description": "F43, step 7 (M8): how reading goes and at which sentence: «Reading aloud · 3 of 40».", "placeholders": {"status": {"type": "String"}, "position": {"type": "String"}}},
+  "f43IgStepIllustrating": "Drawing the illustrations…",
+  "@f43IgStepIllustrating": {
+    "description": "Infografía (F43, paso 12): Paso de una creación mientras se dibujan sus ilustraciones con IA."
+  }
 }

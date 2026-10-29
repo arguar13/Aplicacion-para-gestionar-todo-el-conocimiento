@@ -330,6 +330,41 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
       });
 
   @override
+  Future<Either<Failure, Unit>> amend(
+    String id, {
+    Map<String, Object?>? options,
+    String? content,
+  }) => _guard('amend', () async {
+    if (options == null && content == null) return right(unit);
+    // La fecha avanza: así un retoque viaja en la unión de bóvedas, que se
+    // queda con la versión tocada más tarde (`StudyCreationsMerge`).
+    final changed =
+        await (_db.update(_table)..where(
+              (c) =>
+                  c.id.equals(id) &
+                  c.status.equals(CreationStatus.ready.storageKey) &
+                  c.deletedAt.isNull(),
+            ))
+            .write(
+              StudyCreationsCompanion(
+                optionsJson: options == null
+                    ? const Value.absent()
+                    : Value(jsonEncode(options)),
+                contentJson: content == null
+                    ? const Value.absent()
+                    : Value(content),
+                updatedAt: Value(_clock()),
+              ),
+            );
+    if (changed == 0) {
+      return left(
+        const Failure.validation(message: 'La creación no está lista.'),
+      );
+    }
+    return right(unit);
+  });
+
+  @override
   Future<Either<Failure, Unit>> trash(String id) => _guard('trash', () async {
     final now = _clock();
     await (_db.update(

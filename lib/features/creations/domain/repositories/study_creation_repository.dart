@@ -104,6 +104,18 @@ abstract interface class StudyCreationRepository {
   /// Le cambia el título. Uno en blanco no vale.
   Future<Either<Failure, Unit>> rename(String id, String title);
 
+  /// Retoca una creación lista sin volver a generarla (decisión G): sus
+  /// [options] —el diseño elegido en el visor, que va aparte del contenido—
+  /// o su [content] —una ilustración rehecha—. Lo que es `null` queda como
+  /// estaba. Solo si está lista y viva: una que se genera o falló no se
+  /// retoca (la cola la va a pisar), ni una de la papelera; se dice con un
+  /// `Failure.validation`.
+  Future<Either<Failure, Unit>> amend(
+    String id, {
+    Map<String, Object?>? options,
+    String? content,
+  });
+
   /// La manda a la papelera: deja de verse en «Lo creado» y se restaura desde
   /// la Papelera. Si estaba en la cola, ya no se genera.
   Future<Either<Failure, Unit>> trash(String id);
