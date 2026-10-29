@@ -12,6 +12,7 @@ import 'package:sinapsis/features/creations/infographic_kind/domain/infographic_
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_providers.dart';
 import 'package:sinapsis/features/creations/presentation/creation_presentation.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
+import 'package:sinapsis/features/creations/presentation/providers/creation_illustration_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Cómo se guarda una infografía: la imagen o el PDF.
@@ -31,7 +32,7 @@ Future<CreationExportFile> exportInfographic(
   final content = InfographicContent.decode(creation.content);
   final chosen = design ?? infographicDesignOf(creation.options);
   final illustrations = await loadInfographicResolver(
-    ref.read(infographicIllustrationStoreProvider),
+    ref.read(creationIllustrationStoreProvider),
     content.sheet,
   );
   const exporter = InfographicExporter();

@@ -1,10 +1,10 @@
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_material.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_generator.dart';
 import 'package:sinapsis/features/creations/domain/services/structured_writer.dart';
 import 'package:sinapsis/features/creations/infographic/domain/infographic.dart';
-import 'package:sinapsis/features/creations/infographic_kind/data/infographic_illustration_store.dart';
 import 'package:sinapsis/features/creations/infographic_kind/data/infographic_illustrator.dart';
 import 'package:sinapsis/features/creations/infographic_kind/domain/infographic_content.dart';
 import 'package:sinapsis/features/creations/infographic_kind/domain/infographic_illustration_plan.dart';
@@ -35,7 +35,7 @@ class InfographicGenerator extends CreationGenerator {
   const InfographicGenerator({required this.illustrator, required this.store});
 
   final InfographicIllustrator illustrator;
-  final InfographicIllustrationStore Function() store;
+  final CreationIllustrationStore Function() store;
 
   /// Hasta dónde llega el avance con el texto, si después se dibuja.
   static const textShare = 0.7;

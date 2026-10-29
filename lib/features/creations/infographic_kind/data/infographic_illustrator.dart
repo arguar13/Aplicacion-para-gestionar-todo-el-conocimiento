@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:dio/dio.dart' show CancelToken;
 import 'package:sinapsis/features/ai_models/data/services/illustration_service.dart';
-import 'package:sinapsis/features/ai_models/domain/entities/illustration_account.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
+import 'package:sinapsis/features/creations/data/services/creation_illustration_drawing.dart';
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/services/structured_writer.dart';
 import 'package:sinapsis/features/creations/infographic/domain/infographic_auto.dart';
 import 'package:sinapsis/features/creations/infographic/domain/infographic_design.dart';
 import 'package:sinapsis/features/creations/infographic/presentation/styles/infographic_styles.dart';
-import 'package:sinapsis/features/creations/infographic_kind/data/infographic_illustration_store.dart';
 import 'package:sinapsis/features/creations/infographic_kind/domain/infographic_content.dart';
 import 'package:sinapsis/features/creations/infographic_kind/domain/infographic_illustration_plan.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
@@ -28,19 +28,19 @@ import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.
 ///   que siguen no se piden: fallarían igual.
 /// - **De a una**, avisando cuántas van, y **cancelable** entre una y otra y
 ///   a mitad de una: lo que se dibujó en esta vuelta se borra.
-/// - **Lo hecho se guarda** con `InfographicIllustrationStore`; la ilustración
+/// - **Lo hecho se guarda** con `CreationIllustrationStore`; la ilustración
 ///   que se rehizo borra la de antes.
 class InfographicIllustrator {
   InfographicIllustrator({
     required IllustrationService Function() service,
-    required InfographicIllustrationStore Function() store,
+    required CreationIllustrationStore Function() store,
     required Future<String?> Function() textAccountId,
   }) : _service = service,
        _store = store,
        _textAccountId = textAccountId;
 
   final IllustrationService Function() _service;
-  final InfographicIllustrationStore Function() _store;
+  final CreationIllustrationStore Function() _store;
   final Future<String?> Function() _textAccountId;
 
   /// Dibuja [slots] de [content] —con [design], para el estilo— y devuelve
@@ -57,9 +57,13 @@ class InfographicIllustrator {
     void Function(int done, int total)? onProgress,
   }) async {
     if (slots.isEmpty) return content;
-    _throwIfCancelled(cancellation);
+    throwIfCreationCancelled(cancellation);
     final service = _service();
-    final account = await _accountOf(service, accountId);
+    final account = await creationIllustrationAccount(
+      service,
+      accountId: accountId,
+      textAccountId: _textAccountId,
+    );
     if (account == null) {
       return _failAll(content, slots, ImageFailure.noAccount, null);
     }
@@ -91,14 +95,14 @@ class InfographicIllustrator {
     ImageFailure? stopAll;
     try {
       for (final (i, slot) in slots.indexed) {
-        _throwIfCancelled(cancellation);
+        throwIfCreationCancelled(cancellation);
         if (stopAll != null) {
           failures[slot.id] = stopAll;
           onProgress?.call(i + 1, slots.length);
           continue;
         }
         try {
-          final result = await _orCancelled(
+          final result = await creationOrCancelled(
             service.generate(
               prompt: slot.prompt,
               styleHint: hint,
@@ -108,7 +112,7 @@ class InfographicIllustrator {
             ),
             cancellation,
           );
-          _throwIfCancelled(cancellation);
+          throwIfCreationCancelled(cancellation);
           final reference = await store.save(
             creationId: creationId,
             slotId: slot.id,
@@ -130,7 +134,7 @@ class InfographicIllustrator {
         } on CreationCancelledException {
           rethrow;
         } on ImageGenerationException catch (error) {
-          _throwIfCancelled(cancellation);
+          throwIfCreationCancelled(cancellation);
           if (error.failure == ImageFailure.cancelled) {
             throw const CreationCancelledException();
           }
@@ -145,34 +149,22 @@ class InfographicIllustrator {
           // falle —el disco, un formato raro— queda anotada y se sigue.
           // ignore: avoid_catches_without_on_clauses
         } catch (_) {
-          _throwIfCancelled(cancellation);
+          throwIfCreationCancelled(cancellation);
           failures[slot.id] = ImageFailure.unknown;
         }
         onProgress?.call(i + 1, slots.length);
       }
     } on CreationCancelledException {
-      await _deleteQuietly(store, created);
+      await store.deleteQuietly(created);
       rethrow;
     }
     // Lo rehecho reemplaza a lo de antes: la vieja ya no la nombra nadie.
-    await _deleteQuietly(store, replaced);
+    await store.deleteQuietly(replaced);
     return content.copyWith(
       sheet: sheet,
       failures: failures,
       accountLabel: account.label,
     );
-  }
-
-  Future<IllustrationAccount?> _accountOf(
-    IllustrationService service,
-    String? accountId,
-  ) async {
-    final id = accountId ?? await _textAccountId();
-    if (id == null) return null;
-    for (final account in await service.accounts()) {
-      if (account.id == id) return account;
-    }
-    return null;
   }
 
   static InfographicContent _failAll(
@@ -184,40 +176,6 @@ class InfographicIllustrator {
     failures: {...content.failures, for (final slot in slots) slot.id: failure},
     accountLabel: accountLabel,
   );
-
-  static Future<void> _deleteQuietly(
-    InfographicIllustrationStore store,
-    List<String> references,
-  ) async {
-    for (final reference in references) {
-      try {
-        await store.delete(reference);
-        // Un archivo que no se pudo borrar no deshace lo dibujado ni tapa
-        // una cancelación.
-        // ignore: avoid_catches_without_on_clauses
-      } catch (_) {}
-    }
-  }
-
-  /// [work], o [CreationCancelledException] en cuanto se cancele: un motor
-  /// que no atiende el corte (el del teléfono a mitad de un paso) no deja la
-  /// lámina esperando. Lo que [work] termine después se descarta.
-  static Future<T> _orCancelled<T>(Future<T> work, CancellationSignal? signal) {
-    if (signal == null) return work;
-    final cut = signal.whenCancelled.then<T>(
-      (_) => throw const CreationCancelledException(),
-    );
-    // Si la cancelación llega después de que [work] terminó, nadie la espera.
-    unawaited(cut.then((_) {}, onError: (_) {}));
-    work.ignore();
-    return Future.any([work, cut]);
-  }
-
-  static void _throwIfCancelled(CancellationSignal? signal) {
-    if (signal?.isCancelled ?? false) {
-      throw const CreationCancelledException();
-    }
-  }
 }
 
 /// Cómo se le describe el estilo al modelo de imágenes (en inglés, que es lo

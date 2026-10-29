@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_capability.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_material.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
@@ -14,7 +15,6 @@ import 'package:sinapsis/features/creations/infographic/domain/infographic_desig
 import 'package:sinapsis/features/creations/infographic/domain/infographic_json.dart';
 import 'package:sinapsis/features/creations/infographic/presentation/styles/infographic_styles.dart';
 import 'package:sinapsis/features/creations/infographic_kind/data/infographic_generator.dart';
-import 'package:sinapsis/features/creations/infographic_kind/data/infographic_illustration_store.dart';
 import 'package:sinapsis/features/creations/infographic_kind/data/infographic_illustrator.dart';
 import 'package:sinapsis/features/creations/infographic_kind/domain/infographic_content.dart';
 import 'package:sinapsis/features/creations/infographic_kind/domain/infographic_illustration_plan.dart';
@@ -41,7 +41,7 @@ void main() {
   late String? textAccount;
 
   InfographicGenerator generator() {
-    final store = InfographicIllustrationStore(files);
+    final store = CreationIllustrationStore(files);
     return InfographicGenerator(
       illustrator: InfographicIllustrator(
         service: () => images,

@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
+import 'package:sinapsis/features/creations/data/services/creation_illustration_store.dart';
 import 'package:sinapsis/features/creations/domain/services/structured_writer.dart';
 import 'package:sinapsis/features/creations/infographic/domain/infographic_design.dart';
-import 'package:sinapsis/features/creations/infographic_kind/data/infographic_illustration_store.dart';
 import 'package:sinapsis/features/creations/infographic_kind/data/infographic_illustrator.dart';
 import 'package:sinapsis/features/creations/infographic_kind/domain/infographic_content.dart';
 import 'package:sinapsis/features/creations/infographic_kind/domain/infographic_illustration_plan.dart';
@@ -17,14 +17,14 @@ import '../support/infographic_kind_fakes.dart';
 /// decisión H): lo que usa el visor.
 void main() {
   late InMemoryFileStore files;
-  late InfographicIllustrationStore store;
+  late CreationIllustrationStore store;
   late FakeIllustrationService images;
   late InfographicIllustrator illustrator;
   const design = InfographicDesign(style: InfographicStyleId.kawaii);
 
   setUp(() {
     files = InMemoryFileStore();
-    store = InfographicIllustrationStore(files);
+    store = CreationIllustrationStore(files);
     images = FakeIllustrationService();
     illustrator = InfographicIllustrator(
       service: () => images,
