@@ -26,6 +26,7 @@ import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_passages.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_selection.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_think_more_provider.dart';
@@ -168,7 +169,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _lifecycle = AppLifecycleListener(onStateChange: (_) => _tellPresence());
     _streamingText.addListener(_followStreaming);
     ref.listenManual(chatSelectionProvider, _onSelectionChanged);
-    _refreshModelStatus();
+    _statusChecked = _refreshModelStatus();
+    // Una pregunta que trae otra pantalla (F43): la que ya esperaba al
+    // abrirse el chat, o la que llega con el chat ya abierto. Se toma fuera
+    // del armado de la pantalla, que no deja cambiar el estado.
+    ref.listenManual(chatHandoffProvider, (_, handoff) {
+      if (handoff != null) unawaited(Future.microtask(_takeHandoff));
+    }, fireImmediately: true);
+  }
+
+  /// La primera vez que se miró si el modelo puede contestar: una pregunta
+  /// que llega de otra pantalla la espera, para contestarse con el modelo si
+  /// se puede.
+  late final Future<void> _statusChecked;
+
+  /// Toma la pregunta que dejó otra pantalla ([chatHandoffProvider]): una
+  /// conversación nueva con la bóveda —acotada al cuaderno, si vino de uno—,
+  /// la pregunta en el campo y, si pidió mandarse, mandada.
+  Future<void> _takeHandoff() async {
+    if (!mounted) return;
+    final handoff = ref.read(chatHandoffProvider);
+    if (handoff == null) return;
+    ref.read(chatHandoffProvider.notifier).state = null;
+    ref.read(chatSelectionProvider.notifier)
+      ..changeMode(ChatConversationMode.vault)
+      ..selectNotebook(handoff.notebookId)
+      ..startNew();
+    _controller.value = TextEditingValue(
+      text: handoff.question,
+      selection: TextSelection.collapsed(offset: handoff.question.length),
+    );
+    await _statusChecked;
+    if (!mounted) return;
+    if (handoff.send && !_asking) {
+      await _send();
+    } else {
+      _composerFocus.requestFocus();
+    }
   }
 
   /// Mientras la respuesta crece, la lista la sigue —si se estaba mirando el
