@@ -1501,6 +1501,11 @@ el documento procesado, en su pantalla de [Procesado](#procesado). Con el
 lector de pantalla, la fila se lee en una sola frase: el título, de qué tipo era
 la fuente y qué partes tiene.
 
+**Arriba de los documentos, «En Repasar»**: lo creado con el cuaderno en
+Repasar, sus tarjetas para hoy con **"Empezar"** y **"Crear en Repasar"**, que
+abre Repasar con el cuaderno ya elegido. Está explicado en Repasar, en «En
+Repasar», en cada documento procesado y en cada cuaderno.
+
 Dentro de un cuaderno hecho "a mano" hay un botón **"+"** para **agregar
 documentos procesados**: el selector busca en Procesado (en el título y en el
 texto de sus partes), deja tildar **varios a la vez** —lo tildado se mantiene
@@ -2205,8 +2210,13 @@ abre desplegado; el
 estudiarla está en su documento procesado, trabajando **su texto procesado** (no
 el de la fuente):
 
+- **«En Repasar»**, debajo de las secciones: lo creado con el documento —también
+  desde un cuaderno o un tema que lo usó como fuente—, sus tarjetas para hoy con
+  **"Empezar"** y **"Crear en Repasar"**, que abre Repasar con el documento ya
+  elegido. Está explicado en Repasar, en «En Repasar», en cada documento
+  procesado y en cada cuaderno.
 - **Su Mapa**: el grafo local del documento, con lo que tiene vinculado, debajo
-  de las secciones. Tocarlo abre el grafo entero.
+  de «En Repasar». Tocarlo abre el grafo entero.
 - **Sus Tarjetas de repaso**, debajo del Mapa: las agregás a mano o con el ✨, que
   las saca de su texto procesado. **"De la fuente"**, plegado, junta las
   tarjetas que la fuente ya tenía: no se movieron ni se copiaron —siguen en
@@ -3099,6 +3109,55 @@ abrir una creación lista dice *"Su visor está en camino"* —ya quedó guardad
 se va a abrir ahí mismo, sin volver a generarla—. Lo mismo con los tipos que la
 IA todavía no sabe escribir: la fila lo dice (*"Esta versión de la app todavía
 no sabe crear esto"*) y **"Reintentar"** la rehace cuando llegue.
+
+#### «En Repasar», en cada documento procesado y en cada cuaderno
+
+Lo creado no queda solo en Repasar: **cada documento procesado y cada cuaderno
+muestran lo suyo**, en una tarjeta **«En Repasar»**.
+
+**Cómo llegar:**
+
+- **En un documento procesado**, al final, después de sus secciones, donde
+  empieza lo de estudiar: primero «En Repasar», después su Mapa y sus Tarjetas
+  de repaso.
+- **En un cuaderno**, arriba de sus documentos.
+
+**Qué tiene:**
+
+- **Arriba**, «En Repasar», cuántas creaciones hay y **"Crear en Repasar"**.
+- **Sus tarjetas para hoy**, si hay: *"3 tarjetas para hoy"* y **"Empezar"**,
+  que abre el repaso de ese documento o de ese cuaderno. Al terminar, o con
+  «atrás», volvés adonde estabas.
+- **Lo creado**, las cinco más nuevas, con las mismas filas de «Lo creado»: el
+  ícono y el color de su tipo, cómo va y su menú al mantenerla apretada o al
+  deslizarla. Si hay más, **"Ver las N en Repasar"**.
+
+**Qué entra en cada uno:**
+
+- En un **documento** entra lo creado sobre él y también **lo que lo usó como
+  fuente**, aunque se haya creado sobre un cuaderno o un tema. Si hiciste un
+  cuestionario del cuaderno «Pentateuco», aparece en el Éxodo y en el Génesis.
+- En un **cuaderno** entra lo creado con el cuaderno elegido en el selector.
+
+Todo se actualiza solo: lo que empezás a generar aparece enseguida con su
+avance, y lo que mandás a la papelera se va.
+
+**Tocar una creación** abre su visor, y «atrás» te devuelve al documento o al
+cuaderno, no a Repasar. **"Crear en Repasar"** abre Repasar con ese documento o
+ese cuaderno **ya elegido en el selector**: elegís el tipo y listo.
+
+Sin nada creado, la tarjeta muestra los íconos de lo que se puede hacer
+—presentación, resumen, infografía, cuestionario, mapa mental— y "Crear en
+Repasar". Un cuaderno vacío no la muestra hasta tener documentos, salvo que ya
+tenga algo creado. Un documento en la papelera tampoco: se estudia cuando lo
+restaurás.
+
+**Y al revés, de Repasar a Procesado y Cuadernos:** las fuentes de cada
+creación son fichas tocables, en el visor (debajo de **"Ver N fuentes"**) y en
+**"Ver petición y fuentes"** del menú de su fila. El documento abre su pantalla
+de Procesado, y «atrás» vuelve al visor; el cuaderno o el tema sobre el que se
+creó abren el cuaderno o el material del tema. Si una fuente se borró, la ficha
+dice **"Fuente borrada"** y no abre nada.
 
 ### Crear tarjetas con IA, para muchos elementos a la vez
 
