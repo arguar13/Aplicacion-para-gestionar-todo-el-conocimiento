@@ -7106,6 +7106,17 @@ decisiones A a J y el «Avance» de cada paso: `docs/planes/F43-estudiar.md`.
     creación (`studyCreationFilesSql`: el tramo entero con su barra, sin `..` ni `\`). Un JSON
     llegado de otra bóveda no puede hacer copiar un archivo ajeno.
   - Borrar una creación para siempre se lleva su carpeta.
+  - **Un solo almacén para todos los tipos** (`CreationIllustrationStore`). Solo borra lo de la
+    propia creación, con la misma regla que la unión: `isCreationFile` en Dart y
+    `studyCreationFilesSql` en SQL, juntas en `creation_files.dart` y probadas con los mismos
+    casos. Ajusta cada imagen en un solo lugar: a JPEG lo que pesa, nunca con transparencias, y
+    en otro hilo con `compute`. La Presentación tenía uno propio, y la infografía borraba sin
+    mirar de quién era la ruta: un JSON de otra bóveda podía llevarse el original de un documento.
+  - **Lo que el contenido ya no nombra se barre en un solo lugar**: el repositorio, después de
+    escribir la fila (`complete` y `amend`), para todos los tipos sin que ninguno lo programe. Si
+    el guardado falla o se cancela, no se barre nada. Lo que un ilustrador guardó y todavía no
+    llegó al contenido queda anotado y el barrido no lo toca, y un barrido espera a que termine
+    cualquier guardado en curso.
 - **Las tarjetas didácticas suman al repaso** (decisión F), con el repositorio de tarjetas de
   siempre: entran en «Para hoy» y no se duplican. Apagarlo las pausa sin borrarlas, y al volver
   traen su historia.
@@ -7129,6 +7140,7 @@ decisiones A a J y el «Avance» de cada paso: `docs/planes/F43-estudiar.md`.
   - Que la IA escriba el diseño.
   - Guardar las ilustraciones en la base.
   - Una copia de los tres de extraer.
+  - Que cada tipo borre lo suyo al volver a generar: lo hacían dos de cuatro, y antes de guardar.
   - Los resúmenes de audio y de video, que el pedido cambió por los tres de extraer.
   - Mandar 👍/👎 a cualquier servicio.
 - **Lo que no quedó probado:**
@@ -7138,6 +7150,8 @@ decisiones A a J y el «Avance» de cada paso: `docs/planes/F43-estudiar.md`.
   - Cómo se ven las plantillas, los estilos y los PDF: se prueba lo que se dibuja, no cómo queda.
   - La pantalla completa apaisada y la hoja de compartir en un teléfono real.
   - Importar en Anki real el mazo exportado (lo mismo que dejó abierto F17).
+  - Listar la carpeta de una creación en el navegador (`OpfsFileStore.filesOf`), como el resto de
+    ese almacén.
 
 ## Estado y orden de construcción
 

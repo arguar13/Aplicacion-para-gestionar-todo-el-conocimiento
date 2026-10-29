@@ -956,3 +956,21 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
 - **Dos arreglos de raíz**: el botón flotante del cuaderno repetía la etiqueta Hero al abrir un
   visor encima (`heroTag: null`), y la fila deslizada tapa sus botones con el color de la tarjeta
   que la contiene, no con el fondo de la pantalla.
+
+### Después de los pasos: las ilustraciones en un solo almacén y dos arreglos de raíz
+
+- **Un solo almacén para las ilustraciones** (`CreationIllustrationStore`). Lo usan la
+  infografía, la presentación, el mazo y el cuestionario, y la Presentación dejó el suyo. Solo
+  borra lo de la propia creación, con la regla de la unión de bóvedas (`isCreationFile` y
+  `studyCreationFilesSql`, juntas en `creation_files.dart`). Antes, volver a generar una
+  infografía con un `illustration_ref` llegado de otra bóveda podía borrar el original de un
+  documento. Lo pesado se guarda como JPEG, nunca con transparencias.
+- **Volver a generar o a dibujar libera lo que ya no se usa**, en todos los tipos. El barrido es
+  uno solo, en el repositorio, y corre después de guardar la fila: si se cancela o falla, siguen
+  las de antes. Lo que se está dibujando no se toca. Antes lo hacían solo la infografía y la
+  presentación, cada una a su manera y antes de guardar; el mazo y el cuestionario no liberaban
+  nada.
+- **El texto completo abierto sigue cada edición.** Miraba el `updatedAt` del documento, que se
+  guarda en segundos: una edición en el mismo segundo que lo anterior no lo movía y se quedaba
+  con el texto viejo. Ahora mira la versión de la fila (`rev`). Por eso fallaba de a ratos la
+  prueba «si se edita una página».
