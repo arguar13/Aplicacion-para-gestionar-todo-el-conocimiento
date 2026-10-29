@@ -7,6 +7,7 @@ import 'package:sinapsis/features/creations/extract/presentation/extract_kind_sp
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
+import 'package:sinapsis/features/creations/report/presentation/report_kind.dart';
 
 /// Los tipos de creación de Repasar (F43, ola 3): **uno por tipo, y sumar uno
 /// es una línea acá**, con el proveedor que arma el suyo en la carpeta de su
@@ -29,6 +30,7 @@ final creationKindSpecsProvider = Provider<List<CreationKindSpec>>(
     ref.watch(summaryKindSpecProvider),
     ref.watch(synthesisKindSpecProvider),
     ref.watch(infographicKindSpecProvider),
+    ref.watch(reportKindSpecProvider),
   ],
 );
 

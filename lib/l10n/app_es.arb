@@ -13195,5 +13195,276 @@
         "type": "String"
       }
     }
+  },
+  "f43ReportTemplateLearningHint": "Lo que hay que llevarse, de lo general a lo particular",
+  "@f43ReportTemplateLearningHint": {
+    "description": "Informes (F43, paso 10): la descripción de la plantilla «Resumen de aprendizaje»."
+  },
+  "f43ReportTemplateStudyGuideHint": "Objetivos, conceptos clave y preguntas para repasar",
+  "@f43ReportTemplateStudyGuideHint": {
+    "description": "Informes (F43, paso 10): la descripción de la plantilla «Guía de estudio»."
+  },
+  "f43ReportTemplateBriefingHint": "Lo esencial para ponerse al día, sin vueltas",
+  "@f43ReportTemplateBriefingHint": {
+    "description": "Informes (F43, paso 10): la descripción de la plantilla «Documento informativo»."
+  },
+  "f43ReportTemplateGlossaryHint": "Los términos del material, de la A a la Z",
+  "@f43ReportTemplateGlossaryHint": {
+    "description": "Informes (F43, paso 10): la descripción de la plantilla «Glosario»."
+  },
+  "f43ReportTemplateCustom": "Crear la tuya",
+  "@f43ReportTemplateCustom": {
+    "description": "Informes (F43, paso 10): la tarjeta de la plantilla propia, la que se describe con ✎."
+  },
+  "f43ReportTemplateCustomHint": "Describila con ✎ y queda guardada",
+  "@f43ReportTemplateCustomHint": {
+    "description": "Informes (F43, paso 10): la descripción de la tarjeta de la plantilla propia."
+  },
+  "f43ReportCustomLabel": "Tu plantilla",
+  "@f43ReportCustomLabel": {
+    "description": "Informes (F43, paso 10): el título del campo donde se describe la plantilla propia."
+  },
+  "f43ReportCustomEdit": "Describir tu plantilla",
+  "@f43ReportCustomEdit": {
+    "description": "Informes (F43, paso 10): el botón ✎ de la plantilla propia (lector de pantalla)."
+  },
+  "f43ReportCustomEmpty": "Sin descripción se arma un informe general.",
+  "@f43ReportCustomEmpty": {
+    "description": "Informes (F43, paso 10): aviso debajo del campo de la plantilla propia vacía."
+  },
+  "f43ReportCustomUsed": "Las que ya usaste",
+  "@f43ReportCustomUsed": {
+    "description": "Informes (F43, paso 10): el título de las plantillas propias de informes anteriores, para volver a usarlas."
+  },
+  "f43ReportCustomUse": "Usar esta plantilla: {text}",
+  "@f43ReportCustomUse": {
+    "description": "Informes (F43, paso 10): lector de pantalla: una plantilla propia ya usada.",
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "f43ReportKicker": "{template} · {format}",
+  "@f43ReportKicker": {
+    "description": "Informes (F43, paso 10): lo que va arriba del título de un informe: su plantilla y su formato.",
+    "placeholders": {
+      "template": {
+        "type": "String"
+      },
+      "format": {
+        "type": "String"
+      }
+    }
+  },
+  "f43ReportSections": "{count, plural, =1{1 sección} other{{count} secciones}}",
+  "@f43ReportSections": {
+    "description": "Informes (F43, paso 10): cuántas secciones tiene un informe.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43ReportQuestions": "{count, plural, =1{1 pregunta} other{{count} preguntas}}",
+  "@f43ReportQuestions": {
+    "description": "Informes (F43, paso 10): cuántas preguntas tiene un informe interactivo.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "f43ReportIndex": "Índice",
+  "@f43ReportIndex": {
+    "description": "Informes (F43, paso 10): el índice de las secciones de un informe."
+  },
+  "f43ReportIndexTooltip": "Ver el índice",
+  "@f43ReportIndexTooltip": {
+    "description": "Informes (F43, paso 10): el botón del índice en la barra del visor."
+  },
+  "f43ReportFoldAll": "Plegar todo",
+  "@f43ReportFoldAll": {
+    "description": "Informes (F43, paso 10): el botón que pliega todas las secciones."
+  },
+  "f43ReportUnfoldAll": "Desplegar todo",
+  "@f43ReportUnfoldAll": {
+    "description": "Informes (F43, paso 10): el botón que despliega todas las secciones."
+  },
+  "f43ReportFold": "Plegar «{title}»",
+  "@f43ReportFold": {
+    "description": "Informes (F43, paso 10): el botón ⌃ de una sección desplegada (lector de pantalla).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "f43ReportUnfold": "Desplegar «{title}»",
+  "@f43ReportUnfold": {
+    "description": "Informes (F43, paso 10): el botón de una sección plegada (lector de pantalla).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "f43ReportUntitledSection": "Sección {number}",
+  "@f43ReportUntitledSection": {
+    "description": "Informes (F43, paso 10): el título de una sección que la IA dejó sin título.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "f43ReportKeywords": "Palabras clave",
+  "@f43ReportKeywords": {
+    "description": "Informes (F43, paso 10): el interruptor que pinta de rosa las palabras clave del informe."
+  },
+  "f43ReportQuestionsTitle": "Para probarte",
+  "@f43ReportQuestionsTitle": {
+    "description": "Informes (F43, paso 10): el título de las preguntas al final de una sección."
+  },
+  "f43ReportQuestionOf": "Pregunta {number} de {total}",
+  "@f43ReportQuestionOf": {
+    "description": "Informes (F43, paso 10): el rótulo de cada pregunta de una sección.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "f43ReportCorrect": "¡Exacto!",
+  "@f43ReportCorrect": {
+    "description": "Informes (F43, paso 10): lo que se dice al elegir la opción correcta."
+  },
+  "f43ReportWrong": "No es esa",
+  "@f43ReportWrong": {
+    "description": "Informes (F43, paso 10): lo que se dice al elegir una opción incorrecta."
+  },
+  "f43ReportCorrectWas": "La correcta es la {letter}: {answer}",
+  "@f43ReportCorrectWas": {
+    "description": "Informes (F43, paso 10): debajo de una respuesta incorrecta, cuál era la correcta.",
+    "placeholders": {
+      "letter": {
+        "type": "String"
+      },
+      "answer": {
+        "type": "String"
+      }
+    }
+  },
+  "f43ReportOption": "Opción {letter}: {text}",
+  "@f43ReportOption": {
+    "description": "Informes (F43, paso 10): lector de pantalla: una opción de una pregunta.",
+    "placeholders": {
+      "letter": {
+        "type": "String"
+      },
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "f43ReportOptionCorrect": "Correcta",
+  "@f43ReportOptionCorrect": {
+    "description": "Informes (F43, paso 10): lector de pantalla: la opción correcta, ya respondida."
+  },
+  "f43ReportOptionPicked": "Tu respuesta",
+  "@f43ReportOptionPicked": {
+    "description": "Informes (F43, paso 10): lector de pantalla: la opción elegida."
+  },
+  "f43ReportSectionScore": "{correct} de {total} bien en esta sección",
+  "@f43ReportSectionScore": {
+    "description": "Informes (F43, paso 10): el puntaje de una sección, cuando se respondió todo.",
+    "placeholders": {
+      "correct": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "f43ReportTotalScore": "Tu puntaje: {correct} de {total}",
+  "@f43ReportTotalScore": {
+    "description": "Informes (F43, paso 10): el puntaje del informe entero, al final.",
+    "placeholders": {
+      "correct": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "f43ReportAnswered": "{answered} de {total} respondidas",
+  "@f43ReportAnswered": {
+    "description": "Informes (F43, paso 10): cuántas preguntas del informe se respondieron.",
+    "placeholders": {
+      "answered": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "f43ReportTryAgain": "Volver a intentar",
+  "@f43ReportTryAgain": {
+    "description": "Informes (F43, paso 10): el botón que borra las respuestas del informe."
+  },
+  "f43ReportEmpty": "Este informe no tiene secciones para leer.",
+  "@f43ReportEmpty": {
+    "description": "Informes (F43, paso 10): el visor de un informe vacío."
+  },
+  "f43ReportDownload": "Descargar el informe",
+  "@f43ReportDownload": {
+    "description": "Informes (F43, paso 10): el botón de descargar en la barra del visor y el título de su hoja."
+  },
+  "f43ReportExportPdf": "PDF",
+  "@f43ReportExportPdf": {
+    "description": "Informes (F43, paso 10): la opción de descargar en PDF."
+  },
+  "f43ReportExportPdfHint": "Para leer o imprimir, con las palabras clave en rosa",
+  "@f43ReportExportPdfHint": {
+    "description": "Informes (F43, paso 10): la descripción de descargar en PDF."
+  },
+  "f43ReportExportMarkdown": "Markdown",
+  "@f43ReportExportMarkdown": {
+    "description": "Informes (F43, paso 10): la opción de descargar en Markdown."
+  },
+  "f43ReportExportMarkdownHint": "Para Obsidian u otro editor, con las palabras clave en negrita",
+  "@f43ReportExportMarkdownHint": {
+    "description": "Informes (F43, paso 10): la descripción de descargar en Markdown."
+  },
+  "f43ReportAnswerKey": "Respuestas",
+  "@f43ReportAnswerKey": {
+    "description": "Informes (F43, paso 10): el título de las respuestas al final del PDF y del Markdown."
+  },
+  "f43ReportSourcesLine": "Fuentes: {names}",
+  "@f43ReportSourcesLine": {
+    "description": "Informes (F43, paso 10): la línea de las fuentes en el PDF y el Markdown.",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "f43ReportPage": "Página {number} de {total}",
+  "@f43ReportPage": {
+    "description": "Informes (F43, paso 10): el pie de cada página del PDF.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

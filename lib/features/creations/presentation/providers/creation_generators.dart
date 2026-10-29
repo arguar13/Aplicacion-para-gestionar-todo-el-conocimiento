@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_generator.dart';
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_providers.dart';
+import 'package:sinapsis/features/creations/report/presentation/report_kind.dart';
 
 /// Los generadores de «Lo creado» (F43, ola 3): **uno por tipo, y sumar uno es
 /// una línea acá**, con el proveedor que arma el suyo en la carpeta de su tipo
@@ -19,7 +20,10 @@ import 'package:sinapsis/features/creations/infographic_kind/presentation/infogr
 /// de la IA sin generador todavía queda fallido por «sin soporte» si se lo
 /// pide (`CreationFailure.unsupported`).
 final creationGeneratorsProvider = Provider<List<CreationGenerator>>(
-  (ref) => [ref.watch(infographicGeneratorProvider)],
+  (ref) => [
+    ref.watch(infographicGeneratorProvider),
+    ref.watch(reportGeneratorProvider),
+  ],
 );
 
 /// Los de [creationGeneratorsProvider], por tipo: lo que lee la cola. Dos para
