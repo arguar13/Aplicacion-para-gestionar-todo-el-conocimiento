@@ -217,6 +217,16 @@ class CreationOptionsContext {
 typedef CreationOptionsBuilder =
     Widget Function(BuildContext context, CreationOptionsContext options);
 
+/// Lo pedido con las opciones dibujadas a mano de un tipo
+/// ([CreationKindSpec.optionsBuilder]), para «Ver petición y fuentes»: cada
+/// una con su nombre y su valor, en el idioma de la app («Estilo visual:
+/// Plastilina»). Lo que no se eligió o no se entiende no va.
+typedef CreationRequestLines =
+    List<(String, String)> Function(
+      AppLocalizations l10n,
+      Map<String, Object?> options,
+    );
+
 /// El visor de una creación lista: lo que va debajo de la barra común del
 /// visor (←, el título, «Ver N fuentes» con las fuentes como chips y ⋮).
 typedef CreationViewerBuilder =
@@ -309,6 +319,7 @@ class CreationKindSpec {
     this.fields = const {CreationField.language, CreationField.sources},
     this.options = const [],
     this.optionsBuilder,
+    this.requestLines,
     this.extraDefaults = const {},
     this.descriptionHint,
     this.expectedOutputTokens,
@@ -341,6 +352,11 @@ class CreationKindSpec {
 
   /// Opciones dibujadas a mano, debajo de [options].
   final CreationOptionsBuilder? optionsBuilder;
+
+  /// Cómo se dicen en «Ver petición y fuentes» las opciones de
+  /// [optionsBuilder]: la hoja de petición muestra solo las de [options], que
+  /// conoce; las demás las describe el tipo. Sin esto, no se muestran.
+  final CreationRequestLines? requestLines;
 
   /// Valores de fábrica de lo que pone [optionsBuilder] (los de [options] ya
   /// salen de cada una).
@@ -431,6 +447,7 @@ class CreationKindSpec {
     Set<CreationField>? fields,
     List<CreationOptionSpec>? options,
     CreationOptionsBuilder? optionsBuilder,
+    CreationRequestLines? requestLines,
     Map<String, Object?>? extraDefaults,
     CreationText? descriptionHint,
     int Function(Map<String, Object?> options)? expectedOutputTokens,
@@ -447,6 +464,7 @@ class CreationKindSpec {
     fields: fields ?? this.fields,
     options: options ?? this.options,
     optionsBuilder: optionsBuilder ?? this.optionsBuilder,
+    requestLines: requestLines ?? this.requestLines,
     extraDefaults: extraDefaults ?? this.extraDefaults,
     descriptionHint: descriptionHint ?? this.descriptionHint,
     expectedOutputTokens: expectedOutputTokens ?? this.expectedOutputTokens,

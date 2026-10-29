@@ -30,8 +30,10 @@ Future<void> showCreationDetails(
 );
 
 /// Lo pedido de [options] con los nombres de la hoja de [spec]: «Duración:
-/// Corta», «Tipos de pregunta: Opción única, Respuesta breve»… Lo que esta
-/// versión no conoce no se muestra.
+/// Corta», «Tipos de pregunta: Opción única, Respuesta breve»…, y lo de sus
+/// opciones dibujadas a mano como lo dice su tipo
+/// ([CreationKindSpec.requestLines]). Lo que esta versión no conoce no se
+/// muestra.
 List<(String, String)> creationRequestLines(
   AppLocalizations l10n,
   CreationKindSpec spec,
@@ -57,6 +59,11 @@ List<(String, String)> creationRequestLines(
     };
     if (shown == null || shown.isEmpty) continue;
     lines.add((option.label(l10n), shown));
+  }
+  // Las dibujadas a mano (un carrusel de estilos), como las dice su tipo.
+  for (final (label, value)
+      in spec.requestLines?.call(l10n, options) ?? const <(String, String)>[]) {
+    if (value.trim().isNotEmpty) lines.add((label, value.trim()));
   }
   for (final (key, label) in [
     (CreationOptionKeys.description, l10n.f43StudioDescribe),

@@ -4,13 +4,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_generator.dart';
+import 'package:sinapsis/features/creations/infographic/domain/infographic_design.dart';
 import 'package:sinapsis/features/creations/infographic/presentation/widgets/infographic_style_gallery.dart';
 import 'package:sinapsis/features/creations/infographic_kind/domain/infographic_options.dart';
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_providers.dart';
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_spec.dart';
+import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_generators.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_kinds.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/creation_details_sheet.dart';
+import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../infographic/support/infographic_muestrario.dart';
 import '../../presentation/repasar_harness.dart';
@@ -74,6 +78,60 @@ void main() {
     );
     await tapInSheet(tester, tile);
   }
+
+  group('«Ver petición y fuentes»', () {
+    final es = AppLocalizationsEs();
+
+    test('dice el estilo elegido —y la composición del visor, si hay una—, '
+        'junto con la orientación y el detalle de la hoja', () {
+      final spec = ProviderContainer().read(infographicKindSpecProvider);
+      final lines = creationRequestLines(
+        es,
+        spec,
+        spec.withDefaults(
+          withInfographicDesign(
+            {CreationOptionValues.illustrations: true},
+            const InfographicDesign(
+              style: InfographicStyleId.clay,
+              composition: InfographicComposition.zigzag,
+              orientation: InfographicOrientation.square,
+              detail: InfographicDetail.concise,
+            ),
+          ),
+        ),
+      );
+      expect(lines, contains(('Estilo visual', 'Plastilina')));
+      expect(lines, contains(('Composición', 'Zigzag')));
+      expect(lines.map((l) => l.$2), contains('Cuadrado'));
+      expect(lines.map((l) => l.$2), contains('Conciso'));
+      expect(lines.where((l) => l.$1 == 'Estilo visual'), hasLength(1));
+
+      final auto = creationRequestLines(es, spec, spec.defaults);
+      expect(auto, contains(('Estilo visual', 'Automático')));
+      expect(auto.where((l) => l.$1 == 'Composición'), isEmpty);
+    });
+
+    test('cualquier tipo puede describir lo suyo dibujado a mano; lo vacío '
+        'no va', () {
+      final spec = defaultCreationKindSpec(StudyCreationKind.mindMap).copyWith(
+        requestLines: (l10n, options) => [
+          ('Forma', '${options['forma']}'),
+          ('Nada', '  '),
+        ],
+      );
+      final lines = creationRequestLines(es, spec, {'forma': 'radial'});
+      expect(lines, contains(('Forma', 'radial')));
+      expect(lines.where((l) => l.$1 == 'Nada'), isEmpty);
+      expect(
+        creationRequestLines(
+          es,
+          defaultCreationKindSpec(StudyCreationKind.mindMap),
+          {'forma': 'radial'},
+        ).where((l) => l.$1 == 'Forma'),
+        isEmpty,
+      );
+    });
+  });
 
   test('la infografía está registrada: su tipo y su generador', () {
     final container = ProviderContainer();
