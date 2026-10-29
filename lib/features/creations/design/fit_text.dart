@@ -85,7 +85,10 @@ class FitTextResult {
 /// texto en su tope de líneas y sin partir ninguna palabra al medio. Si ni en
 /// la mínima entra, se recortan líneas, primero al texto más largo y con «…»
 /// al final; y si aun con una línea cada uno no alcanza, se dejan fuera los
-/// últimos. Lo que se dibuja es exactamente lo que se midió —el mismo estilo,
+/// últimos. Si ni el primero entra en una sola línea —un lugar más bajo que
+/// un renglón a la escala mínima—, ese renglón se achica por debajo de la
+/// mínima hasta entrar: chico, pero nunca encima de lo de al lado. Lo que se
+/// dibuja es exactamente lo que se midió —el mismo estilo,
 /// el mismo escalador y el mismo ancho—, así que el alto calculado es el alto
 /// real.
 abstract final class FitTextLayout {
@@ -167,9 +170,10 @@ abstract final class FitTextLayout {
     final lines = [for (var i = 0; i < count; i++) measurer.lines(i, scale)];
     final caps = List<int>.of(lines);
     var visible = count;
+    var fitted = scale;
 
     double heightOf() =>
-        measurer.height(scale, _caps(caps, lines), visible: visible);
+        measurer.height(fitted, _caps(caps, lines), visible: visible);
 
     while (heightOf() > limit) {
       // El texto visible con más líneas pierde una.
@@ -185,11 +189,27 @@ abstract final class FitTextLayout {
         break;
       }
     }
+    // Queda un solo renglón y tampoco entra: se achica hasta entrar. El alto
+    // de un renglón crece con la escala, así que unas pocas vueltas bastan.
+    var height = heightOf();
+    for (var turn = 0; turn < 6 && height > limit && limit > 0; turn++) {
+      fitted *= limit / height * 0.98;
+      height = heightOf();
+    }
+    if (height > limit) {
+      // Ni un punto de alto: no se dibuja nada.
+      return const FitTextResult(
+        scale: 0,
+        maxLines: [],
+        visibleCount: 0,
+        height: 0,
+      );
+    }
     return FitTextResult(
-      scale: scale,
+      scale: fitted,
       maxLines: _caps(caps, lines).sublist(0, visible),
       visibleCount: visible,
-      height: heightOf(),
+      height: height,
     );
   }
 

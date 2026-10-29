@@ -115,6 +115,24 @@ void main() {
     expect(result.height, lessThanOrEqualTo(25));
   });
 
+  test('un lugar más bajo que un renglón a la mínima achica ese renglón por '
+      'debajo de la mínima: nunca desborda', () {
+    // Un renglón de 10 a la escala mínima (0,5) mide 5; en 3 de alto no
+    // entra, así que baja hasta entrar.
+    final short = solve([item('aa'), item('bb')], height: 3);
+    expect(short.visibleCount, 1);
+    expect(short.scale, lessThan(0.5));
+    expect(short.height, lessThanOrEqualTo(3));
+    // Con una escala fija pasa lo mismo.
+    final fixed = solve([item('aa')], height: 4, fixedScale: 1);
+    expect(fixed.scale, lessThan(1));
+    expect(fixed.height, lessThanOrEqualTo(4));
+    // Y sin un punto de alto no se dibuja nada.
+    final none = solve([item('aa')], height: 0.2);
+    expect(none.visibleCount, 0);
+    expect(none.height, 0);
+  });
+
   test('una escala fija se respeta, y si no entra se recorta igual', () {
     final fixed = solve([item('aa')], fixedScale: 0.7);
     expect(fixed.scale, 0.7);
@@ -150,7 +168,7 @@ void main() {
           ),
       ];
       final width = 60 + random.nextDouble() * 300;
-      final height = 40 + random.nextDouble() * 300;
+      final height = 2 + random.nextDouble() * 338;
       final result = solve(items, width: width, height: height);
       expect(result.height, lessThanOrEqualTo(height), reason: 'ronda $round');
     }

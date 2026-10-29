@@ -26,6 +26,21 @@ enum CreationArtStyle {
 
   /// Barras y una curva, como un tablero.
   data,
+
+  /// Formas de plastilina: redondas, con su brillo y su sombra blanda.
+  clay,
+
+  /// Un personaje redondo y tierno, con su carita y unos destellos.
+  kawaii,
+
+  /// Bloques en perspectiva isométrica sobre su grilla.
+  isometric,
+
+  /// Una explosión de historieta sobre una trama de puntos.
+  comic,
+
+  /// Una foto desenfocada: un cielo, unas luces y un horizonte.
+  photo,
 }
 
 /// La ilustración que se dibuja cuando no hay una de verdad (F43): mientras
@@ -344,7 +359,351 @@ class CreationArtPainter extends CustomPainter {
             ..strokeJoin = StrokeJoin.round
             ..color = palette.text,
         );
+      case CreationArtStyle.clay:
+        _clay(canvas, size, colors, r);
+      case CreationArtStyle.kawaii:
+        _kawaii(canvas, size, colors, r);
+      case CreationArtStyle.isometric:
+        _isometric(canvas, size, colors);
+      case CreationArtStyle.comic:
+        _comic(canvas, size, colors, r);
+      case CreationArtStyle.photo:
+        _photo(canvas, size, colors, r);
     }
+  }
+
+  /// Un color más claro o más oscuro, sin cambiar su tono.
+  static Color _shade(Color color, double amount) {
+    final hsl = HSLColor.fromColor(color);
+    return hsl.withLightness((hsl.lightness + amount).clamp(0, 1)).toColor();
+  }
+
+  void _clay(
+    Canvas canvas,
+    Size size,
+    List<Color> colors,
+    double Function(double, double) r,
+  ) {
+    final s = size.shortestSide;
+    for (var i = 0; i < 3; i++) {
+      final color = colors[(seed + i) % 3];
+      final center = Offset(
+        size.width * (0.28 + 0.22 * i + r(-0.04, 0.04)),
+        size.height * (i.isEven ? r(0.52, 0.62) : r(0.36, 0.46)),
+      );
+      final radius = s * (i == 1 ? 0.27 : 0.21);
+      final path = CreationTextures.blob(
+        center,
+        radius,
+        seed: seed * 5 + i,
+        wobble: 0.06,
+        lobes: 3,
+      );
+      canvas
+        ..drawShadow(
+          path.shift(Offset(0, s * 0.02)),
+          Colors.black,
+          s * 0.03,
+          false,
+        )
+        ..drawPath(
+          path,
+          Paint()
+            ..shader = RadialGradient(
+              center: const Alignment(-0.35, -0.45),
+              radius: 1.05,
+              colors: [_shade(color, 0.14), color, _shade(color, -0.16)],
+              stops: const [0, 0.55, 1],
+            ).createShader(Rect.fromCircle(center: center, radius: radius)),
+        )
+        // El brillo de la plastilina, arriba a la izquierda.
+        ..drawOval(
+          Rect.fromCenter(
+            center: center + Offset(-radius * 0.38, -radius * 0.42),
+            width: radius * 0.42,
+            height: radius * 0.24,
+          ),
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.42)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.012),
+        );
+    }
+  }
+
+  void _kawaii(
+    Canvas canvas,
+    Size size,
+    List<Color> colors,
+    double Function(double, double) r,
+  ) {
+    final s = size.shortestSide;
+    final body = colors[seed % 3];
+    final center = Offset(size.width * r(0.42, 0.58), size.height * 0.56);
+    final radius = s * 0.3;
+    final ink = CreationContrast.readableOn(body);
+    canvas
+      ..drawOval(
+        Rect.fromCenter(
+          center: center + Offset(0, radius * 0.98),
+          width: radius * 1.7,
+          height: radius * 0.22,
+        ),
+        Paint()..color = Colors.black.withValues(alpha: 0.12),
+      )
+      ..drawOval(
+        Rect.fromCenter(
+          center: center,
+          width: radius * 2.1,
+          height: radius * 1.85,
+        ),
+        Paint()..color = body,
+      )
+      ..drawOval(
+        Rect.fromCenter(
+          center: center + Offset(-radius * 0.45, -radius * 0.5),
+          width: radius * 0.5,
+          height: radius * 0.28,
+        ),
+        Paint()..color = Colors.white.withValues(alpha: 0.35),
+      );
+    // La carita: dos ojos con su brillo, los cachetes y la sonrisa.
+    for (final side in [-1.0, 1.0]) {
+      final eye = center + Offset(side * radius * 0.36, -radius * 0.05);
+      canvas
+        ..drawCircle(eye, radius * 0.11, Paint()..color = ink)
+        ..drawCircle(
+          eye + Offset(radius * 0.035, -radius * 0.04),
+          radius * 0.035,
+          Paint()..color = body,
+        )
+        ..drawOval(
+          Rect.fromCenter(
+            center: center + Offset(side * radius * 0.62, radius * 0.2),
+            width: radius * 0.3,
+            height: radius * 0.16,
+          ),
+          Paint()..color = const Color(0xBFFF8FAB),
+        );
+    }
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: center + Offset(0, radius * 0.16),
+        width: radius * 0.3,
+        height: radius * 0.22,
+      ),
+      0.15,
+      math.pi - 0.3,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = radius * 0.05
+        ..color = ink,
+    );
+    // Destellos de cuatro puntas alrededor.
+    final sparkle = Paint()..color = colors[(seed + 1) % 3];
+    for (var k = 0; k < 4; k++) {
+      final at = Offset(
+        size.width * (k.isEven ? r(0.08, 0.22) : r(0.78, 0.92)),
+        size.height * (k < 2 ? r(0.12, 0.28) : r(0.64, 0.86)),
+      );
+      final arm = s * r(0.025, 0.045);
+      final star = Path()
+        ..moveTo(at.dx, at.dy - arm)
+        ..quadraticBezierTo(at.dx, at.dy, at.dx + arm, at.dy)
+        ..quadraticBezierTo(at.dx, at.dy, at.dx, at.dy + arm)
+        ..quadraticBezierTo(at.dx, at.dy, at.dx - arm, at.dy)
+        ..quadraticBezierTo(at.dx, at.dy, at.dx, at.dy - arm)
+        ..close();
+      canvas.drawPath(star, sparkle);
+    }
+  }
+
+  void _isometric(Canvas canvas, Size size, List<Color> colors) {
+    final s = size.shortestSide;
+    final unit = s * 0.13;
+    final origin = Offset(size.width * 0.5, size.height * 0.62);
+    // Un punto de la grilla isométrica: x baja a la derecha, y baja a la
+    // izquierda, z sube.
+    Offset iso(double x, double y, double z) => origin.translate(
+      (x - y) * unit * math.cos(math.pi / 6),
+      (x + y) * unit * math.sin(math.pi / 6) - z * unit,
+    );
+    final grid = Paint()
+      ..strokeWidth = s * 0.004
+      ..color = palette.text.withValues(alpha: 0.14);
+    for (var i = -3; i <= 3; i++) {
+      final t = i.toDouble();
+      canvas
+        ..drawLine(iso(t, -3, 0), iso(t, 3, 0), grid)
+        ..drawLine(iso(-3, t, 0), iso(3, t, 0), grid);
+    }
+    Path face(List<Offset> points) => Path()..addPolygon(points, true);
+    void box(double x, double y, double h, Color color) {
+      const w = 1.2;
+      canvas
+        ..drawPath(
+          face([
+            iso(x, y, h),
+            iso(x + w, y, h),
+            iso(x + w, y + w, h),
+            iso(x, y + w, h),
+          ]),
+          Paint()..color = _shade(color, 0.12),
+        )
+        ..drawPath(
+          face([
+            iso(x, y + w, h),
+            iso(x + w, y + w, h),
+            iso(x + w, y + w, 0),
+            iso(x, y + w, 0),
+          ]),
+          Paint()..color = color,
+        )
+        ..drawPath(
+          face([
+            iso(x + w, y, h),
+            iso(x + w, y + w, h),
+            iso(x + w, y + w, 0),
+            iso(x + w, y, 0),
+          ]),
+          Paint()..color = _shade(color, -0.14),
+        );
+    }
+
+    // De atrás hacia adelante, para que lo de adelante tape.
+    const heights = [2.2, 1.4, 2.8, 1.0];
+    const spots = [(-2.0, -1.0), (0.4, -2.2), (-0.6, 0.2), (1.2, 0.8)];
+    for (var i = 0; i < spots.length; i++) {
+      final (x, y) = spots[i];
+      box(x, y, heights[(seed + i) % 4], colors[(seed + i) % 3]);
+    }
+  }
+
+  void _comic(
+    Canvas canvas,
+    Size size,
+    List<Color> colors,
+    double Function(double, double) r,
+  ) {
+    final s = size.shortestSide;
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = _shade(colors[(seed + 2) % 3], 0.22),
+    );
+    // La trama de puntos, más grandes hacia una esquina.
+    final dot = Paint()..color = Colors.black.withValues(alpha: 0.16);
+    final step = s * 0.06;
+    for (var y = step / 2; y < size.height; y += step) {
+      for (var x = step / 2; x < size.width; x += step) {
+        final t = (x / size.width + y / size.height) / 2;
+        canvas.drawCircle(Offset(x, y), step * (0.08 + 0.22 * t), dot);
+      }
+    }
+    // Las líneas de velocidad.
+    final center = Offset(
+      size.width * r(0.4, 0.6),
+      size.height * r(0.42, 0.58),
+    );
+    final speed = Paint()
+      ..strokeWidth = s * 0.01
+      ..color = Colors.black.withValues(alpha: 0.5);
+    for (var i = 0; i < 18; i++) {
+      final angle = i * math.pi * 2 / 18 + r(-0.08, 0.08);
+      final direction = Offset(math.cos(angle), math.sin(angle));
+      canvas.drawLine(
+        center + direction * s * 0.42,
+        center + direction * s * 0.7,
+        speed,
+      );
+    }
+    // La explosión: una estrella de puntas desparejas, con su borde negro y
+    // una sombra corrida.
+    const points = 12;
+    final burst = Path()
+      ..addPolygon([
+        for (var i = 0; i < points * 2; i++)
+          center +
+              Offset(
+                    math.cos(i * math.pi / points - math.pi / 2),
+                    math.sin(i * math.pi / points - math.pi / 2),
+                  ) *
+                  (s * (i.isEven ? r(0.34, 0.4) : r(0.2, 0.25))),
+      ], true);
+    canvas
+      ..drawPath(
+        burst.shift(Offset(s * 0.025, s * 0.03)),
+        Paint()..color = Colors.black,
+      )
+      ..drawPath(burst, Paint()..color = colors[seed % 3])
+      ..drawPath(
+        burst,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeJoin = StrokeJoin.round
+          ..strokeWidth = s * 0.018
+          ..color = Colors.black,
+      );
+  }
+
+  void _photo(
+    Canvas canvas,
+    Size size,
+    List<Color> colors,
+    double Function(double, double) r,
+  ) {
+    final s = size.shortestSide;
+    final rect = Offset.zero & size;
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            _shade(colors[(seed + 1) % 3], -0.12),
+            _shade(colors[seed % 3], 0.1),
+          ],
+        ).createShader(rect),
+    );
+    // Las luces desenfocadas del fondo.
+    for (var i = 0; i < 9; i++) {
+      CreationTextures.glow(
+        canvas,
+        Offset(size.width * r(0, 1), size.height * r(0, 0.6)),
+        s * r(0.06, 0.16),
+        Colors.white.withValues(alpha: r(0.25, 0.55)),
+      );
+    }
+    // Dos lomas en capas, la de adelante más oscura.
+    for (var layer = 0; layer < 2; layer++) {
+      final base = size.height * (0.66 + layer * 0.12);
+      canvas.drawPath(
+        Path()..addPolygon([
+          Offset(0, size.height),
+          for (var i = 0; i <= 24; i++)
+            Offset(
+              size.width * i / 24,
+              base -
+                  math.sin(i / 24 * math.pi * (1.4 + layer) + seed + layer) *
+                      s *
+                      0.06,
+            ),
+          Offset(size.width, size.height),
+        ], true),
+        Paint()..color = _shade(colors[(seed + 2) % 3], -0.12 - layer * 0.12),
+      );
+    }
+    // El viñeteado de la lente.
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = const RadialGradient(
+          radius: 0.85,
+          colors: [Color(0x00000000), Color(0x52000000)],
+          stops: [0.55, 1],
+        ).createShader(rect),
+    );
   }
 
   @override

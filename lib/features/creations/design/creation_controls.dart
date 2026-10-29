@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:sinapsis/features/creations/design/creation_fonts.dart';
+import 'package:sinapsis/features/creations/design/creation_palette.dart';
 
 /// Una opción de [CreationSegmented].
 @immutable
@@ -219,6 +221,225 @@ class CreationSectionLabel extends StatelessWidget {
         style: theme.textTheme.titleSmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+/// Una muestra de paleta para elegir (F43): sus colores en franjas, en una
+/// píldora redonda; sin colores, la del color propio: un arcoíris. La usan
+/// las hojas de diseño del mazo y de la infografía.
+class CreationSwatch extends StatelessWidget {
+  const CreationSwatch({
+    required this.label,
+    required this.colors,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final List<Color> colors;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: Container(
+          width: 64,
+          height: 44,
+          padding: const EdgeInsets.all(3),
+          decoration: ShapeDecoration(
+            shape: StadiumBorder(
+              side: BorderSide(
+                color: selected ? scheme.primary : scheme.outlineVariant,
+                width: selected ? 3 : 1,
+              ),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (colors.isEmpty)
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: SweepGradient(
+                        colors: [
+                          Color(0xFFE53935),
+                          Color(0xFFFDD835),
+                          Color(0xFF43A047),
+                          Color(0xFF1E88E5),
+                          Color(0xFF8E24AA),
+                          Color(0xFFE53935),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Row(
+                    children: [
+                      for (final color in colors)
+                        Expanded(child: ColoredBox(color: color)),
+                    ],
+                  ),
+                if (selected)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: scheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 14,
+                        color: CreationContrast.readableOn(scheme.primary),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Una tipografía para elegir (F43): «Aa» en su letra de títulos y su
+/// nombre.
+class CreationFontChoice extends StatelessWidget {
+  const CreationFontChoice({
+    required this.pair,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final CreationFontPair pair;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final foreground = selected
+        ? scheme.onSecondaryContainer
+        : scheme.onSurface;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected
+            ? scheme.secondaryContainer
+            : scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 96, minHeight: 72),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Aa',
+                    style: pair.displayStyle(size: 26, color: foreground),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (selected) ...[
+                        Icon(Icons.check, size: 16, color: foreground),
+                        const SizedBox(width: 4),
+                      ],
+                      Flexible(
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: foreground,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// El deslizador del tono de un color propio (F43): un arcoíris con una
+/// perilla blanca. Lo usan las hojas de diseño del mazo y de la infografía.
+class CreationHueSlider extends StatelessWidget {
+  const CreationHueSlider({
+    required this.hue,
+    required this.onChanged,
+    required this.semanticLabel,
+    this.sliderKey,
+    super.key,
+  });
+
+  /// De 0 a 359.
+  final double hue;
+  final ValueChanged<double> onChanged;
+
+  /// Lo que dice el lector de pantalla antes de los grados («Tono 210°»).
+  final String semanticLabel;
+
+  /// La clave del `Slider` de adentro (para arrastrarlo en una prueba).
+  final Key? sliderKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          colors: [
+            for (var h = 0; h <= 360; h += 60)
+              HSLColor.fromAHSL(1, h % 360, 0.7, 0.55).toColor(),
+          ],
+        ),
+      ),
+      child: SliderTheme(
+        data: SliderTheme.of(context).copyWith(
+          activeTrackColor: Colors.transparent,
+          inactiveTrackColor: Colors.transparent,
+          thumbColor: Colors.white,
+          overlayColor: Colors.white24,
+        ),
+        child: Slider(
+          key: sliderKey,
+          value: hue.clamp(0, 359),
+          max: 359,
+          semanticFormatterCallback: (value) =>
+              '$semanticLabel ${value.round()}°',
+          onChanged: onChanged,
         ),
       ),
     );
