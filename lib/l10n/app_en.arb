@@ -11552,10 +11552,6 @@
   "@processedSectionOriginal": {
     "description": "Parte de un documento procesado (F41, decisión H): la copia propia del archivo de la fuente. Chip de la fila y filtro de «Procesado»."
   },
-  "processedOriginalCardTitle": "The copy of the original",
-  "@processedOriginalCardTitle": {
-    "description": "Tarjeta del documento procesado con la copia propia del archivo de la fuente (F41, decisión H)."
-  },
   "processedOriginalCardDetails": "{kind} · {size} · copied on {date}",
   "@processedOriginalCardDetails": {
     "description": "Debajo de «La copia del original»: qué es, cuánto ocupa y cuándo se copió (F41).",
@@ -11586,10 +11582,6 @@
   "processedOriginalOpen": "See the original",
   "@processedOriginalOpen": {
     "description": "Abre la copia del original de un documento procesado en su visor, con lo elegido marcado (F41)."
-  },
-  "processedOriginalMarked": "With what you chose marked on it",
-  "@processedOriginalMarked": {
-    "description": "Debajo de «Ver el original»: la copia muestra marcado el resumen, la síntesis, las palabras clave y los fragmentos (F41)."
   },
   "processedOriginalUnmarked": "What you chose isn't marked: the source's text is no longer the text of this copy.",
   "@processedOriginalUnmarked": {
@@ -13116,5 +13108,67 @@
   "f43InfoSampleTakeaway": "A clear sheet is easier to remember.",
   "@f43InfoSampleTakeaway": {
     "description": "Muestra de infografía: idea para llevarse (F43, infografía)."
-  }
+  },
+  "f43OrigNoOwnText": "This document has no text of its own to mark.",
+  "@f43OrigNoOwnText": {"description": "F43, paso 15 (M5): al pedir marcar con la IA un documento procesado sin texto propio."},
+  "f43OrigPickOutside": "That part of the original changed in the document's text: it can't be marked there.",
+  "@f43OrigPickOutside": {"description": "F43, paso 15 (M5): al elegir a mano en el original algo que no está, letra por letra, en el texto del documento procesado (una página editada)."},
+  "f43OrigStateNone": "Not done",
+  "@f43OrigStateNone": {"description": "F43, paso 15 (M5): estado de un botón de estudio del original sin marcas todavía."},
+  "f43OrigStateGenerating": "Generating… {percent}%",
+  "@f43OrigStateGenerating": {"description": "F43, paso 15 (M5): estado de un botón de estudio mientras la IA lo arma, con su avance.", "placeholders": {"percent": {"type": "int"}}},
+  "f43OrigStateDone": "{kind, select, other{Done}}",
+  "@f43OrigStateDone": {"description": "F43, paso 15 (M5): estado de un botón de estudio con marcas, a la vista. kind: summary, synthesis o keyword (el género de la palabra).", "placeholders": {"kind": {"type": "String"}}},
+  "f43OrigStateHidden": "{kind, select, other{Hidden}}",
+  "@f43OrigStateHidden": {"description": "F43, paso 15 (M5): estado de un botón de estudio con marcas, oculto. kind: summary, synthesis o keyword.", "placeholders": {"kind": {"type": "String"}}},
+  "f43OrigButtonSemantics": "{name}: {count}, {state}",
+  "@f43OrigButtonSemantics": {"description": "F43, paso 15 (M5): lo que dice el lector de pantalla de un botón de estudio: su nombre, cuántas marcas y su estado.", "placeholders": {"name": {"type": "String"}, "count": {"type": "String"}, "state": {"type": "String"}}},
+  "f43OrigMoreTooltip": "More for {name}",
+  "@f43OrigMoreTooltip": {"description": "F43, paso 15 (M5): el ⋯ de un botón de estudio del original.", "placeholders": {"name": {"type": "String"}}},
+  "f43OrigChoiceAi": "With AI",
+  "@f43OrigChoiceAi": {"description": "F43, paso 15 (M5): opción grande de la hoja para marcar con el modelo elegido."},
+  "f43OrigChoiceAiSentences": "{model} picks the document's sentences and marks them on the original.",
+  "@f43OrigChoiceAiSentences": {"description": "F43, paso 15 (M5): qué hace «Con IA» en el resumen o la síntesis.", "placeholders": {"model": {"type": "String"}}},
+  "f43OrigChoiceAiWords": "{model} suggests the keywords of each sentence and marks them on the original.",
+  "@f43OrigChoiceAiWords": {"description": "F43, paso 15 (M5): qué hace «Con IA» en las palabras clave.", "placeholders": {"model": {"type": "String"}}},
+  "f43OrigChoiceManual": "By hand",
+  "@f43OrigChoiceManual": {"description": "F43, paso 15 (M5): opción grande de la hoja para elegir a mano en el original."},
+  "f43OrigChoiceManualSentences": "Tap sentences on the original: one tap adds it, another removes it.",
+  "@f43OrigChoiceManualSentences": {"description": "F43, paso 15 (M5): qué hace «A mano» en el resumen o la síntesis."},
+  "f43OrigChoiceManualWords": "Tap words on the original, up to {count} per sentence.",
+  "@f43OrigChoiceManualWords": {"description": "F43, paso 15 (M5): qué hace «A mano» en las palabras clave.", "placeholders": {"count": {"type": "int"}}},
+  "f43OrigMenuRedo": "Redo with AI",
+  "@f43OrigMenuRedo": {"description": "F43, paso 15 (M5): menú de un botón de estudio: volver a marcar con la IA."},
+  "f43OrigMenuRetouch": "Touch up by hand",
+  "@f43OrigMenuRetouch": {"description": "F43, paso 15 (M5): menú de un botón de estudio: elegir o sacar a mano en el original."},
+  "f43OrigMenuHide": "Hide",
+  "@f43OrigMenuHide": {"description": "F43, paso 15 (M5): menú de un botón de estudio: ocultar lo marcado (queda recordado)."},
+  "f43OrigMenuShow": "Show",
+  "@f43OrigMenuShow": {"description": "F43, paso 15 (M5): menú de un botón de estudio: volver a mostrar lo marcado."},
+  "f43OrigMenuClear": "Delete the marks",
+  "@f43OrigMenuClear": {"description": "F43, paso 15 (M5): menú de un botón de estudio: borrar todo lo marcado de esa clase."},
+  "f43OrigRedoTitle": "Redo with AI?",
+  "@f43OrigRedoTitle": {"description": "F43, paso 15 (M5): título de la hoja que confirma rehacer con la IA."},
+  "f43OrigRedoBody": "The AI marks the summary, synthesis and keywords of the whole document again: what it had marked is replaced. What you picked by hand stays.",
+  "@f43OrigRedoBody": {"description": "F43, paso 15 (M5): qué pasa al rehacer con la IA."},
+  "f43OrigRedoConfirm": "Redo",
+  "@f43OrigRedoConfirm": {"description": "F43, paso 15 (M5): botón que confirma rehacer con la IA."},
+  "f43OrigClearTitle": "{kind, select, synthesis{Delete the synthesis?} keyword{Delete the keywords?} other{Delete the summary?}}",
+  "@f43OrigClearTitle": {"description": "F43, paso 15 (M5): título de la confirmación de borrar las marcas. kind: summary, synthesis o keyword.", "placeholders": {"kind": {"type": "String"}}},
+  "f43OrigClearBody": "The AI's marks and the ones you picked are deleted from the document. The original and the source don't change, and you can make it again with AI or by hand.",
+  "@f43OrigClearBody": {"description": "F43, paso 15 (M5): qué pasa al borrar las marcas de un botón de estudio."},
+  "f43OrigClearConfirm": "Delete",
+  "@f43OrigClearConfirm": {"description": "F43, paso 15 (M5): botón que confirma borrar las marcas."},
+  "f43OrigPickHintSentences": "Tap a sentence on the original to add or remove it.",
+  "@f43OrigPickHintSentences": {"description": "F43, paso 15 (M5): mientras se elige a mano el resumen o la síntesis."},
+  "f43OrigPickHintWords": "Tap a word on the original to add or remove it: up to {count} per sentence.",
+  "@f43OrigPickHintWords": {"description": "F43, paso 15 (M5): mientras se eligen a mano las palabras clave.", "placeholders": {"count": {"type": "int"}}},
+  "f43OrigPickOpen": "Open the original",
+  "@f43OrigPickOpen": {"description": "F43, paso 15 (M5): eligiendo a mano desde el documento, abre el original entero donde se toca."},
+  "f43OrigLegendBoth": "Summary and synthesis",
+  "@f43OrigLegendBoth": {"description": "F43, paso 15 (M5): en la leyenda, una oración que está en el resumen y en la síntesis: celeste con la línea verde."},
+  "f43OrigClose": "Close",
+  "@f43OrigClose": {"description": "F43, paso 15 (M5): la ✕ de las hojas de los botones de estudio."},
+  "f43OrigEstimating": "Working out what it will use…",
+  "@f43OrigEstimating": {"description": "F43, paso 15 (M5): mientras se estima lo que consume marcar con la IA."}
 }

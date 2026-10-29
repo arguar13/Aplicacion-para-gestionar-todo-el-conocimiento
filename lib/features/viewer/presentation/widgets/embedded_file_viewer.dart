@@ -88,7 +88,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
     final frame = switch (resolved) {
       AsyncData(:final value) => _buildFrame(context, ref, value),
       AsyncError() => null,
-      _ => const _EmbeddedViewerFrame(
+      _ => const EmbeddedViewerFrame(
         child: Center(child: CircularProgressIndicator()),
       ),
     };
@@ -112,7 +112,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
     return switch (resolved) {
       NoResolvedViewer() => null,
       TextResolvedViewer(:final content, :final markdown, :final study) =>
-        _EmbeddedViewerFrame(
+        EmbeddedViewerFrame(
           tall: true,
           onExpand: expand,
           bigButtonLabel: l10n.detailReadAsBook,
@@ -123,7 +123,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
             onTap: expand,
           ),
         ),
-      ImageResolvedViewer(:final path) => _EmbeddedViewerFrame(
+      ImageResolvedViewer(:final path) => EmbeddedViewerFrame(
         onExpand: expand,
         child: ImageViewerView(path: path),
       ),
@@ -131,18 +131,18 @@ class EmbeddedFileViewer extends ConsumerWidget {
       // reproductor solo con el audio de un video va en el panel de la
       // fuente (F26); los dos manejan el mismo audio: ver
       // `playbackSessionProvider`.
-      MediaResolvedViewer(:final path, :final isVideo) => _EmbeddedViewerFrame(
+      MediaResolvedViewer(:final path, :final isVideo) => EmbeddedViewerFrame(
         onExpand: expand,
         child: MediaPlayerView(path: path, isVideo: isVideo),
       ),
-      PdfResolvedViewer(:final path, :final text) => _EmbeddedViewerFrame(
+      PdfResolvedViewer(:final path, :final text) => EmbeddedViewerFrame(
         tall: true,
         onExpand: expand,
         bigButtonLabel: l10n.detailReadAsBook,
         child: PdfFirstPagePreview(path: path, text: text, onTap: expand),
       ),
       WebPageResolvedViewer(:final path, :final url, :final text) =>
-        _EmbeddedViewerFrame(
+        EmbeddedViewerFrame(
           tall: true,
           onExpand: expand,
           bigButtonLabel: l10n.detailViewWebPage,
@@ -152,7 +152,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
       // sentido hacer con un video ajeno —abrirlo en YouTube—, así que no
       // hay una pantalla completa propia de la app a la que expandirla.
       YoutubeEmbedResolvedViewer(:final videoId, :final url) =>
-        _EmbeddedViewerFrame(
+        EmbeddedViewerFrame(
           child: YoutubeEmbedView(videoId: videoId, url: url),
         ),
     };
@@ -163,12 +163,17 @@ class EmbeddedFileViewer extends ConsumerWidget {
 /// cualquier visor embebido, con el botón de expandir a pantalla completa
 /// flotando encima: en la esquina, o grande y en el centro con
 /// [bigButtonLabel].
-class _EmbeddedViewerFrame extends StatelessWidget {
-  const _EmbeddedViewerFrame({
+///
+/// El mismo marco muestra el original de un documento procesado en su
+/// pantalla (F43, paso 15: `ProcessedOriginalSection`): se ve y se comporta
+/// igual que en el detalle de la Biblioteca.
+class EmbeddedViewerFrame extends StatelessWidget {
+  const EmbeddedViewerFrame({
     required this.child,
     this.onExpand,
     this.tall = false,
     this.bigButtonLabel,
+    super.key,
   });
 
   final Widget child;
@@ -265,7 +270,14 @@ class _ReadAsBookButton extends StatelessWidget {
               children: [
                 const Icon(Icons.open_in_full, size: 32, color: Colors.white),
                 const SizedBox(width: 12),
-                Text(label, style: textStyle?.copyWith(color: Colors.white)),
+                // Con la letra al doble en un teléfono angosto, el nombre se
+                // parte en dos renglones en vez de salirse del botón.
+                Flexible(
+                  child: Text(
+                    label,
+                    style: textStyle?.copyWith(color: Colors.white),
+                  ),
+                ),
               ],
             ),
           ),

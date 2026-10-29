@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_original_study_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_layers.dart';
@@ -101,20 +103,31 @@ class StudyView {
 }
 
 /// Qué se ve de lo estudiado del texto de una forma (F36).
-final studyViewProvider = StateProvider.autoDispose.family<StudyView, String>(
-  (ref, renditionId) => renditionId.startsWith(kProcessedOriginalStudyKeyPrefix)
-      ? kMarkedCopyStudyView
-      : const StudyView(),
-);
+///
+/// La copia del original de un documento procesado se abre como la dejó la
+/// persona: ver [markedCopyStudyView].
+final studyViewProvider = StateProvider.autoDispose.family<StudyView, String>((
+  ref,
+  renditionId,
+) {
+  final documentId = processedDocumentOfOriginalStudyKey(renditionId);
+  if (documentId == null) return const StudyView();
+  return markedCopyStudyView(
+    ref.read(processedOriginalHiddenProvider(documentId)),
+  );
+});
 
 /// Cómo se abre la copia del original de un documento procesado (F41,
-/// decisión H): con todo lo elegido a la vista —es lo que se fue a ver—. Sus
-/// interruptores lo apagan de a uno.
-const kMarkedCopyStudyView = StudyView(
-  summary: true,
-  synthesis: true,
-  keywords: true,
-);
+/// decisión H; F43, paso 15): con todo lo marcado a la vista —es lo que se
+/// fue a ver—, menos lo que la persona dejó oculto en ese documento
+/// ([hidden], `processedOriginalHiddenProvider`). Las palabras clave, una vez
+/// hechas, se ven siempre que no se las oculte.
+StudyView markedCopyStudyView([Set<StudyMarkKind> hidden = const {}]) =>
+    StudyView(
+      summary: !hidden.contains(StudyMarkKind.summary),
+      synthesis: !hidden.contains(StudyMarkKind.synthesis),
+      keywords: !hidden.contains(StudyMarkKind.keyword),
+    );
 
 /// Los colores de resaltador (F36): verde el resumen, celeste la síntesis y
 /// rosa las palabras clave. El amarillo es de lo que se lee en voz alta.
@@ -329,5 +342,14 @@ Future<void> pickStudyAt(
   if (toggle is StudyPickFull) {
     say(l10n.studyKeywordsSentenceFull(kMaxKeywordsPerSentence));
   }
-  saved?.mapLeft((failure) => say(failure.localizedMessage(l10n)));
+  // En el original de un documento procesado, lo que no está en su texto
+  // propio no tiene dónde guardarse (F43, paso 15): se dice por qué.
+  final outside =
+      processedDocumentOfOriginalStudyKey(renditionId) != null &&
+      (saved?.isLeft() ?? false) &&
+      saved!.getLeft().toNullable() is ValidationFailure;
+  saved?.mapLeft(
+    (failure) =>
+        say(outside ? l10n.f43OrigPickOutside : failure.localizedMessage(l10n)),
+  );
 }

@@ -525,6 +525,17 @@ void main() {
         greaterThan(css.indexOf('html.sn-l-summary mark.sn-summary{')),
       );
       expect(css, isNot(contains('.sn-hu{background')));
+      // Una oración del resumen y de la síntesis: la línea verde del resumen
+      // debajo de la síntesis, también bajo lo que tiene adentro (F43, paso
+      // 15).
+      const both =
+          'html.sn-l-summary.sn-l-synthesis mark.sn-summary mark.sn-synthesis';
+      expect(
+        css,
+        contains(
+          '$both,$both mark{box-shadow:inset 0 -0.2em 0 #008800!important}',
+        ),
+      );
       final script = document.getElementById('sinapsis-study-script')!.text;
       expect(script, contains('marks: function (items)'));
       // De afuera hacia adentro: el resumen, la síntesis, los de la persona

@@ -18,8 +18,8 @@ import 'package:sinapsis/features/processed/domain/entities/processed_document.d
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_readable.dart';
 import 'package:sinapsis/features/processed/presentation/retriage.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/processed_original_section.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_more_menu.dart';
-import 'package:sinapsis/features/processed/presentation/widgets/processed_original_card.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_section_panel.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_study_tools.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_text_pages.dart';
@@ -29,8 +29,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// - **Arriba, su fuente**: «Ver el original en la Biblioteca», y si la fuente
 ///   está en la papelera o se borró, lo dice. Al lado, «Volver a triar».
-/// - **La copia del original**, si la tiene (decisión H): «Ver el original»
-///   la abre en su visor con lo elegido marcado (`ProcessedOriginalCard`).
+/// - **El original a la vista**, si tiene su copia (decisión H; F43, paso 15,
+///   M3): incrustado como en el detalle de la Biblioteca, con lo marcado
+///   encima y los botones de estudio arriba —donde se marca el resumen, la
+///   síntesis y las palabras clave, con la IA o a mano (M5)—; su botón grande
+///   abre el visor entero. Ver `ProcessedOriginalSection`.
 /// - **Lo que la IA organizó** con el documento, con «Para revisar», «Ver»,
 ///   «Deshacer todo» y «Revisar con otro modelo», cuando hizo algo.
 /// - **Sin «Estudiar el documento»** (F43, decisión J): el resumen, la
@@ -169,7 +172,7 @@ class _DocumentBodyState extends ConsumerState<_DocumentBody> {
           ],
           _SourceCard(document: document),
           const SizedBox(height: 12),
-          ProcessedOriginalCard(documentId: document.id),
+          ProcessedOriginalSection(documentId: document.id),
           ProcessedAiLine(document: document),
           if (document.summary.isEmpty)
             Padding(

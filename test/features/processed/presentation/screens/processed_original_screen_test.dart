@@ -19,9 +19,10 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 import '../../../../support/library_harness.dart';
 import '../processed_ui_fixture.dart';
 
-/// La copia del original en el documento procesado (F41, decisión H): se abre
-/// en su visor con lo elegido marcado encima, sin mezclarse con lo de la
-/// fuente, y si el texto de la fuente cambió, no se pinta nada y se dice.
+/// La copia del original en el documento procesado (F41, decisión H): se ve
+/// ahí mismo y se abre en su visor con lo marcado encima, sin mezclarse con lo
+/// de la fuente; lo que se elige sobre ella va al procesado (F43, paso 15), y
+/// si el texto de la fuente cambió, no se pinta nada y se dice.
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -66,29 +67,28 @@ void main() {
     expect(find.byType(ProcessedOriginalScreen), findsOneWidget);
   }
 
-  testWidgets('desde el documento, «Ver el original» abre la copia en el '
-      'lector, con su tarjeta: qué es, cuánto ocupa y cuándo se copió', (
-    tester,
-  ) async {
+  testWidgets('desde el documento, el original se ve ahí mismo (F43, paso '
+      '15) y su botón grande lo abre en el lector, con los botones de '
+      'estudio arriba', (tester) async {
     final id = await processDocument();
     await pumpApp(tester, harness);
     await pushAndSettle(tester, harness, RoutePaths.processedDocument(id));
 
-    final card = find.byKey(const Key('processed-original-card'));
-    expect(card, findsOneWidget);
+    expect(find.byKey(const Key('processed-original-section')), findsOneWidget);
     expect(
       find.descendant(
-        of: card,
+        of: find.byKey(const Key('processed-original-details')),
         matching: find.textContaining(es.processedOriginalKindDocument),
       ),
       findsOneWidget,
     );
 
-    await tester.tap(find.text(es.processedOriginalOpen));
+    await tester.tap(find.byKey(const Key('embedded-viewer-read-as-book')));
     await tester.pumpAndSettle();
 
     expect(find.byType(ProcessedOriginalScreen), findsOneWidget);
     expect(find.byType(DocumentReaderView), findsOneWidget);
+    expect(find.byKey(const Key('original-study-bar')), findsOneWidget);
     expect(find.byKey(const Key('processed-original-notice')), findsNothing);
   });
 
@@ -128,7 +128,7 @@ void main() {
     // Se abre con todo a la vista.
     expect(
       harness.container.read(studyViewProvider(key)),
-      kMarkedCopyStudyView,
+      markedCopyStudyView(),
     );
     // Los fragmentos, con el color de los cortes, sobre la copia.
     expect(harness.container.read(processedOriginalCutsProvider(key)), [
@@ -145,20 +145,45 @@ void main() {
     );
   });
 
-  test('la copia solo se lee: escribir en ella falla y no toca nada', () async {
+  test('lo elegido sobre la copia va al procesado, no a la fuente; sin '
+      'documento no hay dónde guardarlo', () async {
+    final id = await processDocument();
     final repository = harness.container.read(studyRepositoryProvider);
-    final result = await repository.addUserMark(
+    final before = await harness.database
+        .select(harness.database.studyMarks)
+        .get();
+
+    final saved = await repository.addUserMark(
+      renditionId: processedOriginalStudyKeyFor(id),
+      content: text,
+      kind: StudyMarkKind.synthesis,
+      start: 0,
+      end: 25,
+    );
+    final nowhere = await repository.addUserMark(
       renditionId: processedOriginalStudyKeyFor('x'),
       content: text,
       kind: StudyMarkKind.summary,
       start: 0,
       end: 5,
     );
-    expect(result.isLeft(), isTrue);
+
+    expect(saved.isRight(), isTrue);
+    expect(nowhere.isLeft(), isTrue);
+    final study = await repository.read(processedOriginalStudyKeyFor(id));
+    expect(
+      [for (final m in study.of(StudyMarkKind.synthesis)) (m.start, m.end)],
+      [(0, 25)],
+    );
+    // La fuente sigue con lo suyo, sin una marca de más.
+    expect(
+      await harness.database.select(harness.database.studyMarks).get(),
+      hasLength(before.length),
+    );
   });
 
-  testWidgets('el resumen se pinta con el verde de estudiar, y su '
-      'interruptor lo apaga', (tester) async {
+  testWidgets('el resumen se pinta con el verde de estudiar, y su botón lo '
+      'apaga y lo vuelve a prender', (tester) async {
     final id = await processDocument();
     await open(tester, id);
     final green = StudyPalette.of(Brightness.light).summary;
@@ -170,11 +195,13 @@ void main() {
 
     expect(painted(), isTrue);
 
-    await tester.tap(
-      find.widgetWithText(FilterChip, es.processedSectionSummary),
-    );
+    await tester.tap(find.byKey(const Key('original-study-summary')));
     await tester.pumpAndSettle();
     expect(painted(), isFalse);
+
+    await tester.tap(find.byKey(const Key('original-study-summary')));
+    await tester.pumpAndSettle();
+    expect(painted(), isTrue);
   });
 
   testWidgets('el fragmento se pinta con el color de los cortes', (
@@ -203,10 +230,7 @@ void main() {
     expect(find.text(es.processedOriginalUnmarked), findsOneWidget);
     expect(find.byType(DocumentReaderView), findsNothing);
     expect(find.text(es.processedOriginalOpenWith), findsOneWidget);
-    expect(
-      find.widgetWithText(FilterChip, es.processedSectionSummary),
-      findsNothing,
-    );
+    expect(find.byKey(const Key('original-study-bar')), findsNothing);
   });
 
   testWidgets('una página archivada se abre en el visor de páginas', (
@@ -237,13 +261,16 @@ void main() {
     expect(find.text(es.processedOriginalMissing), findsOneWidget);
   });
 
-  testWidgets('sin copia, el documento no muestra su tarjeta', (tester) async {
+  testWidgets('sin copia, el documento no muestra el original ni sus botones '
+      'de estudio: queda como estaba', (tester) async {
     await harness.saveTextSource('roma', title: 'Roma');
     final id = await harness.processTextAndNotes('roma');
     await pumpApp(tester, harness);
     await pushAndSettle(tester, harness, RoutePaths.processedDocument(id));
 
-    expect(find.byKey(const Key('processed-original-card')), findsNothing);
+    expect(find.byKey(const Key('processed-original-section')), findsNothing);
+    expect(find.byKey(const Key('original-study-bar')), findsNothing);
+    expect(find.byKey(const Key('processed-original-details')), findsNothing);
   });
 }
 

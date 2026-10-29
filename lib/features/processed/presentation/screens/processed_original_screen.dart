@@ -9,10 +9,10 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/file_opener.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
-import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_original_view_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
-import 'package:sinapsis/features/study/domain/study_target.dart';
-import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_bar.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_viewer_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/web_page_viewer_view.dart';
@@ -23,13 +23,19 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// marcado encima: el resumen, la síntesis y las palabras clave con los
 /// colores de estudiar, y los fragmentos con el de los cortes.
 ///
+/// **Arriba, los botones de estudio** (F43, paso 15, M5: `OriginalStudyBar`):
+/// el original es donde se marca, con la IA o a mano, tocando las oraciones o
+/// las palabras en el visor; y donde se prende, se apaga y se oculta lo
+/// marcado. Es la pantalla completa del original que el documento muestra
+/// incrustado (`ProcessedOriginalSection`).
+///
 /// **Lo que se pinta es del procesado, no de la fuente.** El visor mira la
 /// copia por su propia clave (`processedOriginalStudyKeyFor`), como a
-/// cualquier texto: lo estudiado de esa clave es lo elegido del procesado
+/// cualquier texto: lo estudiado de esa clave es lo del procesado
 /// (`ProcessedOriginalStudyRepository`), y sus fragmentos, los cortes que se
 /// marcan (`processedOriginalCutsProvider`). Así no se mezcla con lo estudiado
-/// ni con lo resaltado de la fuente, y nada de lo que se haga sobre la copia
-/// cae en ella: de la Biblioteca nada se toca.
+/// ni con lo resaltado de la fuente, y lo que se elige sobre la copia va al
+/// procesado, nunca a la fuente: de la Biblioteca nada se toca.
 ///
 /// Las marcas van en las posiciones del texto de la fuente, que es el de la
 /// copia mientras su `content_hash` coincida. Si la fuente cambió su texto, no
@@ -76,65 +82,6 @@ class ProcessedOriginalScreen extends ConsumerWidget {
   }
 }
 
-/// Lo que el visor necesita de la copia: dónde está su archivo, si sigue ahí,
-/// y —si lo elegido se puede marcar— su texto, con la clave de la copia.
-typedef ProcessedOriginalView = ({String path, bool exists, StudyText? text});
-
-/// Qué pedirle a [processedOriginalViewProvider]: el documento y con qué texto
-/// de la fuente se corresponde ahora la copia (`null` si con ninguno).
-typedef ProcessedOriginalViewKey = ({String documentId, String? sourceKey});
-
-/// El archivo de la copia y su texto —el de la fuente con que se corresponde,
-/// mientras sea el mismo—. Se rehace solo si cambia con qué texto se
-/// corresponde o la copia misma, no con cada parte que se toca: un libro no se
-/// vuelve a leer por una oración editada.
-final processedOriginalViewProvider = FutureProvider.autoDispose
-    .family<ProcessedOriginalView, ProcessedOriginalViewKey>((ref, key) async {
-      final original = await ref.watch(
-        processedOriginalProvider(key.documentId).future,
-      );
-      if (original == null) {
-        throw StateError('El documento ya no tiene la copia del original.');
-      }
-      final files = ref.watch(fileStoreProvider);
-      final exists = await files.exists(original.relativePath);
-      final path = await files.resolve(original.relativePath);
-      final sourceKey = key.sourceKey;
-      final sourceItemId = await ref.watch(
-        processedDocumentProvider(
-          key.documentId,
-        ).selectAsync((document) => document?.summary.sourceItemId),
-      );
-      if (sourceKey == null || sourceItemId == null) {
-        return (path: path, exists: exists, text: null);
-      }
-      final source = await ref
-          .read(processedRepositoryProvider)
-          .sourceText(sourceItemId, renditionId: sourceKey);
-      final text = source.toNullable();
-      return (
-        path: path,
-        exists: exists,
-        text: text == null
-            ? null
-            : (
-                itemId: key.documentId,
-                renditionId: processedOriginalStudyKeyFor(key.documentId),
-                content: text.text,
-                markdown: _isMarkdown(original),
-              ),
-      );
-    });
-
-/// Si el texto de la copia es Markdown, como lo arma la app al extraerlo: el
-/// de una página y el de un Word o un EPUB sí; el de un PDF o un `.txt`, tal
-/// cual (ver `extractedTextIsMarkdown`).
-bool _isMarkdown(ProcessedOriginal original) => switch (original.kind) {
-  RenditionKind.pdf => false,
-  RenditionKind.html => true,
-  _ => original.mimeType != 'text/plain',
-};
-
 class _OriginalBody extends ConsumerWidget {
   const _OriginalBody({
     required this.documentId,
@@ -149,16 +96,7 @@ class _OriginalBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final marks = ref.watch(processedOriginalMarksProvider(documentId));
-    if (!marks.hasValue) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    final view = ref.watch(
-      processedOriginalViewProvider((
-        documentId: documentId,
-        sourceKey: marks.value?.sourceKey,
-      )),
-    );
+    final view = watchProcessedOriginalView(ref, documentId);
     final loaded = view.valueOrNull;
     if (loaded == null) {
       return view.hasError
@@ -182,7 +120,9 @@ class _OriginalBody extends ConsumerWidget {
         if (text == null)
           _Notice(message: l10n.processedOriginalUnmarked)
         else
-          _LayerChips(renditionId: text.renditionId),
+          _StudyBarPanel(
+            study: OriginalStudy(documentId: documentId, original: text),
+          ),
         Expanded(
           child: switch (original.kind) {
             RenditionKind.pdf => PdfViewerView(
@@ -196,7 +136,9 @@ class _OriginalBody extends ConsumerWidget {
               title: title,
               readAloud: text != null,
             ),
-            _ when text == null => _Unreadable(path: loaded.path),
+            _ when text == null => ProcessedOriginalUnreadable(
+              path: loaded.path,
+            ),
             _ => DocumentReaderView(
               title: title,
               content: text.content,
@@ -247,80 +189,24 @@ class _Notice extends StatelessWidget {
   }
 }
 
-/// Qué se marca sobre la copia —el resumen, la síntesis y las palabras clave,
-/// cada uno con su color de estudiar—, con su interruptor. Los fragmentos se
-/// ven siempre: son lo que se cortó de acá. Cambia la vista de la copia, no la
-/// de la fuente: la clave es la de la copia.
-class _LayerChips extends ConsumerWidget {
-  const _LayerChips({required this.renditionId});
+/// Los botones de estudio arriba del visor, sobre el color de la barra. Con
+/// la letra grande pueden ocupar varios renglones: se desplazan dentro de un
+/// alto acotado y el original sigue a la vista.
+class _StudyBarPanel extends StatelessWidget {
+  const _StudyBarPanel({required this.study});
 
-  final String renditionId;
+  final OriginalStudy study;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final palette = StudyPalette.of(theme.brightness);
-    final view = ref.watch(studyViewProvider(renditionId));
-    final notifier = ref.read(studyViewProvider(renditionId).notifier);
-
-    Widget chip(
-      String label,
-      Color color,
-      StudyView next, {
-      required bool on,
-    }) => FilterChip(
-      avatar: CircleAvatar(backgroundColor: color, radius: 7),
-      label: Text(label),
-      selected: on,
-      showCheckmark: false,
-      onSelected: (_) => notifier.state = next,
-    );
-
+  Widget build(BuildContext context) {
+    final height = MediaQuery.sizeOf(context).height;
     return Material(
-      color: theme.colorScheme.surfaceContainerLow,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        child: Semantics(
-          container: true,
-          label: l10n.processedOriginalLayers,
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              chip(
-                l10n.processedSectionSummary,
-                palette.summary,
-                StudyView(
-                  summary: !view.summary,
-                  synthesis: view.synthesis,
-                  keywords: view.keywords,
-                ),
-                on: view.summary,
-              ),
-              chip(
-                l10n.processedSectionSynthesis,
-                palette.synthesis,
-                StudyView(
-                  summary: view.summary,
-                  synthesis: !view.synthesis,
-                  keywords: view.keywords,
-                ),
-                on: view.synthesis,
-              ),
-              chip(
-                l10n.processedSectionKeywords,
-                palette.keyword,
-                StudyView(
-                  summary: view.summary,
-                  synthesis: view.synthesis,
-                  keywords: !view.keywords,
-                ),
-                on: view.keywords,
-              ),
-            ],
-          ),
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: height * 0.42),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: OriginalStudyBar(study: study),
         ),
       ),
     );
@@ -328,9 +214,10 @@ class _LayerChips extends ConsumerWidget {
 }
 
 /// Un Word, un EPUB o un texto cuyo texto ya no es el de la fuente: el lector
-/// no tiene qué mostrar, y se ofrece abrirlo con otra app.
-class _Unreadable extends ConsumerWidget {
-  const _Unreadable({required this.path});
+/// no tiene qué mostrar, y se ofrece abrirlo con otra app. Acá y en el
+/// documento (`ProcessedOriginalSection`).
+class ProcessedOriginalUnreadable extends ConsumerWidget {
+  const ProcessedOriginalUnreadable({required this.path, super.key});
 
   final String path;
 

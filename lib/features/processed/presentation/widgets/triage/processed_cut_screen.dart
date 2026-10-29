@@ -42,8 +42,9 @@ Future<void> openProcessedCutScreen(
 ///   igual.
 /// - **Cada corte se ve marcado en el texto**, encima de todo, y en una
 ///   **lista viva abajo**, donde se puede quitar.
-/// - Arriba van los botones de estudiar: «Elegir a mano» del resumen o de la
-///   síntesis, desde la hoja, se hace acá, tocando las oraciones.
+/// - Arriba van los botones de estudiar de la fuente, los de siempre: prender
+///   y apagar lo estudiado mientras se corta. El resumen, la síntesis y las
+///   palabras clave ya no se eligen al triar (F43, decisión J).
 ///
 /// Cómo lo saben los visores sin saber de Procesado: la pantalla declara de
 /// qué fuente se corta ([processedCutSourceProvider], solo para lo que tiene

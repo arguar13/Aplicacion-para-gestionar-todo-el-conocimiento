@@ -35,21 +35,26 @@ import 'package:sinapsis/features/transform/presentation/providers/transform_pro
 /// Dónde se guarda lo estudiado: el texto de una forma de la Biblioteca, en
 /// `study_marks`; el texto propio de un documento procesado (F41, decisión I),
 /// en sus partes —por su clave `procesado:…`—; y la copia del original de un
-/// procesado (decisión H) muestra lo elegido de él, sin guardar nada —por su
-/// clave `procesado-original:…`—.
+/// procesado (decisión H) muestra lo estudiado de él en las posiciones del
+/// original, y lo que se elige ahí va a sus partes —por su clave
+/// `procesado-original:…`, F43 paso 15—.
 final studyRepositoryProvider = Provider<StudyRepository>((ref) {
   final database = ref.watch(appDatabaseProvider);
   final telemetry = ref.watch(telemetryServiceProvider);
+  final processed = ProcessedStudyRepositoryImpl(
+    database: database,
+    telemetry: telemetry,
+  );
   return KeyedStudyRepository(
     fallback: StudyRepositoryImpl(database: database, telemetry: telemetry),
     byPrefix: {
-      kProcessedStudyKeyPrefix: ProcessedStudyRepositoryImpl(
-        database: database,
-        telemetry: telemetry,
-      ),
+      // La copia antes que el procesado: `procesado-original:` no empieza con
+      // `procesado:`, pero el orden lo deja dicho.
       kProcessedOriginalStudyKeyPrefix: ProcessedOriginalStudyRepository(
         ref.watch(processedRepositoryProvider),
+        processed,
       ),
+      kProcessedStudyKeyPrefix: processed,
     },
   );
 });

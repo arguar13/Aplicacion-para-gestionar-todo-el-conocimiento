@@ -59,4 +59,13 @@ abstract interface class StudyRepository {
   /// marcas y hasta dónde llegó. Lo que eligió la persona queda (F39,
   /// decisión A).
   Future<Either<Failure, Unit>> clearAi(String renditionId);
+
+  /// Borra todas las marcas de [kind] del texto —las de la IA y las que eligió
+  /// la persona—: «Borrar las marcas» de un botón de estudio (F43, paso 15).
+  /// Hasta dónde se analizó no cambia: lo demás sigue como estaba, y volver a
+  /// armarlo con la IA es rehacer lo de la IA.
+  Future<Either<Failure, Unit>> clearKind(
+    String renditionId,
+    StudyMarkKind kind,
+  );
 }

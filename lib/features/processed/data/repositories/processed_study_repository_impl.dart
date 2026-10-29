@@ -357,14 +357,19 @@ class ProcessedStudyRepositoryImpl implements StudyRepository {
             if (spans.isEmpty) {
               await _deleteParts([part.id]);
             } else {
-              await _writeSpans(part.copyWith(spans: spans));
-              // Sacarle una palabra a una copiada es cambiarla: ya no es lo de
-              // la fuente.
-              if (part.origin == ProcessedPartOrigin.copied) {
-                await (_db.update(_db.processedParts)
-                      ..where((p) => p.id.equals(part.id)))
-                    .write(const ProcessedPartsCompanion(edited: Value(true)));
-              }
+              // Sacarle una palabra a una oración copiada es elegir las que
+              // le quedan: pasan a ser de la persona, así «Actualizar» desde
+              // la fuente no las pisa (`isPristineCopy`). La oración sigue
+              // siendo la de la fuente letra por letra —no se editó—: sus
+              // palabras se siguen viendo en su lugar, también en el original
+              // (F43, paso 15). Marcarla editada las escondía todas.
+              await _writeSpans(
+                part.copyWith(
+                  spans: part.origin == ProcessedPartOrigin.copied
+                      ? [for (final span in spans) span.copyWith(chosen: true)]
+                      : spans,
+                ),
+              );
             }
           } else {
             await _deleteParts([part.id]);
@@ -415,6 +420,33 @@ class ProcessedStudyRepositoryImpl implements StudyRepository {
         });
         return right(unit);
       });
+
+  /// Borra todas las marcas de [kind] del procesado (F43, paso 15): las
+  /// partes de su sección que son marcas —lo copiado sin editar de la fuente,
+  /// lo estudiado y lo elegido en el procesado—, se vean en su texto propio o
+  /// en el original. Lo escrito o editado a mano en la sección no es una marca
+  /// y queda.
+  @override
+  Future<Either<Failure, Unit>> clearKind(
+    String renditionId,
+    StudyMarkKind kind,
+  ) => _guard('clearKind', () async {
+    final documentId = _documentOf(renditionId);
+    final section = switch (kind) {
+      StudyMarkKind.summary => ProcessedSection.summary,
+      StudyMarkKind.synthesis => ProcessedSection.synthesis,
+      StudyMarkKind.keyword => ProcessedSection.keywords,
+    };
+    await _db.transaction(() async {
+      await _deleteParts([
+        for (final part in await _studyParts(documentId))
+          if (part.section == section && part.isVerbatim) part.id,
+      ]);
+      await _renumber(documentId);
+      await _writer.markContentChanged(documentId);
+    });
+    return right(unit);
+  });
 
   // ---------------------------------------------------------------------
 

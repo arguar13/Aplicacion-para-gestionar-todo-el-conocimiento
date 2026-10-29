@@ -624,7 +624,7 @@ void main() {
         marks: [
           at('r1', StudyMarkKind.summary, 0, 30),
           at('s1', StudyMarkKind.synthesis, 21, 40),
-          at('s2', StudyMarkKind.synthesis, 42, 46),
+          at('r2', StudyMarkKind.summary, 32, 46),
         ],
         analyzedUntil: 46,
         complete: true,
@@ -639,7 +639,23 @@ void main() {
           if (p.underline != null) (p.start, p.end),
       ];
 
-      expect(lined, [(21, 30)]);
+      expect(lined, [(21, 30), (32, 40)]);
+    });
+
+    test('el original se abre con todo a la vista, menos lo que se dejó '
+        'oculto en ese documento', () {
+      expect(
+        markedCopyStudyView(),
+        const StudyView(summary: true, synthesis: true, keywords: true),
+      );
+      expect(
+        markedCopyStudyView({StudyMarkKind.keyword}),
+        const StudyView(summary: true, synthesis: true),
+      );
+      expect(
+        markedCopyStudyView({StudyMarkKind.summary, StudyMarkKind.synthesis}),
+        const StudyView(keywords: true),
+      );
     });
   });
 }

@@ -91,4 +91,10 @@ class KeyedStudyRepository implements StudyRepository {
   @override
   Future<Either<Failure, Unit>> clearAi(String renditionId) =>
       _for(renditionId).clearAi(renditionId);
+
+  @override
+  Future<Either<Failure, Unit>> clearKind(
+    String renditionId,
+    StudyMarkKind kind,
+  ) => _for(renditionId).clearKind(renditionId, kind);
 }

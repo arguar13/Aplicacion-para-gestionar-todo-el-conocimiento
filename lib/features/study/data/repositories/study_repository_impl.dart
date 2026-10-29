@@ -269,6 +269,18 @@ class StudyRepositoryImpl implements StudyRepository {
         return right(unit);
       });
 
+  @override
+  Future<Either<Failure, Unit>> clearKind(
+    String renditionId,
+    StudyMarkKind kind,
+  ) => _guard('clearKind', () async {
+    await (_db.delete(_db.studyMarks)..where(
+          (m) => m.renditionId.equals(renditionId) & m.kind.equalsValue(kind),
+        ))
+        .go();
+    return right(unit);
+  });
+
   Future<Either<Failure, T>> _guard<T>(
     String name,
     Future<Either<Failure, T>> Function() body,

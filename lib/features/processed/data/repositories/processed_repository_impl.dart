@@ -464,6 +464,10 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
 
   /// Lo elegido del procesado, sobre el texto de la fuente con que se
   /// corresponde la copia —o nada, si ese texto ya no es el mismo—.
+  ///
+  /// Cada marca lleva el id de su parte con el prefijo del procesado, como
+  /// las de su texto propio: sacarla desde el original (F43, paso 15) va
+  /// directo a su parte.
   Future<ProcessedOriginalMarks?> _originalMarks(String documentId) async {
     final original = await (_db.select(
       _db.processedOriginals,
@@ -482,7 +486,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
         case ProcessedSection.synthesis:
           marks.add(
             StudyMark(
-              id: part.id,
+              id: '$kProcessedStudyKeyPrefix${part.id}',
               kind: part.section == ProcessedSection.summary
                   ? StudyMarkKind.summary
                   : StudyMarkKind.synthesis,
@@ -496,7 +500,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
             final span = part.spans[i];
             marks.add(
               StudyMark(
-                id: '${part.id}#$i',
+                id: '$kProcessedStudyKeyPrefix${part.id}#$i',
                 kind: StudyMarkKind.keyword,
                 origin: ContentOrigin.user,
                 start: anchor.start + span.start,

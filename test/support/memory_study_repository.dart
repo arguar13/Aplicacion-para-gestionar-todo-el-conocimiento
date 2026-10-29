@@ -130,6 +130,28 @@ class MemoryStudyRepository implements StudyRepository {
     required bool completes,
   }) => throw UnimplementedError();
 
+  /// Lo que se borró con `clearKind`: el texto y la clase.
+  final clearedKinds = <(String, StudyMarkKind)>[];
+
+  @override
+  Future<Either<Failure, Unit>> clearKind(
+    String renditionId,
+    StudyMarkKind kind,
+  ) async {
+    clearedKinds.add((renditionId, kind));
+    _set(
+      DocumentStudy(
+        marks: [
+          for (final mark in _study.marks)
+            if (mark.kind != kind) mark,
+        ],
+        analyzedUntil: _study.analyzedUntil,
+        complete: _study.complete,
+      ),
+    );
+    return right(unit);
+  }
+
   @override
   Future<Either<Failure, Unit>> clearAi(String renditionId) async {
     cleared.add(renditionId);
