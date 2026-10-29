@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_generator.dart';
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_providers.dart';
+import 'package:sinapsis/features/creations/mind_map/mind_map_kind.dart';
 import 'package:sinapsis/features/creations/report/presentation/report_kind.dart';
 
 /// Los generadores de «Lo creado» (F43, ola 3): **uno por tipo, y sumar uno es
@@ -23,6 +24,7 @@ final creationGeneratorsProvider = Provider<List<CreationGenerator>>(
   (ref) => [
     ref.watch(infographicGeneratorProvider),
     ref.watch(reportGeneratorProvider),
+    ref.watch(mindMapGeneratorProvider),
   ],
 );
 

@@ -5,6 +5,7 @@ import 'package:sinapsis/features/creations/data/services/system_creation_sharer
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/extract/presentation/extract_kind_specs.dart';
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_spec.dart';
+import 'package:sinapsis/features/creations/mind_map/mind_map_kind.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
 import 'package:sinapsis/features/creations/report/presentation/report_kind.dart';
@@ -31,6 +32,7 @@ final creationKindSpecsProvider = Provider<List<CreationKindSpec>>(
     ref.watch(synthesisKindSpecProvider),
     ref.watch(infographicKindSpecProvider),
     ref.watch(reportKindSpecProvider),
+    ref.watch(mindMapKindSpecProvider),
   ],
 );
 
