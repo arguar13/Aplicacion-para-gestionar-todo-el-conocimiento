@@ -9,7 +9,8 @@ plugins {
 // `src/main/cpp/CMakeLists.txt`) solo si se pide, porque la primera vez baja
 // stable-diffusion.cpp (~400 MB de código) y suma ~38 MB a la app:
 //
-//   flutter build apk --flavor prod -t lib/main_prod.dart //     -Psinapsis.imagenesEnElTelefono=true
+//   flutter build apk --flavor prod -t lib/main_prod.dart \
+//     -Psinapsis.imagenesEnElTelefono=true
 //
 // Sin red, con una copia ya bajada en el commit fijado:
 //   -Psinapsis.sdcppSource=C:/ruta/a/stable-diffusion.cpp
