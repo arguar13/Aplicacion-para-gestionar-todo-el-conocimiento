@@ -290,3 +290,98 @@ flutter:
           weight: 400
         - asset: assets/fonts/InterVariable.ttf
           weight: 500
+
+    # Las de «Lo creado» (F43): las presentaciones y las infografías se dibujan
+    # con seis pares de títulos y texto, empaquetados igual que Inter (ver
+    # tool/fetch_creation_fonts.sh, con la licencia OFL de cada una al lado).
+    # Cada archivo es variable: se declara una vez por cada peso que se usa
+    # para que Flutter no le invente una negrita encima, y `CreationFontPair`
+    # pide además la instancia exacta con `FontVariation('wght', …)`.
+    #
+    # «Inter Creation» es el mismo archivo de Inter con todos los pesos de los
+    # títulos: declararlos en la familia «Inter» cambiaría la negrita de toda
+    # la app, que hoy la sintetiza sobre el peso medio.
+    - family: Inter Creation
+      fonts:
+        - asset: assets/fonts/InterVariable.ttf
+          weight: 400
+        - asset: assets/fonts/InterVariable.ttf
+          weight: 500
+        - asset: assets/fonts/InterVariable.ttf
+          weight: 600
+        - asset: assets/fonts/InterVariable.ttf
+          weight: 700
+        - asset: assets/fonts/InterVariable.ttf
+          weight: 800
+    - family: Playfair Display
+      fonts:
+        - asset: assets/fonts/PlayfairDisplay-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/PlayfairDisplay-Variable.ttf
+          weight: 600
+        - asset: assets/fonts/PlayfairDisplay-Variable.ttf
+          weight: 700
+        - asset: assets/fonts/PlayfairDisplay-Variable.ttf
+          weight: 800
+        - asset: assets/fonts/PlayfairDisplay-Italic-Variable.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/PlayfairDisplay-Italic-Variable.ttf
+          weight: 600
+          style: italic
+    - family: Lora
+      fonts:
+        - asset: assets/fonts/Lora-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/Lora-Variable.ttf
+          weight: 500
+        - asset: assets/fonts/Lora-Variable.ttf
+          weight: 600
+        - asset: assets/fonts/Lora-Variable.ttf
+          weight: 700
+        - asset: assets/fonts/Lora-Italic-Variable.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/Lora-Italic-Variable.ttf
+          weight: 500
+          style: italic
+    - family: Source Sans 3
+      fonts:
+        - asset: assets/fonts/SourceSans3-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/SourceSans3-Variable.ttf
+          weight: 600
+        - asset: assets/fonts/SourceSans3-Variable.ttf
+          weight: 700
+    - family: Space Grotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/SpaceGrotesk-Variable.ttf
+          weight: 500
+        - asset: assets/fonts/SpaceGrotesk-Variable.ttf
+          weight: 700
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/Nunito-Variable.ttf
+          weight: 600
+        - asset: assets/fonts/Nunito-Variable.ttf
+          weight: 800
+    - family: Caveat
+      fonts:
+        - asset: assets/fonts/Caveat-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/Caveat-Variable.ttf
+          weight: 600
+        - asset: assets/fonts/Caveat-Variable.ttf
+          weight: 700
+    - family: JetBrains Mono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/JetBrainsMono-Variable.ttf
+          weight: 500
+        - asset: assets/fonts/JetBrainsMono-Variable.ttf
+          weight: 700
