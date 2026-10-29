@@ -134,6 +134,12 @@ class IllustrationService {
     IllustrationAccount account, {
     bool refresh = false,
   }) async {
+    // Los del teléfono son los que están descargados ahora: se le preguntan
+    // al motor cada vez —sin red, al instante—, nunca a una lista guardada
+    // de hace días que no sabría de uno recién bajado o borrado.
+    if (account.provider.isOnDevice) {
+      return _wire(account.provider).listImageModels(const ImageWireAccess());
+    }
     final stored = _store.imageModelsOf(account.id);
     final stale =
         stored == null ||

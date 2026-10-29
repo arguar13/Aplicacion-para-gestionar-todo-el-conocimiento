@@ -39,15 +39,21 @@ class ModelMemoryKeeper {
     required GemmaEngine gemma,
     required Future<void> Function({Duration? unusedFor}) releaseEmbedder,
     required void Function(Object error, StackTrace stackTrace) onError,
+    Future<void> Function()? releaseImageModel,
     this.releaseAfter = kModelReleaseAfter,
   }) : _gate = gate,
        _gemma = gemma,
        _releaseEmbedder = releaseEmbedder,
+       _releaseImageModel = releaseImageModel,
        _onError = onError;
 
   final LanguageModelGate _gate;
   final GemmaEngine _gemma;
   final Future<void> Function({Duration? unusedFor}) _releaseEmbedder;
+
+  /// El modelo de imágenes del teléfono (F43, «Exigente»), si hay: se suelta
+  /// junto con los otros, esperando a que termine la imagen en curso.
+  final Future<void> Function()? _releaseImageModel;
 
   /// Soltar falla de formas del motor nativo, sin un tipo propio: se
   /// registra y la app sigue —lo peor es que el modelo siga en memoria—.
@@ -102,6 +108,12 @@ class ModelMemoryKeeper {
   }) async {
     try {
       await _releaseEmbedder(unusedFor: unusedFor);
+      // Ver [_onError].
+    } on Object catch (error, stackTrace) {
+      _onError(error, stackTrace);
+    }
+    try {
+      await _releaseImageModel?.call();
       // Ver [_onError].
     } on Object catch (error, stackTrace) {
       _onError(error, stackTrace);

@@ -221,6 +221,18 @@ enum ImageFailure {
   /// lugar libre.
   deviceTooSmall,
 
+  /// El modelo del teléfono se quedó sin memoria mientras dibujaba, o la app
+  /// se cerró la última vez que dibujó: se apaga solo hasta que la persona
+  /// lo vuelva a probar.
+  notEnoughMemory,
+
+  /// El teléfono no puede correr el modelo del teléfono: no es Android de 64
+  /// bits, su procesador no tiene lo que pide, o la app se armó sin el motor.
+  unsupportedDevice,
+
+  /// Se canceló a pedido: no es un error que mostrar.
+  cancelled,
+
   /// Sin internet.
   network,
 
@@ -250,7 +262,9 @@ enum ImageFailure {
     forbidden ||
     noImageModel ||
     modelNotDownloaded ||
-    deviceTooSmall => true,
+    deviceTooSmall ||
+    notEnoughMemory ||
+    unsupportedDevice => true,
     _ => false,
   };
 }

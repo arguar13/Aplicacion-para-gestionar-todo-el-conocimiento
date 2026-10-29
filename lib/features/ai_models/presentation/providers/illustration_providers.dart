@@ -24,6 +24,7 @@ import 'package:sinapsis/features/ai_models/domain/services/ai_price_table.dart'
 import 'package:sinapsis/features/ai_models/domain/services/creation_cost_estimator.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_label.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/on_device_image_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 
 /// Las cuentas propias de imágenes (Hugging Face), en el almacén seguro.
@@ -71,13 +72,26 @@ final imageWiresProvider = Provider<Map<IllustrationProvider, ImageWire>>((
   };
 });
 
-/// El modelo de imágenes del teléfono («Exigente»). Ninguno por ahora: el
-/// paso que lo construye sobrescribe este proveedor con su motor, y todo lo
-/// demás —la fila y la sección de «¿Qué puede cada IA?», la cuenta que el
-/// servicio sabe usar, la alternativa del aviso— aparece solo.
+/// El modelo de imágenes del teléfono («Exigente», F43 paso 3b): el de
+/// stable-diffusion.cpp en Android, si la app trae el motor; `null` en lo
+/// demás. Con él, todo lo demás —la fila y la sección de «¿Qué puede cada
+/// IA?», la cuenta que el servicio sabe usar, la alternativa del aviso—
+/// aparece solo.
 final onDeviceImageEngineProvider = Provider<OnDeviceImageEngine?>(
-  (ref) => null,
+  (ref) => ref.watch(stableDiffusionImageEngineProvider),
 );
+
+/// Sube cada vez que cambia algo del modelo del teléfono: uno que se bajó o
+/// se borró, una medición, el que se eligió.
+final onDeviceImageChangesProvider = StreamProvider<int>((ref) async* {
+  var serial = 0;
+  yield serial;
+  final engine = ref.watch(onDeviceImageEngineProvider);
+  if (engine == null) return;
+  await for (final _ in engine.changes()) {
+    yield ++serial;
+  }
+});
 
 /// Las ilustraciones con IA: a quién se le pide, qué se recuerda y lo
 /// gastado.
@@ -96,7 +110,9 @@ final illustrationServiceProvider = Provider<IllustrationService>(
 /// Si el modelo del teléfono puede dibujar ahora; `null` sin motor.
 final onDeviceImageCapabilityProvider =
     FutureProvider.autoDispose<ImageCapability?>((ref) async {
-      ref.watch(illustrationStoreChangesProvider);
+      ref
+        ..watch(illustrationStoreChangesProvider)
+        ..watch(onDeviceImageChangesProvider);
       final engine = ref.watch(onDeviceImageEngineProvider);
       if (engine == null) return null;
       final service = ref.watch(illustrationServiceProvider);
@@ -122,6 +138,7 @@ DailyQuota? effectiveDailyQuota(
 final illustrationSidesProvider = Provider.autoDispose<List<ImageSide>>((ref) {
   ref
     ..watch(illustrationStoreChangesProvider)
+    ..watch(onDeviceImageChangesProvider)
     ..watch(aiUsageChangesProvider);
   final text = ref.watch(aiAccountsProvider).valueOrNull ?? const [];
   final own = ref.watch(imageAccountsProvider).valueOrNull ?? const [];
@@ -158,6 +175,7 @@ final illustrationSidesProvider = Provider.autoDispose<List<ImageSide>>((ref) {
         modelLabel: engine.displayName,
         usage: ledger.usageOf(kOnDeviceIllustrationAccountId, now: now),
         timePerImage: engine.estimatedTimePerImage(IllustrationSize.small),
+        timeMeasured: engine.timeMeasured,
       ),
   ];
 });

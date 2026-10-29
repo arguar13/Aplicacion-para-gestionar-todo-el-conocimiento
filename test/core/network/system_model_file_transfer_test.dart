@@ -48,6 +48,12 @@ void main() {
     expect(openApp().continuesWithAppClosed, isTrue);
   });
 
+  test('no se pausa a pedido (F43): el sistema la pausa solo sin red', () {
+    final transfer = openApp();
+    expect(transfer.canPause, isFalse);
+    expect(() => transfer.pause(File('modelo.bin')), throwsUnsupportedError);
+  });
+
   test('le pide la dirección de Hugging Face —no la del CDN— con el token, '
       'y al terminar le da su nombre definitivo', () async {
     final progress = <(int, int?)>[];

@@ -15,21 +15,32 @@ import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dar
 /// - **Puede o no puede según el teléfono** ([readiness]): la memoria, el
 ///   lugar libre y si el modelo ya se descargó.
 ///
-/// Esta fase no trae ninguno. Para enchufarlo alcanza con sobrescribir
-/// `onDeviceImageEngineProvider` con el motor: aparecen solos la fila y la
-/// sección de «¿Qué puede cada IA?», la cuenta «del teléfono» que el
-/// servicio de ilustraciones sabe usar, y la alternativa «Usar el modelo del
-/// teléfono (Exigente)» del aviso, con su tiempo.
+/// El de la app es `StableDiffusionImageEngine` (F43, paso 3b), que da
+/// `onDeviceImageEngineProvider` en Android cuando la app trae el motor: con
+/// él aparecen solos la fila y la sección de «¿Qué puede cada IA?», la cuenta
+/// «del teléfono» que el servicio de ilustraciones sabe usar, y la
+/// alternativa «Usar el modelo del teléfono (Exigente)» del aviso, con su
+/// tiempo.
 abstract interface class OnDeviceImageEngine implements ImageWire {
-  /// Su nombre para mostrar: «SDXS 512».
+  /// Su nombre para mostrar: el del modelo con que dibujaría ahora,
+  /// «SDXS-512».
   String get displayName;
 
-  /// Si puede dibujar ahora en este teléfono, y si no, por qué
-  /// (`ImageFailure.modelNotDownloaded` o `ImageFailure.deviceTooSmall`).
+  /// Si puede dibujar ahora en este teléfono, y si no, por qué:
+  /// `ImageFailure.modelNotDownloaded`, `deviceTooSmall` (memoria o lugar),
+  /// `notEnoughMemory` (se cerró la última vez) o `unsupportedDevice`.
   Future<OnDeviceImageReadiness> readiness();
 
   /// Cuánto tarda una imagen de [size], como lo midió o lo estima el motor.
   Duration estimatedTimePerImage(IllustrationSize size);
+
+  /// Si [estimatedTimePerImage] es lo medido en este teléfono («Medir en mi
+  /// teléfono») y no lo estimado.
+  bool get timeMeasured;
+
+  /// Avisa cada vez que cambia algo de lo que dice: un modelo que se bajó o
+  /// se borró, una medición, el que se eligió.
+  Stream<void> changes();
 }
 
 /// Si el modelo del teléfono puede dibujar.

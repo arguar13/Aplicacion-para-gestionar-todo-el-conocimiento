@@ -116,6 +116,12 @@ class FakeOnDeviceEngine extends FakeScreenImageWire
   @override
   Duration estimatedTimePerImage(IllustrationSize size) =>
       const Duration(seconds: 45);
+
+  @override
+  bool get timeMeasured => false;
+
+  @override
+  Stream<void> changes() => const Stream.empty();
 }
 
 /// Lo de la IA de imágenes armado para una prueba de pantalla: almacén
@@ -127,6 +133,8 @@ class IllustrationHarness {
     DateTime? now,
     OnDeviceImageEngine? onDevice,
     AiProvider provider = AiProvider.gemini,
+    List<Override> overrides = const [],
+    bool realOnDeviceEngine = false,
   }) async {
     FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({
@@ -155,8 +163,12 @@ class IllustrationHarness {
             p: FakeTextWire(p),
         }),
         imageWiresProvider.overrideWithValue(wires),
-        onDeviceImageEngineProvider.overrideWithValue(onDevice),
+        // Con [realOnDeviceEngine], el motor de verdad sobre lo de
+        // mentira que traiga [overrides] (ver `on_device_harness.dart`).
+        if (!realOnDeviceEngine)
+          onDeviceImageEngineProvider.overrideWithValue(onDevice),
         chatModelManagerProvider.overrideWithValue(FakeChatModelManager()),
+        ...overrides,
       ],
     );
     return IllustrationHarness._(container, prefs, wires);

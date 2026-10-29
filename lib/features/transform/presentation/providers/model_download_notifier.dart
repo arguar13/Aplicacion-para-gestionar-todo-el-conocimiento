@@ -22,6 +22,14 @@ class ModelDownloadRunning extends ModelDownloadState {
   final double progress;
 }
 
+/// Pausada a pedido en [progress] (ver `ModelFileTransfer.pause`): lo bajado
+/// queda, y [ModelDownloadNotifier.start] sigue desde ahí.
+class ModelDownloadPaused extends ModelDownloadState {
+  const ModelDownloadPaused(this.progress);
+
+  final double progress;
+}
+
 /// La última descarga falló por [error] —el que traduce el gestor del
 /// modelo—.
 class ModelDownloadFailed extends ModelDownloadState {
@@ -97,10 +105,16 @@ class ModelDownloadNotifier extends StateNotifier<ModelDownloadState> {
       onError: (Object error) {
         keeper?.idle();
         if (!mounted) return;
-        // Cancelada desde otro lado: no es un error que mostrar.
-        state = error is ModelDownloadCancelledException
-            ? const ModelDownloadIdle()
-            : ModelDownloadFailed(error);
+        final progress = switch (state) {
+          ModelDownloadRunning(:final progress) => progress,
+          _ => 0.0,
+        };
+        // Cancelada desde otro lado, o pausada: no es un error que mostrar.
+        state = switch (error) {
+          ModelDownloadCancelledException() => const ModelDownloadIdle(),
+          ModelDownloadPausedException() => ModelDownloadPaused(progress),
+          _ => ModelDownloadFailed(error),
+        };
       },
       onDone: () {
         keeper?.idle();
@@ -143,10 +157,21 @@ class ModelDownloadNotifier extends StateNotifier<ModelDownloadState> {
     await stopping;
   }
 
+  /// Frena la descarga en curso sin borrar lo bajado, con [pauseDownload]
+  /// —la del gestor del modelo—: queda [ModelDownloadPaused] cuando la
+  /// descarga avisa que se pausó.
+  Future<void> pause(Future<void> Function() pauseDownload) async {
+    if (state is! ModelDownloadRunning) return;
+    await pauseDownload();
+  }
+
   /// Olvida el error de la última descarga —se eligió otro modelo, por
-  /// ejemplo—. Una descarga en curso no se toca.
+  /// ejemplo— o que estaba pausada (se canceló lo bajado). Una descarga en
+  /// curso no se toca.
   void clearError() {
-    if (state is ModelDownloadFailed) state = const ModelDownloadIdle();
+    if (state is ModelDownloadFailed || state is ModelDownloadPaused) {
+      state = const ModelDownloadIdle();
+    }
   }
 
   @override

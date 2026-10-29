@@ -93,6 +93,7 @@ class SystemDownloadsChannel(private val context: Context) : MethodChannel.Metho
             when (call.argument<String>("label")) {
                 LABEL_RELATIONS_MODEL -> R.string.long_work_model_relations
                 LABEL_TRANSCRIPTION_MODEL -> R.string.long_work_model_transcription
+                LABEL_IMAGE_MODEL -> R.string.long_work_model_image
                 else -> R.string.long_work_model_language
             },
         )
@@ -167,5 +168,6 @@ class SystemDownloadsChannel(private val context: Context) : MethodChannel.Metho
         // Los mismos nombres que `LongWorkDetail` del lado Dart.
         private const val LABEL_RELATIONS_MODEL = "relations_model"
         private const val LABEL_TRANSCRIPTION_MODEL = "transcription_model"
+        private const val LABEL_IMAGE_MODEL = "image_model"
     }
 }

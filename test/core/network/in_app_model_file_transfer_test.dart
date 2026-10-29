@@ -90,6 +90,32 @@ void main() {
     expect(target.existsSync(), isFalse);
   });
 
+  test('se puede pausar (F43): corta sin borrar lo bajado, y volver a pedirla '
+      'sigue desde ahí', () async {
+    expect(transfer.canPause, isTrue);
+    server.misbehaviors.add(const Misbehavior.stall());
+    final done = transfer.fetch(url: url, target: target);
+    await requested();
+
+    await transfer.pause(target);
+
+    await expectLater(done, throwsA(isA<ModelDownloadPausedException>()));
+    expect(await transfer.isInFlight(target), isFalse);
+    expect(sibling('.descargando').existsSync(), isTrue);
+    expect(sibling('.source').existsSync(), isTrue);
+
+    expect(await transfer.fetch(url: url, target: target), 10);
+    expect(target.readAsBytesSync(), content);
+    // El segundo pedido retomó por rango lo que había quedado.
+    expect(server.requests, hasLength(2));
+    expect(server.requests.last.headers['range'], isNotNull);
+  });
+
+  test('pausar sin una descarga en curso no hace nada', () async {
+    await transfer.pause(target);
+    expect(target.existsSync(), isFalse);
+  });
+
   test('lo que no pasa la comprobación se borra y no toma su nombre', () async {
     await expectLater(
       transfer.fetch(

@@ -59,6 +59,7 @@ class ImageSide {
     this.usage,
     this.quota,
     this.timePerImage,
+    this.timeMeasured = false,
   });
 
   final IllustrationAccount account;
@@ -72,6 +73,9 @@ class ImageSide {
 
   /// Lo que tarda una imagen, en el modelo del teléfono.
   final Duration? timePerImage;
+
+  /// Si [timePerImage] es lo medido en este teléfono y no lo estimado.
+  final bool timeMeasured;
 }
 
 /// Qué tan rápido escribe Gemma en este teléfono: lo medido en la última
@@ -184,6 +188,9 @@ final class UseOnDeviceModel extends IllustrationAlternative {
   /// Lo que tardarían todas las imágenes.
   final Duration time;
   final bool needsDownload;
+
+  /// Si [time] sale de lo medido en este teléfono y no de lo estimado.
+  bool get timeMeasured => side.timeMeasured;
 }
 
 /// 3. Agregar una clave de Gemini u OpenAI (abre la hoja de claves de F32,

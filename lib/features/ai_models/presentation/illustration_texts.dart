@@ -4,6 +4,7 @@ import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/daily_quota.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/illustration_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
+import 'package:sinapsis/features/ai_models/domain/services/ai_price_table.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -51,6 +52,9 @@ String illustrationReason(
     ImageFailure.noImage => l10n.f43AiReasonNoImage,
     ImageFailure.modelNotDownloaded => l10n.f43AiReasonModelNotDownloaded,
     ImageFailure.deviceTooSmall => l10n.f43AiReasonDeviceTooSmall,
+    ImageFailure.notEnoughMemory => l10n.f43DeviceReasonNotEnoughMemory,
+    ImageFailure.unsupportedDevice => l10n.f43DeviceReasonUnsupported,
+    ImageFailure.cancelled => l10n.f43DeviceReasonCancelled,
     ImageFailure.network => l10n.f43AiReasonNetwork,
     ImageFailure.timeout => l10n.f43AiReasonTimeout,
     ImageFailure.unavailable => l10n.f43AiReasonUnavailable,
@@ -62,6 +66,14 @@ String illustrationReason(
     ImageFailure.unknown => l10n.f43AiReasonUnknown,
   };
 }
+
+/// La licencia de un modelo abierto, en una línea.
+String openModelLicenseLine(AppLocalizations l10n, OpenModelLicense license) =>
+    switch (license) {
+      OpenModelLicense.apache2 => l10n.f43AiLicenseApache,
+      OpenModelLicense.stabilityCommunity => l10n.f43AiLicenseStability,
+      OpenModelLicense.openRailPlusPlus => l10n.f43DeviceLicenseOpenRail,
+    };
 
 /// Por qué no puede escribir la IA elegida, en minúscula.
 String textProblemReason(AppLocalizations l10n, LanguageModelStatus status) =>

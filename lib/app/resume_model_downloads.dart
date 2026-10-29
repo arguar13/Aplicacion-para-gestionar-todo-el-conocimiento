@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/network/model_download_providers.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/on_device_image_model.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/on_device_image_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/hugging_face_token_notifier.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
@@ -26,8 +28,9 @@ Future<void> resumeModelDownloads(
   final chat = read(chatModelManagerProvider);
   final embedding = read(embeddingModelManagerProvider);
   final whisper = read(whisperModelManagerProvider);
+  final images = read(onDeviceModelFilesProvider);
 
-  // `Future.wait` espera a las tres aunque una falle, y después lanza el
+  // `Future.wait` espera a todas aunque una falle, y después lanza el
   // primer error: no mirar una no deja sin engancharse a las otras, y el
   // fallo llega a quien llama —en la app, a la telemetría— en vez de
   // perderse.
@@ -47,5 +50,11 @@ Future<void> resumeModelDownloads(
     read(
       transcriptionModelDownloadProvider.notifier,
     ).resume(isDownloading: whisper.isDownloading, download: whisper.download),
+    // Los de imágenes del teléfono (F43, «Exigente»).
+    for (final model in OnDeviceImageModel.values)
+      read(onDeviceModelDownloadProvider(model).notifier).resume(
+        isDownloading: () => images.isDownloading(model),
+        download: () => images.download(model),
+      ),
   ]);
 }

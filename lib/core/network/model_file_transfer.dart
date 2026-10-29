@@ -60,6 +60,16 @@ abstract interface class ModelFileTransfer {
   /// Corta la descarga de [target], si hay una, y borra lo bajado: quien la
   /// estaba esperando recibe [ModelDownloadCancelledException].
   Future<void> cancel(File target);
+
+  /// Si una descarga se puede pausar y seguir después desde donde quedó
+  /// ([pause]). La del sistema no: Android no deja pausar una descarga de
+  /// su gestor, que ya la pausa sola sin red y la retoma cuando vuelve.
+  bool get canPause;
+
+  /// Frena la descarga de [target] sin borrar lo bajado: quien la estaba
+  /// esperando recibe [ModelDownloadPausedException], y volver a pedirla
+  /// con [fetch] sigue desde ahí. Solo si [canPause].
+  Future<void> pause(File target);
 }
 
 /// No hay lugar para bajar el modelo: hacen falta [requiredBytes] y quedan
@@ -88,6 +98,15 @@ class ModelDownloadHttpException implements Exception {
 
   @override
   String toString() => 'El servidor contestó $statusCode.';
+}
+
+/// La descarga se pausó a pedido ([ModelFileTransfer.pause]): lo bajado
+/// queda, y volver a pedirla sigue desde ahí. No es un error que mostrar.
+class ModelDownloadPausedException implements Exception {
+  const ModelDownloadPausedException();
+
+  @override
+  String toString() => 'Descarga pausada.';
 }
 
 /// La descarga se canceló a pedido: no es un error que mostrar.

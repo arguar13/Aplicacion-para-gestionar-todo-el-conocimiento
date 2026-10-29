@@ -47,6 +47,15 @@ class SystemModelFileTransfer implements ModelFileTransfer {
   @override
   bool get continuesWithAppClosed => true;
 
+  /// `DownloadManager` no deja pausar (su `COLUMN_CONTROL` es interno): pausa
+  /// sola sin red y retoma cuando vuelve, también con la app cerrada.
+  @override
+  bool get canPause => false;
+
+  @override
+  Future<void> pause(File target) =>
+      throw UnsupportedError('El gestor de descargas del sistema no pausa.');
+
   @override
   Future<int> fetch({
     required String url,

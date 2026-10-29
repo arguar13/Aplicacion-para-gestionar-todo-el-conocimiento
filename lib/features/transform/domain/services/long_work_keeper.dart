@@ -55,6 +55,9 @@ abstract final class LongWorkDetail {
   static const relationsModel = 'relations_model';
   static const transcriptionModel = 'transcription_model';
 
+  /// Un modelo de imágenes del teléfono (F43, «Exigente»).
+  static const imageModel = 'image_model';
+
   /// [LongWorkOwner.aiOrganize]: la biblioteca que ya existía, que solo se
   /// recorre con el cargador puesto.
   static const whileCharging = 'while_charging';

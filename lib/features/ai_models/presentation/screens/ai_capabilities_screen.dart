@@ -471,7 +471,11 @@ class _ImageAccountLine extends StatelessWidget {
             )
           : side.timePerImage == null
           ? l10n.f43AiOnDeviceReady
-          : l10n.f43AiOnDeviceTime(aiDuration(l10n, side.timePerImage!));
+          : side.timeMeasured
+          ? l10n.f43DeviceTimeLineMeasured(aiDuration(l10n, side.timePerImage!))
+          : l10n.f43DeviceTimeLineEstimated(
+              aiDuration(l10n, side.timePerImage!),
+            );
     } else if (capability.cannot) {
       detail = capitalized(
         illustrationReason(
@@ -614,10 +618,7 @@ class _OpenModelTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     final locale = Localizations.localeOf(context).toLanguageTag();
     final params = NumberFormat('0.#', locale).format(model.billionParameters);
-    final license = switch (model.license) {
-      OpenModelLicense.apache2 => l10n.f43AiLicenseApache,
-      OpenModelLicense.stabilityCommunity => l10n.f43AiLicenseStability,
-    };
+    final license = openModelLicenseLine(l10n, model.license);
     final needs = [
       l10n.f43AiOpenParams(params),
       if (model.minVideoMemoryGb case final gb?) l10n.f43AiOpenVram(gb),

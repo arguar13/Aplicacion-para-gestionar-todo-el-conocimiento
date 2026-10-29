@@ -96,6 +96,12 @@ class _FakeEngine extends _FakeImageWire implements OnDeviceImageEngine {
   @override
   Duration estimatedTimePerImage(IllustrationSize size) =>
       const Duration(seconds: 40);
+
+  @override
+  bool get timeMeasured => false;
+
+  @override
+  Stream<void> changes() => const Stream.empty();
 }
 
 void main() {

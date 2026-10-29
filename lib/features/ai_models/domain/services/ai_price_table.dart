@@ -442,6 +442,11 @@ enum OpenModelLicense {
   /// para quien factura menos de US$ 1 millón por año; más, licencia de
   /// empresa (https://stability.ai/license).
   stabilityCommunity,
+
+  /// CreativeML OpenRAIL++-M: uso personal y comercial, con las
+  /// restricciones de uso de la licencia (nada dañino ni engañoso). La de
+  /// SDXS (F43, «Exigente — en el teléfono»).
+  openRailPlusPlus,
 }
 
 /// Un modelo de imágenes de código abierto que se usa por Hugging Face, en

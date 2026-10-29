@@ -53,6 +53,29 @@ void main() {
   }
 
   group('cuando Android avisa que falta memoria', () {
+    testWidgets('también suelta el modelo de imágenes del teléfono (F43), y '
+        'si falla, lo anota y sigue con Gemma', (tester) async {
+      var imageReleases = 0;
+      final withImages = ModelMemoryKeeper(
+        gate: gate,
+        gemma: gemma,
+        releaseEmbedder: ({unusedFor}) async {},
+        releaseImageModel: () async {
+          imageReleases++;
+          throw StateError('el motor nativo no contestó');
+        },
+        onError: (error, _) => errors.add(error),
+      );
+      addTearDown(withImages.dispose);
+      await use();
+
+      await withImages.memoryPressure();
+
+      expect(imageReleases, 1);
+      expect(errors.single, isA<StateError>());
+      expect(gemma.isLoaded, isFalse);
+    });
+
     testWidgets('suelta los dos modelos en el acto, y el próximo uso vuelve '
         'a cargar Gemma', (tester) async {
       await use();

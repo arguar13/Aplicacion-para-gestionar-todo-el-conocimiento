@@ -71,6 +71,20 @@ class InAppModelFileTransfer implements ModelFileTransfer {
       _running.containsKey(target.absolute.path);
 
   @override
+  bool get canPause => true;
+
+  /// Corta lo que baja y deja `<destino>.descargando` y su `.source`: el
+  /// próximo [fetch] retoma por rango desde ahí.
+  @override
+  Future<void> pause(File target) async {
+    final running = _running[target.absolute.path];
+    if (running == null) return;
+    running.paused = true;
+    running.cancel.cancel();
+    await running.done.then<void>((_) {}, onError: (Object _) {});
+  }
+
+  @override
   Future<void> cancel(File target) async {
     final running = _running[target.absolute.path];
     if (running != null) {
@@ -135,7 +149,9 @@ class InAppModelFileTransfer implements ModelFileTransfer {
       );
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
-        throw const ModelDownloadCancelledException();
+        throw running.paused
+            ? const ModelDownloadPausedException()
+            : const ModelDownloadCancelledException();
       }
       rethrow;
     }
@@ -161,6 +177,9 @@ class InAppModelFileTransfer implements ModelFileTransfer {
 class _Running {
   final listeners = <void Function(int received, int? total)>[];
   final cancel = CancelToken();
+
+  /// Si se cortó para pausar, no para cancelar: lo bajado queda.
+  bool paused = false;
   late Future<int> done;
 }
 

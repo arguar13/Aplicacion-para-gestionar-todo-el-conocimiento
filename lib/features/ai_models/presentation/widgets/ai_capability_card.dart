@@ -439,13 +439,20 @@ class _AlternativeRow extends StatelessWidget {
           ].join(' · '),
           account.provider.icon,
         ),
-      UseOnDeviceModel(:final time, :final needsDownload) => (
-        l10n.f43AiAltOnDevice,
-        needsDownload
-            ? l10n.f43AiAltOnDeviceDownload
-            : l10n.f43AiAltOnDeviceHint(aiDuration(l10n, time)),
-        IllustrationProvider.onDevice.icon,
-      ),
+      UseOnDeviceModel(
+        :final time,
+        :final needsDownload,
+        :final timeMeasured,
+      ) =>
+        (
+          l10n.f43AiAltOnDevice,
+          needsDownload
+              ? l10n.f43AiAltOnDeviceDownload
+              : timeMeasured
+              ? l10n.f43AiAltOnDeviceHint(aiDuration(l10n, time))
+              : l10n.f43DeviceAltHintEstimated(aiDuration(l10n, time)),
+          IllustrationProvider.onDevice.icon,
+        ),
       AddImageKey(provider: IllustrationProvider.openAi) => (
         l10n.f43AiAltAddOpenAi,
         l10n.f43AiAltAddOpenAiHint,

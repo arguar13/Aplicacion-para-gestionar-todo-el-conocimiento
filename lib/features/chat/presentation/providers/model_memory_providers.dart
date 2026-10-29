@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/on_device_image_providers.dart';
 import 'package:sinapsis/features/chat/data/services/model_memory_keeper.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
@@ -15,6 +16,11 @@ final modelMemoryKeeperProvider = Provider<ModelMemoryKeeper>((ref) {
     gemma: ref.watch(gemmaEngineProvider),
     releaseEmbedder: ({unusedFor}) =>
         ref.read(embeddingServiceProvider).release(unusedFor: unusedFor),
+    // Solo si ya existe: armarlo para soltar nada no tiene sentido.
+    releaseImageModel: () async {
+      if (!ref.exists(stableDiffusionImageEngineProvider)) return;
+      await ref.read(stableDiffusionImageEngineProvider)?.releaseNow();
+    },
     onError: (error, stackTrace) => ref
         .read(telemetryServiceProvider)
         .recordError(
