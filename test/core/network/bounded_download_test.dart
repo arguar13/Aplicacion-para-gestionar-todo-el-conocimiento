@@ -326,6 +326,12 @@ void main() {
           ),
           'bien.pdf',
         );
+        expect(
+          fileNameFromContentDisposition(
+            "attachment; filename=\"bien.pdf\"; filename*=UTF-8''mal%G1.pdf",
+          ),
+          'bien.pdf',
+        );
       });
     });
   });
