@@ -14,32 +14,33 @@ saltar directo a la sección que te haga falta con el índice de abajo.
 5. [Escribir una nota propia](#escribir-una-nota-propia)
 6. [La Biblioteca](#la-biblioteca)
 7. [El detalle de un elemento](#el-detalle-de-un-elemento)
-8. [Modo lectura: leer para destilar](#modo-lectura-leer-para-destilar)
-9. [Seleccionar texto: el menú](#seleccionar-texto-el-menú)
-10. [Ver los archivos originales](#ver-los-archivos-originales)
-11. [Organizar lo que guardaste](#organizar-lo-que-guardaste)
-12. [La IA que organiza sola](#la-ia-que-organiza-sola)
-13. [El material de un tema](#el-material-de-un-tema)
-14. [Cuadernos](#cuadernos)
-15. [Línea de tiempo](#línea-de-tiempo)
-16. [Bandeja de entrada y sugerencias](#bandeja-de-entrada-y-sugerencias)
-17. [Procesado](#procesado)
-18. [El Atlas](#el-atlas)
-19. [El Mapa](#el-mapa)
-20. [Grafo local de un elemento](#grafo-local-de-un-elemento)
-21. [Tensión: contradicciones entre notas](#tensión-contradicciones-entre-notas)
-22. [Chat con la IA](#chat-con-la-ia)
-23. [Citas bibliográficas](#citas-bibliográficas)
-24. [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)
-25. [Notas generadas por IA](#notas-generadas-por-ia)
-26. [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios)
-27. [Tu hábito de repaso](#tu-hábito-de-repaso)
-28. [Anki: exportar e importar](#anki-exportar-e-importar)
-29. [Los modelos de IA descargables](#los-modelos-de-ia-descargables)
-30. [Ajustes](#ajustes)
-31. [Mantenimiento de la bóveda](#mantenimiento-de-la-bóveda)
-32. [Que siga con la app cerrada](#que-siga-con-la-app-cerrada)
-33. [Preguntas frecuentes](#preguntas-frecuentes)
+8. [El marco de lectura: un solo lector para todo](#el-marco-de-lectura-un-solo-lector-para-todo)
+9. [Modo lectura: leer para destilar](#modo-lectura-leer-para-destilar)
+10. [Seleccionar texto: el menú](#seleccionar-texto-el-menú)
+11. [Ver los archivos originales](#ver-los-archivos-originales)
+12. [Organizar lo que guardaste](#organizar-lo-que-guardaste)
+13. [La IA que organiza sola](#la-ia-que-organiza-sola)
+14. [El material de un tema](#el-material-de-un-tema)
+15. [Cuadernos](#cuadernos)
+16. [Línea de tiempo](#línea-de-tiempo)
+17. [Bandeja de entrada y sugerencias](#bandeja-de-entrada-y-sugerencias)
+18. [Procesado](#procesado)
+19. [El Atlas](#el-atlas)
+20. [El Mapa](#el-mapa)
+21. [Grafo local de un elemento](#grafo-local-de-un-elemento)
+22. [Tensión: contradicciones entre notas](#tensión-contradicciones-entre-notas)
+23. [Chat con la IA](#chat-con-la-ia)
+24. [Citas bibliográficas](#citas-bibliográficas)
+25. [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)
+26. [Notas generadas por IA](#notas-generadas-por-ia)
+27. [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios)
+28. [Tu hábito de repaso](#tu-hábito-de-repaso)
+29. [Anki: exportar e importar](#anki-exportar-e-importar)
+30. [Los modelos de IA descargables](#los-modelos-de-ia-descargables)
+31. [Ajustes](#ajustes)
+32. [Mantenimiento de la bóveda](#mantenimiento-de-la-bóveda)
+33. [Que siga con la app cerrada](#que-siga-con-la-app-cerrada)
+34. [Preguntas frecuentes](#preguntas-frecuentes)
 
 ---
 
@@ -623,10 +624,111 @@ si no tiene nada que mostrar —una fuente lista, sin audio—, no aparece:
 
 ---
 
+## El marco de lectura: un solo lector para todo
+
+Todo lo que se lee se abre en **el mismo marco**, con lo mismo arriba y en el
+mismo lugar: el original de un documento —en Procesado y en la Biblioteca—,
+el **texto**, el **resumen** y la **síntesis** de un documento procesado, lo
+creado en Repasar (el texto completo, el resumen, la síntesis y el informe),
+una nota o una referencia, y el pasaje al que te lleva una tarjeta o una cita.
+Lo único que cambia es lo de adentro:
+
+- un **PDF**, con su página de verdad;
+- una **página web** o una **publicación**, como en el navegador del teléfono;
+- un **Word**, un **EPUB**, un **texto** o un **Markdown**, como **libro
+  paginado**;
+- una **foto** o un **escaneo**, con su imagen y, arriba, **«Imagen ·
+  Texto»** para ver el texto que se leyó en ella;
+- un **audio**, un **video** o un **YouTube** con su transcripción: el
+  reproductor y la transcripción que sigue al audio (ver
+  [El texto sigue al audio](#el-texto-sigue-al-audio));
+- el texto, el resumen y la síntesis, **de corrido**, en una columna cómoda.
+
+**La barra de arriba** es limpia: **←** a la izquierda para volver y, a la
+derecha, cuatro botones redondos del mismo tamaño:
+
+- **Contenido** (el ícono de la lista): el índice del documento —los
+  capítulos de un libro, los documentos de una extracción de varios, las
+  secciones de un informe—, las otras partes —el texto, el resumen, la
+  síntesis, el original, la fuente en la Biblioteca—, **«Ver N fuentes»** con
+  la ficha de cada fuente en lo creado, y **«Leer en voz alta: Todo ·
+  Resumen · Síntesis · Palabras clave»**: tocá una y empieza a leer esa parte.
+- **IA** (la chispa): muestra u oculta **la fila de IA**, debajo de la barra.
+  Se acuerda de cómo la dejaste.
+- **Aa**: **Apariencia**.
+- **⋮**: todo lo demás.
+
+El título va **grande, en el cuerpo**; la barra no lo repite. Para el lector
+de pantalla, cada botón dice su nombre y el título es el encabezado.
+
+**La fila de IA** lleva, en un renglón que en un teléfono se desplaza de
+costado:
+
+- **Resumir · Sintetizar · Palabras clave**, con su punto de color, su estado
+  (*"Sin hacer"*, *"Haciendo… 40 %"*, *"Hecho · 12"*, *"Oculto"*) y su avance.
+  En el original son las fichas donde se marca (ver
+  [Marcar en el original](#marcar-en-el-original-resumen-síntesis-y-palabras-clave)).
+  En el texto, el resumen y la síntesis de un documento procesado, y en lo
+  creado, un toque **lo crea o lo muestra**: sin hacer, lo marca con la IA en
+  el documento mismo (antes dice con qué modelo y cuánto consume); hecho,
+  **Resumir** y **Sintetizar** abren el resumen o la síntesis en el mismo
+  marco (*"Lo que leés"*, si ya estás ahí), y **Palabras clave** prende o
+  apaga el rosa.
+- **Preguntar a la IA**: abre el chat con la pregunta sobre este documento a
+  medio escribir (*"Sobre «Roma»: "*), para que la termines.
+- **Podcast**: tiene su lugar, apagado y con *"Próximamente"*: el podcast a
+  medida llega en una próxima versión.
+
+**El cuerpo** es una columna de lectura de ancho cómodo, con márgenes
+generosos y sin tarjeta alrededor. El texto va con la letra de **Apariencia**
+—de entrada, **Lora**, una serif de libro— y la línea que suena, con un fondo
+suave del color de **«Resaltado de lectura»**. Se desplaza como cualquier
+lista del teléfono: un arrastre corto ya no baja de golpe (el impulso extra
+quedó solo en el PDF, para pasar hojas).
+
+**Apariencia (Aa)** se guarda para **todos los lectores**:
+
+- **Fuente**, en lo que es texto: cinco letras que vienen con la app, cada una
+  escrita con su forma —**Lora** (serif de libro), **Source Sans** (sans
+  cálida), **Inter** (la de la app), **Nunito** (redondeada) y **Atkinson**
+  (máxima legibilidad, pensada para poca visión)—, y el **tamaño**, con un
+  deslizador de 80 % a 160 %. Debajo, una muestra.
+- **La página**, en un PDF o una foto: el **zoom** (alejar, cuánto, acercar y
+  **"Ajustar"** al ancho) y su tono: **Original**, **Oscura** —lo claro pasa a
+  oscuro sin cambiar de color, así lo marcado sigue siendo verde, celeste o
+  rosa— o **Sepia**.
+- **Resaltado de lectura**: el color de lo que suena —**Amarillo**,
+  **Durazno**, **Lila** o **Lima**—, siempre con la letra oscura encima.
+- **Modo**: **Sistema** (el de la app), **Claro**, **Oscuro** o **Sepia**,
+  cada uno con su muestra. Pinta el marco entero.
+
+**⋮** abre una hoja con, arriba, la miniatura, el título con **✎** para
+cambiarle el nombre (en lo creado) y el tipo; después, en grupos, lo que ese
+documento ofrece —**Resumir**, **"Descargar con lo marcado"**, **"Editar el
+texto"**, **"Copiar todo"**, **Descargar** y **Compartir** lo creado, los
+detalles, volver a crear— y, al final y en rojo, **lo que se borra**: la copia
+del original, la creación o el documento procesado. **Nunca la fuente de la
+Biblioteca.** Lo que todavía no está en la app no aparece: descargar y
+exportar el audio, las notas en el texto, la cola, el temporizador para
+dormir, favoritos y marcar como terminado llegan en próximas versiones.
+
+**Abajo, el lugar del reproductor.** Sin nada sonando, **"Escuchar"** lee lo
+que ves. Sonando, el reproductor con la velocidad, la voz y **"Leer: Todo ·
+Resumen · Síntesis · Palabras clave"**; achicado, una línea con el botón de
+siempre y el título, que lo vuelve a abrir. En el marco **no aparece el botón
+redondo flotante**: el marco trae su lugar. Si salís, sigue sonando y vuelve
+el de siempre.
+
+Se ve bien en un teléfono angosto con la letra al doble, en claro, oscuro y
+sepia, con «sin animaciones» (las hojas aparecen sin deslizarse) y en una
+pantalla ancha, donde la columna queda centrada.
+
 ## Modo lectura: leer para destilar
 
-Sirve para leer con calma el texto de una fuente larga y sacar fragmentos
-como notas, sin salir de la lectura.
+Sirve para leer con calma el texto de una fuente larga —o una nota tuya, o
+una referencia— y sacar fragmentos como notas, sin salir de la lectura. Es el
+[marco de lectura](#el-marco-de-lectura-un-solo-lector-para-todo), con la
+barra de extraer abajo.
 
 **Cómo llegar:** botón **"Leer"** en el detalle de una nota propia, o
 tocando el fragmento resaltado de un resultado de búsqueda en la Biblioteca,
@@ -635,7 +737,8 @@ fragmento de un documento procesado: se abre parado en ese pasaje. Desde el
 detalle de una fuente ya no se abre: su texto se lee en su documento
 procesado.
 
-1. Arriba se ve un contador: **"{N} notas extraídas"**.
+1. Debajo del título se ve un contador: **"{N} notas extraídas"**. En
+   **Contenido**, el detalle del elemento y su documento procesado.
 2. Leés el texto completo; podés seleccionarlo con el dedo o el mouse.
 3. Al seleccionar un fragmento, aparece una barra abajo con tres acciones:
    **"Extraer como nota"** (guarda ese fragmento como nota en el documento
@@ -790,8 +893,10 @@ Para verlo a pantalla completa:
   página»**: la abre a pantalla completa, tal como era, con sus fotos en su
   lugar.
 - **En una foto**, el mismo botón grande del centro dice **«Ampliar»**: la
-  abre a pantalla completa, donde se acerca con dos dedos. Como es
-  semitransparente, la foto se ve debajo.
+  abre a pantalla completa, en el marco de lectura, donde se acerca con dos
+  dedos o con el zoom de **Aa**; si se leyó texto en ella, **«Imagen ·
+  Texto»** lo muestra, para marcarlo, resaltarlo y escucharlo. Como el botón
+  es semitransparente, la foto se ve debajo.
 - **En un video**, el botón es chico y está en la esquina, para no tapar el
   botón de reproducir.
 
@@ -801,12 +906,14 @@ clave"*, cada una con el punto de su color (hueco si la dejaste oculta). Sin
 nada marcado, dice dónde se marca; mientras la IA marca, cuánto lleva.
 
 **El original es el mismo que en Procesado.** A pantalla completa, un PDF, una
-página web o un libro se abren en **la misma pantalla de original** que el de
-su documento procesado (ver
+página web o un libro se abren en **el marco de lectura** (ver
+[El marco de lectura](#el-marco-de-lectura-un-solo-lector-para-todo)), el
+mismo que el de su documento procesado (ver
 [Marcar en el original](#marcar-en-el-original-resumen-síntesis-y-palabras-clave)):
-arriba, las tres fichas **Resumen**, **Síntesis** y **Palabras clave**, donde
-se marca con la IA o a mano; debajo, el mismo visor, con el mismo lector en voz
-alta, y en un Word, un EPUB o un texto, con **A− A+** para la letra. La página
+en la fila de IA, las tres fichas **Resumen**, **Síntesis** y **Palabras
+clave**, donde se marca con la IA o a mano; debajo, el mismo visor, con
+**"Escuchar"** abajo, y en un Word, un EPUB o un texto, la letra y su tamaño
+en **Aa**. La página
 web se ve como en el navegador del teléfono, también en la computadora. Cada
 lado marca lo suyo: lo que marcás acá queda **sobre la fuente**, y no se mezcla
 con lo de su documento procesado, ni al revés. Lo que ocultás queda recordado
@@ -861,11 +968,17 @@ pasa a ser el principal del elemento.
 En el detalle de un audio o un video de la Biblioteca se ve el original con
 su reproductor, y en el panel, la franja *"La transcripción sigue al
 audio…"* con **"Ver la transcripción"**. Se abre en su propia pantalla, como
-se amplía una foto: arriba, el mismo reproductor del detalle —el mismo audio,
-que sigue sonando donde estaba—, y abajo la transcripción. Mientras suena,
-**la palabra que se está diciendo se ve resaltada en amarillo**, y tocar una
-palabra lleva el audio a ese momento. La pantalla no se mueve sola: **"Ir a lo
-que suena"**, el botón de la barra, te lleva hasta la palabra que suena.
+se amplía una foto, en el marco de lectura: arriba, el mismo reproductor del
+detalle —el mismo audio, que sigue sonando donde estaba—, y abajo la
+transcripción, con la letra de **Aa**. Mientras suena, **la palabra que se
+está diciendo se ve resaltada**, y tocar una palabra lleva el audio a ese
+momento. La pantalla no se mueve sola: **"Ir a lo que suena"**, debajo del
+reproductor, te lleva hasta la palabra que suena. **"Escuchar"**, abajo,
+lee con la voz del lector **lo estudiado** —el resumen, la síntesis y las
+palabras clave—, que lo demás ya suena en su audio; **"Todo"** en
+**Contenido** lee la transcripción entera. Lo mismo pasa al abrir un audio,
+un video o un YouTube con transcripción a pantalla completa; en un YouTube,
+**⋮** tiene **"Ver en YouTube"**.
 
 Si en el detalle bajás y el reproductor queda fuera de la pantalla, aparece
 abajo un **mini reproductor** flotante para pausar, cambiar la velocidad o
@@ -2104,9 +2217,11 @@ PDF o de un documento, o la página web archivada, en su marco, con lo marcado
 **encima** —el resumen en verde, la síntesis en celeste, las palabras clave en
 rosa y los fragmentos en durazno—. El botón grande del centro (**"Leer como
 libro"**, o **"Ver la página"** en una página web) y un toque en la hoja lo
-abren en el visor de siempre, a pantalla completa: ahí, arriba, están **las
-fichas donde se marca** (ver abajo), la misma pantalla que el original de la
-fuente en la Biblioteca. Debajo de la vista previa, un renglón dice **qué tiene
+abren a pantalla completa, en **el marco de lectura**: en su fila de IA están
+**las fichas donde se marca** (ver abajo), la misma pantalla que el original
+de la fuente en la Biblioteca. En su **Contenido**, el texto, el resumen y la
+síntesis del documento; en **⋮**, **"Descargar con lo marcado"** y, en rojo,
+**"Borrar la copia del original"**. Debajo de la vista previa, un renglón dice **qué tiene
 marcado** (*"Marcado: ● Resumen · ● Palabras clave"*, con el punto de su color,
 hueco si está oculto; mientras la IA marca, cuánto lleva), y otro, qué es
 (*"PDF"*, *"Página web archivada"* o *"Documento"*), cuánto ocupa y cuándo se
@@ -2135,6 +2250,22 @@ tenía bien —lo volviste a extraer en la Bandeja—, lo trae en el acto. En la
 lista de Procesado, una franja arriba cuenta los que hay (*"3 videos tienen el
 texto en otro idioma"*) con **"Volver a extraer los 3"**, para todos de una
 vez.
+
+**El texto, el resumen y la síntesis se leen en el marco.** En el documento,
+sus secciones **Texto**, **Resumen** y **Síntesis** son un renglón con lo que
+tienen (*"6 páginas"*, *"12 oraciones"*): tocarlo abre **el mismo lector que
+el de «Lo creado»**, rotulado *"Texto · 6 páginas"*, sin crear nada. El texto
+se ve **limpio** —los enlaces como palabras, sin su dirección, y sin las
+imágenes como `![](…)`—, con las palabras clave en rosa. Arriba, las fichas
+de la fila de IA lo crean o lo abren; abajo, **"Escuchar"**: un solo dictado
+de voz, el mismo en los tres, sin el botón redondo. En **⋮**, **"Editar el
+texto"** (o **"Editar las oraciones"**) abre la edición de siempre, de a una
+página, con **"Editar"**, **"Quitar"** y **"Deshacer"**; lo que cambiás se ve
+en el lector al volver. Ahí también **"Copiar todo"** (en el resumen y la
+síntesis), **"Descargar con lo marcado"** y, en rojo, **"Mover el documento a
+la papelera"** (la fuente sigue en la Biblioteca). Las demás secciones —las
+palabras clave, las notas, los fragmentos, las imágenes— se despliegan ahí
+mismo, como siempre.
 
 Es una copia tuya: lo que ves marcado es de tu documento procesado, no de la
 fuente, y la fuente no se toca. Si el texto de la fuente cambió desde que lo
@@ -2246,10 +2377,12 @@ queda lo que no crea nada.
 
 #### Marcar en el original: resumen, síntesis y palabras clave
 
-Las tres fichas de arriba del original —**Resumen**, **Síntesis** y
-**Palabras clave**—, en una fila y del mismo alto, son el lugar donde se
-marca. Están arriba del original a pantalla completa, el mismo en Procesado y
-en la Biblioteca; en el documento, la vista previa dice qué tiene marcado. Cada una tiene **su punto de color**, el de su resaltador, que hace
+Las tres fichas del original —**Resumen**, **Síntesis** y **Palabras
+clave**—, en una fila y del mismo alto, son el lugar donde se marca. Están en
+**la fila de IA** del original a pantalla completa (ver
+[El marco de lectura](#el-marco-de-lectura-un-solo-lector-para-todo)), el
+mismo en Procesado y en la Biblioteca, y en un teléfono se desplazan de
+costado; mientras elegís a mano, la fila no se cierra; en el documento, la vista previa dice qué tiene marcado. Cada una tiene **su punto de color**, el de su resaltador, que hace
 de leyenda (hueco si lo marcado está oculto); **su estado** debajo del nombre:
 *"Sin hacer"*, *"Haciendo… 40 %"* con una barra que se llena, *"Hecho"* u
 *"Oculto"*; y **cuántas marcas tiene** al lado (*"Hecho · 12"*). Un toque la
@@ -3107,9 +3240,10 @@ claramente en vez de inventarlo.
 
 En las pantallas que muestran texto aparece, abajo a la derecha, un **botón
 redondo con el ícono de una voz**. Está en el detalle de un elemento, el
-modo lectura, **dentro de cada documento abierto a pantalla completa** —el
-libro de un Word, un EPUB o un texto («Leer como libro»), el **PDF** y la
-**página web guardada** («Ver la página»)—, el editor de notas y el chat. No
+editor de notas y el chat. **En el marco de lectura** —el original, el texto,
+el resumen y la síntesis, lo creado, el modo lectura— no aparece: el marco
+trae su lugar para el reproductor, abajo, con **"Escuchar"** (ver
+[El marco de lectura](#el-marco-de-lectura-un-solo-lector-para-todo)). No
 aparece en la Biblioteca, la Bandeja, el Mapa, el Atlas, el repaso de
 tarjetas, Ajustes ni la Papelera. En el repaso no está a propósito: una
 tarjeta se repasa leyéndola y pensando la respuesta, y una voz que la dijera
@@ -3288,16 +3422,18 @@ nada: queda para cuando el texto esté en su idioma, y te lo avisa.
 ### Escuchar dentro del documento
 
 Abrí el documento a pantalla completa —**«Leer como libro»** en un Word, un
-EPUB o un texto; el **PDF**; **«Ver la página»** en una página web— y tocá el
-botón redondo. Se escucha **el documento entero**, con la fila **"Leer: Todo ·
-Resumen · Síntesis · Palabras clave"** de la cola (☰), igual que en el
+EPUB o un texto; el **PDF**; **«Ver la página»** en una página web— y tocá
+**"Escuchar"**, abajo. Se escucha **el documento entero**, con la fila **"Leer:
+Todo · Resumen · Síntesis · Palabras clave"** en **Contenido** (y en la cola,
+☰), igual que en el
 detalle:
 
 - **Empieza por lo que estás mirando**: abierto en la página 300, lee desde la
   página 300, no desde la portada. Lo mismo al elegir **Resumen**,
   **Síntesis** o **Palabras clave**: lee lo de ahí en adelante (si ya no queda
   nada después, desde el principio).
-- **Lo que suena se resalta en amarillo sobre el original**: la línea u
+- **Lo que suena se resalta sobre el original**, en amarillo o en el color
+  de **«Resaltado de lectura»** de **Aa**: la línea u
   oración con **Todo**, **Resumen** y **Síntesis**; **solo la palabra** con
   **Palabras clave**. En el PDF va sobre las letras de la página real, en la
   página web sobre la página tal como se guardó, y en el libro sobre su
@@ -3781,10 +3917,16 @@ sola. Es lo mismo que marcaste en el original con los botones **Resumen**,
 Un documento que ya no está dice **"Fuente borrada"**; uno sin texto propio
 (solo notas o imágenes), que no tiene texto para extraer.
 
-**Arriba, junto a ⋮:**
+Se leen en **el marco de lectura** (ver
+[El marco de lectura](#el-marco-de-lectura-un-solo-lector-para-todo)):
+**Contenido** tiene **"Ver N fuentes"** con la ficha de cada una y, con varios
+documentos, lleva a cada uno; **⋮**, **Descargar**, **Compartir**, los
+detalles, volver a crear y, en rojo, la papelera; ✎ le cambia el nombre. El
+**informe** también se lee en el marco, con su índice en **Contenido** y el
+PDF —para leer o imprimir— o el Markdown en **⋮ → Descargar**.
 
-- **🎧 Escuchar**: abre el **modo escuchar**, un reproductor grande abajo de la
-  pantalla. Se lee lo que se ve, en su orden (con varios documentos, primero el
+- **Escuchar**, abajo: abre el **modo escuchar**, un reproductor grande abajo
+  de la pantalla. Se lee lo que se ve, en su orden (con varios documentos, primero el
   título de cada uno). Lo que suena va **en amarillo**, con las palabras clave
   **siempre en rosa encima**, y la pantalla **acompaña sola** la lectura; si te
   movés a mano, te deja tranquilo y aparece **"Volver a la lectura"**. En el
@@ -3794,10 +3936,11 @@ Un documento que ya no está dice **"Fuente borrada"**; uno sin texto propio
   botón redondo de leer en voz alta no aparece; si salís de la pantalla, sigue
   leyendo y vuelve el de siempre. Con «sin animaciones», la pantalla salta en
   vez de deslizarse.
-- **Aa Lectura**: **"Resaltar las palabras clave"**, prendido por defecto. Es
-  **la misma opción** que mostrar u ocultar las palabras clave en el original:
-  si la apagás acá se apaga allá, y al revés. Con varios documentos, se cambia
-  en todos. Debajo, el **tamaño de la letra** (el mismo de «Leer como libro»).
+- **Palabras clave**, en la fila de IA: un toque las oculta o las muestra.
+  Es **la misma opción** que mostrar u ocultar las palabras clave en el
+  original: si la apagás acá se apaga allá, y al revés. Con varios
+  documentos, se cambia en todos. La letra y su tamaño, en **Aa** (los mismos
+  de todos los lectores).
 
 **Descargar** y **Compartir** (en ⋮, en «Lo creado» o deslizando la fila) dan un archivo
 **Markdown** (`.md`) con el título, un apartado por documento y lo extraído,
