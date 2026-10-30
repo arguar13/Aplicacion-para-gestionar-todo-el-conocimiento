@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
+import 'package:sinapsis/features/map/domain/services/topic_adjacency.dart';
 
 /// El tope de pasadas por los temas. La propagación converge en unas pocas;
 /// el tope existe para que un grafo raro no la deje girando.
@@ -31,18 +32,24 @@ const kHierarchyWeight = 1.0;
 /// El peso de cada unión sale de [weights]; un tema se pega a su padre con
 /// [hierarchyWeight]. Los temas sin ninguna unión quedan cada uno en su propia
 /// comunidad, marcada como aislada.
+///
+/// Con [adjacency], las uniones ya armadas de [graph] —las que el motor
+/// comparte con lo que calcula después (F44)—: entonces [weights] y
+/// [hierarchyWeight] no se usan, porque ya están en ellas.
 CommunityDetection detectCommunities(
   TopicGraph graph, {
   TopicGraphWeights weights = const TopicGraphWeights(),
   double hierarchyWeight = kHierarchyWeight,
   CommunityMemory? previous,
   int maxPasses = kMaxCommunityPasses,
+  TopicAdjacency? adjacency,
 }) {
   final n = graph.nodes.length;
   final remembered = previous ?? const CommunityMemory.none();
   if (n == 0) return CommunityDetection.empty(remembered);
 
-  final adjacency = _Adjacency.of(graph, weights, hierarchyWeight);
+  final links = adjacency ?? TopicAdjacency.of(graph, weights, hierarchyWeight);
+  assert(links.nodeCount == n, 'las uniones son de otro grafo');
 
   // Las etiquetas de trabajo son índices densos —el `Float64List` de puntajes
   // no puede medir lo que llegó a valer la mayor identidad—: cada identidad
@@ -80,16 +87,16 @@ CommunityDetection detectCommunities(
     changed = false;
     passes++;
     for (final i in order) {
-      final start = adjacency.offsets[i];
-      final end = adjacency.offsets[i + 1];
+      final start = links.offsets[i];
+      final end = links.offsets[i + 1];
       // Sin uniones, se queda con la etiqueta que tiene.
       if (start == end) continue;
 
       var touchedCount = 0;
       for (var e = start; e < end; e++) {
-        final l = label[adjacency.neighbors[e]];
+        final l = label[links.neighbors[e]];
         if (score[l] == 0) touched[touchedCount++] = l;
-        score[l] += adjacency.weights[e];
+        score[l] += links.weights[e];
       }
 
       final current = label[i];
@@ -122,81 +129,13 @@ CommunityDetection detectCommunities(
 
   return _finish(
     graph: graph,
-    adjacency: adjacency,
+    adjacency: links,
     label: label,
     identityOf: identityOf,
     remembered: remembered,
     passes: passes,
     converged: !changed,
   );
-}
-
-/// Las uniones del grafo en forma de listas por tema: `neighbors` y `weights`
-/// desde `offsets[i]` hasta `offsets[i + 1]` son las del tema `i`. Una unión
-/// aparece en las listas de sus dos temas.
-class _Adjacency {
-  _Adjacency(this.offsets, this.neighbors, this.weights);
-
-  factory _Adjacency.of(
-    TopicGraph graph,
-    TopicGraphWeights weights,
-    double hierarchyWeight,
-  ) {
-    final n = graph.nodes.length;
-    final a = <int>[];
-    final b = <int>[];
-    final w = <double>[];
-    for (final edge in graph.edges) {
-      final weight = weights.of(edge);
-      if (weight <= 0) continue;
-      a.add(edge.a);
-      b.add(edge.b);
-      w.add(weight);
-    }
-    if (hierarchyWeight > 0) {
-      for (var i = 0; i < n; i++) {
-        final parentId = graph.nodes[i].parentId;
-        final parent = parentId == null ? null : graph.indexOf(parentId);
-        if (parent == null || parent == i) continue;
-        a.add(i);
-        b.add(parent);
-        w.add(hierarchyWeight);
-      }
-    }
-
-    final offsets = Int32List(n + 1);
-    for (var k = 0; k < a.length; k++) {
-      offsets[a[k] + 1]++;
-      offsets[b[k] + 1]++;
-    }
-    for (var i = 0; i < n; i++) {
-      offsets[i + 1] += offsets[i];
-    }
-    final neighbors = Int32List(offsets[n]);
-    final edgeWeights = Float64List(offsets[n]);
-    final cursor = Int32List.fromList(offsets);
-    for (var k = 0; k < a.length; k++) {
-      neighbors[cursor[a[k]]] = b[k];
-      edgeWeights[cursor[a[k]]++] = w[k];
-      neighbors[cursor[b[k]]] = a[k];
-      edgeWeights[cursor[b[k]]++] = w[k];
-    }
-    return _Adjacency(offsets, neighbors, edgeWeights);
-  }
-
-  final Int32List offsets;
-  final Int32List neighbors;
-  final Float64List weights;
-
-  int degreeOf(int i) => offsets[i + 1] - offsets[i];
-
-  double weightOf(int i) {
-    var total = 0.0;
-    for (var e = offsets[i]; e < offsets[i + 1]; e++) {
-      total += weights[e];
-    }
-    return total;
-  }
 }
 
 /// El orden en que se visitan los temas: por un hash de su valor con una
@@ -224,7 +163,7 @@ List<int> _visitOrder(TopicGraph graph) {
 /// decide qué identidad lleva cada comunidad y arma el resultado.
 CommunityDetection _finish({
   required TopicGraph graph,
-  required _Adjacency adjacency,
+  required TopicAdjacency adjacency,
   required Int32List label,
   required List<int> identityOf,
   required CommunityMemory remembered,
@@ -315,7 +254,11 @@ CommunityDetection _finish({
   );
 }
 
-TopicCommunity _communityOf(int id, List<int> members, _Adjacency adjacency) {
+TopicCommunity _communityOf(
+  int id,
+  List<int> members,
+  TopicAdjacency adjacency,
+) {
   var anchor = members.first;
   var anchorWeight = -1.0;
   for (final node in members) {
