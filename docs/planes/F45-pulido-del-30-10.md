@@ -444,6 +444,51 @@ Cinco commits, de `139637ff` a `97cb2181` (mejoras 2 y 10, decisión B).
 - **Queda para después:** la barra de la Bandeja desborda en 400 dp con la letra al doble, y no
   hay deshacer para lo que ordenó la IA.
 
+### Paso 3 (hecho): la Biblioteca, solo el original
+
+Nueve commits, de `f80939b0` a `30a69926` (mejoras 3, 4, 8 y 9, decisión E).
+
+- **«Ampliar» en el centro de la vista previa de una foto**, con la misma píldora de «Leer como
+  libro», que el lector de pantalla anuncia como botón.
+- **El detalle de una fuente muestra solo su original.**
+  - Salen «Leer · Copiar · Más» y la tarjeta «Estudiar el documento» con su texto.
+  - El texto sigue guardado: lo usan la búsqueda, el chat, los vínculos y las citas al pasaje.
+  - Las notas propias quedan como estaban, y el panel sin nada que contar no se dibuja.
+  - Salió lo que quedó sin uso: la tarjeta de estudiar, el texto plegado, la grilla de fotos aparte
+    y 18 claves. La franja de avance pasó a `study_progress_strip.dart`, y las fotos van siempre
+    en «Contenido».
+- **«El texto de la fuente», en Procesado**, en la tarjeta de la fuente: volver a extraerlo,
+  quitarle las marcas de tiempo o soltarlo, con la misma hoja que antes tenía el «Más» de la
+  Biblioteca. Sale «Ver a pantalla completa», porque ya lo hacen «Leer como libro» y «Ampliar».
+- **La transcripción que sigue al audio (F23) vuelve, en su pantalla** (`TranscriptFollowScreen`):
+  - la ofrece «Ver la transcripción», en el panel de un audio o un video que tiene audio y
+    transcripción;
+  - arriba va el mismo reproductor del detalle, que sigue sonando donde estaba, y abajo la palabra
+    que suena, en amarillo;
+  - tocar una palabra lleva el audio hasta ahí, e «Ir a lo que suena» lleva la pantalla a la
+    palabra;
+  - va en la Biblioteca y no en Procesado, porque necesita el audio de la fuente y los tiempos de
+    cada palabra;
+  - «Volver al audio», en el mini reproductor, sube al reproductor del detalle.
+- **«Descargar con lo marcado», en el «Más» del documento procesado**, al lado de «Borrar la copia
+  del original»:
+  - baja la copia del original, en su formato, con lo marcado del procesado, con la hoja de F38;
+  - se ofrece solo si hay copia, si su texto sigue siendo el de la fuente y si el formato se sabe
+    marcar;
+  - sobre la copia, la hoja ya no completa palabras clave, porque la copia es de solo lectura.
+- **Verificado:**
+  - analyze en 19, sobre `main` con F44 paso 3;
+  - 3.374 pruebas de la Biblioteca, el visor, Procesado, Estudiar, los adjuntos, la Bandeja, el
+    panel de estado, la navegación y la base; antes, 2.694 de las creaciones, las tarjetas y la
+    exportación;
+  - murieron las 13 mutaciones. Entre ellas: ofrecer la transcripción mientras se vuelve a extraer
+    o en lo que no tiene audio, bajar el archivo de la fuente en lugar de la copia, y ofrecer
+    «Descargar» aunque la copia ya no tenga el texto de la fuente.
+- **Queda para después:**
+  - los visores a pantalla completa de una fuente siguen mostrando los botones de estudiar; los
+    unifica el paso 7b;
+  - «Volver a extraer» de «El texto de la fuente» se une con el del paso 4 al integrarlo.
+
 ### Paso 7c (hecho): «sin tema» y la tarjeta «Bandeja»
 
 Tres commits, de `73ed09e1` a `1962e5ba` (mejoras 17 y 18).
