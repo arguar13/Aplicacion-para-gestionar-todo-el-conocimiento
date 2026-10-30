@@ -99,6 +99,12 @@ void main() {
         'historial); lo que se lee de `item` —dejar afuera la papelera con '
         '`deleted_at`— está en `review_scope_sql.dart`, que arma todas las '
         'consultas del recorte y SÍ decide',
+    'lib/features/map/data/repositories/board_facts_source_impl.dart':
+        'nombra la tabla solo para suscribirse a sus cambios y declarar de '
+        'qué lee cada consulta (F44, paso 3, el Resumen del Mapa); lo que se '
+        'lee de `item` está en `board_facts_sql.dart`, que SÍ decide: los '
+        'documentos con el recorte del mapa (`mapItemSql`, solo lo vivo) y '
+        'las tarjetas sin las de lo que está en la papelera',
     'lib/features/flashcards/data/repositories/card_browser_repository_impl.dart':
         'nombra la tabla solo para suscribirse a sus cambios y declarar de '
         'qué lee cada consulta (F31, «Mis tarjetas»); lo que se lee de `item` '
