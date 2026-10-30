@@ -1656,6 +1656,14 @@ página o una publicación no tiene texto propio pero trae archivos con texto
 (una foto con un cartel, un PDF), la tarjeta muestra el de uno de ellos y dice
 de cuál es.
 
+**Un video con el texto en otro idioma** (ver
+[El texto de un video, en su idioma](#el-texto-de-un-video-en-su-idioma)): la
+tarjeta lo dice debajo del texto —*"El texto no está en el idioma del
+video"*, en qué está y qué se habla— y ofrece **"Volver a extraer"**, que lo
+saca otra vez de los subtítulos o del audio, en su idioma; mientras tanto dice
+*"Volviendo a extraer…"*. Si hay otros más, una franja arriba de la tarjeta los
+cuenta con **"Volver a extraer los N"**, para todos de una vez.
+
 **Cómo llegar:** ítem **"Bandeja"** en la navegación (en el celular, la
 primera de **"Organizar"**, que muestra el número de pendientes).
 
@@ -1692,6 +1700,29 @@ pantalla ancha; *"N pendientes"* es una ficha que abre la cola entera. En la
 tarjeta, **"Ver completo"** es un enlace al pie del texto, y si se encontraron
 datos de la referencia aparece un aviso compacto, *"Se encontraron datos de la
 referencia"*, con **"Usar"** y la **✕** para descartarlos.
+
+#### El texto de un video, en su idioma
+
+El texto de un video de YouTube sale de **sus subtítulos** o, si no hay en qué
+confiar, de **su audio**, transcrito en el teléfono. Nunca lo escribe una IA.
+
+- **Antes de guardarlo**, la app mira en qué **escritura** (letras latinas,
+  árabes, cirílicas…) y en qué **idioma** está, y lo compara con el idioma en
+  que se habla. Si no coinciden —subtítulos en árabe en un video hablado en
+  español—, **no los guarda**: transcribe el audio en el teléfono, con el
+  idioma fijado, y un aviso abajo lo dice (*"«…»: los subtítulos estaban en
+  árabe y se habla español…"*), con su ✕. Un video que mezcla dos idiomas, o
+  uno muy corto, se guarda como siempre.
+- **Qué se habla** lo dice la pista de audio **original** del video, no la que
+  YouTube pone «de siempre»: con los doblajes hechos con IA, esa es la del
+  idioma de quien mira. Si no se sabe, se mira el título y la descripción.
+- **El idioma que elegiste** al volver a extraer manda. Uno que guardó una
+  versión anterior de la app al bajar una pista de otro idioma ya no se vuelve
+  a pedir como si lo hubieras elegido vos.
+- **Lo ya guardado** con el texto en otro idioma se arregla con **"Volver a
+  extraer"**, que ofrecen la tarjeta de la Bandeja y el documento de
+  Procesado, de a uno o todos de una vez (ver arriba y
+  [El documento](#el-documento)).
 
 #### La hoja "¿Qué va a Procesado?"
 
@@ -2036,6 +2067,28 @@ abren en el visor de siempre, a pantalla completa. Arriba del original están
 (*"PDF · 26 kB · copiado el 28 oct 2026"*). Borrar la copia y descargarla con
 lo marcado están en **"Más"** (ver abajo).
 
+**Una página web se ve como en el navegador del teléfono**: con el ancho de la
+pantalla, en una sola columna, sin el menú lateral ni las columnas de
+escritorio (en Wikipedia, sin su menú, su índice ni sus herramientas), con el
+cuadro de datos a lo ancho y las tablas anchas que se desplazan de costado. En
+la computadora también: la página tiene el ancho de un teléfono, centrada
+dentro de su tarjeta. Lo oculto sigue en la página, así que lo marcado y lo
+que se lee en voz alta caen en el mismo lugar; en la Biblioteca la página se
+sigue viendo como era.
+
+**Un video con el texto en otro idioma.** Si el texto de un video de YouTube
+no está en el idioma en que se habla (ver
+[El texto de un video, en su idioma](#el-texto-de-un-video-en-su-idioma)),
+arriba del original lo dice —*"El texto no está en el idioma del video"*, en
+qué está y qué se habla— y ofrece **"Volver a extraer"**: la fuente vuelve a
+sacar su texto, de los subtítulos o del audio, en su idioma, y cuando llega,
+**la sección Texto del documento se actualiza sola** (lo que editaste a mano
+se conserva), aunque la app se haya cerrado mientras tanto. Si la fuente ya lo
+tenía bien —lo volviste a extraer en la Bandeja—, lo trae en el acto. En la
+lista de Procesado, una franja arriba cuenta los que hay (*"3 videos tienen el
+texto en otro idioma"*) con **"Volver a extraer los 3"**, para todos de una
+vez.
+
 Es una copia tuya: lo que ves marcado es de tu documento procesado, no de la
 fuente, y la fuente no se toca. Si el texto de la fuente cambió desde que lo
 copiaste (por ejemplo, lo volviste a extraer), no se marca nada y una línea lo
@@ -2094,12 +2147,14 @@ que copiaste el original, no hay dónde poner lo marcado y no se ofrece.
 
 #### Marcar en el original: resumen, síntesis y palabras clave
 
-Los tres botones de arriba del original —**Resumen**, **Síntesis** y
-**Palabras clave**— son el lugar donde se marca. Están en el documento y,
-iguales, arriba del original a pantalla completa. Cada uno tiene **su color de
-resaltador**, **cuántas marcas tiene** (el número a la derecha) y **su
-estado** debajo del nombre: *"Sin hacer"*, *"Generando… 40 %"*, *"Hecho"* u
-*"Oculto"*. Debajo, la leyenda de colores.
+Las tres fichas de arriba del original —**Resumen**, **Síntesis** y
+**Palabras clave**—, en una fila y del mismo alto, son el lugar donde se
+marca. Están en el documento y, iguales, arriba del original a pantalla
+completa. Cada una tiene **su punto de color**, el de su resaltador, que hace
+de leyenda (hueco si lo marcado está oculto); **su estado** debajo del nombre:
+*"Sin hacer"*, *"Haciendo… 40 %"* con una barra que se llena, *"Hecho"* u
+*"Oculto"*; y **cuántas marcas tiene** al lado (*"Hecho · 12"*). Un toque la
+crea o la muestra y la oculta.
 
 - **Sin marcas**, tocarlo abre una hoja chica con dos opciones grandes:
   - **"Con IA"**: el modelo que elegiste en Ajustes elige las oraciones del
@@ -2108,7 +2163,7 @@ estado** debajo del nombre: *"Sin hacer"*, *"Generando… 40 %"*, *"Hecho"* u
     va a consumir** (los tokens, lo que cuesta y qué parte de tu cuota de hoy;
     con Gemma, cuánto puede tardar). Una sola pasada arma el resumen, la
     síntesis y las palabras clave a la vez, por partes y con su avance en cada
-    botón; la franja de abajo dice la parte que va, con **"Parar"**.
+    ficha; la franja de abajo dice la parte que va, con **"Parar"**.
   - **"A mano"**: pasa a elegir en el original. Tocás una oración y entra al
     resumen (o a la síntesis); tocala de nuevo y sale. En las palabras clave
     tocás palabras, hasta cuatro por oración. Desde el documento, se abre el
@@ -2119,7 +2174,7 @@ estado** debajo del nombre: *"Sin hacer"*, *"Generando… 40 %"*, *"Hecho"* u
   vez que lo abrís.
 - **Las palabras clave**, una vez hechas, **se ven en rosa siempre** que abrís
   el documento, salvo que las ocultes.
-- **Su menú** —los tres puntos del botón, o mantenerlo apretado— ofrece
+- **Su menú** —los tres puntos de la ficha, o mantenerla apretada— ofrece
   **"Rehacer con IA"** (dice qué hace y cuánto consume antes de empezar: la IA
   vuelve a marcar todo el documento, y lo que elegiste a mano se queda),
   **"Retocar a mano"**, **"Ocultar"** (o **"Mostrar"**) y **"Borrar las
@@ -2127,18 +2182,19 @@ estado** debajo del nombre: *"Sin hacer"*, *"Generando… 40 %"*, *"Hecho"* u
   original y la fuente no cambian).
 - **Se superponen sin taparse**: una palabra clave se ve en rosa encima del
   verde del resumen o del celeste de la síntesis, y una oración que está en el
-  resumen y en la síntesis se ve **celeste con una línea verde** debajo (la
-  leyenda lo muestra como *"Resumen y síntesis"*). Igual en el texto, en el
-  PDF y en la página web.
+  resumen y en la síntesis se ve **celeste con una línea verde** debajo (con
+  los dos a la vista, una línea debajo de las fichas lo muestra como
+  *"Resumen y síntesis"*). Igual en el texto, en el PDF y en la página web.
 - Lo que marcás queda en **tu documento procesado**: sus secciones Resumen,
   Síntesis y Palabras clave lo muestran, y **Repasar** lo usa para extraerlo.
   Si el documento tiene su **Texto** y editaste una página, lo que en el
   original cae en esa parte ya no es lo mismo que tu texto y no se puede
   marcar: lo dice.
 
-Funciona en los nueve temas, con la letra grande y en un teléfono angosto (los
-botones se acomodan en renglones), y sin animaciones el avance se llena sin
-girar.
+Funciona en los nueve temas, con la letra grande y en un teléfono angosto (si
+no entran en una fila, las fichas pasan a dos renglones sin cortar ninguna
+palabra), con el lector de pantalla (dice el nombre, cuántas marcas, el estado
+y qué hace tocarla), y sin animaciones el avance se llena sin girar.
 
 Debajo, **sus secciones**, cada una plegable con su nombre y cuánto tiene (por
 ejemplo *"12 páginas"* o *"8 oraciones"*, y *"2 con cambios tuyos"* si editaste
@@ -2164,9 +2220,10 @@ abre desplegado; el
   las notas que salieron de un pasaje lo tienen en su menú. Si la fuente está en
   la papelera, no aparece.
 - **"Copiar"** copia una sección entera (menos el texto, que se copia
-  seleccionándolo), y **"Escuchar"** lee el texto, el resumen o la síntesis
-  (las palabras clave, las notas y los fragmentos se escuchan con el botón
-  redondo, que lee todo).
+  seleccionándolo), y **"Escuchar"** lee el resumen o la síntesis. El texto,
+  las palabras clave, las notas y los fragmentos se escuchan con el botón
+  redondo de abajo, que lee todo desde la página del texto que mirás: por eso
+  la sección **Texto** ya no tiene su propio "Escuchar".
 - **Las imágenes** se ven en una **galería** de miniaturas (de a 60, con
   "Mostrar más"). Tocá una para verla **a pantalla completa**: pellizcá para
   acercar, deslizá (o usá las flechas, en pantalla o en el teclado) para pasar
