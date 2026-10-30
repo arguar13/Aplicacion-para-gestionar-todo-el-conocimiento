@@ -227,9 +227,7 @@ class _ShowResultsBarState extends State<_ShowResultsBar> {
     };
     final reserved = count == null ? _lastCounted : null;
     if (count != null) _lastCounted = label;
-    final VoidCallback? onPressed = count == 0
-        ? null
-        : () => Navigator.of(context).pop(true);
+    final onPressed = count == 0 ? null : () => Navigator.of(context).pop(true);
 
     return DecoratedBox(
       decoration: BoxDecoration(
