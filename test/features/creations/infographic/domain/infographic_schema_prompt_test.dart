@@ -16,13 +16,10 @@ void main() {
       expect(infographicJsonSchemaPrompt, contains('"${chart.jsonName}"'));
     }
     // Y el campo "chart" ofrece los ocho, los de F45 también.
-    expect(
-      infographicJsonSchemaPrompt,
-      contains(
-        '"chart": uno de '
-        '${InfographicChartKind.values.map((c) => '"${c.jsonName}"').join(', ')}',
-      ),
-    );
+    final charts = [
+      for (final chart in InfographicChartKind.values) '"${chart.jsonName}"',
+    ].join(', ');
+    expect(infographicJsonSchemaPrompt, contains('"chart": uno de $charts'));
     for (final field in [
       'title',
       'subtitle',
