@@ -481,14 +481,20 @@ De arriba hacia abajo, vas a encontrar:
    - **"Volver a triar"**, el relleno, que es el que más se usa (ver
      [Volver a triar](#volver-a-triar));
    - **"Volver a la Bandeja"**, con borde y el ícono de la Bandeja: la
-     devuelve para decidir de nuevo, tenga texto o no. Una referencia
-     bibliográfica sin texto no lo ofrece: le queda solo "Volver a triar".
+     devuelve para decidir de nuevo, tenga texto o no.
 
    Con la letra muy grande en un teléfono angosto van uno debajo del otro, a
    lo ancho. Si la fuente todavía espera, la tarjeta dice **"En la Bandeja"**
-   y tiene un solo botón, **"Triar ahora"**, que abre la Bandeja con esa
-   fuente arriba de todo. Una fuente que todavía no tiene texto —un audio sin
-   transcribir— ya dice **"En la Bandeja"**: espera ahí su texto.
+   y tiene un solo botón, **"Triar ahora"**. Es el único lugar del detalle
+   para triar, y lo hace ahí mismo, sin llevarte a la Bandeja: igual que
+   "Volver a triar", abre la hoja **"¿Qué va a Procesado?"**, y con
+   **"Listo"** la fuente queda triada con su documento (el aviso trae
+   **"Ver"** y **"Deshacer"**, que deja todo como estaba). Una fuente que
+   todavía no tiene texto —un audio sin transcribir— ya dice **"En la
+   Bandeja"**: espera ahí su texto, y mientras tanto "Triar ahora" y "Volver
+   a triar" esperan apagados —mantenelos apretados y te dicen por qué— y se
+   prenden solos cuando el texto llega. Una referencia bibliográfica sin
+   texto no tiene qué triar: su tarjeta dice solo qué decidiste.
 3. Si es una nota propia: chips para su **madurez** ("Semilla" / "En
    desarrollo" / "Madura" — más sobre esto en
    [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios))
@@ -506,11 +512,8 @@ De arriba hacia abajo, vas a encontrar:
    propia, sus botones (ver [El panel del elemento](#el-panel-del-elemento)).
 10. En una fuente, **dónde se estudia**: si ya tiene su documento procesado,
     la línea *"Se estudia en Procesado…"* con **"Estudiarlo en Procesado"**,
-    que lo abre. Si todavía no, *"Para estudiarlo, triálo"*: con la fuente en
-    la Bandeja, **"Triar"** abre ahí mismo la hoja **"¿Qué va a Procesado?"**,
-    y con **"Listo"** queda triada con su documento (el aviso trae **"Ver"** y
-    **"Deshacer"**); mientras espera su texto, el botón espera apagado. Si ya
-    la triaste o la descartaste, **"Volver a triar"**.
+    que lo abre. Si todavía no lo tiene, no aparece: para tenerlo, triala
+    desde su tarjeta **"Bandeja"**, debajo del título.
 
     En una nota propia, un **grafo local** con sus vínculos más cercanos, a
     la vista: lo que vinculás se ve acá sin tener que bajar hasta el final.
@@ -1879,8 +1882,10 @@ resumen o sacar una parte. Está en cuatro lugares:
 - En el **documento procesado**, al lado de "Ver el original en la Biblioteca".
 - En el **vacío de Procesado**, si tenés fuentes triadas de antes.
 - En el **detalle de una fuente** ya triada o descartada, en su tarjeta
-  "Bandeja", al lado de "Volver a la Bandeja". (Las notas propias no lo
-  tienen: no tienen documento procesado.)
+  "Bandeja", al lado de "Volver a la Bandeja"; si todavía espera en la
+  Bandeja, ahí mismo está **"Triar ahora"**, que abre la misma hoja. Sin
+  texto todavía, los dos esperan apagados. (Las notas propias no lo tienen:
+  no tienen documento procesado.)
 
 Se abre **la misma hoja "¿Qué va a Procesado?"**, con lo que el documento ya
 tiene. En cada parte que ya tiene algo elegís:
