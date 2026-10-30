@@ -663,3 +663,62 @@ Tres commits, de `73ed09e1` a `1962e5ba` (mejoras 17 y 18).
     base; murieron las 15 mutaciones (entre otras, la guarda al revés, la línea que vuelve a
     ofrecer triar, el motivo fuera del nodo del botón y «Triar ahora» que vuelve a navegar).
   - No se miró en el emulador ni en el teléfono.
+
+### Paso 7b (hecho): «Crear», las marcas adentro y el original idéntico
+
+Seis commits, de `91dc465e` a `9afecf8c` y este avance (mejoras 14, 15 y 16, decisiones G y H).
+
+- **El original, uno solo para Procesado y la Biblioteca** (mejora 16, decisión H):
+  - `OriginalStudy` es sellado: la copia de un documento procesado o el original de una fuente.
+    Las fichas (las tres del paso 4), sus hojas y su menú trabajan sobre los dos, cada uno por su
+    clave: nada de uno pinta al otro;
+  - `OriginalView` es el original entero de los dos lados: las fichas arriba, el PDF, la página
+    como en el teléfono (también en la Biblioteca) y el libro con A− A+. La pantalla de cortes del
+    triaje lo usa también;
+  - una fuente abre como la dejó la persona, con lo marcado a la vista, y lo que se oculta queda
+    recordado (`sourceOriginalHiddenProvider`);
+  - en la Biblioteca no está «Borrar las marcas»: de ahí nada se borra de una vez; lo marcado se
+    retoca a mano, de a una;
+  - salen `StudyBar`, `StudyToggles`, `PdfViewerScreen`, `WebPageViewerScreen`, la barra de
+    abajo del lector y sus 8 claves. Lo que queda de empezar a estudiar está en
+    `study_analysis_start.dart`.
+- **Las marcas, adentro del original** (mejora 15): las fichas salen de la vista previa del
+  documento; debajo de ella, en Procesado y en la Biblioteca, `OriginalMarksLine` dice
+  «Marcado: ● Resumen · ● Palabras clave» (hueco si está oculto), cuánto lleva la IA mientras
+  marca, o dónde se marca si no hay nada. Sale «Abrir el original» de la línea de elegir a mano.
+  El botón grande sigue diciendo «Leer como libro» o «Ver la página», como en la Biblioteca.
+- **«Crear», un solo lugar** (mejora 14, decisión G): el ✨ de la barra del documento procesado
+  y de una nota de la Biblioteca abre una hoja con **Con IA** (organizar, tarjetas, cuestionario,
+  nota derivada y fechas) y **A mano** (tarjeta, nota y vínculo):
+  - lo de la pantalla corre en `createRunsProvider`: cuenta las partes y «Cancelar» corta entre
+    una y otra; lo que llegue después se descarta y nada se guarda a medias;
+  - organizar y buscar fechas los hace la cola de fondo: la fila lo dice con «Ver». La cola
+    publica ahora el id de lo que organiza (`AiOrganizeWorking.itemId`);
+  - el ✨ lleva un anillo que se llena con las partes (gira si no se sabe; quieto sin
+    animaciones);
+  - lo que no se puede se ve apagado con el porqué; «Nota» escribe en las Notas del documento,
+    con «Deshacer» (`ExtractNoteToProcessed.write`);
+  - «Más» queda con lo que no crea nada y no se dibuja vacío; «Tarjetas de repaso», para ver y
+    repasar. Salen `GenerateDerivedNoteButton`, `GenerateQuizButton` y 11 claves.
+- **Verificado:**
+  - analyze en 19, sobre `main` con el paso 4, y otra vez al integrarlo, con el paso 5 y el 4 de F44:
+    ahí pasaron 4.566 pruebas en una corrida y 2.672 de las creaciones y las tarjetas en otra;
+  - 4.526 pruebas de la app, la base, «Crear», Procesado, Estudiar, el visor, la Biblioteca,
+    las notas, la IA que organiza, Ajustes, Organizar, la línea de tiempo y la Bandeja; aparte,
+    2.359 de las creaciones y las tarjetas;
+  - con un censo: todo lo que el documento ofrecía antes sigue al alcance, en «Crear», en «Más» o
+    en su lugar;
+  - murieron las 23 mutaciones. La que cambia la clave del análisis de una fuente sobrevivió
+    primero y la mató la prueba del avance en sus fichas. Entre las otras: ofrecer la nota con la
+    fuente en la papelera, «Cancelar» que no corta, las tarjetas sin contar partes, lo de la cola
+    de otro documento, «Más» vacío, «Crear» en una fuente, el renglón sin lo oculto, la fuente que
+    abre todo apagado y «Borrar las marcas» en la Biblioteca.
+- **Queda abierto:**
+  - organizar y buscar fechas no tienen «Cancelar»: los hace la cola de fondo, que no corta lo
+    que está en curso, y la fila ofrece «Ver»;
+  - el cuestionario es un solo pedido: cancelar descarta lo que llegue, pero el modelo termina;
+  - el botón del original sigue diciendo «Leer como libro» (no «Ver el documento»), como en la
+    Biblioteca desde F35;
+  - el editor de propiedades del detalle de una fuente se desborda en 360 dp con la letra al doble
+    de las pruebas; no es de este paso;
+  - el marco nuevo de F47 (paso 1) se pone sobre `OriginalScreen` y `OriginalView`.
