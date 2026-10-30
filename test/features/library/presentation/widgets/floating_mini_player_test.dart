@@ -8,7 +8,6 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/library/presentation/widgets/floating_mini_player.dart';
-import 'package:sinapsis/features/library/presentation/widgets/playback_synced_text.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
@@ -110,9 +109,8 @@ void main() {
   /// Arma lo mismo que el detalle: el reproductor arriba de todo, mucho
   /// texto abajo para desplazarse, y el mini reproductor encima.
   Future<({ScrollController scroll, ProviderContainer container})> pump(
-    WidgetTester tester, {
-    PlaybackFollowLink? link,
-  }) async {
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -157,7 +155,6 @@ void main() {
                     item: _item,
                     scrollController: scroll,
                     playerKey: playerKey,
-                    link: link,
                   ),
                 ),
               ],
@@ -283,30 +280,8 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('"Volver al audio" deja que el texto muestre lo que suena, '
-      'sin subir hasta el reproductor', (tester) async {
-    var revealed = 0;
-    final link = PlaybackFollowLink()
-      ..revealPlaying = () {
-        revealed++;
-        return true;
-      };
-    final (:scroll, container: _) = await pump(tester, link: link);
-    await startPlaying(tester);
-    await scrollAway(tester, scroll);
-
-    await tester.tap(find.byKey(const Key('mini-player-back')));
-    await tester.pumpAndSettle();
-
-    expect(revealed, 1);
-    expect(scroll.offset, 1500);
-    expect(miniVisible(tester), isTrue);
-
-    await tester.pumpWidget(const SizedBox());
-  });
-
-  testWidgets('"Volver al audio" sin un texto que siga al audio sube hasta '
-      'el reproductor, y el mini reproductor se va', (tester) async {
+  testWidgets('"Volver al audio" sube hasta el reproductor, y el mini '
+      'reproductor se va', (tester) async {
     final (:scroll, container: _) = await pump(tester);
     await startPlaying(tester);
     await scrollAway(tester, scroll);
@@ -318,85 +293,5 @@ void main() {
     expect(miniVisible(tester), isFalse);
 
     await tester.pumpWidget(const SizedBox());
-  });
-
-  testWidgets('si el texto no tiene nada que mostrar, "Volver al audio" '
-      'también sube hasta el reproductor', (tester) async {
-    final link = PlaybackFollowLink()..revealPlaying = () => false;
-    final (:scroll, container: _) = await pump(tester, link: link);
-    await startPlaying(tester);
-    await scrollAway(tester, scroll);
-
-    await tester.tap(find.byKey(const Key('mini-player-back')));
-    await tester.pumpAndSettle();
-
-    expect(scroll.offset, 0);
-    expect(miniVisible(tester), isFalse);
-
-    await tester.pumpWidget(const SizedBox());
-  });
-
-  group('con la transcripción plegada en la tarjeta de estudiar (F39)', () {
-    testWidgets('"Volver al audio" la despliega y, ya armada, muestra lo que '
-        'suena, sin subir hasta el reproductor', (tester) async {
-      var unfolded = 0;
-      var revealed = 0;
-      final link = PlaybackFollowLink();
-      link.unfold = () {
-        unfolded++;
-        // Desplegada, la transcripción se arma y se anota.
-        link.revealPlaying = () {
-          revealed++;
-          return true;
-        };
-      };
-      final (:scroll, container: _) = await pump(tester, link: link);
-      await startPlaying(tester);
-      await scrollAway(tester, scroll);
-
-      await tester.tap(find.byKey(const Key('mini-player-back')));
-      await tester.pumpAndSettle();
-
-      expect(unfolded, 1);
-      expect(revealed, 1);
-      expect(scroll.offset, 1500);
-
-      await tester.pumpWidget(const SizedBox());
-    });
-
-    testWidgets('si desplegada no tiene nada que mostrar, sube hasta el '
-        'reproductor', (tester) async {
-      final link = PlaybackFollowLink();
-      link.unfold = () => link.revealPlaying = () => false;
-      final (:scroll, container: _) = await pump(tester, link: link);
-      await startPlaying(tester);
-      await scrollAway(tester, scroll);
-
-      await tester.tap(find.byKey(const Key('mini-player-back')));
-      await tester.pumpAndSettle();
-
-      expect(scroll.offset, 0);
-
-      await tester.pumpWidget(const SizedBox());
-    });
-
-    testWidgets('ya desplegada y sin nada que mostrar, no la vuelve a '
-        'desplegar: sube hasta el reproductor', (tester) async {
-      var unfolded = 0;
-      final link = PlaybackFollowLink()
-        ..revealPlaying = (() => false)
-        ..unfold = () => unfolded++;
-      final (:scroll, container: _) = await pump(tester, link: link);
-      await startPlaying(tester);
-      await scrollAway(tester, scroll);
-
-      await tester.tap(find.byKey(const Key('mini-player-back')));
-      await tester.pumpAndSettle();
-
-      expect(unfolded, 0);
-      expect(scroll.offset, 0);
-
-      await tester.pumpWidget(const SizedBox());
-    });
   });
 }

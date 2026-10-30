@@ -12,7 +12,8 @@ import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/usecases/analyze_for_study.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_document_card.dart';
+import 'package:sinapsis/features/study/presentation/widgets/study_progress_strip.dart';
+import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -20,6 +21,10 @@ import '../../../../support/fake_study_analysis.dart';
 import '../../../../support/memory_study_repository.dart';
 import '../../../../support/read_aloud_test_support.dart';
 
+/// Los botones de estudio (F36, F39) y la franja de cómo va el análisis, solos:
+/// la tarjeta «Estudiar el documento» de la Biblioteca que los juntaba salió
+/// en F45 (paso 3), y hoy están arriba del original a pantalla completa y en
+/// Procesado.
 void main() {
   final es = AppLocalizationsEs();
   const content =
@@ -68,8 +73,6 @@ void main() {
     LanguageModelStatus status = const LanguageModelReady(
       provider: AiProvider.gemma,
     ),
-    WidgetBuilder? extractedText,
-    ExpansibleController? extractedTextController,
   }) async {
     repository = MemoryStudyRepository(study);
     analysis = FakeStudyAnalysis();
@@ -92,17 +95,17 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
-          locale: const Locale('es'),
+        child: const MaterialApp(
+          locale: Locale('es'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SingleChildScrollView(
-              child: StudyDocumentCard(
-                text: text,
-                extractedText: extractedText,
-                extractedTextController: extractedTextController,
-                extractedTextSubtitle: 'Para buscar',
+              child: Column(
+                children: [
+                  StudyToggles(text: text),
+                  StudyProgressStrip(text: text),
+                ],
               ),
             ),
           ),
@@ -467,130 +470,6 @@ void main() {
 
       expect(find.byType(LinearProgressIndicator), findsNothing);
       expect(find.text(es.studyUnreadAcknowledge), findsNothing);
-    });
-  });
-
-  group('Extraer', () {
-    testWidgets('el texto extraído se arma recién al desplegarlo', (
-      tester,
-    ) async {
-      var built = 0;
-      await pump(
-        tester,
-        extractedText: (context) {
-          built++;
-          return const Text('El texto entero');
-        },
-      );
-
-      expect(find.text('Para buscar'), findsOneWidget);
-      expect(built, 0);
-      await tester.tap(find.text(es.studyExtractText));
-      await tester.pumpAndSettle();
-
-      expect(built, greaterThan(0));
-      expect(find.text('El texto entero'), findsOneWidget);
-    });
-
-    testWidgets('sin texto extraído —una página web—, no hay esa fila', (
-      tester,
-    ) async {
-      await pump(tester);
-
-      expect(find.text(es.studyExtractText), findsNothing);
-    });
-  });
-
-  group('en una fuente de consulta (F41, decisión K; F43, decisión J)', () {
-    testWidgets('marca el original y trae su texto, sin el resumen, la '
-        'síntesis ni las palabras clave para leer: se extraen en Repasar', (
-      tester,
-    ) async {
-      await pump(
-        tester,
-        study: analyzed,
-        extractedText: (_) => const Text('el texto entero'),
-      );
-
-      expect(find.byKey(const Key('study-toggle-summary')), findsOneWidget);
-      expect(find.text(es.studyLegendSummary), findsOneWidget);
-      expect(find.text(es.studyExtractTitle), findsOneWidget);
-      expect(find.byKey(const Key('study-extract-text')), findsOneWidget);
-      for (final key in [
-        'study-extract-summary',
-        'study-extract-synthesis',
-        'study-extract-keywords',
-      ]) {
-        expect(find.byKey(Key(key)), findsNothing, reason: key);
-      }
-    });
-
-    testWidgets('sin texto que mostrar, ni «Extraer»', (tester) async {
-      await pump(tester, study: analyzed);
-
-      expect(find.text(es.studyExtractTitle), findsNothing);
-      expect(find.byKey(const Key('study-toggle-summary')), findsOneWidget);
-    });
-  });
-
-  group('Volver a analizar', () {
-    Future<void> open(WidgetTester tester) async {
-      await tap(tester, 'study-menu');
-      await tester.tap(find.byKey(const Key('study-reanalyze')));
-      await tester.pumpAndSettle();
-    }
-
-    testWidgets('pregunta antes; al confirmar, borra lo estudiado y analiza '
-        'de nuevo', (tester) async {
-      await pump(tester, study: analyzed);
-
-      await open(tester);
-      expect(find.text(es.studyReanalyzeBody), findsOneWidget);
-      await tap(tester, 'study-reanalyze-confirm');
-
-      expect(repository.cleared, ['r1']);
-      expect(analysis.starts, [
-        (content: content, markdown: true, itemId: 'i1'),
-      ]);
-    });
-
-    testWidgets('al cancelar, no toca nada', (tester) async {
-      await pump(tester, study: analyzed);
-
-      await open(tester);
-      await tester.tap(find.text(es.commonCancel));
-      await tester.pumpAndSettle();
-
-      expect(repository.cleared, isEmpty);
-      expect(analysis.starts, isEmpty);
-    });
-
-    testWidgets('sin el modelo listo, no borra nada', (tester) async {
-      await pump(
-        tester,
-        study: analyzed,
-        status: const LanguageModelNeedsDownload(),
-      );
-
-      await open(tester);
-      await tap(tester, 'study-reanalyze-confirm');
-
-      expect(repository.cleared, isEmpty);
-      expect(find.text(es.studyModelRequired), findsOneWidget);
-    });
-
-    testWidgets('mientras analiza, no se ofrece', (tester) async {
-      await pump(tester, study: analyzed);
-      analysis.shown = const StudyAnalysisRunning(null);
-      await tester.pump();
-
-      await tester.tap(find.byKey(const Key('study-menu')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
-      final item = tester.widget<PopupMenuItem<void>>(
-        find.byKey(const Key('study-reanalyze')),
-      );
-      expect(item.enabled, isFalse);
     });
   });
 }

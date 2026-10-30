@@ -43,7 +43,6 @@ void main() {
   Future<void> pump(
     WidgetTester tester, {
     List<Override> overrides = const [],
-    bool showImages = true,
   }) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -60,14 +59,7 @@ void main() {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
-            body: SingleChildScrollView(
-              child: Column(
-                children: [
-                  ItemContentSection(item: item, showImages: showImages),
-                  if (!showImages) ItemPhotosGrid(itemId: item.id),
-                ],
-              ),
-            ),
+            body: SingleChildScrollView(child: ItemContentSection(item: item)),
           ),
         ),
       ),
@@ -185,84 +177,38 @@ void main() {
     expect(repository.downloads.single.forced, isTrue);
   });
 
-  group('con las fotos en la tarjeta de estudiar (F39)', () {
-    testWidgets('«Contenido» muestra lo demás, sin las fotos y sin contarlas', (
-      tester,
-    ) async {
-      await add(
-        RenditionKind.pdf,
-        'originales/src/contenido/informe.pdf',
-        title: 'Informe anual',
-        size: 1024 * 1024,
-      );
-      await add(
-        RenditionKind.image,
-        'originales/src/contenido/coliseo.jpg',
-        size: 3 * 1024 * 1024,
-      );
-      await pump(tester, showImages: false);
+  testWidgets('las fotos, en grilla, en su orden; tocar una ofrece verla y '
+      'abrirla (F45, paso 3: ya no van en una tarjeta aparte)', (tester) async {
+    await add(
+      RenditionKind.image,
+      'originales/src/contenido/b.jpg',
+      title: 'Foro',
+      position: 2,
+    );
+    await add(
+      RenditionKind.image,
+      'originales/src/contenido/a.jpg',
+      title: 'Coliseo',
+      position: 1,
+    );
+    await pump(tester);
 
-      expect(find.text('Documentos · 1'), findsOneWidget);
-      expect(find.text('Imágenes · 1'), findsNothing);
-      expect(find.text('1 archivo · 1,0 MB'), findsOneWidget);
-      // La grilla va aparte, en la tarjeta.
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('item-content-section')),
-          matching: find.byType(InkWell),
-        ),
-        findsOneWidget,
-        reason: 'solo el documento',
-      );
-    });
+    final section = find.byKey(const Key('item-content-section'));
+    final grid = find.descendant(
+      of: section,
+      matching: find.byType(AttachmentImageGrid),
+    );
+    final tiles = find.descendant(of: grid, matching: find.byType(Tooltip));
+    expect(
+      [for (final t in tester.widgetList<Tooltip>(tiles)) t.message],
+      ['Coliseo', 'Foro'],
+    );
 
-    testWidgets('con solo fotos y nada por bajar, «Contenido» no se dibuja', (
-      tester,
-    ) async {
-      await add(RenditionKind.image, 'originales/src/contenido/coliseo.jpg');
-      await pump(tester, showImages: false);
-
-      expect(find.byKey(const Key('item-content-section')), findsNothing);
-      expect(find.byKey(const Key('item-photos-grid')), findsOneWidget);
-    });
-
-    testWidgets('las fotos, en grilla, en su orden; tocar una ofrece verla y '
-        'abrirla, como antes', (tester) async {
-      await add(
-        RenditionKind.image,
-        'originales/src/contenido/b.jpg',
-        title: 'Foro',
-        position: 2,
-      );
-      await add(
-        RenditionKind.image,
-        'originales/src/contenido/a.jpg',
-        title: 'Coliseo',
-        position: 1,
-      );
-      await add(RenditionKind.pdf, 'originales/src/contenido/informe.pdf');
-      await pump(tester, showImages: false);
-
-      final grid = find.byKey(const Key('item-photos-grid'));
-      final tiles = find.descendant(of: grid, matching: find.byType(Tooltip));
-      expect(
-        [for (final t in tester.widgetList<Tooltip>(tiles)) t.message],
-        ['Coliseo', 'Foro'],
-      );
-
-      await tester.tap(
-        find.descendant(of: grid, matching: find.byType(InkWell)).first,
-      );
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('content-open')), findsOneWidget);
-    });
-
-    testWidgets('sin fotos, la grilla no ocupa lugar', (tester) async {
-      await add(RenditionKind.pdf, 'originales/src/contenido/informe.pdf');
-      await pump(tester, showImages: false);
-
-      expect(find.byKey(const Key('item-photos-grid')), findsNothing);
-    });
+    await tester.tap(
+      find.descendant(of: grid, matching: find.byType(InkWell)).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('content-open')), findsOneWidget);
   });
 }
 

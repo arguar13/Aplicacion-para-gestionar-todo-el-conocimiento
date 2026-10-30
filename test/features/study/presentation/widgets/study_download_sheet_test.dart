@@ -20,7 +20,6 @@ import 'package:sinapsis/features/organize/presentation/providers/organize_provi
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_document_card.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_download_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -367,57 +366,6 @@ void main() {
 
       expect(find.byKey(const Key('study-download-progress')), findsNothing);
       expect(saver.savedFileName, 'Historia — resumen.pdf');
-    });
-  });
-
-  group('el botón de la tarjeta', () {
-    Widget card({KnowledgeItem? withItem}) =>
-        StudyDocumentCard(text: text, item: withItem);
-
-    testWidgets('con un original que se sabe marcar, abre la hoja', (
-      tester,
-    ) async {
-      await pump(tester, card(withItem: item), study: analyzed);
-
-      expect(find.byKey(const Key('study-download')), findsOneWidget);
-      await tap(tester, 'study-download');
-
-      expect(find.byKey(const Key('study-download-sheet')), findsOneWidget);
-    });
-
-    testWidgets('sin el elemento no hay botón', (tester) async {
-      await pump(tester, card(), study: analyzed);
-
-      expect(find.byKey(const Key('study-download')), findsNothing);
-    });
-
-    testWidgets('si el formato no tiene escritor, no hay botón', (
-      tester,
-    ) async {
-      await pump(
-        tester,
-        card(withItem: item),
-        study: analyzed,
-        writers: {MarkedDocumentFormat.docx: writer},
-      );
-
-      expect(find.byKey(const Key('study-download')), findsNothing);
-    });
-
-    testWidgets('si el original no es de un formato que se marque, no hay '
-        'botón', (tester) async {
-      final path = await files.save(
-        bytes: buildPlainZip(),
-        suggestedName: 'a.zip',
-        id: 'item-2',
-      );
-      final zipped = item.copyWith(
-        source: item.source.copyWith(originalFilePath: path),
-      );
-
-      await pump(tester, card(withItem: zipped), study: analyzed);
-
-      expect(find.byKey(const Key('study-download')), findsNothing);
     });
   });
 }

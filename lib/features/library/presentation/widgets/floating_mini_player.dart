@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
-import 'package:sinapsis/features/library/presentation/widgets/playback_synced_text.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/mini_player.dart';
@@ -11,21 +10,21 @@ import 'package:sinapsis/features/viewer/presentation/widgets/mini_player.dart';
 /// marca [playerKey]— quedó fuera de la pantalla, y se va cuando el
 /// reproductor vuelve a verse.
 ///
-/// "Volver al audio" lleva hasta lo que está sonando en el texto —ver
-/// [PlaybackFollowLink]—; si el texto no lo sigue, al reproductor.
+/// "Volver al audio" sube hasta el reproductor. Antes llevaba a la palabra
+/// que sonaba en la transcripción (F23); la transcripción de una fuente ya no
+/// se muestra en la Biblioteca (F45, paso 3): se lee en su documento
+/// procesado.
 class FloatingMiniPlayer extends ConsumerStatefulWidget {
   const FloatingMiniPlayer({
     required this.item,
     required this.scrollController,
     required this.playerKey,
-    this.link,
     super.key,
   });
 
   final KnowledgeItem item;
   final ScrollController scrollController;
   final GlobalKey playerKey;
-  final PlaybackFollowLink? link;
 
   @override
   ConsumerState<FloatingMiniPlayer> createState() => _FloatingMiniPlayerState();
@@ -80,22 +79,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
     return visible >= box.size.height / 3;
   }
 
-  void _backToAudio() {
-    final link = widget.link;
-    if (link?.revealPlaying?.call() ?? false) return;
-    // La transcripción plegada no está en pantalla (F39): se despliega y,
-    // ya armada, muestra lo que suena.
-    if (link != null && link.revealPlaying == null && link.unfold != null) {
-      link.unfold!();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (!(link.revealPlaying?.call() ?? false)) _showPlayer();
-      });
-      return;
-    }
-    _showPlayer();
-  }
-
   void _showPlayer() {
     final player = widget.playerKey.currentContext;
     if (player == null) return;
@@ -139,7 +122,7 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
                     duration: const Duration(milliseconds: 200),
                     child: MiniPlayer(
                       controller: session.controller,
-                      onBackToAudio: _backToAudio,
+                      onBackToAudio: _showPlayer,
                     ),
                   ),
                 ),

@@ -17,8 +17,8 @@ import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 /// real, envuelto en su adaptador (`marked_document_writers.dart`).
 ///
 /// Mientras un formato no esté en el mapa, su original no se puede descargar
-/// marcado: la tarjeta de estudio no ofrece «Descargar» y el caso de uso
-/// contesta `MarkedDownloadError.unsupportedFormat`. Las pruebas lo pisan con
+/// marcado: la hoja no se ofrece y el caso de uso contesta
+/// `MarkedDownloadError.unsupportedFormat`. Las pruebas lo pisan con
 /// escritores de mentira.
 final markedDocumentWritersProvider =
     Provider<Map<MarkedDocumentFormat, MarkedDocumentWriter>>(
@@ -68,8 +68,9 @@ typedef MarkedFormatRequest = ({SourceKind kind, String? path});
 
 /// En qué formato se descargaría el original marcado, o `null` si no se
 /// puede: no es de un formato que se sepa marcar, o no hay quien lo escriba
-/// (ver [markedDocumentWritersProvider]). Es lo que decide si la tarjeta de
-/// estudio ofrece «Descargar».
+/// (ver [markedDocumentWritersProvider]). Es lo que decide si se ofrece
+/// «Descargar»: lo ofrecía la tarjeta «Estudiar el documento» de la
+/// Biblioteca, que salió en F45 (paso 3), y la hoja espera su nuevo lugar.
 final markedDownloadFormatProvider = FutureProvider.autoDispose
     .family<MarkedDocumentFormat?, MarkedFormatRequest>((ref, request) async {
       final path = request.path;

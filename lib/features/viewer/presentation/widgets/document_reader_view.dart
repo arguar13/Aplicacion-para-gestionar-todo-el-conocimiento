@@ -120,8 +120,8 @@ class DocumentReaderView extends ConsumerStatefulWidget {
   /// adjunto, que no se estudia—, no se pinta nada.
   final StudyText? study;
 
-  /// Si abajo van los botones de estudiar. Dentro de la tarjeta de estudiar
-  /// del detalle, que ya los tiene arriba, no: se repetirían.
+  /// Si abajo van los botones de estudiar. Sobre la copia del original de un
+  /// documento procesado, que ya los tiene arriba, no: se repetirían.
   final bool showStudyBar;
 
   @override

@@ -2,9 +2,9 @@ import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Lo que dice la franja de la tarjeta de estudiar mientras analiza (F39),
-/// aparte del widget para decirlo igual donde haga falta y probarlo sin
-/// dibujar nada.
+/// Lo que dice la franja de avance mientras analiza (F39,
+/// `StudyProgressStrip`), aparte del widget para decirlo igual donde haga
+/// falta y probarlo sin dibujar nada.
 ///
 /// - Si la IA en la nube falló por algo pasajero y se repite sola:
 ///   «Reintentando (2 de 4): la respuesta se cortó a mitad…».

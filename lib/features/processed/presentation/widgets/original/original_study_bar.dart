@@ -12,7 +12,7 @@ import 'package:sinapsis/features/study/domain/services/study_words.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_keywords_fill_providers.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_document_card.dart';
+import 'package:sinapsis/features/study/presentation/widgets/study_progress_strip.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Los botones de estudio del original de un documento procesado (F43, paso

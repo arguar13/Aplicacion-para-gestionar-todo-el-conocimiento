@@ -28,18 +28,6 @@ final attachmentsProvider = StreamProvider.autoDispose
           ref.watch(attachmentRepositoryProvider).watchAttachments(itemId),
     );
 
-/// Las fotos del «Contenido» de un elemento, en su orden (F39): las que van
-/// en la tarjeta de estudiar.
-final itemPhotosProvider = Provider.autoDispose
-    .family<List<Attachment>, String>(
-      (ref, itemId) => [
-        for (final a
-            in ref.watch(attachmentsProvider(itemId)).valueOrNull ??
-                const <Attachment>[])
-          if (a.group == AttachmentGroup.images) a,
-      ],
-    );
-
 /// La lista de trabajo de un elemento, en vivo: lo que falta, lo que quedó
 /// afuera.
 final attachmentDownloadsProvider = StreamProvider.autoDispose
