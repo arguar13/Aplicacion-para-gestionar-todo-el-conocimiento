@@ -11,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/set_union_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/study_creations_merge.dart';
+import 'package:sinapsis/features/vault/data/merge/text_notes_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/vocabulary_merge.dart';
 
 import '../../../../support/test_vault.dart';
@@ -778,6 +779,10 @@ void main() {
       );
       // «Lo creado» de Estudiar (F43, v48).
       expect(kStudyCreationColumns.toSet(), await columnsOf('study_creations'));
+      // Las notas en el texto (F45, mejora 19, v49), menos su clave local del
+      // índice de texto, como las partes.
+      expect({...kTextNoteColumns, 'row_key'}, await columnsOf('text_notes'));
+      expect(kTextNoteColumns, isNot(contains('row_key')));
       // Las pasadas de la IA, lo que «no era» y las asignaciones de
       // propiedades, que ahora llevan su pasada (F27).
       expect(kAiRunColumns.toSet(), await columnsOf('ai_runs'));

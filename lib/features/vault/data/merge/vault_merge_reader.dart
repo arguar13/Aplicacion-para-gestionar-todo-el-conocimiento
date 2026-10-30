@@ -12,6 +12,7 @@ import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
 import 'package:sinapsis/features/vault/data/merge/rendition_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/set_union_rules.dart';
 import 'package:sinapsis/features/vault/data/merge/space_merge.dart';
+import 'package:sinapsis/features/vault/data/merge/text_notes_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/vocabulary_merge.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 
@@ -144,6 +145,9 @@ class VaultMergeReader {
       ),
       newStudyCreations: await _scalar(
         'SELECT COUNT(*) ${SetUnionRules.studyCreationsFrom}',
+      ),
+      newTextNotes: await _scalar(
+        'SELECT COUNT(*) ${TextNotesMerge.from(dryRun: true)}',
       ),
       newConversations: await _scalar(
         '''

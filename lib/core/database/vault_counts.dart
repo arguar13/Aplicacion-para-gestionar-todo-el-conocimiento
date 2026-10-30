@@ -131,6 +131,11 @@ class VaultCounts {
   /// cuentan las otras listas, y esta tabla todavía no existía cuando corrían.
   static const studyCreationTables = <String>['study_creations'];
 
+  /// Las notas en el texto (F45, mejora 19, v49). Aparte por lo mismo que las
+  /// anteriores: los pasos hasta v49 cuentan las otras listas, y esta tabla
+  /// todavía no existía cuando corrían.
+  static const textNoteTables = <String>['text_notes'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

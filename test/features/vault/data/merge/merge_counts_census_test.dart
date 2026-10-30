@@ -47,6 +47,7 @@ void main() {
       preview: 'newStudyCreations',
       result: 'studyCreationsAdded',
     ),
+    'text_notes': (preview: 'newTextNotes', result: 'textNotesAdded'),
   };
 
   /// Las tablas que la vista previa no cuenta aparte, y por qué. Una tabla

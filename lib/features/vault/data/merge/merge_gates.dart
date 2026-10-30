@@ -69,6 +69,8 @@ class MergeGates {
     ...VaultCounts.processedImageTables,
     // «Lo creado» de Estudiar (F43): una fusión solo suma.
     ...VaultCounts.studyCreationTables,
+    // Las notas en el texto (F45, mejora 19): una fusión solo suma.
+    ...VaultCounts.textNoteTables,
   ];
 
   /// Las tablas donde una referencia rota puede venir de la fusión.
@@ -109,6 +111,9 @@ class MergeGates {
     'processed_parts',
     'processed_originals',
     'processed_images',
+    // Las notas en el texto, de una fuente, un procesado o una creación
+    // (F45, mejora 19).
+    'text_notes',
   ];
 
   /// Lo que se cuenta de una tabla cuando no es toda: el espejo de las

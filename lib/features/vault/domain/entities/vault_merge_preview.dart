@@ -58,6 +58,10 @@ sealed class VaultMergePreview with _$VaultMergePreview {
     /// «Lo creado» de Estudiar (F43) que acá no está, con la regla de la unión.
     @Default(0) int newStudyCreations,
 
+    /// Las notas en el texto (F45, mejora 19) que acá no están, con la regla
+    /// de la unión.
+    @Default(0) int newTextNotes,
+
     /// Archivos originales de la copia que esta bóveda no tiene, con cuánto
     /// pesan; y los que la copia dice tener y no trae.
     @Default(0) int newFiles,
@@ -86,5 +90,6 @@ sealed class VaultMergePreview with _$VaultMergePreview {
       newDatedEvents == 0 &&
       newProcessedParts == 0 &&
       newStudyCreations == 0 &&
+      newTextNotes == 0 &&
       newFiles == 0;
 }

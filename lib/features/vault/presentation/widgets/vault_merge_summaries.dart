@@ -35,6 +35,8 @@ List<String> vaultMergePreviewLines(
     l10n.vaultMergePreviewProcessedParts(preview.newProcessedParts),
   if (preview.newStudyCreations > 0)
     l10n.f43DataMergePreviewCreations(preview.newStudyCreations),
+  if (preview.newTextNotes > 0)
+    l10n.f45S8MergePreviewTextNotes(preview.newTextNotes),
   if (preview.newFiles > 0)
     l10n.vaultMergePreviewFiles(
       preview.newFiles,

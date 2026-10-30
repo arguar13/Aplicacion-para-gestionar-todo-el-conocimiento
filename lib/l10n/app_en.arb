@@ -15622,5 +15622,14 @@
   "f47P2FocusedReading": "Focused reading",
   "@f47P2FocusedReading": {"description": "Ajustes (F47, paso 2): el interruptor que achica solo el reproductor de lectura mientras te desplazás."},
   "f47P2FocusedReadingHint": "The reading player collapses on its own while you scroll",
-  "@f47P2FocusedReadingHint": {"description": "Ajustes (F47, paso 2): la explicación del interruptor «Lectura enfocada»."}
+  "@f47P2FocusedReadingHint": {"description": "Ajustes (F47, paso 2): la explicación del interruptor «Lectura enfocada»."},
+  "f45S8MergePreviewTextNotes": "{count, plural, =1{1 note in the text} other{{count} notes in the text}}",
+  "@f45S8MergePreviewTextNotes": {
+    "description": "F45, paso 8 (mejora 19): renglón del resumen de unir bóvedas: notas escritas sobre un texto (el original de la Biblioteca, la copia de Procesado, el texto procesado o una creación) que la copia trae y esta bóveda no tiene.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

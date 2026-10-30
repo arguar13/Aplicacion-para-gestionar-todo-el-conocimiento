@@ -92,6 +92,9 @@ sealed class VaultMergeResult with _$VaultMergeResult {
     /// «Lo creado» de Estudiar (F43, v48).
     @Default(0) int studyCreationsAdded,
 
+    /// Las notas en el texto (F45, mejora 19, v49).
+    @Default(0) int textNotesAdded,
+
     /// Las pasadas de la IA y lo que la persona dijo que «no era» (F27).
     @Default(0) int aiRunsAdded,
     @Default(0) int aiRejectionsAdded,
@@ -131,6 +134,7 @@ sealed class VaultMergeResult with _$VaultMergeResult {
       processedOriginalsAdded == 0 &&
       processedImagesAdded == 0 &&
       studyCreationsAdded == 0 &&
+      textNotesAdded == 0 &&
       aiRunsAdded == 0 &&
       aiRejectionsAdded == 0;
 }

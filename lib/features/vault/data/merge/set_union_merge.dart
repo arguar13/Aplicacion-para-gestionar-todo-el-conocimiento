@@ -5,6 +5,7 @@ import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_work.dart';
 import 'package:sinapsis/features/vault/data/merge/set_union_rules.dart';
 import 'package:sinapsis/features/vault/data/merge/study_creations_merge.dart';
+import 'package:sinapsis/features/vault/data/merge/text_notes_merge.dart';
 
 /// Cuánto entró de lo que se une por conjuntos.
 class SetUnionResult {
@@ -26,6 +27,7 @@ class SetUnionResult {
     this.processedOriginals = 0,
     this.processedImages = 0,
     this.studyCreations = 0,
+    this.textNotes = 0,
   });
 
   final int relations;
@@ -61,6 +63,9 @@ class SetUnionResult {
 
   /// «Lo creado» de Estudiar (F43).
   final int studyCreations;
+
+  /// Las notas en el texto (F45, mejora 19).
+  final int textNotes;
 }
 
 /// Las columnas de cada tabla que se une, en el orden en que se copian. Un test
@@ -654,6 +659,18 @@ class SetUnionMerge {
     // [StudyCreationsMerge]).
     await StudyCreationsMerge(_db).adoptNewer();
 
+    // Las notas en el texto (F45, mejora 19): después de lo creado, que puede
+    // ser su dueño. Entra lo que acá no hay, por id, y de una que las dos
+    // tienen queda lo editado más tarde (ver [TextNotesMerge]).
+    final textNotes = await _union(
+      _db.textNotes,
+      'text_notes',
+      kTextNoteColumns,
+      TextNotesMerge.from(),
+      select: {'rendition_id': TextNotesMerge.renditionOf},
+    );
+    await TextNotesMerge(_db).adoptNewer();
+
     return SetUnionResult(
       relations: relations,
       highlights: highlights,
@@ -672,6 +689,7 @@ class SetUnionMerge {
       processedOriginals: processedOriginals,
       processedImages: processedImages,
       studyCreations: studyCreations,
+      textNotes: textNotes,
     );
   }
 

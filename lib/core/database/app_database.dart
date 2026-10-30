@@ -47,6 +47,7 @@ import 'package:sinapsis/core/database/tables/spaces.dart';
 import 'package:sinapsis/core/database/tables/study_creations.dart';
 import 'package:sinapsis/core/database/tables/study_marks.dart';
 import 'package:sinapsis/core/database/tables/suggestions.dart';
+import 'package:sinapsis/core/database/tables/text_notes.dart';
 import 'package:sinapsis/core/database/tables/trashed_contents.dart';
 import 'package:sinapsis/core/database/vault_counts.dart';
 import 'package:sinapsis/core/database/vocabulary_hierarchy.dart';
@@ -147,6 +148,7 @@ part 'app_database.g.dart';
     ProcessedOriginals,
     ProcessedImages,
     StudyCreations,
+    TextNotes,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -191,7 +193,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 48;
+  static const currentSchemaVersion = 49;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -207,6 +209,7 @@ class AppDatabase extends _$AppDatabase {
       await _createSearchIndex();
       await _createChunkSearchIndex();
       await _createProcessedPartSearchIndex();
+      await _createTextNoteSearchIndex();
       await _createVocabularyHierarchyTriggers();
       await _createReferenceTriggers();
       await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
@@ -1368,6 +1371,46 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createIndex(idxStudyCreationsStatus);
           await _requireSameCounts(before, step: 'v48', tables: tables);
         }
+
+        // Las notas en el texto (F45, mejora 19, decisión I): `text_notes`,
+        // una para todos los textos —el original de la Biblioteca, la copia de
+        // Procesado, el texto procesado y lo creado—, y su índice de texto,
+        // que lleva también las notas de los resaltados de antes (F38). Los
+        // resaltados no se migran ni se tocan: el índice solo los lee, y se
+        // comprueba que tenga uno por cada resaltado con nota. Una tabla nueva
+        // y vacía: los conteos de todo lo demás son compuerta.
+        if (from < 49) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+            ...VaultCounts.studyTables,
+            ...VaultCounts.itemSpaceTables,
+            ...VaultCounts.datedEventTables,
+            ...VaultCounts.processedTables,
+            ...VaultCounts.processedImageTables,
+            ...VaultCounts.studyCreationTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.createTable(textNotes);
+          for (final index in [
+            idxTextNotesItem,
+            idxTextNotesCreation,
+            idxTextNotesRendition,
+          ]) {
+            await migrator.createIndex(index);
+          }
+          await _rebuildTextNoteSearchIndex();
+          await _requireSameCounts(before, step: 'v49', tables: tables);
+        }
       });
     },
     beforeOpen: (details) async {
@@ -1519,6 +1562,41 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(createProcessedPartSearchTable);
     for (final trigger in processedPartSearchTriggers) {
       await customStatement(trigger);
+    }
+  }
+
+  /// Crea el índice de texto de las notas en el texto (F45, mejora 19) y los
+  /// triggers que lo mantienen: ver `createTextNoteSearchTable`.
+  Future<void> _createTextNoteSearchIndex() async {
+    await customStatement(createTextNoteSearchTable);
+    for (final trigger in textNoteSearchTriggers) {
+      await customStatement(trigger);
+    }
+  }
+
+  /// Suelta el índice de texto de las notas y lo vuelve a crear y a llenar: las
+  /// notas y las de los resaltados de antes. El índice es derivado: rehacerlo
+  /// no toca ningún dato. Exige al final una entrada por cada una.
+  Future<void> _rebuildTextNoteSearchIndex() async {
+    for (final trigger in textNoteSearchTriggerNames) {
+      await customStatement('DROP TRIGGER IF EXISTS $trigger');
+    }
+    await customStatement('DROP TABLE IF EXISTS text_note_search');
+    await _createTextNoteSearchIndex();
+    for (final statement in populateTextNoteSearch) {
+      await customStatement(statement);
+    }
+    final indexed = await _count('text_note_search');
+    final notes = (await customSelect(
+      'SELECT (SELECT COUNT(*) FROM text_notes) + (SELECT COUNT(*) '
+      'FROM highlights h JOIN renditions r ON r.id = h.rendition_id '
+      "WHERE h.note IS NOT NULL AND trim(h.note) <> '') AS n",
+    ).getSingle()).read<int>('n');
+    if (indexed != notes) {
+      throw StateError(
+        'El índice de texto de las notas quedó con $indexed entradas y hay '
+        '$notes notas.',
+      );
     }
   }
 

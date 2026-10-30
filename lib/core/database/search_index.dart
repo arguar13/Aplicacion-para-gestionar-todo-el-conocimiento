@@ -395,3 +395,121 @@ const processedPartSearchTriggerNames = [
 const rebuildProcessedPartSearch =
     'INSERT INTO processed_part_search (processed_part_search) '
     "VALUES ('rebuild')";
+
+/// El índice de texto de las NOTAS EN EL TEXTO (F45, mejora 19, v49): lo que
+/// la persona escribió en `text_notes` y, junto, las notas de los resaltados
+/// de antes (F38), que no se migran pero se leen, se ven y se buscan igual
+/// (decisión I).
+///
+/// A diferencia de `chunk_search`, guarda su propio texto: son notas cortas, y
+/// las de los resaltados no tienen una clave entera estable a la que volver
+/// —el `rowid` de `highlights` lo puede renumerar un `VACUUM`, ver
+/// `Chunks.rowKey`—. Cada fila dice de dónde viene en sus columnas sin
+/// indexar, para no tener que unirla con nada al buscar:
+///
+/// - `note_id`: el id de la nota o del resaltado;
+/// - `origin`: `note` o `highlight`;
+/// - `target` y `item_id`: de qué texto es y de quién —la fuente de la
+///   Biblioteca o el documento procesado—; `item_id` vacío en una creación.
+///
+/// El `rowid` de una nota es su `row_key`, así que darla de baja es ir por la
+/// clave. El de un resaltado es negativo, uno menos que el menor que haya: no
+/// se pisa nunca con el de una nota, y darlo de baja recorre el índice —son
+/// pocos, de antes, y cambian a mano—.
+const createTextNoteSearchTable = '''
+CREATE VIRTUAL TABLE IF NOT EXISTS text_note_search USING fts5(
+  note,
+  note_id UNINDEXED,
+  origin UNINDEXED,
+  target UNINDEXED,
+  item_id UNINDEXED,
+  tokenize = "unicode61 remove_diacritics 2"
+)''';
+
+/// Que el resaltado [row] —`NEW` u `OLD`— tenga una nota que buscar.
+String _highlightHasNote(String row) =>
+    "$row.note IS NOT NULL AND trim($row.note) <> ''";
+
+/// La fila de `text_note_search` del resaltado [row]: su nota, de la fuente
+/// cuya forma subraya —un resaltado solo cae en el original de la
+/// Biblioteca—, con un `rowid` negativo que nadie usa.
+String _highlightSearchRow(String row) =>
+    '''
+INSERT INTO text_note_search (rowid, note, note_id, origin, target, item_id)
+SELECT (SELECT MIN(COALESCE(MIN(s.rowid), 0), 0) - 1 FROM (
+          SELECT rowid FROM text_note_search ORDER BY rowid LIMIT 1) s),
+       $row.note, $row.id, 'highlight', 'source_original',
+       (SELECT r.item_id FROM renditions r WHERE r.id = $row.rendition_id)
+ WHERE ${_highlightHasNote(row)};''';
+
+/// Triggers que mantienen `text_note_search` al día —cualquier escritura sobre
+/// `text_notes` o sobre la nota de un resaltado, también el borrado en cascada
+/// de un elemento—, por el mismo motivo que los de `item_search`.
+final textNoteSearchTriggers = <String>[
+  '''
+CREATE TRIGGER IF NOT EXISTS text_notes_search_ai
+AFTER INSERT ON text_notes BEGIN
+  INSERT INTO text_note_search (rowid, note, note_id, origin, target, item_id)
+  VALUES (NEW.row_key, NEW.note, NEW.id, 'note', NEW.target,
+          COALESCE(NEW.item_id, ''));
+END''',
+
+  '''
+CREATE TRIGGER IF NOT EXISTS text_notes_search_ad
+AFTER DELETE ON text_notes BEGIN
+  DELETE FROM text_note_search WHERE rowid = OLD.row_key;
+END''',
+
+  '''
+CREATE TRIGGER IF NOT EXISTS text_notes_search_au
+AFTER UPDATE OF note ON text_notes BEGIN
+  UPDATE text_note_search SET note = NEW.note WHERE rowid = NEW.row_key;
+END''',
+
+  '''
+CREATE TRIGGER IF NOT EXISTS highlights_note_search_ai
+AFTER INSERT ON highlights WHEN ${_highlightHasNote('NEW')} BEGIN
+  ${_highlightSearchRow('NEW')}
+END''',
+
+  '''
+CREATE TRIGGER IF NOT EXISTS highlights_note_search_ad
+AFTER DELETE ON highlights WHEN ${_highlightHasNote('OLD')} BEGIN
+  DELETE FROM text_note_search
+   WHERE origin = 'highlight' AND note_id = OLD.id;
+END''',
+
+  '''
+CREATE TRIGGER IF NOT EXISTS highlights_note_search_au
+AFTER UPDATE OF note, rendition_id ON highlights BEGIN
+  DELETE FROM text_note_search
+   WHERE origin = 'highlight' AND note_id = OLD.id;
+  ${_highlightSearchRow('NEW')}
+END''',
+];
+
+/// Los nombres de [textNoteSearchTriggers].
+const textNoteSearchTriggerNames = [
+  'text_notes_search_ai',
+  'text_notes_search_ad',
+  'text_notes_search_au',
+  'highlights_note_search_ai',
+  'highlights_note_search_ad',
+  'highlights_note_search_au',
+];
+
+/// Llena `text_note_search` desde cero, como lo habrían hecho los triggers
+/// fila por fila: las notas, cada una por su `row_key`, y los resaltados con
+/// nota, con los negativos de su orden.
+final populateTextNoteSearch = <String>[
+  '''
+INSERT INTO text_note_search (rowid, note, note_id, origin, target, item_id)
+SELECT row_key, note, id, 'note', target, COALESCE(item_id, '')
+  FROM text_notes''',
+  '''
+INSERT INTO text_note_search (rowid, note, note_id, origin, target, item_id)
+SELECT -ROW_NUMBER() OVER (ORDER BY h.id), h.note, h.id, 'highlight',
+       'source_original', r.item_id
+  FROM highlights h JOIN renditions r ON r.id = h.rendition_id
+ WHERE ${_highlightHasNote('h')}''',
+];
