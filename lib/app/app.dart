@@ -129,8 +129,9 @@ class _AppState extends ConsumerState<App> {
           onOpenHelp: () => unawaited(router.push(RoutePaths.keepWorking)),
           child: ReadAloudOverlay(
             router: router,
-            // El aviso diario para repasar (F31): se reprograma al abrir, cuenta
-            // cuántas tarjetas hay y lleva a Repasar al tocar la notificación.
+            // El aviso diario para repasar (F31): se reprograma al abrir,
+            // cuenta cuántas tarjetas hay y lleva a Repasar al tocar la
+            // notificación.
             child: StudyReminderBinding(
               router: router,
               // Los avisos de la IA en la nube (F32): qué cuenta se agotó, a
