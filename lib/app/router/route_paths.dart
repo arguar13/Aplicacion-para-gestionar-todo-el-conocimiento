@@ -194,7 +194,8 @@ abstract final class RoutePaths {
   /// El historial de repasos de F17, D8: curva de retención, calendario de
   /// constancia y tarjetas difíciles. Ruta plana bajo `/review`, mismo
   /// criterio que [graphTension]: es una lente sobre el hábito de repasar,
-  /// no un destino de navegación propio.
+  /// no un destino de navegación propio. Desde F43 (M17) abre la pestaña
+  /// «Historial» de las estadísticas.
   static const reviewHistory = '$review/history';
 
   /// La sesión de repaso (F31, ola 2): estudiar de a una tarjeta. Pantalla
@@ -204,16 +205,20 @@ abstract final class RoutePaths {
   /// La sesión de repaso de un recorte: [kind] es el nombre de un
   /// `StudyScopeKind` (`all`, `space`, `value`, `notebook`, `item`) e [id] el
   /// del espacio, valor, cuaderno o elemento. Con [practice], «Practicar
-  /// igual»: repasar todas las tarjetas sin tocar su calendario.
+  /// igual»: repasar todas las tarjetas sin tocar su calendario. Con [cards]
+  /// y [practice], practicar solo esas, en ese orden («Repasar estas» de las
+  /// tarjetas difíciles, F43 M16).
   static String reviewSessionFor({
     String kind = 'all',
     String? id,
     bool practice = false,
+    List<String>? cards,
   }) {
     final query = <String, String>{
       if (kind != 'all') 'kind': kind,
       if (id != null) 'id': id,
       if (practice) 'practice': '1',
+      if (cards != null && cards.isNotEmpty) 'cards': cards.join(','),
     };
     return query.isEmpty
         ? reviewSession

@@ -264,6 +264,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => ReviewScreen(
           scope: _studyScopeOf(state.uri.queryParameters),
           startInPractice: state.uri.queryParameters['practice'] == '1',
+          practiceCardIds: _cardIdsOf(state.uri.queryParameters),
         ),
       ),
       // Una creación de «Lo creado» (F43) en su visor, encima de la barra:
@@ -525,6 +526,16 @@ String? _redirect({
       RoutePaths.capture,
     VaultUnlocked() => null,
   };
+}
+
+/// Las tarjetas de una práctica suelta (`?cards=a,b,c`, «Repasar estas» de
+/// las difíciles), o `null` si no la pide.
+List<String>? _cardIdsOf(Map<String, String> query) {
+  final ids = [
+    for (final id in (query['cards'] ?? '').split(','))
+      if (id.isNotEmpty) id,
+  ];
+  return ids.isEmpty ? null : ids;
 }
 
 /// El recorte de estudio que dice la dirección: `?kind=space&id=…`. Sin

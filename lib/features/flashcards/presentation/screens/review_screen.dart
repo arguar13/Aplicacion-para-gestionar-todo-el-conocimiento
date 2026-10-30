@@ -35,6 +35,7 @@ class ReviewScreen extends ConsumerStatefulWidget {
   const ReviewScreen({
     this.scope = const StudyScope.all(),
     this.startInPractice = false,
+    this.practiceCardIds,
     super.key,
   });
 
@@ -44,6 +45,11 @@ class ReviewScreen extends ConsumerStatefulWidget {
   /// Empezar directamente en «Practicar igual» (F30): repasar todas las
   /// tarjetas aunque no les toque, sin tocar su calendario.
   final bool startInPractice;
+
+  /// Practicar solo estas tarjetas, en este orden, en vez de todas («Repasar
+  /// estas» de las tarjetas difíciles, F43 M16). Solo cuenta con
+  /// [startInPractice].
+  final List<String>? practiceCardIds;
 
   @override
   ConsumerState<ReviewScreen> createState() => _ReviewScreenState();
@@ -165,8 +171,17 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   Future<void> _startPractice() async {
     final all = await ref.read(flashcardRepositoryProvider).getAll();
     if (!mounted) return;
-    final cards = all.getOrElse((_) => const <Flashcard>[]).toList()
-      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    final only = widget.practiceCardIds;
+    final cards = all.getOrElse((_) => const <Flashcard>[]).toList();
+    if (only == null) {
+      cards.sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    } else {
+      // Las pedidas, en el orden pedido; las que ya no existen, afuera.
+      final order = {for (final (i, id) in only.indexed) id: i};
+      cards
+        ..retainWhere((c) => order.containsKey(c.id))
+        ..sort((a, b) => order[a.id]!.compareTo(order[b.id]!));
+    }
     if (cards.isEmpty) return;
     setState(() {
       _practice = cards;
