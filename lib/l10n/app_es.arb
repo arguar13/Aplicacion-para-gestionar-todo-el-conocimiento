@@ -3241,14 +3241,6 @@
   "@categoryTagSingular": {
     "description": "Cómo se nombra la categoría de las etiquetas delante de un valor —«Etiqueta: Roma»— en las sugerencias y en lo que hizo la IA (F28). En la base se sigue llamando «Tema»."
   },
-  "mapViewSelectorLabel": "Vista del mapa",
-  "@mapViewSelectorLabel": {
-    "description": "Etiqueta accesible del selector entre las vistas del mapa."
-  },
-  "mapViewBoard": "Tablero",
-  "@mapViewBoard": {
-    "description": "Nombre de la vista de tablero del mapa: los números que resumen la bóveda."
-  },
   "mapEmptyTitle": "{kind, select, spaces{Todavía no tenés temas} tags{Todavía no hay etiquetas} other{Esta categoría no tiene valores}}",
   "@mapEmptyTitle": {
     "description": "Título del esquema y el grafo del Mapa cuando lo que se mira no tiene nada que dibujar: los temas, las etiquetas u otra categoría (F28).",
@@ -3447,10 +3439,6 @@
       }
     }
   },
-  "mapViewSchema": "Esquema",
-  "@mapViewSchema": {
-    "description": "Nombre de la vista de esquema del mapa: un árbol que parte de un tema y se despliega."
-  },
   "mapSchemaRadial": "Radial",
   "@mapSchemaRadial": {
     "description": "Modo del esquema con la raíz al centro y cada nivel en un anillo."
@@ -3518,14 +3506,6 @@
         "type": "int"
       }
     }
-  },
-  "mapViewGraph": "Grafo",
-  "@mapViewGraph": {
-    "description": "Nombre de la vista del grafo de conocimiento: comunidades de temas, temas y elementos según el zoom."
-  },
-  "mapViewLinks": "Vínculos",
-  "@mapViewLinks": {
-    "description": "Nombre de la vista del Mapa con los elementos y sus vínculos, tengan o no temas (F28)."
   },
   "mapLinksSummary": "{count, plural, =1{1 elemento vinculado} other{{count} elementos vinculados}}",
   "@mapLinksSummary": {
@@ -3600,10 +3580,6 @@
       }
     }
   },
-  "mapGraphCrumbOverview": "Comunidades",
-  "@mapGraphCrumbOverview": {
-    "description": "Primer paso del camino del grafo de conocimiento: el panorama con todas las comunidades de temas."
-  },
   "mapGraphOverflow": "Otras comunidades",
   "@mapGraphOverflow": {
     "description": "Nombre del nodo que junta varias comunidades chicas que no entran en el panorama."
@@ -3652,10 +3628,6 @@
         "type": "int"
       }
     }
-  },
-  "mapGraphActionItems": "Ver sus elementos",
-  "@mapGraphActionItems": {
-    "description": "Acción de un tema en el grafo: acercarse a los elementos que tiene."
   },
   "mapGraphHint": "Tocá una comunidad o acercate para ver qué tiene adentro.",
   "@mapGraphHint": {
