@@ -454,12 +454,16 @@ El detalle se abre igual desde cualquier lado —incluido el material de una
 rama del Atlas o del Mapa—, ocupando toda la pantalla (sin la barra de
 navegación), y la flecha de la barra superior te devuelve adonde estabas.
 
-**Una fuente de la Biblioteca es de consulta; se estudia en Procesado.** Un
-documento, un libro, una página, una publicación, una imagen, un audio o un
-video se lee acá tal cual lo guardaste, con su texto, sus resaltados y lo que
-tiene relacionado. Lo que es **estudiarlo** —leer su resumen, su síntesis y sus
-palabras clave, su Mapa, sus tarjetas de repaso, lo que la IA organizó, la nota
-derivada y el cuestionario— está en su documento procesado (ver
+**Una fuente de la Biblioteca es de consulta: se ve su original, y se
+estudia en Procesado.** De un documento, un libro, una página, una
+publicación, una imagen, un audio o un video, el detalle muestra **el
+original** tal cual lo guardaste —el PDF, la foto, la página, el
+reproductor—, con sus datos y lo que tiene relacionado. El **texto que se
+sacó** de él ya no se muestra acá, pero **no se borra**: lo siguen usando la
+búsqueda, el chat, los vínculos y las citas, que te llevan al pasaje justo.
+**Leerlo, marcarlo y estudiarlo** —el texto, su resumen, su síntesis y sus
+palabras clave, su Mapa, sus tarjetas de repaso, lo que la IA organizó, la
+nota derivada y el cuestionario— está en su documento procesado (ver
 [Procesado](#procesado)). Una **nota propia** sigue teniendo todo acá, porque no
 tiene documento procesado, salvo el Mapa: el Mapa se arma con lo procesado, y
 sus vínculos están en "Vínculos".
@@ -497,11 +501,9 @@ De arriba hacia abajo, vas a encontrar:
 7. **Tu nota personal**, si escribiste una al guardarlo.
 8. El **archivo original** (foto, video, PDF), si lo tiene, se ve incrustado
    ahí mismo (ver [Ver los archivos originales](#ver-los-archivos-originales)).
-9. **El panel del elemento**, justo debajo: una tarjeta con todo lo que se
-   puede hacer con su contenido (ver [El panel del elemento](#el-panel-del-elemento)).
-   En todo lo que trae un texto —un documento, una página web, una
-   publicación, una imagen, un audio o un video—, debajo va la tarjeta de
-   estudiar (ver [Estudiar el documento](#estudiar-el-documento-resumen-síntesis-y-palabras-clave)).
+9. **El panel del elemento**, justo debajo, si tiene algo que mostrar: el
+   audio de un video, lo que está pasando con su texto y, en una nota
+   propia, sus botones (ver [El panel del elemento](#el-panel-del-elemento)).
 10. En una fuente, **dónde se estudia**: si ya tiene su documento procesado,
     la línea *"Se estudia en Procesado…"* con **"Estudiarlo en Procesado"**,
     que lo abre. Si todavía no, *"Para estudiarlo, triálo"*: con la fuente en
@@ -513,13 +515,10 @@ De arriba hacia abajo, vas a encontrar:
     En una nota propia, un **grafo local** con sus vínculos más cercanos, a
     la vista: lo que vinculás se ve acá sin tener que bajar hasta el final.
 11. El **«Contenido»**, si es una página o una publicación que trae archivos:
-    sus documentos, audios y videos, cada uno con su texto —las fotos van en
-    la tarjeta de estudiar, en «Fotos»— (ver
+    sus documentos, audios, videos y fotos, cada uno con su texto (ver
     [Todo lo que trae una página: el «Contenido»](#todo-lo-que-trae-una-página-el-contenido)).
-12. El **contenido/texto** extraído. Con la tarjeta de estudiar va plegado
-    adentro, en **«Extraer texto»** —**«Extraer transcripción»** en un audio
-    o un video—: tocalo para verlo. Sin la tarjeta —una nota tuya, una
-    referencia—, se ve acá, entero.
+12. En una nota propia, **su texto**, entero. El de una fuente se lee en su
+    documento procesado.
 13. En una nota propia, sus **tarjetas de repaso**. Las de una fuente están
     en su documento procesado, en **"De la fuente"**.
 14. **Relacionado**: la lista de vínculos con otros elementos (podés agregar
@@ -532,8 +531,9 @@ De arriba hacia abajo, vas a encontrar:
 
 ### El panel del elemento
 
-Es la tarjeta que está entre el archivo original y el texto. Tiene todo
-ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
+Es la tarjeta que está entre el archivo original y lo demás. Tiene todo
+ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento;
+si no tiene nada que mostrar —una fuente lista, sin audio—, no aparece:
 
 1. **El audio** (en videos, TikTok, reels y YouTube): un reproductor solo
    con el audio, con retroceder y avanzar 10 segundos y la velocidad. En
@@ -542,46 +542,33 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
 2. **Lo que está pasando**, si pasa algo: bajando el audio, transcribiendo,
    volviendo a extraer el texto, o un problema, con un único botón
    **"Reintentar"** (o **"Descargar el modelo"** si falta el de
-   transcripción).
-3. **Los botones grandes**:
+   transcripción). Si dejaste solo el libro, lo dice (*"Dejaste solo el
+   libro…"*) y ofrece **"Volver a extraer el texto"**.
+3. **Los botones grandes**, solo en una nota propia:
    - **Leer**: abre el [modo lectura](#modo-lectura-leer-para-destilar).
-   - **Resumir**, solo en una nota propia: la IA arma un resumen y te lo
-     muestra para leerlo o copiarlo. Una fuente no lo tiene: su resumen se
-     marca en el original con la tarjeta de estudiar y se lee en su documento
-     procesado.
+   - **Resumir**: la IA arma un resumen y te lo muestra para leerlo o
+     copiarlo.
    - **Copiar**: copia todo el texto.
    - **Más**: abre una lista con lo que se usa de vez en cuando, cada
      opción con una línea que explica qué hace:
-     - **Organizar con IA**, en una nota propia: que la IA la organice ahora,
-       antes que lo demás (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
-       Una fuente se organiza desde su documento procesado.
-     - **Buscar fechas con IA**, en una nota propia: que la IA lea el texto y
-       ponga en la [Línea de tiempo](#línea-de-tiempo) las fechas que cuenta,
-       cada una con su cita (ver [Buscar fechas con IA, a pedido](#buscar-fechas-con-ia-a-pedido)).
-       Aparece cuando la nota ya está lista y tiene algo escrito. Las de una
-       fuente se buscan desde su documento procesado.
-     - **Volver a extraer el texto**: vuelve a leer el original (podés
-       elegir el idioma en que se habla, si es un audio o video). En un
-       video de YouTube, la transcripción es siempre **en el idioma en que se
-       habla**: se baja la pista de subtítulos de ese idioma (la automática
-       de YouTube dice cuál es, y si el video tiene audio doblado se mira el
-       original). Si el video solo trae subtítulos en otros idiomas —una
-       traducción al árabe, por ejemplo, en un video hablado en español—, no
-       se guarda ninguno: la app transcribe el audio en el teléfono, que dice
-       lo que se dijo de verdad. Si un video te quedó con la transcripción en
-       otro idioma, **volver a extraer el texto** lo arregla.
-     - **Quitar marcas de tiempo**: saca las marcas "[3:15]" de una
-       transcripción.
-     - **Borrar el texto, quedarme con el libro**, en libros y documentos:
-       el texto va a la papelera de la app por 30 días y el libro **no se
-       vuelve a leer solo**. El panel lo dice (*"Dejaste solo el libro…"*) y
-       ofrece **"Volver a extraer el texto"**, que sí podés pedir cuando
-       quieras.
-     - **Ver a pantalla completa**, en los documentos.
+     - **Organizar con IA**: que la IA la organice ahora, antes que lo
+       demás (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
+     - **Buscar fechas con IA**: que la IA lea el texto y ponga en la
+       [Línea de tiempo](#línea-de-tiempo) las fechas que cuenta, cada una
+       con su cita (ver [Buscar fechas con IA, a pedido](#buscar-fechas-con-ia-a-pedido)).
+       Aparece cuando la nota ya está lista y tiene algo escrito.
 
-   En una nota de bloques, en vez de **Más** aparece **Editar**. Del archivo
-   de una fuente no se borra nada desde acá: la Biblioteca es tu base de
-   consulta.
+   En una nota de bloques, en vez de **Más** aparece **Editar**.
+
+   Una fuente no tiene estos botones: su texto se lee, se copia y se resume
+   en su documento procesado, y lo que estaba en su **Más** también está ahí,
+   en **"El texto de la fuente"** (ver
+   [El texto de la fuente](#el-texto-de-la-fuente)): volver a extraer el
+   texto, quitarle las marcas de tiempo o borrarlo y quedarte con el libro.
+   Verla a pantalla completa es el botón del centro de la vista
+   previa: **«Leer como libro»**, **«Ver la página»** o **«Ampliar»**. Del
+   archivo de una fuente no se borra nada desde acá: la Biblioteca es tu base
+   de consulta.
 4. En una nota propia, **lo que hizo la IA con ella**, si hizo algo: la línea
    **"La IA organizó esto"**, con lo que sigue siendo suyo, **"Ver"** y
    **"Deshacer todo"** (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
@@ -620,9 +607,12 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
 Sirve para leer con calma el texto de una fuente larga y sacar fragmentos
 como notas, sin salir de la lectura.
 
-**Cómo llegar:** botón **"Leer para destilar"** dentro del detalle de un
-elemento, o tocando el fragmento resaltado de un resultado de búsqueda en la
-Biblioteca.
+**Cómo llegar:** botón **"Leer"** en el detalle de una nota propia, o
+tocando el fragmento resaltado de un resultado de búsqueda en la Biblioteca,
+una cita del chat, **"Ver en la fuente"** de una tarjeta o un vínculo, o un
+fragmento de un documento procesado: se abre parado en ese pasaje. Desde el
+detalle de una fuente ya no se abre: su texto se lee en su documento
+procesado.
 
 1. Arriba se ve un contador: **"{N} notas extraídas"**.
 2. Leés el texto completo; podés seleccionarlo con el dedo o el mouse.
@@ -778,8 +768,11 @@ Para verlo a pantalla completa:
 - **En una página web guardada**, el mismo botón grande dice **«Ver la
   página»**: la abre a pantalla completa, tal como era, con sus fotos en su
   lugar.
-- **En una foto o un video**, el botón es chico y está en la esquina, para no
-  tapar lo que mirás ni el botón de reproducir.
+- **En una foto**, el mismo botón grande del centro dice **«Ampliar»**: la
+  abre a pantalla completa, donde se acerca con dos dedos. Como es
+  semitransparente, la foto se ve debajo.
+- **En un video**, el botón es chico y está en la esquina, para no tapar el
+  botón de reproducir.
 
 Las fotos de una página web se guardan adentro del archivo, así que se ven
 sin conexión. Si alguna no se pudo guardar (por ejemplo, porque pesaba
@@ -805,173 +798,14 @@ vuelve a bajar la página).
 
 ### Estudiar el documento: resumen, síntesis y palabras clave
 
-En un **documento** (PDF, Word, EPUB, texto), una **página web guardada**,
-una **publicación**, una **imagen** (el texto que se leyó de ella), un
-**audio** o un **video** (su transcripción), debajo del original aparece la
-tarjeta de estudiar. Su título dice qué es: «Estudiar el documento»,
-«Estudiar la página», «Estudiar la publicación», «Estudiar la imagen»,
-«Estudiar el audio» o «Estudiar el video». Una nota que escribiste vos o una
-referencia no la llevan: no hay qué resumir de ellas. La IA marca en el documento **sus propias
-oraciones**, como con un resaltador: no escribe nada nuevo, así que todo lo
-resaltado está en el original, tal cual.
-
-- **Resumir** (verde) resalta las oraciones con las ideas principales,
-  cerca de una de cada cuatro.
-- **Sintetizar** (celeste) resalta lo esencial, el hilo del documento, en
-  pocas oraciones.
-- **Cada botón se prende y se apaga por su lado**: podés ver el resumen, la
-  síntesis y las palabras clave juntos, de a uno, de a dos o ninguno. Con el
-  resumen y la síntesis prendidos, una oración que está en los dos se ve
-  celeste: la síntesis, lo más esencial, va encima.
-- **Palabras clave** (rosa, en negrita) muestra hasta **4 palabras** por
-  oración que la sostienen, en **todas** las oraciones del documento, de
-  punta a punta, estén o no en el resumen o en la síntesis. **Ninguna oración
-  con contenido se queda sin las suyas**: las propone la IA y, si se saltea
-  alguna (un título, un ítem de un índice, una oración corta) o no contesta
-  una parte, la app elige sola, sin IA y sin gastar nada, las palabras que más
-  dicen en ese documento. Un documento analizado antes se completa solo la
-  primera vez que prendés **Palabras clave** (o abrís **Descargar**): ya no
-  hace falta volver a analizarlo. Lo que elegiste a mano se queda. Y **las
-  elegís vos** también:
-  tocá el **lápiz** y después tocá una palabra de **cualquier** oración
-  —haya o no resumen— para agregarla o sacarla. Si la oración ya tiene 4,
-  te avisa.
-- Una leyenda chica, debajo de los botones, recuerda qué es cada color.
-
-**Dónde se ve lo resaltado:** sobre las letras del PDF real, en el lector
-de un Word, un EPUB o un texto, sobre la página web tal como se guardó, en
-«Leer como libro» y «Ver la página» a pantalla completa (que llevan los
-mismos botones arriba o abajo), y en el texto extraído. En una página
-escaneada de un PDF no hay letras donde pintar: la página lo dice, y lo
-resaltado se ve en el texto extraído.
-
-**Si todavía no hay nada**, tocar **Resumir**, **Sintetizar** o **Palabras
-clave** te ofrece dos caminos, en una hoja:
-
-- **«Resumir con Gemini 2.5 Flash»** (o «Sintetizar con…», «Proponer
-  con…»), con el nombre del modelo elegido en Ajustes: lo arma la IA.
-- **«Elegir a mano»**: lo prendés y lo armás vos, tocando el texto, que se
-  despliega solo. En el resumen o la síntesis, **tocar una oración la pone
-  entera**, y tocarla de nuevo la saca (sea tuya o de la IA). En las palabras
-  clave, tocar una palabra de cualquier oración la elige, hasta 4 por
-  oración. Mientras elegís, un botón dice qué estás eligiendo —*«Eligiendo el
-  resumen · Listo»*— y **Listo** termina.
-- Si la IA ya analizó todo y no encontró nada de eso, queda solo «Elegir a
-  mano»: pedírselo de nuevo daría lo mismo.
-- Cerrar la hoja sin elegir no prende nada.
-
-Con lo que ya hay —de la IA o tuyo— el botón lo prende directamente; si un
-análisis quedó a mitad, sigue desde ahí. Lo que armaste a mano no arranca
-la IA sola.
-
-**Con la IA**, se analiza el documento con el modelo elegido en Ajustes
-(Gemma en el teléfono, o el de la nube). Si el modelo no está listo, la app
-te avisa con el botón para resolverlo y no baja nada sola. Una sola pasada
-da las tres cosas, así que pasar del resumen a la síntesis es instantáneo.
-Un documento largo se analiza **por partes**: la franja dice *«Analizando
-el documento… parte 3 de 12 · 25 %»*, con su barra y **«Parar»**, y lo
-resaltado va apareciendo a medida que avanza. Desde la primera parte hecha
-suma **cuánto falta, aproximado** (*«faltan unos 4 min»*), calculado con lo
-que tardaron las partes anteriores. Cada parte se guarda al terminar: si
-cerrás la app o lo parás, sigue desde ahí la próxima vez. Si la IA falla por
-algo pasajero, la franja dice *«Reintentando (2 de 4): …»* y lo vuelve a
-pedir sola. Si al final se corta, la franja dice **qué pasó de verdad** (sin
-conexión, la espera que venció, la cuota de la cuenta, el servicio caído…) y
-qué hacer, y **«Reintentar»** sigue desde donde quedó.
-
-**«Extraer»**, abajo en la tarjeta, tiene filas que se despliegan:
-
-- **Extraer texto**: el texto extraído de siempre, con todo lo de antes
-  —leer en voz alta, subrayar, seleccionar— y lo que prendas en la tarjeta
-  resaltado encima. Va plegado para no ocupar la pantalla entera. **Un libro
-  o un texto muy largo** (más de unas veinte páginas) se despliega **por
-  páginas**, como en «Leer como libro»: con «Anterior», «Siguiente» y el
-  número de página para saltar, y todo lo demás igual (subrayar, escuchar, lo
-  estudiado). Si no, la app se quedaba sin responder al dibujar el libro
-  entero de una vez.
-- **Fotos**, en una página o una publicación que trae fotos: plegada, con
-  cuántas son. Al desplegarla se ven en grilla, y tocar una ofrece verla,
-  abrirla o leer lo que dice, como en «Contenido».
-- **Extraer transcripción**, en un audio o un video: la transcripción, que
-  **sigue al audio** como siempre (ver [El texto sigue al audio](#el-texto-sigue-al-audio)),
-  con el resumen, la síntesis y las palabras clave pintados debajo de la
-  palabra que suena. Las marcas de tiempo, como `[3:15]`, no cuentan como
-  parte de una oración.
-- **Extraer resumen** y **Extraer síntesis**: sus oraciones en orden, como
-  texto corrido, con cuántas oraciones y palabras son.
-- **Extraer palabras clave**: las palabras como etiquetas, cada una una
-  vez, en el orden en que aparecen.
-
-  Estas tres filas están en la tarjeta de estudiar de un **documento
-  procesado**, que es donde se estudia (ver [Procesado](#procesado)). En la
-  tarjeta de una fuente de la Biblioteca no aparecen: ahí marcás el
-  resumen, la síntesis y las palabras clave en el original —es lo que la
-  hoja de triar lleva a Procesado— y «Extraer» trae solo el texto, la
-  transcripción y las fotos.
-- Cada fila trae **Copiar** y **Escuchar**. Vacía, dice *«Todavía no hay: desplegá para
-  armarlo con la IA o a mano»*, y al desplegarla ofrece los mismos dos
-  caminos de la hoja. Mientras la IA analiza, avisa que va a aparecer ahí a
-  medida que avanza.
-
-**«Escuchar»**, en cada fila, lee en voz alta **solo lo de esa fila**, con la
-voz del lector (ver [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)):
-
-- En **Extraer resumen** y **Extraer síntesis**, las oraciones suenan una
-  tras otra, en el orden del texto. La que suena se resalta en amarillo en
-  la misma fila y también **en su lugar del texto**, en «Extraer texto» y en
-  «Leer como libro».
-- En **Extraer palabras clave**, se leen una tras otra; la que suena se
-  resalta en amarillo.
-- En **Extraer texto**, lee el texto entero (el de un libro tarda unos
-  segundos en prepararse: mientras tanto el botón muestra un círculo girando).
-  En un audio o un video no está:
-  el texto ya se escucha con el audio original. El resumen, la síntesis y las
-  palabras clave sí se escuchan, con la voz del lector.
-- Mientras suena, el botón dice **Pausar**; en pausa, vuelve a decir
-  **Escuchar** y retoma donde estaba.
-
-**«Descargar»**, en la tarjeta, baja **el mismo documento con lo marcado**,
-en el formato del original. Elegís qué lleva, y se combina:
-
-- **Con el resumen resaltado**, **con la síntesis resaltada**, **con las
-  palabras clave resaltadas** y **con mis resaltados** (los tuyos, con su
-  color, subrayados como los subrayaste y con su nota).
-- Lo que todavía no existe aparece apagado y dice por qué (*«Todavía no hay
-  resumen: analizá el documento»*). La hoja arranca con lo que estás viendo
-  resaltado.
-- Tocás **Guardar** y elegís dónde, con el selector del teléfono (en Android
-  también podés elegir Drive u otra app). El nombre sale como *«Historia —
-  resumen y mis resaltados.pdf»*.
-
-Cómo sale cada formato:
-
-- **PDF**: el mismo PDF, con resaltados de verdad, de los que cualquier lector
-  de PDF muestra y deja borrar. El texto se sigue pudiendo seleccionar. En una
-  página escaneada va un recuadro de color en el lugar aproximado del renglón.
-- **Word**: el mismo documento, con el sombreado de cada color o el
-  subrayado, y tus notas como comentarios de Word.
-- **EPUB**: el mismo libro, con esas partes coloreadas.
-- **Página web**: la página guardada (.html), con esas partes resaltadas. Se
-  abre en cualquier navegador, sin conexión. Tus notas aparecen al pasar el
-  mouse.
-- **Texto (.txt)**: un texto no puede guardar colores, así que sale como un
-  **Word con el mismo texto**.
-- **Markdown**: en Markdown, con `==así==` lo resaltado y `<u>así</u>` lo
-  subrayado.
-
-Los colores son los mismos que ves en la pantalla con el tema claro: la hoja
-es blanca. Lo que se pisa se apila igual que en la pantalla: el resumen, la
-síntesis, tus resaltados (el más nuevo arriba) y las palabras clave encima.
-
-El mosaico **«Resumir»** del panel queda solo en una nota propia: un resumen
-escrito en un diálogo. Una fuente no lo tiene, porque se estudia en su
-[documento procesado](#procesado), con su propia tarjeta de estudiar.
-
-**«Volver a analizar»**, en el menú **⋮** de la tarjeta, rehace desde cero
-lo que hizo la IA. Antes pregunta. **Lo que elegiste a mano se queda**: las
-oraciones y las palabras clave tuyas no se borran. Lo estudiado se guarda en la bóveda: si volvés a extraer el texto, se
-reubica igual que tus subrayados, y entra en el respaldo y en la unión de
-bóvedas.
+La tarjeta **«Estudiar el documento»** (con **Resumir**, **Sintetizar**,
+**Palabras clave**, **Descargar** y **«Extraer texto»**) ya no está en el
+detalle de una fuente de la Biblioteca: ahí se ve solo el original. El
+resumen, la síntesis y las palabras clave se marcan en el original de su
+**documento procesado**, con sus tres botones (ver
+[Marcar en el original](#marcar-en-el-original-resumen-síntesis-y-palabras-clave)),
+y su texto, la transcripción y las fotos se leen ahí. Lo que ya habías marcado
+en una fuente no se borra: sigue guardado.
 
 Un video de YouTube solo muestra una miniatura: tocarla abre YouTube de
 verdad, no un reproductor propio dentro de la app. Su audio, en cambio, sí
@@ -982,18 +816,12 @@ pasa a ser el principal del elemento.
 
 ### El texto sigue al audio
 
-Mientras suena un audio o un video que tiene su texto transcripto, **la
-palabra que se está diciendo se ve resaltada en amarillo**. Tocar una
-palabra lleva el audio a ese momento. Si bajás leyendo y el reproductor
-queda fuera de la pantalla, aparece abajo un **mini reproductor** flotante
-para pausar, cambiar la velocidad o **"Volver al audio"**. Si la
-transcripción está plegada en la tarjeta de estudiar, "Volver al audio" la
-despliega sola y te lleva a la palabra que suena.
-
-Para que esto funcione con lo que ya tenías guardado de antes, bajá el
-modelo de transcripción nuevo (Ajustes → IA y modelos) y usá **Más → Volver
-a extraer el texto** en ese elemento: así se guardan los tiempos de cada
-palabra.
+En el detalle de un audio o un video de la Biblioteca se ve el original con
+su reproductor; su transcripción ya no se muestra ahí, sino en su documento
+procesado. Si bajás por el detalle y el reproductor queda fuera de la
+pantalla, aparece abajo un **mini reproductor** flotante para pausar,
+cambiar la velocidad o **"Volver al audio"**, que te sube hasta el
+reproductor.
 
 ### Todo lo que trae una página: el «Contenido»
 
@@ -1017,10 +845,7 @@ formato original**, y lo guarda adentro del mismo elemento.
 
 En el detalle del elemento aparece la sección **«Contenido»**, arriba del
 texto, con los archivos **agrupados: documentos, audios, videos e
-imágenes** (las fotos, en miniatura). Cuando el elemento tiene la tarjeta de
-estudiar, **las fotos no van en «Contenido» sino en la tarjeta**, en la fila
-**«Fotos»**, plegada, debajo de «Extraer texto»: dice cuántas hay y, al
-desplegarla, se ven en grilla. Cada archivo dice su tipo, cuánto
+imágenes** (las fotos, en miniatura). Cada archivo dice su tipo, cuánto
 pesa, de qué sitio salió y si ya tiene **su propio texto**: lo que dice un
 libro o un documento, la transcripción de un audio o un video, o lo que se
 lee en una foto. Tocá un archivo para **verlo** (una foto), **abrirlo** con
@@ -2088,8 +1913,9 @@ hizo la IA". Aceptarlas o descartarlas en un lugar las resuelve en los dos.
 
 ### La papelera de la app
 
-Cuando usás **"Borrar archivo…"** / **"Borrar el texto…"** en **Más** —de a
-una fuente y solo si lo pedís vos—, lo que soltás no se borra: va a la
+Cuando usás **"Borrar el texto…"** en **"El texto de la fuente"** de su
+documento procesado —de a una fuente y solo si lo pedís vos—, lo que soltás
+no se borra: va a la
 papelera de la app y espera **30 días**. (Triar ya no suelta nada; lo que se
 soltó antes con la vieja hoja *"Solo el texto / Solo el libro"* de la Bandeja
 está acá, como siempre.) Es
@@ -2174,7 +2000,9 @@ ofrece **"Abrir la papelera"** para recuperarla; si se borró de verdad, lo dice
 el documento conserva lo que sacaste de ella. Al lado, **"Volver a triar"**
 abre la hoja de esa fuente con lo que el documento ya tiene (ver
 [Volver a triar](#volver-a-triar)); con la fuente en la papelera está apagado
-y dice que primero la restaures.
+y dice que primero la restaures. En un audio, un video, una foto o un
+documento, también **"El texto de la fuente"** (ver
+[El texto de la fuente](#el-texto-de-la-fuente)).
 
 Si guardaste **la copia del original**, debajo **se ve el original ahí
 mismo**, como en el detalle de la Biblioteca: la primera página quieta de un
@@ -2195,6 +2023,38 @@ con otra app"**. Sobre la copia, al seleccionar un pasaje, la barrita ofrece
 **Copiar**, **Escuchar** y **"Extraer como nota"** (va a las notas del documento
 procesado), pero no los colores de resaltar a mano, la nota, la tarjeta ni la
 línea de tiempo.
+
+#### El texto de la fuente
+
+En un audio, un video, un video de YouTube, un documento o una foto, al lado
+de "Volver a triar" está **"El texto de la fuente"**: lo que antes estaba en
+el **Más** de la fuente en la Biblioteca. Abre una hoja con lo que se puede
+hacer ahora, cada opción con una línea que explica qué hace:
+
+- **Volver a extraer el texto**: vuelve a leer el original (podés elegir el
+  idioma en que se habla, si es un audio o video). En un video de YouTube, la
+  transcripción es siempre **en el idioma en que se habla**: se baja la pista
+  de subtítulos de ese idioma (la automática de YouTube dice cuál es, y si el
+  video tiene audio doblado se mira el original). Si el video solo trae
+  subtítulos en otros idiomas —una traducción al árabe, por ejemplo, en un
+  video hablado en español—, no se guarda ninguno: la app transcribe el audio
+  en el teléfono, que dice lo que se dijo de verdad. Si un video te quedó con
+  la transcripción en otro idioma, **volver a extraer el texto** lo arregla.
+- **Quitar marcas de tiempo**: saca las marcas "[3:15]" de una
+  transcripción.
+- **Borrar el texto, quedarme con el libro**, en libros y documentos: el
+  texto va a la papelera de la app por 30 días y el libro **no se vuelve a
+  leer solo**; el aviso trae **"Deshacer"**. El documento procesado no pierde
+  nada: lo suyo es una copia.
+
+Todo eso cambia **el texto de la fuente**, el que usan la búsqueda, el chat y
+los vínculos, y la hoja lo recuerda arriba: para traer el texto nuevo a este
+documento, tocá **"Volver a triar"**. Con la copia del original, lo que
+marcaste en ella deja de verse mientras el texto de la fuente no sea el de la
+copia (ver arriba). Mientras la fuente está extrayendo su
+texto, la hoja lo dice y no ofrece nada; con la fuente en la papelera, el
+botón no aparece (primero se restaura). Una página web o una publicación no lo
+tienen: volver a bajarlas no es volver a leer el mismo original.
 
 #### Marcar en el original: resumen, síntesis y palabras clave
 
@@ -2999,10 +2859,9 @@ detalle:
   seguirlo. También vuelve a seguirlo solo si lo que suena llega a lo que
   estás mirando, si volvés a mano a la página donde suena, o si empezás otra
   lectura (otra parte, otro documento).
-- **Es la misma lectura que en el detalle**: lo que empezaste con
-  **"Escuchar"** en la tarjeta de estudiar sigue en el documento, en el mismo
-  lugar, y al revés. Si abrís el documento mientras suena, va directo hasta
-  ahí.
+- **Es la misma lectura que en el detalle**: lo que empezaste antes de
+  abrirlo sigue en el documento, en el mismo lugar, y al revés. Si abrís el
+  documento mientras suena, va directo hasta ahí.
 - En un libro muy largo el botón tarda una fracción de segundo en aparecer: el
   libro se prepara aparte, sin trabar la pantalla.
 - Lo mismo pasa en el **texto largo desplegado por páginas** de «Extraer
