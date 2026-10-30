@@ -394,3 +394,70 @@ Once commits, de `ab8d1b2b` a `6518618c`.
     manda nada y el repositorio sin el reloj de la app.
 - **Queda para la ola 2** (la ficha y el foco): que un documento sin vínculos vuele a su tema; hoy
   se abre en Procesado.
+
+### Paso 4 (hecho): la ficha y el foco
+
+Seis commits, de `a8de0df7` a `b55938de`.
+
+- **El lienzo, partido en piezas con nombre propio** (`a8de0df7`, refactor aparte; las 509
+  pruebas del Mapa pasaron sin tocarlas):
+  - `map_canvas_view.dart` bajó de 1.970 a unas 1.500 líneas, y con la ficha y el foco quedó en
+    1.875. Ahí queda solo lo que se mira y cómo se pasa de una cosa a otra;
+  - el dibujo de la red y de Radial y Árbol, en `map_canvas_layers.dart` (`MapNetworkLayer`,
+    `MapTreeLayer`);
+  - las migas, los controles de abajo y las notas de lo que no se dibujó, en `canvas_chrome.dart`;
+  - dónde va cada nodo, en `canvas_placement.dart`; el caché de rasterizado de F18, en
+    `canvas_gesture_cache.dart`; la raíz del árbol, en `canvas_tree.dart`;
+  - «Sugerir vínculos con IA», que el lienzo y el Resumen tenían copiado, en `suggest_links.dart`.
+- **Tocar abre la ficha**, en la red, en la lista y en Radial y Árbol con el botón ⓘ. El lienzo se
+  achica para dejarle lugar y no la tapa. Dos toques, «Entrar» o acercarse bajan una altura; un
+  documento, que no tiene doble toque, abre su ficha en el acto.
+  - **Dice:** qué es y cuánto tiene (en una comunidad, todos sus temas); «Une con», hasta tres
+    vecinos que llevan a cada uno; lo más reciente de una comunidad y el tema de un documento.
+  - **Acciones**, lo principal primero: Entrar, Centrar aquí, Abrir, Preguntar al chat y
+    Estudiar. En un documento, además, Vincular (el flujo de siempre, partiendo de él) y Ver sus
+    vínculos.
+  - **Abrir la ficha no recalcula nada:** sale del grafo, el motor (`insights`), la escena y el
+    árbol, y queda recordada (`MapNodeFactsMemo`). Las pruebas cuentan que no hay layouts nuevos
+    ni lecturas de la base.
+- **Centrar aquí**, con el «Grado»:
+  - el nodo queda en el medio, y se enciende su vecindario según el «Grado», por las uniones que
+    se dibujan (`focusNeighborhood`). El resto se apaga en una sola capa, también en el SVG;
+  - en Radial y Árbol, el centrado es la raíz, y ahí no se muestra el «Grado»;
+  - se sale con «Salir del foco», con la ✕ de «Centrado en …» o con la miga de la altura;
+  - si lo centrado no estaba dibujado, el Mapa primero va hasta él.
+- **Preguntar al chat y Estudiar:** «Preguntar al chat» abre una conversación nueva con
+  `askInChat`, que se manda sola. «Estudiar» abre Repasar con el selector puesto
+  (`openRepasarWith`).
+- **«Ver en el Mapa»** y un tema del Resumen llegan por el mismo camino que la ficha, y abren la
+  suya. El pedido nuevo `MapShowDocument` lleva un documento a los documentos de su tema,
+  resaltado.
+- **Lo que quedaba del paso 3:** un documento suelto del Resumen vuela a su tema, en vez de
+  abrirse en Procesado.
+- **El encuadre:** si se abre o se cierra la ficha y nadie movió el mapa, se vuelve a encuadrar.
+  Si la persona lo movió o tocó ⛶, se respeta el suyo.
+- **Lo de F18 se conserva:** los topes, el layout en otro isolate y el caché del gesto. La
+  medición (`map_benchmark_test.dart`) baja ahora con «Entrar» desde la ficha.
+- **De paso:**
+  - el SVG escribe la opacidad de un texto translúcido, que antes salía opaco;
+  - salieron tres claves sin uso: `mapGraphHint`, `f44S2EnterCommunity` y `mapSchemaOpen`.
+- **Para el lector de pantalla:** la ficha es un contenedor con nombre, su título es un
+  encabezado que se anuncia al abrirse, y cada acción es un botón.
+- **Verificado:**
+  - analyze en 19, sobre `main` con el paso 0 de F47;
+  - 4.169 pruebas del Mapa, la app, la base, el chat, las creaciones y las tarjetas;
+  - murieron las 18 mutaciones. Entre ellas:
+    - tocar baja de altura en vez de abrir la ficha, y el doble toque no baja;
+    - el «Grado» no cambia lo encendido, y el centrado no queda en el medio;
+    - el título de la ficha no se anuncia;
+    - el texto translúcido sale opaco en el SVG;
+    - un suelto va a lo vinculado;
+    - abrir la ficha no vuelve a encuadrar.
+- **Queda para el paso 5:**
+  - Vínculos, que hoy es el botón de cadena (`MapLinksToggle`), pasa a ser una capa;
+  - un documento sin vínculos y sin tema cae, por ahora, en lo vinculado, donde no aparece. Su
+    lugar es la burbuja «Sin tema»;
+  - ⚲ Buscar puede volar con `MapShowTopic` y `MapShowDocument` tal como están.
+- **A mirar en el teléfono:** con la letra al doble, la ficha se desplaza sola y las acciones de
+  abajo pueden quedar fuera de la vista hasta desplazarla. La medición en el emulador es del
+  cierre (paso 6).
