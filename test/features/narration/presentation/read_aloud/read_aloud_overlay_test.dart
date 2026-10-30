@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart'
+    show sharedPreferencesProvider;
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
@@ -13,6 +16,8 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_o
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
+
+import '../../../../support/fake_text_to_speech_service.dart';
 
 /// Un lector de mentira: anota qué se le pidió y se deja mover a mano, sin
 /// motor de voz detrás. El lector flotante de verdad se prueba aparte; acá
@@ -149,8 +154,14 @@ void main() {
     addTearDown(tester.view.reset);
 
     reader = _FakeReadAloud(initial);
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
     container = ProviderContainer(
       overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        textToSpeechServiceProvider.overrideWithValue(
+          FakeTextToSpeechService(voices: voices),
+        ),
         readAloudControllerProvider.overrideWith(() => reader),
         narrationVoicesProvider.overrideWith((ref) async => voices),
       ],
@@ -542,91 +553,45 @@ void main() {
     });
   });
 
-  group('el panel de voz y acento', () {
+  group('la voz (F47, paso 3)', () {
     const argentina = NarrationVoice(
       name: 'es-ar-x-ara-local',
       locale: 'es-AR',
     );
-    const argentinaOnline = NarrationVoice(
-      name: 'es-ar-x-ara-network',
-      locale: 'es-AR',
-    );
-    const spain = NarrationVoice(name: 'Mónica', locale: 'es_ES');
-    const unitedStates = NarrationVoice(
-      name: 'en-us-x-sfg-local',
-      locale: 'en-US',
-    );
-    const voices = [unitedStates, argentinaOnline, spain, argentina];
 
-    Future<void> openSheet(WidgetTester tester, {NarrationVoice? voice}) async {
-      await pump(
-        tester,
-        initial: _reading.copyWith(voice: voice),
-        voices: voices,
-      );
-      await tester.tap(find.byKey(const Key('read-aloud-voice')));
-      await tester.pumpAndSettle();
-    }
-
-    testWidgets('muestra los acentos por su nombre, los del idioma de la app '
-        'primero, y las voces del acento de la voz elegida', (tester) async {
-      await openSheet(tester, voice: argentina);
-
-      final accents = tester
-          .widgetList<ChoiceChip>(find.byType(ChoiceChip))
-          .map((chip) => (chip.label as Text).data)
-          .toList();
-      expect(accents, [
-        'Español (Argentina)',
-        'Español (España)',
-        'English (United States)',
-      ]);
-      // Las de Argentina: primero la que anda sin conexión.
-      expect(find.text(es.readAloudVoiceNumber(1)), findsOneWidget);
-      expect(find.text(es.readAloudVoiceOnDevice), findsOneWidget);
-      expect(find.text(es.readAloudVoiceNumber(2)), findsOneWidget);
-      expect(find.text(es.readAloudVoiceNeedsInternet), findsOneWidget);
-    });
-
-    testWidgets('elegir un acento lee con su voz, y se puede elegir otra', (
+    testWidgets('abre la biblioteca de voces, y elegir una la usa para leer', (
       tester,
     ) async {
-      await openSheet(tester, voice: argentina);
-
-      for (final accent in ['English (United States)', 'Español (España)']) {
-        await tester.ensureVisible(find.text(accent));
-        await tester.tap(find.text(accent));
-        await tester.pumpAndSettle();
-      }
-      // Una voz con nombre de verdad se muestra tal cual.
-      await tester.tap(find.text('Mónica'));
+      await pump(tester, initial: _reading, voices: const [argentina]);
+      await tester.tap(find.byKey(const Key('read-aloud-voice')));
       await tester.pumpAndSettle();
 
-      // Mónica ya era la elegida: tocarla de nuevo no pide nada.
-      expect(reader.calls, ['voice en-us-x-sfg-local', 'voice Mónica']);
+      expect(find.text(es.f47P3LibraryTitle), findsOneWidget);
+      // Con el panel abierto, el reproductor se hace a un lado.
+      expect(player, findsNothing);
+
+      final argentinaCard = find.textContaining(es.readAloudVoiceNumber(1));
+      await tester.ensureVisible(argentinaCard);
+      await tester.pumpAndSettle();
+      await tester.tap(argentinaCard);
+      await tester.pumpAndSettle();
+      expect(reader.calls, ['voice es-ar-x-ara-local']);
     });
 
     testWidgets('elegir la voz del sistema vuelve a la del teléfono', (
       tester,
     ) async {
-      await openSheet(tester, voice: argentina);
-
-      await tester.tap(find.byKey(const Key('read-aloud-system-voice')));
-      await tester.pumpAndSettle();
-
-      expect(reader.calls, ['voice null']);
-    });
-
-    testWidgets('sin voces instaladas, lo dice y queda la del sistema', (
-      tester,
-    ) async {
-      await pump(tester, initial: _reading);
+      await pump(tester, initial: _reading.copyWith(voice: argentina));
       await tester.tap(find.byKey(const Key('read-aloud-voice')));
       await tester.pumpAndSettle();
 
-      expect(find.text(es.readAloudNoVoices), findsOneWidget);
-      expect(find.byKey(const Key('read-aloud-system-voice')), findsOneWidget);
-      expect(find.byType(ChoiceChip), findsNothing);
+      final system = find.byKey(const Key('read-aloud-system-voice'));
+      await tester.ensureVisible(system);
+      await tester.pumpAndSettle();
+      await tester.tap(system);
+      await tester.pumpAndSettle();
+
+      expect(reader.calls, ['voice null']);
     });
   });
 }

@@ -168,6 +168,11 @@ class ReadAloudController extends Notifier<ReadAloudState> {
 
   final _rate = _SpeechRate();
 
+  /// Si el motor tiene puestas la voz y la velocidad del lector. Una muestra
+  /// de la biblioteca de voces lo usa prestado ([lendEngine]), y antes de
+  /// volver a leer se le vuelven a poner (F47, paso 3).
+  bool _engineReady = true;
+
   /// La última palabra avisada de la lectura de ahora, y cuándo: de una
   /// palabra a la siguiente se mide el ritmo de la voz.
   int? _lastWordChar;
@@ -393,6 +398,11 @@ class ReadAloudController extends Notifier<ReadAloudState> {
         .selectVoice(voice);
   }
 
+  /// Alguien más va a usar el motor de voz —una muestra de la biblioteca de
+  /// voces (F47, paso 3)— con otra voz: antes de volver a leer, el lector le
+  /// vuelve a poner la suya y su velocidad. Se llama con el lector en pausa.
+  void lendEngine() => _engineReady = false;
+
   void minimize() {
     if (state.document == null) return;
     state = state.copyWith(panel: ReadAloudPanel.minimized);
@@ -452,6 +462,13 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     final from = state.charInSegment.clamp(0, segment.spoken.length);
     final text = segment.spoken.substring(from);
     if (text.trim().isEmpty) return _next();
+
+    if (!_engineReady) {
+      _engineReady = true;
+      await _tts.setVoice(state.voice);
+      await _tts.setSpeed(state.speed);
+      if (generation != _generation || !state.playing) return;
+    }
 
     _base = from;
     _lastWordChar = null;

@@ -113,6 +113,7 @@ class ListFiltersSheet extends StatelessWidget {
     required this.onClear,
     required this.results,
     required this.narrowed,
+    this.texts,
     super.key,
   });
 
@@ -132,6 +133,10 @@ class ListFiltersSheet extends StatelessWidget {
   /// Si algo acota la lista —un filtro o lo buscado—: sin nada, el pie dice
   /// «Ver todo (N)» y no «Ver N resultados».
   final bool narrowed;
+
+  /// Cómo dice el pie lo que va a mostrar; sin decirlo, resultados («Ver 12
+  /// resultados»). La biblioteca de voces dice voces (F47, paso 3).
+  final FilterResultsTexts? texts;
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +179,11 @@ class ListFiltersSheet extends StatelessWidget {
               ),
             ),
           ),
-          _ShowResultsBar(results: results, narrowed: narrowed),
+          _ShowResultsBar(
+            results: results,
+            narrowed: narrowed,
+            texts: texts ?? FilterResultsTexts.results(l10n),
+          ),
         ],
       ),
     );
@@ -193,10 +202,15 @@ class ListFiltersSheet extends StatelessWidget {
 /// Es una región viva: el lector de pantalla anuncia la frase nueva cada vez
 /// que la cifra cambia, sin que haya que ir a buscarla.
 class _ShowResultsBar extends StatefulWidget {
-  const _ShowResultsBar({required this.results, required this.narrowed});
+  const _ShowResultsBar({
+    required this.results,
+    required this.narrowed,
+    required this.texts,
+  });
 
   final AsyncValue<int> results;
   final bool narrowed;
+  final FilterResultsTexts texts;
 
   @override
   State<_ShowResultsBar> createState() => _ShowResultsBarState();
@@ -211,7 +225,7 @@ class _ShowResultsBarState extends State<_ShowResultsBar> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final texts = widget.texts;
     final theme = Theme.of(context);
     // Solo un valor recién contado: una cuenta que se repite recuerda la de
     // antes —`isLoading`, con su valor—, y esa ya no es la cifra de ahora.
@@ -220,10 +234,10 @@ class _ShowResultsBarState extends State<_ShowResultsBar> {
         ? results.requireValue
         : null;
     final label = switch (count) {
-      null => l10n.f47P0FiltersCounting,
-      0 => l10n.f47P0FiltersNoResults,
-      final count when !widget.narrowed => l10n.f47P0FiltersShowAll(count),
-      final count => l10n.f47P0FiltersShowResults(count),
+      null => texts.counting,
+      0 => texts.none,
+      final count when !widget.narrowed => texts.showAll(count),
+      final count => texts.show(count),
     };
     final reserved = count == null ? _lastCounted : null;
     if (count != null) _lastCounted = label;
@@ -273,6 +287,34 @@ class _ShowResultsBarState extends State<_ShowResultsBar> {
       ),
     );
   }
+}
+
+/// Las frases del pie del panel de filtros: mientras cuenta, con cero, sin
+/// nada que acote y con lo elegido. Cada lista dice lo suyo —resultados,
+/// voces—; el pie es el mismo.
+@immutable
+class FilterResultsTexts {
+  const FilterResultsTexts({
+    required this.counting,
+    required this.none,
+    required this.showAll,
+    required this.show,
+  });
+
+  /// «Ver resultados», «Ningún resultado», «Ver todo (340)», «Ver 12
+  /// resultados»: los de una lista de documentos (F47, paso 0).
+  factory FilterResultsTexts.results(AppLocalizations l10n) =>
+      FilterResultsTexts(
+        counting: l10n.f47P0FiltersCounting,
+        none: l10n.f47P0FiltersNoResults,
+        showAll: l10n.f47P0FiltersShowAll,
+        show: l10n.f47P0FiltersShowResults,
+      );
+
+  final String counting;
+  final String none;
+  final String Function(int count) showAll;
+  final String Function(int count) show;
 }
 
 /// El nombre de una sección del panel de filtros.

@@ -13,8 +13,8 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_c
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_dock.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_speed_sheet.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_voice_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
+import 'package:sinapsis/features/narration/presentation/voices/voice_library_sheet.dart';
 
 /// El lector flotante de toda la app (F25): el botón redondo abajo a la
 /// derecha y el mini reproductor de lectura, por encima de cualquier
@@ -200,6 +200,13 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
     );
   }
 
+  /// La biblioteca de voces (F47, paso 3), sobre la pantalla de abajo.
+  void _openVoiceLibrary() {
+    final navigator = widget.navigatorKey.currentContext;
+    if (navigator == null) return;
+    unawaited(showVoiceLibrary(navigator));
+  }
+
   /// Cuánto sube el lector desde el borde de abajo: por encima de la barra
   /// de navegación si la hay, y de lo que pida esquivar.
   double _bottom(MediaQueryData media) {
@@ -275,7 +282,7 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
                 child: ReadAloudPlayer(
                   title: _title,
                   onSpeed: () => _openSheet(const ReadAloudSpeedSheet()),
-                  onVoice: () => _openSheet(const ReadAloudVoiceSheet()),
+                  onVoice: _openVoiceLibrary,
                 ),
               ),
             ),

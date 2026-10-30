@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/creations/design/creation_controls.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_speed_sheet.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_voice_sheet.dart';
+import 'package:sinapsis/features/narration/presentation/voices/voice_library_sheet.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart'
     show formatSpeed;
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -196,8 +196,7 @@ class ExtractListenPlayer extends ConsumerWidget {
                         child: IconButton(
                           key: const Key('extract-player-voice'),
                           tooltip: l10n.readAloudVoice,
-                          onPressed: () =>
-                              _openSheet(context, const ReadAloudVoiceSheet()),
+                          onPressed: () => unawaited(showVoiceLibrary(context)),
                           icon: const Icon(Icons.record_voice_over_outlined),
                         ),
                       ),

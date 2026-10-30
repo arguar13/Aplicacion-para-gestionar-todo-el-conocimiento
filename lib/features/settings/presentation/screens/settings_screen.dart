@@ -17,6 +17,7 @@ import 'package:sinapsis/features/citations/presentation/providers/citation_pref
 import 'package:sinapsis/features/dev_seed/presentation/providers/sample_library_providers.dart';
 import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_tile.dart';
 import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
+import 'package:sinapsis/features/narration/presentation/voices/voice_settings_tiles.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/owner_name_tile.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/review_settings_section.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/theme_choice_picker.dart';
@@ -90,6 +91,13 @@ class SettingsScreen extends ConsumerWidget {
               // El tema: el de ahora y una muestra de cada uno (F39).
               const ThemeChoicePicker(),
             ],
+          ),
+          const SizedBox(height: 24),
+          // F47, paso 3: la biblioteca de voces y las descargadas. El paso 7
+          // le suma el resto de «Voz y lectura».
+          _SettingsSection(
+            title: l10n.f47P3SettingsSection,
+            children: voiceSettingsTiles(context, ref),
           ),
           const SizedBox(height: 24),
           _SettingsSection(
