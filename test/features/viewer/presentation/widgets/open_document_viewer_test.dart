@@ -291,7 +291,7 @@ void main() {
       expect(find.byType(OriginalScreen), findsOneWidget);
       expect(find.byType(PdfViewerView), findsOneWidget);
       // Sin texto extraído no hay qué marcar.
-      expect(find.byKey(const Key('original-study-panel')), findsNothing);
+      expect(find.byKey(const Key('original-study-bar')), findsNothing);
     }, skip: _pdfiumPath == null);
 
     testWidgets('un PDF con su texto lleva arriba las fichas donde se marca '
@@ -318,7 +318,7 @@ void main() {
       final handled = await pumpAndOpen(tester, item, file.path);
 
       expect(handled, isTrue);
-      expect(find.byKey(const Key('original-study-panel')), findsOneWidget);
+      expect(find.byKey(const Key('original-study-bar')), findsOneWidget);
       expect(find.byKey(const Key('original-study-summary')), findsOneWidget);
     }, skip: _pdfiumPath == null);
 

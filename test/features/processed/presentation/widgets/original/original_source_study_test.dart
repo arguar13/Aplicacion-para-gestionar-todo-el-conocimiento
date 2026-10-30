@@ -138,7 +138,7 @@ void main() {
     await saveSource(withSummary: true);
     await openOriginal(tester);
 
-    expect(find.byKey(const Key('original-study-panel')), findsOneWidget);
+    expect(find.byKey(const Key('original-study-bar')), findsOneWidget);
     expect(
       tester
           .widget<Text>(find.byKey(const Key('original-study-state-summary')))
@@ -149,7 +149,7 @@ void main() {
       find.byType(DocumentReaderView),
     );
     expect(reader.study!.renditionId, rendition);
-    expect(reader.showFontControls, isTrue);
+    expect(find.byKey(const Key('reading-frame')), findsOneWidget);
   });
 
   testWidgets('ocultar lo marcado queda recordado para esa fuente, y no toca '
@@ -264,7 +264,7 @@ void main() {
         await tester.tap(open);
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
-        expect(find.byKey(const Key('original-study-panel')), findsOneWidget);
+        expect(find.byKey(const Key('original-study-bar')), findsOneWidget);
       });
     }
   });

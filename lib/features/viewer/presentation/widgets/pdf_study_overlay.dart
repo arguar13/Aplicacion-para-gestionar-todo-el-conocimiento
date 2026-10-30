@@ -167,10 +167,22 @@ class PdfStudyOverlay {
     _lineRanges = [for (final l in lines) (start: l.start, end: l.end)];
   }
 
+  /// El color de lo que suena: el amarillo de toda la app
+  /// (`RenderedMarkdown.playingColor`) o el de «Resaltado de lectura» del
+  /// marco (F47, paso 1).
+  Color _playing = RenderedMarkdown.playingColor;
+
+  Color get playingColor => _playing;
+
+  set playingColor(Color color) {
+    if (color == _playing) return;
+    _playing = color;
+    if (_reading != null) _repaintSoon();
+  }
+
   /// Lo que se lee en voz alta ahora —un tramo del texto extraído—, o `null`
-  /// si nada: se pinta por encima de todo, en el amarillo de lo que suena en
-  /// toda la app (`RenderedMarkdown.playingColor`), que sobre el papel se lee
-  /// con la letra negra.
+  /// si nada: se pinta por encima de todo, con el color de lo que suena
+  /// ([playingColor]), que sobre el papel se lee con la letra negra.
   void setReading(TextSlice? reading) {
     if (reading == _reading) return;
     _reading = reading;
@@ -214,7 +226,7 @@ class PdfStudyOverlay {
       canvas.drawRect(
         rect,
         Paint()
-          ..color = RenderedMarkdown.playingColor
+          ..color = _playing
           ..blendMode = BlendMode.multiply,
       );
     }

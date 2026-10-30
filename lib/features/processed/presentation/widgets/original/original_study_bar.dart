@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_sheets.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_ai_row.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_words.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
@@ -36,17 +37,28 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   marca, la franja de siempre con «Parar» ([StudyProgressStrip]).
 /// - **Eligiendo a mano**, una línea dice qué se elige y cómo, con «Listo».
 ///
-/// Vive en el original entero (F45, paso 7b, mejora 15: `OriginalView`), el
-/// mismo en Procesado y en la Biblioteca, que es donde se toca: la vista
-/// previa del documento dice qué tiene marcado (`OriginalMarksLine`).
+/// Vive en **la fila de IA del marco de lectura** del original (F47, paso 1),
+/// el mismo en Procesado y en la Biblioteca, que es donde se toca, con
+/// Preguntar a la IA y Podcast al final ([trailing]); la vista previa del
+/// documento dice qué tiene marcado (`OriginalMarksLine`). En la pantalla de
+/// cortes del triaje va arriba del original, como antes.
 ///
 /// Sin animaciones: el avance es un número y una barra que se llenan, nunca
-/// una ruedita que gira. Entra en 360 dp con la letra al doble: las fichas
-/// pasan a dos renglones —o a uno cada una— sin cortar una palabra.
+/// una ruedita que gira. Las fichas van en un renglón que, en 360 dp con la
+/// letra al doble, se desplaza de costado sin cortar una palabra
+/// (`ReadingAiStrip`).
 class OriginalStudyBar extends ConsumerStatefulWidget {
-  const OriginalStudyBar({required this.study, super.key});
+  const OriginalStudyBar({
+    required this.study,
+    this.trailing = const [],
+    super.key,
+  });
 
   final OriginalStudy study;
+
+  /// Lo que va en la misma fila después de las tres fichas: en el marco de
+  /// lectura, Preguntar a la IA y Podcast.
+  final List<Widget> trailing;
 
   @override
   ConsumerState<OriginalStudyBar> createState() => _OriginalStudyBarState();
@@ -98,10 +110,10 @@ class _OriginalStudyBarState extends ConsumerState<OriginalStudyBar> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _StudyChips(
-            chips: [
+          ReadingAiStrip(
+            children: [
               for (final kind in StudyMarkKind.values)
-                _StudyChip(
+                StudyChip.sized(
                   key: Key('original-study-${kind.name}'),
                   kind: kind,
                   count: marks.of(kind).length,
@@ -114,68 +126,35 @@ class _OriginalStudyBarState extends ConsumerState<OriginalStudyBar> {
                   onTap: () => unawaited(_tap(kind)),
                   onMenu: () => unawaited(_menu(kind)),
                 ),
+              ...widget.trailing,
             ],
           ),
-          if (view.summary && view.synthesis) const _BothLegend(),
-          if (view.pick case final pick?)
-            _PickingLine(
-              kind: pick,
-              onDone: () => stopPickingOnOriginal(ref, study),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (view.summary && view.synthesis) const _BothLegend(),
+                if (view.pick case final pick?)
+                  _PickingLine(
+                    kind: pick,
+                    onDone: () => stopPickingOnOriginal(ref, study),
+                  ),
+                // La franja de siempre: la parte que va y «Parar»; si se
+                // cortó, «Reintentar». Mide el análisis del texto propio, que
+                // es el que marca el original.
+                if (own != null) StudyProgressStrip(text: own),
+              ],
             ),
-          // La franja de siempre: la parte que va y «Parar»; si se cortó,
-          // «Reintentar». Mide el análisis del texto propio, que es el que
-          // marca el original.
-          if (own != null) StudyProgressStrip(text: own),
+          ),
         ],
       ),
     );
   }
 
-  /// Sin marcas, la hoja de los dos caminos; con marcas —o mientras la IA las
-  /// arma—, prender o apagar. Lo decide lo guardado, no lo que ya cargó la
-  /// pantalla (F39).
-  Future<void> _tap(StudyMarkKind kind) async {
-    final study = widget.study;
-    final running =
-        ref.read(studyAnalysisProvider(study.ownKey)) is StudyAnalysisRunning;
-    // Lo guardado, por el mismo proveedor que la barra ya mira: al día con
-    // cada cambio, y sin esperar si ya llegó.
-    final stored = await ref.read(
-      documentStudyProvider(study.original.renditionId).future,
-    );
-    if (!mounted) return;
-    if (stored.of(kind).isNotEmpty || running) {
-      final view = ref.read(studyViewProvider(study.original.renditionId));
-      await setOriginalShown(
-        ref,
-        study,
-        kind,
-        shown: !originalShows(view, kind),
-        own: _own,
-      );
-      return;
-    }
-    await _choose(kind);
-  }
-
-  Future<void> _choose(StudyMarkKind kind) async {
-    final study = widget.study;
-    final choice = await showOriginalStudyChoice(context, study, kind);
-    if (choice == null || !mounted) return;
-    switch (choice) {
-      case OriginalStudyChoice.ai:
-        await markOriginalWithAi(
-          ref,
-          context,
-          study,
-          kind,
-          own: _own,
-          complete: _ownStudy?.complete ?? false,
-        );
-      case OriginalStudyChoice.manual:
-        await _pick(kind);
-    }
-  }
+  Future<void> _tap(StudyMarkKind kind) =>
+      tapOriginalStudy(ref, context, widget.study, kind);
 
   Future<void> _pick(StudyMarkKind kind) =>
       pickOnOriginal(ref, widget.study, kind, own: _own);
@@ -221,6 +200,59 @@ class _OriginalStudyBarState extends ConsumerState<OriginalStudyBar> {
   }
 }
 
+/// Toca lo de [kind] en el original de [study]: lo de la ficha de la fila de
+/// IA y lo de «Resumir» de ⋮ del marco (F47, paso 1).
+///
+/// Sin marcas, la hoja de los dos caminos —con la IA o a mano—; con marcas
+/// —o mientras la IA las arma—, prender o apagar. Lo decide lo guardado, no
+/// lo que ya cargó la pantalla (F39).
+Future<void> tapOriginalStudy(
+  WidgetRef ref,
+  BuildContext context,
+  OriginalStudy study,
+  StudyMarkKind kind,
+) async {
+  final running =
+      ref.read(studyAnalysisProvider(study.ownKey)) is StudyAnalysisRunning;
+  // Lo guardado, por el mismo proveedor que la barra ya mira: al día con cada
+  // cambio, y sin esperar si ya llegó.
+  final stored = await ref.read(
+    documentStudyProvider(study.original.renditionId).future,
+  );
+  final own = await readOriginalOwnText(ref, study);
+  if (!context.mounted) return;
+  if (stored.of(kind).isNotEmpty || running) {
+    final view = ref.read(studyViewProvider(study.original.renditionId));
+    await setOriginalShown(
+      ref,
+      study,
+      kind,
+      shown: !originalShows(view, kind),
+      own: own,
+    );
+    return;
+  }
+  final choice = await showOriginalStudyChoice(context, study, kind);
+  if (choice == null || !context.mounted) return;
+  switch (choice) {
+    case OriginalStudyChoice.ai:
+      final ownStudy = own == null
+          ? null
+          : await ref.read(documentStudyProvider(study.ownKey).future);
+      if (!context.mounted) return;
+      await markOriginalWithAi(
+        ref,
+        context,
+        study,
+        kind,
+        own: own,
+        complete: ownStudy?.complete ?? false,
+      );
+    case OriginalStudyChoice.manual:
+      await pickOnOriginal(ref, study, kind, own: own);
+  }
+}
+
 /// El nombre de cada botón, como en la leyenda.
 String originalStudyName(AppLocalizations l10n, StudyMarkKind kind) =>
     switch (kind) {
@@ -254,78 +286,6 @@ String originalStudyCount(
     ? l10n.studyKeywordCount(count)
     : l10n.studySentenceCount(count);
 
-/// Las tres fichas en una fila, del mismo ancho y el mismo alto (F45, paso
-/// 4); si no entran —360 dp con la letra al doble—, en dos renglones: las dos
-/// primeras arriba y la tercera abajo, a lo ancho. Si tampoco, una debajo de
-/// la otra. Nunca se corta una palabra: la cuenta mide la palabra más larga de
-/// cada ficha con la letra de ahora.
-class _StudyChips extends StatelessWidget {
-  const _StudyChips({required this.chips});
-
-  final List<_StudyChip> chips;
-
-  /// El aire entre una ficha y la otra.
-  static const gap = 8.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final needed = chips
-        .map((chip) => chip.minWidth(context))
-        .fold<double>(0, max);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final perRow = studyChipsPerRow(
-          width: width,
-          needed: needed,
-          count: chips.length,
-        );
-        final rows = [
-          for (var start = 0; start < chips.length; start += perRow)
-            chips.sublist(start, min(start + perRow, chips.length)),
-        ];
-        return Column(
-          key: Key('original-study-chips-$perRow'),
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final (index, row) in rows.indexed) ...[
-              if (index > 0) const SizedBox(height: gap),
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final (column, chip) in row.indexed) ...[
-                      if (column > 0) const SizedBox(width: gap),
-                      Expanded(child: chip),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-/// Cuántas fichas van por renglón en [width]: todas si cada una tiene el
-/// ancho que necesita ([needed]), si no la mitad redondeada para arriba —dos
-/// renglones—, y si tampoco, una.
-@visibleForTesting
-int studyChipsPerRow({
-  required double width,
-  required double needed,
-  required int count,
-}) {
-  double each(int perRow) => (width - _StudyChips.gap * (perRow - 1)) / perRow;
-  if (each(count) >= needed) return count;
-  final half = (count + 1) ~/ 2;
-  if (half > 1 && each(half) >= needed) return half;
-  return 1;
-}
-
 /// Una ficha de estudio (F45, paso 4): compacta, del alto de sus vecinas, con
 /// su color, su estado y un toque para crearla o verla.
 ///
@@ -336,16 +296,34 @@ int studyChipsPerRow({
 /// - **Oculta**: con el borde de su color y «Oculto».
 /// - **Sin hacer**: tenue, con «Sin hacer»; tocarla crea.
 /// - **Haciéndose**: «Haciendo… 40 %» y una barra que se llena, sin girar.
-class _StudyChip extends StatelessWidget {
-  const _StudyChip({
+///
+/// En la fila de IA del marco de lectura (F47, paso 1) va con
+/// [StudyChip.sized]: del ancho de su nombre y de su estado en un renglón, y
+/// la fila se desplaza de costado si no entran.
+class StudyChip extends StatelessWidget {
+  const StudyChip({
     required this.kind,
     required this.count,
     required this.shown,
     required this.progress,
     required this.onTap,
-    required this.onMenu,
+    this.onMenu,
+    this.stateLabel,
     super.key,
-  });
+  }) : _sized = false;
+
+  /// Del ancho que necesita para su nombre y su estado en un renglón cada
+  /// uno: lo que va en una fila que se desplaza de costado.
+  const StudyChip.sized({
+    required this.kind,
+    required this.count,
+    required this.shown,
+    required this.progress,
+    required this.onTap,
+    this.onMenu,
+    this.stateLabel,
+    super.key,
+  }) : _sized = true;
 
   final StudyMarkKind kind;
   final int count;
@@ -354,7 +332,14 @@ class _StudyChip extends StatelessWidget {
   /// El avance de la IA, de 0 a 100, mientras marca; `null` si no.
   final int? progress;
   final VoidCallback onTap;
-  final VoidCallback onMenu;
+
+  /// Su menú —el ⋯ o mantenerla apretada—; sin él, ni el ⋯.
+  final VoidCallback? onMenu;
+
+  /// Lo que dice su estado si no es el de siempre —«Lo que leés»—.
+  final String? stateLabel;
+
+  final bool _sized;
 
   bool get _done => count > 0;
 
@@ -371,8 +356,12 @@ class _StudyChip extends StatelessWidget {
 
   TextStyle? _stateStyle(ThemeData theme) => theme.textTheme.labelSmall;
 
+  /// Si lleva el ⋯ de su menú.
+  bool get _hasMenu => _done && onMenu != null;
+
   String _state(AppLocalizations l10n) {
     if (progress case final percent?) return l10n.f45S4StateWorking(percent);
+    if (stateLabel case final label?) return label;
     if (!_done) return l10n.f43OrigStateNone;
     return shown
         ? l10n.f43OrigStateDone(kind.name)
@@ -411,10 +400,34 @@ class _StudyChip extends StatelessWidget {
           widest(_state(l10n), _stateStyle(theme)),
           if (_done) widest(_countText, _stateStyle(theme)),
         ].fold<double>(0, max) +
-        (_done ? _menu : _end);
+        (_hasMenu ? _menu : _end);
     // Un píxel de más: lo que mide el texto y lo que ocupa redondean
     // distinto.
     return _padding.horizontal + max(name, state) + 1;
+  }
+
+  /// El ancho de [StudyChip.sized]: su nombre en un renglón y su estado
+  /// —también el de «Haciendo… 100 %», así no cambia de ancho mientras la IA
+  /// avanza— con la cuenta y el ⋯ en otro. Nunca menos que el de una ficha
+  /// del marco.
+  double stripWidth(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final state = [
+      l10n.f45S4StateWorking(100),
+      _state(l10n),
+    ].reduce((a, b) => a.length >= b.length ? a : b);
+    return max(
+      minWidth(context),
+      readingChipWidth(
+        context,
+        [
+          (originalStudyName(l10n, kind), _nameStyle(theme)),
+          (_done ? '$state $_countText' : state, _stateStyle(theme)),
+        ],
+        extra: _padding.horizontal + _dot + _dotGap + (_hasMenu ? _menu : _end),
+      ),
+    );
   }
 
   /// Cuántas marcas tiene, al lado del estado: «Hecho · 3».
@@ -449,128 +462,137 @@ class _StudyChip extends StatelessWidget {
           : shown
           ? l10n.f45S4ChipHideHint
           : l10n.f45S4ChipShowHint,
-      onLongPress: _done ? onMenu : null,
-      onLongPressHint: _done ? l10n.f43OrigMoreTooltip(name) : null,
-      child: Material(
-        color: filled
-            ? color
-            : _done
-            ? scheme.surfaceContainerHigh
-            : scheme.surfaceContainerLow,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: filled
-                ? color
-                : _done
-                ? color.withValues(alpha: 0.9)
-                : scheme.outlineVariant,
-            width: _done ? 1.5 : 1,
+      onLongPress: _hasMenu ? onMenu : null,
+      onLongPressHint: _hasMenu ? l10n.f43OrigMoreTooltip(name) : null,
+      // El ancho, adentro de lo que dice el lector de pantalla: la ficha es
+      // un solo nodo, también en la fila que se desplaza de costado.
+      child: _withWidth(
+        context,
+        Material(
+          color: filled
+              ? color
+              : _done
+              ? scheme.surfaceContainerHigh
+              : scheme.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: filled
+                  ? color
+                  : _done
+                  ? color.withValues(alpha: 0.9)
+                  : scheme.outlineVariant,
+              width: _done ? 1.5 : 1,
+            ),
           ),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          onLongPress: _done ? onMenu : null,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 64),
-            child: Padding(
-              padding: _padding,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: _end),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          // Centrado con el primer renglón del nombre.
-                          padding: const EdgeInsets.only(top: 5),
-                          child: _Dot(
-                            key: Key('original-study-dot-${kind.name}'),
-                            color: filled ? StudyPalette.ink : color,
-                            hollow: _done && !shown,
-                          ),
-                        ),
-                        const SizedBox(width: _dotGap),
-                        Expanded(
-                          child: Text(
-                            name,
-                            style: _nameStyle(theme)?.copyWith(color: ink),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(right: _done ? 0 : _end),
-                          child: Wrap(
-                            spacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Text(
-                                state,
-                                key: Key('original-study-state-${kind.name}'),
-                                style: _stateStyle(
-                                  theme,
-                                )?.copyWith(color: soft),
-                              ),
-                              if (_done)
-                                Text(
-                                  _countText,
-                                  key: Key('original-study-count-${kind.name}'),
-                                  style: _stateStyle(theme)?.copyWith(
-                                    color: soft,
-                                    fontWeight: FontWeight.w700,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (_done)
-                        SizedBox.square(
-                          dimension: _menu,
-                          child: IconButton(
-                            key: Key('original-study-more-${kind.name}'),
-                            tooltip: l10n.f43OrigMoreTooltip(name),
-                            padding: EdgeInsets.zero,
-                            color: ink,
-                            icon: const Icon(Icons.more_vert, size: 18),
-                            onPressed: onMenu,
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (progress case final percent?) ...[
-                    const SizedBox(height: 6),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: _hasMenu ? onMenu : null,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 64),
+              child: Padding(
+                padding: _padding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
                     Padding(
                       padding: const EdgeInsets.only(right: _end),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
-                        child: LinearProgressIndicator(
-                          key: Key('original-study-progress-${kind.name}'),
-                          // Una barra que se llena: un valor siempre, nunca la
-                          // que va y viene sola (sin animaciones).
-                          value: percent / 100,
-                          minHeight: 4,
-                          color: filled ? StudyPalette.ink : color,
-                          backgroundColor: (filled ? StudyPalette.ink : color)
-                              .withValues(alpha: 0.2),
-                        ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            // Centrado con el primer renglón del nombre.
+                            padding: const EdgeInsets.only(top: 5),
+                            child: _Dot(
+                              key: Key('original-study-dot-${kind.name}'),
+                              color: filled ? StudyPalette.ink : color,
+                              hollow: _done && !shown,
+                            ),
+                          ),
+                          const SizedBox(width: _dotGap),
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: _nameStyle(theme)?.copyWith(color: ink),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              right: _hasMenu ? 0 : _end,
+                            ),
+                            child: Wrap(
+                              spacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  state,
+                                  key: Key('original-study-state-${kind.name}'),
+                                  style: _stateStyle(
+                                    theme,
+                                  )?.copyWith(color: soft),
+                                ),
+                                if (_done)
+                                  Text(
+                                    _countText,
+                                    key: Key(
+                                      'original-study-count-${kind.name}',
+                                    ),
+                                    style: _stateStyle(theme)?.copyWith(
+                                      color: soft,
+                                      fontWeight: FontWeight.w700,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (_hasMenu)
+                          SizedBox.square(
+                            dimension: _menu,
+                            child: IconButton(
+                              key: Key('original-study-more-${kind.name}'),
+                              tooltip: l10n.f43OrigMoreTooltip(name),
+                              padding: EdgeInsets.zero,
+                              color: ink,
+                              icon: const Icon(Icons.more_vert, size: 18),
+                              onPressed: onMenu,
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (progress case final percent?) ...[
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.only(right: _end),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            key: Key('original-study-progress-${kind.name}'),
+                            // Una barra que se llena: un valor siempre, nunca la
+                            // que va y viene sola (sin animaciones).
+                            value: percent / 100,
+                            minHeight: 4,
+                            color: filled ? StudyPalette.ink : color,
+                            backgroundColor: (filled ? StudyPalette.ink : color)
+                                .withValues(alpha: 0.2),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -578,6 +600,10 @@ class _StudyChip extends StatelessWidget {
       ),
     );
   }
+
+  /// [child] con el ancho de [StudyChip.sized], o tal cual.
+  Widget _withWidth(BuildContext context, Widget child) =>
+      _sized ? SizedBox(width: stripWidth(context), child: child) : child;
 }
 
 /// El punto de color de una ficha: su resaltador. Hueco, con el borde de su
@@ -590,8 +616,8 @@ class _Dot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: _StudyChip._dot,
-    height: _StudyChip._dot,
+    width: StudyChip._dot,
+    height: StudyChip._dot,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
       color: hollow ? null : color,

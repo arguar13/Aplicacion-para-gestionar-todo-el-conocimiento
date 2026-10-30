@@ -59,12 +59,13 @@ void main() {
               home ??
               OriginalScreen(
                 title: 'Una nota',
+                format: OriginalFormat.page,
+                study: withText ? const OriginalStudy.source(article) : null,
                 body: OriginalView(
                   format: OriginalFormat.page,
                   path: '/no/existe/pagina.html',
                   title: 'Una nota',
                   text: withText ? article : null,
-                  study: withText ? const OriginalStudy.source(article) : null,
                 ),
               ),
         ),
@@ -73,11 +74,20 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('con su artículo, arriba las fichas donde se marca; la página, '
-      'como en el teléfono', (tester) async {
+  testWidgets('con su artículo, las fichas donde se marca van en la fila de '
+      'IA del marco (F47, paso 1); la página, como en el teléfono', (
+    tester,
+  ) async {
     await pump(tester, withText: true);
 
-    expect(find.byKey(const Key('original-study-panel')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('reading-ai-row')),
+        matching: find.byKey(const Key('original-study-bar')),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('original-study-panel')), findsNothing);
     expect(find.byKey(const Key('original-study-synthesis')), findsOneWidget);
     expect(find.byType(MobilePageWidth), findsOneWidget);
     expect(
@@ -86,10 +96,13 @@ void main() {
     );
   });
 
-  testWidgets('sin artículo, no hay qué marcar', (tester) async {
+  testWidgets('sin artículo, no hay qué marcar: la fila de IA lleva solo '
+      'Preguntar a la IA y Podcast', (tester) async {
     await pump(tester, withText: false);
 
-    expect(find.byKey(const Key('original-study-panel')), findsNothing);
+    expect(find.byKey(const Key('original-study-bar')), findsNothing);
+    expect(find.byKey(const Key('reading-ai-ask')), findsOneWidget);
+    expect(find.byKey(const Key('reading-ai-podcast')), findsOneWidget);
   });
 
   group('escuchar dentro de la página', () {

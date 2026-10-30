@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/util/external_url_launcher.dart';
+import 'package:sinapsis/features/library/presentation/screens/transcript_follow_screen.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_view.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
@@ -45,10 +46,23 @@ Future<bool> openDocumentViewer(
     case NoResolvedViewer():
       return false;
 
+    // Una foto o un escaneo, con el texto que se leyó en ella.
     case ImageResolvedViewer(:final path):
-      return _push(context, ImageViewerScreen(path: path, title: item.title));
+      return _push(
+        context,
+        ImageViewerScreen(
+          path: path,
+          title: item.title,
+          text: studyTextOf(item),
+        ),
+      );
 
+    // Un audio o un video con su transcripción, que sigue al audio; sin
+    // ella, el reproductor solo.
     case MediaResolvedViewer(:final path, :final isVideo):
+      if (followedTranscriptOf(item) != null) {
+        return _push(context, TranscriptFollowScreen(itemId: item.id));
+      }
       return _push(
         context,
         MediaPlayerScreen(path: path, title: item.title, isVideo: isVideo),
@@ -82,16 +96,23 @@ Future<bool> openDocumentViewer(
         ),
       );
 
-    // Sin pantalla propia: para YouTube, "abrir el visor a pantalla
-    // completa" es exactamente lo mismo que tocar la vista previa
-    // embebida — ver `YoutubeEmbedView`. Abre el video de verdad, en vez
-    // de empujar una pantalla de esta app.
+    // Un YouTube con su transcripción se lee en el marco, con «Ver en
+    // YouTube» en ⋮ (F47, paso 1). Sin ella no hay qué leer: se abre el
+    // video de verdad, como la vista previa embebida —ver
+    // `YoutubeEmbedView`—.
     case YoutubeEmbedResolvedViewer(:final url):
+      if (followedTranscriptOf(item) != null) {
+        return _push(context, TranscriptFollowScreen(itemId: item.id));
+      }
       return launchExternalUrl(url);
   }
 }
 
 /// El original de [item] en su visor, con sus fichas si tiene [text].
+///
+/// Es el mismo marco de lectura que el original de Procesado (F47, paso 1):
+/// las fichas en la fila de IA marcan la fuente. De la Biblioteca nada se
+/// borra: ⋮ no lleva nada en rojo.
 bool _pushOriginal(
   BuildContext context,
   KnowledgeItem item,
@@ -103,13 +124,14 @@ bool _pushOriginal(
   context,
   OriginalScreen(
     title: item.title,
+    format: format,
+    study: text == null ? null : OriginalStudy.source(text),
     body: OriginalView(
       format: format,
       path: path,
       url: url,
       title: item.title,
       text: text,
-      study: text == null ? null : OriginalStudy.source(text),
     ),
   ),
 );

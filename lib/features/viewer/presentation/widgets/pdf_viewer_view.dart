@@ -15,6 +15,8 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/readable_reg
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_text_provider.dart';
 import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
 import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
@@ -112,6 +114,11 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
 
   ProviderSubscription<(int, int)?>? _reading;
 
+  /// El zoom de la página, para «Apariencia» del marco de lectura (F47, paso
+  /// 1); fuera de un marco no lo usa nadie.
+  late final _zoom = _PdfZoom(_controller);
+  ReadingFrameController? _frame;
+
   /// Lo que se ofrece para leer: el mismo documento mientras no cambie el
   /// texto partido ni lo estudiado.
   (ReadableDocument, Map<ReadScope, List<ReadableSegment>>, ReadableDocument)?
@@ -134,7 +141,21 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final frame = ReadingFrameController.maybeOf(context);
+    if (identical(frame, _frame)) return;
+    _frame = frame;
+    // Después del cuadro: avisarle al marco mientras se construye no se puede.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) frame?.zoom = _zoom;
+    });
+  }
+
+  @override
   void dispose() {
+    _frame?.dropZoom(_zoom);
+    _zoom.dispose();
     _reading?.close();
     _follow.dispose();
     super.dispose();
@@ -344,6 +365,7 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
   Widget build(BuildContext context) {
     final text = widget.text;
     _follow.resumeOnNewReadings(ref);
+    _study.playingColor = ref.watch(readingHighlightColorProvider);
     if (text != null) {
       _picking = ref.watch(studyViewProvider(text.renditionId)).picking;
       _study.update(
@@ -424,6 +446,49 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
         ],
       ),
     );
+  }
+}
+
+/// El zoom del PDF para «Apariencia» del marco (F47, paso 1): cuánto se
+/// acercó respecto de la página a lo ancho, acercar y alejar a los pasos de
+/// `pdfrx` —los mismos del doble toque— y volver al ancho.
+class _PdfZoom implements ReadingZoom {
+  _PdfZoom(this._controller) {
+    _controller.addListener(_update);
+  }
+
+  final PdfViewerController _controller;
+
+  @override
+  final ValueNotifier<double> level = ValueNotifier(1);
+
+  void _update() {
+    if (!_controller.isReady) return;
+    final cover = _controller.coverScale;
+    if (cover > 0) level.value = _controller.currentZoom / cover;
+  }
+
+  @override
+  void zoomIn() {
+    if (_controller.isReady) unawaited(_controller.zoomUp());
+  }
+
+  @override
+  void zoomOut() {
+    if (_controller.isReady) unawaited(_controller.zoomDown());
+  }
+
+  @override
+  void fit() {
+    if (!_controller.isReady) return;
+    unawaited(
+      _controller.setZoom(_controller.centerPosition, _controller.coverScale),
+    );
+  }
+
+  void dispose() {
+    _controller.removeListener(_update);
+    level.dispose();
   }
 }
 

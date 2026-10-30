@@ -202,28 +202,31 @@ void main() {
     }
   });
 
-  group('una fila de tres fichas (F45, paso 4)', () {
+  group('una fila de tres fichas (F45, paso 4), en la fila de IA del marco '
+      '(F47, paso 1)', () {
     Rect chip(WidgetTester tester, StudyMarkKind kind) =>
         tester.getRect(find.byKey(Key('original-study-${kind.name}')));
 
-    testWidgets('en una pantalla ancha, las tres en una fila, del mismo ancho '
-        'y el mismo alto', (tester) async {
+    testWidgets('en una pantalla ancha, las tres en un renglón, del mismo '
+        'alto, cada una con su nombre y su estado en un renglón', (
+      tester,
+    ) async {
       await pump(tester, theme: themes.first);
 
-      expect(find.byKey(const Key('original-study-chips-3')), findsOneWidget);
       final rects = [
         for (final kind in StudyMarkKind.values) chip(tester, kind),
       ];
       for (final rect in rects.skip(1)) {
         expect(rect.top, rects.first.top);
         expect(rect.height, rects.first.height);
-        expect(rect.width, closeTo(rects.first.width, 0.5));
+        expect(rect.left, greaterThan(rects.first.left));
       }
     });
 
-    testWidgets('en 360 dp con la letra al doble pasan a más renglones, sin '
-        'desbordar ni cortar una palabra; las de un renglón, del mismo '
-        'alto', (tester) async {
+    testWidgets('en 360 dp con la letra al doble siguen en un renglón que se '
+        'desplaza de costado, sin desbordar ni cortar una palabra', (
+      tester,
+    ) async {
       for (final theme in [themes.first, themes.last]) {
         await pump(
           tester,
@@ -232,29 +235,48 @@ void main() {
           textScale: 2,
         );
         expect(tester.takeException(), isNull);
-        expect(find.byKey(const Key('original-study-chips-3')), findsNothing);
         final rects = [
           for (final kind in StudyMarkKind.values) chip(tester, kind),
         ];
-        // Más de un renglón: la tercera ya no está al lado de la primera.
-        expect(rects.last.top, greaterThan(rects.first.top));
-        for (final a in rects) {
-          for (final b in rects) {
-            if (a.top == b.top) expect(a.height, b.height);
-          }
+        for (final rect in rects.skip(1)) {
+          expect(rect.top, rects.first.top);
+          expect(rect.height, rects.first.height);
         }
+        // No entran las tres: la fila se desplaza de costado.
+        final strip = tester.widget<SingleChildScrollView>(
+          find.byKey(const Key('reading-ai-strip')),
+        );
+        expect(strip.scrollDirection, Axis.horizontal);
+        expect(rects.last.right, greaterThan(360));
+        await tester.ensureVisible(
+          find.byKey(Key('original-study-${StudyMarkKind.keyword.name}')),
+        );
+        await tester.pumpAndSettle();
+        expect(chip(tester, StudyMarkKind.keyword).right, lessThan(361));
+        expect(
+          tester
+              .state<ScrollableState>(
+                find.descendant(
+                  of: find.byKey(const Key('reading-ai-strip')),
+                  matching: find.byType(Scrollable),
+                ),
+              )
+              .position
+              .pixels,
+          greaterThan(0),
+        );
         // Ninguna palabra se corta: cada nombre entra en su renglón entero.
-        for (final word in ['Palabras', 'clave', 'Resumen', 'Síntesis']) {
+        for (final kind in StudyMarkKind.values) {
+          final word = originalStudyName(es, kind);
           final paragraph = tester.renderObject<RenderParagraph>(
-            find.textContaining(word).first,
+            find.descendant(
+              of: find.byKey(Key('original-study-${kind.name}')),
+              matching: find.text(word),
+            ),
           );
           final lines = paragraph
               .getBoxesForSelection(
-                TextSelection(
-                  baseOffset: paragraph.text.toPlainText().indexOf(word),
-                  extentOffset:
-                      paragraph.text.toPlainText().indexOf(word) + word.length,
-                ),
+                TextSelection(baseOffset: 0, extentOffset: word.length),
               )
               .map((box) => box.top)
               .toSet();
@@ -343,15 +365,6 @@ void main() {
       );
       handle.dispose();
     });
-  });
-
-  test('cuántas fichas por renglón: todas si entran, la mitad si no, y una '
-      'si tampoco', () {
-    expect(studyChipsPerRow(width: 328, needed: 100, count: 3), 3);
-    expect(studyChipsPerRow(width: 328, needed: 150, count: 3), 2);
-    expect(studyChipsPerRow(width: 328, needed: 170, count: 3), 1);
-    // Justo: tres de 104 con dos huecos de 8 son 328.
-    expect(studyChipsPerRow(width: 328, needed: 104, count: 3), 3);
   });
 
   testWidgets('el resumen y la síntesis a la vista: la leyenda suma «Resumen '

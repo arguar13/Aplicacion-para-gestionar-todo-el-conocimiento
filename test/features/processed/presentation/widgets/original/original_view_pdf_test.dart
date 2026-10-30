@@ -71,12 +71,13 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           home: OriginalScreen(
             title: 'Un PDF',
+            format: OriginalFormat.pdf,
+            study: withText ? const OriginalStudy.source(text) : null,
             body: OriginalView(
               format: OriginalFormat.pdf,
               path: '/no/existe/documento.pdf',
               title: 'Un PDF',
               text: withText ? text : null,
-              study: withText ? const OriginalStudy.source(text) : null,
             ),
           ),
         ),
@@ -119,13 +120,17 @@ void main() {
     expect(find.byType(PdfViewerView), findsOneWidget);
   });
 
-  testWidgets('con su texto, arriba las fichas donde se marca la fuente', (
-    tester,
-  ) async {
+  testWidgets('con su texto, las fichas donde se marca la fuente, en la fila '
+      'de IA del marco (F47, paso 1)', (tester) async {
     await pump(tester);
 
-    expect(find.byKey(const Key('original-study-panel')), findsOneWidget);
-    expect(find.byKey(const Key('original-study-summary')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('reading-ai-row')),
+        matching: find.byKey(const Key('original-study-summary')),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('sin su texto no hay nada que escuchar ni que marcar', (
@@ -134,7 +139,7 @@ void main() {
     await pump(tester, withText: false);
 
     expect(offered(), isNull);
-    expect(find.byKey(const Key('original-study-panel')), findsNothing);
+    expect(find.byKey(const Key('original-study-bar')), findsNothing);
     expect(find.text(es.readAloudBackToReading), findsNothing);
   });
 }

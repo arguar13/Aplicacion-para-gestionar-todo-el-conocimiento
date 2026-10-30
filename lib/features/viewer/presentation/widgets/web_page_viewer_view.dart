@@ -22,6 +22,7 @@ import 'package:sinapsis/features/organize/presentation/providers/organize_provi
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
@@ -479,6 +480,9 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     unawaited(_apply());
   }
 
+  /// El color con que se pinta lo que suena.
+  Color _playing = RenderedMarkdown.playingColor;
+
   /// Arma el pedido para pintar lo que se lee en voz alta y, a pantalla
   /// completa, seguirlo; lo manda si cambió.
   void _updateReading() {
@@ -489,7 +493,7 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
       reading == null
           ? const []
           : alignment.pageRangesOf(reading.$1, reading.$2),
-      color: RenderedMarkdown.playingColor.toARGB32(),
+      color: _playing.toARGB32(),
       follow: widget.readAloud && _follow.following,
       report: widget.readAloud,
       smooth: !_still,
@@ -582,8 +586,12 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     final text = widget.text;
     if (text != null) _followStudy(text);
     final still = MediaQuery.disableAnimationsOf(context);
-    if (still != _still) {
+    // El color de lo que suena: el de «Resaltado de lectura» del marco (F47,
+    // paso 1), el amarillo de siempre si no se eligió otro.
+    final playing = ref.watch(readingHighlightColorProvider);
+    if (still != _still || playing != _playing) {
       _still = still;
+      _playing = playing;
       _updateReading();
     }
     if (text == null || !widget.readAloud) return _buildPage();

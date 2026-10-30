@@ -146,6 +146,18 @@ final originalOwnTextProvider = Provider.autoDispose
       },
     );
 
+/// [originalOwnTextProvider] esperado: el texto propio aunque nadie lo esté
+/// mirando todavía —«Resumir» de ⋮ con la fila de IA cerrada (F47, paso 1)—.
+Future<StudyText?> readOriginalOwnText(
+  WidgetRef ref,
+  OriginalStudy study,
+) async => switch (study) {
+  ProcessedOriginalStudy(:final documentId) => (await ref.read(
+    processedStudyTextProvider(documentId).future,
+  )).toNullable()?.asStudyText,
+  SourceOriginalStudy(:final original) => original,
+};
+
 /// Qué estimar al marcar con la IA un original: cuál y si el análisis
 /// empieza de cero —«Rehacer con IA»—.
 typedef OriginalStudyPlanKey = ({OriginalStudy study, bool fromStart});

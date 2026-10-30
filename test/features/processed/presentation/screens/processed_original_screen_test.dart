@@ -106,10 +106,11 @@ void main() {
     expect(reader.study!.renditionId, key);
     expect(reader.study!.itemId, id);
     expect(reader.content, text);
-    // El mismo lector que el original de la Biblioteca (F45, paso 7b): con
-    // A− A+ y las fichas arriba, no abajo.
-    expect(reader.showFontControls, isTrue);
-    expect(reader.controlsAtBottom, isTrue);
+    // El mismo lector que el original de la Biblioteca (F45, paso 7b), en el
+    // marco de lectura (F47, paso 1): la letra va en «Apariencia» y no hay
+    // botón flotante que esquivar.
+    expect(find.byKey(const Key('reading-frame')), findsOneWidget);
+    expect(reader.controlsAtBottom, isFalse);
 
     final study = await harness.container.read(
       documentStudyProvider(key).future,

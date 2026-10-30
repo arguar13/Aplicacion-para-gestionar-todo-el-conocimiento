@@ -3,11 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/storage/file_opener.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_bar.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_contents_sheet.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_more_sheet.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/mobile_page_width.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_viewer_view.dart';
@@ -26,27 +31,109 @@ enum OriginalFormat {
   reader,
 }
 
+/// Cómo se dice y qué cambia «Apariencia» en cada formato.
+extension OriginalFormatPresentation on OriginalFormat {
+  String label(AppLocalizations l10n) => switch (this) {
+    OriginalFormat.pdf => l10n.f47P1KindPdf,
+    OriginalFormat.page => l10n.f47P1KindWebPage,
+    OriginalFormat.reader => l10n.f47P1KindBook,
+  };
+
+  IconData get icon => switch (this) {
+    OriginalFormat.pdf => Icons.picture_as_pdf_outlined,
+    OriginalFormat.page => Icons.public,
+    OriginalFormat.reader => Icons.menu_book_outlined,
+  };
+
+  ReadingBodyKind get bodyKind => switch (this) {
+    OriginalFormat.pdf => ReadingBodyKind.page,
+    OriginalFormat.page => ReadingBodyKind.asIs,
+    OriginalFormat.reader => ReadingBodyKind.text,
+  };
+}
+
 /// Un original a pantalla completa, **el mismo en Procesado y en la
-/// Biblioteca** (F45, paso 7b, mejora 16, decisión H): su barra de título y
-/// [OriginalView]. Lo abren el documento procesado, sobre su copia
+/// Biblioteca** (F45, paso 7b, mejora 16, decisión H), en **el marco de
+/// lectura** (F47, paso 1): ←, Contenido, IA, Aa y ⋮ arriba; en la fila de
+/// IA, las tres fichas donde se marca —Resumir · Sintetizar · Palabras clave,
+/// con la IA o a mano ([OriginalStudyBar])—, Preguntar a la IA y Podcast; el
+/// título grande; [body] —casi siempre un [OriginalView]— y el lugar del
+/// reproductor abajo, sin el botón flotante.
+///
+/// Lo abren el documento procesado, sobre su copia
 /// (`ProcessedOriginalScreen`), y la vista previa del detalle de una fuente,
-/// sobre la fuente (`openDocumentViewer`).
-class OriginalScreen extends StatelessWidget {
-  const OriginalScreen({required this.title, required this.body, super.key});
+/// sobre la fuente (`openDocumentViewer`). Cada uno pone lo suyo en
+/// «Contenido» y en ⋮: en Procesado, «Descargar con lo marcado» y, en rojo,
+/// «Borrar la copia del original»; de la Biblioteca nada se borra.
+class OriginalScreen extends ConsumerWidget {
+  const OriginalScreen({
+    required this.title,
+    required this.format,
+    required this.body,
+    this.study,
+    this.kindLabel,
+    this.contents = const [],
+    this.menu = const [],
+    super.key,
+  });
 
   final String title;
 
-  /// Lo de abajo de la barra: casi siempre un [OriginalView]; mientras se
+  /// En qué visor se ve: lo que dice el tipo y lo que cambia «Apariencia».
+  final OriginalFormat format;
+
+  /// Lo de abajo del título: casi siempre un [OriginalView]; mientras se
   /// carga la copia, o si falta, lo que lo dice.
   final Widget body;
 
+  /// Dónde se marca, o `null` si no se marca: la fila de IA lleva solo
+  /// Preguntar a la IA y Podcast.
+  final OriginalStudy? study;
+
+  /// El tipo dicho de otra manera que el formato —«Foto»—; sin esto, el del
+  /// formato.
+  final String? kindLabel;
+
+  final List<ReadingContentsSection> contents;
+  final List<ReadingMenuGroup> menu;
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-    ),
-    body: body,
-  );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final study = this.study;
+    // Eligiendo a mano, la línea que lo dice está en la fila de IA: no se
+    // cierra hasta «Listo».
+    final picking =
+        study != null &&
+        ref.watch(
+          studyViewProvider(
+            study.original.renditionId,
+          ).select((view) => view.pick != null),
+        );
+
+    return ReadingFrame(
+      key: const Key('original-screen'),
+      info: ReadingDocumentInfo(
+        title: title,
+        kindLabel: kindLabel ?? format.label(l10n),
+        kindIcon: format.icon,
+      ),
+      bodyKind: format.bodyKind,
+      body: body,
+      aiRow: study == null
+          ? null
+          : (context, trailing) =>
+                OriginalStudyBar(study: study, trailing: trailing),
+      aiRowPinned: picking,
+      onSummarize: study == null
+          ? null
+          : () => unawaited(
+              tapOriginalStudy(ref, context, study, StudyMarkKind.summary),
+            ),
+      contents: contents,
+      menu: menu,
+    );
+  }
 }
 
 /// Lo que se ve de un original (F45, paso 7b): **arriba, donde se marca**
@@ -61,13 +148,15 @@ class OriginalScreen extends StatelessWidget {
 /// - un Word, un EPUB o un texto, como libro paginado, con A− A+ y el paso de
 ///   página (`DocumentReaderView`).
 ///
-/// Sin [study] no hay qué marcar: sin barra, y con [notice] arriba si hay
-/// algo que contar —en Procesado, que la fuente cambió su texto—. Un libro
-/// sin texto ([text] `null`) no tiene qué mostrar en el lector: se ofrece
-/// abrirlo con otra app ([OriginalUnreadable]).
+/// Sin [study] no hay barra arriba, y con [notice] una línea si hay algo que
+/// contar —en Procesado, que la fuente cambió su texto—. Un libro sin texto
+/// ([text] `null`) no tiene qué mostrar en el lector: se ofrece abrirlo con
+/// otra app ([OriginalUnreadable]).
 ///
-/// Es la pieza sobre la que F47 (paso 1) pone el marco de lectura nuevo: el
-/// visor y las marcas ya son uno solo para los dos lados.
+/// **En el marco de lectura** (F47, paso 1: [OriginalScreen]) va sin
+/// [study]: las fichas van en la fila de IA del marco, no arriba del visor.
+/// Con [study] —la pantalla de cortes del triaje— las lleva arriba, como
+/// antes.
 class OriginalView extends StatelessWidget {
   const OriginalView({
     required this.format,
@@ -148,8 +237,9 @@ class OriginalView extends StatelessWidget {
                 content: text!.content,
                 markdown: text.markdown,
                 study: text,
-                showFontControls: true,
-                controlsAtBottom: true,
+                // Fuera del marco —la pantalla de cortes— está el botón
+                // flotante: que no tape «siguiente».
+                controlsAtBottom: study != null,
               ),
             ),
           },
