@@ -2,8 +2,10 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:pdfrx_engine/pdfrx_engine.dart';
+import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/features/export/data/marked/pdf_mark_writer.dart';
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
+import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 import 'package:sinapsis/features/export/domain/entities/pdf_mark.dart';
 import 'package:sinapsis/features/export/domain/services/scanned_page_lines.dart';
 import 'package:sinapsis/features/transform/domain/documents/pdf_page_text.dart';
@@ -31,24 +33,45 @@ import 'package:sinapsis/features/viewer/domain/services/pdf_study_pages.dart';
 ///   [scannedPageLines].
 /// - Un tramo que no está en el texto, o que ya no cae en el PDF, se
 ///   saltea: el resto se marca igual.
+/// - Una **nota en el texto** (F45, mejora 19) es una nota del PDF, de las
+///   que se abren con un toque en cualquier lector: su ícono, del color de la
+///   nota, va en el margen derecho de la página, a la altura del primer
+///   renglón del pedazo —como en la app—, y el pedazo queda subrayado de ese
+///   color. Se ubica como un tramo.
 class PdfDocumentMarker {
   const PdfDocumentMarker({this.writer = const PdfMarkWriter()});
 
   final PdfMarkWriter writer;
 
-  /// El PDF [pdf] con [marks] marcados. [content] es su texto extraído, el
-  /// de las posiciones de [marks].
+  /// El PDF [pdf] con [marks] marcados y [notes] puestas. [content] es su
+  /// texto extraído, el de las posiciones de los dos.
   ///
   /// Si no queda nada que marcar, devuelve [pdf] tal cual.
   Future<Uint8List> mark(
     Uint8List pdf, {
     required String content,
     required List<DocumentMark> marks,
+    List<DocumentNote> notes = const [],
   }) async {
     final located = <_Located>[];
     for (final mark in marks) {
       final range = _locate(content, mark);
-      if (range != null) located.add((range: range, mark: mark));
+      if (range != null) located.add((range: range, mark: mark, note: null));
+    }
+    for (final note in notes) {
+      // El pedazo de una nota, subrayado de su color; lo que dice va en su
+      // ícono, no en el subrayado.
+      final mark = DocumentMark(
+        start: note.start,
+        end: note.end,
+        excerpt: note.excerpt,
+        color: note.color,
+        style: HighlightStyle.underline,
+      );
+      final range = _locate(content, mark);
+      if (range != null) {
+        located.add((range: range, mark: mark, note: note.note));
+      }
     }
     if (located.isEmpty) return pdf;
 
@@ -71,7 +94,9 @@ class PdfDocumentMarker {
       final studied = placed.studied;
 
       final result = <PdfMark>[];
-      for (final (:range, :mark) in located) {
+      for (final (:range, :mark, :note) in located) {
+        // El ícono de una nota va una sola vez: en la página donde empieza.
+        var iconPlaced = false;
         for (var i = 0; i < slices.length; i++) {
           final slice = slices[i];
           if (range.end <= slice.start || range.start >= slice.end) continue;
@@ -93,13 +118,18 @@ class PdfDocumentMarker {
                   rotation: pages[i].rotation,
                 );
           if (lines.isEmpty) continue;
+          final icon = note != null && !iconPlaced
+              ? _noteIcon(pages[i], lines.first)
+              : null;
+          iconPlaced = iconPlaced || icon != null;
           result.add(
             PdfMark(
               pageNumber: i + 1,
               lines: lines,
               color: mark.color,
               style: mark.style,
-              note: mark.note,
+              note: note ?? mark.note,
+              noteIcon: icon,
             ),
           );
         }
@@ -194,7 +224,27 @@ class PdfDocumentMarker {
   }
 }
 
-typedef _Located = ({TextSlice range, DocumentMark mark});
+/// Un tramo ubicado en el texto; con `note`, el pedazo de una nota en el
+/// texto y lo que dice.
+typedef _Located = ({TextSlice range, DocumentMark mark, String? note});
+
+/// El lado del ícono de una nota del PDF, en puntos: el de la nota de Adobe.
+const _noteIconSize = 20.0;
+
+/// Dónde va el ícono de una nota cuyo pedazo empieza en el renglón [line] de
+/// [page]: en el margen derecho, a la altura del renglón, sin salirse de la
+/// página. En las coordenadas del PDF —sin girar, con la `y` hacia arriba—,
+/// las mismas de los renglones.
+PdfRect _noteIcon(PdfPage page, PdfRect line) {
+  final quarter =
+      page.rotation == PdfPageRotation.clockwise90 ||
+      page.rotation == PdfPageRotation.clockwise270;
+  final width = quarter ? page.height : page.width;
+  final height = quarter ? page.width : page.height;
+  final left = max(0, width - _noteIconSize - 8).toDouble();
+  final top = line.top.clamp(_noteIconSize, height);
+  return PdfRect(left, top, left + _noteIconSize, top - _noteIconSize);
+}
 
 /// Dónde está [mark] en [content], o `null` si no está.
 ///

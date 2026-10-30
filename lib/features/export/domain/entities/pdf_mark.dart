@@ -14,6 +14,7 @@ class PdfMark {
     required this.color,
     this.style = HighlightStyle.fill,
     this.note,
+    this.noteIcon,
   });
 
   /// La página, desde 1, como `PdfPage.pageNumber`.
@@ -29,4 +30,9 @@ class PdfMark {
 
   /// Lo que la persona le escribió al resaltado, si algo.
   final String? note;
+
+  /// Con una nota en el texto (F45, mejora 19): dónde va su ícono. Entonces
+  /// [note] no va en el resaltado sino en una nota del PDF —la que se abre
+  /// con un toque en cualquier lector— en ese lugar, del mismo color.
+  final PdfRect? noteIcon;
 }

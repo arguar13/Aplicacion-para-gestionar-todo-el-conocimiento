@@ -3,13 +3,22 @@ import 'dart:typed_data';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/features/export/data/marked/mark_locator.dart';
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
+import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 
 /// Marca tramos en un Markdown y devuelve el mismo Markdown (F38): `==así==`
 /// alrededor de cada tramo de fondo, y `<u>así</u>` alrededor de cada uno
 /// subrayado.
 ///
 /// Markdown no tiene colores: un tramo marcado de verde y uno de rosa salen
-/// igual. Tampoco tiene notas: la nota de un tramo no se escribe.
+/// igual. Tampoco tiene comentarios: la nota de un resaltado no se escribe.
+///
+/// **Las notas en el texto** (F45, mejora 19) son notas al pie, como las
+/// escriben GitHub, Obsidian y Pandoc: la llamada `[^nota-1]` justo después
+/// del pedazo citado y, al final del archivo, `[^nota-1]: lo que dice`, en el
+/// orden del texto. Una llamada nunca cae adentro de la sintaxis: si el pedazo
+/// termina en la dirección de un enlace, en un código o en una etiqueta, va
+/// después; si termina en un bloque de código, en un renglón propio después
+/// del bloque.
 ///
 /// **Sin romper la sintaxis.** Las marcas van **por renglón**: un tramo que
 /// cruza un salto de línea o de párrafo se parte en uno por renglón, porque
@@ -37,48 +46,25 @@ import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
 class MarkdownMarkWriter {
   const MarkdownMarkWriter();
 
-  /// El Markdown [markdown] con [marks] marcados. [text] es el texto
-  /// extraído al que se refieren las posiciones de [marks]; para un Markdown
-  /// es el mismo [markdown], y los tramos se ubican sin buscar.
+  /// El Markdown [markdown] con [marks] marcados y [notes] como notas al pie.
+  /// [text] es el texto extraído al que se refieren las posiciones de los
+  /// dos; para un Markdown es el mismo [markdown], y los tramos se ubican sin
+  /// buscar.
   String write({
     required String markdown,
     required String text,
     required List<DocumentMark> marks,
+    List<DocumentNote> notes = const [],
   }) {
-    if (marks.isEmpty) return markdown;
-    final spans = locateMarks(
-      haystack: markdown,
-      extracted: text,
-      marks: marks,
-    );
-
-    final paint = Int32List(markdown.length)..fillRange(0, markdown.length, -1);
-    var found = false;
-    for (var i = 0; i < spans.length; i++) {
-      final span = spans[i];
-      if (span == null) continue;
-      paint.fillRange(span.start, span.end, i);
-      found = true;
-    }
-    if (!found) return markdown;
-
+    if (marks.isEmpty && notes.isEmpty) return markdown;
     final protected = _protectedRanges(markdown);
     final inserts = <_Insert>[];
-
-    var at = 0;
-    while (at < markdown.length) {
-      final mark = paint[at];
-      if (mark < 0) {
-        at++;
-        continue;
-      }
-      var end = at + 1;
-      while (end < markdown.length && paint[end] == mark) {
-        end++;
-      }
-      _wrapRange(markdown, at, end, marks[mark], protected, inserts);
-      at = end;
+    if (marks.isNotEmpty) {
+      _markInserts(markdown, text, marks, protected, inserts);
     }
+    final definitions = notes.isEmpty
+        ? const <String>[]
+        : _noteInserts(markdown, text, notes, protected, inserts);
     if (inserts.isEmpty) return markdown;
 
     // Se arma de corrido, en una sola pasada. En un mismo lugar,
@@ -96,17 +82,151 @@ class MarkdownMarkWriter {
       from = insert.position;
     }
     out.write(markdown.substring(from));
+    if (definitions.isNotEmpty) {
+      // Las notas al pie, al final: separadas de lo último por un renglón en
+      // blanco, como un bloque más.
+      final body = out.toString().trimRight();
+      return '$body\n\n${definitions.join('\n')}\n';
+    }
     return out.toString();
   }
+}
+
+/// Pinta [marks]: un tramo por letra —gana el último— y cada tramo,
+/// envuelto por renglón (ver [_wrapRange]).
+void _markInserts(
+  String markdown,
+  String text,
+  List<DocumentMark> marks,
+  List<({int start, int end})> protected,
+  List<_Insert> inserts,
+) {
+  final spans = locateMarks(haystack: markdown, extracted: text, marks: marks);
+
+  final paint = Int32List(markdown.length)..fillRange(0, markdown.length, -1);
+  var found = false;
+  for (var i = 0; i < spans.length; i++) {
+    final span = spans[i];
+    if (span == null) continue;
+    paint.fillRange(span.start, span.end, i);
+    found = true;
+  }
+  if (!found) return;
+
+  var at = 0;
+  while (at < markdown.length) {
+    final mark = paint[at];
+    if (mark < 0) {
+      at++;
+      continue;
+    }
+    var end = at + 1;
+    while (end < markdown.length && paint[end] == mark) {
+      end++;
+    }
+    _wrapRange(markdown, at, end, marks[mark], protected, inserts);
+    at = end;
+  }
+}
+
+/// Las llamadas de [notes] después de su pedazo, y sus definiciones, en el
+/// orden del texto. Las etiquetas no pisan las notas al pie que el archivo ya
+/// tuviera.
+List<String> _noteInserts(
+  String markdown,
+  String text,
+  List<DocumentNote> notes,
+  List<({int start, int end})> protected,
+  List<_Insert> inserts,
+) {
+  final spans = locateMarks(
+    haystack: markdown,
+    extracted: text,
+    marks: [
+      for (final note in notes)
+        DocumentMark(
+          start: note.start,
+          end: note.end,
+          excerpt: note.excerpt,
+          color: note.color,
+        ),
+    ],
+  );
+  final found = [
+    for (var i = 0; i < notes.length; i++)
+      if (spans[i] case final span?) (note: notes[i], end: span.end),
+  ]..sort((a, b) => a.end.compareTo(b.end));
+
+  var label = 'nota';
+  while (markdown.contains('[^$label-')) {
+    label = 'sinapsis-$label';
+  }
+  final definitions = <String>[];
+  for (var i = 0; i < found.length; i++) {
+    final name = '[^$label-${i + 1}]';
+    final (:position, :ownLine) = _notePlace(markdown, found[i].end, protected);
+    inserts.add(
+      _Insert(position, ownLine ? '$name\n\n' : name, _Insert.reference),
+    );
+    final lines = found[i].note.note.trim().split(RegExp(r'\r\n|\r|\n'));
+    definitions.add(
+      [
+        '$name: ${lines.first}',
+        // Los renglones que siguen, con sangría: siguen siendo de la nota.
+        for (final line in lines.skip(1))
+          if (line.isEmpty) '' else '    $line',
+      ].join('\n'),
+    );
+  }
+  return definitions;
+}
+
+/// Dónde va la llamada de una nota cuyo pedazo termina en [end]: ahí, salvo
+/// que caiga adentro de la sintaxis. En un bloque de código o en el
+/// encabezado del principio, al empezar el renglón que les sigue, en uno
+/// propio (`ownLine`); en la dirección de un enlace, un código o una
+/// etiqueta, apenas terminan.
+({int position, bool ownLine}) _notePlace(
+  String markdown,
+  int end,
+  List<({int start, int end})> protected,
+) {
+  for (final range in protected) {
+    if (end > range.start && end < range.end) {
+      return (position: range.end, ownLine: true);
+    }
+  }
+  final lineBegin = end == 0 ? 0 : markdown.lastIndexOf('\n', end - 1) + 1;
+  var lineEnd = markdown.indexOf('\n', lineBegin);
+  if (lineEnd < 0) lineEnd = markdown.length;
+  final line = markdown.substring(lineBegin, lineEnd);
+  var at = end - lineBegin;
+  for (final literal in _scan(line).literals) {
+    if (at > literal.start && at < literal.end) {
+      at = literal.end;
+      // El cierre de un código: sus comillas invertidas van con él.
+      while (at < line.length && line[at] == '`') {
+        at++;
+      }
+    }
+  }
+  return (position: lineBegin + at, ownLine: false);
 }
 
 class _Insert {
   _Insert(this.position, this.text, this.order);
 
+  /// Lo que cierra un tramo, la llamada de una nota y lo que abre otro: en
+  /// un mismo lugar, en ese orden —la llamada es del pedazo que termina ahí,
+  /// no del que empieza—.
+  static const closing = 0;
+  static const reference = 1;
+  static const opening = 2;
+
   final int position;
   final String text;
 
-  /// 0 si cierra, 1 si abre.
+  /// [closing], [reference] u [opening].
   final int order;
 }
 
@@ -164,8 +284,8 @@ void _wrapRange(
         isTableRow,
       )) {
         inserts
-          ..add(_Insert(lineBegin + piece.start, open, 1))
-          ..add(_Insert(lineBegin + piece.end, close, 0));
+          ..add(_Insert(lineBegin + piece.start, open, _Insert.opening))
+          ..add(_Insert(lineBegin + piece.end, close, _Insert.closing));
       }
     }
     lineStart = next;

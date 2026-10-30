@@ -12,6 +12,11 @@ import 'package:sinapsis/features/export/domain/entities/pdf_mark.dart';
 /// borrar, sin tocar el texto ni dibujar una copia de las páginas
 /// (decisión B del plan).
 ///
+/// Una nota en el texto (F45, mejora 19) es además una nota del estándar
+/// —`Text`, la del ícono que se abre con un toque, como la de Adobe— con lo que
+/// dice y del color de la nota, en el lugar que trae su marca
+/// ([PdfMark.noteIcon]).
+///
 /// Se guarda **agregando** al final del archivo (guardado incremental): lo
 /// que había queda byte por byte y lo nuevo va después, así que es el mismo
 /// PDF —con su firma, si tenía— más los resaltados.
@@ -72,6 +77,7 @@ void _annotate(({int document, List<PdfMark> marks}) message) {
     try {
       for (final mark in pageMarks) {
         _addMark(page, mark);
+        if (mark.noteIcon != null) _addNote(page, mark);
       }
       _generateAppearances(page);
     } finally {
@@ -161,7 +167,8 @@ void _addMark(pdfium_bindings.FPDF_PAGE page, PdfMark mark) {
         // muestra en pantalla pero no en el papel.
         ..FPDFAnnot_SetFlags(annot, pdfium_bindings.FPDF_ANNOT_FLAG_PRINT);
 
-      final note = mark.note;
+      // Lo que dice una nota en el texto va en su ícono ([_addNote]).
+      final note = mark.noteIcon == null ? mark.note : null;
       if (note != null && note.isNotEmpty) {
         _pdfium.FPDFAnnot_SetStringValue(
           annot,
@@ -169,6 +176,55 @@ void _addMark(pdfium_bindings.FPDF_PAGE page, PdfMark mark) {
           _wide(note, arena),
         );
       }
+    });
+  } finally {
+    _pdfium.FPDFPage_CloseAnnot(annot);
+  }
+}
+
+/// La nota del PDF de [mark] (F45, mejora 19): una anotación `Text` —el ícono
+/// de nota que cualquier lector abre con un toque— en [PdfMark.noteIcon], de
+/// su color y con lo que dice. No se agranda ni gira con la página, como las
+/// de Adobe, y sale al imprimir.
+void _addNote(pdfium_bindings.FPDF_PAGE page, PdfMark mark) {
+  final annot = _pdfium.FPDFPage_CreateAnnot(
+    page,
+    pdfium_bindings.FPDF_ANNOT_TEXT,
+  );
+  if (annot == nullptr) {
+    throw StateError('PDFium no pudo crear la nota');
+  }
+  try {
+    using((arena) {
+      final color = mark.color;
+      _pdfium.FPDFAnnot_SetColor(
+        annot,
+        pdfium_bindings.FPDFANNOT_COLORTYPE.FPDFANNOT_COLORTYPE_Color,
+        (color >> 16) & 0xff,
+        (color >> 8) & 0xff,
+        color & 0xff,
+        0xff,
+      );
+      final icon = mark.noteIcon!;
+      final rect = arena<pdfium_bindings.FS_RECTF>();
+      rect.ref
+        ..left = icon.left
+        ..top = icon.top
+        ..right = icon.right
+        ..bottom = icon.bottom;
+      _pdfium
+        ..FPDFAnnot_SetRect(annot, rect)
+        ..FPDFAnnot_SetFlags(
+          annot,
+          pdfium_bindings.FPDF_ANNOT_FLAG_PRINT |
+              pdfium_bindings.FPDF_ANNOT_FLAG_NOZOOM |
+              pdfium_bindings.FPDF_ANNOT_FLAG_NOROTATE,
+        )
+        ..FPDFAnnot_SetStringValue(
+          annot,
+          'Contents'.toNativeUtf8(allocator: arena).cast(),
+          _wide(mark.note ?? '', arena),
+        );
     });
   } finally {
     _pdfium.FPDFPage_CloseAnnot(annot);

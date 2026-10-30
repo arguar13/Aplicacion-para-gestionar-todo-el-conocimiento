@@ -6,6 +6,7 @@ import 'package:archive/archive.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/features/export/data/marked/mark_locator.dart';
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
+import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 import 'package:xml/xml.dart';
 
 /// Marca tramos en un Word (`.docx`) y lo devuelve como el mismo documento
@@ -45,15 +46,23 @@ import 'package:xml/xml.dart';
 /// relación y su tipo de contenido, y en el cuerpo un rango que abarca el
 /// tramo. Es lo que Word, LibreOffice y Google Docs muestran en el margen.
 ///
+/// **Notas en el texto** (F45, mejora 19). Cada una es una nota al pie de
+/// Word: la llamada —el número volado— va justo después del pedazo citado, y
+/// lo que dice, en `word/footnotes.xml` —se arma o se le agrega a la que ya
+/// había—, con su relación y su tipo de contenido. Word las numera solo, en el
+/// orden del documento, y LibreOffice y Google Docs las leen igual. Se ubican
+/// como los tramos, después de pintarlos: no son una capa de color, así que un
+/// resaltado y una nota sobre el mismo pedazo conviven.
+///
 /// Lo que no cambia queda **tal cual**: las demás entradas del ZIP se
 /// copian con sus bytes comprimidos sin tocar. Cambian el cuerpo y, si hubo
-/// notas, los comentarios, las relaciones del cuerpo y los tipos de
-/// contenido.
+/// notas, los comentarios o las notas al pie, las relaciones del cuerpo y los
+/// tipos de contenido.
 class DocxMarkWriter {
   const DocxMarkWriter();
 
-  /// El Word [docx] con [marks] marcados. [text] es el texto extraído al que
-  /// se refieren las posiciones de [marks].
+  /// El Word [docx] con [marks] marcados y [notes] como notas al pie. [text]
+  /// es el texto extraído al que se refieren las posiciones de los dos.
   ///
   /// Se hace en otro isolate: descomprimir y recorrer el XML de un documento
   /// de cientos de páginas congelaría la interfaz, igual que al leerlo.
@@ -63,9 +72,12 @@ class DocxMarkWriter {
     required Uint8List docx,
     required String text,
     required List<DocumentMark> marks,
+    List<DocumentNote> notes = const [],
   }) {
-    if (marks.isEmpty) return Future.value(docx);
-    return Isolate.run(() => writeSync(docx: docx, text: text, marks: marks));
+    if (marks.isEmpty && notes.isEmpty) return Future.value(docx);
+    return Isolate.run(
+      () => writeSync(docx: docx, text: text, marks: marks, notes: notes),
+    );
   }
 
   /// Lo mismo que [write], en este hilo.
@@ -73,8 +85,9 @@ class DocxMarkWriter {
     required Uint8List docx,
     required String text,
     required List<DocumentMark> marks,
+    List<DocumentNote> notes = const [],
   }) {
-    if (marks.isEmpty) return docx;
+    if (marks.isEmpty && notes.isEmpty) return docx;
     final archive = ZipDecoder().decodeBytes(docx);
     final parts = _Parts(archive);
 
@@ -91,55 +104,88 @@ class DocxMarkWriter {
         .firstOrNull;
     if (body == null) return docx;
 
-    // 1. Los textos del cuerpo, en orden.
-    final texts = <_Text>[];
-    final haystack = StringBuffer();
-    _collectTexts(body, texts, haystack);
-    if (texts.isEmpty) return docx;
-    final spans = locateMarks(
-      haystack: haystack.toString(),
-      extracted: text,
-      marks: marks,
-    );
-
-    // 2. A quién le toca cada letra.
-    final paint = Int32List(haystack.length)..fillRange(0, haystack.length, -1);
-    var found = false;
-    for (var i = 0; i < spans.length; i++) {
-      final span = spans[i];
-      if (span == null) continue;
-      paint.fillRange(span.start, span.end, i);
-      found = true;
-    }
-    if (!found) return docx;
-
-    // 3. Partir los runs y pintarlos.
-    final marked = _markRuns(texts, paint, marks);
-    if (marked == null) return docx;
-
-    // 4. Las notas, como comentarios.
     final replaced = <String, Uint8List>{};
-    final commentMarks = [
-      for (final i in marked.runsByMark.keys)
-        if ((marks[i].note ?? '').trim().isNotEmpty) i,
-    ]..sort();
-    if (commentMarks.isNotEmpty) {
-      _addComments(
-        parts: parts,
-        document: document,
-        prefix: marked.prefix,
-        marks: marks,
-        commentMarks: commentMarks,
-        runsByMark: marked.runsByMark,
-        replaced: replaced,
-      );
-    }
+    final painted =
+        marks.isNotEmpty &&
+        _paintMarks(
+          parts: parts,
+          document: document,
+          body: body,
+          text: text,
+          marks: marks,
+          replaced: replaced,
+        );
+    final noted =
+        notes.isNotEmpty &&
+        _addFootnotes(
+          parts: parts,
+          body: body,
+          text: text,
+          notes: notes,
+          replaced: replaced,
+        );
+    if (!painted && !noted) return docx;
     replaced[parts.key(documentPart)] = Uint8List.fromList(
       utf8.encode(document.toXmlString()),
     );
 
     return parts.rebuild(docx, replaced);
   }
+}
+
+/// Pinta [marks] en el cuerpo [body] de [document] y escribe sus notas como
+/// comentarios. Devuelve si pintó algo.
+bool _paintMarks({
+  required _Parts parts,
+  required XmlDocument document,
+  required XmlElement body,
+  required String text,
+  required List<DocumentMark> marks,
+  required Map<String, Uint8List> replaced,
+}) {
+  // 1. Los textos del cuerpo, en orden.
+  final texts = <_Text>[];
+  final haystack = StringBuffer();
+  _collectTexts(body, texts, haystack);
+  if (texts.isEmpty) return false;
+  final spans = locateMarks(
+    haystack: haystack.toString(),
+    extracted: text,
+    marks: marks,
+  );
+
+  // 2. A quién le toca cada letra.
+  final paint = Int32List(haystack.length)..fillRange(0, haystack.length, -1);
+  var found = false;
+  for (var i = 0; i < spans.length; i++) {
+    final span = spans[i];
+    if (span == null) continue;
+    paint.fillRange(span.start, span.end, i);
+    found = true;
+  }
+  if (!found) return false;
+
+  // 3. Partir los runs y pintarlos.
+  final marked = _markRuns(texts, paint, marks);
+  if (marked == null) return false;
+
+  // 4. Las notas, como comentarios.
+  final commentMarks = [
+    for (final i in marked.runsByMark.keys)
+      if ((marks[i].note ?? '').trim().isNotEmpty) i,
+  ]..sort();
+  if (commentMarks.isNotEmpty) {
+    _addComments(
+      parts: parts,
+      document: document,
+      prefix: marked.prefix,
+      marks: marks,
+      commentMarks: commentMarks,
+      runsByMark: marked.runsByMark,
+      replaced: replaced,
+    );
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------
@@ -467,49 +513,16 @@ void _addComments({
   required Map<int, ({XmlElement first, XmlElement last})> runsByMark,
   required Map<String, Uint8List> replaced,
 }) {
-  final documentPart = parts.documentPart;
-  final folder = _folderOf(documentPart);
-  final relsName = '$folder/_rels/${documentPart.split('/').last}.rels'
-      .replaceFirst(RegExp('^/'), '');
-
-  // Las relaciones del cuerpo, y de ahí dónde están los comentarios.
-  final relsBytes = parts.read(relsName);
-  final rels = relsBytes == null
-      ? XmlDocument.parse('$_declaration<Relationships xmlns="$_rels"/>')
-      : XmlDocument.parse(utf8.decode(relsBytes, allowMalformed: true));
-  final relsRoot = rels.rootElement;
-
-  String? commentsPart;
-  for (final rel in relsRoot.childElements) {
-    final type = rel.getAttribute('Type') ?? '';
-    if (type == _commentsType) {
-      commentsPart = _resolve(folder, rel.getAttribute('Target') ?? '');
-      break;
-    }
-  }
-  var newRelationship = false;
-  if (commentsPart == null) {
-    commentsPart = _join(folder, 'comments.xml');
-    var highest = 0;
-    for (final rel in relsRoot.childElements) {
-      final id = RegExp(r'^rId(\d+)$').firstMatch(rel.getAttribute('Id') ?? '');
-      if (id != null) {
-        final n = int.parse(id.group(1)!);
-        if (n > highest) highest = n;
-      }
-    }
-    relsRoot.children.add(
-      XmlElement(XmlName('Relationship'), [
-        XmlAttribute(XmlName('Id'), 'rId${highest + 1}'),
-        XmlAttribute(XmlName('Type'), _commentsType),
-        XmlAttribute(XmlName('Target'), 'comments.xml'),
-      ]),
-    );
-    newRelationship = true;
-  }
+  final commentsPart = _relatedPart(
+    parts: parts,
+    replaced: replaced,
+    type: _commentsType,
+    contentType: _commentsContentType,
+    fileName: 'comments.xml',
+  );
 
   // El archivo de comentarios: el que había, o uno nuevo.
-  final existing = parts.read(commentsPart);
+  final existing = _current(parts, replaced, commentsPart);
   final comments = existing == null
       ? XmlDocument.parse('$_declaration<w:comments xmlns:w="$_w"/>')
       : XmlDocument.parse(utf8.decode(existing, allowMalformed: true));
@@ -534,31 +547,22 @@ void _addComments({
     }
   }
 
-  XmlElement w(String ns, String local, [Map<String, String>? attrs]) =>
-      XmlElement(XmlName.fromString('$ns:$local'), [
-        for (final MapEntry(:key, :value) in (attrs ?? const {}).entries)
-          XmlAttribute(XmlName.fromString('$ns:$key'), value),
-      ]);
-
   for (final m in commentMarks) {
     final runs = runsByMark[m]!;
     final id = '${nextId++}';
 
     // El comentario, un párrafo por renglón de la nota.
-    final comment = w(commentPrefix, 'comment', {
+    final comment = _w3(commentPrefix, 'comment', {
       'id': id,
       'author': _commentAuthor,
       'initials': 'S',
     });
-    for (final line in marks[m].note!.trim().split(RegExp(r'\r\n|\r|\n'))) {
-      final text = w(commentPrefix, 't')
-        ..attributes.add(
-          XmlAttribute(XmlName.fromString('xml:space'), 'preserve'),
-        )
-        ..children.add(XmlText(line));
+    for (final line in _lines(marks[m].note!)) {
       comment.children.add(
-        w(commentPrefix, 'p')
-          ..children.add(w(commentPrefix, 'r')..children.add(text)),
+        _w3(commentPrefix, 'p')
+          ..children.add(
+            _w3(commentPrefix, 'r')..children.add(_textOf(commentPrefix, line)),
+          ),
       );
     }
     commentsRoot.children.add(comment);
@@ -569,51 +573,331 @@ void _addComments({
     final lastParent = last.parent! as XmlElement;
     var at = lastParent.children.indexOf(last) + 1;
     lastParent.children.insertAll(at, [
-      w(prefix, 'commentRangeEnd', {'id': id}),
-      w(prefix, 'r')..children.add(w(prefix, 'commentReference', {'id': id})),
+      _w3(prefix, 'commentRangeEnd', {'id': id}),
+      _w3(prefix, 'r')
+        ..children.add(_w3(prefix, 'commentReference', {'id': id})),
     ]);
     final first = runs.first;
     final firstParent = first.parent! as XmlElement;
     at = firstParent.children.indexOf(first);
-    firstParent.children.insert(at, w(prefix, 'commentRangeStart', {'id': id}));
+    firstParent.children.insert(
+      at,
+      _w3(prefix, 'commentRangeStart', {'id': id}),
+    );
   }
 
   replaced[parts.key(commentsPart)] = Uint8List.fromList(
     utf8.encode(comments.toXmlString()),
   );
-  if (newRelationship || relsBytes == null) {
-    replaced[parts.key(relsName)] = Uint8List.fromList(
-      utf8.encode(rels.toXmlString()),
-    );
+}
+
+// ---------------------------------------------------------------------
+// Notas al pie (F45, mejora 19)
+// ---------------------------------------------------------------------
+
+const _footnotesType =
+    'http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+    'footnotes';
+const _footnotesContentType =
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.'
+    'footnotes+xml';
+
+/// Las notas al pie de un Word que no tenía: con los dos separadores que Word
+/// espera —la raya entre el texto y las notas, y la de cuando una nota sigue
+/// en la página siguiente—, con los ids -1 y 0 de siempre.
+final _emptyFootnotes = [
+  '$_declaration<w:footnotes xmlns:w="$_w">',
+  '<w:footnote w:type="separator" w:id="-1">',
+  '<w:p><w:r><w:separator/></w:r></w:p></w:footnote>',
+  '<w:footnote w:type="continuationSeparator" w:id="0">',
+  '<w:p><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>',
+  '</w:footnotes>',
+].join();
+
+/// Pone [notes] como notas al pie del cuerpo [body]: la llamada después de
+/// su pedazo y lo que dicen en las notas al pie. Devuelve si puso alguna.
+///
+/// Se ubican después de pintar los tramos, sobre los textos de ahora —pintar
+/// parte los runs pero no cambia una letra—, y se ponen de atrás para
+/// adelante: partir el run de una deja en su lugar los textos de las de antes.
+bool _addFootnotes({
+  required _Parts parts,
+  required XmlElement body,
+  required String text,
+  required List<DocumentNote> notes,
+  required Map<String, Uint8List> replaced,
+}) {
+  final texts = <_Text>[];
+  final haystack = StringBuffer();
+  _collectTexts(body, texts, haystack);
+  if (texts.isEmpty) return false;
+  final spans = locateMarks(
+    haystack: haystack.toString(),
+    extracted: text,
+    marks: [for (final note in notes) _asMark(note)],
+  );
+  // Las encontradas, por dónde termina su pedazo en el cuerpo.
+  final found = [
+    for (var i = 0; i < notes.length; i++)
+      if (spans[i] case final span?) (note: notes[i], end: span.end),
+  ]..sort((a, b) => a.end.compareTo(b.end));
+  if (found.isEmpty) return false;
+  final prefix = body.name.prefix;
+  if (prefix == null) return false;
+
+  final footnotesPart = _relatedPart(
+    parts: parts,
+    replaced: replaced,
+    type: _footnotesType,
+    contentType: _footnotesContentType,
+    fileName: 'footnotes.xml',
+  );
+  final existing = _current(parts, replaced, footnotesPart);
+  final footnotes = XmlDocument.parse(
+    existing == null
+        ? _emptyFootnotes
+        : utf8.decode(existing, allowMalformed: true),
+  );
+  final footnotesRoot = footnotes.rootElement;
+  final notePrefix = footnotesRoot.name.prefix ?? prefix;
+
+  // Los ids que ya existen no se repiten; los de la persona, desde 1.
+  var nextId = 1;
+  for (final e in footnotesRoot.descendantElements) {
+    if (e.name.namespaceUri != _w || e.name.local != 'footnote') continue;
+    final id = int.tryParse(e.getAttribute('id', namespace: _w) ?? '');
+    if (id != null && id >= nextId) nextId = id + 1;
+  }
+  final ids = [for (var i = 0; i < found.length; i++) nextId + i];
+
+  // La nota, un párrafo por renglón; el primero, con su número.
+  for (var i = 0; i < found.length; i++) {
+    final footnote = _w3(notePrefix, 'footnote', {'id': '${ids[i]}'});
+    final lines = _lines(found[i].note.note);
+    for (var l = 0; l < lines.length; l++) {
+      final paragraph = _w3(notePrefix, 'p');
+      if (l == 0) {
+        paragraph.children.add(
+          _w3(notePrefix, 'r')
+            ..children.addAll([
+              _superscript(notePrefix),
+              _w3(notePrefix, 'footnoteRef'),
+            ]),
+        );
+      }
+      paragraph.children.add(
+        _w3(notePrefix, 'r')
+          ..children.add(
+            _textOf(notePrefix, l == 0 ? ' ${lines[l]}' : lines[l]),
+          ),
+      );
+      footnote.children.add(paragraph);
+    }
+    footnotesRoot.children.add(footnote);
   }
 
-  // El tipo de contenido de los comentarios, si no está dicho.
-  final typesBytes = parts.read('[Content_Types].xml');
-  if (typesBytes != null) {
-    final types = XmlDocument.parse(
-      utf8.decode(typesBytes, allowMalformed: true),
-    );
-    final partName = '/${commentsPart.replaceFirst(RegExp('^/'), '')}';
-    final declared = types.rootElement.childElements.any(
-      (e) =>
-          e.name.local == 'Override' &&
-          (e.getAttribute('PartName') ?? '').toLowerCase() ==
-              partName.toLowerCase(),
-    );
-    if (!declared) {
-      // Sin prefijo: hereda el espacio de nombres del documento.
-      types.rootElement.children.add(
-        XmlElement(XmlName('Override'), [
-          XmlAttribute(XmlName('PartName'), partName),
-          XmlAttribute(XmlName('ContentType'), _commentsContentType),
-        ]),
-      );
-      replaced[parts.key('[Content_Types].xml')] = Uint8List.fromList(
-        utf8.encode(types.toXmlString()),
-      );
+  // La llamada, de atrás para adelante.
+  for (var i = found.length - 1; i >= 0; i--) {
+    _insertReference(texts, found[i].end, prefix, ids[i]);
+  }
+
+  replaced[parts.key(footnotesPart)] = Uint8List.fromList(
+    utf8.encode(footnotes.toXmlString()),
+  );
+  return true;
+}
+
+/// El pedazo de [note] como un tramo, para ubicarlo como se ubican todos.
+DocumentMark _asMark(DocumentNote note) => DocumentMark(
+  start: note.start,
+  end: note.end,
+  excerpt: note.excerpt,
+  color: note.color,
+  style: HighlightStyle.underline,
+);
+
+/// Pone la llamada a la nota [id] justo después de la letra [end] - 1 del
+/// cuerpo: si cae en medio de un texto, su run se parte en dos —los dos con
+/// las propiedades del original— y la llamada va en uno propio entre ellos.
+///
+/// El texto de la izquierda se queda en su elemento de siempre: las llamadas
+/// que todavía faltan poner, que están antes, siguen encontrando el suyo.
+void _insertReference(List<_Text> texts, int end, String prefix, int id) {
+  // El texto que tiene la letra [end] - 1.
+  var low = 0;
+  var high = texts.length - 1;
+  while (low < high) {
+    final mid = (low + high + 1) >> 1;
+    if (texts[mid].start <= end - 1) {
+      low = mid;
+    } else {
+      high = mid - 1;
     }
   }
+  final text = texts[low];
+  final run = text.element.parent;
+  if (run is! XmlElement || !_isWord(run, 'r')) return;
+  final parent = run.parent;
+  if (parent is! XmlElement) return;
+  final cut = end - text.start;
+
+  final properties = run.children
+      .whereType<XmlElement>()
+      .where((c) => _isWord(c, 'rPr'))
+      .firstOrNull;
+  // Lo que en el run sigue a la letra: el resto del texto y lo que venga
+  // después de él.
+  final rest = <XmlNode>[];
+  final at = run.children.indexOf(text.element);
+  if (cut < text.text.length) {
+    rest.add(_textLike(text.element, text.text.substring(cut)));
+    text.element.children
+      ..clear()
+      ..add(XmlText(text.text.substring(0, cut)));
+    _preserveSpace(text.element);
+  }
+  final following = run.children.sublist(at + 1);
+  for (final node in following) {
+    node.remove();
+  }
+  rest.addAll(following);
+
+  final reference = _w3(prefix, 'r')
+    ..children.addAll([
+      _superscript(prefix),
+      _w3(prefix, 'footnoteReference', {'id': '$id'}),
+    ]);
+  final after = [
+    reference,
+    if (rest.any((n) => n is XmlElement))
+      XmlElement(run.name.copy(), run.attributes.map((a) => a.copy()), [
+        if (properties != null) properties.copy(),
+        ...rest,
+      ]),
+  ];
+  parent.children.insertAll(parent.children.indexOf(run) + 1, after);
 }
+
+/// Las propiedades de un número volado.
+XmlElement _superscript(String prefix) =>
+    _w3(prefix, 'rPr')
+      ..children.add(_w3(prefix, 'vertAlign', {'val': 'superscript'}));
+
+// ---------------------------------------------------------------------
+// Las partes relacionadas con el cuerpo
+// ---------------------------------------------------------------------
+
+/// La parte de [type] relacionada con el cuerpo —los comentarios, las notas
+/// al pie—: la que ya nombra una relación, o [fileName] al lado del cuerpo
+/// con su relación nueva y su tipo de contenido declarados en [replaced].
+///
+/// Lee las relaciones y los tipos de contenido como ya quedaron en
+/// [replaced]: los comentarios y las notas al pie se agregan en la misma
+/// escritura, y lo segundo no puede pisar lo primero.
+String _relatedPart({
+  required _Parts parts,
+  required Map<String, Uint8List> replaced,
+  required String type,
+  required String contentType,
+  required String fileName,
+}) {
+  final documentPart = parts.documentPart;
+  final folder = _folderOf(documentPart);
+  final relsName = '$folder/_rels/${documentPart.split('/').last}.rels'
+      .replaceFirst(RegExp('^/'), '');
+
+  final relsBytes = _current(parts, replaced, relsName);
+  final rels = relsBytes == null
+      ? XmlDocument.parse('$_declaration<Relationships xmlns="$_rels"/>')
+      : XmlDocument.parse(utf8.decode(relsBytes, allowMalformed: true));
+  final relsRoot = rels.rootElement;
+
+  for (final rel in relsRoot.childElements) {
+    if ((rel.getAttribute('Type') ?? '') == type) {
+      final part = _resolve(folder, rel.getAttribute('Target') ?? '');
+      _declareContentType(parts, replaced, part, contentType);
+      return part;
+    }
+  }
+
+  var highest = 0;
+  for (final rel in relsRoot.childElements) {
+    final id = RegExp(r'^rId(\d+)$').firstMatch(rel.getAttribute('Id') ?? '');
+    if (id != null) {
+      final n = int.parse(id.group(1)!);
+      if (n > highest) highest = n;
+    }
+  }
+  relsRoot.children.add(
+    XmlElement(XmlName('Relationship'), [
+      XmlAttribute(XmlName('Id'), 'rId${highest + 1}'),
+      XmlAttribute(XmlName('Type'), type),
+      XmlAttribute(XmlName('Target'), fileName),
+    ]),
+  );
+  replaced[parts.key(relsName)] = Uint8List.fromList(
+    utf8.encode(rels.toXmlString()),
+  );
+  final part = _join(folder, fileName);
+  _declareContentType(parts, replaced, part, contentType);
+  return part;
+}
+
+/// Declara el tipo de contenido de [part], si no está dicho.
+void _declareContentType(
+  _Parts parts,
+  Map<String, Uint8List> replaced,
+  String part,
+  String contentType,
+) {
+  const typesName = '[Content_Types].xml';
+  final typesBytes = _current(parts, replaced, typesName);
+  if (typesBytes == null) return;
+  final types = XmlDocument.parse(
+    utf8.decode(typesBytes, allowMalformed: true),
+  );
+  final partName = '/${part.replaceFirst(RegExp('^/'), '')}';
+  final declared = types.rootElement.childElements.any(
+    (e) =>
+        e.name.local == 'Override' &&
+        (e.getAttribute('PartName') ?? '').toLowerCase() ==
+            partName.toLowerCase(),
+  );
+  if (declared) return;
+  // Sin prefijo: hereda el espacio de nombres del documento.
+  types.rootElement.children.add(
+    XmlElement(XmlName('Override'), [
+      XmlAttribute(XmlName('PartName'), partName),
+      XmlAttribute(XmlName('ContentType'), contentType),
+    ]),
+  );
+  replaced[parts.key(typesName)] = Uint8List.fromList(
+    utf8.encode(types.toXmlString()),
+  );
+}
+
+/// La parte [name] como quedó: la reemplazada en esta escritura, o la del
+/// archivo.
+Uint8List? _current(
+  _Parts parts,
+  Map<String, Uint8List> replaced,
+  String name,
+) => replaced[parts.key(name)] ?? parts.read(name);
+
+/// Un elemento de Word con [prefix] y sus atributos con el mismo prefijo.
+XmlElement _w3(String prefix, String local, [Map<String, String>? attrs]) =>
+    XmlElement(XmlName.fromString('$prefix:$local'), [
+      for (final MapEntry(:key, :value) in (attrs ?? const {}).entries)
+        XmlAttribute(XmlName.fromString('$prefix:$key'), value),
+    ]);
+
+/// Un `w:t` con [text], con sus espacios de las puntas.
+XmlElement _textOf(String prefix, String text) => _w3(prefix, 't')
+  ..attributes.add(XmlAttribute(XmlName.fromString('xml:space'), 'preserve'))
+  ..children.add(XmlText(text));
+
+/// Los renglones de una nota, sin los blancos de las puntas.
+List<String> _lines(String note) => note.trim().split(RegExp(r'\r\n|\r|\n'));
 
 String _folderOf(String part) {
   final slash = part.lastIndexOf('/');

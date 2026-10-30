@@ -15631,5 +15631,13 @@
         "type": "int"
       }
     }
+  },
+  "f45S8DownloadNotes": "My notes",
+  "@f45S8DownloadNotes": {
+    "description": "F45, paso 8 (mejora 19): casilla de la hoja «Descargar con lo marcado»: las notas que la persona escribió en el texto, que salen como notas del PDF o, en el texto, como notas al pie."
+  },
+  "f45S8DownloadNoNotes": "This text has no notes",
+  "@f45S8DownloadNoNotes": {
+    "description": "F45, paso 8 (mejora 19): por qué la casilla «Mis notas» de la descarga está apagada: no hay ninguna nota que caiga en el texto."
   }
 }

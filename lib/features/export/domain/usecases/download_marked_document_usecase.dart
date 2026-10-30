@@ -6,12 +6,14 @@ import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
+import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 import 'package:sinapsis/features/export/domain/entities/marked_document_format.dart';
 import 'package:sinapsis/features/export/domain/entities/marked_document_options.dart';
 import 'package:sinapsis/features/export/domain/services/document_marks_builder.dart';
 import 'package:sinapsis/features/export/domain/services/file_saver.dart';
 import 'package:sinapsis/features/export/domain/services/marked_document_writer.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note.dart';
 
 /// Por qué no se pudo descargar el documento marcado.
 enum MarkedDownloadError {
@@ -71,6 +73,8 @@ final class DownloadMarkedDocumentParams {
     required this.study,
     required this.highlights,
     required this.options,
+    this.notes = const [],
+    this.textKey = '',
   });
 
   /// El elemento: de él salen el título y el archivo original.
@@ -85,13 +89,20 @@ final class DownloadMarkedDocumentParams {
   /// Los subrayados de la persona sobre [content].
   final List<Highlight> highlights;
   final MarkedDocumentOptions options;
+
+  /// Las notas en el texto de la persona sobre [content] (F45, mejora 19), y
+  /// la clave de ese texto (`StudyText.renditionId`), con la que se sabe si
+  /// sus posiciones guardadas siguen valiendo: ver `buildDocumentNotes`.
+  final List<TextNote> notes;
+  final String textKey;
 }
 
 /// Descarga el original con lo elegido marcado, en su mismo formato (F38).
 ///
 /// Lee el archivo original, reconoce su formato por los bytes, arma los tramos
-/// —ver [buildDocumentMarks]—, se los da al escritor de ese formato y deja
-/// guardar el resultado como «título — lo elegido.extensión».
+/// —ver [buildDocumentMarks]— y, con «Mis notas», las notas —ver
+/// [buildDocumentNotes]—, se los da al escritor de ese formato y deja guardar
+/// el resultado como «título — lo elegido.extensión».
 ///
 /// Como en `ExportItemUseCase`, cancelar el selector no es un error: el
 /// resultado trae `path == null`.
@@ -147,7 +158,15 @@ class DownloadMarkedDocumentUseCase {
       highlights: params.highlights,
       colors: _colors,
     );
-    if (marks.isEmpty) {
+    final notes = params.options.myNotes
+        ? buildDocumentNotes(
+            content: params.content,
+            textKey: params.textKey,
+            notes: params.notes,
+            colors: _colors,
+          )
+        : const <DocumentNote>[];
+    if (marks.isEmpty && notes.isEmpty) {
       return left(
         const MarkedDownloadFailure(MarkedDownloadError.nothingToMark),
       );
@@ -159,6 +178,7 @@ class DownloadMarkedDocumentUseCase {
         original,
         content: params.content,
         marks: marks,
+        notes: notes,
       );
       // Cada escritor falla a su manera —un ZIP roto, un PDF cifrado—, sin un
       // tipo común.

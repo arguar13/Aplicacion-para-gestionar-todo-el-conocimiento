@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
+import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 
 /// Escribe los tramos marcados en el original, en su mismo formato (F38).
 ///
@@ -24,9 +25,15 @@ abstract interface class MarkedDocumentWriter {
   /// las posiciones de cada tramo son de ese texto. Las marcas vienen en el
   /// orden de las capas: de dos que se pisan, gana la que viene después en
   /// la lista.
+  ///
+  /// [notes] son las notas en el texto (F45, mejora 19), en el orden del
+  /// texto: en un PDF, notas del PDF —las que se abren con un toque—; en el
+  /// texto, notas al pie, numeradas en ese orden. Una que no se encuentra en
+  /// el archivo se saltea, como un tramo.
   Future<Uint8List> write(
     Uint8List original, {
     required String content,
     required List<DocumentMark> marks,
+    List<DocumentNote> notes = const [],
   });
 }

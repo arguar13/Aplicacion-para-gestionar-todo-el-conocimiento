@@ -93,6 +93,39 @@ Future<List<List<WrittenAnnotation>>> readAnnotations(Uint8List pdf) async {
   }
 }
 
+/// El rectángulo de la anotación [index] —en el orden en que se escribieron—
+/// de la página [pageNumber] de [pdf], en las coordenadas del PDF.
+Future<PdfRect> annotationRect(
+  Uint8List pdf, {
+  required int index,
+  int pageNumber = 1,
+}) async {
+  final document = await PdfDocument.openData(pdf);
+  try {
+    return await document.useNativeDocumentHandle(
+      (handle) => using((arena) {
+        final pdfium = pdfium_bindings.getPdfium(modulePath: pdfiumPath);
+        final doc = pdfium_bindings.FPDF_DOCUMENT.fromAddress(handle);
+        final page = pdfium.FPDF_LoadPage(doc, pageNumber - 1);
+        final annot = pdfium.FPDFPage_GetAnnot(page, index);
+        final rect = arena<pdfium_bindings.FS_RECTF>();
+        pdfium
+          ..FPDFAnnot_GetRect(annot, rect)
+          ..FPDFPage_CloseAnnot(annot)
+          ..FPDF_ClosePage(page);
+        return PdfRect(
+          rect.ref.left,
+          rect.ref.top,
+          rect.ref.right,
+          rect.ref.bottom,
+        );
+      }),
+    );
+  } finally {
+    await document.dispose();
+  }
+}
+
 /// Dónde están las letras [start]…[end] de la página [pageNumber] de [pdf]:
 /// lo mismo que usa la app para ubicar lo que se resalta.
 Future<PdfRect> lettersRect(

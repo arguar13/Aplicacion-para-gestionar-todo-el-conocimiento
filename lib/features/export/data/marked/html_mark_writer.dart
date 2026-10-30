@@ -2,6 +2,7 @@ import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:sinapsis/features/export/data/marked/mark_painter.dart';
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
+import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 
 /// Escribe resaltados en la página web archivada (F38): el mismo HTML, con
 /// cada tramo envuelto en un `<mark>` con su color, que se abre en cualquier
@@ -20,6 +21,12 @@ import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
 /// negrita, un enlace—: se parte en un `<mark>` por cada texto. Lo que no se
 /// encuentra se saltea.
 ///
+/// Las notas en el texto (F45, mejora 19) son notas al pie de la página: la
+/// llamada —su número volado, que lleva a la nota— va justo después del
+/// pedazo citado, y las notas, numeradas en el orden de la página, al final,
+/// cada una con su vuelta a la llamada. Con los roles de accesibilidad de las
+/// notas (`doc-noteref`, `doc-endnotes`, `doc-backlink`).
+///
 /// Lo demás de la página queda como estaba —sus imágenes ya incrustadas, sus
 /// hojas de estilo, sus programas—. El HTML se lee y se vuelve a escribir, así
 /// que el marcado puede salir normalizado (comillas de los atributos,
@@ -27,10 +34,15 @@ import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
 class HtmlMarkWriter {
   const HtmlMarkWriter();
 
-  /// La página [html] con [marks] resaltados. [content] es el texto extraído,
-  /// en cuyas posiciones están [marks].
-  String write(String html, String content, List<DocumentMark> marks) {
-    if (marks.isEmpty) return html;
+  /// La página [html] con [marks] resaltados y [notes] como notas al pie.
+  /// [content] es el texto extraído, en cuyas posiciones están los dos.
+  String write(
+    String html,
+    String content,
+    List<DocumentMark> marks, [
+    List<DocumentNote> notes = const [],
+  ]) {
+    if (marks.isEmpty && notes.isEmpty) return html;
     final document = html_parser.parse(html);
     final root = document.body ?? document.documentElement;
     if (root == null) return html;
@@ -38,8 +50,13 @@ class HtmlMarkWriter {
     final texts = <Text>[];
     _collect(root, texts);
     final painter = MarkPainter([for (final text in texts) text.data], content)
-      ..paint(marks);
+      ..paint(marks)
+      ..placeNotes(notes);
     if (painter.isEmpty) return html;
+
+    // El número de cada nota, en el orden de la página.
+    final order = painter.noteOrder;
+    final numbers = {for (var i = 0; i < order.length; i++) order[i]: i + 1};
 
     for (final node in painter.touched.toList()..sort()) {
       final pieces = painter.piecesOf(node);
@@ -49,7 +66,15 @@ class HtmlMarkWriter {
       if (parent == null) continue;
       final index = parent.nodes.indexOf(text);
       text.remove();
-      parent.nodes.insertAll(index, [for (final p in pieces) _nodeOf(p)]);
+      parent.nodes.insertAll(index, [
+        for (final p in pieces) ...[
+          _nodeOf(p),
+          for (final id in p.notes) _callOf(numbers[id]!),
+        ],
+      ]);
+    }
+    if (order.isNotEmpty) {
+      root.append(_footnotes([for (final id in order) notes[id].note]));
     }
     return document.outerHtml;
   }
@@ -65,6 +90,54 @@ void _collect(Node node, List<Text> texts) {
     }
   }
 }
+
+/// La llamada a la nota [number]: su número volado, que lleva a la nota.
+Element _callOf(int number) => Element.tag('sup')
+  ..append(
+    Element.tag('a')
+      ..attributes.addAll({
+        'href': '#$kNoteIdPrefix$number',
+        'id': '$kNoteCallIdPrefix$number',
+        'role': 'doc-noteref',
+      })
+      ..append(Text('$number')),
+  );
+
+/// Las notas al pie de la página, en el orden de sus números: lo que dice
+/// cada una —un renglón por renglón— y su vuelta a la llamada.
+Element _footnotes(List<String> notes) {
+  final list = Element.tag('ol');
+  for (var i = 0; i < notes.length; i++) {
+    final number = i + 1;
+    final item = Element.tag('li')..attributes['id'] = '$kNoteIdPrefix$number';
+    final lines = notes[i].trim().split(RegExp(r'\r\n|\r|\n'));
+    for (var l = 0; l < lines.length; l++) {
+      if (l > 0) item.append(Element.tag('br'));
+      item.append(Text(lines[l]));
+    }
+    item
+      ..append(Text(' '))
+      ..append(
+        Element.tag('a')
+          ..attributes.addAll({
+            'href': '#$kNoteCallIdPrefix$number',
+            'role': 'doc-backlink',
+          })
+          ..append(Text('↩')),
+      );
+    list.append(item);
+  }
+  return Element.tag('section')
+    ..attributes.addAll({'role': 'doc-endnotes', 'class': 'sinapsis-notas'})
+    ..append(Element.tag('hr'))
+    ..append(list);
+}
+
+/// Lo que antecede al `id` de una nota al pie y al de su llamada, en una
+/// página y en un capítulo de un libro: con el nombre de la app, para no
+/// chocar con los `id` que ya traen.
+const kNoteIdPrefix = 'sinapsis-nota-';
+const kNoteCallIdPrefix = 'sinapsis-llamada-';
 
 Node _nodeOf(MarkedPiece piece) {
   if (piece.fill == null && piece.underline == null) return Text(piece.text);

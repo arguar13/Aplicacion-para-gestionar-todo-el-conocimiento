@@ -2,13 +2,17 @@ import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/util/word_folding.dart';
 import 'package:sinapsis/features/export/data/marked/mark_locator.dart';
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
+import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 
 /// Un pedazo de un texto de la página, con lo que lo pinta (F38): el fondo y
-/// la línea de debajo, cada uno con su tramo, o ninguno.
+/// la línea de debajo, cada uno con su tramo, o ninguno; y las notas en el
+/// texto (F45, mejora 19) cuyo pedazo termina con él —sus ids, los de
+/// [MarkPainter.placeNotes]—: su llamada va justo después.
 typedef MarkedPiece = ({
   String text,
   DocumentMark? fill,
   DocumentMark? underline,
+  List<int> notes,
 });
 
 /// Lo que no se recorre buscando texto en un HTML o un XHTML: no es texto que
@@ -40,6 +44,9 @@ const markOpaqueElements = {
 /// textos que cruza. Cuando se pisan dos tramos, queda el que viene después
 /// en la lista (el que tiene la prioridad mayor). Un fondo y una línea sí
 /// pueden convivir en la misma letra.
+///
+/// Las notas en el texto (F45, mejora 19) se ubican igual, pero no pintan:
+/// se anota dónde termina su pedazo, que es donde va su llamada.
 class MarkPainter {
   MarkPainter(this.texts, this.extracted) {
     final buffer = StringBuffer();
@@ -71,11 +78,65 @@ class MarkPainter {
   /// Los tramos puestos, por prioridad.
   final _marks = <int, DocumentMark>{};
 
-  /// Los textos en que se pintó algo.
-  Iterable<int> get touched => {..._fills.keys, ..._underlines.keys};
+  /// Por texto, dónde van las llamadas de las notas: la posición en el texto
+  /// —justo después de la última letra del pedazo— y los ids de las que van
+  /// ahí.
+  final _noteCalls = <int, Map<int, List<int>>>{};
 
-  /// Si algún tramo se ubicó.
-  bool get isEmpty => _marks.isEmpty;
+  /// Los textos en que se pintó algo o va la llamada de una nota.
+  Iterable<int> get touched => {
+    ..._fills.keys,
+    ..._underlines.keys,
+    ..._noteCalls.keys,
+  };
+
+  /// Si no se ubicó ningún tramo ni ninguna nota.
+  bool get isEmpty => _marks.isEmpty && _noteCalls.isEmpty;
+
+  /// Los ids de las notas que se ubicaron, en el orden de la página: el de
+  /// sus números.
+  List<int> get noteOrder => [
+    for (final node in _noteCalls.keys.toList()..sort())
+      for (final offset in _noteCalls[node]!.keys.toList()..sort())
+        ..._noteCalls[node]![offset]!,
+  ];
+
+  /// Ubica el pedazo de cada una de [notes] y anota dónde va su llamada, con
+  /// el id que le da [ids] —su lugar en la lista original—, o su lugar en
+  /// [notes]. Devuelve, por nota, si se encontró.
+  List<bool> placeNotes(List<DocumentNote> notes, {List<int>? ids}) {
+    final spans = locateMarks(
+      haystack: _haystack,
+      extracted: extracted,
+      marks: [
+        for (final note in notes)
+          DocumentMark(
+            start: note.start,
+            end: note.end,
+            excerpt: note.excerpt,
+            color: note.color,
+          ),
+      ],
+      markdownUrls: true,
+    );
+    return [
+      for (var i = 0; i < notes.length; i++)
+        if (spans[i] case final span?)
+          _placeCall(span.end, ids?[i] ?? i)
+        else
+          false,
+    ];
+  }
+
+  bool _placeCall(int end, int id) {
+    final node = _nodeAt(end - 1);
+    // Si el pedazo termina en el salto que separa un texto del siguiente, la
+    // llamada va al final del texto.
+    final length = texts[node].length;
+    final offset = end - _starts[node] > length ? length : end - _starts[node];
+    ((_noteCalls[node] ??= {})[offset] ??= []).add(id);
+    return true;
+  }
 
   /// Ubica y pinta [marks]; devuelve, por tramo, si se encontró. La prioridad
   /// de cada uno es la que da [priorities] —su lugar en la lista original—, o
@@ -141,13 +202,15 @@ class MarkPainter {
     return low;
   }
 
-  /// El texto [node] cortado en pedazos según lo que lo pinta, o `null` si
-  /// no lleva nada o es solo espacios —entre las filas de una tabla o los
-  /// ítems de una lista, un `<mark>` movería cosas de lugar—.
+  /// El texto [node] cortado en pedazos según lo que lo pinta y dónde van
+  /// las llamadas de las notas, o `null` si no lleva nada o es solo espacios
+  /// —entre las filas de una tabla o los ítems de una lista, un `<mark>`
+  /// movería cosas de lugar—.
   List<MarkedPiece>? piecesOf(int node) {
     final fills = _fills[node];
     final underlines = _underlines[node];
-    if (fills == null && underlines == null) return null;
+    final calls = _noteCalls[node] ?? const <int, List<int>>{};
+    if (fills == null && underlines == null && calls.isEmpty) return null;
     final data = texts[node];
     if (data.trim().isEmpty) return null;
     int fillAt(int i) => fills?[i] ?? -1;
@@ -159,13 +222,17 @@ class MarkPainter {
       final fill = fillAt(start);
       final line = lineAt(start);
       var end = start + 1;
-      while (end < data.length && fillAt(end) == fill && lineAt(end) == line) {
+      while (end < data.length &&
+          !calls.containsKey(end) &&
+          fillAt(end) == fill &&
+          lineAt(end) == line) {
         end++;
       }
       pieces.add((
         text: data.substring(start, end),
         fill: _marks[fill],
         underline: _marks[line],
+        notes: calls[end] ?? const <int>[],
       ));
       start = end;
     }

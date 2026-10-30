@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
+import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 import 'package:sinapsis/features/export/domain/services/marked_document_writer.dart';
 
 /// Un escritor de tramos marcados de mentira (F38): anota lo que se le pidió
@@ -19,6 +20,7 @@ class FakeMarkedDocumentWriter implements MarkedDocumentWriter {
   Uint8List? lastOriginal;
   String? lastContent;
   List<DocumentMark>? lastMarks;
+  List<DocumentNote>? lastNotes;
   int calls = 0;
 
   /// Lo que "escribe": el texto `marcado:<cuántos tramos>`.
@@ -30,12 +32,14 @@ class FakeMarkedDocumentWriter implements MarkedDocumentWriter {
     Uint8List original, {
     required String content,
     required List<DocumentMark> marks,
+    List<DocumentNote> notes = const [],
   }) async {
     calls++;
     if (error != null) throw error!;
     lastOriginal = original;
     lastContent = content;
     lastMarks = marks;
+    lastNotes = notes;
     return outputFor(marks.length);
   }
 }

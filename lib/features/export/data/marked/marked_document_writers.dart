@@ -10,6 +10,7 @@ import 'package:sinapsis/features/export/data/marked/markdown_mark_writer.dart';
 import 'package:sinapsis/features/export/data/marked/pdf_document_marker.dart';
 import 'package:sinapsis/features/export/data/marked/text_docx_mark_writer.dart';
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
+import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 import 'package:sinapsis/features/export/domain/services/marked_document_writer.dart';
 import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
@@ -36,9 +37,10 @@ class PdfMarkedDocumentWriter implements MarkedDocumentWriter {
     Uint8List original, {
     required String content,
     required List<DocumentMark> marks,
+    List<DocumentNote> notes = const [],
   }) async {
     await _initialize();
-    return _marker.mark(original, content: content, marks: marks);
+    return _marker.mark(original, content: content, marks: marks, notes: notes);
   }
 }
 
@@ -53,7 +55,9 @@ class DocxMarkedDocumentWriter implements MarkedDocumentWriter {
     Uint8List original, {
     required String content,
     required List<DocumentMark> marks,
-  }) => _writer.write(docx: original, text: content, marks: marks);
+    List<DocumentNote> notes = const [],
+  }) =>
+      _writer.write(docx: original, text: content, marks: marks, notes: notes);
 }
 
 /// Un texto suelto, que no tiene dónde guardar un color: sale como un Word
@@ -72,7 +76,8 @@ class TextMarkedDocumentWriter implements MarkedDocumentWriter {
     Uint8List original, {
     required String content,
     required List<DocumentMark> marks,
-  }) => _writer.write(text: content, marks: marks);
+    List<DocumentNote> notes = const [],
+  }) => _writer.write(text: content, marks: marks, notes: notes);
 }
 
 /// El Markdown, con `==resaltado==`: se decodifica como al leerlo —sin la
@@ -89,11 +94,13 @@ class MarkdownMarkedDocumentWriter implements MarkedDocumentWriter {
     Uint8List original, {
     required String content,
     required List<DocumentMark> marks,
+    List<DocumentNote> notes = const [],
   }) async => utf8.encode(
     _writer.write(
       markdown: decodePlainText(original),
       text: content,
       marks: marks,
+      notes: notes,
     ),
   );
 }
@@ -112,9 +119,10 @@ class EpubMarkedDocumentWriter implements MarkedDocumentWriter {
     Uint8List original, {
     required String content,
     required List<DocumentMark> marks,
+    List<DocumentNote> notes = const [],
   }) {
     final writer = _writer;
-    return Isolate.run(() => writer.write(original, content, marks));
+    return Isolate.run(() => writer.write(original, content, marks, notes));
   }
 }
 
@@ -133,10 +141,13 @@ class WebPageMarkedDocumentWriter implements MarkedDocumentWriter {
     Uint8List original, {
     required String content,
     required List<DocumentMark> marks,
+    List<DocumentNote> notes = const [],
   }) {
     final writer = _writer;
     return Isolate.run(
-      () => utf8.encode(writer.write(utf8.decode(original), content, marks)),
+      () => utf8.encode(
+        writer.write(utf8.decode(original), content, marks, notes),
+      ),
     );
   }
 }

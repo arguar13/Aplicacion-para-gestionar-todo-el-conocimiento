@@ -9,11 +9,13 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
+import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 import 'package:sinapsis/features/export/domain/entities/marked_document_format.dart';
 import 'package:sinapsis/features/export/domain/services/marked_document_writer.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
@@ -24,6 +26,9 @@ import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_download_sheet.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 import '../../../../support/fake_file_saver.dart';
@@ -45,6 +50,7 @@ class _GatedWriter implements MarkedDocumentWriter {
     Uint8List original, {
     required String content,
     required List<DocumentMark> marks,
+    List<DocumentNote> notes = const [],
   }) async {
     await gate.future;
     return FakeMarkedDocumentWriter.outputFor(marks.length);
@@ -124,6 +130,7 @@ void main() {
     Widget child, {
     DocumentStudy study = DocumentStudy.notStarted,
     List<Highlight> highlights = const [],
+    List<TextNote> notes = const [],
     Map<MarkedDocumentFormat, MarkedDocumentWriter>? writers,
     StudyView? view,
   }) async {
@@ -138,6 +145,13 @@ void main() {
         studyAnalysisProvider.overrideWith((ref, id) => FakeStudyAnalysis()),
         renditionHighlightsProvider.overrideWith(
           (ref, id) => Stream.value(highlights),
+        ),
+        // Las notas en el texto (F45, mejora 19): solo las del original de
+        // esta fuente, por su clave.
+        textNotesProvider.overrideWith(
+          (ref, target) => Stream.value(
+            target == textNoteTargetOf(text) ? notes : const <TextNote>[],
+          ),
         ),
         fileStoreProvider.overrideWithValue(files),
         fileSaverProvider.overrideWithValue(saver),
@@ -307,6 +321,43 @@ void main() {
         find.text('Guardado: Historia — resumen y mis resaltados.pdf'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('«Mis notas», apagada sin notas en el texto, dice por qué', (
+      tester,
+    ) async {
+      await pump(tester, sheet());
+
+      expect(enabled(tester, 'study-download-notes'), isFalse);
+      expect(find.text('Este texto no tiene notas'), findsOneWidget);
+    });
+
+    testWidgets('«Mis notas», con una nota en el texto, se elige y llega al '
+        'escritor', (tester) async {
+      final start = content.indexOf('vapor');
+      final note = TextNote(
+        id: 'n1',
+        origin: TextNoteOrigin.note,
+        target: textNoteTargetOf(text),
+        start: start,
+        end: start + 5,
+        excerpt: 'vapor',
+        note: 'De agua',
+        color: HighlightColor.lime,
+        renditionId: 'r1',
+        createdAt: DateTime(2026, 10, 30),
+        updatedAt: DateTime(2026, 10, 30),
+      );
+
+      await pump(tester, sheet(), notes: [note]);
+      expect(enabled(tester, 'study-download-notes'), isTrue);
+      await tap(tester, 'study-download-notes');
+      await tap(tester, 'study-download-save');
+
+      expect(saver.savedFileName, 'Historia — mis notas.pdf');
+      expect(writer.lastMarks, isEmpty);
+      expect([for (final n in writer.lastNotes!) n.note], ['De agua']);
+      expect(writer.lastNotes!.single.start, start);
     });
 
     testWidgets('cerrar el selector sin guardar dice que se canceló', (

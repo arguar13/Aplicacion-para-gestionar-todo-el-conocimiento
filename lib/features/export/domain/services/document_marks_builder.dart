@@ -4,9 +4,12 @@ import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
+import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 import 'package:sinapsis/features/export/domain/entities/marked_document_options.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_layers.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note.dart';
+import 'package:sinapsis/features/text_notes/domain/services/text_note_placement.dart';
 
 /// Los colores con que se marca el documento que se descarga (F38), en ARGB.
 ///
@@ -73,6 +76,8 @@ class DocumentMarkColors {
 ///
 /// Un tramo que ya no cabe en [content] —un subrayado de un texto que se
 /// volvió a extraer— no se puede ubicar y se deja afuera.
+///
+/// Las notas en el texto no son tramos: ver [buildDocumentNotes].
 List<DocumentMark> buildDocumentMarks({
   required String content,
   required MarkedDocumentOptions options,
@@ -112,7 +117,10 @@ List<DocumentMark> buildDocumentMarks({
                 excerpt: h.excerpt,
                 color: colors.highlightOf(h.color, h.style),
                 style: h.style,
-                note: h.note,
+                // Con «Mis notas», la nota de un resaltado de antes sale con
+                // las demás notas, como nota al pie o del PDF (F45, mejora
+                // 19): repetirla en el resaltado la diría dos veces.
+                note: options.myNotes ? null : h.note,
               ),
             )
             .toList()
@@ -129,13 +137,44 @@ List<DocumentMark> buildDocumentMarks({
   return [...sentences, ...mine, ...keywords];
 }
 
-/// Qué de las cuatro cosas que se pueden marcar hay para marcar: un resumen
-/// sin analizar, un documento sin palabras clave o sin subrayados no tiene
-/// qué ofrecer.
+/// Las notas en el texto para el documento que se descarga (F45, mejora 19),
+/// en el orden del texto: cada una en su lugar de [content] —el texto con la
+/// clave [textKey]—, buscada por su pedazo si el texto cambió
+/// (`placeTextNotes`). La que quedó sin lugar no tiene dónde ir y se deja
+/// afuera; sigue en la lista de la app.
+///
+/// El color es el de la línea de su color (`DocumentMarkColors.highlightOf`
+/// con el subrayado): el ícono y la línea tienen que verse sobre el papel.
+List<DocumentNote> buildDocumentNotes({
+  required String content,
+  required String textKey,
+  required List<TextNote> notes,
+  required DocumentMarkColors colors,
+}) => [
+  for (final placed in placeTextNotes(
+    notes,
+    textKey: textKey,
+    content: content,
+  ))
+    if (placed.placed)
+      DocumentNote(
+        start: placed.start!,
+        end: placed.end!,
+        excerpt: content.substring(placed.start!, placed.end),
+        note: placed.note.note,
+        color: colors.highlightOf(placed.note.color, HighlightStyle.underline),
+      ),
+];
+
+/// Qué de las cinco cosas que se pueden marcar hay para marcar: un resumen
+/// sin analizar, un documento sin palabras clave, sin subrayados o sin notas
+/// que caigan en su texto no tiene qué ofrecer.
 MarkedDocumentOptions availableMarkedOptions({
   required String content,
   required DocumentStudy study,
   required List<Highlight> highlights,
+  List<TextNote> notes = const [],
+  String textKey = '',
 }) {
   bool has(StudyMarkKind kind) =>
       study.of(kind).any((mark) => _fits(content, mark.start, mark.end));
@@ -146,6 +185,11 @@ MarkedDocumentOptions availableMarkedOptions({
     myHighlights: highlights.any(
       (h) => _fits(content, h.startOffset, h.endOffset),
     ),
+    myNotes: placeTextNotes(
+      notes,
+      textKey: textKey,
+      content: content,
+    ).any((placed) => placed.placed),
   );
 }
 

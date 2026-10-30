@@ -17,6 +17,9 @@ import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_keywords_fill_providers.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Abre la hoja para descargar el original con lo estudiado y lo subrayado
@@ -37,8 +40,10 @@ Future<void> showStudyDownloadSheet(
   );
 }
 
-/// La hoja de «Descargar» (F38): las cuatro cosas que se pueden marcar —se
-/// combinan—, apagadas las que no tienen nada para marcar, y «Guardar».
+/// La hoja de «Descargar» (F38): las cinco cosas que se pueden marcar —se
+/// combinan—, apagadas las que no tienen nada para marcar, y «Guardar». La
+/// quinta son las notas en el texto (F45, mejora 19): como notas del PDF o,
+/// en el texto, como notas al pie.
 ///
 /// Mientras arma el archivo muestra una barra, y al terminar dice qué pasó
 /// sin cerrarse: si se guardó, si se canceló o por qué falló, para poder
@@ -99,10 +104,17 @@ class _StudyDownloadSheetState extends ConsumerState<StudyDownloadSheet> {
     final highlights =
         ref.watch(renditionHighlightsProvider(renditionId)).valueOrNull ??
         const [];
+    final notes =
+        ref
+            .watch(textNotesProvider(textNoteTargetOf(widget.text)))
+            .valueOrNull ??
+        const <TextNote>[];
     final available = availableMarkedOptions(
       content: widget.text.content,
       study: study,
       highlights: highlights,
+      notes: notes,
+      textKey: renditionId,
     );
     // Lo elegido que ya no tiene nada para marcar —se borró el último
     // subrayado— no cuenta.
@@ -178,6 +190,14 @@ class _StudyDownloadSheetState extends ConsumerState<StudyDownloadSheet> {
               value: chosen.myHighlights,
               change: ({required on}) => _chosen.copyWith(myHighlights: on),
             ),
+            option(
+              key: const Key('study-download-notes'),
+              title: l10n.f45S8DownloadNotes,
+              missing: l10n.f45S8DownloadNoNotes,
+              has: available.myNotes,
+              value: chosen.myNotes,
+              change: ({required on}) => _chosen.copyWith(myNotes: on),
+            ),
             AnimatedSize(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOutCubic,
@@ -223,7 +243,7 @@ class _StudyDownloadSheetState extends ConsumerState<StudyDownloadSheet> {
               label: Text(l10n.studyDownloadSave),
               onPressed: chosen.isEmpty || _working
                   ? null
-                  : () => _save(chosen, study, highlights),
+                  : () => _save(chosen, study, highlights, notes),
             ),
           ],
         ),
@@ -235,6 +255,7 @@ class _StudyDownloadSheetState extends ConsumerState<StudyDownloadSheet> {
     MarkedDocumentOptions options,
     DocumentStudy study,
     List<Highlight> highlights,
+    List<TextNote> notes,
   ) async {
     final l10n = AppLocalizations.of(context)!;
     final download = ref.read(downloadMarkedDocumentUseCaseProvider);
@@ -250,6 +271,8 @@ class _StudyDownloadSheetState extends ConsumerState<StudyDownloadSheet> {
         study: study,
         highlights: highlights,
         options: options,
+        notes: notes,
+        textKey: widget.text.renditionId,
       ),
     );
     if (!mounted) return;

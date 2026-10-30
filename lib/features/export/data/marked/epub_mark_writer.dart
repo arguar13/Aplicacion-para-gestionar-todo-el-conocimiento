@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:sinapsis/features/export/data/marked/html_mark_writer.dart';
 import 'package:sinapsis/features/export/data/marked/mark_painter.dart';
 import 'package:sinapsis/features/export/domain/entities/document_mark.dart';
+import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/html_to_markdown.dart';
 import 'package:xml/xml.dart';
@@ -33,17 +35,54 @@ import 'package:xml/xml.dart';
 /// Un capítulo que no es XML válido —el extractor lo lee como HTML— tampoco
 /// se toca: reescribirlo como XML lo cambiaría más de lo que se pidió.
 ///
+/// **Las notas en el texto** (F45, mejora 19) son notas al pie de EPUB 3: la
+/// llamada —un número volado con `epub:type="noteref"`— va justo después del
+/// pedazo citado, y la nota, en un `<aside epub:type="footnote">` al final de
+/// su capítulo, que los lectores muestran en una ventanita al tocar la
+/// llamada. Se reparten por capítulo como los tramos y se numeran en el orden
+/// del libro.
+///
 /// Es una función sin E/S: un libro grande conviene correrlo fuera del hilo
 /// de la interfaz, como el parser.
 class EpubMarkWriter {
   const EpubMarkWriter();
 
-  /// El libro [epub] con [marks] resaltados. [content] es el texto extraído
-  /// del libro, en cuyas posiciones están [marks].
-  Uint8List write(Uint8List epub, String content, List<DocumentMark> marks) {
-    if (marks.isEmpty) return epub;
+  /// El libro [epub] con [marks] resaltados y [notes] como notas al pie.
+  /// [content] es el texto extraído del libro, en cuyas posiciones están los
+  /// dos.
+  Uint8List write(
+    Uint8List epub,
+    String content,
+    List<DocumentMark> marks, [
+    List<DocumentNote> notes = const [],
+  ]) {
+    if (marks.isEmpty && notes.isEmpty) return epub;
     final archive = ZipDecoder().decodeBytes(epub);
     final chapters = _chapters(archive, content);
+    _paintMarks(chapters, marks);
+    _placeNotes(chapters, notes);
+
+    // El número de cada nota, en el orden del libro.
+    final numbers = <int, int>{};
+    for (final chapter in chapters) {
+      for (final id in chapter.state?.painter.noteOrder ?? const <int>[]) {
+        numbers[id] = numbers.length + 1;
+      }
+    }
+
+    final rewritten = <String, List<int>>{};
+    for (final chapter in chapters) {
+      final state = chapter.state;
+      if (state == null || state.painter.isEmpty) continue;
+      rewritten[chapter.file.path] = state.write(numbers, notes);
+    }
+    if (rewritten.isEmpty) return epub;
+    return _zip(archive, rewritten);
+  }
+
+  /// Pinta [marks] en [chapters]: ver la documentación de la clase.
+  void _paintMarks(List<_Chapter> chapters, List<DocumentMark> marks) {
+    if (marks.isEmpty) return;
 
     // A cada tramo, su capítulo por sus posiciones; con las posiciones del
     // capítulo, que es lo que el ubicador entiende.
@@ -94,17 +133,65 @@ class EpubMarkWriter {
           if (!found[k]) pending[k],
       ];
     }
+  }
 
-    final rewritten = <String, List<int>>{};
-    for (final chapter in chapters) {
-      final state = chapter.state;
-      if (state == null || state.painter.isEmpty) continue;
-      rewritten[chapter.file.path] = state.write();
+  /// Ubica el pedazo de cada una de [notes] en [chapters], como los tramos:
+  /// por sus posiciones y, si no, por su texto en el primer capítulo que lo
+  /// tenga.
+  void _placeNotes(List<_Chapter> chapters, List<DocumentNote> notes) {
+    if (notes.isEmpty) return;
+    final byChapter = <int, List<int>>{};
+    final lost = <int>[];
+    for (var index = 0; index < notes.length; index++) {
+      final note = notes[index];
+      final at = chapters.indexWhere(
+        (c) =>
+            c.start != null &&
+            note.start >= c.start! &&
+            note.end <= c.start! + c.markdown.length,
+      );
+      if (at < 0) {
+        lost.add(index);
+      } else {
+        (byChapter[at] ??= []).add(index);
+      }
     }
-    if (rewritten.isEmpty) return epub;
-    return _zip(archive, rewritten);
+    for (final MapEntry(key: at, value: indexes) in byChapter.entries) {
+      final chapter = chapters[at];
+      final painter = chapter.state?.painter;
+      if (painter == null) continue;
+      final found = painter.placeNotes([
+        for (final i in indexes) _shiftedNote(notes[i], -chapter.start!),
+      ], ids: indexes);
+      for (var k = 0; k < indexes.length; k++) {
+        if (!found[k]) lost.add(indexes[k]);
+      }
+    }
+    lost.sort();
+    var pending = lost;
+    for (final chapter in chapters) {
+      final painter = chapter.state?.painter;
+      if (pending.isEmpty) break;
+      if (painter == null) continue;
+      final found = painter.placeNotes([
+        for (final i in pending) _shiftedNote(notes[i], -notes[i].start),
+      ], ids: pending);
+      pending = [
+        for (var k = 0; k < pending.length; k++)
+          if (!found[k]) pending[k],
+      ];
+    }
   }
 }
+
+/// [note] con sus posiciones corridas [by] letras.
+DocumentNote _shiftedNote(DocumentNote note, int by) => DocumentNote(
+  start: note.start + by,
+  end: note.end + by,
+  excerpt: note.excerpt,
+  note: note.note,
+  color: note.color,
+);
 
 /// [mark] con sus posiciones corridas [by] letras.
 DocumentMark _shifted(DocumentMark mark, int by) => DocumentMark(
@@ -149,7 +236,13 @@ List<_Chapter> _chapters(Archive archive, String content) {
 
 /// Un capítulo leído como XML, con sus textos a la vista para pintarlos.
 class _ChapterState {
-  _ChapterState._(this._document, this._texts, this._encoding, this.painter);
+  _ChapterState._(
+    this._document,
+    this._body,
+    this._texts,
+    this._encoding,
+    this.painter,
+  );
 
   static _ChapterState? of(_Chapter chapter) {
     final encoding = _Encoding.of(chapter.file.bytes);
@@ -166,6 +259,7 @@ class _ChapterState {
     _collect(body, texts);
     return _ChapterState._(
       document,
+      body,
       texts,
       encoding,
       MarkPainter([for (final text in texts) text.value], chapter.markdown),
@@ -173,25 +267,96 @@ class _ChapterState {
   }
 
   final XmlDocument _document;
+  final XmlElement _body;
   final List<XmlText> _texts;
   final _Encoding _encoding;
   final MarkPainter painter;
 
-  /// El capítulo con los textos pintados, en los bytes de su codificación.
-  List<int> write() {
+  /// El capítulo con los textos pintados y las llamadas de las notas —con
+  /// los números de [numbers], por id, y lo que dicen en [notes]—, en los
+  /// bytes de su codificación.
+  List<int> write(Map<int, int> numbers, List<DocumentNote> notes) {
+    final prefix = _body.name.prefix;
     for (final node in painter.touched.toList()..sort()) {
       final pieces = painter.piecesOf(node);
       if (pieces == null) continue;
       final text = _texts[node];
       final parent = text.parent;
       if (parent == null) continue;
-      final prefix = parent is XmlElement ? parent.name.prefix : null;
-      final replacement = [for (final p in pieces) _nodeOf(p, prefix)];
+      final neighbor = parent is XmlElement ? parent.name.prefix : null;
+      final replacement = [
+        for (final p in pieces) ...[
+          _nodeOf(p, neighbor),
+          for (final id in p.notes) _callOf(numbers[id]!, neighbor),
+        ],
+      ];
       final index = parent.children.indexOf(text);
       parent.children.replaceRange(index, index + 1, replacement);
     }
+    final order = painter.noteOrder;
+    if (order.isNotEmpty) {
+      _declareOps(_document.rootElement);
+      for (final id in order) {
+        _body.children.add(_asideOf(numbers[id]!, notes[id].note, prefix));
+      }
+    }
     return _encoding.encode(_document.toXmlString());
   }
+}
+
+/// El espacio de nombres de `epub:type`.
+const _ops = 'http://www.idpf.org/2007/ops';
+
+/// Que [root] declare el prefijo `epub`, para poder decir `epub:type`.
+void _declareOps(XmlElement root) {
+  final declared = root.attributes.any(
+    (a) => a.name.prefix == 'xmlns' && a.name.local == 'epub',
+  );
+  if (declared) return;
+  root.attributes.add(XmlAttribute(XmlName('epub', 'xmlns'), _ops));
+}
+
+XmlName _named(String local, String? prefix) =>
+    prefix == null ? XmlName(local) : XmlName(local, prefix);
+
+/// La llamada a la nota [number]: su número volado, que lleva a la nota.
+XmlElement _callOf(int number, String? prefix) =>
+    XmlElement(_named('sup', prefix), const [], [
+      XmlElement(
+        _named('a', prefix),
+        [
+          XmlAttribute(XmlName('type', 'epub'), 'noteref'),
+          XmlAttribute(XmlName('href'), '#$kNoteIdPrefix$number'),
+          XmlAttribute(XmlName('id'), '$kNoteCallIdPrefix$number'),
+        ],
+        [XmlText('$number')],
+      ),
+    ]);
+
+/// La nota al pie [number]: lo que dice, un renglón por renglón, con su
+/// número y su vuelta a la llamada.
+XmlElement _asideOf(int number, String note, String? prefix) {
+  final lines = note.trim().split(RegExp(r'\r\n|\r|\n'));
+  final paragraph = XmlElement(_named('p', prefix), const [], [
+    XmlElement(
+      _named('a', prefix),
+      [XmlAttribute(XmlName('href'), '#$kNoteCallIdPrefix$number')],
+      [XmlText('$number.')],
+    ),
+    XmlText(' '),
+    for (var l = 0; l < lines.length; l++) ...[
+      if (l > 0) XmlElement(_named('br', prefix)),
+      XmlText(lines[l]),
+    ],
+  ]);
+  return XmlElement(
+    _named('aside', prefix),
+    [
+      XmlAttribute(XmlName('type', 'epub'), 'footnote'),
+      XmlAttribute(XmlName('id'), '$kNoteIdPrefix$number'),
+    ],
+    [paragraph],
+  );
 }
 
 void _collect(XmlElement element, List<XmlText> texts) {
