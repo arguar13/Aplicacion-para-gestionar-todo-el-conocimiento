@@ -121,11 +121,24 @@ tiempo, Mapa y Repasar; Chat; y Ajustes.
 Vas a ver estos nombres una y otra vez en esta guía; cada uno tiene su propia
 sección más abajo.
 
-**Los avisos de abajo.** Una confirmación corta —«Copiado», «Guardado»— se va
-sola en unos segundos. Un aviso que trae un botón (**"Deshacer"**, **"Ver"**,
-**"Ver en el Mapa"**…), que dura más o que se queda hasta que hagas algo
-**lleva una ✕ a la derecha**: tocala para sacarlo en el acto, sin usar su
-botón. Lo mismo los avisos de la IA (ver
+**Los avisos de abajo.** Todos se ven igual: el texto a la izquierda, en hasta
+tres renglones; sus botones a la derecha —uno o dos, como **"Ver"** y
+**"Deshacer"**, o **"Ver en el Mapa"**—, y **siempre una ✕**, también en una
+confirmación corta como «Copiado»: tocala para sacar el aviso en el acto, sin
+usar sus botones (el lector de pantalla la anuncia como **"Cerrar aviso"**).
+
+- Si el texto entra en un renglón, va todo en ese renglón.
+- Si es largo, el aviso se arma como una tarjeta: el texto ocupa el ancho, la
+  ✕ queda arriba a la derecha y los botones bajan juntos a un renglón propio,
+  también a la derecha.
+- Una confirmación corta —«Copiado», «Guardado»— se va sola en unos segundos.
+  Un aviso con un botón se queda hasta que lo uses o lo cierres; mientras se
+  va, ya no responde a los toques.
+- Mientras hay un aviso, el **botón redondo del lector en voz alta** y su
+  reproductor se corren para arriba, como un botón flotante, y vuelven a su
+  lugar cuando el aviso se va: nada tapa la ✕.
+
+Lo mismo los avisos de la IA (ver
 [Modelo de lenguaje](#modelo-de-lenguaje-el-del-chat-y-la-ia-que-organiza-sola)).
 
 ---
@@ -3258,6 +3271,11 @@ tarjeta se repasa leyéndola y pensando la respuesta, y una voz que la dijera
 te la soplaría. Si venías escuchando algo —un documento, por ejemplo—, sigue
 sonando al entrar a Repasar, con su reproductor, hasta que lo pares; como al
 cambiar de pestaña.
+
+Cuando aparece un [aviso abajo](#cómo-te-movés-por-la-app) —«Movido a la
+papelera · Deshacer», por ejemplo—, el botón redondo y el reproductor se corren
+arriba del aviso, sin dejar de leer, y vuelven a su lugar cuando se va. Así
+siempre podés tocar el aviso y su ✕.
 
 En un audio o un video que tiene su propio audio (también un reel, un TikTok
 o un YouTube con el audio ya bajado) el texto ya se escucha con la voz
