@@ -14,8 +14,8 @@ import 'package:sinapsis/features/processed/presentation/providers/processed_ori
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_bar.dart';
 import 'package:sinapsis/features/study/domain/repositories/study_repository.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
+import 'package:sinapsis/features/study/presentation/study_analysis_start.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Marcar con la IA lo que le falta a una extracción (F43, paso 7, M8): **la

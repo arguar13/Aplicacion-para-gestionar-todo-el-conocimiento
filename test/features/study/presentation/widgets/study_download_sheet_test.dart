@@ -4,6 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart'
+    show sharedPreferencesProvider;
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -125,8 +128,11 @@ void main() {
     StudyView? view,
   }) async {
     repository = MemoryStudyRepository(study);
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
     container = ProviderContainer(
       overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
         readAloudControllerProvider.overrideWith(FakeReadAloudController.new),
         studyRepositoryProvider.overrideWithValue(repository),
         studyAnalysisProvider.overrideWith((ref, id) => FakeStudyAnalysis()),
@@ -135,7 +141,8 @@ void main() {
         ),
         fileStoreProvider.overrideWithValue(files),
         fileSaverProvider.overrideWithValue(saver),
-        if (view != null) studyViewProvider.overrideWith((ref, id) => view),
+        // La hoja arranca con lo que se ve resaltado: sin decirlo, nada.
+        studyViewProvider.overrideWith((ref, id) => view ?? const StudyView()),
         markedDocumentWritersProvider.overrideWithValue(
           writers ?? {MarkedDocumentFormat.pdf: writer},
         ),

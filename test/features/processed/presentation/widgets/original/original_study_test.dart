@@ -116,7 +116,7 @@ void main() {
   List<String> hiddenOf(String id) =>
       harness.container
           .read(sharedPreferencesProvider)
-          .getStringList(ProcessedOriginalLayers.keyOf(id)) ??
+          .getStringList(OriginalLayers.processedKeyOf(id)) ??
       const [];
 
   group('el original a la vista en el documento (M3)', () {
@@ -302,10 +302,12 @@ void main() {
       expect(viewOf(id).synthesis, isFalse);
     });
 
-    testWidgets('«A mano» desde el documento pasa a elegir y abre el original '
-        'entero; tocar una oración la suma, y «Listo» termina', (tester) async {
+    testWidgets('«A mano» pasa a elegir en el original entero, donde están '
+        'las fichas; tocar una oración la suma, y «Listo» termina', (
+      tester,
+    ) async {
       final id = await processDocument();
-      await openDocument(tester, id);
+      await openOriginal(tester, id);
 
       await tap(tester, 'original-study-synthesis');
       await tap(tester, 'original-study-choice-manual');

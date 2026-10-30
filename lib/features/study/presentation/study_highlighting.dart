@@ -104,24 +104,34 @@ class StudyView {
 
 /// Qué se ve de lo estudiado del texto de una forma (F36).
 ///
-/// La copia del original de un documento procesado se abre como la dejó la
-/// persona: ver [markedCopyStudyView].
+/// Un original se abre como lo dejó la persona ([markedCopyStudyView]): la
+/// copia del original de un documento procesado y, desde que la Biblioteca
+/// abre el suyo con la misma barra (F45, paso 7b, decisión H), el de una
+/// fuente, cada uno con lo que se ocultó en él. El texto propio de un
+/// procesado (`processedStudyKeyFor`) no es un original: se mira con lo suyo
+/// en Repasar, y arranca sin nada.
 final studyViewProvider = StateProvider.autoDispose.family<StudyView, String>((
   ref,
   renditionId,
 ) {
-  final documentId = processedDocumentOfOriginalStudyKey(renditionId);
-  if (documentId == null) return const StudyView();
+  if (processedDocumentOfOriginalStudyKey(renditionId) case final document?) {
+    return markedCopyStudyView(
+      ref.read(processedOriginalHiddenProvider(document)),
+    );
+  }
+  if (processedDocumentOfStudyKey(renditionId) != null) {
+    return const StudyView();
+  }
   return markedCopyStudyView(
-    ref.read(processedOriginalHiddenProvider(documentId)),
+    ref.read(sourceOriginalHiddenProvider(renditionId)),
   );
 });
 
-/// Cómo se abre la copia del original de un documento procesado (F41,
-/// decisión H; F43, paso 15): con todo lo marcado a la vista —es lo que se
-/// fue a ver—, menos lo que la persona dejó oculto en ese documento
-/// ([hidden], `processedOriginalHiddenProvider`). Las palabras clave, una vez
-/// hechas, se ven siempre que no se las oculte.
+/// Cómo se abre un original (F41, decisión H; F43, paso 15; F45, paso 7b):
+/// con todo lo marcado a la vista —es lo que se fue a ver—, menos lo que la
+/// persona dejó oculto en él ([hidden], `processedOriginalHiddenProvider` o
+/// `sourceOriginalHiddenProvider`). Las palabras clave, una vez hechas, se
+/// ven siempre que no se las oculte.
 StudyView markedCopyStudyView([Set<StudyMarkKind> hidden = const {}]) =>
     StudyView(
       summary: !hidden.contains(StudyMarkKind.summary),

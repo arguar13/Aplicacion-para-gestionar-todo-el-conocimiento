@@ -11,9 +11,9 @@ import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_original_view_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
-import 'package:sinapsis/features/processed/presentation/screens/processed_original_screen.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_bar.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_view.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_first_page_preview.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
@@ -29,7 +29,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// - **Arriba, los botones de estudio** (M5, `OriginalStudyBar`): marcar el
 ///   resumen, la síntesis y las palabras clave con la IA o a mano, prenderlos
 ///   y apagarlos. Elegir a mano se hace en el original entero, donde se tocan
-///   las oraciones: el botón lleva ahí.
+///   las oraciones.
 /// - **El original**, en el mismo marco que en la Biblioteca y con lo mismo
 ///   adentro —la primera página quieta de un PDF o de un documento, la página
 ///   web archivada—, con lo marcado encima. El botón grande del centro y un
@@ -67,7 +67,6 @@ class ProcessedOriginalSection extends ConsumerWidget {
           if (text != null) ...[
             OriginalStudyBar(
               study: OriginalStudy(documentId: documentId, original: text),
-              onOpenOriginal: expand,
             ),
             const SizedBox(height: 12),
           ] else if (loaded != null && loaded.exists) ...[
@@ -146,7 +145,7 @@ class ProcessedOriginalSection extends ConsumerWidget {
         ),
       ),
       _ when text == null => EmbeddedViewerFrame(
-        child: ProcessedOriginalUnreadable(path: loaded.path),
+        child: OriginalUnreadable(path: loaded.path),
       ),
       _ => EmbeddedViewerFrame(
         tall: true,

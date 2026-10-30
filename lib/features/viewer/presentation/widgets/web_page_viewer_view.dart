@@ -149,8 +149,9 @@ class WebPageViewerView extends ConsumerStatefulWidget {
 
   /// Si la página se ve como en un navegador del teléfono: con el ancho de la
   /// pantalla, sin el menú lateral ni las columnas de escritorio (F45, paso
-  /// 4; ver `makeArchivedPageMobile`). Lo pide Procesado; la Biblioteca la
-  /// muestra como era.
+  /// 4; ver `makeArchivedPageMobile`). Lo pide el original, el mismo en
+  /// Procesado y en la Biblioteca (F45, paso 7b); la pantalla de cortes de
+  /// una fuente también lo usa, porque muestra su original.
   final bool mobile;
 
   @override

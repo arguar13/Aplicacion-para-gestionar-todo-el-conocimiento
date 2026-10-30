@@ -6,13 +6,11 @@ import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_triage.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_view.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/pdf_viewer_view.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/web_page_viewer_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Abre «Cortar del original» de [sourceItemId] encima de la hoja «¿Qué va a
@@ -42,9 +40,10 @@ Future<void> openProcessedCutScreen(
 ///   igual.
 /// - **Cada corte se ve marcado en el texto**, encima de todo, y en una
 ///   **lista viva abajo**, donde se puede quitar.
-/// - Arriba van los botones de estudiar de la fuente, los de siempre: prender
-///   y apagar lo estudiado mientras se corta. El resumen, la síntesis y las
-///   palabras clave ya no se eligen al triar (F43, decisión J).
+/// - Arriba van las fichas de estudiar de la fuente, las mismas de su original
+///   en la Biblioteca (F45, paso 7b: `OriginalView`): prender y apagar lo
+///   estudiado mientras se corta. El resumen, la síntesis y las palabras clave
+///   ya no se eligen al triar (F43, decisión J).
 ///
 /// Cómo lo saben los visores sin saber de Procesado: la pantalla declara de
 /// qué fuente se corta ([processedCutSourceProvider], solo para lo que tiene
@@ -160,29 +159,22 @@ class _ProcessedCutScreenState extends ConsumerState<ProcessedCutScreen> {
     return switch (resolved) {
       PdfResolvedViewer(:final path, text: final study?)
           when study.renditionId == text.renditionId =>
-        Column(
-          children: [
-            StudyBar(text: study),
-            Expanded(
-              child: PdfViewerView(path: path, text: study, title: title ?? ''),
-            ),
-          ],
+        OriginalView(
+          format: OriginalFormat.pdf,
+          path: path,
+          title: title ?? '',
+          text: study,
+          study: OriginalStudy.source(study),
         ),
       WebPageResolvedViewer(:final path, :final url, text: final study?)
           when study.renditionId == text.renditionId =>
-        Column(
-          children: [
-            StudyBar(text: study),
-            Expanded(
-              child: WebPageViewerView(
-                path: path,
-                url: url,
-                text: study,
-                title: title ?? '',
-                readAloud: true,
-              ),
-            ),
-          ],
+        OriginalView(
+          format: OriginalFormat.page,
+          path: path,
+          url: url,
+          title: title ?? '',
+          text: study,
+          study: OriginalStudy.source(study),
         ),
       _ => null,
     };
@@ -190,7 +182,7 @@ class _ProcessedCutScreenState extends ConsumerState<ProcessedCutScreen> {
 }
 
 /// El texto extraído en el lector de siempre —por páginas, si es largo—, con
-/// los botones de estudiar.
+/// las fichas de estudiar de la fuente arriba, las mismas de su original.
 class _TextView extends StatelessWidget {
   const _TextView({required this.title, required this.text});
 
@@ -198,13 +190,14 @@ class _TextView extends StatelessWidget {
   final StudyText text;
 
   @override
-  Widget build(BuildContext context) => DocumentReaderView(
+  Widget build(BuildContext context) => KeyedSubtree(
     key: const Key('processed-cut-text'),
-    title: title,
-    content: text.content,
-    markdown: text.markdown,
-    study: text,
-    showFontControls: true,
+    child: OriginalView(
+      format: OriginalFormat.reader,
+      title: title,
+      text: text,
+      study: OriginalStudy.source(text),
+    ),
   );
 }
 

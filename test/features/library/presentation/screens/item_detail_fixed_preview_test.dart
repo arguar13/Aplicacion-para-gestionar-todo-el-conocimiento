@@ -12,11 +12,11 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_view.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/domain/services/file_viewer_resolver.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
-import 'package:sinapsis/features/viewer/presentation/screens/pdf_viewer_screen.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_first_page_preview.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_first_page_preview.dart';
@@ -490,7 +490,8 @@ void main() {
         }
       });
 
-      expect(find.byType(PdfViewerScreen), findsOneWidget);
+      // El original, el mismo que en Procesado (F45, paso 7b).
+      expect(find.byType(OriginalScreen), findsOneWidget);
     }, skip: _pdfiumPath == null);
 
     testWidgets('un PDF que no se puede abrir no rompe el detalle: queda el '

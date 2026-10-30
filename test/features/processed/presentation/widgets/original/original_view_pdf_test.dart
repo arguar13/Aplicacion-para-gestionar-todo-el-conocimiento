@@ -1,27 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart'
+    show sharedPreferencesProvider;
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_view.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/transform/domain/documents/pdf_page_text.dart';
-import 'package:sinapsis/features/viewer/presentation/screens/pdf_viewer_screen.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_viewer_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
-import '../../../../support/memory_study_repository.dart';
-import '../../../../support/read_aloud_test_support.dart';
+import '../../../../../support/fake_study_analysis.dart';
+import '../../../../../support/memory_study_repository.dart';
+import '../../../../../support/read_aloud_test_support.dart';
 
-/// El PDF a pantalla completa, para escuchar dentro de él: ofrece su texto
-/// extraído entero —el mismo documento que «Escuchar» de la tarjeta de
-/// estudiar—, con lo estudiado, y empieza por la página que se ve. Que lo que
+/// El original de un PDF a pantalla completa —el mismo en Procesado y en la
+/// Biblioteca (F45, paso 7b)—, para escuchar dentro de él: ofrece su texto
+/// extraído entero, con lo estudiado, y empieza por la página que se ve.
+/// Arriba, las fichas donde se marca; sin texto, ninguna. Que lo que
 /// suena se pinte sobre las letras y la vista lo siga se prueba en
 /// `pdf_study_overlay_test.dart` y, con un PDF de verdad, en
 /// `pdf_selection_real_test.dart`.
@@ -40,12 +46,16 @@ void main() {
   late ProviderContainer container;
   late MemoryStudyRepository studies;
 
-  setUp(() {
+  setUp(() async {
     studies = MemoryStudyRepository(DocumentStudy.notStarted);
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
     container = ProviderContainer(
       overrides: [
         readAloudControllerProvider.overrideWith(FakeReadAloudController.new),
         studyRepositoryProvider.overrideWithValue(studies),
+        studyAnalysisProvider.overrideWith((ref, id) => FakeStudyAnalysis()),
+        sharedPreferencesProvider.overrideWithValue(prefs),
       ],
     );
     addTearDown(container.dispose);
@@ -59,10 +69,15 @@ void main() {
           locale: const Locale('es'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: PdfViewerScreen(
-            path: '/no/existe/documento.pdf',
+          home: OriginalScreen(
             title: 'Un PDF',
-            text: withText ? text : null,
+            body: OriginalView(
+              format: OriginalFormat.pdf,
+              path: '/no/existe/documento.pdf',
+              title: 'Un PDF',
+              text: withText ? text : null,
+              study: withText ? const OriginalStudy.source(text) : null,
+            ),
           ),
         ),
       ),
@@ -104,10 +119,22 @@ void main() {
     expect(find.byType(PdfViewerView), findsOneWidget);
   });
 
-  testWidgets('sin su texto no hay nada que escuchar', (tester) async {
+  testWidgets('con su texto, arriba las fichas donde se marca la fuente', (
+    tester,
+  ) async {
+    await pump(tester);
+
+    expect(find.byKey(const Key('original-study-panel')), findsOneWidget);
+    expect(find.byKey(const Key('original-study-summary')), findsOneWidget);
+  });
+
+  testWidgets('sin su texto no hay nada que escuchar ni que marcar', (
+    tester,
+  ) async {
     await pump(tester, withText: false);
 
     expect(offered(), isNull);
+    expect(find.byKey(const Key('original-study-panel')), findsNothing);
     expect(find.text(es.readAloudBackToReading), findsNothing);
   });
 }

@@ -7,36 +7,47 @@ import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/study/domain/services/study_cost.dart';
+import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_keywords_fill_providers.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 
-/// Lo que se dejó oculto de lo marcado en el original de cada documento
-/// procesado (F43, paso 15, M5): el resumen, la síntesis o las palabras clave.
+/// Lo que se dejó oculto de lo marcado en un original (F43, paso 15, M5): el
+/// resumen, la síntesis o las palabras clave. El de cada documento procesado
+/// ([processedOriginalHiddenProvider]) y, desde que la Biblioteca abre su
+/// original con la misma barra (F45, paso 7b, decisión H), el de cada fuente
+/// ([sourceOriginalHiddenProvider]): cada uno por su lado.
 ///
 /// **Lo marcado se ve siempre, salvo que se oculte.** Las palabras clave, una
-/// vez hechas, quedan en rosa cada vez que se abre el documento; ocultarlas
-/// queda recordado para ese documento, y lo mismo el resumen y la síntesis:
+/// vez hechas, quedan en rosa cada vez que se abre el original; ocultarlas
+/// queda recordado para ese original, y lo mismo el resumen y la síntesis:
 /// lo que la persona apagó no vuelve a prenderse solo. Se guarda en el
 /// teléfono, con el tema y el idioma: es cómo se mira, no lo que el documento
 /// tiene —no pasa por la copia ni por la unión de bóvedas—.
 ///
-/// Se guarda por documento y no por texto: el original de un documento es
-/// siempre la misma copia, aunque el texto de su fuente se vuelva a extraer.
-class ProcessedOriginalLayers extends StateNotifier<Set<StudyMarkKind>> {
-  ProcessedOriginalLayers({
-    required SharedPreferences prefs,
-    required this.documentId,
-  }) : _prefs = prefs,
-       super(_read(prefs, documentId));
+/// El de un documento procesado se guarda por documento y no por texto: el
+/// original de un documento es siempre la misma copia, aunque el texto de su
+/// fuente se vuelva a extraer. El de una fuente, por su forma de texto, que es
+/// la que lleva sus marcas.
+class OriginalLayers extends StateNotifier<Set<StudyMarkKind>> {
+  OriginalLayers({required SharedPreferences prefs, required this.key})
+    : _prefs = prefs,
+      super(_read(prefs, key));
 
   final SharedPreferences _prefs;
-  final String documentId;
 
-  static String keyOf(String documentId) =>
+  /// Dónde se guarda: [processedKeyOf] o [sourceKeyOf].
+  final String key;
+
+  /// La clave del original del procesado [documentId].
+  static String processedKeyOf(String documentId) =>
       'processed_original_hidden.$documentId';
 
-  static Set<StudyMarkKind> _read(SharedPreferences prefs, String documentId) {
-    final names = prefs.getStringList(keyOf(documentId)) ?? const [];
+  /// La clave del original de la fuente cuyo texto es [renditionId].
+  static String sourceKeyOf(String renditionId) =>
+      'source_original_hidden.$renditionId';
+
+  static Set<StudyMarkKind> _read(SharedPreferences prefs, String key) {
+    final names = prefs.getStringList(key) ?? const [];
     return {
       for (final kind in StudyMarkKind.values)
         if (names.contains(kind.name)) kind,
@@ -53,7 +64,6 @@ class ProcessedOriginalLayers extends StateNotifier<Set<StudyMarkKind>> {
     }
     if (next.length == state.length && next.containsAll(state)) return;
     state = next;
-    final key = keyOf(documentId);
     if (next.isEmpty) {
       await _prefs.remove(key);
     } else {
@@ -64,10 +74,20 @@ class ProcessedOriginalLayers extends StateNotifier<Set<StudyMarkKind>> {
 
 /// Lo oculto del original de un documento procesado, por su id.
 final processedOriginalHiddenProvider = StateNotifierProvider.autoDispose
-    .family<ProcessedOriginalLayers, Set<StudyMarkKind>, String>(
-      (ref, documentId) => ProcessedOriginalLayers(
+    .family<OriginalLayers, Set<StudyMarkKind>, String>(
+      (ref, documentId) => OriginalLayers(
         prefs: ref.watch(sharedPreferencesProvider),
-        documentId: documentId,
+        key: OriginalLayers.processedKeyOf(documentId),
+      ),
+    );
+
+/// Lo oculto del original de una fuente de la Biblioteca, por su forma de
+/// texto (F45, paso 7b).
+final sourceOriginalHiddenProvider = StateNotifierProvider.autoDispose
+    .family<OriginalLayers, Set<StudyMarkKind>, String>(
+      (ref, renditionId) => OriginalLayers(
+        prefs: ref.watch(sharedPreferencesProvider),
+        key: OriginalLayers.sourceKeyOf(renditionId),
       ),
     );
 
@@ -109,16 +129,37 @@ final processedStudyPlanProvider = FutureProvider.autoDispose
                   .studyTextOf(key.documentId))
               .toNullable();
       if (own == null) return StudyAnalysisPlan.nothing;
-      final studied = await ref.read(studyRepositoryProvider).read(own.key);
-      final job = (
-        content: own.content,
-        markdown: own.markdown,
-        analyzedUntil: key.fromStart || studied.complete
-            ? 0
-            : studied.analyzedUntil,
-        charBudget: ref.read(studyMarkerProvider).partCharBudget,
-      );
-      return own.content.length >= kStudyFillIsolateChars
-          ? compute(planStudyAnalysisOf, job)
-          : planStudyAnalysisOf(job);
+      return _planOf(ref, own.asStudyText, fromStart: key.fromStart);
     });
+
+/// Qué estimar al marcar con la IA el original de una fuente (F45, paso 7b):
+/// su texto y si el análisis empieza de cero.
+typedef SourceStudyPlanKey = ({StudyText text, bool fromStart});
+
+/// [processedStudyPlanProvider] para el original de una fuente de la
+/// Biblioteca: el mismo análisis, sobre su texto extraído.
+final sourceStudyPlanProvider = FutureProvider.autoDispose
+    .family<StudyAnalysisPlan, SourceStudyPlanKey>(
+      (ref, key) => _planOf(ref, key.text, fromStart: key.fromStart),
+    );
+
+/// Lo que va a pedirle a la IA analizar [text] desde donde quedó, o desde el
+/// principio con [fromStart] o si ya terminó.
+Future<StudyAnalysisPlan> _planOf(
+  Ref ref,
+  StudyText text, {
+  required bool fromStart,
+}) async {
+  final studied = await ref
+      .read(studyRepositoryProvider)
+      .read(text.renditionId);
+  final job = (
+    content: text.content,
+    markdown: text.markdown,
+    analyzedUntil: fromStart || studied.complete ? 0 : studied.analyzedUntil,
+    charBudget: ref.read(studyMarkerProvider).partCharBudget,
+  );
+  return text.content.length >= kStudyFillIsolateChars
+      ? compute(planStudyAnalysisOf, job)
+      : planStudyAnalysisOf(job);
+}

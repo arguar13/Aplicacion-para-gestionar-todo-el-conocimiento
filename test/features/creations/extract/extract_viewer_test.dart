@@ -291,7 +291,7 @@ void main() {
       expect(
         h.container
             .read(sharedPreferencesProvider)
-            .getStringList(ProcessedOriginalLayers.keyOf(id)),
+            .getStringList(OriginalLayers.processedKeyOf(id)),
         [StudyMarkKind.keyword.name],
       );
       expect(switchOn(tester), isFalse);

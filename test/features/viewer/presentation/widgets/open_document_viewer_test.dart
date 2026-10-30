@@ -15,10 +15,10 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
-import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
-import 'package:sinapsis/features/viewer/presentation/screens/pdf_viewer_screen.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_view.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/pdf_viewer_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 import '../../../../support/sample_files.dart';
@@ -287,13 +287,15 @@ void main() {
       final handled = await pumpAndOpen(tester, item, file.path);
 
       expect(handled, isTrue);
-      expect(find.byType(PdfViewerScreen), findsOneWidget);
-      // Sin texto extraído no hay qué estudiar.
-      expect(find.byType(StudyBar), findsNothing);
+      // El original, el mismo que en Procesado (F45, paso 7b).
+      expect(find.byType(OriginalScreen), findsOneWidget);
+      expect(find.byType(PdfViewerView), findsOneWidget);
+      // Sin texto extraído no hay qué marcar.
+      expect(find.byKey(const Key('original-study-panel')), findsNothing);
     }, skip: _pdfiumPath == null);
 
-    testWidgets('un PDF con su texto lleva arriba los botones de estudiar '
-        '(F36)', (tester) async {
+    testWidgets('un PDF con su texto lleva arriba las fichas donde se marca '
+        'la fuente (F36; F45, paso 7b)', (tester) async {
       final file = File('${tempDir.path}/archivo.pdf');
       await tester.runAsync(
         () => file.writeAsBytes(buildPdf(pageTexts: ['Hola mundo'])),
@@ -316,8 +318,8 @@ void main() {
       final handled = await pumpAndOpen(tester, item, file.path);
 
       expect(handled, isTrue);
-      expect(find.byType(StudyBar), findsOneWidget);
-      expect(find.byKey(const Key('study-toggle-summary')), findsOneWidget);
+      expect(find.byKey(const Key('original-study-panel')), findsOneWidget);
+      expect(find.byKey(const Key('original-study-summary')), findsOneWidget);
     }, skip: _pdfiumPath == null);
 
     testWidgets('un DOCX con texto ya extraído abre el lector de lectura', (
@@ -343,13 +345,14 @@ void main() {
       final handled = await pumpAndOpen(tester, item, file.path);
 
       expect(handled, isTrue);
-      expect(find.byType(DocumentReaderScreen), findsOneWidget);
+      expect(find.byType(OriginalScreen), findsOneWidget);
+      expect(find.byType(DocumentReaderView), findsOneWidget);
       expect(
         find.text('El contenido ya extraído del documento.'),
         findsOneWidget,
       );
-      // Es el texto que se estudia: el lector lleva sus botones (F36).
-      expect(find.byKey(const Key('study-toggle-summary')), findsOneWidget);
+      // Es el texto que se estudia: arriba, sus fichas (F36; F45, paso 7b).
+      expect(find.byKey(const Key('original-study-summary')), findsOneWidget);
     });
 
     testWidgets(

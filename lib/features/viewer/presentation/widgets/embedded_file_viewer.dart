@@ -8,6 +8,7 @@ import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers
 import 'package:sinapsis/features/viewer/presentation/widgets/document_first_page_preview.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/image_viewer_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/mobile_page_width.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_first_page_preview.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/web_page_viewer_view.dart';
@@ -48,6 +49,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// El audio de un video —el reproductor solo con su audio de F24— ya no va
 /// acá abajo: es la parte de arriba del panel de la fuente (F26, decisión
 /// B), junto a las acciones. Acá queda solo el original.
+///
+/// **El original es el mismo que en Procesado** (F45, paso 7b, mejora 16):
+/// una página web se ve como en el navegador del teléfono, también en la
+/// computadora (`MobilePageWidth`), y a pantalla completa abre la misma
+/// pantalla de original (`openDocumentViewer`).
 class EmbeddedFileViewer extends ConsumerWidget {
   const EmbeddedFileViewer({required this.item, super.key});
 
@@ -140,7 +146,14 @@ class EmbeddedFileViewer extends ConsumerWidget {
           tall: true,
           onExpand: expand,
           bigButtonLabel: l10n.detailViewWebPage,
-          child: WebPageViewerView(path: path, url: url, text: text),
+          child: MobilePageWidth(
+            child: WebPageViewerView(
+              path: path,
+              url: url,
+              text: text,
+              mobile: true,
+            ),
+          ),
         ),
       // Sin `onExpand`: tocar la vista previa ya hace lo único que tiene
       // sentido hacer con un video ajeno —abrirlo en YouTube—, así que no

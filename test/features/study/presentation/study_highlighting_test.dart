@@ -509,17 +509,19 @@ void main() {
       );
     });
 
-    testWidgets('abajo lleva los botones de estudiar, no «Resumir con IA»: '
-        'Resumir pinta el resumen en la página', (tester) async {
+    testWidgets('abajo no lleva «Resumir con IA»: las fichas van arriba, en '
+        'el original (F45, paso 7b); y se abre como lo dejó la persona, con lo '
+        'marcado a la vista', (tester) async {
       await pumpReader(tester);
       await nextPage(tester);
 
       expect(find.byType(SummarizeButton), findsNothing);
-      await tester.tap(find.byKey(const Key('study-toggle-summary')));
-      await tester.pumpAndSettle();
-
-      expect(view().state.summary, isTrue);
+      expect(view().state, markedCopyStudyView());
       expect(pieces(tester).where((p) => p.$2 == light.summary), isNotEmpty);
+
+      view().state = view().state.withLayer(StudyLayer.summary, on: false);
+      await tester.pumpAndSettle();
+      expect(pieces(tester).where((p) => p.$2 == light.summary), isEmpty);
     });
 
     testWidgets('un texto que no se estudia —un adjunto— sigue con «Resumir '
@@ -541,9 +543,13 @@ void main() {
       expect(find.byKey(const Key('study-toggle-summary')), findsNothing);
     });
 
-    testWidgets('lo de un texto no se pinta en otro', (tester) async {
+    testWidgets('lo que se prende en un texto no se prende en otro', (
+      tester,
+    ) async {
       await pumpReader(tester, renditionId: 'otro');
       await nextPage(tester);
+      container.read(studyViewProvider('otro').notifier).state =
+          const StudyView();
       view().state = const StudyView(summary: true);
       await tester.pumpAndSettle();
 

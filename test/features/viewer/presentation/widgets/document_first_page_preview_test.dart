@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/highlight_palette.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart'
+    show sharedPreferencesProvider;
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
@@ -42,8 +45,11 @@ void main() {
     bool withStudy = true,
     VoidCallback? onTap,
   }) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
     container = ProviderContainer(
       overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
         studyRepositoryProvider.overrideWithValue(MemoryStudyRepository(study)),
         renditionHighlightsProvider.overrideWith(
           (ref, id) => Stream.value(highlights),

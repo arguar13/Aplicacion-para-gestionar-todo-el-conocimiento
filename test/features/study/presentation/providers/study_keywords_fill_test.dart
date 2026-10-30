@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart'
+    show sharedPreferencesProvider;
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_bar.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/study/domain/usecases/analyze_for_study.dart';
 import 'package:sinapsis/features/study/domain/usecases/fill_study_keywords.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_keywords_fill_providers.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 import '../../../../support/fake_study_analysis.dart';
@@ -19,8 +24,10 @@ import '../../../../support/memory_study_repository.dart';
 
 class _MockTelemetry extends Mock implements TelemetryService {}
 
-/// Completar las palabras clave de lo ya analizado al prender «Palabras
-/// clave» (sin IA, sin red).
+/// Completar las palabras clave de lo ya analizado al mostrarlas (sin IA,
+/// sin red), en las fichas del original de una fuente (F45, paso 7b): se ven
+/// de entrada, así que se completan al abrirlo, y mostrarlas de nuevo las
+/// mira otra vez si el texto cambió.
 void main() {
   const content =
       'La revolución industrial cambió todo. Nada más.\n\n'
@@ -56,7 +63,7 @@ void main() {
   late _MockTelemetry telemetry;
   late List<StudyFillJob> jobs;
 
-  /// Muestra los botones de [shown] en la sesión de ahora.
+  /// Muestra las fichas del original de [shown] en la sesión de ahora.
   Future<void> show(WidgetTester tester, StudyText shown) async {
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -65,7 +72,9 @@ void main() {
           locale: const Locale('es'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(body: StudyToggles(text: shown)),
+          home: Scaffold(
+            body: OriginalStudyBar(study: OriginalStudy.source(shown)),
+          ),
         ),
       ),
     );
@@ -77,13 +86,23 @@ void main() {
     DocumentStudy study = DocumentStudy.notStarted,
     StudyFillRunner? runner,
     StudyText shown = text,
+    bool analyzing = false,
   }) async {
     repository = MemoryStudyRepository(study);
     analysis = FakeStudyAnalysis();
+    // Con su avance: sin él, la franja se mueve sin parar y no se asienta.
+    if (analyzing) {
+      analysis.shown = const StudyAnalysisRunning(
+        StudyProgress(partsDone: 1, partsTotal: 2),
+      );
+    }
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
     telemetry = _MockTelemetry();
     jobs = [];
     container = ProviderContainer(
       overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
         studyRepositoryProvider.overrideWithValue(repository),
         studyAnalysisProvider.overrideWith((ref, id) => analysis),
         telemetryServiceProvider.overrideWithValue(telemetry),
@@ -100,8 +119,10 @@ void main() {
     await show(tester, shown);
   }
 
+  /// Toca la ficha de las palabras clave: con marcas, las oculta o las
+  /// muestra.
   Future<void> tapKeywords(WidgetTester tester) async {
-    await tester.tap(find.byKey(const Key('study-toggle-keywords')));
+    await tester.tap(find.byKey(const Key('original-study-keyword')));
     await tester.pumpAndSettle();
   }
 
@@ -133,13 +154,9 @@ void main() {
     expect(viaRunner, missingKeywordsOfText(job));
   });
 
-  testWidgets('prender «Palabras clave» en un texto analizado de antes '
-      'completa las oraciones que no tenían, y no pide nada a la IA', (
-    tester,
-  ) async {
+  testWidgets('abrir el original de un texto analizado de antes completa las '
+      'oraciones que no tenían, y no pide nada a la IA', (tester) async {
     await pump(tester, study: analyzed);
-
-    await tapKeywords(tester);
 
     expect(jobs, hasLength(1));
     expect(jobs.single.content, content);
@@ -157,13 +174,13 @@ void main() {
     expect(analysis.starts, isEmpty);
   });
 
-  testWidgets('una vez por texto en la sesión: apagar y volver a prender no '
+  testWidgets('una vez por texto en la sesión: ocultar y volver a mostrar no '
       'lo vuelve a mirar', (tester) async {
     await pump(tester, study: analyzed);
 
-    await tapKeywords(tester);
-    await tapKeywords(tester);
-    await tapKeywords(tester);
+    await tapKeywords(tester); // oculta
+    await tapKeywords(tester); // muestra
+    await tapKeywords(tester); // oculta
 
     expect(jobs, hasLength(1));
   });
@@ -171,7 +188,6 @@ void main() {
   testWidgets('un texto que se vuelve a extraer —otro largo, la misma forma— '
       'se mira de nuevo en la misma sesión', (tester) async {
     await pump(tester, study: analyzed);
-    await tapKeywords(tester);
     expect(jobs, hasLength(1));
 
     await show(tester, (
@@ -180,17 +196,14 @@ void main() {
       content: '$content Y un renglón más.',
       markdown: true,
     ));
-    await tapKeywords(tester); // apaga
-    await tapKeywords(tester); // prende
+    await tapKeywords(tester); // oculta
+    await tapKeywords(tester); // muestra
     expect(jobs, hasLength(2));
   });
 
   testWidgets('mientras se está analizando no completa: lo hace el propio '
       'análisis', (tester) async {
-    await pump(tester, study: analyzed);
-    analysis.shown = const StudyAnalysisRunning(null);
-
-    await tapKeywords(tester);
+    await pump(tester, study: analyzed, analyzing: true);
 
     expect(jobs, isEmpty);
   });
@@ -208,7 +221,7 @@ void main() {
       },
     );
 
-    await tapKeywords(tester); // prende: falla
+    // Al abrir: falla.
     verify(
       () => telemetry.recordError(
         any<dynamic>(),
@@ -218,8 +231,8 @@ void main() {
     ).called(1);
     expect(repository.filled, isEmpty);
 
-    await tapKeywords(tester); // apaga
-    await tapKeywords(tester); // prende: ahora sí
+    await tapKeywords(tester); // oculta
+    await tapKeywords(tester); // muestra: ahora sí
     expect(attempts, 2);
     expect(repository.filled, isNotEmpty);
   });

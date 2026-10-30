@@ -1,22 +1,14 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
-import 'package:sinapsis/core/storage/file_opener.dart';
-import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_original_view_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
-import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_bar.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/mobile_page_width.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/pdf_viewer_view.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/web_page_viewer_view.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La copia del original de un documento procesado (F41, decisión H), en el
@@ -24,11 +16,13 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// marcado encima: el resumen, la síntesis y las palabras clave con los
 /// colores de estudiar, y los fragmentos con el de los cortes.
 ///
-/// **Arriba, los botones de estudio** (F43, paso 15, M5: `OriginalStudyBar`):
-/// el original es donde se marca, con la IA o a mano, tocando las oraciones o
-/// las palabras en el visor; y donde se prende, se apaga y se oculta lo
-/// marcado. Es la pantalla completa del original que el documento muestra
-/// incrustado (`ProcessedOriginalSection`).
+/// **Es la misma pantalla que el original de una fuente en la Biblioteca**
+/// (F45, paso 7b, mejora 16, decisión H: [OriginalScreen] y [OriginalView]):
+/// arriba, las tres fichas donde se marca, con la IA o a mano, tocando las
+/// oraciones o las palabras en el visor (F43, paso 15, M5: `OriginalStudyBar`);
+/// y donde se prende, se apaga y se oculta lo marcado. Es la pantalla completa
+/// del original que el documento muestra en su vista previa
+/// (`ProcessedOriginalSection`), que ya no lleva las fichas (mejora 15).
 ///
 /// **Lo que se pinta es del procesado, no de la fuente.** El visor mira la
 /// copia por su propia clave (`processedOriginalStudyKeyFor`), como a
@@ -56,10 +50,8 @@ class ProcessedOriginalScreen extends ConsumerWidget {
         '';
     final original = ref.watch(processedOriginalProvider(documentId));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      ),
+    return OriginalScreen(
+      title: title,
       body: original.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => EmptyStateView(
@@ -115,143 +107,24 @@ class _OriginalBody extends ConsumerWidget {
     }
     final text = loaded.text;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (text == null)
-          _Notice(message: l10n.processedOriginalUnmarked)
-        else
-          _StudyBarPanel(
-            study: OriginalStudy(documentId: documentId, original: text),
-          ),
-        Expanded(
-          child: switch (original.kind) {
-            RenditionKind.pdf => PdfViewerView(
-              path: loaded.path,
-              text: text,
-              title: title,
-            ),
-            // Como en el teléfono, también en la computadora (F45, paso 4,
-            // decisión D).
-            RenditionKind.html => MobilePageWidth(
-              child: WebPageViewerView(
-                path: loaded.path,
-                text: text,
-                title: title,
-                readAloud: text != null,
-                mobile: true,
-              ),
-            ),
-            _ when text == null => ProcessedOriginalUnreadable(
-              path: loaded.path,
-            ),
-            _ => DocumentReaderView(
-              title: title,
-              content: text.content,
-              markdown: text.markdown,
-              study: text,
-              showStudyBar: false,
-            ),
-          },
-        ),
-      ],
+    return OriginalView(
+      format: originalFormatOf(original),
+      path: loaded.path,
+      title: title,
+      text: text,
+      study: text == null
+          ? null
+          : OriginalStudy(documentId: documentId, original: text),
+      notice: text == null ? l10n.processedOriginalUnmarked : null,
     );
   }
 }
 
-/// Una línea arriba del visor que dice por qué no hay marcas.
-class _Notice extends StatelessWidget {
-  const _Notice({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Material(
-      key: const Key('processed-original-notice'),
-      color: colors.surfaceContainerHigh,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.info_outline, size: 20, color: colors.onSurfaceVariant),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Los botones de estudio arriba del visor, sobre el color de la barra. Con
-/// la letra grande pueden ocupar varios renglones: se desplazan dentro de un
-/// alto acotado y el original sigue a la vista.
-class _StudyBarPanel extends StatelessWidget {
-  const _StudyBarPanel({required this.study});
-
-  final OriginalStudy study;
-
-  @override
-  Widget build(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height;
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: height * 0.42),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          child: OriginalStudyBar(study: study),
-        ),
-      ),
-    );
-  }
-}
-
-/// Un Word, un EPUB o un texto cuyo texto ya no es el de la fuente: el lector
-/// no tiene qué mostrar, y se ofrece abrirlo con otra app. Acá y en el
-/// documento (`ProcessedOriginalSection`).
-class ProcessedOriginalUnreadable extends ConsumerWidget {
-  const ProcessedOriginalUnreadable({required this.path, super.key});
-
-  final String path;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return EmptyStateView(
-      icon: Icons.description_outlined,
-      title: l10n.processedOriginalUnreadable,
-      actionLabel: l10n.processedOriginalOpenWith,
-      onAction: () => unawaited(_open(context, ref)),
-    );
-  }
-
-  Future<void> _open(BuildContext context, WidgetRef ref) async {
-    final l10n = AppLocalizations.of(context)!;
-    final messenger = ScaffoldMessenger.of(context);
-    final result = await ref.read(fileOpenerProvider).open(path);
-    final message = switch (result) {
-      FileOpenResult.done => null,
-      FileOpenResult.noAppAvailable => l10n.contentNoAppToOpen,
-      FileOpenResult.fileNotFound ||
-      FileOpenResult.failed => l10n.contentOpenFailed,
+/// En qué visor se ve la copia: un PDF, una página web archivada o, todo lo
+/// demás —un Word, un EPUB, un texto—, el lector.
+OriginalFormat originalFormatOf(ProcessedOriginal original) =>
+    switch (original.kind) {
+      RenditionKind.pdf => OriginalFormat.pdf,
+      RenditionKind.html => OriginalFormat.page,
+      _ => OriginalFormat.reader,
     };
-    if (message == null) return;
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-}

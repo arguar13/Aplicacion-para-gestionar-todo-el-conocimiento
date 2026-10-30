@@ -4,12 +4,11 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
-import 'package:sinapsis/features/processed/domain/entities/processed_study_text.dart';
-import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_sheets.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_words.dart';
+import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_keywords_fill_providers.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
@@ -36,20 +35,18 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   ve una oración de los dos: celeste con la línea verde. Y, mientras la IA
 ///   marca, la franja de siempre con «Parar» ([StudyProgressStrip]).
 /// - **Eligiendo a mano**, una línea dice qué se elige y cómo, con «Listo».
-///   En el documento, donde el original es su primera página quieta,
-///   [onOpenOriginal] lleva al original entero, donde se toca.
+///
+/// Vive en el original entero (F45, paso 7b, mejora 15: `OriginalView`), el
+/// mismo en Procesado y en la Biblioteca, que es donde se toca: la vista
+/// previa del documento dice qué tiene marcado (`OriginalMarksLine`).
 ///
 /// Sin animaciones: el avance es un número y una barra que se llenan, nunca
 /// una ruedita que gira. Entra en 360 dp con la letra al doble: las fichas
 /// pasan a dos renglones —o a uno cada una— sin cortar una palabra.
 class OriginalStudyBar extends ConsumerStatefulWidget {
-  const OriginalStudyBar({required this.study, this.onOpenOriginal, super.key});
+  const OriginalStudyBar({required this.study, super.key});
 
   final OriginalStudy study;
-
-  /// Lleva al original entero, para elegir a mano tocándolo. `null` en el
-  /// original entero, donde ya se toca.
-  final VoidCallback? onOpenOriginal;
 
   @override
   ConsumerState<OriginalStudyBar> createState() => _OriginalStudyBarState();
@@ -59,7 +56,7 @@ class _OriginalStudyBarState extends ConsumerState<OriginalStudyBar> {
   /// El texto propio del documento —el que se analiza— y lo estudiado de él,
   /// ya cargados: lo que usan los botones al tocarlos, sin volver a leer un
   /// libro entero con cada toque.
-  ProcessedStudyText? _own;
+  StudyText? _own;
   DocumentStudy? _ownStudy;
 
   /// Si ya se pidió completar las palabras clave que faltan.
@@ -75,7 +72,7 @@ class _OriginalStudyBarState extends ConsumerState<OriginalStudyBar> {
     if (!(_ownStudy?.started ?? false)) return;
     _filled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(ensureStudyKeywords(ref, own.asStudyText));
+      if (mounted) unawaited(ensureStudyKeywords(ref, own));
     });
   }
 
@@ -89,10 +86,7 @@ class _OriginalStudyBarState extends ConsumerState<OriginalStudyBar> {
         ref.watch(documentStudyProvider(key)).valueOrNull ??
         DocumentStudy.notStarted;
     final analysis = ref.watch(studyAnalysisProvider(study.ownKey));
-    final own = _own = ref
-        .watch(processedStudyTextProvider(study.documentId))
-        .valueOrNull
-        ?.toNullable();
+    final own = _own = ref.watch(originalOwnTextProvider(study)).valueOrNull;
     _ownStudy = ref.watch(documentStudyProvider(study.ownKey)).valueOrNull;
     _fillOnce(view);
 
@@ -126,13 +120,12 @@ class _OriginalStudyBarState extends ConsumerState<OriginalStudyBar> {
           if (view.pick case final pick?)
             _PickingLine(
               kind: pick,
-              onOpenOriginal: widget.onOpenOriginal,
               onDone: () => stopPickingOnOriginal(ref, study),
             ),
           // La franja de siempre: la parte que va y «Parar»; si se cortó,
           // «Reintentar». Mide el análisis del texto propio, que es el que
           // marca el original.
-          if (own != null) StudyProgressStrip(text: own.asStudyText),
+          if (own != null) StudyProgressStrip(text: own),
         ],
       ),
     );
@@ -184,10 +177,8 @@ class _OriginalStudyBarState extends ConsumerState<OriginalStudyBar> {
     }
   }
 
-  Future<void> _pick(StudyMarkKind kind) async {
-    await pickOnOriginal(ref, widget.study, kind, own: _own);
-    widget.onOpenOriginal?.call();
-  }
+  Future<void> _pick(StudyMarkKind kind) =>
+      pickOnOriginal(ref, widget.study, kind, own: _own);
 
   Future<void> _menu(StudyMarkKind kind) async {
     final study = widget.study;
@@ -204,6 +195,7 @@ class _OriginalStudyBarState extends ConsumerState<OriginalStudyBar> {
       kind: kind,
       count: count,
       shown: originalShows(view, kind),
+      canClear: study.canClear,
       running:
           ref.read(studyAnalysisProvider(study.ownKey)) is StudyAnalysisRunning,
     );
@@ -651,18 +643,12 @@ class _BothLegend extends StatelessWidget {
   }
 }
 
-/// Eligiendo a mano: qué se elige, cómo, y «Listo». Desde el documento,
-/// además, el original entero donde se toca.
+/// Eligiendo a mano: qué se elige, cómo, y «Listo».
 class _PickingLine extends StatelessWidget {
-  const _PickingLine({
-    required this.kind,
-    required this.onDone,
-    this.onOpenOriginal,
-  });
+  const _PickingLine({required this.kind, required this.onDone});
 
   final StudyMarkKind kind;
   final VoidCallback onDone;
-  final VoidCallback? onOpenOriginal;
 
   @override
   Widget build(BuildContext context) {
@@ -725,13 +711,6 @@ class _PickingLine extends StatelessWidget {
               spacing: 8,
               runSpacing: 4,
               children: [
-                if (onOpenOriginal case final open?)
-                  TextButton.icon(
-                    key: const Key('original-study-pick-open'),
-                    icon: const Icon(Icons.open_in_full, size: 18),
-                    label: Text(l10n.f43OrigPickOpen),
-                    onPressed: open,
-                  ),
                 FilledButton.tonalIcon(
                   key: const Key('original-study-pick-done'),
                   icon: const Icon(Icons.check, size: 18),

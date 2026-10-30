@@ -22,7 +22,6 @@ import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/features/viewer/domain/services/reader_pagination.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/reader_font_scale_notifier.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -69,16 +68,17 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// de una página más alta que la pantalla, se desplaza hasta la línea. Si la
 /// persona pasa de página o desplaza a mano, la deja tranquila y ofrece
 /// «Volver a la lectura» (ver `ReadAloudFollow`). Lo mismo en el marco del
-/// texto largo del detalle (sin los botones de estudiar, ver
-/// [showStudyBar]): lo que ofrece va por encima de lo del detalle, que no
-/// trae ese texto, y seguir la lectura mueve el marco, no el detalle.
+/// texto largo del detalle: lo que ofrece va por encima de lo del detalle,
+/// que no trae ese texto, y seguir la lectura mueve el marco, no el detalle.
 ///
 /// **Lo estudiado se pinta en la página (F36).** Con [study], las
 /// oraciones del resumen o de la síntesis y las palabras clave se ven con sus
 /// colores de resaltador, y eligiendo palabras clave, tocar una la agrega o
 /// la saca. Cada página es un tramo tal cual de [content] —ver
 /// [readerPageRanges]—, así que lo marcado cae en su lugar sin traducir nada.
-/// Abajo van los botones de estudiar, en vez de «Resumir con IA».
+/// Los botones de estudiar van arriba, en el original (F45, paso 7b:
+/// `OriginalView`), el mismo en Procesado y en la Biblioteca; abajo, sin
+/// [study], «Resumir con IA».
 ///
 /// **Se resalta a mano (F38).** Con [study], [content] es el texto extraído
 /// del elemento, así que lo que se resalta acá son los mismos resaltados de
@@ -95,7 +95,6 @@ class DocumentReaderView extends ConsumerStatefulWidget {
     this.showFontControls = false,
     this.controlsAtBottom = false,
     this.study,
-    this.showStudyBar = true,
     super.key,
   });
 
@@ -119,10 +118,6 @@ class DocumentReaderView extends ConsumerStatefulWidget {
   /// El texto que se estudia, si [content] es ese texto (F36); sin él —un
   /// adjunto, que no se estudia—, no se pinta nada.
   final StudyText? study;
-
-  /// Si abajo van los botones de estudiar. Sobre la copia del original de un
-  /// documento procesado, que ya los tiene arriba, no: se repetirían.
-  final bool showStudyBar;
 
   @override
   ConsumerState<DocumentReaderView> createState() => _DocumentReaderViewState();
@@ -409,26 +404,15 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (widget.study case final study?)
-                      if (widget.showStudyBar)
-                        Expanded(
-                          child: StudyBar(
-                            text: study,
-                            padding: EdgeInsets.zero,
-                          ),
-                        )
-                      else
-                        const SizedBox.shrink()
-                    else
-                      SummarizeButton(content: _pageText(_pageIndex)),
-                  ],
+              // Sin texto que se estudia —un adjunto—, resumir la página.
+              if (widget.study == null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [SummarizeButton(content: _pageText(_pageIndex))],
+                  ),
                 ),
-              ),
               if (_pageCount > 1)
                 _PageControls(
                   label: l10n.documentReaderPageOf(_pageIndex + 1, _pageCount),

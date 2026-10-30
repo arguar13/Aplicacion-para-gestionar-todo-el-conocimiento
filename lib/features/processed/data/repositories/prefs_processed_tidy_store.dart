@@ -8,7 +8,7 @@ import 'package:sinapsis/features/processed/domain/services/tidy_check.dart';
 ///
 /// En el teléfono y no en la base, a propósito: ordenar es trabajo de la IA
 /// de **este** dispositivo, como lo oculto del original
-/// (`ProcessedOriginalLayers`). No viaja con la copia de la bóveda ni se une
+/// (`OriginalLayers`). No viaja con la copia de la bóveda ni se une
 /// con la de otro dispositivo, que no tiene cómo seguirlo. Lo que deja —las
 /// páginas ordenadas— sí está en la base, como cualquier página editada.
 ///

@@ -106,7 +106,10 @@ void main() {
     expect(reader.study!.renditionId, key);
     expect(reader.study!.itemId, id);
     expect(reader.content, text);
-    expect(reader.showStudyBar, isFalse);
+    // El mismo lector que el original de la Biblioteca (F45, paso 7b): con
+    // A− A+ y las fichas arriba, no abajo.
+    expect(reader.showFontControls, isTrue);
+    expect(reader.controlsAtBottom, isTrue);
 
     final study = await harness.container.read(
       documentStudyProvider(key).future,

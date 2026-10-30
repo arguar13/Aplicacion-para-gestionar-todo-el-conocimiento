@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
+import 'package:sinapsis/features/study/presentation/study_analysis_start.dart';
 import 'package:sinapsis/features/study/presentation/study_progress_texts.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Cómo va el análisis: la parte que va y «Parar»; si se cortó,

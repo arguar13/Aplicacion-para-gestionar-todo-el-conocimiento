@@ -6,7 +6,6 @@ import 'package:sinapsis/features/ai_models/presentation/providers/illustration_
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_capability_card.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/creations/design/creation_controls.dart';
-import 'package:sinapsis/features/processed/presentation/providers/processed_original_study_providers.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_bar.dart';
 import 'package:sinapsis/features/study/domain/services/study_words.dart';
@@ -155,7 +154,7 @@ class OriginalStudyChoiceSheet extends ConsumerWidget {
           },
         ),
         const SizedBox(height: 14),
-        _AiNotice(documentId: study.documentId, fromStart: false),
+        _AiNotice(study: study, fromStart: false),
       ],
     );
   }
@@ -258,23 +257,18 @@ class _OptionTile extends StatelessWidget {
 }
 
 /// «Con tu IA actual»: qué modelo marca y cuánto va a consumir analizar lo
-/// que falta del documento —o el documento entero, con [fromStart]—.
+/// que falta del original —o el texto entero, con [fromStart]—.
 class _AiNotice extends ConsumerWidget {
-  const _AiNotice({required this.documentId, required this.fromStart});
+  const _AiNotice({required this.study, required this.fromStart});
 
-  final String documentId;
+  final OriginalStudy study;
   final bool fromStart;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final plan = ref
-        .watch(
-          processedStudyPlanProvider((
-            documentId: documentId,
-            fromStart: fromStart,
-          )),
-        )
+        .watch(originalStudyPlanProvider((study: study, fromStart: fromStart)))
         .valueOrNull;
     if (plan == null) {
       // Sin ruedita: sin animaciones, y la cuenta tarda un instante.
@@ -298,14 +292,15 @@ class _AiNotice extends ConsumerWidget {
 }
 
 /// El menú de un botón con marcas (M5): rehacer con IA, retocar a mano,
-/// ocultar o mostrar, y borrar las marcas. Mientras la IA marca no se ofrece
-/// rehacer: ya está rehaciendo.
+/// ocultar o mostrar y, con [canClear], borrar las marcas. Mientras la IA
+/// marca no se ofrece rehacer: ya está rehaciendo.
 Future<OriginalStudyAction?> showOriginalStudyMenu(
   BuildContext context, {
   required StudyMarkKind kind,
   required int count,
   required bool shown,
   required bool running,
+  required bool canClear,
 }) => _showSheet<OriginalStudyAction>(context, (sheetContext) {
   final l10n = AppLocalizations.of(sheetContext)!;
   final theme = Theme.of(sheetContext);
@@ -357,11 +352,12 @@ Future<OriginalStudyAction?> showOriginalStudyMenu(
           Icons.visibility_outlined,
           l10n.f43OrigMenuShow,
         ),
-      item(
-        OriginalStudyAction.clear,
-        Icons.delete_outline,
-        l10n.f43OrigMenuClear,
-      ),
+      if (canClear)
+        item(
+          OriginalStudyAction.clear,
+          Icons.delete_outline,
+          l10n.f43OrigMenuClear,
+        ),
     ],
   );
 });
@@ -399,7 +395,7 @@ Future<bool> showOriginalRedoSheet(
             ),
           ),
           const SizedBox(height: 14),
-          _AiNotice(documentId: study.documentId, fromStart: true),
+          _AiNotice(study: study, fromStart: true),
           const SizedBox(height: 16),
           Wrap(
             alignment: WrapAlignment.end,
