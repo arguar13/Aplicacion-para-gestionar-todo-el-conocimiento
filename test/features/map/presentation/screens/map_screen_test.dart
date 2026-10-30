@@ -10,7 +10,8 @@ import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
-import 'package:sinapsis/features/explorer/presentation/providers/explorer_providers.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -107,6 +108,19 @@ void main() {
     await relate('s1', 's2');
   }
 
+  /// Lo que dice la cifra grande [name] del Resumen (F44, paso 3): su número y
+  /// qué cuenta.
+  String figure(WidgetTester tester, String name) => tester
+      .widgetList<Text>(
+        find.descendant(
+          of: find.byKey(ValueKey('map-board-figure-$name')),
+          matching: find.byType(Text),
+        ),
+      )
+      .take(2)
+      .map((t) => t.data)
+      .join(' ');
+
   Future<void> pump(WidgetTester tester) async {
     tester.view.physicalSize = const Size(1000, 3000);
     tester.view.devicePixelRatio = 1;
@@ -152,7 +166,7 @@ void main() {
 
     expect(find.byType(MapScreen), findsOneWidget);
     expect(find.byType(MapBoardView), findsOneWidget);
-    expect(find.text(es.mapTopicCount('tags', 0)), findsOneWidget);
+    expect(figure(tester, 'topics'), '0 ${es.f44S3FigureTopics('tags', 0)}');
 
     await openMap(tester);
 
@@ -286,8 +300,8 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text(es.mapTopicCount('tags', 3)), findsOneWidget);
-    expect(find.widgetWithText(Chip, es.mapItemCount(4)), findsOneWidget);
+    expect(figure(tester, 'topics'), '3 ${es.f44S3FigureTopics('tags', 3)}');
+    expect(figure(tester, 'documents'), '4 ${es.f44S3FigureDocuments(4)}');
     // Roma tiene tres fuentes; Grecia, dos; Egipto, una.
     final roma = tester.getTopLeft(
       find.byKey(const ValueKey('map-densest-roma')),
@@ -305,7 +319,13 @@ void main() {
     await seed();
     await pump(tester);
 
-    expect(find.text('Fuente s1  ↔  Fuente s2'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('map-board-contradictions')),
+        matching: find.text('Fuente s1  ↔  Fuente s2'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const ValueKey('map-contradictions-all')));
     await tester.pumpAndSettle();
@@ -313,14 +333,69 @@ void main() {
     expect(find.byType(TensionScreen), findsOneWidget);
   });
 
-  testWidgets('tocar un tema abre el material de ese tema', (tester) async {
+  testWidgets('tocar un tema del Resumen lleva al lienzo, en la pestaña Mapa, '
+      'no al Explorador (F44, decisión D)', (tester) async {
     await seed();
     await pump(tester);
 
     await tester.tap(find.byKey(const ValueKey('map-densest-roma')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(ExplorerScreen), findsOneWidget);
+    expect(harness.container.read(mapTabProvider), MapTab.map);
+    expect(find.byType(MapCanvasView), findsOneWidget);
+    expect(find.byType(ExplorerScreen), findsNothing);
+  });
+
+  testWidgets('«Estudiar» abre Repasar con el tema puesto en el selector '
+      '(F44, paso 3)', (tester) async {
+    await seed();
+    await pump(tester);
+
+    // Nada tiene tarjetas: Roma, con más material, encabeza «sin tarjetas».
+    final study = find.byKey(const ValueKey('map-study-uncarded-action-roma'));
+    await tester.ensureVisible(study);
+    await tester.pumpAndSettle();
+    await tester.tap(study);
+    await tester.pumpAndSettle();
+
+    expect(
+      harness.container.read(repasarScopeProvider),
+      const CreationScope.topic('roma'),
+    );
+    expect(find.byType(MapScreen), findsNothing);
+  });
+
+  testWidgets('«Para estudiar» se actualiza solo al crear una tarjeta, sin '
+      'esperar al mapa', (tester) async {
+    await seed();
+    await pump(tester);
+    expect(
+      find.byKey(const ValueKey('map-study-uncarded-egipto')),
+      findsOneWidget,
+    );
+
+    await tester.runAsync(
+      () => db
+          .into(db.flashcards)
+          .insert(
+            FlashcardsCompanion.insert(
+              id: 'f1',
+              itemId: 's4',
+              front: '¿?',
+              back: '!',
+              // Vencida para el reloj fijo del arnés.
+              dueAt: DateTime(2026, 9, 2),
+              createdAt: DateTime(2026, 9, 2),
+            ),
+          ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('map-study-due-egipto')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('map-study-uncarded-egipto')),
+      findsNothing,
+    );
   });
 
   testWidgets('en el Mapa, tocar un documento abre su detalle', (tester) async {
@@ -344,12 +419,12 @@ void main() {
   ) async {
     await seed();
     await pump(tester);
-    expect(find.widgetWithText(Chip, es.mapItemCount(4)), findsOneWidget);
+    expect(figure(tester, 'documents'), '4 ${es.f44S3FigureDocuments(4)}');
 
     await tester.runAsync(() => item('s5', ['egipto', 'roma']));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(Chip, es.mapItemCount(5)), findsOneWidget);
+    expect(figure(tester, 'documents'), '5 ${es.f44S3FigureDocuments(5)}');
     // Egipto ya comparte un elemento con Roma: dejó de estar aislado.
     expect(find.byKey(const ValueKey('map-isolated-egipto')), findsNothing);
   });
@@ -626,25 +701,32 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text(es.mapTopicCount('spaces', 2)), findsOneWidget);
+      expect(
+        figure(tester, 'topics'),
+        '2 ${es.f44S3FigureTopics('spaces', 2)}',
+      );
       // s3 no está en ningún tema.
       expect(find.text(es.mapUnassignedSpaces(1)), findsOneWidget);
     });
 
-    testWidgets('tocar un tema abre el Explorador parado en él', (
+    testWidgets('«Estudiar» en un tema abre Repasar con ese espacio', (
       tester,
     ) async {
       await seed();
       final antiguedad = await space('Antigüedad', ['s1', 's2']);
       await pump(tester);
 
-      await tester.tap(find.byKey(ValueKey('map-densest-$antiguedad')));
+      final study = find.byKey(
+        ValueKey('map-study-uncarded-action-$antiguedad'),
+      );
+      await tester.ensureVisible(study);
+      await tester.pumpAndSettle();
+      await tester.tap(study);
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExplorerScreen), findsOneWidget);
       expect(
-        harness.container.read(explorerQueryNotifierProvider).spaceId,
-        antiguedad,
+        harness.container.read(repasarScopeProvider),
+        CreationScope.space(antiguedad),
       );
     });
 
@@ -661,7 +743,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Roma, Grecia y Egipto: las etiquetas de la siembra.
-      expect(find.text(es.mapTopicCount('tags', 3)), findsOneWidget);
+      expect(figure(tester, 'topics'), '3 ${es.f44S3FigureTopics('tags', 3)}');
     });
 
     testWidgets('sin temas, arranca por las etiquetas', (tester) async {
@@ -691,7 +773,7 @@ void main() {
       await pump(tester);
 
       expect(find.byType(MapBoardView), findsOneWidget);
-      expect(find.widgetWithText(Chip, es.mapItemCount(2)), findsOneWidget);
+      expect(figure(tester, 'documents'), '2 ${es.f44S3FigureDocuments(2)}');
       expect(find.text(es.mapUnassignedTags(2)), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('map-organize-with-ai')));
@@ -905,7 +987,7 @@ void main() {
       await seed();
       await item('d1', ['roma'], kind: SourceKind.document);
       await pump(tester);
-      expect(find.widgetWithText(Chip, es.mapItemCount(5)), findsOneWidget);
+      expect(figure(tester, 'documents'), '5 ${es.f44S3FigureDocuments(5)}');
       expect(find.byKey(const ValueKey('map-filter-active')), findsNothing);
 
       await openFilters(tester);
@@ -913,7 +995,7 @@ void main() {
       await tester.pumpAndSettle();
       await closeSheet(tester);
 
-      expect(find.widgetWithText(Chip, es.mapItemCount(1)), findsOneWidget);
+      expect(figure(tester, 'documents'), '1 ${es.f44S3FigureDocuments(1)}');
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('map-filter-active')),
@@ -936,7 +1018,7 @@ void main() {
           .read(libraryRepositoryProvider)
           .setSpaces(itemIds: ['s1', 's4'], spaceIds: {space.id});
       await pump(tester);
-      expect(find.widgetWithText(Chip, es.mapItemCount(4)), findsOneWidget);
+      expect(figure(tester, 'documents'), '4 ${es.f44S3FigureDocuments(4)}');
       final chip = find.byKey(ValueKey('map-filter-space-${space.id}'));
 
       await openFilters(tester);
@@ -944,7 +1026,7 @@ void main() {
       await tester.pumpAndSettle();
       await closeSheet(tester);
 
-      expect(find.widgetWithText(Chip, es.mapItemCount(2)), findsOneWidget);
+      expect(figure(tester, 'documents'), '2 ${es.f44S3FigureDocuments(2)}');
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('map-filter-active')),
@@ -959,7 +1041,7 @@ void main() {
       await closeSheet(tester);
 
       expect(find.byKey(const ValueKey('map-filter-active')), findsNothing);
-      expect(find.widgetWithText(Chip, es.mapItemCount(4)), findsOneWidget);
+      expect(figure(tester, 'documents'), '4 ${es.f44S3FigureDocuments(4)}');
     });
 
     testWidgets('quitar el filtro desde el aviso devuelve todo', (
@@ -977,7 +1059,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('map-filter-active')), findsNothing);
-      expect(find.widgetWithText(Chip, es.mapItemCount(5)), findsOneWidget);
+      expect(figure(tester, 'documents'), '5 ${es.f44S3FigureDocuments(5)}');
     });
 
     testWidgets('el filtro rige a las dos pestañas: sigue puesto al cambiar de '

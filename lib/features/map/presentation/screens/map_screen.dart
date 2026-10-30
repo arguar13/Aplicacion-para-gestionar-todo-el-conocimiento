@@ -18,7 +18,7 @@ import 'package:sinapsis/features/map/presentation/providers/map_filter_provider
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_tab_provider.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_view.dart';
-import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_board_pane.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_filter_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/open_organized_item.dart';
@@ -280,11 +280,12 @@ class _MapBody extends ConsumerWidget {
           : const Center(child: CircularProgressIndicator());
     } else {
       content = switch (tab) {
-        MapTab.summary => MapBoardView(
+        // Lo que se toca en el Resumen va al lienzo por su canal de pedidos
+        // (`mapCanvasRequestProvider`), y eso pasa a la pestaña Mapa.
+        MapTab.summary => MapBoardPane(
           snapshot: snapshot,
           dimension: dimension,
           dashboard: ref.watch(mapDashboardProvider(request)).valueOrNull,
-          onOpenTopic: onOpenTopic,
           onOpenItem: onOpenItem,
           onOpenTension: onOpenTension,
         ),
