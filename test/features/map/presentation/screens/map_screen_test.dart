@@ -18,6 +18,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/map/presentation/providers/map_canvas_request.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_tab_provider.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_network.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_item_box.dart';
@@ -344,6 +345,20 @@ void main() {
     expect(harness.container.read(mapTabProvider), MapTab.map);
     expect(find.byType(MapCanvasView), findsOneWidget);
     expect(find.byType(ExplorerScreen), findsNothing);
+    // El lienzo, que se abrió con el pedido ya hecho, lo atendió: Roma entre
+    // los temas de su comunidad, resaltado.
+    expect(
+      tester
+          .widget<MapNetworkNode>(
+            find.descendant(
+              of: node('topic:roma'),
+              matching: find.byType(MapNetworkNode),
+            ),
+          )
+          .highlighted,
+      isTrue,
+    );
+    expect(harness.container.read(mapCanvasRequestProvider), isNull);
   });
 
   testWidgets('«Estudiar» abre Repasar con el tema puesto en el selector '

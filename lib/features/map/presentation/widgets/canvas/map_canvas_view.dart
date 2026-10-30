@@ -275,15 +275,29 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       duration: kCanvasMotionDuration,
     )..addStatusListener(_onMotionStatus);
     _offerExport(widget.exportHandle);
-    // Un pedido que llegó con el Mapa cerrado se atiende al abrirlo; uno que
-    // llega con el lienzo abierto, en el acto.
-    var requested = false;
+    // Un pedido que llega con el lienzo abierto se atiende en el acto; uno que
+    // llegó con el lienzo cerrado —una fila del Resumen, que lo abre—, en
+    // `didChangeDependencies`: atenderlo rotula lo que se mira con los textos
+    // del idioma, y en `initState` todavía no se pueden leer.
     ref.listenManual(mapCanvasRequestProvider, (_, request) {
-      if (request == null) return;
-      requested = true;
-      _apply(request);
-    }, fireImmediately: true);
-    if (!requested) unawaited(_show());
+      if (request != null) _apply(request);
+    });
+  }
+
+  /// Si ya se atendió lo que había al abrirse el lienzo.
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    final pending = ref.read(mapCanvasRequestProvider);
+    if (pending != null) {
+      _apply(pending);
+    } else {
+      unawaited(_show());
+    }
   }
 
   @override
