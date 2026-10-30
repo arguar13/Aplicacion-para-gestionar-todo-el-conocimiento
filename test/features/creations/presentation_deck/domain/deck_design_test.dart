@@ -22,6 +22,9 @@ void main() {
               aspect: aspect,
               numbering: count.isEven,
               footer: count % 3 == 0,
+              background: count % 4 == 3
+                  ? null
+                  : DeckBackground.values[count % 4],
             );
             final json = jsonDecode(jsonEncode(design.toJson()));
             expect(DeckDesign.parse(json), design);
@@ -44,6 +47,7 @@ void main() {
       aspect: DeckAspect.standard,
       numbering: false,
       footer: true,
+      background: DeckBackground.gradient,
     );
     expect(design.toJson(), {
       'template': 'paper_cut',
@@ -55,7 +59,42 @@ void main() {
       'aspect': '4:3',
       'numbering': false,
       'footer': true,
+      'background': 'gradient',
     });
+  });
+
+  test('el fondo (F45): sin elegir no se escribe, y lo guardado antes de '
+      'poder elegirlo se lee como el de la plantilla', () {
+    expect(const DeckDesign().toJson().containsKey('background'), isFalse);
+    expect(const DeckDesign().background, isNull);
+    // Un diseño guardado por F43, tal cual: sin la clave.
+    final saved = DeckDesign.parse({
+      'template': 'midnight',
+      'palette': 2,
+      'density': 'airy',
+      'transition': 'slide',
+      'aspect': '16:9',
+      'numbering': true,
+      'footer': false,
+    });
+    expect(saved.background, isNull);
+    expect(
+      saved,
+      const DeckDesign(
+        template: DeckTemplateId.midnight,
+        paletteIndex: 2,
+        density: DeckDensity.airy,
+        transition: DeckTransition.slide,
+      ),
+    );
+    for (final background in DeckBackground.values) {
+      expect(
+        DeckDesign.parse({'background': background.id}).background,
+        background,
+      );
+    }
+    expect(DeckDesign.parse({'background': 'mármol'}).background, isNull);
+    expect(DeckDesign.parse({'background': 2}).background, isNull);
   });
 
   test('lo de fábrica: Editorial, la primera paleta, fundido, 16:9, '

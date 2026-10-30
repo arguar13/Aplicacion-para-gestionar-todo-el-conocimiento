@@ -15110,5 +15110,13 @@
   "f44S4AskDocumentWith": "What is “{title}” about, and how does it relate to {others}?",
   "@f44S4AskDocumentWith": {"description": "Lienzo del Mapa (F44, paso 4): la pregunta de «Preguntar al chat» sobre un documento, con los documentos vinculados que se ven.", "placeholders": {"title": {"type": "String"}, "others": {"type": "String"}}},
   "f44S4ListAnd": "{head} and {last}",
-  "@f44S4ListAnd": {"description": "Lienzo del Mapa (F44, paso 4): cómo se juntan los últimos de una lista en una frase: «Roma, Grecia y Egipto».", "placeholders": {"head": {"type": "String"}, "last": {"type": "String"}}}
+  "@f44S4ListAnd": {"description": "Lienzo del Mapa (F44, paso 4): cómo se juntan los últimos de una lista en una frase: «Roma, Grecia y Egipto».", "placeholders": {"head": {"type": "String"}, "last": {"type": "String"}}},
+  "f45S5DeckDesignBackground": "Background",
+  "@f45S5DeckDesignBackground": {"description": "Title of the background section in a presentation's «Customize design» sheet (F45, step 5)."},
+  "f45S5DeckBackgroundPlain": "Plain",
+  "@f45S5DeckBackgroundPlain": {"description": "Slide background: just the color, no texture or ornaments (F45, step 5)."},
+  "f45S5DeckBackgroundTexture": "Texture",
+  "@f45S5DeckBackgroundTexture": {"description": "Slide background: the template's own, with its texture and ornaments; the default (F45, step 5)."},
+  "f45S5DeckBackgroundGradient": "Gradient",
+  "@f45S5DeckBackgroundGradient": {"description": "Slide background: a soft gradient in the palette's colors (F45, step 5)."}
 }

@@ -16,6 +16,10 @@ import 'package:sinapsis/features/creations/presentation_deck/presentation/templ
 /// callada, para que el texto mande. Los ornamentos van en los márgenes, donde
 /// no hay texto, y cambian un poco con [index] para que dos diapositivas
 /// seguidas no sean iguales.
+///
+/// Con el fondo liso o en degradé (F45, `DeckBackground`) se va todo lo que
+/// adorna, pero queda la estructura: lo que un diseño necesita debajo de su
+/// texto, como la banda oscura de Ejecutiva, donde va el título en claro.
 class DeckBackgroundPainter extends CustomPainter {
   const DeckBackgroundPainter({
     required this.style,
@@ -45,6 +49,54 @@ class DeckBackgroundPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     canvas.drawRect(rect, Paint()..color = p.background);
+    switch (style.background) {
+      case DeckBackground.plain:
+        _structure(canvas, size);
+      case DeckBackground.gradient:
+        _gradient(canvas, size);
+        _structure(canvas, size);
+      case DeckBackground.texture:
+        _texture(canvas, size);
+    }
+  }
+
+  /// Un degradé suave del fondo hacia el primario, con dos resplandores
+  /// tenues del secundario y del acento en las esquinas: el mismo de las
+  /// infografías, así una lámina y un mazo combinan.
+  void _gradient(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final strength = p.isDark ? 0.2 : 0.1;
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = ui.Gradient.linear(rect.topLeft, rect.bottomRight, [
+          p.background,
+          Color.lerp(p.background, p.primary, strength)!,
+        ]),
+    );
+    CreationTextures.glow(
+      canvas,
+      Offset(size.width * 0.94, size.height * 0.04),
+      size.height * (grand ? 0.8 : 0.62),
+      _a(p.secondary, p.isDark ? 0.2 : 0.14),
+    );
+    CreationTextures.glow(
+      canvas,
+      Offset(size.width * 0.03, size.height * 0.98),
+      size.height * (grand ? 0.7 : 0.5),
+      _a(p.accent, p.isDark ? 0.16 : 0.12),
+    );
+  }
+
+  /// Lo que no es adorno: sin esto, un diseño se queda sin el fondo de su
+  /// texto.
+  void _structure(Canvas canvas, Size size) {
+    if (style.design.template == DeckTemplateId.executive) {
+      _executive(canvas, size);
+    }
+  }
+
+  void _texture(Canvas canvas, Size size) {
     switch (style.design.template) {
       case DeckTemplateId.editorial:
         _editorial(canvas, size);

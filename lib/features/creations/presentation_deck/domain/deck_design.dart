@@ -61,6 +61,24 @@ enum DeckTransition {
   final String id;
 }
 
+/// El fondo de las diapositivas (F45, «personalizar»).
+enum DeckBackground {
+  /// El color del fondo, liso: la diapositiva más callada, la que mejor se
+  /// imprime.
+  plain('plain'),
+
+  /// El fondo de la plantilla, con su textura y sus ornamentos: el de
+  /// siempre.
+  texture('texture'),
+
+  /// Un degradé suave con los colores de la paleta.
+  gradient('gradient');
+
+  const DeckBackground(this.id);
+
+  final String id;
+}
+
 /// La forma de la diapositiva. Las dos tienen el mismo alto lógico, así el
 /// tamaño de la letra es el mismo en las dos y solo cambia el ancho.
 enum DeckAspect {
@@ -102,6 +120,10 @@ abstract class DeckDesign with _$DeckDesign {
 
     /// Un pie con el título del mazo.
     @Default(false) bool footer,
+
+    /// El fondo, o null para el de la plantilla (su textura): así un mazo
+    /// guardado antes de que se pudiera elegir se sigue viendo igual.
+    DeckBackground? background,
   }) = _DeckDesign;
 
   const DeckDesign._();
@@ -151,6 +173,9 @@ abstract class DeckDesign with _$DeckDesign {
           ? json['numbering'] as bool
           : fallback.numbering,
       footer: json['footer'] is bool ? json['footer'] as bool : fallback.footer,
+      background: DeckBackground.values
+          .where((b) => b.id == json['background'])
+          .firstOrNull,
     );
   }
 
@@ -167,6 +192,7 @@ abstract class DeckDesign with _$DeckDesign {
     'aspect': aspect.id,
     'numbering': numbering,
     'footer': footer,
+    if (background != null) 'background': background!.id,
   };
 
   /// «#RRGGBB» (o «#AARRGGBB»), o un entero ARGB; cualquier otra cosa, null.

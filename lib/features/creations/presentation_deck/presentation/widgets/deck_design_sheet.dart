@@ -10,7 +10,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La hoja para personalizar el diseño de un mazo (F43, «Lo que se
 /// personaliza en cada una»): la paleta —seis, más un color propio—, la
-/// tipografía, la densidad, la transición, el formato, la numeración y el
+/// tipografía, la densidad, el fondo (F45: liso, con la textura de la
+/// plantilla o en degradé), la transición, el formato, la numeración y el
 /// pie. Cada cambio se ve enseguida en la diapositiva de arriba y se avisa
 /// con [onChanged]; nada vuelve a pedirle algo a la IA (decisión G).
 ///
@@ -168,6 +169,21 @@ class _DeckDesignSheetState extends State<DeckDesignSheet> {
                             value: d,
                             id: d.id,
                             label: l10n.deckDensity(d),
+                          ),
+                      ],
+                    ),
+                    CreationSectionLabel(l10n.f45S5DeckDesignBackground),
+                    CreationSegmented<DeckBackground>(
+                      keyPrefix: 'deck-background',
+                      selected: _design.background ?? DeckBackground.texture,
+                      onChanged: (b) =>
+                          _update(_design.copyWith(background: b)),
+                      segments: [
+                        for (final b in DeckBackground.values)
+                          CreationSegment(
+                            value: b,
+                            id: b.id,
+                            label: l10n.deckBackground(b),
                           ),
                       ],
                     ),

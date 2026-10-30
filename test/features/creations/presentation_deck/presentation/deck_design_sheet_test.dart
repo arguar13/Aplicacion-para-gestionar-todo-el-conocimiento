@@ -94,6 +94,10 @@ void main() {
     await tapKey(tester, 'deck-density-airy');
     expect(changes.last.density, DeckDensity.airy);
 
+    await tapKey(tester, 'deck-background-gradient');
+    expect(changes.last.background, DeckBackground.gradient);
+    expect(previewDesign(tester).background, DeckBackground.gradient);
+
     await tapKey(tester, 'deck-transition-zoom');
     expect(changes.last.transition, DeckTransition.zoom);
 
@@ -116,6 +120,7 @@ void main() {
         aspect: DeckAspect.standard,
         numbering: false,
         footer: true,
+        background: DeckBackground.gradient,
       ),
     );
 
@@ -145,6 +150,25 @@ void main() {
     expect(find.byKey(const Key('deck-hue')), findsNothing);
   });
 
+  testWidgets('el fondo (F45): de entrada el de la plantilla, y se elige '
+      'liso, con su textura o en degradé', (tester) async {
+    final (:changes, templateTaps: _) = await openSheet(tester);
+    expect(
+      tester.getSemantics(
+        find.byKey(const ValueKey('deck-background-texture')),
+      ),
+      isSemantics(isSelected: true),
+    );
+    await tapKey(tester, 'deck-background-plain');
+    expect(changes.last.background, DeckBackground.plain);
+    expect(
+      tester.getSemantics(find.byKey(const ValueKey('deck-background-plain'))),
+      isSemantics(isSelected: true),
+    );
+    await tapKey(tester, 'deck-background-texture');
+    expect(changes.last.background, DeckBackground.texture);
+  });
+
   testWidgets('la elegida de cada grupo se marca', (tester) async {
     await openSheet(
       tester,
@@ -171,6 +195,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await tapKey(tester, 'deck-transition-none');
+      expect(tester.takeException(), isNull);
+      await tapKey(tester, 'deck-background-gradient');
       expect(tester.takeException(), isNull);
       await tester.tap(find.byTooltip('Cerrar'));
       await tester.pumpAndSettle();

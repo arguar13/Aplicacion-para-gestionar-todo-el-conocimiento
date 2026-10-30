@@ -37,6 +37,9 @@ class DeckStyle {
 
   bool get isNarrow => design.aspect == DeckAspect.standard;
 
+  /// El fondo que se pinta: el elegido, o el de la plantilla con su textura.
+  DeckBackground get background => design.background ?? DeckBackground.texture;
+
   /// Cuánto aire: multiplica los márgenes y las separaciones.
   double get spacing => switch (design.density) {
     DeckDensity.airy => 1.3,

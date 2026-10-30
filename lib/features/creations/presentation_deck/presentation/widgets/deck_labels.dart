@@ -62,6 +62,12 @@ extension DeckLabels on AppLocalizations {
     DeckDensity.compact => f43DeckDensityCompact,
   };
 
+  String deckBackground(DeckBackground background) => switch (background) {
+    DeckBackground.plain => f45S5DeckBackgroundPlain,
+    DeckBackground.texture => f45S5DeckBackgroundTexture,
+    DeckBackground.gradient => f45S5DeckBackgroundGradient,
+  };
+
   String deckTransition(DeckTransition transition) => switch (transition) {
     DeckTransition.fade => f43DeckTransitionFade,
     DeckTransition.slide => f43DeckTransitionSlide,
