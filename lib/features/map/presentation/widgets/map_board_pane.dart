@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
-import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/presentation/repasar_navigation.dart';
@@ -67,10 +66,8 @@ class _MapBoardPaneState extends ConsumerState<MapBoardPane> {
     _inputs = inputs;
     return _insights = buildBoardInsights(
       graph: widget.snapshot.graph,
-      detection: widget.snapshot.detection,
       facts: facts,
       cards: cards,
-      now: ref.read(clockProvider)(),
     );
   }
 

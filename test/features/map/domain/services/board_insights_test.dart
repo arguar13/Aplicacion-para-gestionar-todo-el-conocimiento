@@ -1,14 +1,12 @@
-import 'dart:typed_data';
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/services/board_facts.dart';
 import 'package:sinapsis/features/map/domain/services/board_insights.dart';
 
-/// Lo que el Resumen cuenta además del grafo de temas (F44, paso 3): las
-/// cifras con su cambio de 30 días, lo nuevo de la semana, para estudiar —con
-/// las ramas, como Repasar— y lo suelto. Puro: grafos y hechos armados a mano.
+/// Lo que el Resumen cuenta por su cuenta (F44, paso 3): para estudiar —con las
+/// ramas, como Repasar— y lo suelto. Las cifras, lo nuevo y los puentes los
+/// entrega el motor del Mapa (`MapInsights`) y se prueban con él. Puro: un
+/// grafo y unos hechos armados a mano.
 void main() {
   final now = DateTime(2026, 10, 30, 12);
   DateTime daysAgo(num days) =>
@@ -51,18 +49,6 @@ void main() {
     ],
   );
 
-  CommunityDetection detection() => CommunityDetection(
-    communityOf: Int32List.fromList([1, 0, 0, 0]),
-    communities: const [
-      TopicCommunity(id: 0, members: [1, 2, 3], anchor: 3, isIsolated: false),
-      TopicCommunity(id: 1, members: [0], anchor: 0, isIsolated: true),
-    ],
-    memory: const CommunityMemory.none(),
-    passes: 1,
-    converged: true,
-    reassigned: 0,
-  );
-
   BoardItemFact item(String id, num days, [List<String> values = const []]) =>
       BoardItemFact(
         id: id,
@@ -75,112 +61,11 @@ void main() {
     List<BoardItemFact> items, {
     List<BoardLinkFact> links = const [],
     Map<String, BoardCardFact> cards = const {},
-    CommunityDetection? communities,
   }) => buildBoardInsights(
     graph: graph(),
-    detection: communities ?? detection(),
     facts: BoardFacts(items: items, links: links),
     cards: cards,
-    now: now,
   );
-
-  group('las cifras', () {
-    test('cuentan todo y lo que sumaron en 30 días, con el borde adentro', () {
-      final result = insights(
-        [
-          item('a', 40, ['roma']),
-          item('b', 30, ['grecia']),
-          item('c', 30.01, ['grecia']),
-          item('d', 2),
-        ],
-        links: [
-          BoardLinkFact(fromId: 'a', toId: 'b', createdAt: daysAgo(3)),
-          BoardLinkFact(fromId: 'b', toId: 'c', createdAt: daysAgo(31)),
-        ],
-      ).figures;
-
-      expect(result.documents, 4);
-      // Justo 30 días entra; un poco más, no.
-      expect(result.documentsAdded, 2);
-      expect(result.links, 2);
-      expect(result.linksAdded, 1);
-      expect(result.topics, 4);
-      expect(result.communities, 1);
-    });
-
-    test('un tema es nuevo si su PRIMER documento llegó en estos días', () {
-      final result = insights([
-        item('a', 40, ['roma']),
-        item('b', 2, ['roma']),
-        item('c', 5, ['egipto']),
-      ]).figures;
-
-      // Roma ya tenía material; Egipto, no; Grecia y República no tienen.
-      expect(result.topicsAdded, 1);
-    });
-
-    test(
-      'una comunidad nace cuando todos sus temas con material son nuevos',
-      () {
-        final old = insights([
-          item('a', 2, ['grecia']),
-          item('b', 40, ['roma']),
-        ]).figures;
-        final born = insights([
-          item('a', 2, ['grecia']),
-          item('b', 3, ['roma']),
-        ]).figures;
-        // Una comunidad sin ningún documento directo no nació.
-        final empty = insights([item('a', 2)]).figures;
-
-        expect(old.communitiesAdded, 0);
-        expect(born.communitiesAdded, 1);
-        expect(empty.communitiesAdded, 0);
-      },
-    );
-  });
-
-  group('lo nuevo de la semana', () {
-    test('lo de los últimos 7 días, lo último primero, con su tema con más '
-        'material', () {
-      final result = insights([
-        item('viejo', 8, ['roma']),
-        item('a', 1, ['egipto', 'roma', 'grecia']),
-        item('b', 3),
-        item('c', 6.9, ['republica']),
-      ]);
-
-      expect([for (final i in result.newItems) i.id], ['a', 'b', 'c']);
-      expect(result.newItemCount, 3);
-      // Grecia y Roma tienen dos; a igual material, la primera por nombre.
-      expect(result.newItems.first.topic?.valueId, 'grecia');
-      expect(result.newItems[1].topic, isNull);
-    });
-
-    test('corta en cinco pero cuenta todos', () {
-      final result = insights([
-        for (var i = 0; i < 8; i++) item('d$i', i * 0.5),
-      ]);
-
-      expect(result.newItems, hasLength(kBoardNewRows));
-      expect(result.newItemCount, 8);
-      expect(result.newItems.first.id, 'd0');
-    });
-
-    test('los vínculos de la semana, con sus títulos', () {
-      final result = insights(
-        [item('a', 20), item('b', 20)],
-        links: [
-          BoardLinkFact(fromId: 'a', toId: 'b', createdAt: daysAgo(1)),
-          BoardLinkFact(fromId: 'b', toId: 'a', createdAt: daysAgo(9)),
-        ],
-      );
-
-      expect(result.newLinkCount, 1);
-      expect(result.newLinks.single.fromTitle, 'Título a');
-      expect(result.newLinks.single.toTitle, 'Título b');
-    });
-  });
 
   group('para estudiar', () {
     test('un subtema suma a su padre, y un documento en los dos cuenta UNA '
@@ -273,7 +158,6 @@ void main() {
       );
       final result = buildBoardInsights(
         graph: many,
-        detection: CommunityDetection.empty(const CommunityMemory.none()),
         facts: BoardFacts(
           items: [
             for (var i = 0; i < 9; i++) item('i$i', 50, ['t$i']),
@@ -281,7 +165,6 @@ void main() {
           links: const [],
         ),
         cards: const {},
-        now: now,
       );
 
       expect(result.uncardedTopics, hasLength(kBoardStudyRows));

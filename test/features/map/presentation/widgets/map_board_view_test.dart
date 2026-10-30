@@ -7,8 +7,12 @@ import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/stats_charts.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
+import 'package:sinapsis/features/map/domain/entities/community_profile.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
+import 'package:sinapsis/features/map/domain/entities/map_bridges.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
+import 'package:sinapsis/features/map/domain/entities/map_insights.dart';
+import 'package:sinapsis/features/map/domain/entities/map_recent.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/services/board_facts.dart';
 import 'package:sinapsis/features/map/domain/services/board_insights.dart';
@@ -21,17 +25,24 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 /// El Resumen del Mapa (F14, rehecho en F44 paso 3) como widget: lo que
 /// muestra cada tarjeta, adónde lleva cada cosa —al Mapa, decisión D— y que
 /// entra en un teléfono con la letra al doble, en claro y en oscuro, con el
-/// lector de pantalla. Sin base de datos: un mapa, un tablero y lo que se
-/// cuenta aparte, armados a mano.
+/// lector de pantalla. Sin base de datos: un mapa calculado por el motor —con
+/// las cifras, lo nuevo y los puentes (F44, paso 1)—, un tablero y lo que el
+/// Resumen cuenta aparte, armados a mano.
 void main() {
   final es = AppLocalizationsEs();
   final now = DateTime(2026, 10, 30, 12);
   DateTime daysAgo(int days) => now.subtract(Duration(days: days));
 
   /// Roma y Grecia unidas por dos documentos y una contradicción; Egipto solo.
+  ///
+  /// Para el motor, lo mismo que cuenta el Resumen aparte: a y d llegaron esta
+  /// semana, b hace 10 días y c hace 40, y a y b se vincularon hace 3. Grecia
+  /// se creó hace 10 días y Egipto ayer; Roma es de siempre. Sin [measured], el
+  /// motor no sabe qué hora es y nada es nuevo.
   KnowledgeMapSnapshot mapSnapshot({
     int isolated = 1,
     List<String> unassigned = const [],
+    bool measured = true,
   }) {
     final input = TopicGraphInput(
       definitionId: 'tema',
@@ -43,19 +54,42 @@ void main() {
         for (var i = 0; i < isolated - 1; i++)
           AtlasValueRow(id: 'solo$i', label: 'Solo $i'),
       ],
-      items: const [
-        TopicItem(id: 'a', valueIds: ['roma', 'grecia']),
-        TopicItem(id: 'b', valueIds: ['roma', 'grecia']),
-        TopicItem(id: 'c', valueIds: ['roma']),
-        TopicItem(id: 'd', valueIds: ['egipto']),
+      items: [
+        TopicItem(
+          id: 'a',
+          valueIds: const ['roma', 'grecia'],
+          title: 'Plutarco',
+          createdAt: daysAgo(2),
+        ),
+        TopicItem(
+          id: 'b',
+          valueIds: const ['roma', 'grecia'],
+          title: 'Polibio',
+          createdAt: daysAgo(10),
+        ),
+        TopicItem(
+          id: 'c',
+          valueIds: const ['roma'],
+          title: 'Tito Livio',
+          createdAt: daysAgo(40),
+        ),
+        TopicItem(
+          id: 'd',
+          valueIds: const ['egipto'],
+          title: 'Heródoto',
+          createdAt: daysAgo(1),
+        ),
       ],
-      relations: const [
+      relations: [
         TopicRelation(
           fromItemId: 'a',
           toItemId: 'b',
           kind: RelationKind.contradicts,
+          createdAt: daysAgo(3),
         ),
       ],
+      valueCreatedAt: {'grecia': daysAgo(10), 'egipto': daysAgo(1)},
+      readAt: measured ? now : null,
     );
     final computed = computeMap(input, const CommunityMemory.none());
     return KnowledgeMapSnapshot(
@@ -70,15 +104,41 @@ void main() {
       ),
       sequence: 1,
       unassignedItemIds: unassigned,
+      insights: computed.insights,
     );
   }
 
-  /// Lo que se cuenta aparte del mapa: a y d llegaron esta semana, b hace 10
-  /// días y c hace 40; a y b se vincularon hace 3 días; c tiene dos tarjetas,
-  /// una para hoy, y a una que no toca.
+  /// [snapshot] con lo que el motor sabe cambiado por [recent], [bridges] y
+  /// [communities], armados a mano: para lo que un grafo chico no muestra —una
+  /// cifra que baja, un puente entre dos comunidades con nombre—.
+  KnowledgeMapSnapshot withEngine(
+    KnowledgeMapSnapshot snapshot, {
+    MapRecent? recent,
+    BridgeAnalysis? bridges,
+    CommunityProfiles? communities,
+  }) {
+    final engine = snapshot.insights;
+    return KnowledgeMapSnapshot(
+      request: snapshot.request,
+      graph: snapshot.graph,
+      detection: snapshot.detection,
+      timings: snapshot.timings,
+      sequence: snapshot.sequence,
+      unassignedItemIds: snapshot.unassignedItemIds,
+      insights: MapInsights(
+        bridges: bridges ?? engine.bridges,
+        communities: communities ?? engine.communities,
+        search: engine.search,
+        unthemed: engine.unthemed,
+        recent: recent ?? engine.recent,
+      ),
+    );
+  }
+
+  /// Lo que el Resumen cuenta aparte: los mismos documentos y vínculos que el
+  /// mapa, y las tarjetas: c tiene dos, una para hoy, y a una que no toca.
   BoardInsights insightsOf(KnowledgeMapSnapshot snapshot) => buildBoardInsights(
     graph: snapshot.graph,
-    detection: snapshot.detection,
     facts: BoardFacts(
       items: [
         BoardItemFact(
@@ -112,7 +172,6 @@ void main() {
       'a': BoardCardFact(cards: 1, dueToday: 0),
       'c': BoardCardFact(cards: 2, dueToday: 1),
     },
-    now: now,
   );
 
   MapDashboard dashboard({
@@ -195,7 +254,8 @@ void main() {
           .join(' | ');
 
       // Cuatro documentos, tres de este mes; tres temas, Grecia y Egipto
-      // nuevos; una comunidad, que ya existía; un vínculo, nuevo.
+      // nuevos; una comunidad, que hace un mes no estaba —Roma estaba sola—;
+      // un vínculo, nuevo.
       expect(
         textsOf('documents'),
         '4 | ${es.f44S3FigureDocuments(4)} | ${es.f44S3FigureAdded(3)}',
@@ -206,7 +266,7 @@ void main() {
       );
       expect(
         textsOf('communities'),
-        '1 | ${es.f44S3FigureCommunities(1)} | ${es.f44S3FigureSteady}',
+        '1 | ${es.f44S3FigureCommunities(1)} | ${es.f44S3FigureAdded(1)}',
       );
       expect(
         textsOf('links'),
@@ -226,20 +286,65 @@ void main() {
       expect(calls, [for (final f in MapBoardFigure.values) MapBoardLevel(f)]);
     });
 
-    testWidgets('sin lo que se cuenta aparte, lo que no se sabe es una raya y '
-        'no se inventa ningún cambio', (tester) async {
-      await pump(tester, withInsights: false);
+    testWidgets('una cifra que bajó lo dice, y una que no se movió también', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        snapshot: withEngine(
+          mapSnapshot(),
+          recent: MapRecent(
+            at: now,
+            week: const RecentWindow.none(kRecentWeekDays),
+            month: const RecentWindow.none(kRecentMonthDays),
+            figures: const MapFigures(
+              documents: FigureChange(now: 4, before: 4),
+              topics: FigureChange(now: 3, before: 1),
+              // Un vínculo juntó dos comunidades en una.
+              communities: FigureChange(now: 1, before: 2),
+              links: FigureChange(now: 1, before: 0),
+            ),
+          ),
+        ),
+      );
 
       expect(
         find.descendant(
-          of: find.byKey(const ValueKey('map-board-figure-links')),
-          matching: find.text('—'),
+          of: find.byKey(const ValueKey('map-board-figure-communities')),
+          matching: find.text(es.f44S3FigureFewer(1)),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('map-board-figure-documents')),
+          matching: find.text(es.f44S3FigureSteady),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('si el motor no supo qué hora era, no inventa ningún cambio ni '
+        'nada nuevo', (tester) async {
+      await pump(tester, snapshot: mapSnapshot(measured: false));
+
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('map-board-figure-documents')),
+          matching: find.text('4'),
         ),
         findsOneWidget,
       );
       expect(find.textContaining('30 días'), findsNothing);
-      // Lo que sale de lo que se cuenta aparte espera.
-      expect(find.byKey(const ValueKey('map-board-new')), findsNothing);
+      expect(find.text(es.f44S3NewNone), findsOneWidget);
+    });
+
+    testWidgets('lo que el Resumen cuenta aparte espera; lo del motor, no', (
+      tester,
+    ) async {
+      await pump(tester, withInsights: false);
+
+      expect(find.byKey(const ValueKey('map-board-new')), findsOneWidget);
       expect(find.byKey(const ValueKey('map-board-study')), findsNothing);
     });
 
@@ -293,16 +398,16 @@ void main() {
     });
 
     testWidgets('sin nada nuevo, lo dice', (tester) async {
-      final snapshot = mapSnapshot();
       await pump(
         tester,
-        snapshot: snapshot,
-        insights: buildBoardInsights(
-          graph: snapshot.graph,
-          detection: snapshot.detection,
-          facts: const BoardFacts.empty(),
-          cards: const {},
-          now: now,
+        snapshot: withEngine(
+          mapSnapshot(),
+          recent: MapRecent(
+            at: now,
+            week: const RecentWindow.none(kRecentWeekDays),
+            month: const RecentWindow.none(kRecentMonthDays),
+            figures: const MapFigures.none(),
+          ),
         ),
       );
 
@@ -375,10 +480,8 @@ void main() {
         snapshot: snapshot,
         insights: buildBoardInsights(
           graph: snapshot.graph,
-          detection: snapshot.detection,
           facts: const BoardFacts.empty(),
           cards: const {},
-          now: now,
         ),
       );
 
@@ -448,41 +551,61 @@ void main() {
     expect(find.text(es.f44S3BridgesNone), findsOneWidget);
   });
 
-  testWidgets('un puente dice qué une, y tocarlo lo pone en foco', (
-    tester,
-  ) async {
-    // Una cadena Roma ─ Grecia ─ Egipto: Grecia, en el medio, la sostiene.
-    const input = TopicGraphInput(
-      definitionId: 'tema',
-      definitionName: 'Tema',
-      values: [
-        AtlasValueRow(id: 'roma', label: 'Roma'),
-        AtlasValueRow(id: 'grecia', label: 'Grecia'),
-        AtlasValueRow(id: 'egipto', label: 'Egipto'),
-      ],
-      items: [
-        TopicItem(id: 'a', valueIds: ['roma', 'grecia']),
-        TopicItem(id: 'b', valueIds: ['grecia', 'egipto']),
-      ],
-      relations: [],
+  testWidgets('un puente dice con qué comunidades se une, por su nombre, y '
+      'de cuáles es la única unión; tocarlo lo pone en foco', (tester) async {
+    final base = mapSnapshot();
+    final grecia = base.graph.indexOf('grecia')!;
+    CommunityProfile profile(int id, List<String> names) => CommunityProfile(
+      communityId: id,
+      topics: const [],
+      nameLabels: names,
+      documentCount: 0,
+      linkCount: 0,
+      neighbors: const [],
+      latestItemId: null,
     );
-    final computed = computeMap(input, const CommunityMemory.none());
-    final snapshot = KnowledgeMapSnapshot(
-      request: const MapRequest('tema'),
-      graph: computed.graph,
-      detection: computed.detection,
-      timings: const MapTimings(
-        read: Duration.zero,
-        build: Duration.zero,
-        communities: Duration.zero,
-        total: Duration.zero,
+    final snapshot = withEngine(
+      base,
+      bridges: BridgeAnalysis(
+        bridges: [
+          TopicBridge(
+            topic: grecia,
+            communityId: 0,
+            score: 3,
+            joins: const [
+              BridgeJoin(communityId: 7, weight: 2, share: 1),
+              BridgeJoin(communityId: 8, weight: 1, share: 0.5),
+            ],
+            joinedCount: 2,
+            soleCount: 1,
+          ),
+        ],
+        topics: {grecia},
+        candidates: 1,
+        visits: 1,
       ),
-      sequence: 1,
+      communities: CommunityProfiles(
+        [
+          profile(7, ['Cristianismo', 'Tomás de Aquino']),
+          profile(8, ['Egipto']),
+        ],
+        const {7: 0, 8: 1},
+      ),
     );
     final calls = await pump(tester, snapshot: snapshot, withInsights: false);
 
     final bridge = find.byKey(const ValueKey('map-bridge-grecia'));
     expect(bridge, findsOneWidget);
+    expect(
+      find.descendant(
+        of: bridge,
+        matching: find.text(
+          '${es.f44S3BridgeJoins('Cristianismo · Tomás de Aquino, Egipto')}. '
+          '${es.f44S3BridgeSole('Cristianismo · Tomás de Aquino')}',
+        ),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(bridge);
     expect(calls, [const MapBoardTopic('grecia')]);
   });
@@ -524,7 +647,6 @@ void main() {
       final snapshot = mapSnapshot();
       final insights = buildBoardInsights(
         graph: snapshot.graph,
-        detection: snapshot.detection,
         facts: BoardFacts(
           items: [
             BoardItemFact(
@@ -537,7 +659,6 @@ void main() {
           links: const [],
         ),
         cards: const {},
-        now: now,
       );
       await pump(tester, snapshot: snapshot, insights: insights);
 
@@ -573,10 +694,8 @@ void main() {
       );
       final insights = buildBoardInsights(
         graph: snapshot.graph,
-        detection: snapshot.detection,
         facts: const BoardFacts.empty(),
         cards: const {},
-        now: now,
       );
 
       await pump(tester, snapshot: snapshot, insights: insights);

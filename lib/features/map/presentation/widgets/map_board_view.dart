@@ -4,10 +4,13 @@ import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
 import 'package:sinapsis/core/domain/entities/processed_depth.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/stats_charts.dart';
+import 'package:sinapsis/features/map/domain/entities/community_profile.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
+import 'package:sinapsis/features/map/domain/entities/map_bridges.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
+import 'package:sinapsis/features/map/domain/entities/map_recent.dart';
+import 'package:sinapsis/features/map/domain/entities/map_search.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
-import 'package:sinapsis/features/map/domain/services/board_bridges.dart';
 import 'package:sinapsis/features/map/domain/services/board_insights.dart';
 import 'package:sinapsis/features/map/domain/services/board_stats.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_target.dart';
@@ -24,8 +27,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// tocar una fila, con ese tema o ese documento en foco ([onShowInMap]). El
 /// Explorador queda para «Abrir», en la ficha del nodo.
 ///
-/// [dashboard] e [insights] llegan aparte del mapa y pueden tardar un poco
-/// más: mientras son `null`, lo que los necesita no se muestra.
+/// Las cifras, lo nuevo y los puentes llegan con el mapa, del motor
+/// (`KnowledgeMapSnapshot.insights`, F44 paso 1). [dashboard] e [insights]
+/// —para estudiar y lo suelto, que el Resumen cuenta por su cuenta— llegan
+/// aparte y pueden tardar un poco más: mientras son `null`, lo que los
+/// necesita no se muestra.
 class MapBoardView extends StatefulWidget {
   const MapBoardView({
     required this.snapshot,
@@ -71,7 +77,6 @@ class MapBoardView extends StatefulWidget {
 
 class _MapBoardViewState extends State<MapBoardView> {
   late BoardStats _stats;
-  late List<BoardBridge> _bridges;
 
   @override
   void initState() {
@@ -82,14 +87,13 @@ class _MapBoardViewState extends State<MapBoardView> {
   void _derive() {
     final snapshot = widget.snapshot;
     _stats = boardStatsOf(snapshot.graph, snapshot.detection);
-    _bridges = bridgesOf(snapshot.graph, snapshot.detection);
   }
 
   @override
   void didUpdateWidget(MapBoardView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Las estadísticas y los puentes dependen solo del mapa: no se rehacen si
-    // lo único que cambió es el tablero o lo que se cuenta aparte.
+    // Las estadísticas dependen solo del mapa: no se rehacen si lo único que
+    // cambió es el tablero o lo que se cuenta aparte.
     if (oldWidget.snapshot != widget.snapshot) _derive();
   }
 
@@ -99,7 +103,8 @@ class _MapBoardViewState extends State<MapBoardView> {
     final insights = widget.insights;
     final kind = topicSelectKind(widget.dimension);
     final graph = widget.snapshot.graph;
-    final documents = insights?.figures.documents ?? dashboard?.itemCount;
+    final engine = widget.snapshot.insights;
+    final recent = engine.recent;
     const gap = SizedBox(height: 16);
 
     return ListView(
@@ -113,14 +118,18 @@ class _MapBoardViewState extends State<MapBoardView> {
               children: [
                 _Figures(
                   kind: kind,
-                  stats: _stats,
-                  documents: documents,
-                  figures: insights?.figures,
+                  figures: recent.figures,
+                  // Sin un «ahora» medido, no se sabe qué cambió.
+                  known: recent.at != null,
+                  onShowInMap: widget.onShowInMap,
+                ),
+                gap,
+                _NewCard(
+                  week: recent.week,
+                  graph: graph,
                   onShowInMap: widget.onShowInMap,
                 ),
                 if (insights != null) ...[
-                  gap,
-                  _NewCard(insights: insights, onShowInMap: widget.onShowInMap),
                   gap,
                   _StudyCard(
                     kind: kind,
@@ -133,12 +142,13 @@ class _MapBoardViewState extends State<MapBoardView> {
                 _DensestCard(
                   kind: kind,
                   topics: _stats.densest,
-                  total: documents,
+                  total: recent.figures.documents.now,
                   onShowInMap: widget.onShowInMap,
                 ),
                 gap,
                 _BridgesCard(
-                  bridges: _bridges,
+                  bridges: engine.bridges,
+                  communities: engine.communities,
                   graph: graph,
                   onShowInMap: widget.onShowInMap,
                 ),
@@ -336,52 +346,41 @@ String _shortDate(BuildContext context, DateTime at) =>
 class _Figures extends StatelessWidget {
   const _Figures({
     required this.kind,
-    required this.stats,
-    required this.documents,
     required this.figures,
+    required this.known,
     required this.onShowInMap,
   });
 
   final String kind;
-  final BoardStats stats;
 
-  /// `null` hasta que se sepa.
-  final int? documents;
+  /// Las cuatro cifras con lo que valían hace 30 días, del motor.
+  final MapFigures figures;
 
-  /// Con lo que sumó cada cifra; `null` hasta que llegue.
-  final BoardFigures? figures;
+  /// Si se sabe cuánto cambiaron: sin un «ahora» medido, no se dice nada.
+  final bool known;
   final void Function(MapBoardTarget target) onShowInMap;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final f = figures;
-    final links = f?.links;
     final tiles = [
       (
         MapBoardFigure.documents,
-        documents,
-        l10n.f44S3FigureDocuments(documents ?? 0),
-        f?.documentsAdded,
+        f.documents,
+        l10n.f44S3FigureDocuments(f.documents.now),
       ),
       (
         MapBoardFigure.topics,
-        stats.topicCount,
-        l10n.f44S3FigureTopics(kind, stats.topicCount),
-        f?.topicsAdded,
+        f.topics,
+        l10n.f44S3FigureTopics(kind, f.topics.now),
       ),
       (
         MapBoardFigure.communities,
-        stats.communityCount,
-        l10n.f44S3FigureCommunities(stats.communityCount),
-        f?.communitiesAdded,
+        f.communities,
+        l10n.f44S3FigureCommunities(f.communities.now),
       ),
-      (
-        MapBoardFigure.links,
-        links,
-        l10n.f44S3FigureLinks(links ?? 0),
-        f?.linksAdded,
-      ),
+      (MapBoardFigure.links, f.links, l10n.f44S3FigureLinks(f.links.now)),
     ];
 
     return LayoutBuilder(
@@ -403,9 +402,9 @@ class _Figures extends StatelessWidget {
                       Expanded(
                         child: _FigureTile(
                           figure: tiles[i].$1,
-                          value: tiles[i].$2,
+                          value: tiles[i].$2.now,
                           label: tiles[i].$3,
-                          added: tiles[i].$4,
+                          delta: known ? tiles[i].$2.delta : null,
                           onTap: () => onShowInMap(MapBoardLevel(tiles[i].$1)),
                         ),
                       ),
@@ -421,23 +420,23 @@ class _Figures extends StatelessWidget {
   }
 }
 
-/// Una cifra grande que se toca: el número, qué cuenta y lo que sumó en 30
-/// días.
+/// Una cifra grande que se toca: el número, qué cuenta y cuánto cambió en 30
+/// días —puede bajar: dos comunidades que un vínculo juntó en una—.
 class _FigureTile extends StatelessWidget {
   const _FigureTile({
     required this.figure,
     required this.value,
     required this.label,
-    required this.added,
+    required this.delta,
     required this.onTap,
   });
 
   final MapBoardFigure figure;
-  final int? value;
+  final int value;
   final String label;
 
-  /// `null` mientras no se sabe: no se dice nada.
-  final int? added;
+  /// `null` si no se sabe: no se dice nada.
+  final int? delta;
   final VoidCallback onTap;
 
   @override
@@ -445,12 +444,14 @@ class _FigureTile extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final number = value == null ? '—' : '$value';
-    final change = switch (added) {
+    final number = '$value';
+    final change = switch (delta) {
       null => null,
       0 => l10n.f44S3FigureSteady,
-      final n => l10n.f44S3FigureAdded(n),
+      final n when n > 0 => l10n.f44S3FigureAdded(n),
+      final n => l10n.f44S3FigureFewer(-n),
     };
+    final grew = (delta ?? 0) > 0;
 
     return Semantics(
       label: [number, label, ?change].join(', '),
@@ -487,10 +488,8 @@ class _FigureTile extends StatelessWidget {
                   Text(
                     change,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: (added ?? 0) > 0
-                          ? colors.tertiary
-                          : colors.onSurfaceVariant,
-                      fontWeight: (added ?? 0) > 0 ? FontWeight.w600 : null,
+                      color: grew ? colors.tertiary : colors.onSurfaceVariant,
+                      fontWeight: grew ? FontWeight.w600 : null,
                     ),
                   ),
                 ],
@@ -506,67 +505,83 @@ class _FigureTile extends StatelessWidget {
 // ── Lo nuevo ────────────────────────────────────────────────────────────
 
 class _NewCard extends StatelessWidget {
-  const _NewCard({required this.insights, required this.onShowInMap});
+  const _NewCard({
+    required this.week,
+    required this.graph,
+    required this.onShowInMap,
+  });
 
-  final BoardInsights insights;
+  /// Lo procesado y lo vinculado en los últimos 7 días, del motor.
+  final RecentWindow week;
+  final TopicGraph graph;
   final void Function(MapBoardTarget target) onShowInMap;
+
+  /// El nombre del tema por el que se llega a [entry] en el Mapa, si tiene.
+  String? _topicOf(MapSearchEntry entry) {
+    final valueId = entry.topicValueId;
+    if (valueId == null) return null;
+    final at = graph.indexOf(valueId);
+    return at == null ? null : graph.nodes[at].label;
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final items = insights.newItems;
-    final links = insights.newLinks;
+    final items = week.processed;
+    final links = week.linked;
 
     return StatsSection(
       key: const ValueKey('map-board-new'),
       title: l10n.f44S3NewTitle,
       subtitle: l10n.f44S3NewSubtitle,
-      child: items.isEmpty && links.isEmpty
+      child: week.isEmpty
           ? _Muted(l10n.f44S3NewNone)
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (items.isNotEmpty) ...[
-                  _GroupHeading(l10n.f44S3NewDocuments(insights.newItemCount)),
+                if (week.processedCount > 0) ...[
+                  _GroupHeading(l10n.f44S3NewDocuments(week.processedCount)),
                   for (final item in items)
                     _TapRow(
                       rowKey: ValueKey('map-new-item-${item.id}'),
                       onTap: () => onShowInMap(MapBoardItem(item.id)),
                       semanticsLabel: [
-                        item.title,
-                        _shortDate(context, item.createdAt),
-                        ?item.topic?.label,
+                        item.label,
+                        if (item.createdAt case final at?)
+                          _shortDate(context, at),
+                        ?_topicOf(item),
                       ].join(', '),
                       child: _TitleCaption(
-                        title: item.title,
+                        title: item.label,
                         caption: [
-                          _shortDate(context, item.createdAt),
-                          ?item.topic?.label,
+                          if (item.createdAt case final at?)
+                            _shortDate(context, at),
+                          ?_topicOf(item),
                         ].join(' · '),
                       ),
                     ),
-                  _More(insights.newItemCount - items.length),
+                  _More(week.processedCount - items.length),
                 ],
-                if (links.isNotEmpty) ...[
+                if (week.linkedCount > 0) ...[
                   _GroupHeading(
-                    l10n.f44S3NewLinks(insights.newLinkCount),
-                    top: items.isEmpty ? 0 : 12,
+                    l10n.f44S3NewLinks(week.linkedCount),
+                    top: week.processedCount == 0 ? 0 : 12,
                   ),
                   for (final link in links)
                     _TapRow(
                       rowKey: ValueKey(
-                        'map-new-link-${link.fromId}-${link.toId}',
+                        'map-new-link-${link.from.id}-${link.to.id}',
                       ),
-                      onTap: () => onShowInMap(MapBoardItem(link.fromId)),
+                      onTap: () => onShowInMap(MapBoardItem(link.from.id)),
                       semanticsLabel:
-                          '${link.fromTitle}, ${link.toTitle}, '
-                          '${_shortDate(context, link.createdAt)}',
+                          '${link.from.label}, ${link.to.label}, '
+                          '${_shortDate(context, link.at)}',
                       child: _TitleCaption(
-                        title: '${link.fromTitle}  ↔  ${link.toTitle}',
-                        caption: _shortDate(context, link.createdAt),
+                        title: '${link.from.label}  ↔  ${link.to.label}',
+                        caption: _shortDate(context, link.at),
                       ),
                     ),
-                  _More(insights.newLinkCount - links.length),
+                  _More(week.linkedCount - links.length),
                 ],
               ],
             ),
@@ -824,70 +839,104 @@ class _Bar extends StatelessWidget {
 class _BridgesCard extends StatelessWidget {
   const _BridgesCard({
     required this.bridges,
+    required this.communities,
     required this.graph,
     required this.onShowInMap,
   });
 
-  final List<BoardBridge> bridges;
+  /// Los puentes del motor, de los que más unen a los que menos.
+  final BridgeAnalysis bridges;
+  final CommunityProfiles communities;
   final TopicGraph graph;
   final void Function(MapBoardTarget target) onShowInMap;
 
-  /// Lo que dice debajo de un puente: con qué comunidades se une —por el
-  /// nombre de su tema principal, las tres más unidas y cuántas más—, o en
-  /// cuántas partes quedaría lo de alrededor sin él.
-  String _caption(AppLocalizations l10n, BoardBridge bridge) {
-    if (bridge.joins.isEmpty) return l10n.f44S3BridgeParts(bridge.parts);
-    const shown = 3;
+  /// Cuántas comunidades se nombran en una línea; las demás se cuentan.
+  static const _shown = 3;
+
+  /// Los nombres de [joins] —«Cristianismo · Tomás de Aquino»—, los primeros
+  /// [_shown] y «y N más» si [total] dice que hay más.
+  String _names(AppLocalizations l10n, List<BridgeJoin> joins, int total) {
     final names = [
-      for (final community in bridge.joins.take(shown))
-        graph.nodes[community.anchor].label,
+      for (final join in joins.take(_shown))
+        ?communities.of(join.communityId)?.name,
     ].join(', ');
-    final rest = bridge.joins.length - shown;
-    return l10n.f44S3BridgeJoins(
-      rest > 0 ? '$names ${l10n.mapBoardMore(rest)}' : names,
+    final rest = total - joins.take(_shown).length;
+    return rest > 0 ? '$names ${l10n.mapBoardMore(rest)}' : names;
+  }
+
+  /// Lo que dice debajo de un puente: con qué comunidades se une y, si de
+  /// alguna es la única unión con la suya, cuáles.
+  String _caption(AppLocalizations l10n, TopicBridge bridge) {
+    final joins = l10n.f44S3BridgeJoins(
+      _names(l10n, bridge.joins, bridge.joinedCount),
     );
+    if (bridge.soleCount == 0) return joins;
+    final sole = [
+      for (final join in bridge.joins)
+        if (join.isSole) join,
+    ];
+    final only = l10n.f44S3BridgeSole(_names(l10n, sole, bridge.soleCount));
+    return '$joins. $only';
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final list = bridges.bridges;
     return StatsSection(
       key: const ValueKey('map-board-bridges'),
       title: l10n.f44S3BridgesTitle,
       subtitle: l10n.f44S3BridgesSubtitle,
-      child: bridges.isEmpty
+      child: list.isEmpty
           ? _Muted(l10n.f44S3BridgesNone)
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final bridge in bridges)
-                  _TapRow(
-                    rowKey: ValueKey('map-bridge-${bridge.topic.valueId}'),
-                    onTap: () =>
-                        onShowInMap(MapBoardTopic(bridge.topic.valueId)),
-                    semanticsLabel:
-                        '${bridge.topic.label}, ${_caption(l10n, bridge)}',
-                    child: Row(
-                      children: [
-                        ExcludeSemantics(
-                          child: Icon(
-                            Icons.hub_outlined,
-                            size: 20,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _TitleCaption(
-                            title: bridge.topic.label,
-                            caption: _caption(l10n, bridge),
-                          ),
-                        ),
-                      ],
+                for (final bridge in list)
+                  if (bridge.topic < graph.nodes.length)
+                    _BridgeRow(
+                      topic: graph.nodes[bridge.topic],
+                      caption: _caption(l10n, bridge),
+                      onShowInMap: onShowInMap,
                     ),
-                  ),
               ],
             ),
+    );
+  }
+}
+
+class _BridgeRow extends StatelessWidget {
+  const _BridgeRow({
+    required this.topic,
+    required this.caption,
+    required this.onShowInMap,
+  });
+
+  final TopicNode topic;
+  final String caption;
+  final void Function(MapBoardTarget target) onShowInMap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _TapRow(
+      rowKey: ValueKey('map-bridge-${topic.valueId}'),
+      onTap: () => onShowInMap(MapBoardTopic(topic.valueId)),
+      semanticsLabel: '${topic.label}, $caption',
+      child: Row(
+        children: [
+          ExcludeSemantics(
+            child: Icon(
+              Icons.hub_outlined,
+              size: 20,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _TitleCaption(title: topic.label, caption: caption),
+          ),
+        ],
+      ),
     );
   }
 }
