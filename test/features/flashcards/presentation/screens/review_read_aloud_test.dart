@@ -265,8 +265,8 @@ void main() {
       expect(player, findsOneWidget);
     });
 
-    testWidgets('minimizado, sigue el botón con su anillo: es lo que suena, '
-        'no la tarjeta', (tester) async {
+    testWidgets('achicado, sigue el reproductor de una línea: es lo que '
+        'suena, no la tarjeta (F47, paso 2)', (tester) async {
       await seedSimple();
       final router = await pump(tester, initialLocation: '/');
       reader()
@@ -278,11 +278,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(offered(), isNull);
-      expect(button, findsOneWidget);
-      expect(find.byKey(const Key('read-aloud-ring')), findsOneWidget);
+      expect(button, findsNothing);
+      final collapsed = find.byKey(const Key('read-aloud-collapsed'));
+      expect(collapsed, findsOneWidget);
 
-      // Tocarlo abre lo que suena, no la tarjeta.
-      await tester.tap(button);
+      // Abrirlo abre lo que suena, no la tarjeta.
+      await tester.tap(find.byKey(const Key('read-aloud-expand')));
       await tester.pumpAndSettle();
       expect(
         harness.container.read(readAloudControllerProvider).document?.id,

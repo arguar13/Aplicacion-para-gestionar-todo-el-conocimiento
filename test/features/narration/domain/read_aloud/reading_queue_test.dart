@@ -45,15 +45,14 @@ void main() {
       expect(queue.clear().repeat, ReadAloudRepeat.all);
     });
 
-    test('reordena como lo cuenta una lista que se arrastra', () {
+    test('reordena a la posición en que queda', () {
       final queue = const ReadingQueue().add(a).add(b).add(c);
 
-      // Bajar la primera debajo de la segunda: hasta antes de la tercera.
-      expect(_ids(queue.move(0, 2)), ['b', 'a', 'c']);
-      expect(_ids(queue.move(0, 3)), ['b', 'c', 'a']);
+      expect(_ids(queue.move(0, 1)), ['b', 'a', 'c']);
+      expect(_ids(queue.move(0, 2)), ['b', 'c', 'a']);
       expect(_ids(queue.move(2, 0)), ['c', 'a', 'b']);
+      expect(_ids(queue.move(0, 9)), ['b', 'c', 'a']);
       expect(queue.move(1, 1), same(queue));
-      expect(queue.move(1, 2), same(queue));
       expect(queue.move(5, 0), same(queue));
     });
 

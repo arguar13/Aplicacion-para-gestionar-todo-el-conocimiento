@@ -8,19 +8,21 @@ import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart
 import 'package:sinapsis/features/narration/domain/voices/voice_locale.dart';
 
 /// Qué voces y qué velocidad eligió la persona que usa la app para escuchar
-/// sus documentos, entre reinicios.
+/// sus documentos, y si quiere la Lectura enfocada, entre reinicios.
 class NarrationSettings {
   const NarrationSettings({
     this.voice,
     this.speed = 1,
     this.voicesByLanguage = const {},
+    this.focusedReading = false,
   });
 
   /// La última voz elegida; `null` es la voz por defecto del sistema —nadie
   /// tocó el selector todavía—. Lee lo que no se sabe en qué idioma está.
   final NarrationVoice? voice;
 
-  /// De 0.5x a 2.0x. 1.0 es la velocidad normal del motor.
+  /// De 0.5x a 3.0x (F47, decisión H). 1.0 es la velocidad normal del
+  /// motor.
   final double speed;
 
   /// La voz elegida para cada idioma, por su código (`es`, `en`): la voz
@@ -28,11 +30,19 @@ class NarrationSettings {
   /// está no tiene una elegida.
   final Map<String, NarrationVoice> voicesByLanguage;
 
-  NarrationSettings copyWith({double? speed}) => NarrationSettings(
-    voice: voice,
-    speed: speed ?? this.speed,
-    voicesByLanguage: voicesByLanguage,
-  );
+  /// Lectura enfocada (F47, paso 2): el reproductor de lectura se achica
+  /// solo mientras te desplazás, y vuelve a abrirse al soltar. Apagada de
+  /// entrada: un reproductor que cambia de tamaño sin que se lo pidan
+  /// sorprende si no se eligió.
+  final bool focusedReading;
+
+  NarrationSettings copyWith({double? speed, bool? focusedReading}) =>
+      NarrationSettings(
+        voice: voice,
+        speed: speed ?? this.speed,
+        voicesByLanguage: voicesByLanguage,
+        focusedReading: focusedReading ?? this.focusedReading,
+      );
 }
 
 /// Recuerda las voces y la velocidad elegidas para leer en voz alta, mismo
@@ -56,6 +66,7 @@ class NarrationSettingsNotifier extends StateNotifier<NarrationSettings> {
   static const _voiceKey = 'narration_voice';
   static const _speedKey = 'narration_speed';
   static const _byLanguageKey = 'narration_voices_by_language';
+  static const _focusedReadingKey = 'narration_focused_reading';
   static const _voiceSeparator = '\u0000';
   static const _offlineMark = 'offline';
 
@@ -87,6 +98,7 @@ class NarrationSettingsNotifier extends StateNotifier<NarrationSettings> {
       voice: voice,
       speed: speed,
       voicesByLanguage: Map.unmodifiable(byLanguage),
+      focusedReading: prefs.getBool(_focusedReadingKey) ?? false,
     );
   }
 
@@ -127,6 +139,7 @@ class NarrationSettingsNotifier extends StateNotifier<NarrationSettings> {
       voice: voice,
       speed: state.speed,
       voicesByLanguage: Map.unmodifiable(byLanguage),
+      focusedReading: state.focusedReading,
     );
     if (voice == null) {
       await _prefs.remove(_voiceKey);
@@ -148,6 +161,7 @@ class NarrationSettingsNotifier extends StateNotifier<NarrationSettings> {
       voice: keepsVoice ? voice : null,
       speed: state.speed,
       voicesByLanguage: Map.unmodifiable(byLanguage),
+      focusedReading: state.focusedReading,
     );
     if (!keepsVoice) await _prefs.remove(_voiceKey);
     await _saveByLanguage(byLanguage);
@@ -165,6 +179,11 @@ class NarrationSettingsNotifier extends StateNotifier<NarrationSettings> {
   Future<void> setSpeed(double speed) async {
     state = state.copyWith(speed: speed);
     await _prefs.setDouble(_speedKey, speed);
+  }
+
+  Future<void> setFocusedReading({required bool enabled}) async {
+    state = state.copyWith(focusedReading: enabled);
+    await _prefs.setBool(_focusedReadingKey, enabled);
   }
 }
 

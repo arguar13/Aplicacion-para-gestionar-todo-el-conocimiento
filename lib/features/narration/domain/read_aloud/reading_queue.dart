@@ -80,12 +80,11 @@ class ReadingQueue {
     return _with([...upcoming]..removeAt(index));
   }
 
-  /// Con lo que estaba en [from] movido a [to], contado como lo cuenta
-  /// `ReorderableListView`: [to] es la posición **antes** de sacarlo, así
-  /// que bajar uno es `to = from + 2`.
+  /// Con lo que estaba en [from] movido a [to]: la posición en la que queda,
+  /// como la cuenta `onReorderItem` de una lista que se arrastra.
   ReadingQueue move(int from, int to) {
     if (from < 0 || from >= upcoming.length) return this;
-    final target = (to > from ? to - 1 : to).clamp(0, upcoming.length - 1);
+    final target = to.clamp(0, upcoming.length - 1);
     if (target == from) return this;
     final next = [...upcoming];
     final moved = next.removeAt(from);

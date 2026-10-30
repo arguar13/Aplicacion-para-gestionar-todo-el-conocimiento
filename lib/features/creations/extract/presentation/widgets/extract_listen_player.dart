@@ -5,9 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/creations/design/creation_controls.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_speed_sheet.dart';
-import 'package:sinapsis/features/narration/presentation/voices/voice_library_sheet.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart'
-    show formatSpeed;
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_voice_face.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El modo escuchar de los visores de extraer (F43, paso 7, M8): un
@@ -151,8 +149,12 @@ class ExtractListenPlayer extends ConsumerWidget {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: _SpeedButton(
-                          onPressed: () =>
-                              _openSheet(context, const ReadAloudSpeedSheet()),
+                          onPressed: () => unawaited(
+                            showReadAloudSheet(
+                              context,
+                              const ReadAloudSpeedSheet(),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -196,7 +198,7 @@ class ExtractListenPlayer extends ConsumerWidget {
                         child: IconButton(
                           key: const Key('extract-player-voice'),
                           tooltip: l10n.readAloudVoice,
-                          onPressed: () => unawaited(showVoiceLibrary(context)),
+                          onPressed: () => openVoicePicker(context),
                           icon: const Icon(Icons.record_voice_over_outlined),
                         ),
                       ),
@@ -210,25 +212,9 @@ class ExtractListenPlayer extends ConsumerWidget {
       ),
     );
   }
-
-  /// Una de las hojas de siempre del lector —la velocidad, la voz—, sin
-  /// deslizarse si se apagaron las animaciones.
-  void _openSheet(BuildContext context, Widget sheet) {
-    final still = MediaQuery.disableAnimationsOf(context);
-    unawaited(
-      showModalBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        isScrollControlled: true,
-        useSafeArea: true,
-        sheetAnimationStyle: still ? AnimationStyle.noAnimation : null,
-        builder: (_) => sheet,
-      ),
-    );
-  }
 }
 
-/// La velocidad, «1,25×»: abre la hoja de la velocidad. Con la letra grande
+/// La velocidad, «1,2×»: abre la hoja de la velocidad. Con la letra grande
 /// se achica antes que empujar los botones del medio.
 class _SpeedButton extends ConsumerWidget {
   const _SpeedButton({required this.onPressed});
@@ -255,7 +241,7 @@ class _SpeedButton extends ConsumerWidget {
         onPressed: onPressed,
         child: FittedBox(
           fit: BoxFit.scaleDown,
-          child: Text(formatSpeed(speed, locale)),
+          child: Text(formatReadAloudSpeed(speed, locale)),
         ),
       ),
     );

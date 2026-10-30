@@ -22,6 +22,7 @@ import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_t
 import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
 import 'package:sinapsis/features/keep_working/presentation/screens/keep_working_screen.dart';
 import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
+import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/trash/presentation/screens/trash_screen.dart';
@@ -79,6 +80,27 @@ void main() {
     await tester.pumpAndSettle();
     await fitWholeSettings(tester);
   }
+
+  testWidgets('Lectura enfocada (F47, paso 2): apagada de entrada, y '
+      'prenderla queda guardada', (tester) async {
+    await pumpSettings(tester);
+    final toggle = find.byKey(const Key('settings-focused-reading'));
+
+    expect(find.text(es.f47P2FocusedReading), findsOneWidget);
+    expect(find.text(es.f47P2FocusedReadingHint), findsOneWidget);
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
+    expect(
+      harness.container.read(narrationSettingsNotifierProvider).focusedReading,
+      isTrue,
+    );
+    final prefs = harness.container.read(sharedPreferencesProvider);
+    expect(prefs.getBool('narration_focused_reading'), isTrue);
+  });
 
   testWidgets('muestra las cuatro secciones', (tester) async {
     await pumpSettings(tester);

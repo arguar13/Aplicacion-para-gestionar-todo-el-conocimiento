@@ -8,6 +8,7 @@ import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_an
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_limits.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_limits_provider.dart';
+import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/review_settings_section.dart';
 import 'package:sinapsis/features/study_reminder/domain/entities/reminder_time.dart';
 import 'package:sinapsis/features/study_reminder/presentation/providers/study_reminder_providers.dart';
@@ -312,8 +313,19 @@ void main() {
       harness.goTo(RoutePaths.settings);
       await tester.pumpAndSettle();
 
+      // Ajustes es una lista que se arma a medida que se ve: con cada sección
+      // que se suma arriba, «Repasar» queda más abajo.
       final tile = find.byKey(const Key('review-settings-import-anki'));
-      await tester.ensureVisible(tile);
+      await tester.scrollUntilVisible(
+        tile,
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(SettingsScreen),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await tester.pumpAndSettle();
       await tester.tap(tile);
       await tester.pumpAndSettle();

@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +10,8 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart'
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/reading_queue.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/sleep_timer.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
@@ -250,56 +254,48 @@ void main() {
     });
   });
 
-  group('±10 s de habla (decisión A)', () {
-    test('sin nada medido, 10 s son unos 14 caracteres por segundo, al '
-        'comienzo de una palabra', () async {
+  group('±10 s a la oración más cercana (F47, paso 2)', () {
+    // Cada línea de "_words" es una oración de diez palabras: a 1×, 150
+    // palabras por minuto, 4 s por línea.
+
+    test('10 s son 25 palabras: entre la línea 2 y la 3, la 2', () async {
       await controller().open(_words);
 
       await controller().skip(const Duration(seconds: 10));
 
-      // 140 caracteres: la línea 3 (desde 117), carácter 23 —el espacio
-      // después de "L35"—: la palabra que sigue.
-      expect(state().segmentIndex, 3);
-      expect(state().charInSegment, 24);
-      expect(tts.spoken.last, startsWith('L36 '));
-    });
-
-    test('con el ritmo medido, salta lo que esa voz dice en 10 s y cruza '
-        'pedazos', () async {
-      await controller().open(_words);
-      // Una palabra —4 caracteres— cada 0,3 s: 13,3 caracteres por segundo.
-      await sayWords([0, 4, 8, 12, 16, 20, 24, 28, 32, 36]);
-      expect(state().charInSegment, 36);
-
-      await controller().skip(const Duration(seconds: 10));
-
-      // 36 + 133 = 169: la línea 4 (desde 156), carácter 13, dentro de
-      // "L43": su comienzo.
-      expect(state().segmentIndex, 4);
-      expect(state().charInSegment, 12);
+      expect(state().segmentIndex, 2);
+      expect(state().charInSegment, 0);
       expect(tts.stopCount, 1);
-      expect(tts.spoken.last, startsWith('L43 '));
-
-      await controller().skip(const Duration(seconds: -10));
-
-      // 168 - 133 = 35: el espacio antes de "L09".
-      expect(state().segmentIndex, 0);
-      expect(state().charInSegment, 36);
-      expect(tts.spoken.last, 'L09');
+      expect(tts.spoken.last, startsWith('L20 '));
     });
 
-    test('una pausa larga entre dos palabras no cuenta para el '
-        'ritmo', () async {
+    test('desde donde va, cruzando pedazos para los dos lados', () async {
       await controller().open(_words);
+      // En "L04", 1,6 s: a los 11,6 s, la palabra 29, más cerca de la
+      // línea 3.
       await sayWords([0, 4, 8, 12, 16]);
-      now += const Duration(seconds: 30);
-      await sayWords([20, 24, 28, 32, 36]);
+
+      await controller().skip(const Duration(seconds: 10));
+      expect(state().segmentIndex, 3);
+      expect(state().charInSegment, 0);
+
+      // Desde la línea 3 (12 s), a los 2 s: la palabra 5, a la misma
+      // distancia de la línea 0 y de la 1: queda la primera.
+      await controller().skip(const Duration(seconds: -10));
+      expect(state().segmentIndex, 0);
+      expect(state().charInSegment, 0);
+      expect(tts.spoken.last, startsWith('L00 '));
+    });
+
+    test('lo que tarda el motor entre palabras no cambia el salto: el '
+        'tiempo es por las palabras', () async {
+      await controller().open(_words);
+      await sayWords([0, 4, 8], every: const Duration(seconds: 2));
 
       await controller().skip(const Duration(seconds: 10));
 
-      // Igual que sin la pausa: 13,3 caracteres por segundo.
-      expect(state().segmentIndex, 4);
-      expect(state().charInSegment, 12);
+      // En "L02" (0,8 s): a los 10,8 s, la palabra 27, línea 3.
+      expect(state().segmentIndex, 3);
     });
 
     test('en pausa, salta sin leer', () async {
@@ -308,8 +304,8 @@ void main() {
 
       await controller().skip(const Duration(seconds: 10));
 
-      expect(state().segmentIndex, 3);
-      expect(state().charInSegment, 24);
+      expect(state().segmentIndex, 2);
+      expect(state().charInSegment, 0);
       expect(state().playing, isFalse);
       expect(tts.spoken, hasLength(1));
     });
@@ -324,23 +320,35 @@ void main() {
       expect(tts.spoken, hasLength(1));
     });
 
-    test('retroceder vuelve a la palabra anterior aunque sea en el pedazo '
-        'de antes', () async {
+    test('retroceder un poco desde el comienzo de una oración va a la de '
+        'antes', () async {
       await controller().open(_words, fromSegment: 1);
 
       await controller().skip(const Duration(milliseconds: -100));
 
       expect(state().segmentIndex, 0);
-      expect(state().charInSegment, 36);
+      expect(state().charInSegment, 0);
     });
 
-    test('avanzar un poco pasa a la palabra siguiente', () async {
+    test('retroceder un poco a mitad de una oración la vuelve a '
+        'empezar', () async {
+      await controller().open(_words, fromSegment: 4);
+      await sayWords([0, 4, 8]);
+
+      await controller().skip(const Duration(milliseconds: -100));
+
+      expect(state().segmentIndex, 4);
+      expect(state().charInSegment, 0);
+    });
+
+    test('avanzar un poco pasa a la oración siguiente', () async {
       await controller().open(_words);
 
       await controller().skip(const Duration(milliseconds: 100));
 
-      expect(state().charInSegment, 4);
-      expect(tts.spoken.last, startsWith('L01 '));
+      expect(state().segmentIndex, 1);
+      expect(state().charInSegment, 0);
+      expect(tts.spoken.last, startsWith('L10 '));
     });
 
     test('avanzar más allá del final lo deja terminado', () async {
@@ -351,7 +359,281 @@ void main() {
       expect(state().playing, isFalse);
       expect(state().segmentIndex, 9);
       expect(state().progress, 1);
+      expect(state().finished, isTrue);
       expect(tts.stopCount, 1);
+    });
+  });
+
+  group('el tiempo (F47, paso 2)', () {
+    test('lo leído y el total, por las palabras y la velocidad', () async {
+      await controller().open(_words, fromSegment: 2);
+      await sayWords([0, 4]);
+
+      // 21 palabras empezadas, de 100: a 0,4 s cada una.
+      expect(state().elapsed, const Duration(milliseconds: 8400));
+      expect(state().total, const Duration(seconds: 40));
+
+      await controller().setSpeed(2);
+      expect(state().total, const Duration(seconds: 20));
+    });
+
+    test('ir a un tiempo lee desde la palabra que se dice entonces', () async {
+      await controller().open(_words);
+
+      await controller().seekTo(const Duration(seconds: 17));
+
+      // La palabra 42: "L42", en la línea 4.
+      expect(state().segmentIndex, 4);
+      expect(state().charInSegment, 8);
+      expect(tts.spoken.last, startsWith('L42 '));
+    });
+
+    test('ir más allá del final lo deja terminado', () async {
+      await controller().open(_words);
+
+      await controller().seekTo(const Duration(minutes: 5));
+
+      expect(state().finished, isTrue);
+    });
+
+    test('sin nada abierto, no hay tiempo ni a dónde ir', () async {
+      expect(state().elapsed, Duration.zero);
+      expect(state().total, Duration.zero);
+      expect(state().finished, isFalse);
+
+      await controller().seekTo(const Duration(seconds: 3));
+      expect(tts.spoken, isEmpty);
+    });
+  });
+
+  group('la cola (F47, paso 2)', () {
+    final other = ReadableDocument(
+      id: 'otro',
+      title: 'Otro',
+      segments: buildReadableSegments('Otra cosa.', sourceKey: 'otro'),
+    );
+    final third = ReadableDocument(
+      id: 'tercero',
+      title: 'Tercero',
+      segments: buildReadableSegments('Lo tercero.', sourceKey: 'tercero'),
+    );
+
+    Future<void> finishDocument() async {
+      for (var i = 0; i < 3; i++) {
+        tts.completeCurrent();
+        await pumpEventQueue();
+      }
+    }
+
+    test('sumar sin nada sonando empieza a leerlo', () async {
+      await controller().enqueue(other);
+
+      expect(state().document?.id, 'otro');
+      expect(state().queue.isEmpty, isTrue);
+      expect(tts.spoken, ['Otra cosa.']);
+    });
+
+    test('al terminar, sigue con lo de la cola, desde el principio', () async {
+      await controller().open(_document);
+      await controller().enqueue(other);
+      await controller().enqueue(other);
+      await controller().enqueue(_document);
+      expect(state().queue.upcoming, hasLength(1));
+
+      await finishDocument();
+
+      expect(state().document?.id, 'otro');
+      expect(state().segmentIndex, 0);
+      expect(state().playing, isTrue);
+      expect(state().queue.isEmpty, isTrue);
+      expect(tts.spoken.last, 'Otra cosa.');
+    });
+
+    test('lo que sigue se lee con el reproductor como estaba', () async {
+      await controller().open(_document);
+      controller().minimize();
+      await controller().enqueue(other);
+
+      await finishDocument();
+
+      expect(state().panel, ReadAloudPanel.minimized);
+    });
+
+    test('sin repetir y sin cola, queda terminado', () async {
+      await controller().open(_document);
+
+      await finishDocument();
+
+      expect(state().finished, isTrue);
+      expect(state().document?.id, 'item:1');
+    });
+
+    test('repetir esto vuelve a empezar lo mismo', () async {
+      await controller().open(_document);
+      await controller().enqueue(other);
+      controller().setRepeat(ReadAloudRepeat.one);
+
+      await finishDocument();
+
+      expect(state().document?.id, 'item:1');
+      expect(state().segmentIndex, 0);
+      expect(state().playing, isTrue);
+      expect(state().queue.upcoming.single.document.id, 'otro');
+    });
+
+    test('repetir la cola manda lo que terminó al final', () async {
+      await controller().open(_document);
+      await controller().enqueue(other);
+      controller().cycleRepeat();
+      expect(state().queue.repeat, ReadAloudRepeat.all);
+
+      await finishDocument();
+
+      expect(state().document?.id, 'otro');
+      expect(state().queue.upcoming.single.document.id, 'item:1');
+    });
+
+    test('«siguiente» pasa a lo de la cola; sin nada, no hace nada', () async {
+      await controller().open(_document);
+      await controller().playNext();
+      expect(state().document?.id, 'item:1');
+
+      await controller().enqueue(other);
+      await controller().playNext();
+      expect(state().document?.id, 'otro');
+      expect(state().playing, isTrue);
+    });
+
+    test('leer uno de la cola lo saca de la cola y lo lee ya', () async {
+      await controller().open(_document);
+      await controller().enqueue(other);
+      await controller().enqueue(third);
+
+      await controller().playQueued(1);
+
+      expect(state().document?.id, 'tercero');
+      expect(state().queue.upcoming.single.document.id, 'otro');
+      expect(tts.spoken.last, 'Lo tercero.');
+    });
+
+    test('se reordena, se saca de a uno y se limpia', () async {
+      await controller().open(_document);
+      await controller().enqueue(other);
+      await controller().enqueue(third);
+
+      controller().moveInQueue(1, 0);
+      expect(state().queue.upcoming.first.document.id, 'tercero');
+      controller().removeFromQueue(0);
+      expect(state().queue.upcoming.single.document.id, 'otro');
+      controller().clearQueue();
+      expect(state().queue.isEmpty, isTrue);
+    });
+
+    test('suma la parte que leería al abrirlo, o la que se pide', () async {
+      await controller().open(_document);
+      final studied = ReadableDocument(
+        id: 'estudiado',
+        title: 'Estudiado',
+        segments: const [],
+        scopes: {
+          ReadScope.summary: buildReadableSegments('Uno.', sourceKey: 'e'),
+        },
+      );
+
+      await controller().enqueue(studied);
+      expect(state().queue.upcoming.single.scope, ReadScope.summary);
+
+      await controller().enqueue(studied, scope: ReadScope.keywords);
+      expect(state().queue.upcoming, hasLength(1));
+    });
+
+    test('cerrar se lleva la cola', () async {
+      await controller().open(_document);
+      await controller().enqueue(other);
+
+      await controller().close();
+
+      expect(state().queue.isEmpty, isTrue);
+    });
+  });
+
+  group('el Temporizador para dormir (F47, paso 2)', () {
+    test('a los minutos elegidos, pausa y se apaga', () {
+      fakeAsync((async) {
+        now = Duration.zero;
+        container.read(readAloudControllerProvider);
+        unawaited(controller().open(_words));
+        async.flushMicrotasks();
+        controller().setSleepTimer(SleepTimerChoice.minutes15);
+        expect(state().sleep?.choice, SleepTimerChoice.minutes15);
+
+        async.elapse(const Duration(minutes: 14));
+        expect(state().playing, isTrue);
+
+        async.elapse(const Duration(minutes: 1));
+        expect(state().playing, isFalse);
+        expect(state().sleep, isNull);
+        expect(state().document?.id, 'palabras');
+      });
+    });
+
+    test('elegir otro reemplaza al de antes, y apagarlo no pausa', () {
+      fakeAsync((async) {
+        unawaited(controller().open(_words));
+        async.flushMicrotasks();
+        controller().setSleepTimer(SleepTimerChoice.minutes15);
+        controller().setSleepTimer(SleepTimerChoice.minutes60);
+
+        async.elapse(const Duration(minutes: 30));
+        expect(state().playing, isTrue);
+
+        controller().setSleepTimer(null);
+        async.elapse(const Duration(hours: 2));
+        expect(state().playing, isTrue);
+        expect(state().sleep, isNull);
+      });
+    });
+
+    test('«al terminar esto» no sigue con la cola', () async {
+      await controller().open(_document);
+      await controller().enqueue(
+        ReadableDocument(
+          id: 'otro',
+          title: 'Otro',
+          segments: buildReadableSegments('Otra.', sourceKey: 'otro'),
+        ),
+      );
+      controller().setSleepTimer(SleepTimerChoice.endOfReading);
+
+      for (var i = 0; i < 3; i++) {
+        tts.completeCurrent();
+        await pumpEventQueue();
+      }
+
+      expect(state().document?.id, 'item:1');
+      expect(state().finished, isTrue);
+      expect(state().sleep, isNull);
+      expect(state().queue.upcoming, hasLength(1));
+    });
+
+    test('sin nada abierto no se pone, y cerrar lo apaga', () {
+      fakeAsync((async) {
+        controller().setSleepTimer(SleepTimerChoice.minutes30);
+        expect(state().sleep, isNull);
+
+        unawaited(controller().open(_words));
+        async.flushMicrotasks();
+        controller().setSleepTimer(SleepTimerChoice.minutes30);
+        unawaited(controller().close());
+        async.flushMicrotasks();
+        expect(state().sleep, isNull);
+
+        unawaited(controller().open(_words));
+        async
+          ..flushMicrotasks()
+          ..elapse(const Duration(hours: 1));
+        expect(state().playing, isTrue);
+      });
     });
   });
 
@@ -372,17 +654,16 @@ void main() {
       expect(tts.spoken.last, 'línea del texto.');
     });
 
-    test('la velocidad nueva escala el ritmo de los saltos', () async {
+    test('la velocidad cambia cuánto texto son los saltos', () async {
       await controller().open(_words);
       await controller().pause();
 
       await controller().setSpeed(2);
       await controller().skip(const Duration(seconds: 10));
 
-      // 28 caracteres por segundo: 280 = línea 7 (desde 273), carácter 7,
-      // el espacio después de "L71": la palabra que sigue.
-      expect(state().segmentIndex, 7);
-      expect(state().charInSegment, 8);
+      // A 2×, 10 s son 50 palabras: el comienzo de la línea 5.
+      expect(state().segmentIndex, 5);
+      expect(state().charInSegment, 0);
     });
 
     test('en pausa, cambiar la velocidad no lee', () async {
@@ -395,10 +676,12 @@ void main() {
       expect(tts.spoken, hasLength(1));
     });
 
-    test('la velocidad queda entre 0,5 y 2', () async {
+    test('la velocidad queda entre 0,5 y 3 (decisión H)', () async {
       await controller().setSpeed(5);
+      expect(state().speed, 3);
 
-      expect(state().speed, 2);
+      await controller().setSpeed(0.1);
+      expect(state().speed, 0.5);
     });
 
     test('cambiar la voz la guarda, y volver a la del sistema la '
@@ -666,10 +949,11 @@ void main() {
       await controller().open(version([long, long, long]));
       await controller().skip(const Duration(seconds: 10));
 
-      // Diez segundos son unos 140 caracteres: cae adentro de la segunda
-      // línea y sigue sonando, no queda terminado como con el texto viejo.
+      // Diez segundos son 25 palabras: la tercera línea —cada una es una
+      // oración de diez— sigue sonando, no queda terminado como con el
+      // texto viejo.
       expect(state().playing, isTrue);
-      expect(state().segmentIndex, 1);
+      expect(state().segmentIndex, 2);
     });
 
     test('si el documento vuelve sin la parte que se leía, sigue con lo '
@@ -1026,6 +1310,49 @@ void main() {
       tts.completeCurrent();
       await pumpEventQueue();
       expect(tts.prepared, hasLength(1));
+    });
+
+    test('±10 s que cae en otro idioma lee con la voz de ese idioma '
+        '(F47, pasos 2 y 3)', () async {
+      await start(
+        stored: {
+          'narration_voices_by_language':
+              r'{"en": "en-us-x-sfg-local\u0000en-US"}',
+        },
+      );
+      await controller().open(bilingual);
+      expect(tts.lastVoice, isNull);
+
+      // Las oraciones empiezan en las palabras 0, 14, 26 y 38: 10 s son 25
+      // palabras, la tercera, en inglés.
+      await controller().skip(const Duration(seconds: 10));
+
+      expect(state().segmentIndex, 2);
+      expect(state().voice, english);
+      expect(tts.lastVoice, english);
+      expect(tts.spoken.last, bilingual.segments[2].spoken);
+    });
+
+    test('cambiar la velocidad vuelve a dejar listo el que sigue, a la '
+        'velocidad nueva', () async {
+      await start(
+        stored: {
+          'narration_voices_by_language':
+              r'{"en": "en-us-x-sfg-local\u0000en-US"}',
+        },
+      );
+      await controller().open(bilingual, fromSegment: 1);
+      expect(tts.prepared, [bilingual.segments[2].spoken]);
+
+      await controller().setSpeed(3);
+
+      // El motor descarta lo preparado al cambiarle la velocidad; el lector
+      // lo vuelve a pedir, ya a 3×.
+      expect(tts.lastSpeed, 3);
+      expect(tts.prepared, [
+        bilingual.segments[2].spoken,
+        bilingual.segments[2].spoken,
+      ]);
     });
 
     test('después de prestar el motor a una muestra, le vuelve a poner su '
