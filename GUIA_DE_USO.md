@@ -2396,9 +2396,11 @@ no entra— con lo que vale para las dos:
 Es lo primero que ves del Mapa: de un vistazo, cuánto tenés, qué es nuevo,
 qué conviene estudiar y qué quedó suelto. **Todo lleva al Mapa**: tocar una
 cifra o una fila pasa a la pestaña **Mapa** y te lo muestra en el lienzo: una
-cifra, a su altura; un tema, entre los de su comunidad y resaltado; un
-documento, entre lo vinculado y en foco (el material de un tema en el
-Explorador sigue a un toque). Sin ningún Tema todavía, se ve igual. Mira lo
+cifra, a su altura; un tema, entre los de su comunidad, resaltado y con su
+ficha abierta; un documento con vínculos, entre lo vinculado y en foco, y uno
+sin ningún vínculo, entre los de su tema (el material de un tema en el
+Explorador sigue a un toque, con **"Abrir"** en la ficha). Sin ningún Tema
+todavía, se ve igual. Mira lo
 mismo que el resto del Mapa: tus documentos procesados, con los filtros y el
 "Agrupar por" de arriba.
 
@@ -2437,7 +2439,8 @@ línea que dice qué muestran y, si no hay nada, una frase que lo dice.
   un rayo si entre ellos hay una contradicción.
 - **Sueltos y aislados**: los temas sin ninguna unión y los documentos sin
   ningún vínculo. Tocar un tema lo muestra en el Mapa; tocar un documento lo
-  abre, para vincularlo desde ahí. **"✨ Sugerir vínculos"** (con dos sueltos
+  lleva al Mapa, entre los de su tema, con su ficha abierta: desde ahí,
+  **"Vincular"**. **"✨ Sugerir vínculos"** (con dos sueltos
   o más) te deja elegir uno y la IA propone con cuáles de los otros sueltos
   unirlo: nada se vincula sin que lo confirmes. **"Organizar con IA"** le pide
   a la IA que ubique lo suelto y lo que no tiene tema.
@@ -2461,16 +2464,19 @@ botón que dice lo que muestra y adónde lleva.
   sí, con su color y cuántos temas tiene. Los temas sin ninguna unión van
   juntos en uno ("Temas aislados") y, si son muchas, las comunidades más
   chicas en otro ("Otras comunidades").
-- **Tocás una comunidad, o te acercás con dos dedos**, y sus temas **salen de
-  la burbuja**: nacen donde estaba y se acomodan alrededor. Arriba aparece
+- **Tocás dos veces una comunidad** —o **"Entrar"** en su ficha, o te
+  acercás con dos dedos— y sus temas **salen de la burbuja**: nacen donde
+  estaba y se acomodan alrededor. Un solo toque abre su ficha (ver abajo).
+  Arriba aparece
   **"Grado"**: **0** muestra solo sus temas, **1** también los que se unen
   directamente a ellos (lo que se ve al entrar), **2** suma los unidos a
   esos, y **Todos**, todo lo que se alcanza desde ahí (hasta 300 temas, los
   más cercanos primero).
-- **Tocás un tema, o te acercás más**, y se despliegan **sus documentos**
-  alrededor, con los vínculos entre ellos (hasta 200, los más recientes).
-  Tocar un documento lo abre en Procesado; el botón de carpeta de arriba abre
-  el material del tema.
+- **Tocás dos veces un tema** —o "Entrar" en su ficha, o te acercás más— y
+  se despliegan **sus documentos** alrededor, con los vínculos entre ellos
+  (hasta 200, los más recientes). Tocar un documento abre su ficha, con
+  "Abrir" para verlo en Procesado; el botón de carpeta de arriba abre el
+  material del tema.
 - **Alejarte con dos dedos** los recoge de vuelta a la altura anterior.
   Arrastrar el mapa no te saca de la altura en la que estás.
 
@@ -2482,6 +2488,58 @@ chicos se callan para no pisarse.
 
 Arriba del lienzo dicen dónde estás —**"Todo › Cristianismo › Tomás de
 Aquino"**— y cada una te lleva a esa altura.
+
+#### La ficha de cada nodo
+
+**Tocar cualquier nodo** —una comunidad, un tema o un documento, en la red, en
+Radial y Árbol o en la lista— abre **abajo una ficha corta**. El lienzo se
+achica para dejarle lugar y no queda nada tapado: si no moviste el mapa, se
+vuelve a encuadrar para que todo siga a la vista. El nodo lleva un anillo. La
+✕ la cierra.
+
+- **Qué es y cuánto tiene.** Una comunidad: cuántos documentos, temas y
+  vínculos tiene, y **todos sus temas** (los primeros ocho, y cuántos más).
+  Un tema: cuántos documentos tiene, con cuántos temas se une y en qué
+  comunidad está. Un documento: si es fuente o nota y cuántos de sus vínculos
+  se ven.
+- **Une con**: sus vecinos más fuertes (hasta tres). Tocar uno te lleva a él:
+  si está a la vista, abre su ficha ahí mismo; si no, el Mapa vuela hasta
+  donde está.
+- **Lo más reciente** (en una comunidad): lo último que procesaste de ella;
+  tocarlo te lleva a ese documento, en su tema. En un documento, **su tema**,
+  que también se toca para ir ahí.
+- **Las acciones**, lo principal primero:
+  - **Entrar** (en una comunidad o un tema): baja una altura, lo mismo que
+    tocarlo dos veces.
+  - **Centrar aquí**: el modo foco (ver abajo).
+  - **Abrir**: el tema en el Explorador, o el documento en Procesado.
+  - **✨ Preguntar al chat**: abre el chat en una conversación nueva sobre lo
+    procesado, con la pregunta hecha y a la vista —"¿Qué dicen mis
+    documentos sobre Cristianismo y cómo se relaciona con Imperio romano y
+    Literatura?"—. Se manda sola al tocar el botón, nunca antes.
+  - **🎓 Estudiar** (en un tema o un documento): abre Repasar con eso ya
+    elegido en el selector.
+  - En un documento, además, **Vincular** (el flujo de siempre, partiendo de
+    él) y **Ver sus vínculos**: los documentos vinculados, con él en foco.
+
+Abrir la ficha no recalcula nada: lo que dice ya lo sabe el Mapa.
+
+#### Centrar aquí: el foco
+
+**"Centrar aquí"** pone el nodo **en el medio** y deja encendido **su
+vecindario** según el **"Grado"** —**0**, solo él; **1**, también los unidos
+directamente; **2**, también los unidos a esos; **Todos**, todo lo que se
+alcanza—; **el resto se apaga**, sin desaparecer. Sirve en cualquier altura:
+una comunidad, un tema o un documento. Arriba se ve **"Centrado en …"** y la
+miga suma el nodo.
+
+- En **Radial** y **Árbol**, el nodo centrado pasa a ser **la raíz**, y se
+  despliega nodo a nodo como siempre.
+- Si centrás algo que no estaba dibujado —un tema desde el árbol, lo más
+  reciente de una comunidad—, el Mapa primero va hasta él.
+- **"Salir del foco"** (en la ficha, o la ✕ de "Centrado en …") o la miga de
+  la altura vuelven a lo que mirabas, entero.
+- Cambiar de altura deja el foco.
 
 #### Red · Radial · Árbol
 
@@ -2498,7 +2556,8 @@ rama (**›**) o la cierra (**‹**), y lo que tocaste se queda quieto mientras
 lo demás se acomoda. Un tema muestra sus subtemas, sus notas mapa y sus
 documentos; un documento, **sus vínculos, rotulados con su tipo** (cita,
 contradice…) y con una flecha hacia donde apuntan. El botón del borde de cada
-tarjeta abre el tema o el documento, y en una comunidad **entra** en ella.
+tarjeta (ⓘ) abre **su ficha**, con las mismas acciones; una tarjeta que no se
+despliega la abre al tocarla.
 Con el botón de arriba (el nombre de donde parte) podés **partir de una nota
 mapa** o de cualquier tema; la ✕ vuelve a lo que estás mirando. Si son
 muchos, se dibujan los primeros 120 y un aviso lo dice.
@@ -2515,8 +2574,11 @@ muchos, se dibujan los primeros 120 y un aviso lo dice.
   lista que se despliega —comunidades › temas › documentos, con sus
   vínculos—, con la letra del tamaño que tengas puesto. Es la forma cómoda de
   recorrer el Mapa con el lector de pantalla. Cada fila se despliega con su
-  flecha y se abre con su botón; un vínculo se lee desde el documento de la
-  fila ("Citado por Livio"). El mismo botón vuelve al dibujo.
+  flecha y su botón ⓘ abre **su ficha**, con las mismas acciones que en el
+  dibujo; un vínculo se lee desde el documento de la fila ("Citado por
+  Livio"). El mismo botón vuelve al dibujo. Con el lector, la ficha se anuncia
+  al abrirse ("Ficha de Cristianismo") y cada acción y cada vecino es un botón
+  con su nombre.
 
 #### Los vínculos entre documentos
 
@@ -2556,7 +2618,7 @@ entre los que estás mirando.
 **Ver en el Mapa.** Cada vez que vinculás dos documentos procesados —desde el
 Mapa o desde un documento— un aviso **"Vinculado"** ofrece **"Ver en el
 Mapa"**: abre la pestaña Mapa con los vínculos a la vista y ese documento
-resaltado y encuadrado junto a sus vecinos. Si vinculás dos cosas de la
+resaltado, encuadrado junto a sus vecinos y con su ficha abierta. Si vinculás dos cosas de la
 Biblioteca, el aviso dice "Vinculado" y nada más: eso no está en el Mapa.
 
 #### Guardar como imagen
@@ -2564,6 +2626,7 @@ Biblioteca, el aviso dice "Vinculado" y nada más: eso no está en el Mapa.
 El botón de compartir de arriba guarda **lo que ves en el Mapa** como imagen
 (PNG) o como dibujo (SVG), con la disposición en el nombre —por ejemplo
 `mapa-radial-etiquetas.svg`, o `mapa-red-vinculos.png` con los vínculos—.
+Con un foco, lo apagado sale apagado también en el archivo.
 En el Resumen está apagado, y visto como lista te pide volver al dibujo.
 
 Los filtros (tipo, Tema, etiquetas, búsqueda) rigen en las dos pestañas.

@@ -358,6 +358,16 @@ void main() {
         return find.byElementPredicate((element) => element == best);
       }
 
+      // Tocar un nodo abre su ficha (F44, paso 4) y «Entrar» baja una altura:
+      // lo que se mide es desde «Entrar», que es lo que trae la altura
+      // nueva, no lo que tarda en saberse que no era un doble toque.
+      final sheetEnter = find.byKey(const ValueKey('map-sheet-enter'));
+      Future<void> openSheet(Finder node) async {
+        await tester.tap(node, warnIfMissed: false);
+        await until(sheetEnter);
+        await tester.pumpAndSettle();
+      }
+
       Future<void> drag({int passes = 6}) async {
         for (var pass = 0; pass < passes; pass++) {
           await tester.timedDrag(
@@ -437,9 +447,10 @@ void main() {
       );
 
       // 4. Los temas de la comunidad más grande.
+      await openSheet(graphNode('overview:0'));
       final topicsMs = await timeTo(
         graphNode('topic:'),
-        () => tester.tap(graphNode('overview:0'), warnIfMissed: false),
+        () => tester.tap(sheetEnter),
       );
       final topicNodes = graphNode('topic:').evaluate().length;
       say(
@@ -479,13 +490,11 @@ void main() {
         '- temas a la vista: $visibleTopics; con elementos en la base: '
         '$withRows (de ${withItems.length} en toda la bóveda)',
       );
-      // Tocar un tema baja a sus documentos (F44, paso 2).
+      // «Entrar» en la ficha de un tema baja a sus documentos (F44, paso 4).
+      await openSheet(centerMost('topic:', where: withItems.contains));
       final itemsMs = await timeTo(
         graphNode('item:'),
-        () => tester.tap(
-          centerMost('topic:', where: withItems.contains),
-          warnIfMissed: false,
-        ),
+        () => tester.tap(sheetEnter),
       );
       final itemNodes = graphNode('item:').evaluate().length;
       say(
@@ -572,9 +581,10 @@ void main() {
       // vuelva), seguido de un settle una vez que ya tuvo tiempo de llegar.
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
+      await openSheet(graphNode('overview:0'));
       final narrowTopicsMs = await timeTo(
         graphNode('topic:'),
-        () => tester.tap(graphNode('overview:0'), warnIfMissed: false),
+        () => tester.tap(sheetEnter),
       );
       final narrowTopicNodes = graphNode('topic:').evaluate().length;
       say(
