@@ -1254,9 +1254,13 @@ Cinco agentes en paralelo, integrados en `main` uno detrás del otro.
 - **Cada commit, verificado solo (`tool/verify_commit.ps1`):**
   - 18eab392 (paso 21) deja un comentario de 81 columnas y da 20 avisos; lo arregla el commit
     siguiente (909453c1). Ya estaba subido y no se reescribió la historia de `main`;
-  - otros once dan los 19 avisos de la línea base (de 54005573 a b734a52d);
-  - faltan ocho, que se verifican al retomar: 1d4d9186, 30996b22, d76ce136, 14e6da43, 65abe26c,
-    ce1615fb, 5c1d3a46 y 624ef725.
+  - los otros diecinueve dan los 19 avisos de la línea base: once de 54005573 a b734a52d y,
+    verificados el 30/10 al retomar, 1d4d9186, 30996b22, d76ce136, 14e6da43, 65abe26c, ce1615fb,
+    5c1d3a46 y 624ef725.
+- **El censo de lecturas** (`read_census_test`) fallaba desde d76ce136 (M16 y M17):
+  `review_scope_reader.dart` nombra la tabla `item` solo para suscribirse a sus cambios, y lo que
+  decide sobre la papelera está en `review_scope_sql.dart`. Quedó en `allowed`, con su motivo
+  (e36d6f9a).
 - **Queda abierto:** con Repasar vacío, la cuenta de «Para cada documento» toma toda la
   Biblioteca procesada y el aviso de la cola dice «elementos» en vez de «documentos». Se mira
   con el pulido.
