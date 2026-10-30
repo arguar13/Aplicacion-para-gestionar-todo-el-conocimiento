@@ -1772,8 +1772,8 @@ nuevo.
 **Mientras espera su texto**, la tarjeta dice qué le falta en lugar del texto:
 **"Transcribiendo…"** (un audio o un video), **"Leyendo la foto…"** o
 **"Extrayendo el texto…"** (un documento, un libro, una página), con la barra
-de avance si se sabe cuánto va. **"Descartar"** se puede de entrada; **"Triado"**,
-**"Extraer nota"**, **"Vincular a nota viva"** y **"Revisar sugerencias"** se ven
+de avance si se sabe cuánto va. **"Descartar"** se puede de entrada; **"Triar"**,
+**"Extraer nota"**, **"Vincular"** y **"Revisar sugerencias"** se ven
 apagados —al pasar el puntero o mantenerlos apretados dicen por qué— y **se
 prenden solos** cuando llega el texto, en la misma tarjeta, sin que tengas que
 hacer nada. Los gestos y las flechas del teclado respetan lo mismo. Si sacarle
@@ -1803,25 +1803,37 @@ arriba, sus datos: **autor**, **fecha de publicación**, **sitio**, **páginas**
 sepan. La podés resolver de tres formas:
 
 - **Arrastrando la tarjeta**: a la izquierda para "Descartar", a la derecha
-  para "Triado" (abre la hoja **"¿Qué va a Procesado?"**, ver abajo), hacia
+  para "Triar" (abre la hoja **"¿Qué va a Procesado?"**, ver abajo), hacia
   arriba para "Extraer nota".
-- **Con los botones** de abajo: los mismos tres, más **"Pasar todo sin
-  modificar"**, "Vincular a nota viva" (para conectarla con una nota tuya) y,
-  si hay, "Revisar sugerencias".
+- **Con los botones**: la decisión va en la **fila de abajo de la tarjeta, a lo
+  ancho**: **"Descartar"** (con borde) y **"Triar"** (relleno, la principal),
+  del mismo alto. Lo demás va en un renglón de botones
+  con ícono dentro de la tarjeta: **"Pasar todo"** (sin modificar), **"Extraer
+  nota"** y **"Vincular"** (para conectarla con una nota tuya); en un teléfono
+  angosto o con la letra grande, lo que no entra pasa a **"⋯"** (Más acciones),
+  donde lo apagado dice por qué. "Revisar sugerencias", si hay, va junto a las
+  propiedades sugeridas.
 - **Con el teclado**, en computadora: flecha izquierda = Descartar, derecha =
-  Triado, Shift + flecha derecha = Pasar todo sin modificar, arriba = Extraer,
-  Ctrl+Z = deshacer, R = [Volver a triar](#volver-a-triar).
+  Triar, Shift + flecha derecha = Pasar todo, arriba = Extraer, Ctrl+Z =
+  deshacer, R = [Volver a triar](#volver-a-triar). La línea gris con los atajos
+  se ve solo en la computadora; en el teléfono no ocupa lugar.
+
+**Arriba**, **"Deshacer"** lleva el ícono del historial (el reloj con su
+flecha, para no confundirlo con "volver"), con su texto al costado en una
+pantalla ancha; *"N pendientes"* es una ficha que abre la cola entera. En la
+tarjeta, **"Ver completo"** es un enlace al pie del texto, y si se encontraron
+datos de la referencia aparece un aviso compacto, *"Se encontraron datos de la
+referencia"*, con **"Usar"** y la **✕** para descartarlos.
 
 #### La hoja "¿Qué va a Procesado?"
 
-"Triado" ya no deja la fuente triada de un toque: abre una hoja, sobre la
+"Triar" no deja la fuente triada de un toque: abre una hoja, sobre la
 misma tarjeta, para elegir qué va a su **documento procesado** (la información
 pura que sacás de esa fuente; la fuente queda entera en la Biblioteca). Arriba
 dice el nombre de la fuente, y debajo hay dos grupos:
 
-- **De la fuente**: **Texto extraído** (o **Transcripción**, en un audio o un
-  video), con su interruptor. Apagado dice lo que trae la fuente (*"2.340
-  palabras"*); prendido, cuánto va a quedar.
+- **De la fuente**, en este orden: **el original**, **las imágenes** y **el
+  texto extraído**.
   - **El original** (solo en documentos de texto —PDF, Word, EPUB, texto— y
     páginas web archivadas): una **copia propia del archivo** para tu documento
     procesado, que se ve en él con lo marcado encima (ver
@@ -1830,6 +1842,15 @@ dice el nombre de la fuente, y debajo hay dos grupos:
     archivo que ya no está), no aparece. Al volver a triar un documento que ya
     tiene su copia, se elige **Actualizar** (la vuelve a copiar solo si el
     archivo de la fuente es otro), **Reemplazar** o **Quitar**.
+  - **Imágenes**, si la fuente trae: plegadas en una fila (*"40 imágenes ·
+    4,1 MB · 0 elegidas"*, ver más abajo); tocá la fila (o su flecha) para
+    desplegar la grilla.
+  - **Texto extraído** (o **Transcripción**, en un audio o un video), con su
+    interruptor. Apagado dice lo que trae la fuente (*"2.340 palabras"*);
+    prendido, cuánto va a quedar y, debajo, **"Ordenarlo con la IA"**,
+    prendido de entrada, con qué IA lo va a hacer (*"Lo ordena Gemini 2.5
+    Flash, en la nube"* o *"Lo ordena Gemma 4 E4B, en el teléfono"*). Ver
+    [El texto, ordenado por la IA](#el-texto-ordenado-por-la-ia).
   - **El resumen, la síntesis y las palabras clave ya no se eligen acá.** Se
     marcan en el original del documento procesado, con la IA o a mano (ver
     [Marcar en el original](#marcar-en-el-original-resumen-síntesis-y-palabras-clave)),
@@ -1845,10 +1866,11 @@ dice el nombre de la fuente, y debajo hay dos grupos:
     los pasajes que querés llevar tal cual.
   - Cada nota y cada fragmento se ve en su lista, con una **X** para quitarlo.
 - **Imágenes**, si la fuente trae (una foto o una captura guardada, las fotos
-  de una página guardada o las de una publicación): arriba dice cuántas trae y
-  cuánto pesan (*"La fuente trae 12 imágenes · 4,3 MB"*), y debajo están **en
-  una grilla de miniaturas**. Tocá una para elegirla (se marca con un tilde y
-  un borde) o volvé a tocarla para soltarla; **"Todas"** las elige todas y
+  de una página guardada o las de una publicación): **plegadas** en una fila
+  que dice cuántas trae, cuánto pesan y cuántas elegiste (*"12 imágenes ·
+  4,3 MB · 3 elegidas"*), con una flecha. Al desplegarla aparecen **en una
+  grilla de miniaturas**; plegarla no suelta lo elegido. Tocá una para
+  elegirla (se marca con un tilde y un borde) o volvé a tocarla para soltarla; **"Todas"** las elige todas y
   **"Ninguna"** las suelta. Arriba de la grilla dice *"3 de 12 elegidas"* y, en
   la sección, cuánto va a ocupar (*"3 imágenes · ocupa 840 kB"*). Con muchas
   fotos se muestran de a 60, con **"Mostrar 40 más"**. Cada imagen que elegís
@@ -1876,11 +1898,44 @@ una parte."*. Si algo falla, la hoja queda abierta con lo que elegiste y dice
 por qué. **"Cancelar"** (o cerrar la hoja) no guarda nada: la fuente sigue en
 la Bandeja.
 
-**Con el teclado**: **1** prende y apaga el texto y **2**, el original (si la
-fuente lo ofrece), **C** abre "Cortar del original", **N** escribe una nota,
-**Ctrl+Enter** es "Listo" y **Escape** cierra. Con la letra al doble o en un
+**Con el teclado**: los números siguen el orden de la hoja: **1** prende y
+apaga el original (si la fuente lo ofrece) y el siguiente, el texto (**2**, o
+**1** si no hay original); **C** abre "Cortar del original", **N** escribe una
+nota, **Ctrl+Enter** es "Listo" y **Escape** cierra. Con la letra al doble o en un
 teléfono angosto, todo se acomoda y se desliza; con "sin animaciones", la hoja
 aparece sin deslizarse.
+
+#### El texto, ordenado por la IA
+
+El texto que la app saca de un PDF, una foto o una transcripción suele venir
+desordenado: renglones cortados, columnas, encabezados y pies que se repiten
+en cada página, palabras partidas con guion. Si traés **"Texto extraído"** con
+**"Ordenarlo con la IA"** prendido, al tocar **"Listo"** la IA de turno (la que
+elegiste en Ajustes › IA y modelos: Gemma en el teléfono o una cuenta en la
+nube) lo **ordena en segundo plano**: une las columnas y los renglones en
+párrafos, saca los encabezados, los pies y los números de página repetidos,
+junta las palabras partidas y deja cada título solo en su renglón. Podés
+seguir usando la app (o salir de ella: sigue con la notificación de siempre);
+**"Lo que hizo la IA"** muestra cómo va, página por página.
+
+**Nunca cambia lo que dice el texto.** Cada pedazo que devuelve la IA se
+compara **palabra por palabra** con la extracción: si inventó, resumió,
+recortó, tradujo o cambió el orden aunque sea una palabra, ese pedazo **queda
+como se extrajo**. Al terminar, un aviso lo dice, con **"Ver"**: *"La IA
+ordenó el texto de «…»"*, *"La IA ordenó 10 de 12 partes de «…». En las demás
+agregó palabras que no estaban, y quedaron como se extrajeron"* o *"El texto
+de «…» quedó como se extrajo: la IA lo reescribió o lo tradujo"*.
+
+- Con un libro trabaja **por partes**, de a una página; si se corta la
+  conexión, se acaba la cuota o se cierra la app, **sigue desde la página en
+  que iba**.
+- Solo ordena lo que sigue siendo de la fuente: **una página que editaste no
+  se toca**, y si la editás mientras la IA trabaja, gana lo tuyo. Lo ordenado
+  queda como una página editada ("Actualizar" no lo pisa).
+- **Va como se extrajo** si apagás la casilla, si la IA no está lista (lo dice,
+  con cómo tenerla) o si el texto ya viene ordenado —una página web, un Word,
+  un EPUB o un Markdown—. "Pasar todo sin modificar" tampoco lo ordena.
+- La fuente de la Biblioteca no cambia: su texto extraído sigue igual.
 
 #### Cortar del original
 
@@ -1949,8 +2004,8 @@ documento como estaba. Si la fuente **no estaba triada** (esperaba en la Bandeja
 o la habías descartado), queda triada —*"Triado y a Procesado: …"*— y
 "Deshacer" la devuelve adonde estaba. Si ya estaba triada, su estado no cambia.
 Si pediste algo que ya estaba, dice *"Sin cambios en Procesado: …"*. Este
-"Deshacer" es el del aviso: la flecha de arriba de la Bandeja deshace las
-decisiones sobre las tarjetas del mazo.
+"Deshacer" es el del aviso: el "Deshacer" de arriba de la Bandeja (el del reloj)
+deshace las decisiones sobre las tarjetas del mazo.
 
 #### Pasar todo sin modificar
 
