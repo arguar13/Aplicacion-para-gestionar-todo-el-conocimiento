@@ -15,6 +15,10 @@
 > **Segunda tanda del 30/10 (mejoras 12 a 16), PARA APROBAR.** Pedido del dueño con siete
 > capturas: *"También quería agregar una mejora…"*. Entra como el paso 7, en la ola 2, después de
 > integrar los pasos 3 y 4: toca las mismas pantallas de Procesado y de la Biblioteca.
+>
+> **Tercera tanda del 30/10 (mejoras 17 a 19), PARA APROBAR.** Pedido del dueño con dos capturas
+> más y las notas en el texto. Entra como los pasos 7c (en la ola 2) y 8 (en la ola 3, sobre el
+> lector y el original ya unificados).
 
 ## Las once mejoras
 
@@ -249,6 +253,71 @@ Hoy (F43): 16 plantillas y 12 diseños de diapositiva; 18 estilos y 10 composici
   sale de la Biblioteca con la mejora 8 es la tarjeta «Estudiar el documento» del **detalle**: sus
   botones viven ahora adentro del original.
 
+## Tercera tanda del 30/10: las mejoras 17 a 19 (para aprobar)
+
+### 17. «49 elementos sin tema», en su lugar (1.ª captura)
+
+- **Hoy:** una tarjeta grande arriba de la lista de la Biblioteca, con el texto que explica y
+  «Ordenarlos». Empuja la lista hacia abajo cada vez que se abre la Biblioteca.
+- **Cambio:**
+  - pasa a ser **una ficha más del panel de estado** de arriba (el de la Bandeja, lo procesado y
+    los vínculos), con su ícono de carpeta tachada y el número: «49 sin tema». Un toque abre la
+    lista para ordenarlos, como hoy;
+  - desplegado, el panel la explica en una línea («Elegiles uno o varios temas: así se encuentran,
+    y aparecen en el Mapa y el Atlas») con «Ordenarlos»;
+  - en **Organizar**, que es donde se ordena, la misma cuenta como una tarea más, con «Ordenarlos»;
+  - en el Mapa ya están, en la burbuja «Sin tema» (F44).
+- Sin nada sin tema, la ficha no se muestra.
+
+### 18. «Volver a triar» y «Volver a la Bandeja», a la vista y ordenados (2.ª)
+
+- **Hoy:** debajo del título de una fuente, «Triado el 10 oct» y dos enlaces sueltos («Volver a
+  la Bandeja» y «Volver a triar»), en dos renglones desparejos. Se pierden.
+- **Cambio, una tarjeta propia, «Bandeja»**, del ancho de la pantalla:
+  - arriba, el estado con su ícono: «✓ Triado el 10 oct» (o «En la Bandeja»);
+  - debajo, **dos botones del mismo alto, uno al lado del otro**:
+    - «Volver a triar», relleno, con su ícono de triar: es lo que más se usa;
+    - «Volver a la Bandeja», con borde y el ícono de la Bandeja (no la flecha de deshacer, que se
+      confunde con «volver»);
+  - en 360 dp con la letra al doble, uno debajo del otro, a lo ancho;
+  - en lo que todavía está en la Bandeja, un solo botón: «Triar ahora».
+
+### 19. Notas en cualquier parte del texto, como en Adobe Reader o en Word
+
+- **Dónde:**
+  - en todos los originales, en la Biblioteca y en Procesado: PDF, libros (EPUB, Word, texto),
+    páginas web y transcripciones;
+  - en el texto extraído, el resumen y la síntesis (el lector único de la mejora 12).
+- **Cómo se pone una:**
+  - se elige un pedazo de texto (o se mantiene apretado un párrafo) y, en la barra que aparece,
+    **«Nota»**;
+  - se escribe en una tarjeta que se abre ahí mismo, con su color (los cinco de resaltar) y
+    «Listo»; se guarda sola mientras se escribe.
+- **Cómo se ve, siempre prolija:**
+  - el pedazo elegido queda con un subrayado fino punteado del color de la nota;
+  - en el margen, a la altura del párrafo, **un globito** con el color de la nota (y un número si
+    hay varias en el mismo renglón), que no tapa el texto;
+  - tocarlo despliega la nota en una tarjeta flotante con sombra suave, la fecha, «Editar»,
+    «Cambiar color», «Copiar» y «Borrar» (con «Deshacer»);
+  - en un PDF, el globito va sobre la página, al costado del renglón, como el ícono de nota de
+    Adobe, y sigue a la página al acercar o alejar;
+  - en una página web, el globito va al costado del párrafo, dentro de la página;
+  - en angosto, el margen se corre: el globito queda al final del renglón, chico.
+- **Para encontrarlas:**
+  - un ícono «Notas (N)» en la barra del documento abre la lista de sus notas, en el orden del
+    texto, con el pedazo citado; tocar una lleva a su lugar y la abre;
+  - la búsqueda de la Biblioteca y el chat también las encuentran (son texto de la persona).
+- **De quién es cada nota:**
+  - la del original de la Biblioteca, de la fuente;
+  - la del original de Procesado, de su copia: nada de uno aparece en el otro (decisión H);
+  - de la Biblioteca nada se borra: las notas se agregan, nunca tocan el documento.
+- **Si el texto cambia** (se vuelve a extraer), cada nota se reubica por el pedazo citado, como
+  los resaltados; si ya no se encuentra, queda en la lista como «Sin lugar», nunca se pierde.
+- **Al descargar marcado** (F38), las notas van como notas del PDF (las que se abren con un
+  toque en cualquier lector) y, en el texto, como notas al pie.
+- Se ve bien en claro y en oscuro, con «sin animaciones» (aparece sin deslizarse), con el lector
+  de pantalla («Nota: …» al pasar por el párrafo) y en 360 dp con la letra al doble.
+
 ## Decisiones (se pueden cambiar mientras no se llegue a su paso)
 
 - **A. La ✕ en todos los avisos**, también en los cortos («Copiado»). Pedido literal: «para que se
@@ -279,6 +348,13 @@ Hoy (F43): 16 plantillas y 12 diseños de diapositiva; 18 estilos y 10 composici
   están y solo alinearlos; no la recomiendo, porque seguirían siendo cuatro lugares.
 - **H. Una sola pantalla de original para Procesado y la Biblioteca**, con lo de cada uno por su
   propia clave, como hoy. La barra es la de la mejora 7.
+- **I. Las notas en una tabla propia, `text_notes`**, para todos los textos. Cada nota guarda a
+  qué texto pertenece (el original de la Biblioteca, la copia de Procesado, el texto procesado o
+  una creación), su lugar, el pedazo citado, la nota y el color. Así se ven y se comportan igual
+  en todos lados. Un resaltado de antes que ya tenía su nota (F38) se muestra con el mismo
+  globito, sin migrarlo. *Alternativa:* guardarlas como resaltados con un estilo «nota»; no la
+  recomiendo, porque los resaltados solo existen sobre los originales, no sobre el resumen ni la
+  síntesis.
 
 ## Pasos (cada uno, su commit y su push)
 
@@ -302,7 +378,12 @@ mutaciones; se integran en `main` de a uno, con su suite, su push y su verificac
 7. **La segunda tanda** (12 a 16, decisiones F a H), en la ola 2, cuando estén los pasos 3 y 4. Lo
    hacen dos agentes:
    - **7a**: el lector único del texto y el desplazamiento (12 y 13);
-   - **7b**: «Crear» en un solo lugar, las marcas adentro y el original idéntico (14, 15 y 16).
+   - **7b**: «Crear» en un solo lugar, las marcas adentro y el original idéntico (14, 15 y 16);
+   - **7c**: «Sin tema» en el panel de estado y en Organizar, y la tarjeta «Bandeja» de una fuente
+     (17 y 18).
+8. **Las notas en el texto** (19, decisión I), en la ola 3, sobre el lector único y el original ya
+   unificados: la tabla con su migración, poner y ver una nota en el lector, en el PDF, en los
+   libros y en la web, la lista «Notas (N)», la búsqueda y el chat, reubicarlas y descargarlas.
 
 ## Lo que no entra (para que quede dicho)
 
