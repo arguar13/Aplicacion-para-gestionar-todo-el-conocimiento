@@ -88,7 +88,10 @@ trabajo en el orden en que los usás**, de izquierda a derecha:
 1. **Biblioteca**: guardás y encontrás todo. Se abre directo.
 2. **Organizar**: una lista con **Bandeja** y **Atlas**, en ese orden.
    Primero revisás lo que entró y después ves qué sabés y qué te falta, por
-   tema. El número de pendientes de la Bandeja se ve en el mismo botón.
+   tema. El número de pendientes de la Bandeja se ve en el mismo botón. Si
+   tenés elementos sin tema, debajo aparece esa tarea —**"49 elementos sin
+   tema"**, con **"Ordenarlos"**—: es donde se ordena (ver
+   [Lo que no tiene tema](#lo-que-no-tiene-tema)).
 3. **Estudiar**: una lista con **Procesado**, **Cuadernos**, **Línea de
    tiempo**, **Mapa** y **Repasar**, en ese orden: todo lo que se estudia
    sale de lo procesado. En **Procesado** tenés lo que sacaste de cada fuente;
@@ -385,17 +388,29 @@ del Tema.
 ### Lo que no tiene tema
 
 Lo nuevo siempre entra con un Tema, pero lo que guardaste antes puede no
-tener ninguno, y la app no lo mueve sola. Mientras quede algo así, arriba de
-la Biblioteca (sin filtros puestos) aparece la tarjeta **"12 elementos sin
-tema"** con el botón **"Ordenarlos"**. Te lleva a **"Lo que no tiene tema"**:
+tener ninguno, y la app no lo mueve sola. Mientras quede algo así, lo ves en
+dos lugares, sin que te empuje la lista hacia abajo:
+
+- **En el panel de arriba de la Biblioteca** (el de la Bandeja, las notas, el
+  vocabulario y las contradicciones), una píldora más con la carpeta tachada:
+  **"49 sin tema"**. Como los demás números, cuenta toda la bóveda, aunque
+  tengas un filtro puesto. Si desplegás el panel (la flecha de la derecha),
+  debajo de los indicadores dice **"49 elementos sin tema"**, para qué
+  ordenarlos (*"Elegiles uno o varios temas: así se encuentran, y aparecen en
+  el Mapa y el Atlas"*) y el botón **"Ordenarlos"**.
+- **En "Organizar"**, el botón de la barra de abajo: la misma cuenta, como
+  una tarea más debajo de la Bandeja y el Atlas, con **"Ordenarlos"**.
+
+(En el Mapa ya están, en la burbuja **"Sin tema"**.) Tocar la píldora o
+**"Ordenarlos"** te lleva a **"Lo que no tiene tema"**:
 
 - marcá los que van juntos (o **"Marcar todos"**);
 - tocá **"Elegir temas para N"**, marcá uno o varios en la hoja y **"Listo"**;
 - los ordenados salen de la lista, y un aviso dice dónde quedaron.
 
-Cuando no queda nada, la lista dice **"Todo tiene tema"**, y la tarjeta
-desaparece de la Biblioteca. También desaparece la columna "Sin clasificar"
-del tablero.
+Cuando no queda nada, la lista dice **"Todo tiene tema"**, y la píldora y la
+tarea desaparecen. También desaparece la columna "Sin clasificar" del
+tablero.
 
 ### El menú de tres puntos de cada elemento
 
@@ -455,13 +470,21 @@ De arriba hacia abajo, vas a encontrar:
    manda a la papelera, no se borra directo). En una nota propia, además,
    armar su bibliografía, generar una nota derivada con IA y generar un
    cuestionario.
-2. **Título** y, si tiene, un subtítulo. Si es una fuente, debajo dice qué
-   decidiste con ella en la Bandeja: **"Triado el 3 oct"** o **"Descartado
-   el…"**, con el botón **"Volver a la Bandeja"** (la devuelve para decidir
-   de nuevo, tenga texto o no; una referencia bibliográfica sin texto no lo
-   ofrece); o **"En la Bandeja"**, con **"Triar ahora"**, que abre la Bandeja
-   con esa fuente arriba de todo. Una fuente que todavía no tiene texto —un
-   audio sin transcribir— ya dice **"En la Bandeja"**: espera ahí su texto.
+2. **Título** y, si tiene, un subtítulo. Si es una fuente, debajo va su
+   tarjeta **"Bandeja"**, a todo lo ancho: arriba, con su ícono, qué decidiste
+   con ella (**"✓ Triado el 3 oct"** o **"Descartado el…"**) y, debajo, dos
+   botones del mismo alto, uno al lado del otro:
+   - **"Volver a triar"**, el relleno, que es el que más se usa (ver
+     [Volver a triar](#volver-a-triar));
+   - **"Volver a la Bandeja"**, con borde y el ícono de la Bandeja: la
+     devuelve para decidir de nuevo, tenga texto o no. Una referencia
+     bibliográfica sin texto no lo ofrece: le queda solo "Volver a triar".
+
+   Con la letra muy grande en un teléfono angosto van uno debajo del otro, a
+   lo ancho. Si la fuente todavía espera, la tarjeta dice **"En la Bandeja"**
+   y tiene un solo botón, **"Triar ahora"**, que abre la Bandeja con esa
+   fuente arriba de todo. Una fuente que todavía no tiene texto —un audio sin
+   transcribir— ya dice **"En la Bandeja"**: espera ahí su texto.
 3. Si es una nota propia: chips para su **madurez** ("Semilla" / "En
    desarrollo" / "Madura" — más sobre esto en
    [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios))
@@ -1979,8 +2002,9 @@ resumen o sacar una parte. Está en cuatro lugares:
   **"Procesado"**. Tocá una para elegirla; Escape cierra sin elegir.
 - En el **documento procesado**, al lado de "Ver el original en la Biblioteca".
 - En el **vacío de Procesado**, si tenés fuentes triadas de antes.
-- En el **detalle de una fuente** ya triada o descartada, al lado de "Volver a
-  la Bandeja". (Las notas propias no lo tienen: no tienen documento procesado.)
+- En el **detalle de una fuente** ya triada o descartada, en su tarjeta
+  "Bandeja", al lado de "Volver a la Bandeja". (Las notas propias no lo
+  tienen: no tienen documento procesado.)
 
 Se abre **la misma hoja "¿Qué va a Procesado?"**, con lo que el documento ya
 tiene. En cada parte que ya tiene algo elegís:
