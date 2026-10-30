@@ -302,15 +302,15 @@ Lo que no se suma, y por qué (para que quede dicho):
   software que se instale en la PC ni en el teléfono.
   - *Alternativa:* dejarlos para después.
 - **H. La velocidad va de 0,5× a 3,0×, sin candados.**
+- **I. El orden:**
+  - F47 va **después de F45 y antes de F46**, porque cambia todas las pantallas de lectura y
+    conviene que el Índice nazca con el marco nuevo.
+  - *Alternativa:* F46 primero, como estaba aprobado.
 - **J. Segundo plano y notificación con `audio_service`.** Arma la sesión de medios de Android (la
   tarjeta, la pantalla de bloqueo, los auriculares y el reloj) para cualquier cosa que suene,
   también la voz del teléfono, que no es un archivo. Es una dependencia nueva del código.
   - *Alternativa:* escribir la sesión de medios a mano en Kotlin (Media3), como el servicio de
     procesar. Es más código propio para lo mismo.
-- **I. El orden:**
-  - F47 va **después de F45 y antes de F46**, porque cambia todas las pantallas de lectura y
-    conviene que el Índice nazca con el marco nuevo.
-  - *Alternativa:* F46 primero, como estaba aprobado.
 
 ## Pasos (cada uno, su commit y su push)
 
