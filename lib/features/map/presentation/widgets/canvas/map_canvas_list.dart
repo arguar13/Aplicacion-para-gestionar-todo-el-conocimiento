@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/map/domain/entities/map_layers.dart';
 import 'package:sinapsis/features/map/domain/services/canvas_tree_builder.dart';
 import 'package:sinapsis/features/map/domain/services/schema_layout.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_tree.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_layers.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_layer_marks.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Cuántas filas tiene la lista, como mucho: más que el dibujo, porque una
@@ -16,13 +18,15 @@ const kMaxCanvasListNodes = 500;
 /// se recorre el Mapa con el lector de pantalla, y con la letra grande.
 ///
 /// Usa el mismo árbol que Radial y Árbol, con lo mismo desplegado: pasar del
-/// dibujo a la lista, o al revés, no pierde nada.
+/// dibujo a la lista, o al revés, no pierde nada. Con la capa «Estudio» (F44,
+/// paso 5), cada documento dice cómo va su estudio ([studyOf]).
 class MapCanvasList extends StatelessWidget {
   const MapCanvasList({
     required this.tree,
     required this.topicKind,
     required this.onToggle,
     required this.sheetOf,
+    this.studyOf,
     super.key,
   });
 
@@ -35,6 +39,9 @@ class MapCanvasList extends StatelessWidget {
   /// Cómo se abre la ficha de una fila (F44, paso 4), con las mismas acciones
   /// que en el dibujo; `null` si no tiene.
   final CanvasTreeSheet? Function(CanvasTreeEntry entry) sheetOf;
+
+  /// Cómo va el estudio de cada documento; `null` con la capa apagada.
+  final MapStudyMark? Function(String itemId)? studyOf;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +65,9 @@ class MapCanvasList extends StatelessWidget {
         topicKind: topicKind,
         onToggle: () => onToggle(rows[index]),
         sheet: sheetOf(rows[index]),
+        study: rows[index].ref.kind == CanvasTreeKind.item
+            ? studyOf?.call(rows[index].ref.id)
+            : null,
       ),
     );
   }
@@ -70,6 +80,7 @@ class _Row extends StatelessWidget {
     required this.topicKind,
     required this.onToggle,
     required this.sheet,
+    this.study,
   });
 
   final CanvasTreeEntry entry;
@@ -77,6 +88,7 @@ class _Row extends StatelessWidget {
   final String topicKind;
   final VoidCallback onToggle;
   final CanvasTreeSheet? sheet;
+  final MapStudyMark? study;
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +102,10 @@ class _Row extends StatelessWidget {
       contentPadding: EdgeInsetsDirectional.only(start: indent, end: 4),
       leading: Icon(treeIconOf(entry), color: accent),
       title: Text(entry.title),
-      subtitle: Text(_subtitle(l10n)),
+      subtitle: Text(switch (study) {
+        final study? => '${_subtitle(l10n)} · ${mapStudyLabel(l10n, study)}',
+        null => _subtitle(l10n),
+      }),
       onTap: entry.canExpand ? onToggle : sheet?.onOpen,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

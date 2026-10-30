@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
 import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_layer_marks.dart';
 
 /// Cuánto se ve lo que queda fuera del vecindario en el modo foco del lienzo
 /// (F44, paso 4, «Centrar aquí»): apagado, no borrado.
@@ -26,7 +27,9 @@ double mapEdgeWidth(double weight) =>
     (1 + 0.7 * math.log(1 + weight)).clamp(1.0, 5.0);
 
 /// El color de una unión: rojo si es una contradicción o junta alguna, el del
-/// tipo de vínculo entre elementos, y un gris tenue entre temas.
+/// tipo de vínculo entre elementos, y un gris tenue entre temas. Una unión
+/// sale marcada en tensión solo con la capa «Contradicciones» (`layeredScene`,
+/// F44, paso 5).
 Color mapEdgeColor(SceneEdge edge, ColorScheme colors) {
   if (edge.tension) return colors.error.withValues(alpha: 0.8);
   final relation = edge.relation;
@@ -141,6 +144,19 @@ class MapEdgesPainter extends CustomPainter {
     for (final MapEntry(:key, :value) in heads.entries) {
       canvas.drawPath(value, Paint()..color = key);
     }
+
+    // Con la capa «Contradicciones» (F44, paso 5), cada unión en tensión
+    // lleva su rayo: se distingue también sin el rojo.
+    paintTensionMarks(
+      canvas,
+      scene,
+      positions,
+      colors,
+      colorOf: (edge) {
+        final color = mapEdgeColor(edge, colors);
+        return mapEdgeLit(lit, edge.a, edge.b) ? color : mapDimmed(color);
+      },
+    );
   }
 
   @override

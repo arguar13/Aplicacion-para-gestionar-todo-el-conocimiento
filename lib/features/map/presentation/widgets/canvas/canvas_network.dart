@@ -2,9 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/map/domain/entities/map_layers.dart';
+import 'package:sinapsis/features/map/domain/services/canvas_layers.dart';
 import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
 import 'package:sinapsis/features/map/domain/services/svg_writer.dart';
 import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_layer_marks.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_edges_painter.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_item_box.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_node_size.dart';
@@ -69,6 +72,7 @@ class MapNetworkNode extends StatelessWidget {
     required this.color,
     required this.labelScale,
     this.highlighted = false,
+    this.study,
     super.key,
   });
 
@@ -82,6 +86,10 @@ class MapNetworkNode extends StatelessWidget {
   /// Si es lo que se pidió mirar: lleva un anillo.
   final bool highlighted;
 
+  /// De un documento, con la capa «Estudio» (F44, paso 5): cómo va su
+  /// estudio.
+  final MapStudyMark? study;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -90,6 +98,7 @@ class MapNetworkNode extends StatelessWidget {
         isNote: node.kind == SceneKind.note,
         label: label,
         highlighted: highlighted,
+        study: study,
       );
     }
 
@@ -161,6 +170,11 @@ class MapNetworkNode extends StatelessWidget {
 /// La red de ahora como un documento SVG: los mismos nodos, colores y uniones
 /// que en pantalla, con todas las etiquetas y a su tamaño natural. Con un foco,
 /// lo que queda fuera de su vecindario [lit] va apagado, como se ve.
+///
+/// Con las capas que estén prendidas (F44, paso 5, decisión G), como se ven:
+/// [scene] ya es lo que dejan a la vista (`layeredScene`), con el rayo de cada
+/// contradicción; [similar], los parecidos con su línea punteada, y
+/// [studyOf], el estudio de cada documento.
 String networkSvg({
   required GraphScene scene,
   required Map<String, Offset> positions,
@@ -170,6 +184,8 @@ String networkSvg({
   required String Function(SceneNode node) labelOf,
   Set<String> highlighted = const {},
   Set<int>? lit,
+  List<MapSimilarLine> similar = const [],
+  MapStudyMark? Function(String itemId)? studyOf,
 }) {
   final svg = SvgWriter(
     width: math.max(canvas.width, 1),
@@ -190,6 +206,22 @@ String networkSvg({
         svg.triangle(head.tip, head.left, head.right, fill: color);
       }
     }
+    if (edge.tension) {
+      writeTensionMarkSvg(svg, a, b, color: color, colors: colors);
+    }
+  }
+
+  for (final line in similar) {
+    final a = positions[scene.nodes[line.a].key];
+    final b = positions[scene.nodes[line.b].key];
+    if (a == null || b == null) continue;
+    writeSimilarSvg(
+      svg,
+      a,
+      b,
+      colors: colors,
+      dimmed: !mapEdgeLit(lit, line.a, line.b),
+    );
   }
 
   for (var i = 0; i < scene.nodes.length; i++) {
@@ -208,6 +240,10 @@ String networkSvg({
         colors: colors,
         highlighted: highlighted.contains(node.key),
         dimmed: dimmed,
+        study: switch (node.ref) {
+          final id? => studyOf?.call(id),
+          null => null,
+        },
       );
       continue;
     }

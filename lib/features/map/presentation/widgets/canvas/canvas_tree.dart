@@ -3,12 +3,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/map/domain/entities/map_layers.dart';
 import 'package:sinapsis/features/map/domain/services/canvas_tree_builder.dart';
 import 'package:sinapsis/features/map/domain/services/schema_layout.dart';
 import 'package:sinapsis/features/map/domain/services/svg_writer.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_canvas_request.dart';
 import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_network.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_layer_marks.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El tamaño de la tarjeta de cada nodo de Radial y Árbol.
@@ -109,10 +111,23 @@ String _itemKindName(AppLocalizations l10n, CanvasTreeEntry entry) {
   return entry.isNote ? l10n.mapSchemaNodeNote : l10n.mapSchemaNodeSource;
 }
 
+/// Lo que se oye de [entry] con la capa «Estudio» (F44, paso 5): lo que es y,
+/// en un documento con [study], cómo va su estudio.
+String treeSemanticsOf(
+  AppLocalizations l10n,
+  CanvasTreeEntry entry,
+  String topicKind, {
+  MapStudyMark? study,
+}) {
+  final kind = treeKindLabel(l10n, entry, topicKind);
+  return study == null ? kind : '$kind · ${mapStudyLabel(l10n, study)}';
+}
+
 /// La tarjeta de un nodo de Radial y Árbol: su ícono, su título y, si tiene
 /// hijos, cómo desplegarlo («›» abre la rama, «‹» la cierra); el botón del
 /// borde abre su ficha (F44, paso 4), con todo lo que se puede hacer con él.
-/// Lo que no se despliega abre la ficha al tocarlo.
+/// Lo que no se despliega abre la ficha al tocarlo. Con la capa «Estudio»
+/// (F44, paso 5), un documento va teñido según sus tarjetas, con su insignia.
 class MapTreeNodeCard extends StatelessWidget {
   const MapTreeNodeCard({
     required this.entry,
@@ -121,6 +136,7 @@ class MapTreeNodeCard extends StatelessWidget {
     this.onSheet,
     this.sheetTooltip,
     this.highlighted = false,
+    this.study,
     super.key,
   });
 
@@ -135,6 +151,9 @@ class MapTreeNodeCard extends StatelessWidget {
   final String? sheetTooltip;
   final bool highlighted;
 
+  /// De un documento, cómo va su estudio; `null` con la capa apagada.
+  final MapStudyMark? study;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -143,6 +162,7 @@ class MapTreeNodeCard extends StatelessWidget {
     final accent = treeAccentOf(entry, colors, theme.brightness);
     final isItem = entry.ref.kind == CanvasTreeKind.item;
     final role = entry.isNote ? EntityRole.note : EntityRole.source;
+    final study = isItem ? this.study : null;
     final hint = !entry.canExpand
         ? null
         : entry.expanded
@@ -151,7 +171,7 @@ class MapTreeNodeCard extends StatelessWidget {
     final strong = entry.expanded || highlighted;
 
     return Semantics(
-      label: treeKindLabel(l10n, entry, topicKind),
+      label: treeSemanticsOf(l10n, entry, topicKind, study: study),
       hint: hint,
       button: true,
       expanded: entry.canExpand ? entry.expanded : null,
@@ -159,7 +179,11 @@ class MapTreeNodeCard extends StatelessWidget {
       onTap: entry.canExpand ? onToggle : onSheet,
       child: Material(
         key: ValueKey('map-tree-node-${entry.key}'),
-        color: isItem ? role.surface(colors) : colors.surfaceContainerHigh,
+        color: study != null
+            ? mapStudyColors(study.state, colors).fill
+            : isItem
+            ? role.surface(colors)
+            : colors.surfaceContainerHigh,
         shape: RoundedRectangleBorder(
           side: BorderSide(
             color: strong ? accent : accent.withValues(alpha: 0.5),
@@ -186,6 +210,10 @@ class MapTreeNodeCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (study != null) ...[
+                  const SizedBox(width: 4),
+                  MapStudyBadge(mark: study),
+                ],
                 if (entry.canExpand)
                   Icon(
                     entry.expanded ? Icons.chevron_left : Icons.chevron_right,
@@ -349,7 +377,8 @@ class MapTreeEdgesPainter extends CustomPainter {
 }
 
 /// El árbol como un documento SVG: las mismas uniones, con su tipo y su
-/// punta, y las mismas tarjetas que en pantalla.
+/// punta, y las mismas tarjetas que en pantalla; con la capa «Estudio» (F44,
+/// paso 5), cada documento teñido y con su insignia ([studyOf]).
 String treeSvg({
   required CanvasTree tree,
   required Map<String, Offset> positions,
@@ -357,6 +386,7 @@ String treeSvg({
   required ColorScheme colors,
   required Brightness brightness,
   required AppLocalizations l10n,
+  MapStudyMark? Function(String itemId)? studyOf,
 }) {
   final svg = SvgWriter(
     width: math.max(canvas.width, 1),
@@ -396,6 +426,7 @@ String treeSvg({
     final isItem = entry.ref.kind == CanvasTreeKind.item;
     final role = entry.isNote ? EntityRole.note : EntityRole.source;
     final accent = treeAccentOf(entry, colors, brightness);
+    final study = isItem ? studyOf?.call(entry.ref.id) : null;
     svg
       ..rect(
         Rect.fromCenter(
@@ -403,17 +434,32 @@ String treeSvg({
           width: kTreeNodeSize.width,
           height: kTreeNodeSize.height,
         ),
-        fill: isItem ? role.surface(colors) : colors.surfaceContainerHigh,
+        fill: study != null
+            ? mapStudyColors(study.state, colors).fill
+            : isItem
+            ? role.surface(colors)
+            : colors.surfaceContainerHigh,
         stroke: entry.expanded ? accent : accent.withValues(alpha: 0.5),
         strokeWidth: entry.expanded ? 2 : 1,
         radius: isItem ? role.radius : 8,
       )
       ..text(
-        SvgWriter.ellipsize(entry.title, 22),
+        SvgWriter.ellipsize(entry.title, study == null ? 22 : 19),
         Offset(at.dx - kTreeNodeSize.width / 2 + 12, at.dy + 4),
         color: colors.onSurface,
         anchor: 'start',
       );
+    if (study != null) {
+      writeStudyBadgeSvg(
+        svg,
+        Offset(
+          at.dx + kTreeNodeSize.width / 2 - 12 - kMapStudyBadgeSize / 2,
+          at.dy,
+        ),
+        study,
+        colors: colors,
+      );
+    }
   }
   return svg.build();
 }
