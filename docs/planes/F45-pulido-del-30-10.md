@@ -556,46 +556,66 @@ Trece commits, de `918ff036` a `d3c1d8de` (mejoras 5, 6 y 7, decisión D).
 
 ### Paso 5 (hecho): el diseño
 
-Mejora 11, en `lib/features/creations` (los commits, en el informe del paso).
+Ocho commits, de `513750fe` a `6d5e5780` (mejora 11, en `lib/features/creations`).
 
-- **Siete de los nombres del plan ya existían desde F43** (Editorial, Suizo,
-  Pizarra, Académica, Acuarela, Neón y Corporativa entre las plantillas;
-  cronología, comparación, cifra destacada y línea de pasos entre los diseños;
-  comparación, panel de cifras y pictograma entre lo de la infografía). En su
-  lugar van otros de su mismo espíritu, con nombre propio, así la cuenta del
-  plan se cumple con cosas nuevas de verdad.
-- **Presentación: +12 plantillas**, con sus seis paletas (el contraste
-  comprobado), su fondo dibujado, su pista para las ilustraciones y la IA que
-  las conoce en «Automática»: Periódico y Tinta (clásicas); Revista, Bauhaus y
-  Brutalista, en una familia nueva, *Gráficas*; Minimal oscuro, Terminal y
-  Art déco (oscuras); Retro, Manuscrito y Pizarra blanca (cálidas), y Plano
-  (de trabajo). Formas nuevas: la portada con cabecera de diario, el panel
-  brutalista, la nota adhesiva, la viñeta «>» y la de las tres figuras, y el
-  título con resaltador (se aclara hasta que el título se lee encima a 4,5:1).
-- **+8 diseños de diapositiva**: cita a toda página, cuadrícula de imágenes,
-  mapa de conceptos, cierre con preguntas, panel de cifras, ciclo, matriz de
-  dos por dos y definición. La IA los conoce; la lectura tolera sus claves en
-  castellano, y uno a medias o mal formado pasa a viñetas sin perder texto.
-  La cuadrícula de imágenes lleva la ilustración de la diapositiva en la
-  primera; las demás las dibuja la app con su ícono (pedir varias por
-  diapositiva cambiaría el costo que se avisa: queda para después).
-- **Personalizar la Presentación**: el fondo —liso, con la textura de la
-  plantilla o en degradé—; liso y degradé sacan los adornos pero no la banda
-  de Ejecutiva, donde va el título en claro. Y diez pares de letras: Diario,
-  Geométrica, Monoespaciada y Carta combinan las familias que ya trae la app
-  (no se sumó ninguna tipografía).
-- **Infografía: +12 estilos** (los mismos nombres, paletas y letras que las
-  plantillas nuevas), con doce texturas, la caja brutalista, la nota adhesiva
-  y la cabecera de diario; **+6 composiciones**: línea de tiempo vertical,
-  tabla comparativa, embudo, ciclo, mapa de temas y estadísticas en mosaico;
-  **+4 gráficos**: columnas, anillos concéntricos, cuadrícula de cien y escala
-  (con su mínimo y el nombre de sus puntas, campos nuevos que la IA conoce y
-  la lectura tolera). Su «personalizar» ya traía colores, letras y fondo: suma
-  los pares nuevos.
-- **Lo guardado se abre igual**: el diseño y el contenido solo suman claves
-  optativas (`background`, `min`, `min_label`, `max_label`); un mazo, un
-  diseño y un gráfico guardados por F43 se leen idénticos, con su prueba. No
-  hace falta migrar nada.
+- **Siete nombres del plan ya existían desde F43**, y no se duplicaron: en su lugar van otros del
+  mismo espíritu, con nombre propio, para que la cuenta se cumpla con cosas nuevas de verdad.
+  - Plantillas: Editorial, Suizo, Pizarra, Académica, Acuarela, Neón y Corporativa.
+  - Diseños: cronología, comparación, cifra destacada y línea de pasos.
+  - Infografía: comparación, panel de cifras y pictograma.
+- **La Presentación, doce plantillas más**, cada una con seis paletas de contraste comprobado, su
+  fondo dibujado y su pista para las ilustraciones. La IA las conoce en «Automática».
+  - Clásicas: Periódico y Tinta.
+  - Una familia nueva, *Gráficas*: Revista, Bauhaus y Brutalista.
+  - Oscuras: Minimal oscuro, Terminal y Art déco.
+  - Cálidas: Retro, Manuscrito y Pizarra blanca.
+  - De trabajo: Plano.
+  - Formas nuevas: la portada con cabecera de diario, el panel brutalista, la nota adhesiva, la
+    viñeta «>», la de las tres figuras y el título con resaltador. El resaltador se aclara hasta
+    que el título se lee encima a 4,5:1.
+- **Ocho diseños de diapositiva más:** cita a toda página, cuadrícula de imágenes, mapa de
+  conceptos, cierre con preguntas, panel de cifras, ciclo, matriz de dos por dos y definición.
+- **Personalizar la Presentación:**
+  - el fondo, liso, con la textura de la plantilla o en degradé. Liso y degradé sacan los adornos,
+    pero no la banda de Ejecutiva, donde va el título en claro;
+  - cuatro pares de letras más (Diario, Geométrica, Monoespaciada y Carta), diez en total. Combinan
+    las familias que ya trae la app: no se sumó ninguna tipografía.
+- **La Infografía:**
+  - doce estilos más, con los nombres, las paletas y las letras de las plantillas nuevas, y doce
+    texturas propias;
+  - seis composiciones más: línea de tiempo vertical, tabla comparativa, embudo, ciclo, mapa de
+    temas y estadísticas en mosaico;
+  - cuatro gráficos más: columnas, anillos concéntricos, cuadrícula de cien y escala, esta con su
+    mínimo y el nombre de sus puntas;
+  - su «Personalizar» ya traía colores, letras y fondo, y suma los pares nuevos.
+- **La IA y la lectura tolerante:**
+  - el pedido explica los diseños y los gráficos nuevos;
+  - la lectura acepta claves y nombres en castellano;
+  - lo que llega a medias o mal formado no se pierde: una diapositiva pasa a viñetas, y un gráfico
+    que los datos no sostienen pasa al de F43 que corresponde;
+  - un cambio de lectura: «columnas» en un pedido de la IA da ahora el gráfico de columnas, no las
+    barras acostadas.
+- **Lo guardado se abre igual:** solo se suman claves optativas (`background`, `min`, `min_label`,
+  `max_label`), así que no hace falta migrar. Un mazo, un diseño y un gráfico guardados por F43 se
+  leen idénticos, con su prueba.
+- **Un arreglo de raíz, la monoespaciada** (`d8f93302`): en las cajas angostas de la infografía el
+  texto se cortaba con «…», porque cada letra ocupa lo de la más ancha. Ahora se achica lo justo
+  (el texto al 86 %, los títulos al 90 %), como la manuscrita ya se agrandaba para pesar lo mismo.
+- **Verificado:**
+  - analyze en 19, sobre `main` con el paso 4 de F44 y el 0 de F47;
+  - 3.704 pruebas de las creaciones, Estudiar, las tarjetas, la app y la base;
+  - los muestrarios dibujan las 28 plantillas con los ocho diseños nuevos, en 16:9 y 4:3, a 360 y
+    a 1280 (el mazo común sin «…», el peor caso sin desbordar y el mazo mínimo), y los 30 estilos
+    de infografía con las composiciones y los gráficos nuevos. El fondo tiene pruebas de píxeles,
+    y las hojas se prueban a 360 dp con la letra al doble, en claro y en oscuro, con la semántica;
+  - murieron las 17 mutaciones. Dos sobrevivieron en la primera vuelta y se reforzaron las pruebas
+    (el nombre de cada fondo y los gráficos del pedido).
+- **Queda para después:**
+  - en la cuadrícula de imágenes, solo la primera usa la ilustración de la diapositiva; las demás
+    las dibuja la app con su ícono. Pedir una por imagen cambiaría el costo que se avisa antes de
+    generar;
+  - el ciclo y la escala se probaron solo con dobles, no contra una IA de verdad;
+  - no se miró en el emulador ni en el teléfono.
 
 ### Paso 7c (hecho): «sin tema» y la tarjeta «Bandeja»
 
