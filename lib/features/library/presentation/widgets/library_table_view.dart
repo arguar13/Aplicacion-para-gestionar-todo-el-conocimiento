@@ -22,9 +22,13 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// se muestran sin flecha de orden en vez de fingir un ordenamiento que no
 /// existe.
 class LibraryTableView extends ConsumerWidget {
-  const LibraryTableView({required this.items, super.key});
+  const LibraryTableView({required this.items, this.controller, super.key});
 
   final List<KnowledgeItem> items;
+
+  /// El desplazamiento de arriba abajo, el de las filas: la Biblioteca lo
+  /// vuelve al principio tras «Ver N resultados».
+  final ScrollController? controller;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -51,6 +55,7 @@ class LibraryTableView extends ConsumerWidget {
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: SingleChildScrollView(
+        controller: controller,
         child: DataTable(
           sortColumnIndex: sortColumnIndex,
           sortAscending: !query.descending,
@@ -126,8 +131,7 @@ class LibraryTableView extends ConsumerWidget {
 /// Los temas de [item] por su nombre, en orden alfabético (F37: puede tener
 /// varios), o una raya si no tiene ninguno.
 String _spaceNamesOf(KnowledgeItem item, Map<String, String> spaceNames) {
-  final names = [
-    for (final id in item.spaceIds) ?spaceNames[id],
-  ]..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  final names = [for (final id in item.spaceIds) ?spaceNames[id]]
+    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
   return names.isEmpty ? '—' : names.join(', ');
 }

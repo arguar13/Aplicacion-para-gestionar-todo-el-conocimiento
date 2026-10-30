@@ -43,6 +43,15 @@ final libraryItemsProvider = StreamProvider.autoDispose
       return ref.watch(libraryRepositoryProvider).watch(query);
     });
 
+/// Cuántos elementos cumplen una consulta, contados en la base sin traerlos y
+/// actualizándose solos: el pie «Ver N resultados» del panel de filtros (F47,
+/// mejora 21). Es el total, sin paginar —ver `LibraryRepository.count`—: lo que
+/// se ve al recorrer la lista entera.
+final libraryCountProvider = StreamProvider.autoDispose
+    .family<int, LibraryQuery>((ref, query) {
+      return ref.watch(libraryRepositoryProvider).watchCount(query);
+    });
+
 /// Lo que no está en ningún tema (F37), lo más nuevo primero: la lista para
 /// ordenarlo.
 const unsortedItemsQuery = LibraryQuery(withoutSpaces: true);

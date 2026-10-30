@@ -56,9 +56,23 @@ class _ProcessedScreenState extends ConsumerState<ProcessedScreen> {
   ProcessedQuery? _lastLoadedQuery;
   List<ProcessedDocumentSummary> _lastLoaded = const [];
 
+  /// El desplazamiento de la lista: «Ver N resultados», en el panel de
+  /// filtros, la deja desde arriba (F47, mejora 21) —ver `LibraryScreen`—.
+  final _resultsScroll = ScrollController();
+
   bool _isMorePageOf(ProcessedQuery query) {
     final last = _lastLoadedQuery;
     return last != null && last.copyWith(limit: query.limit) == query;
+  }
+
+  @override
+  void dispose() {
+    _resultsScroll.dispose();
+    super.dispose();
+  }
+
+  void _showResultsFromTop() {
+    if (_resultsScroll.hasClients) _resultsScroll.jumpTo(0);
   }
 
   void _enterSelectionMode(String id) => setState(() {
@@ -127,7 +141,10 @@ class _ProcessedScreenState extends ConsumerState<ProcessedScreen> {
                   ListSearchRow.height +
                       (currentSpace == null ? 0 : CurrentSpaceChip.extent),
                 ),
-                child: _SearchAndFilters(currentSpace: currentSpace),
+                child: _SearchAndFilters(
+                  currentSpace: currentSpace,
+                  onShowResults: _showResultsFromTop,
+                ),
               ),
             ),
       body: isLoadingMore
@@ -156,6 +173,7 @@ class _ProcessedScreenState extends ConsumerState<ProcessedScreen> {
         if (!_selectionModeActive) const ForeignVideoTextsBanner.processed(),
         Expanded(
           child: ListView.separated(
+            controller: _resultsScroll,
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
             itemCount: list.length,
             separatorBuilder: (context, index) => const SizedBox(height: 8),
@@ -274,9 +292,16 @@ class _SortButton extends ConsumerWidget {
 /// La búsqueda y, mientras se esté parado en un tema, el chip que lo dice:
 /// lo mismo que en la Biblioteca.
 class _SearchAndFilters extends ConsumerWidget {
-  const _SearchAndFilters({required this.currentSpace});
+  const _SearchAndFilters({
+    required this.currentSpace,
+    required this.onShowResults,
+  });
 
   final Space? currentSpace;
+
+  /// Mostrar la lista desde arriba, al cerrar el panel con «Ver N
+  /// resultados».
+  final VoidCallback onShowResults;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -290,10 +315,13 @@ class _SearchAndFilters extends ConsumerWidget {
         (query.withOriginal ? 1 : 0) +
         (query.spaceId == null ? 0 : 1);
 
-    void openFilters() => showListFiltersSheet(
-      context,
-      builder: (context) => const _FiltersSheet(),
-    );
+    Future<void> openFilters() async {
+      final showResults = await showListFiltersSheet(
+        context,
+        builder: (context) => const _FiltersSheet(),
+      );
+      if (showResults) onShowResults();
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -334,6 +362,10 @@ class _FiltersSheet extends ConsumerWidget {
 
     return ListFiltersSheet(
       onClear: notifier.hasActiveFilters ? notifier.clearFilters : null,
+      // Lo que va a mostrar la lista, con lo buscado: contado en la base,
+      // sin armar ningún documento.
+      results: ref.watch(processedCountProvider(query)),
+      narrowed: query.hasSearchText || notifier.hasActiveFilters,
       children: [
         FilterSectionLabel(l10n.libraryFilterSpaceLabel),
         const SizedBox(height: 8),

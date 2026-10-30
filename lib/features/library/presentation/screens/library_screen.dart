@@ -98,9 +98,26 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   LibraryQuery? _lastLoadedQuery;
   List<KnowledgeItem> _lastLoadedItems = const [];
 
+  /// El desplazamiento de la lista —o de la tabla—: «Ver N resultados», en el
+  /// panel de filtros, la deja desde arriba (F47, mejora 21).
+  final _resultsScroll = ScrollController();
+
   bool _isMorePageOf(LibraryQuery query) {
     final last = _lastLoadedQuery;
     return last != null && last.copyWith(limit: query.limit) == query;
+  }
+
+  @override
+  void dispose() {
+    _resultsScroll.dispose();
+    super.dispose();
+  }
+
+  /// Lo que se ve después de «Ver N resultados»: la lista desde el primero.
+  /// Si un filtro cambió, la lista ya se armó de nuevo desde arriba —pasó por
+  /// «cargando»—; esto cubre el panel que se cerró sin cambiar nada.
+  void _showResultsFromTop() {
+    if (_resultsScroll.hasClients) _resultsScroll.jumpTo(0);
   }
 
   @override
@@ -244,7 +261,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 preferredSize: Size.fromHeight(
                   _SearchAndFilters.heightFor(currentSpace: currentSpace),
                 ),
-                child: _SearchAndFilters(currentSpace: currentSpace),
+                child: _SearchAndFilters(
+                  currentSpace: currentSpace,
+                  onShowResults: _showResultsFromTop,
+                ),
               ),
             ),
       floatingActionButton: _selectionModeActive
@@ -300,6 +320,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         Expanded(
           child: switch (_viewMode) {
             LibraryViewMode.list => _ItemList(
+              controller: _resultsScroll,
               items: list,
               citations: _citations,
               selectionMode: _selectionModeActive,
@@ -307,7 +328,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               onLongPressItem: _enterSelectionMode,
               onSelectedChanged: _setSelected,
             ),
-            LibraryViewMode.table => LibraryTableView(items: list),
+            LibraryViewMode.table => LibraryTableView(
+              items: list,
+              controller: _resultsScroll,
+            ),
             LibraryViewMode.kanban => LibraryKanbanView(items: list),
             LibraryViewMode.calendar => LibraryCalendarView(items: list),
           },
@@ -555,11 +579,18 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 class _SearchAndFilters extends ConsumerWidget {
-  const _SearchAndFilters({required this.currentSpace});
+  const _SearchAndFilters({
+    required this.currentSpace,
+    required this.onShowResults,
+  });
 
   /// El tema en el que está parada la biblioteca, si hay uno: se muestra
   /// debajo de la búsqueda —ver [build]—.
   final Space? currentSpace;
+
+  /// Lo que hace la pantalla cuando el panel se cierra con «Ver N
+  /// resultados»: mostrar la lista desde arriba.
+  final VoidCallback onShowResults;
 
   /// El alto que ocupa, que la barra de arriba necesita saber antes de
   /// construirla (`PreferredSize`): la fila de la búsqueda siempre, y la del
@@ -617,11 +648,12 @@ class _SearchAndFilters extends ConsumerWidget {
     );
   }
 
-  Future<void> _showFilters(BuildContext context, List<Tag> tags) {
-    return showListFiltersSheet(
+  Future<void> _showFilters(BuildContext context, List<Tag> tags) async {
+    final showResults = await showListFiltersSheet(
       context,
       builder: (context) => _FiltersSheet(tags: tags),
     );
+    if (showResults) onShowResults();
   }
 }
 
@@ -646,6 +678,11 @@ class _FiltersSheet extends ConsumerWidget {
 
     return ListFiltersSheet(
       onClear: notifier.hasActiveFilters ? notifier.clearFilters : null,
+      // Lo que va a mostrar la lista: con lo buscado también, que acota
+      // aunque no sea un filtro del panel —y lo que traiga una vista
+      // guardada, que puede acotar por propiedades—.
+      results: ref.watch(libraryCountProvider(query)),
+      narrowed: query.isFiltered,
       children: [
         // Arriba de todo, a pedido del usuario: el tema es la forma
         // principal de recortar la biblioteca. A diferencia de las
@@ -721,6 +758,7 @@ class _FiltersSheet extends ConsumerWidget {
 
 class _ItemList extends StatelessWidget {
   const _ItemList({
+    required this.controller,
     required this.items,
     required this.citations,
     required this.selectionMode,
@@ -729,6 +767,7 @@ class _ItemList extends StatelessWidget {
     required this.onSelectedChanged,
   });
 
+  final ScrollController controller;
   final List<KnowledgeItem> items;
   final Map<String, SearchCitation> citations;
   final bool selectionMode;
@@ -740,6 +779,7 @@ class _ItemList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
+      controller: controller,
       // Sitio para que el botón flotante no tape la última fila, y aire a
       // los costados: cada fila es su propia tarjeta, no un renglón que
       // ocupa el ancho completo hasta el borde de la pantalla.

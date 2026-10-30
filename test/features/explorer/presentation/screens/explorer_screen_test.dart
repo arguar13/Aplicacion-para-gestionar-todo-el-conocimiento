@@ -47,6 +47,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Toca [chip] del panel, desplazándolo antes hasta verlo: las últimas
+  /// secciones pueden quedar debajo del pie «Ver N resultados», que se queda
+  /// fijo (F47, mejora 21).
+  Future<void> tapInFilters(WidgetTester tester, Finder chip) async {
+    await tester.ensureVisible(chip);
+    await tester.pumpAndSettle();
+    await tester.tap(chip);
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('sin nada procesado todavía, explica qué va a aparecer acá', (
     tester,
   ) async {
@@ -87,7 +97,7 @@ void main() {
 
     await pumpExplorer(tester);
     await openFilters(tester);
-    await tester.tap(find.text('Filosofía'));
+    await tapInFilters(tester, find.text('Filosofía'));
     await closeFilters(tester);
 
     expect(find.text('sobre epistemología'), findsOneWidget);
@@ -139,7 +149,7 @@ void main() {
 
     await pumpExplorer(tester);
     await openFilters(tester);
-    await tester.tap(find.text('Roma'));
+    await tapInFilters(tester, find.text('Roma'));
     await closeFilters(tester);
 
     expect(find.text('sobre las tácticas de César'), findsOneWidget);

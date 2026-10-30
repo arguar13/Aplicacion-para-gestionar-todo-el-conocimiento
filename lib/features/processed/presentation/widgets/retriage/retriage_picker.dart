@@ -90,9 +90,31 @@ class _RetriagePickerState extends ConsumerState<RetriagePicker> {
   LibraryQuery? _lastLoadedQuery;
   List<KnowledgeItem> _lastLoaded = const [];
 
+  /// El de la lista si el selector no trae uno —el de la hoja que lo
+  /// contiene—: «Ver N resultados», en sus filtros, la deja desde arriba
+  /// (F47, mejora 21).
+  ScrollController? _ownScroll;
+
+  ScrollController get _scroll =>
+      widget.scrollController ?? (_ownScroll ??= ScrollController());
+
   bool _isMorePageOf(LibraryQuery query) {
     final last = _lastLoadedQuery;
     return last != null && last.copyWith(limit: query.limit) == query;
+  }
+
+  @override
+  void dispose() {
+    _ownScroll?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openFilters() async {
+    final showResults = await showListFiltersSheet(
+      context,
+      builder: (_) => const _PickerFilters(),
+    );
+    if (showResults && _scroll.hasClients) _scroll.jumpTo(0);
   }
 
   @override
@@ -136,10 +158,7 @@ class _RetriagePickerState extends ConsumerState<RetriagePicker> {
           hintText: l10n.processedRetriagePickerSearchHint,
           onChanged: notifier.search,
           activeFilterCount: activeFilterCount,
-          onOpenFilters: () => showListFiltersSheet(
-            context,
-            builder: (_) => const _PickerFilters(),
-          ),
+          onOpenFilters: _openFilters,
         ),
         Expanded(
           child: isLoadingMore
@@ -174,7 +193,7 @@ class _RetriagePickerState extends ConsumerState<RetriagePicker> {
     final canLoadMore = query.limit != null && list.length >= query.limit!;
 
     return ListView.separated(
-      controller: widget.scrollController,
+      controller: _scroll,
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
       // La explicación, el resultado y el pie, en la misma lista: con la
       // letra grande, lo fijo arriba es solo el título y el buscador.
@@ -376,6 +395,9 @@ class _PickerFilters extends ConsumerWidget {
 
     return ListFiltersSheet(
       onClear: notifier.hasActiveFilters ? notifier.clearFilters : null,
+      // Lo mismo que se le pide a la lista —solo fuentes—, contado en la base.
+      results: ref.watch(libraryCountProvider(retriageCandidatesOf(query))),
+      narrowed: query.isFiltered,
       children: [
         FilterSectionLabel(l10n.libraryFilterSpaceLabel),
         const SizedBox(height: 8),

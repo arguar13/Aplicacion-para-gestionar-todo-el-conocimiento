@@ -15058,5 +15058,13 @@
   "f45S4SourceTextNote": "Changes the source text: the one search, chat and links use. What you extract again or strip of timestamps reaches this document on its own: what you edited by hand stays, and what the AI had tidied is tidied again. Letting go of the text doesn't touch this document.",
   "@f45S4SourceTextNote": {"description": "F45, paso 4: arriba de la hoja «El texto de la fuente», en Procesado: qué cambia y qué llega al documento."},
   "f45S4SourceTextReextractStarted": "Extracting the source text again; it reaches this document on its own as soon as it's ready.",
-  "@f45S4SourceTextReextractStarted": {"description": "F45, paso 4: el aviso al volver a extraer desde «El texto de la fuente» de un documento procesado."}
+  "@f45S4SourceTextReextractStarted": {"description": "F45, paso 4: el aviso al volver a extraer desde «El texto de la fuente» de un documento procesado."},
+  "f47P0FiltersShowResults": "{count, plural, =1{Show 1 result} other{Show {count} results}}",
+  "@f47P0FiltersShowResults": {"description": "El pie del panel de filtros (F47, paso 0): el botón que lo cierra y deja a la vista la lista, con cuántos resultados quedan con lo elegido.", "placeholders": {"count": {"type": "int"}}},
+  "f47P0FiltersShowAll": "Show all ({count})",
+  "@f47P0FiltersShowAll": {"description": "El pie del panel de filtros (F47, paso 0), sin ningún filtro ni búsqueda: el botón que lo cierra, con cuántos hay en total.", "placeholders": {"count": {"type": "int"}}},
+  "f47P0FiltersCounting": "Show results",
+  "@f47P0FiltersCounting": {"description": "El pie del panel de filtros (F47, paso 0) mientras cuenta lo que queda con lo elegido: sin cifra."},
+  "f47P0FiltersNoResults": "No results",
+  "@f47P0FiltersNoResults": {"description": "El pie del panel de filtros (F47, paso 0) cuando nada pasa lo elegido: el botón, apagado."}
 }

@@ -11,6 +11,7 @@ import 'package:sinapsis/features/explorer/presentation/providers/explorer_provi
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
+import 'package:sinapsis/features/library/presentation/widgets/list_controls.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_filter_section.dart';
 import 'package:sinapsis/features/organize/presentation/open_organized_item.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
@@ -27,11 +28,26 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// carpeta, sin el paso extra de crearla ni el riesgo de dejar algo "sin
 /// archivar" en ningún lado. El tipo de recurso, que antes era la única
 /// subdivisión automática, ahora es un filtro más entre otros.
-class ExplorerScreen extends ConsumerWidget {
+class ExplorerScreen extends ConsumerStatefulWidget {
   const ExplorerScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ExplorerScreen> createState() => _ExplorerScreenState();
+}
+
+class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
+  /// El desplazamiento de la lista: «Ver N resultados», en el panel de
+  /// filtros, la deja desde arriba (F47, mejora 21) —ver `LibraryScreen`—.
+  final _resultsScroll = ScrollController();
+
+  @override
+  void dispose() {
+    _resultsScroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final query = ref.watch(explorerQueryNotifierProvider);
     final notifier = ref.read(explorerQueryNotifierProvider.notifier);
@@ -112,6 +128,7 @@ class ExplorerScreen extends ConsumerWidget {
     }
 
     return ListView.separated(
+      controller: _resultsScroll,
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
       itemCount: items.length,
       separatorBuilder: (context, index) => const SizedBox(height: 8),
@@ -125,16 +142,15 @@ class ExplorerScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _showFilters(BuildContext context) {
-    return showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      // Sin esto, el panel queda topeado a la mitad de la pantalla aunque
-      // haya de sobra más abajo: con muchas categorías puestas, ese tope
-      // fijo es lo que obligaría a desplazarse antes de lo necesario.
-      isScrollControlled: true,
+  /// El panel, con el marco de la Biblioteca (`list_controls.dart`): el
+  /// mismo alto, el mismo «Limpiar filtros» y el mismo pie «Ver N
+  /// resultados», que lo cierra y muestra la lista desde arriba.
+  Future<void> _showFilters(BuildContext context) async {
+    final showResults = await showListFiltersSheet(
+      context,
       builder: (context) => const _ExplorerFiltersSheet(),
     );
+    if (showResults && _resultsScroll.hasClients) _resultsScroll.jumpTo(0);
   }
 }
 
@@ -150,7 +166,6 @@ class _ExplorerFiltersSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
     final query = ref.watch(explorerQueryNotifierProvider);
     final notifier = ref.read(explorerQueryNotifierProvider.notifier);
     // Tema no va en las categorías: sus valores YA se muestran como
@@ -164,91 +179,74 @@ class _ExplorerFiltersSheet extends ConsumerWidget {
     ];
     final tags = ref.watch(allTagsProvider).valueOrNull ?? const <Tag>[];
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return ListFiltersSheet(
+      onClear: notifier.hasActiveFilters ? notifier.clearFilters : null,
+      // Lo que va a mostrar la lista —lo procesado y listo, con lo elegido—,
+      // contado en la base. Sin nada elegido, todo lo que el Explorador
+      // muestra: lo procesado y listo no es un filtro.
+      results: ref.watch(libraryCountProvider(query)),
+      narrowed: notifier.hasActiveFilters,
+      children: [
+        // Arriba de todo, como en la Biblioteca: la misma sección, para
+        // que filtrar por tema se vea y se use igual en las dos.
+        FilterSectionLabel(l10n.libraryFilterSpaceLabel),
+        const SizedBox(height: 8),
+        SpaceFilterSection(
+          selectedSpaceId: query.spaceId,
+          onChanged: notifier.selectSpace,
+        ),
+        const SizedBox(height: 20),
+        FilterSectionLabel(l10n.libraryFilterTypeLabel),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.libraryFiltersTooltip,
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-                if (notifier.hasActiveFilters)
-                  TextButton(
-                    onPressed: notifier.clearFilters,
-                    child: Text(l10n.libraryClearFilters),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Arriba de todo, como en la Biblioteca: la misma sección, para
-            // que filtrar por tema se vea y se use igual en las dos.
-            _FilterSectionLabel(l10n.libraryFilterSpaceLabel),
-            const SizedBox(height: 8),
-            SpaceFilterSection(
-              selectedSpaceId: query.spaceId,
-              onChanged: notifier.selectSpace,
-            ),
-            const SizedBox(height: 20),
-            _FilterSectionLabel(l10n.libraryFilterTypeLabel),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final kind in SourceKind.values)
-                  FilterChip(
-                    avatar: Icon(kind.icon, size: 18),
-                    label: Text(kind.label(l10n)),
-                    selected: query.sourceKinds.contains(kind),
-                    onSelected: (_) => notifier.toggleSourceKind(kind),
-                  ),
-              ],
-            ),
-            // Sin ninguna categoría creada todavía, esta sección no tiene
-            // qué mostrar: ver la nota análoga sobre etiquetas más abajo.
-            if (definitions.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              _FilterSectionLabel(l10n.explorerFilterPropertiesLabel),
-              const SizedBox(height: 8),
-              for (final definition in definitions)
-                _PropertyDefinitionFilter(
-                  definition: definition,
-                  selectedValueIds: query.propertyValueIds,
-                  onToggle: notifier.togglePropertyValueId,
-                ),
-            ],
-            // Sin nada en el vocabulario todavía, esta sección no tiene qué
-            // mostrar: ocuparía lugar para decir "no hay etiquetas por las
-            // que filtrar", que no es información que alguien necesite ver
-            // siempre.
-            if (tags.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              _FilterSectionLabel(l10n.libraryFilterTagsLabel),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final tag in tags)
-                    FilterChip(
-                      avatar: const Icon(Icons.label_outline, size: 18),
-                      label: Text(tag.name),
-                      selected: query.tagIds.contains(tag.id),
-                      onSelected: (_) => notifier.toggleTagId(tag.id),
-                    ),
-                ],
+            for (final kind in SourceKind.values)
+              FilterChip(
+                avatar: Icon(kind.icon, size: 18),
+                label: Text(kind.label(l10n)),
+                selected: query.sourceKinds.contains(kind),
+                onSelected: (_) => notifier.toggleSourceKind(kind),
               ),
-            ],
           ],
         ),
-      ),
+        // Sin ninguna categoría creada todavía, esta sección no tiene
+        // qué mostrar: ver la nota análoga sobre etiquetas más abajo.
+        if (definitions.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          FilterSectionLabel(l10n.explorerFilterPropertiesLabel),
+          const SizedBox(height: 8),
+          for (final definition in definitions)
+            _PropertyDefinitionFilter(
+              definition: definition,
+              selectedValueIds: query.propertyValueIds,
+              onToggle: notifier.togglePropertyValueId,
+            ),
+        ],
+        // Sin nada en el vocabulario todavía, esta sección no tiene qué
+        // mostrar: ocuparía lugar para decir "no hay etiquetas por las
+        // que filtrar", que no es información que alguien necesite ver
+        // siempre.
+        if (tags.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          FilterSectionLabel(l10n.libraryFilterTagsLabel),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tag in tags)
+                FilterChip(
+                  avatar: const Icon(Icons.label_outline, size: 18),
+                  label: Text(tag.name),
+                  selected: query.tagIds.contains(tag.id),
+                  onSelected: (_) => notifier.toggleTagId(tag.id),
+                ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
@@ -305,25 +303,6 @@ class _PropertyDefinitionFilter extends ConsumerWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FilterSectionLabel extends StatelessWidget {
-  const _FilterSectionLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Text(
-      text.toUpperCase(),
-      style: theme.textTheme.labelMedium?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
-        letterSpacing: 0.5,
       ),
     );
   }
