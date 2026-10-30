@@ -43,9 +43,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// - **Sin «Estudiar el documento»** (F43, decisión J): el resumen, la
 ///   síntesis y las palabras clave se marcan en el original y se extraen en
 ///   Repasar. Lo que el documento ya trajo como sección se ve en ellas.
-/// - **Sus secciones**, plegables y en el orden en que se leen, cada una con
-///   sus partes editables. Se recorren las que el documento tiene: una
-///   sección nueva entra sola.
+/// - **Sus secciones**, en el orden en que se leen. **El texto, el resumen y
+///   la síntesis** se abren en el marco de lectura, el mismo de «Lo creado»
+///   (F45, mejora 12; F47, paso 1: `ProcessedReaderScreen`), y se editan
+///   desde su ⋮; las demás se despliegan acá, con sus partes editables. Se
+///   recorren las que el documento tiene: una sección nueva entra sola.
 /// - **«En Repasar»** (F43, M6), al empezar lo de estudiar: lo creado con el
 ///   documento —también lo que lo usó como fuente desde un cuaderno o un
 ///   tema—, sus tarjetas para hoy con «Empezar» y «Crear en Repasar», con el
@@ -63,7 +65,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   queda lo que no crea nada: «Descargar con lo marcado» y «Borrar la copia
 ///   del original».
 /// - **Escuchar**: el botón flotante lee el documento entero, como en el
-///   detalle de un elemento, empezando por la página del texto que se mira.
+///   detalle de un elemento —desde la página que se editó por última vez—;
+///   cada sección se escucha en su lector, con «Escuchar».
 ///
 /// Nunca trae el texto entero a la pantalla: el texto se pide de a una página
 /// y lo demás de a tandas, sección por sección.
@@ -203,7 +206,6 @@ class _DocumentBodyState extends ConsumerState<_DocumentBody> {
               key: Key('processed-section-${section.name}'),
               document: document,
               section: section,
-              readable: readable,
             ),
             const SizedBox(height: 12),
           ],

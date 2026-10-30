@@ -1,23 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
-import 'package:sinapsis/core/design/reading_scroll_physics.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_contents_sheet.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La vista de lectura para destilar: el texto de una fuente para leerlo con
@@ -33,11 +37,17 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// documento procesado: se cuentan y se listan esas, junto con las notas
 /// sueltas que se sacaron antes, que quedan donde estaban.
 ///
-/// Se lee en voz alta con el lector flotante (F25): el texto entero, con la
-/// línea que se lee en amarillo.
+/// Es **el marco de lectura** de una nota, una referencia o cualquier texto
+/// de la Biblioteca (F47, paso 1): ←, Contenido, IA, Aa y ⋮ arriba, el título
+/// grande con cuántas notas salieron, el texto en la columna de lectura con
+/// la letra de «Apariencia» y la física de la plataforma —se lee de corrido,
+/// no se pasan hojas (F45, mejora 13)—, y abajo la barra de extraer y el
+/// lugar del reproductor: «Escuchar» lee el texto entero, con la línea que
+/// suena del color de «Resaltado de lectura». Sin el botón flotante.
 ///
-/// Puede abrirse ya parada en un fragmento —desde una nota extraída—: [jump] es
-/// `[start, end)` del texto, y ahí baja la vista y lo marca un momento.
+/// Puede abrirse ya parada en un fragmento —desde una tarjeta, una nota
+/// extraída, una cita del chat: «ir al pasaje»—: [jump] es `[start, end)` del
+/// texto, y ahí baja la vista y lo marca un momento.
 class ReadingScreen extends ConsumerStatefulWidget {
   const ReadingScreen({required this.itemId, this.jump, super.key});
 
@@ -62,9 +72,15 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
     final l10n = AppLocalizations.of(context)!;
     final item = ref.watch(libraryItemProvider(widget.itemId)).valueOrNull;
 
+    final appearance = ref.watch(readingAppearanceProvider);
     if (item == null) {
-      return Scaffold(
-        appBar: AppBar(),
+      return ReadingFrame(
+        info: ReadingDocumentInfo(
+          title: '',
+          kindLabel: l10n.f47P1KindText,
+          kindIcon: Icons.notes_outlined,
+        ),
+        showTitle: false,
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -98,68 +114,95 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
                   .valueOrNull ??
               const <ProcessedPart>[];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: Text(
-                l10n.readingExtractedCount(
-                  extracted.length + processedNotes.length,
-                ),
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-            ),
-          ),
-        ],
+    final extractedCount = extracted.length + processedNotes.length;
+    final theme = Theme.of(context);
+    return ReadingFrame(
+      key: const Key('reading-screen'),
+      info: ReadingDocumentInfo(
+        title: item.title,
+        kindLabel: item.source.kind.label(l10n),
+        subtitle: l10n.readingExtractedCount(extractedCount),
+        kindIcon: item.source.kind.icon,
       ),
+      contents: [
+        ReadingContentsSection(
+          key: const Key('reading-screen-detail'),
+          title: l10n.f47P1ContentsDocument,
+          entries: [
+            ReadingOutlineEntry(
+              key: const Key('reading-screen-open-detail'),
+              label: l10n.readingOpenDetail,
+              onSelected: () =>
+                  unawaited(context.push(RoutePaths.itemDetail(item.id))),
+            ),
+            if (processedId != null)
+              ReadingOutlineEntry(
+                key: const Key('reading-screen-open-processed'),
+                label: l10n.f47P1OpenProcessed,
+                onSelected: () => unawaited(
+                  context.push(RoutePaths.processedDocument(processedId)),
+                ),
+              ),
+          ],
+        ),
+      ],
       body: rendition == null
           ? _NoText(item: item)
-          : ReadableRegion(
-              document: ref.watch(_readableProvider(item.id)),
-              child: SingleChildScrollView(
-                physics: const ReadingScrollPhysics(),
-                padding: const EdgeInsets.all(24),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        HighlightableText(
-                          itemId: item.id,
-                          renditionId: rendition.id,
-                          content: rendition.content,
-                          controller: _controller,
-                          initialJump: widget.jump,
-                          markdown: extractedTextIsMarkdown(item.source),
-                        ),
-                        if (extracted.isNotEmpty || processedNotes.isNotEmpty)
-                          _ExtractedList(
-                            relations: extracted,
-                            processedId: processedId,
-                            processedNotes: processedNotes,
-                            renditionId: rendition.id,
-                            content: rendition.content,
-                            onGoTo: (start, end) =>
-                                _controller.jumpTo(start: start, end: end),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ReadableRegion(
+                    document: ref.watch(_readableProvider(item.id)),
+                    // La física de la plataforma: se lee de corrido (F45,
+                    // mejora 13).
+                    child: SingleChildScrollView(
+                      padding: readingColumnPadding(
+                        context,
+                      ).copyWith(top: 8, bottom: 24),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: readingColumnWidth,
                           ),
-                      ],
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              HighlightableText(
+                                itemId: item.id,
+                                renditionId: rendition.id,
+                                content: rendition.content,
+                                controller: _controller,
+                                initialJump: widget.jump,
+                                markdown: extractedTextIsMarkdown(item.source),
+                                baseStyle: appearance.bodyStyle(theme),
+                                playingColor: appearance.highlight.color,
+                              ),
+                              if (extracted.isNotEmpty ||
+                                  processedNotes.isNotEmpty)
+                                _ExtractedList(
+                                  relations: extracted,
+                                  processedId: processedId,
+                                  processedNotes: processedNotes,
+                                  renditionId: rendition.id,
+                                  content: rendition.content,
+                                  onGoTo: (start, end) => _controller.jumpTo(
+                                    start: start,
+                                    end: end,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                // La barra fija de extraer, arriba del lugar del reproductor:
+                // con un fragmento seleccionado, sus acciones.
+                _SelectionBar(controller: _controller),
+              ],
             ),
-      // Barra de abajo del Scaffold y no un hijo más del cuerpo: los avisos —
-      // "Nota creada" con su "Ver"— se apoyan encima de ella en vez de tapar
-      // el botón, y extraer varios fragmentos seguidos no se traba.
-      // El lector flotante se para encima de la barra, sin tapar sus
-      // botones (F25).
-      bottomNavigationBar: rendition == null
-          ? null
-          : ReadAloudClearance(child: _SelectionBar(controller: _controller)),
     );
   }
 }
@@ -194,53 +237,52 @@ class _SelectionBar extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
+    // Sin borde seguro propio: va arriba del lugar del reproductor del
+    // marco, que lo pone.
     return Material(
       color: theme.colorScheme.surfaceContainerHigh,
       elevation: 3,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: ListenableBuilder(
-            listenable: controller,
-            builder: (context, _) {
-              if (!controller.hasSelection) {
-                return Text(
-                  l10n.readingSelectHint,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: controller.extractSelection,
-                      icon: const Icon(Icons.content_cut),
-                      label: Text(l10n.detailExtractSelection),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: controller.highlightSelection,
-                    icon: const Icon(Icons.highlight),
-                    label: Text(l10n.detailHighlightSelection),
-                  ),
-                  const SizedBox(width: 8),
-                  // Solo el ícono: con tres acciones con texto la barra no
-                  // entra en un teléfono. El menú de selección la dice con
-                  // palabras.
-                  IconButton.outlined(
-                    onPressed: controller.createFlashcardFromSelection,
-                    icon: const Icon(Icons.style_outlined),
-                    tooltip: l10n.flashcardsFromSelection,
-                  ),
-                ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: ListenableBuilder(
+          listenable: controller,
+          builder: (context, _) {
+            if (!controller.hasSelection) {
+              return Text(
+                l10n.readingSelectHint,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
               );
-            },
-          ),
+            }
+            return Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: controller.extractSelection,
+                    icon: const Icon(Icons.content_cut),
+                    label: Text(l10n.detailExtractSelection),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: controller.highlightSelection,
+                  icon: const Icon(Icons.highlight),
+                  label: Text(l10n.detailHighlightSelection),
+                ),
+                const SizedBox(width: 8),
+                // Solo el ícono: con tres acciones con texto la barra no
+                // entra en un teléfono. El menú de selección la dice con
+                // palabras.
+                IconButton.outlined(
+                  onPressed: controller.createFlashcardFromSelection,
+                  icon: const Icon(Icons.style_outlined),
+                  tooltip: l10n.flashcardsFromSelection,
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

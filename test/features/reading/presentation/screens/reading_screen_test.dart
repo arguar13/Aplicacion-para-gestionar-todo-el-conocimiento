@@ -195,8 +195,18 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Por dónde va el texto: el primer desplazamiento vertical —arriba está la
+  /// fila de IA del marco, que se desplaza de costado (F47, paso 1)—.
   double scrollOffset(WidgetTester tester) => tester
-      .state<ScrollableState>(find.byType(Scrollable).first)
+      .state<ScrollableState>(
+        find
+            .byWidgetPredicate(
+              (widget) =>
+                  widget is Scrollable &&
+                  widget.axisDirection == AxisDirection.down,
+            )
+            .first,
+      )
       .position
       .pixels;
 

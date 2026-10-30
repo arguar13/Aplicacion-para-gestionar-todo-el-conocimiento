@@ -30,6 +30,8 @@ import 'package:sinapsis/features/processed/domain/usecases/drop_original_copy.d
 import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_reader_screen.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_section_edit_screen.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/trash/presentation/screens/trash_screen.dart';
@@ -65,6 +67,33 @@ void main() {
 
   Finder section(ProcessedSection section) =>
       find.byKey(Key('processed-section-${section.name}'));
+
+  /// Lo que se ve en el lector de texto, todo junto.
+  String shown(WidgetTester tester) => [
+    for (final rich in tester.widgetList<RichText>(find.byType(RichText)))
+      rich.text.toPlainText(),
+  ].join('\n');
+
+  /// Abre [section] del documento en el marco de lectura (F45, mejora 12;
+  /// F47, paso 1): tocar la sección lo abre.
+  Future<void> read(WidgetTester tester, ProcessedSection section) async {
+    final tile = find.byKey(Key('processed-read-${section.name}'));
+    await tester.ensureVisible(tile);
+    await tester.pumpAndSettle();
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(find.byType(ProcessedReaderScreen), findsOneWidget);
+  }
+
+  /// Desde el lector de [section], ⋮ «Editar»: la edición de siempre.
+  Future<void> edit(WidgetTester tester, ProcessedSection section) async {
+    await read(tester, section);
+    await tester.tap(find.byKey(const Key('reading-frame-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('processed-reader-edit')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProcessedSectionEditScreen), findsOneWidget);
+  }
 
   group('la fuente', () {
     testWidgets('«Ver el original en la Biblioteca» abre la fuente', (
@@ -144,21 +173,31 @@ void main() {
         lessThan(tester.getTopLeft(section(ProcessedSection.notes)).dy),
       );
       expect(find.text('Una idea mía'), findsOneWidget);
-      // El texto, plegado: no se pidió a la base.
+      // El texto no se trae a esta pantalla: lo trae el lector.
       expect(find.text(text), findsNothing);
 
-      await tester.tap(find.text(es.processedSectionText));
-      await tester.pumpAndSettle();
-      expect(find.text(text), findsOneWidget);
+      await read(tester, ProcessedSection.text);
+      expect(shown(tester), contains(text));
     });
 
-    testWidgets('solo con el texto, el texto se abre desplegado', (
+    testWidgets('el texto se abre en el marco de lectura, el mismo de «Lo '
+        'creado», rotulado «Texto · N páginas» (F45, mejora 12)', (
       tester,
     ) async {
       final id = await harness.processTextAndNotes('roma');
       await open(tester, id);
 
-      expect(find.text(text), findsOneWidget);
+      await read(tester, ProcessedSection.text);
+      expect(find.byKey(const Key('reading-frame')), findsOneWidget);
+      expect(find.byKey(const Key('extract-viewer-full_text')), findsOneWidget);
+      expect(
+        find.text(
+          '${es.processedSectionText} · ${es.processedPageCount(1)}'
+              .toUpperCase(),
+        ),
+        findsOneWidget,
+      );
+      expect(shown(tester), contains(text));
     });
 
     testWidgets('el resumen se ve con sus oraciones', (tester) async {
@@ -171,14 +210,16 @@ void main() {
       await open(tester, id);
 
       expect(section(ProcessedSection.summary), findsOneWidget);
-      expect(find.text('César cruzó el Rubicón.'), findsOneWidget);
       expect(find.text(es.studySentenceCount(1)), findsOneWidget);
+      await read(tester, ProcessedSection.summary);
+      expect(shown(tester), contains('César cruzó el Rubicón.'));
     });
 
     testWidgets('editar una parte la guarda, dice «con cambios tuyos» en la '
         'sección y «Deshacer» la devuelve', (tester) async {
       final id = await harness.processTextAndNotes('roma');
       await open(tester, id);
+      await edit(tester, ProcessedSection.text);
 
       await tester.tap(find.byTooltip(es.processedPartMenu));
       await tester.pumpAndSettle();
@@ -193,17 +234,36 @@ void main() {
 
       expect(find.text('La república cayó.'), findsOneWidget);
       expect(find.text(es.processedPartEdited), findsOneWidget);
-      expect(find.textContaining(es.processedEditedCount(1)), findsOneWidget);
 
       await tester.tap(find.text(es.trashUndo));
       await tester.pumpAndSettle();
       expect(find.text(text), findsOneWidget);
       expect(find.text(es.processedPartEdited), findsNothing);
+
+      // Lo editado se ve en el lector y en la sección al volver: es una
+      // vista viva.
+      await tester.tap(find.byTooltip(es.processedPartMenu));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.processedPartEdit));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('processed-part-editor')),
+        'La república cayó.',
+      );
+      await tester.tap(find.text(es.processedPartSave));
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(shown(tester), contains('La república cayó.'));
+      await tester.tap(find.byKey(const Key('reading-frame-back')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining(es.processedEditedCount(1)), findsOneWidget);
     });
 
     testWidgets('una parte vacía no se guarda', (tester) async {
       final id = await harness.processTextAndNotes('roma');
       await open(tester, id);
+      await edit(tester, ProcessedSection.text);
 
       await tester.tap(find.byTooltip(es.processedPartMenu));
       await tester.pumpAndSettle();
@@ -298,11 +358,11 @@ void main() {
       await harness.saveTextSource('libro', title: 'Libro', text: long);
     });
 
-    testWidgets('se ve una página, se pasa a la siguiente y se salta a una', (
-      tester,
-    ) async {
+    testWidgets('al editarlo, se ve una página, se pasa a la siguiente y se '
+        'salta a una', (tester) async {
       final id = await harness.processTextAndNotes('libro');
       await open(tester, id);
+      await edit(tester, ProcessedSection.text);
 
       expect(
         find.textContaining('Oración número 0 del libro.'),
@@ -363,6 +423,7 @@ void main() {
     testWidgets('el salto no acepta una página que no existe', (tester) async {
       final id = await harness.processTextAndNotes('libro');
       await open(tester, id);
+      await edit(tester, ProcessedSection.text);
 
       await tester.tap(find.byKey(const Key('processed-page-of')));
       await tester.pumpAndSettle();
@@ -515,20 +576,13 @@ void main() {
       expect(readable.offers(ReadScope.synthesis), isFalse);
       // Cada pedazo, en su parte: así se resalta en su lugar.
       expect(readable.segments.map((s) => s.sourceKey).toSet(), hasLength(2));
-      expect(find.byKey(const Key('processed-listen-summary')), findsOneWidget);
-      // El texto, desplegado, no lleva «Escuchar» (F45, paso 4): lo lee el
-      // lector flotante, que ya lo ofrece entero.
-      await tester.tap(find.text(es.processedSectionText));
-      await tester.pumpAndSettle();
-      expect(find.text(text), findsWidgets);
-      expect(find.byKey(const Key('processed-listen-all')), findsNothing);
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('processed-section-text')),
-          matching: find.text(es.studyListen),
-        ),
-        findsNothing,
-      );
+      // Las secciones no llevan su «Escuchar»: un solo dictado de voz, el
+      // del lector de cada una (F45, mejora 12).
+      expect(find.byKey(const Key('processed-listen-summary')), findsNothing);
+      expect(find.text(es.studyListen), findsNothing);
+      await read(tester, ProcessedSection.summary);
+      expect(find.byKey(const Key('reading-listen')), findsOneWidget);
+      expect(find.byKey(const Key('read-aloud-button')), findsNothing);
     });
   });
 
@@ -541,7 +595,10 @@ void main() {
       await open(tester, id);
 
       expect(find.text(es.processedDocumentInTrash), findsOneWidget);
-      expect(find.text(text), findsOneWidget);
+      await read(tester, ProcessedSection.text);
+      expect(shown(tester), contains(text));
+      await tester.tap(find.byKey(const Key('reading-frame-back')));
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const Key('processed-restore')));
       await tester.pumpAndSettle();
@@ -588,18 +645,9 @@ void main() {
         find.byType(ListView),
         const Offset(0, -200),
       );
-      await tester.ensureVisible(find.text(es.processedSectionText));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(es.processedSectionText));
-      await tester.pumpAndSettle();
-      await tester.dragUntilVisible(
-        find.byKey(const Key('processed-page-of')),
-        find.byType(ListView),
-        const Offset(0, -200),
-      );
-
+      await read(tester, ProcessedSection.text);
       expect(tester.takeException(), isNull);
-      expect(find.byKey(const Key('processed-page-of')), findsOneWidget);
+      expect(shown(tester), contains('Oración número 0 del libro.'));
     });
 
     testWidgets('uno que no existe lo dice', (tester) async {
