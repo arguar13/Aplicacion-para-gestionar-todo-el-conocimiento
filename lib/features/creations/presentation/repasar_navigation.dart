@@ -39,6 +39,13 @@ void openScopeReview(BuildContext context, CreationScope scope) {
   );
 }
 
+/// Abre las tarjetas de [scope] para estudiarlas: lo que hace la fila
+/// «Tarjetas de repaso» de «Lo creado» (M10). Por ahora es la sesión de
+/// Repasar acotada a ellas —lo de hoy, o «Practicar igual» si hoy no toca
+/// ninguna—; el visor con estilo Anki (M13) entra cambiando solo esto.
+void openScopeCards(BuildContext context, CreationScope scope) =>
+    openScopeReview(context, scope);
+
 /// Abre el visor de [creation].
 void openCreation(BuildContext context, StudyCreation creation) =>
     unawaited(context.push(RoutePaths.creation(creation.id)));

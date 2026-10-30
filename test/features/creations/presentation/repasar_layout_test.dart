@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/design/app_theme_choice.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 
+import '../../../support/processed_rows.dart';
 import 'repasar_harness.dart';
 
 /// Repasar nuevo (F43, paso 6) en un teléfono de 360 dp con la letra al
@@ -25,6 +27,16 @@ void main() {
       cards: 3,
     );
     await harness.processed('p-2', 'Génesis', cards: 1);
+    // Con el resumen y la síntesis marcados: sus filas en «Lo creado» (M10).
+    await insertProcessedRows(
+      harness.library.database,
+      id: 'p-3',
+      title: 'Éxodo — Comentario de Alonso, con notas y la síntesis entera',
+      parts: const {
+        ProcessedSection.summary: ['Moisés guía al pueblo.'],
+        ProcessedSection.synthesis: ['El mar se abre.'],
+      },
+    );
     await harness.container
         .read(flashcardRepositoryProvider)
         .create(itemId: 'p-2', front: '¿Otra?', back: 'Sí');

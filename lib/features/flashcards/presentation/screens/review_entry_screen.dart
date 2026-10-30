@@ -12,6 +12,7 @@ import 'package:sinapsis/features/creations/presentation/widgets/creation_custom
 import 'package:sinapsis/features/creations/presentation/widgets/creation_kind_grid.dart';
 import 'package:sinapsis/features/creations/presentation/widgets/creation_scope_picker.dart';
 import 'package:sinapsis/features/creations/presentation/widgets/creation_tile.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/scope_holdings.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
@@ -28,10 +29,13 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// - **el selector** de sobre qué se estudia —todo lo procesado, un
 ///   documento, un cuaderno o un tema, nunca la Biblioteca—, que manda en toda
 ///   la pantalla;
-/// - **«Para hoy»**, compacto, con «Empezar»;
 /// - **las diez tarjetas de crear**, que abren su hoja de personalizar;
-/// - **«Lo creado»** sobre lo elegido, lo más nuevo arriba;
-/// - **abajo**, «Mis tarjetas» y «Estadísticas».
+/// - **«Lo creado»** sobre lo elegido: primero lo que el recorte ya tenía
+///   —sus tarjetas, su resumen y su síntesis marcados (M10)— y después lo
+///   creado, lo más nuevo arriba;
+/// - **«Para hoy»**, compacto, con «Empezar» y «Mis tarjetas» (M14, decisión
+///   K): lo de crear y lo creado quedan juntos, y el repaso del día justo
+///   después.
 ///
 /// Va todo en una sola lista que se desplaza: con letra grande o en un
 /// teléfono chico nada queda fijo ocupando la pantalla, ni se corta.
@@ -193,16 +197,6 @@ class _ReviewEntryScreenState extends ConsumerState<ReviewEntryScreen> {
                         scope: scope,
                         onTap: () => unawaited(_chooseScope(scope)),
                       ),
-                      const SizedBox(height: 12),
-                      ReviewTodayStrip(
-                        scope: studyScope,
-                        onStart: () => _start(studyScope),
-                        onPractice: () => _start(studyScope, practice: true),
-                        onResetScope: () => chooseRepasarScope(
-                          ref,
-                          const CreationScope.allProcessed(),
-                        ),
-                      ),
                       const SizedBox(height: 20),
                       CreationKindGrid(
                         onOpen: (kind) => unawaited(
@@ -219,35 +213,20 @@ class _ReviewEntryScreenState extends ConsumerState<ReviewEntryScreen> {
                   ),
                 ),
                 _Created(scope: scope),
+                // El repaso del día, justo después de lo de crear y lo creado
+                // (decisión K), con «Mis tarjetas» adentro.
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
                   sliver: SliverToBoxAdapter(
-                    child: OverflowBar(
-                      alignment: MainAxisAlignment.center,
-                      spacing: 8,
-                      overflowSpacing: 8,
-                      overflowAlignment: OverflowBarAlignment.center,
-                      children: [
-                        OutlinedButton.icon(
-                          key: const Key('review-entry-cards'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 48),
-                          ),
-                          onPressed: () => unawaited(context.push(kRouteCards)),
-                          icon: const Icon(Icons.style_outlined),
-                          label: Text(l10n.reviewEntryMyCards),
-                        ),
-                        OutlinedButton.icon(
-                          key: const Key('review-entry-stats'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 48),
-                          ),
-                          onPressed: () =>
-                              unawaited(context.push(kRouteReviewStats)),
-                          icon: const Icon(Icons.insights_outlined),
-                          label: Text(l10n.reviewEntryStats),
-                        ),
-                      ],
+                    child: ReviewTodayStrip(
+                      scope: studyScope,
+                      onStart: () => _start(studyScope),
+                      onPractice: () => _start(studyScope, practice: true),
+                      onResetScope: () => chooseRepasarScope(
+                        ref,
+                        const CreationScope.allProcessed(),
+                      ),
+                      onMyCards: () => unawaited(context.push(kRouteCards)),
                     ),
                   ),
                 ),
@@ -298,7 +277,10 @@ class _CreatedHeader extends StatelessWidget {
   }
 }
 
-/// Lo creado sobre el recorte elegido, lo más nuevo arriba.
+/// Lo creado sobre el recorte elegido: arriba, lo que el recorte ya tenía
+/// (M10); después, las creaciones, lo más nuevo arriba. Las dos partes están
+/// al día: marcar el resumen en el original, sumar una tarjeta o crear algo
+/// aparece solo.
 class _Created extends ConsumerWidget {
   const _Created({required this.scope});
 
@@ -309,7 +291,9 @@ class _Created extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final creations = ref.watch(studyCreationsProvider(scope));
+    final summary = ref.watch(creationScopeSummaryProvider(scope));
     final list = creations.valueOrNull;
+    final held = summary.valueOrNull;
 
     Widget line(String text, {Key? key, bool error = false}) => SliverPadding(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
@@ -333,7 +317,15 @@ class _Created extends ConsumerWidget {
           ? line(l10n.f43StudioCreatedFailedLoad, error: true)
           : const SliverToBoxAdapter(child: SizedBox(height: 48));
     }
-    if (list.isEmpty) {
+    // Si las cifras del recorte fallan, lo creado se ve igual; mientras
+    // llegan, no se dice «vacío» antes de tiempo.
+    if (held == null && summary.isLoading) {
+      return const SliverToBoxAdapter(child: SizedBox(height: 48));
+    }
+    final holdings = held == null
+        ? const <ScopeHolding>[]
+        : scopeHoldingsOf(held, list);
+    if (list.isEmpty && holdings.isEmpty) {
       return line(
         l10n.f43StudioCreatedEmpty,
         key: const Key('repasar-created-empty'),
@@ -344,8 +336,10 @@ class _Created extends ConsumerWidget {
       padding: const EdgeInsets.only(top: 4),
       sliver: SliverList.builder(
         key: const Key('repasar-created'),
-        itemCount: list.length,
-        itemBuilder: (context, index) => CreationTile(creation: list[index]),
+        itemCount: holdings.length + list.length,
+        itemBuilder: (context, index) => index < holdings.length
+            ? ScopeHoldingTile(holding: holdings[index], summary: held!)
+            : CreationTile(creation: list[index - holdings.length]),
       ),
     );
   }

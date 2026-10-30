@@ -4,13 +4,13 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/creation_scope_picker.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_limits_provider.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/my_cards_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
-import 'package:sinapsis/features/flashcards/presentation/screens/review_stats_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
@@ -171,23 +171,79 @@ void main() {
       expect(find.byKey(const Key('review-entry')), findsOneWidget);
     });
 
-    testWidgets('«Mis tarjetas» y «Estadísticas» llevan a sus rutas', (
-      tester,
-    ) async {
+    testWidgets('«Mis tarjetas» va adentro de «Para hoy», al lado de '
+        '«Empezar», y lleva a su pantalla (M14)', (tester) async {
       await addCards(items['Roma']!, ['¿Uno?']);
       await openEntry(tester);
 
-      await tester.ensureVisible(find.byKey(const Key('review-entry-cards')));
+      final today = find.byKey(const Key('review-entry-today'));
+      final cards = find.byKey(const Key('review-entry-cards'));
+      final start = find.byKey(const Key('review-entry-start'));
+      expect(find.descendant(of: today, matching: cards), findsOneWidget);
+      expect(tester.widget(cards), isA<OutlinedButton>());
+      // En una fila, a la izquierda de «Empezar».
+      expect(tester.getCenter(cards).dy, tester.getCenter(start).dy);
+      expect(tester.getCenter(cards).dx, lessThan(tester.getCenter(start).dx));
+      // La fila de abajo, con «Estadísticas», ya no está.
+      expect(find.byKey(const Key('review-entry-stats')), findsNothing);
+
+      await tester.ensureVisible(cards);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('review-entry-cards')));
+      await tester.tap(cards);
       await tester.pumpAndSettle();
       expect(find.byType(MyCardsScreen), findsOneWidget);
+    });
 
-      tester.state<NavigatorState>(find.byType(Navigator).last).pop();
+    testWidgets('sin nada para hoy, «Mis tarjetas» sigue en la franja', (
+      tester,
+    ) async {
+      await openEntry(tester);
+
+      expect(find.byKey(const Key('review-entry-start')), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('review-entry-today')),
+          matching: find.byKey(const Key('review-entry-cards')),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('en 360 dp con la letra al doble, los dos botones bajan uno '
+        'debajo del otro, «Empezar» arriba, sin desbordar', (tester) async {
+      await addCards(items['Roma']!, ['¿Uno?']);
+      await harness.openRepasar(
+        tester,
+        size: const Size(360, 1600),
+        textScale: 2,
+      );
+      final cards = find.byKey(const Key('review-entry-cards'));
+      final start = find.byKey(const Key('review-entry-start'));
+      // Con la letra al doble, «Para hoy» queda abajo de todo: se baja hasta
+      // verlo entero.
+      await tester.scrollUntilVisible(
+        cards,
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const Key('review-entry')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('review-entry-stats')));
-      await tester.pumpAndSettle();
-      expect(find.byType(ReviewStatsScreen), findsOneWidget);
+
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getTopLeft(start).dy,
+        lessThan(tester.getTopLeft(cards).dy),
+      );
+      final strip = tester.getRect(find.byKey(const Key('review-entry-today')));
+      for (final button in [cards, start]) {
+        final rect = tester.getRect(button);
+        expect(rect.left, greaterThanOrEqualTo(strip.left));
+        expect(rect.right, lessThanOrEqualTo(strip.right));
+      }
     });
   });
 
@@ -258,7 +314,14 @@ void main() {
       await tester.tap(find.byKey(const Key('creation-scope-tab-document')));
       await tester.pumpAndSettle();
 
-      expect(find.text(es.f43StudioCards(2)), findsOneWidget);
+      // En la hoja: debajo, «Lo creado» también dice sus tarjetas (M10).
+      expect(
+        find.descendant(
+          of: find.byType(CreationScopePicker),
+          matching: find.text(es.f43StudioCards(2)),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('un cuaderno: lo procesado que tiene', (tester) async {
