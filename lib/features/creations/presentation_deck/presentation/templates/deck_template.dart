@@ -26,6 +26,13 @@ enum BulletMark {
 
   /// Una píldora redondeada, de color.
   pill,
+
+  /// El «>» de una terminal, en la letra de las cifras (F45).
+  prompt,
+
+  /// Un círculo, un cuadrado y un triángulo que se turnan, cada uno de su
+  /// color, como un afiche de la Bauhaus (F45).
+  shape,
 }
 
 /// Cómo se ve un panel: la caja de una columna, una tarjeta, un paso.
@@ -56,6 +63,14 @@ enum PanelLook {
 
   /// La superficie con un doble filete (Pergamino).
   framed,
+
+  /// Un borde grueso del color del texto y una sombra dura, corrida, sin
+  /// desenfoque (Brutalista, F45).
+  block,
+
+  /// Una nota adhesiva teñida del acento, un poco torcida y con su cinta
+  /// arriba (Manuscrito, F45).
+  note,
 }
 
 /// Cómo se arma la portada (y, con la misma idea, el cierre).
@@ -80,6 +95,10 @@ enum CoverLook {
 
   /// Una banda oscura a la izquierda con el título, y el resto en claro.
   sidebar,
+
+  /// La cabecera de un diario: el rótulo entre filetes de lado a lado y el
+  /// título enorme debajo, con la bajada como copete (Periódico, F45).
+  masthead,
 }
 
 /// Cómo se arma el comienzo de una parte.
@@ -145,10 +164,14 @@ enum TitleLook {
 
   /// Con un resplandor de su color.
   glow,
+
+  /// Con un trazo de resaltador del acento detrás del comienzo del título
+  /// (F45).
+  highlight,
 }
 
-/// Una plantilla de presentación (F43): su letra, sus seis paletas, su fondo
-/// y cómo compone cada diseño de diapositiva.
+/// Una plantilla de presentación (F43, y las doce de F45): su letra, sus
+/// seis paletas, su fondo y cómo compone cada diseño de diapositiva.
 ///
 /// No dibuja nada sola: es la receta que leen `SlideView` y sus diseños. El
 /// fondo lo pinta `DeckBackgroundPainter` según [id].

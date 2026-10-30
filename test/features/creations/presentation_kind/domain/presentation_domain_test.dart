@@ -251,6 +251,11 @@ void main() {
       expect(task, contains('unas 4 diapositivas'));
       expect(task, contains('"template"'));
       expect(task, contains('paper_cut'));
+      // Las veintiocho, también las de F45: la IA no elige una que no
+      // conoce, y no sugiere una que la app no tiene.
+      for (final id in DeckTemplateId.values) {
+        expect(task, contains('${id.id} ('), reason: id.id);
+      }
 
       final chosen = PresentationOptions.of(const {
         CreationOptionValues.template: 'neon',

@@ -5,12 +5,14 @@ import 'package:sinapsis/features/creations/presentation_deck/domain/deck_design
 import 'package:sinapsis/features/creations/presentation_deck/presentation/templates/deck_style.dart';
 import 'package:sinapsis/features/creations/presentation_deck/presentation/templates/deck_template.dart';
 import 'package:sinapsis/features/creations/presentation_deck/presentation/templates/deck_templates.dart';
+import 'package:sinapsis/features/creations/presentation_deck/presentation/widgets/slide_parts.dart';
 
-/// Las dieciséis plantillas (F43): cada una la suya, con seis paletas que se
-/// leen bien, y entre todas usan cada forma de componer.
+/// Las veintiocho plantillas (las dieciséis de F43 y las doce de F45): cada
+/// una la suya, con seis paletas que se leen bien, y entre todas usan cada
+/// forma de componer y cada par de letras.
 void main() {
-  test('son dieciséis, en el orden de sus nombres', () {
-    expect(DeckTemplates.all, hasLength(16));
+  test('son veintiocho, en el orden de sus nombres', () {
+    expect(DeckTemplates.all, hasLength(28));
     for (final id in DeckTemplateId.values) {
       expect(DeckTemplates.of(id).id, id);
     }
@@ -70,6 +72,39 @@ void main() {
     });
   });
 
+  test('la nota adhesiva y el resaltador (F45) dejan leer el texto encima, '
+      'en todas las paletas', () {
+    for (final template in DeckTemplates.all) {
+      for (final (i, palette) in template.palettes.indexed) {
+        final where = '${template.id.id}, paleta ${i + 1}';
+        final note = DeckPanel.noteColor(palette);
+        expect(
+          CreationContrast.ratio(palette.text, note),
+          greaterThanOrEqualTo(7),
+          reason: '$where: el texto de la nota',
+        );
+        expect(
+          CreationContrast.ratio(palette.muted, note),
+          greaterThanOrEqualTo(4.5),
+          reason: '$where: el tenue de la nota',
+        );
+        final mark = SlideTitle.highlightOf(palette);
+        expect(
+          CreationContrast.ratio(palette.text, mark),
+          greaterThanOrEqualTo(4.5),
+          reason: '$where: el título sobre el resaltador',
+        );
+        expect(mark, isNot(palette.background), reason: where);
+      }
+    }
+    // En Manuscrito la nota se ve de color: no es la superficie lisa.
+    for (final palette in DeckTemplates.of(
+      DeckTemplateId.manuscript,
+    ).palettes) {
+      expect(DeckPanel.noteColor(palette), isNot(palette.surfaceOnBackground));
+    }
+  });
+
   test('ninguna plantilla es igual a otra', () {
     final recipes = {
       for (final t in DeckTemplates.all)
@@ -84,10 +119,10 @@ void main() {
           t.art,
         ),
     };
-    expect(recipes, hasLength(16));
+    expect(recipes, hasLength(DeckTemplates.all.length));
     expect(
       DeckTemplates.all.map((t) => t.palettes.first).toSet(),
-      hasLength(16),
+      hasLength(DeckTemplates.all.length),
     );
   });
 

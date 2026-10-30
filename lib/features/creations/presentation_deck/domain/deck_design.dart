@@ -2,28 +2,42 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'deck_design.freezed.dart';
 
-/// Las cinco familias de plantillas (F43, «Plantillas → Presentación»).
-enum DeckTemplateFamily { classic, modern, dark, warm, business }
+/// Las familias de plantillas: las cinco de F43 («Plantillas →
+/// Presentación») y las gráficas de F45, de afiche y de revista.
+enum DeckTemplateFamily { classic, modern, graphic, dark, warm, business }
 
-/// Las dieciséis plantillas, en el orden en que se muestran. [id] es lo que
-/// se guarda.
+/// Las veintiocho plantillas —las dieciséis de F43 y las doce de F45—, en el
+/// orden en que se muestran: cada familia junta. [id] es lo que se guarda;
+/// el orden, no, así que una nueva entra donde va su familia.
 enum DeckTemplateId {
   editorial('editorial', DeckTemplateFamily.classic),
   parchment('parchment', DeckTemplateFamily.classic),
   academic('academic', DeckTemplateFamily.classic),
+  newspaper('newspaper', DeckTemplateFamily.classic),
+  ink('ink', DeckTemplateFamily.classic),
   swiss('swiss', DeckTemplateFamily.modern),
   bento('bento', DeckTemplateFamily.modern),
   aurora('aurora', DeckTemplateFamily.modern),
   glass('glass', DeckTemplateFamily.modern),
+  magazine('magazine', DeckTemplateFamily.graphic),
+  bauhaus('bauhaus', DeckTemplateFamily.graphic),
+  brutalist('brutalist', DeckTemplateFamily.graphic),
   midnight('midnight', DeckTemplateFamily.dark),
   neon('neon', DeckTemplateFamily.dark),
   chalkboard('chalkboard', DeckTemplateFamily.dark),
+  darkMinimal('dark_minimal', DeckTemplateFamily.dark),
+  terminal('terminal', DeckTemplateFamily.dark),
+  artDeco('art_deco', DeckTemplateFamily.dark),
   watercolor('watercolor', DeckTemplateFamily.warm),
   pastel('pastel', DeckTemplateFamily.warm),
   paperCut('paper_cut', DeckTemplateFamily.warm),
+  retro('retro', DeckTemplateFamily.warm),
+  manuscript('manuscript', DeckTemplateFamily.warm),
+  whiteboard('whiteboard', DeckTemplateFamily.warm),
   corporate('corporate', DeckTemplateFamily.business),
   data('data', DeckTemplateFamily.business),
-  executive('executive', DeckTemplateFamily.business);
+  executive('executive', DeckTemplateFamily.business),
+  blueprint('blueprint', DeckTemplateFamily.business);
 
   const DeckTemplateId(this.id, this.family);
 

@@ -7,8 +7,9 @@ import 'package:sinapsis/features/creations/presentation_deck/presentation/widge
 import '../support/deck_widget_harness.dart';
 import '../support/sample_decks.dart';
 
-/// La galería de plantillas (F43): las dieciséis en sus familias, cada una
-/// con una muestra en vivo del propio mazo, y elegir una cambia el diseño.
+/// La galería de plantillas (F43, y las doce de F45): las veintiocho en sus
+/// seis familias, cada una con una muestra en vivo del propio mazo, y elegir
+/// una cambia el diseño.
 void main() {
   final deck = sampleDeck();
   const design = DeckDesign(
@@ -39,11 +40,12 @@ void main() {
     return chosen;
   }
 
-  testWidgets('las cinco familias y las dieciséis plantillas', (tester) async {
+  testWidgets('las seis familias y las veintiocho plantillas', (tester) async {
     await pumpGallery(tester);
     for (final family in [
       'Clásicas',
       'Modernas',
+      'Gráficas',
       'Oscuras',
       'Cálidas y creativas',
       'Sobrias de trabajo',
@@ -54,6 +56,17 @@ void main() {
       expect(find.byKey(ValueKey('template-${id.id}')), findsOneWidget);
     }
     expect(find.text('Papel recortado'), findsOneWidget);
+    expect(find.text('Pizarra blanca'), findsOneWidget);
+    expect(find.text('Art déco'), findsOneWidget);
+  });
+
+  testWidgets('las de F45 elegidas devuelven su plantilla', (tester) async {
+    final chosen = await pumpGallery(tester);
+    for (final id in [DeckTemplateId.bauhaus, DeckTemplateId.blueprint]) {
+      await tester.tap(find.byKey(ValueKey('template-${id.id}')));
+      expect(chosen.last.template, id);
+      expect(chosen.last.density, DeckDensity.airy);
+    }
   });
 
   testWidgets('cada muestra es el propio mazo, con esa plantilla', (
@@ -117,7 +130,7 @@ void main() {
         await tester.pump();
         expect(tester.takeException(), isNull);
       }
-      expect(find.byKey(const ValueKey('template-executive')), findsOneWidget);
+      expect(find.byKey(const ValueKey('template-blueprint')), findsOneWidget);
     }
   });
 }

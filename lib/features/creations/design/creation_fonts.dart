@@ -1,7 +1,8 @@
 import 'package:flutter/painting.dart';
 
 /// Los pares de títulos y texto con que se dibuja todo lo creado (F43): las
-/// diapositivas, las infografías y lo que venga después.
+/// diapositivas, las infografías y lo que venga después. Los cuatro últimos
+/// (F45) combinan de otra manera las mismas familias: no suman archivos.
 ///
 /// Las fuentes viajan con la app —ver tool/fetch_creation_fonts.sh y las
 /// familias de pubspec.yaml—: un mazo se ve igual sin internet, con Gemma y
@@ -81,6 +82,51 @@ enum CreationFontPair {
     displayTracking: 0,
     // La manuscrita tiene el ojo chico: al mismo tamaño se ve más chica que
     // las demás, así que se agranda para que el título pese lo mismo.
+    displaySizeFactor: 1.28,
+  ),
+
+  /// Serif de libro de punta a punta, en negrita para los títulos: un
+  /// diario (F45).
+  newsprint(
+    display: 'Lora',
+    body: 'Lora',
+    figures: 'Lora',
+    displayWeight: 700,
+    displayHeight: 1.06,
+    displayTracking: -0.015,
+    displayItalic: true,
+  ),
+
+  /// La grotesca geométrica también para leer: la de los afiches de la
+  /// Bauhaus (F45).
+  grotesk(
+    display: 'Space Grotesk',
+    body: 'Space Grotesk',
+    figures: 'Space Grotesk',
+    displayWeight: 700,
+    displayHeight: 1.02,
+    displayTracking: -0.03,
+  ),
+
+  /// La monoespaciada en todo: una terminal, un afiche brutalista (F45).
+  mono(
+    display: 'JetBrains Mono',
+    body: 'JetBrains Mono',
+    figures: 'JetBrains Mono',
+    displayWeight: 700,
+    displayHeight: 1.08,
+    displayTracking: -0.04,
+  ),
+
+  /// Títulos manuscritos sobre un texto de libro: una carta, un cuaderno de
+  /// apuntes (F45).
+  script(
+    display: 'Caveat',
+    body: 'Lora',
+    figures: 'Caveat',
+    displayWeight: 700,
+    displayHeight: 1,
+    displayTracking: 0,
     displaySizeFactor: 1.28,
   );
 

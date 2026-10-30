@@ -33,7 +33,7 @@ void main() {
         }
       }
     }
-    expect(count, 16 * 3 * 4 * 2);
+    expect(count, 28 * 3 * 4 * 2);
   });
 
   test('se escribe con nombres estables y el color en hex', () {
@@ -180,6 +180,8 @@ void main() {
       'editorial',
       'parchment',
       'academic',
+      'newspaper',
+      'ink',
     });
     expect(of(DeckTemplateFamily.modern), {
       'swiss',
@@ -187,9 +189,43 @@ void main() {
       'aurora',
       'glass',
     });
-    expect(of(DeckTemplateFamily.dark), {'midnight', 'neon', 'chalkboard'});
-    expect(of(DeckTemplateFamily.warm), {'watercolor', 'pastel', 'paper_cut'});
-    expect(of(DeckTemplateFamily.business), {'corporate', 'data', 'executive'});
+    expect(of(DeckTemplateFamily.graphic), {
+      'magazine',
+      'bauhaus',
+      'brutalist',
+    });
+    expect(of(DeckTemplateFamily.dark), {
+      'midnight',
+      'neon',
+      'chalkboard',
+      'dark_minimal',
+      'terminal',
+      'art_deco',
+    });
+    expect(of(DeckTemplateFamily.warm), {
+      'watercolor',
+      'pastel',
+      'paper_cut',
+      'retro',
+      'manuscript',
+      'whiteboard',
+    });
+    expect(of(DeckTemplateFamily.business), {
+      'corporate',
+      'data',
+      'executive',
+      'blueprint',
+    });
+    // Las de una familia van juntas, en el orden de las familias: la tira de
+    // la hoja de crear y la galería las muestran igual.
+    final families = [for (final id in DeckTemplateId.values) id.family];
+    for (var i = 1; i < families.length; i++) {
+      expect(
+        families[i].index,
+        greaterThanOrEqualTo(families[i - 1].index),
+        reason: DeckTemplateId.values[i].id,
+      );
+    }
     expect(DeckTemplateId.fromId('neon'), DeckTemplateId.neon);
     expect(DeckTemplateId.fromId('nada'), isNull);
   });

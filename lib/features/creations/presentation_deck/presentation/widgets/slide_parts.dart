@@ -169,6 +169,23 @@ class SlideTitle extends StatelessWidget {
   final String text;
   final double maxHeight;
 
+  /// El trazo del resaltador: el acento sobre el fondo, tan fuerte como deje
+  /// que el título se siga leyendo encima a 4,5:1 (en las noches, el acento
+  /// pleno taparía la letra clara).
+  static Color highlightOf(CreationPalette palette) {
+    for (var alpha = 0.55; alpha > 0.1; alpha -= 0.05) {
+      final mark = Color.alphaBlend(
+        palette.accent.withValues(alpha: alpha),
+        palette.background,
+      );
+      if (CreationContrast.ratio(palette.text, mark) >= 4.5) return mark;
+    }
+    return Color.alphaBlend(
+      palette.accent.withValues(alpha: 0.1),
+      palette.background,
+    );
+  }
+
   @override
   Widget build(BuildContext buildContext) {
     if (text.isEmpty) return const SizedBox.shrink();
@@ -206,6 +223,33 @@ class SlideTitle extends StatelessWidget {
         : CrossAxisAlignment.start;
     return switch (look) {
       TitleLook.plain || TitleLook.glow => title,
+      // El resaltador va detrás del comienzo del título, bajo su último
+      // tercio de alto: sobre la primera línea si es una sola, entre las
+      // líneas si son más; nunca tapa la letra, que va encima.
+      TitleLook.highlight => Stack(
+        children: [
+          Positioned.fill(
+            child: Align(
+              alignment: centered
+                  ? Alignment.bottomCenter
+                  : Alignment.bottomLeft,
+              child: Container(
+                width: style.canvas.width * 0.24,
+                height: style.titleSize * 0.42,
+                margin: EdgeInsets.only(bottom: style.gap * 0.15),
+                decoration: BoxDecoration(
+                  color: highlightOf(palette),
+                  borderRadius: BorderRadius.circular(style.titleSize * 0.08),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(bottom: style.gap * 0.3),
+            child: title,
+          ),
+        ],
+      ),
       TitleLook.underline => Column(
         crossAxisAlignment: cross,
         mainAxisSize: MainAxisSize.min,
@@ -320,7 +364,9 @@ class BulletMarkView extends StatelessWidget {
   /// El ancho que ocupa la marca con su aire, a [fontSize].
   static double widthFor(BulletMark mark, double fontSize) => switch (mark) {
     BulletMark.numeral => fontSize * 1.7,
-    BulletMark.check || BulletMark.arrow => fontSize * 1.35,
+    BulletMark.check ||
+    BulletMark.arrow ||
+    BulletMark.prompt => fontSize * 1.35,
     _ => fontSize * 1.1,
   };
 
@@ -388,12 +434,65 @@ class BulletMarkView extends StatelessWidget {
             borderRadius: BorderRadius.circular(s),
           ),
         );
+      case BulletMark.prompt:
+        mark = Text(
+          '>',
+          maxLines: 1,
+          style: style.figure(
+            size: s * 0.9,
+            color: color ?? palette.accentText,
+          ),
+        );
+      case BulletMark.shape:
+        // El círculo, el cuadrado y el triángulo, cada uno de su color; con
+        // un color pedido (una columna), todos de ese.
+        final tints = [palette.primary, palette.secondary, palette.accent];
+        final fill = color ?? tints[index % 3];
+        mark = SizedBox.square(
+          dimension: s * 0.34,
+          child: CustomPaint(
+            painter: _ShapeMarkPainter(shape: index % 3, color: fill),
+          ),
+        );
     }
     return SizedBox(
       height: lineHeight,
       child: Align(alignment: Alignment.centerLeft, child: mark),
     );
   }
+}
+
+class _ShapeMarkPainter extends CustomPainter {
+  const _ShapeMarkPainter({required this.shape, required this.color});
+
+  /// 0 el círculo, 1 el cuadrado, 2 el triángulo.
+  final int shape;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final rect = Offset.zero & size;
+    switch (shape) {
+      case 0:
+        canvas.drawCircle(rect.center, size.shortestSide / 2, paint);
+      case 1:
+        canvas.drawRect(rect.deflate(size.width * 0.06), paint);
+      default:
+        canvas.drawPath(
+          Path()
+            ..moveTo(0, size.height)
+            ..lineTo(size.width / 2, 0)
+            ..lineTo(size.width, size.height)
+            ..close(),
+          paint,
+        );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ShapeMarkPainter oldDelegate) =>
+      oldDelegate.shape != shape || oldDelegate.color != color;
 }
 
 /// Las viñetas de [items] como textos de un grupo que se ajusta junto.
@@ -448,6 +547,20 @@ class DeckPanel extends StatelessWidget {
   /// Un relleno propio en vez de la superficie (una tarjeta de color).
   final Color? fill;
 
+  /// El papel de una nota adhesiva: la superficie teñida del acento, lo justo
+  /// para que se vea de color sin que el texto deje de leerse a 7:1.
+  static Color noteColor(CreationPalette palette) {
+    final base = palette.surfaceOnBackground;
+    for (var tint = 0.3; tint > 0; tint -= 0.02) {
+      final paper = Color.lerp(base, palette.accent, tint)!;
+      if (CreationContrast.ratio(palette.text, paper) >= 7 &&
+          CreationContrast.ratio(palette.muted, paper) >= 4.5) {
+        return paper;
+      }
+    }
+    return base;
+  }
+
   /// El relleno de adentro de un panel, sin sus bordes.
   static EdgeInsets innerPadding(DeckStyle style) =>
       EdgeInsets.all(style.gap * 0.85);
@@ -463,6 +576,8 @@ class DeckPanel extends StatelessWidget {
       PanelLook.glass => inner + const EdgeInsets.all(2),
       PanelLook.neon => inner + const EdgeInsets.all(3),
       PanelLook.framed => inner + const EdgeInsets.all(11),
+      PanelLook.block => inner + const EdgeInsets.all(5),
+      PanelLook.note => inner + EdgeInsets.only(top: style.gap * 0.35),
       PanelLook.filled ||
       PanelLook.tile ||
       PanelLook.paper ||
@@ -607,6 +722,60 @@ class DeckPanel extends StatelessWidget {
             ],
           ),
           child: child,
+        );
+      case PanelLook.block:
+        return Container(
+          padding: inner,
+          decoration: BoxDecoration(
+            color: fill ?? palette.surface,
+            border: Border.all(color: palette.text, width: 5),
+            boxShadow: [
+              BoxShadow(color: palette.text, offset: const Offset(12, 12)),
+            ],
+          ),
+          child: child,
+        );
+      case PanelLook.note:
+        return Transform.rotate(
+          angle: (index.isEven ? -1 : 1) * 0.01,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                padding: inner + EdgeInsets.only(top: style.gap * 0.35),
+                decoration: BoxDecoration(
+                  color: fill ?? noteColor(style.palette),
+                  borderRadius: radius,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: palette.isDark ? 0.3 : 0.1,
+                      ),
+                      blurRadius: 14,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: child,
+              ),
+              // La cinta que la sostiene, arriba al medio.
+              Positioned(
+                top: -style.gap * 0.3,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Transform.rotate(
+                    angle: (index.isEven ? 1 : -1) * 0.04,
+                    child: Container(
+                      width: 120,
+                      height: style.gap * 0.7,
+                      color: palette.text.withValues(alpha: 0.09),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       case PanelLook.framed:
         return Container(

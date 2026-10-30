@@ -104,6 +104,10 @@ class DeckBackgroundPainter extends CustomPainter {
         _parchment(canvas, size);
       case DeckTemplateId.academic:
         _academic(canvas, size);
+      case DeckTemplateId.newspaper:
+        _newspaper(canvas, size);
+      case DeckTemplateId.ink:
+        _ink(canvas, size);
       case DeckTemplateId.swiss:
         _swiss(canvas, size);
       case DeckTemplateId.bento:
@@ -112,24 +116,44 @@ class DeckBackgroundPainter extends CustomPainter {
         _aurora(canvas, size);
       case DeckTemplateId.glass:
         _glass(canvas, size);
+      case DeckTemplateId.magazine:
+        _magazine(canvas, size);
+      case DeckTemplateId.bauhaus:
+        _bauhaus(canvas, size);
+      case DeckTemplateId.brutalist:
+        _brutalist(canvas, size);
       case DeckTemplateId.midnight:
         _midnight(canvas, size);
       case DeckTemplateId.neon:
         _neon(canvas, size);
       case DeckTemplateId.chalkboard:
         _chalkboard(canvas, size);
+      case DeckTemplateId.darkMinimal:
+        _darkMinimal(canvas, size);
+      case DeckTemplateId.terminal:
+        _terminal(canvas, size);
+      case DeckTemplateId.artDeco:
+        _artDeco(canvas, size);
       case DeckTemplateId.watercolor:
         _watercolor(canvas, size);
       case DeckTemplateId.pastel:
         _pastel(canvas, size);
       case DeckTemplateId.paperCut:
         _paperCut(canvas, size);
+      case DeckTemplateId.retro:
+        _retro(canvas, size);
+      case DeckTemplateId.manuscript:
+        _manuscript(canvas, size);
+      case DeckTemplateId.whiteboard:
+        _whiteboard(canvas, size);
       case DeckTemplateId.corporate:
         _corporate(canvas, size);
       case DeckTemplateId.data:
         _data(canvas, size);
       case DeckTemplateId.executive:
         _executive(canvas, size);
+      case DeckTemplateId.blueprint:
+        _blueprint(canvas, size);
     }
   }
 
@@ -687,6 +711,511 @@ class DeckBackgroundPainter extends CustomPainter {
         ..drawRect(
           Rect.fromLTWH(22, 0, 4, size.height),
           Paint()..color = p.secondary,
+        );
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Las doce de F45.
+
+  void _newspaper(Canvas canvas, Size size) {
+    CreationTextures.grain(
+      canvas,
+      size,
+      color: _a(p.text, 0.07),
+      seed: 101,
+      density: 0.0022,
+    );
+    final m = style.marginX;
+    if (layout != SlideLayout.cover) {
+      // El filete grueso y el fino de arriba, como la línea de la fecha de un
+      // diario. La portada trae los suyos, en la cabecera.
+      final rule = Paint()
+        ..color = _a(p.text, 0.9)
+        ..strokeWidth = 3;
+      canvas
+        ..drawLine(Offset(m, 46), Offset(size.width - m, 46), rule)
+        ..drawLine(
+          Offset(m, 54),
+          Offset(size.width - m, 54),
+          rule..strokeWidth = 1,
+        );
+    }
+    if (hero) {
+      // La trama de una foto de imprenta, que se apaga hacia el texto.
+      final dot = Paint()..color = _a(p.text, 0.1);
+      const step = 22.0;
+      final from = Offset(size.width * 0.72, size.height * 0.74);
+      for (var y = from.dy; y < size.height; y += step) {
+        for (var x = from.dx; x < size.width; x += step) {
+          final t =
+              ((x - from.dx) / (size.width - from.dx) +
+                  (y - from.dy) / (size.height - from.dy)) /
+              2;
+          final radius = step * 0.42 * t;
+          if (radius > 0.8) canvas.drawCircle(Offset(x, y), radius, dot);
+        }
+      }
+    }
+  }
+
+  void _ink(Canvas canvas, Size size) {
+    CreationTextures.grain(canvas, size, color: _a(p.text, 0.045), seed: 111);
+    final h = size.height;
+    // Las aguadas: la tinta diluida, gris, que se abre en el papel.
+    if (grand) {
+      CreationTextures.watercolor(
+        canvas,
+        Offset(size.width * 0.04, h * 0.96),
+        h * 0.42,
+        _a(p.text, 0.5),
+        seed: 3 + index,
+      );
+      CreationTextures.watercolor(
+        canvas,
+        Offset(size.width * 0.97, h * 0.06),
+        h * 0.2,
+        _a(p.accent, 0.6),
+        seed: 9 + index,
+      );
+    } else {
+      CreationTextures.watercolor(
+        canvas,
+        Offset(size.width * 1.01, h * -0.02),
+        h * 0.2,
+        _a(p.text, 0.4),
+        seed: 5 + index,
+      );
+    }
+    if (hero) {
+      // Una pincelada: el trazo grueso, de un solo gesto, abajo a la
+      // izquierda.
+      CreationTextures.handLine(
+        canvas,
+        Offset(size.width * 0.07, h * 0.9),
+        Offset(size.width * 0.34, h * 0.88),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = 22
+          ..color = _a(p.primary, 0.8),
+        seed: index,
+        jitter: 5,
+      );
+    }
+    // El sello rojo, chico, arriba a la derecha: un cuadrado con su marco
+    // en blanco adentro.
+    final seal = Rect.fromLTWH(size.width - style.marginX + 34, 62, 44, 44);
+    canvas
+      ..drawRect(seal, Paint()..color = p.secondary)
+      ..drawRect(
+        seal.deflate(7),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..color = _a(p.onSecondary, 0.85),
+      );
+  }
+
+  void _magazine(Canvas canvas, Size size) {
+    if (layout == SlideLayout.cover) {
+      // El bloque de color a sangre, detrás de la foto de la portada.
+      canvas
+        ..drawRect(
+          Rect.fromLTWH(size.width * 0.62, 0, size.width * 0.38, size.height),
+          Paint()..color = p.primary,
+        )
+        ..drawRect(
+          Rect.fromLTWH(size.width * 0.62 - 18, size.height * 0.12, 18, 180),
+          Paint()..color = p.accent,
+        );
+      return;
+    }
+    // En las demás, la pestaña de color de arriba, como la sección de una
+    // revista.
+    canvas
+      ..drawRect(
+        Rect.fromLTWH(style.marginX, 0, 220, 22),
+        Paint()..color = p.primary,
+      )
+      ..drawRect(
+        Rect.fromLTWH(style.marginX + 220, 0, 60, 22),
+        Paint()..color = p.accent,
+      );
+  }
+
+  void _bauhaus(Canvas canvas, Size size) {
+    final h = size.height;
+    if (hero) {
+      // La composición: un círculo grande, medio círculo, un triángulo y una
+      // barra, en la tercera parte de la derecha: el afiche deja su texto en
+      // los dos tercios de la izquierda.
+      final right = size.width;
+      canvas
+        ..drawCircle(
+          Offset(right - h * 0.3, h * 0.32),
+          h * 0.22,
+          Paint()..color = p.primary,
+        )
+        ..drawArc(
+          Rect.fromCircle(center: Offset(right - h * 0.1, h), radius: h * 0.26),
+          math.pi,
+          math.pi,
+          true,
+          Paint()..color = p.secondary,
+        )
+        ..drawPath(
+          Path()
+            ..moveTo(right - h * 0.5, h * 0.98)
+            ..lineTo(right - h * 0.32, h * 0.64)
+            ..lineTo(right - h * 0.14, h * 0.98)
+            ..close(),
+          Paint()..color = p.accent,
+        )
+        ..drawRect(
+          Rect.fromLTWH(right - h * 0.56, h * 0.08, h * 0.04, h * 0.44),
+          Paint()..color = p.text,
+        );
+      return;
+    }
+    // En las de contenido, el trío chico arriba a la derecha.
+    final x = size.width - style.marginX + 18;
+    canvas
+      ..drawCircle(Offset(x, 66), 14, Paint()..color = p.primary)
+      ..drawRect(
+        Rect.fromLTWH(x - 14, 92, 28, 28),
+        Paint()..color = p.secondary,
+      )
+      ..drawPath(
+        Path()
+          ..moveTo(x - 15, 160)
+          ..lineTo(x, 134)
+          ..lineTo(x + 15, 160)
+          ..close(),
+        Paint()..color = p.accent,
+      );
+  }
+
+  void _brutalist(Canvas canvas, Size size) {
+    // El marco grueso de todas, del color del texto.
+    canvas.drawRect(
+      (Offset.zero & size).deflate(30),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 12
+        ..color = p.text,
+    );
+    if (hero) {
+      // Un bloque de acento en la esquina, como una etiqueta pegada.
+      final block = Rect.fromLTWH(size.width - 330, 24, 306, 120);
+      canvas
+        ..drawRect(block.shift(const Offset(14, 14)), Paint()..color = p.text)
+        ..drawRect(block, Paint()..color = p.accent)
+        ..drawRect(
+          block,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 6
+            ..color = p.text,
+        );
+    } else {
+      canvas.drawRect(
+        Rect.fromLTWH(size.width - 96, 24, 72, 72),
+        Paint()..color = p.accent,
+      );
+    }
+  }
+
+  void _retro(Canvas canvas, Size size) {
+    final h = size.height;
+    final colors = [p.primary, p.accent, p.secondary, p.primary, p.accent];
+    final corner = Offset(size.width, 0);
+    if (grand) {
+      // Un sol de franjas que asoma de la esquina de arriba a la derecha.
+      for (var i = 0; i < colors.length; i++) {
+        canvas.drawCircle(
+          corner,
+          h * (0.55 - i * 0.09),
+          Paint()..color = _a(colors[i], i.isEven ? 0.9 : 0.75),
+        );
+      }
+      canvas.drawCircle(corner, h * 0.1, Paint()..color = p.background);
+    } else {
+      // Las tres franjas de arriba a la izquierda, sobre el título.
+      for (var i = 0; i < 3; i++) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(style.marginX, 30.0 + i * 16, 260.0 - i * 50, 10),
+            const Radius.circular(5),
+          ),
+          Paint()..color = colors[i],
+        );
+      }
+    }
+    CreationTextures.grain(canvas, size, color: _a(p.text, 0.035), seed: 121);
+  }
+
+  void _manuscript(Canvas canvas, Size size) {
+    // Los renglones azules del cuaderno, de margen a margen.
+    final line = Paint()
+      ..color = _a(p.primary, 0.16)
+      ..strokeWidth = 2;
+    for (var y = 150.0; y < size.height - 20; y += 62) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), line);
+    }
+    // El margen rojo.
+    final margin = style.marginX - 36;
+    canvas.drawLine(
+      Offset(margin, 0),
+      Offset(margin, size.height),
+      Paint()
+        ..color = _a(p.secondary, 0.5)
+        ..strokeWidth = 3,
+    );
+    // Los agujeros de la carpeta, a la izquierda del margen.
+    final hole = Paint()
+      ..color = Color.lerp(p.background, p.text, p.isDark ? 0.5 : 0.14)!;
+    for (final t in [0.2, 0.5, 0.8]) {
+      canvas.drawCircle(Offset(margin / 2, size.height * t), 14, hole);
+    }
+  }
+
+  void _whiteboard(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    // Lo que quedó de lo borrado: manchas apenas visibles.
+    final random = math.Random(131 + index);
+    for (var i = 0; i < 5; i++) {
+      CreationTextures.glow(
+        canvas,
+        Offset(
+          random.nextDouble() * size.width,
+          random.nextDouble() * size.height,
+        ),
+        size.height * (0.2 + random.nextDouble() * 0.2),
+        _a(p.text, 0.035),
+      );
+    }
+    // El marco de aluminio.
+    canvas.drawRect(
+      rect.deflate(8),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 16
+        ..shader = ui.Gradient.linear(rect.topLeft, rect.bottomRight, [
+          Color.lerp(p.background, p.text, 0.18)!,
+          Color.lerp(p.background, p.text, 0.32)!,
+        ]),
+    );
+    final marker = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 7;
+    if (grand) {
+      // Un círculo y una flecha a marcador, en la esquina.
+      final center = Offset(size.width - 150, 150);
+      final path = Path();
+      for (var i = 0; i <= 28; i++) {
+        final t = i / 28 * math.pi * 2.1;
+        final r = 70 + math.sin(t * 3) * 3;
+        final point = center + Offset(math.cos(t) * r, math.sin(t) * r * 0.82);
+        i == 0
+            ? path.moveTo(point.dx, point.dy)
+            : path.lineTo(point.dx, point.dy);
+      }
+      canvas.drawPath(path, marker..color = _a(p.secondary, 0.75));
+      CreationTextures.handLine(
+        canvas,
+        Offset(size.width - 330, 236),
+        Offset(size.width - 226, 170),
+        marker..color = _a(p.primary, 0.75),
+        seed: index,
+      );
+    } else {
+      // Un tilde a marcador arriba a la derecha.
+      final x = size.width - style.marginX + 12;
+      final check = Path()
+        ..moveTo(x, 78)
+        ..lineTo(x + 14, 94)
+        ..lineTo(x + 44, 56);
+      canvas.drawPath(check, marker..color = _a(p.accent, 0.8));
+    }
+  }
+
+  void _darkMinimal(Canvas canvas, Size size) {
+    if (grand) {
+      // Una luz muy tenue arriba, como un escenario.
+      CreationTextures.glow(
+        canvas,
+        Offset(size.width * 0.3, -size.height * 0.2),
+        size.height * 0.9,
+        _a(p.primary, 0.08),
+      );
+      // El punto de acento, arriba a la derecha: abajo estaría el número.
+      canvas.drawCircle(
+        Offset(size.width - style.marginX, style.marginY * 0.6),
+        9,
+        Paint()..color = p.primary,
+      );
+    } else {
+      canvas.drawRect(
+        Rect.fromLTWH(style.marginX, 52, 64, 5),
+        Paint()..color = p.primary,
+      );
+    }
+  }
+
+  void _terminal(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    // El resplandor del tubo y las líneas de barrido.
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = ui.Gradient.radial(rect.center, size.width * 0.7, [
+          _a(p.primary, 0.07),
+          _a(p.primary, 0),
+        ]),
+    );
+    final scan = Paint()..color = _a(p.text, 0.035);
+    for (var y = 0.0; y < size.height; y += 5) {
+      canvas.drawRect(Rect.fromLTWH(0, y, size.width, 2), scan);
+    }
+    // La barra de la ventana, con sus tres botones.
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, 44),
+      Paint()..color = Color.lerp(p.background, p.text, 0.07)!,
+    );
+    for (final (i, color) in [p.secondary, p.accent, p.primary].indexed) {
+      canvas.drawCircle(
+        Offset(34.0 + i * 30, 22),
+        8,
+        Paint()..color = _a(color, 0.9),
+      );
+    }
+    if (hero) {
+      // El cursor que espera, abajo a la derecha.
+      canvas.drawRect(
+        Rect.fromLTWH(
+          size.width - style.marginX - 28,
+          size.height - 150,
+          28,
+          48,
+        ),
+        Paint()..color = _a(p.primary, 0.85),
+      );
+    }
+  }
+
+  void _artDeco(Canvas canvas, Size size) {
+    final gold = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..color = _a(p.primary, 0.8);
+    // Los escalonados de las cuatro esquinas.
+    const inset = 34.0;
+    const step = 22.0;
+    for (final (x, y, dx, dy) in [
+      (inset, inset, 1.0, 1.0),
+      (size.width - inset, inset, -1.0, 1.0),
+      (inset, size.height - inset, 1.0, -1.0),
+      (size.width - inset, size.height - inset, -1.0, -1.0),
+    ]) {
+      final path = Path()
+        ..moveTo(x + dx * 150, y)
+        ..lineTo(x + dx * step * 2, y)
+        ..lineTo(x + dx * step * 2, y + dy * step)
+        ..lineTo(x + dx * step, y + dy * step)
+        ..lineTo(x + dx * step, y + dy * step * 2)
+        ..lineTo(x, y + dy * step * 2)
+        ..lineTo(x, y + dy * 150);
+      canvas.drawPath(path, gold);
+    }
+    if (grand) {
+      // El abanico de rayos, abajo al centro.
+      final center = Offset(size.width / 2, size.height + 24);
+      final radius = size.height * 0.3;
+      const rays = 15;
+      for (var i = 0; i < rays; i++) {
+        final angle = math.pi + math.pi * (i + 0.5) / rays;
+        canvas.drawLine(
+          center,
+          center + Offset(math.cos(angle), math.sin(angle)) * radius,
+          Paint()
+            ..strokeWidth = 2
+            ..color = _a(p.primary, i.isEven ? 0.3 : 0.14),
+        );
+      }
+      // Tenues: la bajada de una portada larga puede pasar por encima.
+      for (final r in [radius * 0.45, radius * 0.7, radius]) {
+        canvas.drawArc(
+          Rect.fromCircle(center: center, radius: r),
+          math.pi,
+          math.pi,
+          false,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2
+            ..color = _a(p.primary, 0.3),
+        );
+      }
+    }
+  }
+
+  void _blueprint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    CreationTextures.lineGrid(
+      canvas,
+      rect,
+      color: _a(p.text, 0.07),
+      majorColor: _a(p.text, 0.13),
+    );
+    final ink = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = _a(p.text, 0.55);
+    // Las marcas de registro de las esquinas.
+    for (final corner in [
+      const Offset(48, 48),
+      Offset(size.width - 48, 48),
+      Offset(48, size.height - 48),
+      Offset(size.width - 48, size.height - 48),
+    ]) {
+      canvas
+        ..drawLine(
+          corner - const Offset(16, 0),
+          corner + const Offset(16, 0),
+          ink,
+        )
+        ..drawLine(
+          corner - const Offset(0, 16),
+          corner + const Offset(0, 16),
+          ink,
+        )
+        ..drawCircle(corner, 8, ink);
+    }
+    if (hero) {
+      // La cota de arriba: una línea con sus dos topes, de margen a margen.
+      final y = style.marginY * 0.55;
+      final left = style.marginX;
+      final right = size.width - style.marginX;
+      canvas
+        ..drawLine(Offset(left, y), Offset(right, y), ink)
+        ..drawLine(Offset(left, y - 12), Offset(left, y + 12), ink)
+        ..drawLine(Offset(right, y - 12), Offset(right, y + 12), ink);
+    }
+    if (layout == SlideLayout.cover) {
+      // El rótulo del dibujo, abajo a la izquierda, debajo del texto.
+      final box = Rect.fromLTWH(style.marginX, size.height - 78, 360, 52);
+      canvas
+        ..drawRect(box, ink)
+        ..drawLine(
+          Offset(box.left + 120, box.top),
+          Offset(box.left + 120, box.bottom),
+          ink,
+        )
+        ..drawLine(
+          Offset(box.left + 120, box.center.dy),
+          Offset(box.right, box.center.dy),
+          ink,
         );
     }
   }

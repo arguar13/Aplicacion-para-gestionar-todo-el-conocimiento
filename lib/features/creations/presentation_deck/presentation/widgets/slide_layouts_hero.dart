@@ -368,6 +368,8 @@ class CoverLayout extends StatelessWidget {
             ),
           ),
         );
+      case CoverLook.masthead:
+        return _MastheadComposition(c: c, slide: slide);
       case CoverLook.sidebar:
         return _SidebarComposition(
           c: c,
@@ -401,6 +403,84 @@ class CoverLayout extends StatelessWidget {
           art: wants,
         );
     }
+  }
+}
+
+/// La portada de Periódico (F45): la cabecera de un diario de lado a lado
+/// —el filete grueso, el rótulo como la línea de la fecha y el filete fino—
+/// y debajo el título enorme con la bajada como copete; la ilustración, si
+/// la hay, como la foto de la nota.
+class _MastheadComposition extends StatelessWidget {
+  const _MastheadComposition({required this.c, required this.slide});
+
+  final SlideContext c;
+  final CoverSlide slide;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = c.style;
+    final p = s.palette;
+    return SlideFrame(
+      context: c,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(height: 7, color: p.text),
+          SizedBox(height: s.gap * 0.4),
+          SizedBox(
+            height: s.kickerSize * 1.5,
+            child: Row(
+              children: [
+                if (slide.kicker.isNotEmpty)
+                  Expanded(
+                    child: FitText(
+                      slide.kicker.toUpperCase(),
+                      style: s.kicker(color: p.text),
+                      maxLines: 1,
+                    ),
+                  )
+                else
+                  const Spacer(),
+                SizedBox(width: s.gap),
+                Container(
+                  width: s.kickerSize * 0.6,
+                  height: s.kickerSize * 0.6,
+                  color: p.secondary,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: s.gap * 0.4),
+          Container(height: 2, color: p.text),
+          SizedBox(height: s.gap * 1.3),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 6,
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: FitTextGroup(
+                      items: heroText(
+                        c,
+                        title: slide.title,
+                        subtitle: slide.subtitle,
+                        titleSize: s.coverTitleSize * 1.04,
+                      ),
+                    ),
+                  ),
+                ),
+                if (slide.wantsIllustration) ...[
+                  SizedBox(width: s.gap * 1.6),
+                  Expanded(flex: 4, child: SlideArt(context: c, radius: 0)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -753,6 +833,7 @@ class ClosingLayout extends StatelessWidget {
       case CoverLook.split:
       case CoverLook.band:
       case CoverLook.poster:
+      case CoverLook.masthead:
         return SlideFrame(
           context: c,
           child: Row(

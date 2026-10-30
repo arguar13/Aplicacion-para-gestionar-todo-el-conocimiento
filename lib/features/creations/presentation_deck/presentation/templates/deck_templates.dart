@@ -5,8 +5,9 @@ import 'package:sinapsis/features/creations/design/creation_palette.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/deck_design.dart';
 import 'package:sinapsis/features/creations/presentation_deck/presentation/templates/deck_template.dart';
 
-/// Las dieciséis plantillas de presentación (F43, «Plantillas →
-/// Presentación»), en cinco familias y en el orden de [DeckTemplateId].
+/// Las veintiocho plantillas de presentación —las dieciséis de F43,
+/// «Plantillas → Presentación», y las doce de F45—, en seis familias y en el
+/// orden de [DeckTemplateId].
 ///
 /// Cada una con sus seis paletas: la primera es la suya, y las otras cinco la
 /// llevan a otros gustos sin perder el carácter. Las claras traen también una
@@ -63,6 +64,40 @@ abstract final class DeckTemplates {
       title: TitleLook.bar,
       art: CreationArtStyle.linework,
       radius: 8,
+    ),
+    // Un diario: papel de imprenta, serif de libro en negrita, filetes
+    // dobles y la cabecera de lado a lado (F45).
+    DeckTemplate(
+      id: DeckTemplateId.newspaper,
+      fonts: CreationFontPair.newsprint,
+      palettes: _Palettes.newspaper,
+      bullet: BulletMark.square,
+      panel: PanelLook.hairline,
+      cover: CoverLook.masthead,
+      section: SectionLook.numeral,
+      quote: QuoteLook.bar,
+      list: ListLook.rows,
+      title: TitleLook.rule,
+      art: CreationArtStyle.linework,
+      radius: 0,
+      titleScale: 1.02,
+    ),
+    // Tinta china sobre papel de arroz: aguadas grises, mucho aire y el
+    // sello rojo (F45).
+    DeckTemplate(
+      id: DeckTemplateId.ink,
+      fonts: CreationFontPair.editorial,
+      palettes: _Palettes.ink,
+      bullet: BulletMark.dot,
+      panel: PanelLook.outline,
+      cover: CoverLook.floating,
+      section: SectionLook.centered,
+      quote: QuoteLook.framed,
+      list: ListLook.plain,
+      title: TitleLook.plain,
+      art: CreationArtStyle.organic,
+      radius: 2,
+      centeredTitles: true,
     ),
     // Grilla estricta, negrita apretada y un solo color fuerte.
     DeckTemplate(
@@ -127,6 +162,59 @@ abstract final class DeckTemplates {
       radius: 36,
       stepCards: true,
     ),
+    // Una revista: bloques de color a sangre, la foto grande y el título con
+    // su trazo de resaltador (F45).
+    DeckTemplate(
+      id: DeckTemplateId.magazine,
+      fonts: CreationFontPair.swiss,
+      palettes: _Palettes.magazine,
+      bullet: BulletMark.square,
+      panel: PanelLook.filled,
+      cover: CoverLook.split,
+      section: SectionLook.band,
+      quote: QuoteLook.marks,
+      list: ListLook.cards,
+      title: TitleLook.highlight,
+      art: CreationArtStyle.photo,
+      radius: 6,
+      titleScale: 1.1,
+    ),
+    // La Bauhaus: los tres primarios, el círculo, el cuadrado y el triángulo,
+    // y la grotesca geométrica (F45).
+    DeckTemplate(
+      id: DeckTemplateId.bauhaus,
+      fonts: CreationFontPair.grotesk,
+      palettes: _Palettes.bauhaus,
+      bullet: BulletMark.shape,
+      panel: PanelLook.filled,
+      cover: CoverLook.poster,
+      section: SectionLook.tile,
+      quote: QuoteLook.card,
+      list: ListLook.cards,
+      title: TitleLook.plain,
+      art: CreationArtStyle.geometric,
+      radius: 0,
+      titleScale: 1.08,
+      stepCards: true,
+    ),
+    // Brutalista: la monoespaciada en mayúsculas, bordes gruesos, sombras
+    // duras y un color ácido (F45).
+    DeckTemplate(
+      id: DeckTemplateId.brutalist,
+      fonts: CreationFontPair.mono,
+      palettes: _Palettes.brutalist,
+      bullet: BulletMark.arrow,
+      panel: PanelLook.block,
+      cover: CoverLook.poster,
+      section: SectionLook.numeral,
+      quote: QuoteLook.bar,
+      list: ListLook.rows,
+      title: TitleLook.band,
+      art: CreationArtStyle.geometric,
+      radius: 0,
+      uppercaseTitles: true,
+      stepCards: true,
+    ),
     // Azul noche, estrellas y filetes dorados.
     DeckTemplate(
       id: DeckTemplateId.midnight,
@@ -173,6 +261,57 @@ abstract final class DeckTemplates {
       title: TitleLook.hand,
       art: CreationArtStyle.chalk,
       radius: 12,
+    ),
+    // Minimal oscuro: casi negro, mucho aire y un solo color de acento
+    // (F45).
+    DeckTemplate(
+      id: DeckTemplateId.darkMinimal,
+      fonts: CreationFontPair.swiss,
+      palettes: _Palettes.darkMinimal,
+      bullet: BulletMark.dash,
+      panel: PanelLook.hairline,
+      cover: CoverLook.editorial,
+      section: SectionLook.numeral,
+      quote: QuoteLook.bar,
+      list: ListLook.plain,
+      title: TitleLook.plain,
+      art: CreationArtStyle.linework,
+      radius: 0,
+      titleScale: 1.06,
+    ),
+    // Una terminal: fósforo sobre negro, la monoespaciada, líneas de barrido
+    // y el «>» de las órdenes (F45).
+    DeckTemplate(
+      id: DeckTemplateId.terminal,
+      fonts: CreationFontPair.mono,
+      palettes: _Palettes.terminal,
+      bullet: BulletMark.prompt,
+      panel: PanelLook.outline,
+      cover: CoverLook.poster,
+      section: SectionLook.numeral,
+      quote: QuoteLook.bar,
+      list: ListLook.rows,
+      title: TitleLook.plain,
+      art: CreationArtStyle.neon,
+      radius: 4,
+    ),
+    // Art déco: oro sobre verde, negro o marino, abanicos y escalonados, y
+    // los títulos en mayúsculas centrados (F45).
+    DeckTemplate(
+      id: DeckTemplateId.artDeco,
+      fonts: CreationFontPair.editorial,
+      palettes: _Palettes.artDeco,
+      bullet: BulletMark.diamond,
+      panel: PanelLook.framed,
+      cover: CoverLook.framed,
+      section: SectionLook.centered,
+      quote: QuoteLook.framed,
+      list: ListLook.plain,
+      title: TitleLook.rule,
+      art: CreationArtStyle.linework,
+      radius: 0,
+      centeredTitles: true,
+      uppercaseTitles: true,
     ),
     // Papel blanco con manchas de acuarela en los bordes.
     DeckTemplate(
@@ -221,6 +360,54 @@ abstract final class DeckTemplates {
       radius: 18,
       stepCards: true,
     ),
+    // Retro: los setenta, naranja, mostaza y marrón, y un sol de franjas
+    // (F45).
+    DeckTemplate(
+      id: DeckTemplateId.retro,
+      fonts: CreationFontPair.friendly,
+      palettes: _Palettes.retro,
+      bullet: BulletMark.pill,
+      panel: PanelLook.filled,
+      cover: CoverLook.poster,
+      section: SectionLook.tile,
+      quote: QuoteLook.card,
+      list: ListLook.plain,
+      title: TitleLook.underline,
+      art: CreationArtStyle.paper,
+      radius: 28,
+    ),
+    // Un cuaderno de apuntes: renglones, el margen rojo, títulos a mano y
+    // notas adhesivas (F45).
+    DeckTemplate(
+      id: DeckTemplateId.manuscript,
+      fonts: CreationFontPair.script,
+      palettes: _Palettes.manuscript,
+      bullet: BulletMark.check,
+      panel: PanelLook.note,
+      cover: CoverLook.floating,
+      section: SectionLook.centered,
+      quote: QuoteLook.marks,
+      list: ListLook.plain,
+      title: TitleLook.hand,
+      art: CreationArtStyle.linework,
+      radius: 4,
+    ),
+    // Una pizarra blanca: marcadores de colores, el marco de aluminio y el
+    // resaltador (F45).
+    DeckTemplate(
+      id: DeckTemplateId.whiteboard,
+      fonts: CreationFontPair.handwritten,
+      palettes: _Palettes.whiteboard,
+      bullet: BulletMark.chalk,
+      panel: PanelLook.chalk,
+      cover: CoverLook.floating,
+      section: SectionLook.centered,
+      quote: QuoteLook.card,
+      list: ListLook.plain,
+      title: TitleLook.highlight,
+      art: CreationArtStyle.chalk,
+      radius: 12,
+    ),
     // Sobria y clara: azul, gris y una franja de título.
     DeckTemplate(
       id: DeckTemplateId.corporate,
@@ -268,6 +455,22 @@ abstract final class DeckTemplates {
       radius: 2,
       titleScale: 1.04,
     ),
+    // Un plano: líneas blancas sobre azul de copia, la grilla, las cotas y el
+    // rótulo del dibujo (F45).
+    DeckTemplate(
+      id: DeckTemplateId.blueprint,
+      fonts: CreationFontPair.technical,
+      palettes: _Palettes.blueprint,
+      bullet: BulletMark.square,
+      panel: PanelLook.outline,
+      cover: CoverLook.split,
+      section: SectionLook.band,
+      quote: QuoteLook.bar,
+      list: ListLook.rows,
+      title: TitleLook.rule,
+      art: CreationArtStyle.isometric,
+      radius: 0,
+    ),
   ];
 
   /// La plantilla [id].
@@ -275,6 +478,762 @@ abstract final class DeckTemplates {
 }
 
 abstract final class _Palettes {
+  static const newspaper = [
+    // Diario.
+    CreationPalette(
+      background: Color(0xFFF2EFE6),
+      surface: Color(0xFFFAF8F2),
+      primary: Color(0xFF111111),
+      secondary: Color(0xFFB3121B),
+      accent: Color(0xFF6B6B6B),
+      text: Color(0xFF141414),
+      muted: Color(0xFF55524B),
+    ),
+    // Sepia.
+    CreationPalette(
+      background: Color(0xFFEDE4D3),
+      surface: Color(0xFFF6EFE2),
+      primary: Color(0xFF3B2A1A),
+      secondary: Color(0xFF8C5A2B),
+      accent: Color(0xFFB08D57),
+      text: Color(0xFF241A10),
+      muted: Color(0xFF5C4D3C),
+    ),
+    // Tinta azul.
+    CreationPalette(
+      background: Color(0xFFF1F0EB),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF1E3A5F),
+      secondary: Color(0xFFB23A2E),
+      accent: Color(0xFFD4A72C),
+      text: Color(0xFF141A22),
+      muted: Color(0xFF4F5661),
+    ),
+    // Salmón.
+    CreationPalette(
+      background: Color(0xFFFFF1E5),
+      surface: Color(0xFFFFF8F2),
+      primary: Color(0xFF0F5499),
+      secondary: Color(0xFF990F3D),
+      accent: Color(0xFF593380),
+      text: Color(0xFF1A1817),
+      muted: Color(0xFF5C534D),
+    ),
+    // Verde.
+    CreationPalette(
+      background: Color(0xFFF0F2EC),
+      surface: Color(0xFFFAFBF7),
+      primary: Color(0xFF1F4D3A),
+      secondary: Color(0xFF9C2A1F),
+      accent: Color(0xFFC49A2C),
+      text: Color(0xFF141A16),
+      muted: Color(0xFF4D5650),
+    ),
+    // Noche.
+    CreationPalette(
+      background: Color(0xFF161616),
+      surface: Color(0xFF202020),
+      primary: Color(0xFFE8E4DA),
+      secondary: Color(0xFFFF6B5E),
+      accent: Color(0xFFE0B84F),
+      text: Color(0xFFF0EDE6),
+      muted: Color(0xFFA8A39A),
+    ),
+  ];
+
+  static const ink = [
+    // Papel de arroz.
+    CreationPalette(
+      background: Color(0xFFF5F1E8),
+      surface: Color(0xFFFBF8F1),
+      primary: Color(0xFF1C1C1C),
+      secondary: Color(0xFFB22222),
+      accent: Color(0xFF8C8C84),
+      text: Color(0xFF161616),
+      muted: Color(0xFF57534B),
+    ),
+    // Índigo.
+    CreationPalette(
+      background: Color(0xFFF2F1EC),
+      surface: Color(0xFFFBFAF6),
+      primary: Color(0xFF23325C),
+      secondary: Color(0xFFC0392B),
+      accent: Color(0xFF7D8BA6),
+      text: Color(0xFF141824),
+      muted: Color(0xFF4F5463),
+    ),
+    // Bambú.
+    CreationPalette(
+      background: Color(0xFFF2F2E6),
+      surface: Color(0xFFFAFAF2),
+      primary: Color(0xFF2F4F2F),
+      secondary: Color(0xFFA8322D),
+      accent: Color(0xFF8FA27A),
+      text: Color(0xFF151A13),
+      muted: Color(0xFF50574A),
+    ),
+    // Té.
+    CreationPalette(
+      background: Color(0xFFF3EADB),
+      surface: Color(0xFFFAF4EA),
+      primary: Color(0xFF4A3423),
+      secondary: Color(0xFFA33B2A),
+      accent: Color(0xFFB39472),
+      text: Color(0xFF22180F),
+      muted: Color(0xFF5E4E3E),
+    ),
+    // Ciruelo.
+    CreationPalette(
+      background: Color(0xFFF6F0F0),
+      surface: Color(0xFFFCF8F8),
+      primary: Color(0xFF3D1F2A),
+      secondary: Color(0xFFC2185B),
+      accent: Color(0xFFB88A9A),
+      text: Color(0xFF1E1216),
+      muted: Color(0xFF5B4D52),
+    ),
+    // Noche.
+    CreationPalette(
+      background: Color(0xFF141414),
+      surface: Color(0xFF1E1E1C),
+      primary: Color(0xFFE8E2D4),
+      secondary: Color(0xFFE05A47),
+      accent: Color(0xFFA6A196),
+      text: Color(0xFFF2EEE6),
+      muted: Color(0xFFABA699),
+    ),
+  ];
+
+  static const magazine = [
+    // Coral.
+    CreationPalette(
+      background: Color(0xFFFFFFFF),
+      surface: Color(0xFFF4F4F2),
+      primary: Color(0xFFE5484D),
+      secondary: Color(0xFF111827),
+      accent: Color(0xFFFFB224),
+      text: Color(0xFF111111),
+      muted: Color(0xFF55555A),
+    ),
+    // Cobalto.
+    CreationPalette(
+      background: Color(0xFFFFFFFF),
+      surface: Color(0xFFF2F4FA),
+      primary: Color(0xFF2F54EB),
+      secondary: Color(0xFFFF6A3D),
+      accent: Color(0xFF14B8A6),
+      text: Color(0xFF0E1220),
+      muted: Color(0xFF4F5566),
+    ),
+    // Mostaza.
+    CreationPalette(
+      background: Color(0xFFFFFDF6),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFFD9A400),
+      secondary: Color(0xFF1F2937),
+      accent: Color(0xFFE5484D),
+      text: Color(0xFF151515),
+      muted: Color(0xFF57534A),
+    ),
+    // Esmeralda.
+    CreationPalette(
+      background: Color(0xFFFFFFFF),
+      surface: Color(0xFFF1F7F4),
+      primary: Color(0xFF0E9F6E),
+      secondary: Color(0xFF7C3AED),
+      accent: Color(0xFFF59E0B),
+      text: Color(0xFF0F1A15),
+      muted: Color(0xFF4B5B53),
+    ),
+    // Fucsia.
+    CreationPalette(
+      background: Color(0xFFFFF7FB),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFFD61F69),
+      secondary: Color(0xFF1E3A8A),
+      accent: Color(0xFFFBBF24),
+      text: Color(0xFF1F1020),
+      muted: Color(0xFF5E4B5A),
+    ),
+    // Noche.
+    CreationPalette(
+      background: Color(0xFF101114),
+      surface: Color(0xFF1B1D22),
+      primary: Color(0xFFFF5C61),
+      secondary: Color(0xFF6EA8FE),
+      accent: Color(0xFFFFC53D),
+      text: Color(0xFFF5F5F7),
+      muted: Color(0xFFA7AAB3),
+    ),
+  ];
+
+  static const bauhaus = [
+    // Primarios.
+    CreationPalette(
+      background: Color(0xFFF4EFE6),
+      surface: Color(0xFFFBF8F2),
+      primary: Color(0xFFD7261E),
+      secondary: Color(0xFF1D4E9E),
+      accent: Color(0xFFF2B705),
+      text: Color(0xFF111111),
+      muted: Color(0xFF4F4B45),
+    ),
+    // Negativo.
+    CreationPalette(
+      background: Color(0xFF111111),
+      surface: Color(0xFF1C1C1C),
+      primary: Color(0xFFE63A2E),
+      secondary: Color(0xFF3A7BEA),
+      accent: Color(0xFFF5C518),
+      text: Color(0xFFF4F1EA),
+      muted: Color(0xFFABA69D),
+    ),
+    // Tierra.
+    CreationPalette(
+      background: Color(0xFFEFE7DA),
+      surface: Color(0xFFF8F2E8),
+      primary: Color(0xFFB5452B),
+      secondary: Color(0xFF2E5E4E),
+      accent: Color(0xFFD9A441),
+      text: Color(0xFF1D1A16),
+      muted: Color(0xFF534C43),
+    ),
+    // Azul.
+    CreationPalette(
+      background: Color(0xFFF2F2EE),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF1D4E9E),
+      secondary: Color(0xFFD7261E),
+      accent: Color(0xFFF2B705),
+      text: Color(0xFF0F1420),
+      muted: Color(0xFF4C5260),
+    ),
+    // Pastel.
+    CreationPalette(
+      background: Color(0xFFF7F1E8),
+      surface: Color(0xFFFFFDF9),
+      primary: Color(0xFFE07A5F),
+      secondary: Color(0xFF3D5A80),
+      accent: Color(0xFFF2CC8F),
+      text: Color(0xFF1F1D1A),
+      muted: Color(0xFF57524B),
+    ),
+    // Gris.
+    CreationPalette(
+      background: Color(0xFFE9E7E3),
+      surface: Color(0xFFF5F4F1),
+      primary: Color(0xFF222222),
+      secondary: Color(0xFFD7261E),
+      accent: Color(0xFFF2B705),
+      text: Color(0xFF121212),
+      muted: Color(0xFF4E4C49),
+    ),
+  ];
+
+  static const brutalist = [
+    // Ácido.
+    CreationPalette(
+      background: Color(0xFFF2F2F2),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF111111),
+      secondary: Color(0xFFFF3B00),
+      accent: Color(0xFFD4FF00),
+      text: Color(0xFF0A0A0A),
+      muted: Color(0xFF4D4D4D),
+    ),
+    // Amarillo.
+    CreationPalette(
+      background: Color(0xFFFFE600),
+      surface: Color(0xFFFFF3A0),
+      primary: Color(0xFF111111),
+      secondary: Color(0xFF0047FF),
+      accent: Color(0xFFFF2E63),
+      text: Color(0xFF0A0A0A),
+      muted: Color(0xFF3D3A1A),
+    ),
+    // Azul.
+    CreationPalette(
+      background: Color(0xFFDDE4FF),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF0033FF),
+      secondary: Color(0xFF111111),
+      accent: Color(0xFFFF4D00),
+      text: Color(0xFF0A0A12),
+      muted: Color(0xFF3B3F55),
+    ),
+    // Rosa.
+    CreationPalette(
+      background: Color(0xFFFFD6E7),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF111111),
+      secondary: Color(0xFFE0005A),
+      accent: Color(0xFF00C2A8),
+      text: Color(0xFF0A0A0A),
+      muted: Color(0xFF4A3B42),
+    ),
+    // Cemento.
+    CreationPalette(
+      background: Color(0xFFCFCFCB),
+      surface: Color(0xFFE6E6E2),
+      primary: Color(0xFF1A1A1A),
+      secondary: Color(0xFFFF5A1F),
+      accent: Color(0xFF7A7A74),
+      text: Color(0xFF0A0A0A),
+      muted: Color(0xFF3C3C39),
+    ),
+    // Negro.
+    CreationPalette(
+      background: Color(0xFF0A0A0A),
+      surface: Color(0xFF161616),
+      primary: Color(0xFFD4FF00),
+      secondary: Color(0xFFFF3B00),
+      accent: Color(0xFFFFFFFF),
+      text: Color(0xFFF5F5F5),
+      muted: Color(0xFFA3A3A3),
+    ),
+  ];
+
+  static const retro = [
+    // Setentas.
+    CreationPalette(
+      background: Color(0xFFF6EBD9),
+      surface: Color(0xFFFCF4E6),
+      primary: Color(0xFFC8551B),
+      secondary: Color(0xFF7A4A1E),
+      accent: Color(0xFFE3A51F),
+      text: Color(0xFF2A1A0E),
+      muted: Color(0xFF5E4A36),
+    ),
+    // Oliva.
+    CreationPalette(
+      background: Color(0xFFEFEBD6),
+      surface: Color(0xFFF8F5E6),
+      primary: Color(0xFF6B7A2A),
+      secondary: Color(0xFFC8551B),
+      accent: Color(0xFFD9A43A),
+      text: Color(0xFF22200F),
+      muted: Color(0xFF545036),
+    ),
+    // Turquesa.
+    CreationPalette(
+      background: Color(0xFFF3EEDF),
+      surface: Color(0xFFFBF7EC),
+      primary: Color(0xFF1F7A7A),
+      secondary: Color(0xFFD9822B),
+      accent: Color(0xFFE8B83A),
+      text: Color(0xFF182222),
+      muted: Color(0xFF4A5552),
+    ),
+    // Rosa viejo.
+    CreationPalette(
+      background: Color(0xFFF7E7E0),
+      surface: Color(0xFFFDF3EE),
+      primary: Color(0xFFB5485D),
+      secondary: Color(0xFF6E4C7A),
+      accent: Color(0xFFE8A33D),
+      text: Color(0xFF2B171B),
+      muted: Color(0xFF604A4F),
+    ),
+    // Café.
+    CreationPalette(
+      background: Color(0xFFEADBC8),
+      surface: Color(0xFFF5EBDD),
+      primary: Color(0xFF7B3F1E),
+      secondary: Color(0xFFB5651D),
+      accent: Color(0xFFD8A23A),
+      text: Color(0xFF24170D),
+      muted: Color(0xFF59463A),
+    ),
+    // Noche.
+    CreationPalette(
+      background: Color(0xFF241A14),
+      surface: Color(0xFF30241C),
+      primary: Color(0xFFF28C38),
+      secondary: Color(0xFFE8B83A),
+      accent: Color(0xFFC96B4A),
+      text: Color(0xFFF7EBDD),
+      muted: Color(0xFFC4AF9A),
+    ),
+  ];
+
+  static const manuscript = [
+    // Cuaderno.
+    CreationPalette(
+      background: Color(0xFFFBFAF5),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF1F4E9C),
+      secondary: Color(0xFFC0392B),
+      accent: Color(0xFFF2C14E),
+      text: Color(0xFF1A1F2B),
+      muted: Color(0xFF50586A),
+    ),
+    // Sepia.
+    CreationPalette(
+      background: Color(0xFFF4ECDD),
+      surface: Color(0xFFFBF5EA),
+      primary: Color(0xFF5A3E2B),
+      secondary: Color(0xFF9C3D2E),
+      accent: Color(0xFFD9B25F),
+      text: Color(0xFF241A12),
+      muted: Color(0xFF5C4D3F),
+    ),
+    // Verde.
+    CreationPalette(
+      background: Color(0xFFF4F7F0),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF2E6B3F),
+      secondary: Color(0xFFB5462F),
+      accent: Color(0xFFE8C547),
+      text: Color(0xFF15201A),
+      muted: Color(0xFF4D5A51),
+    ),
+    // Violeta.
+    CreationPalette(
+      background: Color(0xFFF7F5FB),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF5B3FA0),
+      secondary: Color(0xFFD14D72),
+      accent: Color(0xFFF2C14E),
+      text: Color(0xFF1E1A2B),
+      muted: Color(0xFF56506A),
+    ),
+    // Grafito.
+    CreationPalette(
+      background: Color(0xFFF5F6F7),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF263238),
+      secondary: Color(0xFF1F7AE0),
+      accent: Color(0xFFFF8A3D),
+      text: Color(0xFF151A1E),
+      muted: Color(0xFF4E575E),
+    ),
+    // Noche.
+    CreationPalette(
+      background: Color(0xFF1D2129),
+      surface: Color(0xFF272C36),
+      primary: Color(0xFF8FB4FF),
+      secondary: Color(0xFFFF8A80),
+      accent: Color(0xFFFFD166),
+      text: Color(0xFFF1F3F7),
+      muted: Color(0xFFB3BAC6),
+    ),
+  ];
+
+  static const whiteboard = [
+    // Marcadores.
+    CreationPalette(
+      background: Color(0xFFFAFBFC),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF1A56DB),
+      secondary: Color(0xFFD92D20),
+      accent: Color(0xFF0E9F6E),
+      text: Color(0xFF111827),
+      muted: Color(0xFF4B5563),
+    ),
+    // Negro y rojo.
+    CreationPalette(
+      background: Color(0xFFF7F7F5),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF1F1F1F),
+      secondary: Color(0xFFE02424),
+      accent: Color(0xFF3F83F8),
+      text: Color(0xFF141414),
+      muted: Color(0xFF525252),
+    ),
+    // Verde.
+    CreationPalette(
+      background: Color(0xFFF6FAF7),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF057A55),
+      secondary: Color(0xFF7E3AF2),
+      accent: Color(0xFFFF8A4C),
+      text: Color(0xFF0F1F17),
+      muted: Color(0xFF4A5A51),
+    ),
+    // Violeta.
+    CreationPalette(
+      background: Color(0xFFF8F7FC),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF6C2BD9),
+      secondary: Color(0xFFE3A008),
+      accent: Color(0xFF0694A2),
+      text: Color(0xFF1A1530),
+      muted: Color(0xFF55506A),
+    ),
+    // Naranja.
+    CreationPalette(
+      background: Color(0xFFFFFAF5),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFFD03801),
+      secondary: Color(0xFF1C64F2),
+      accent: Color(0xFF0E9F6E),
+      text: Color(0xFF1F140D),
+      muted: Color(0xFF5E5048),
+    ),
+    // Noche.
+    CreationPalette(
+      background: Color(0xFF1B1F24),
+      surface: Color(0xFF252A31),
+      primary: Color(0xFF76A9FA),
+      secondary: Color(0xFFF98080),
+      accent: Color(0xFF84E1BC),
+      text: Color(0xFFF3F4F6),
+      muted: Color(0xFFAEB4BE),
+    ),
+  ];
+
+  static const darkMinimal = [
+    // Grafito.
+    CreationPalette(
+      background: Color(0xFF0E0E10),
+      surface: Color(0xFF18181B),
+      primary: Color(0xFFFF5A36),
+      secondary: Color(0xFF8E8E93),
+      accent: Color(0xFFFFFFFF),
+      text: Color(0xFFF4F4F5),
+      muted: Color(0xFFA1A1AA),
+    ),
+    // Azul.
+    CreationPalette(
+      background: Color(0xFF0B0E14),
+      surface: Color(0xFF151A23),
+      primary: Color(0xFF4C8DFF),
+      secondary: Color(0xFF8B95A7),
+      accent: Color(0xFFE6EDF7),
+      text: Color(0xFFF1F4F9),
+      muted: Color(0xFF9DA6B5),
+    ),
+    // Verde.
+    CreationPalette(
+      background: Color(0xFF0C100E),
+      surface: Color(0xFF161C19),
+      primary: Color(0xFF3DDC97),
+      secondary: Color(0xFF8A9A92),
+      accent: Color(0xFFE3F2EA),
+      text: Color(0xFFEFF5F1),
+      muted: Color(0xFF9DABA3),
+    ),
+    // Oro.
+    CreationPalette(
+      background: Color(0xFF100F0C),
+      surface: Color(0xFF1B1A15),
+      primary: Color(0xFFE2B65A),
+      secondary: Color(0xFF9A9486),
+      accent: Color(0xFFF2EAD8),
+      text: Color(0xFFF4F1E9),
+      muted: Color(0xFFAAA496),
+    ),
+    // Rojo.
+    CreationPalette(
+      background: Color(0xFF120C0C),
+      surface: Color(0xFF1E1515),
+      primary: Color(0xFFFF4D4F),
+      secondary: Color(0xFF9E8E8E),
+      accent: Color(0xFFF5E6E6),
+      text: Color(0xFFF7F0F0),
+      muted: Color(0xFFADA0A0),
+    ),
+    // Violeta.
+    CreationPalette(
+      background: Color(0xFF0F0D14),
+      surface: Color(0xFF1A1722),
+      primary: Color(0xFFA78BFA),
+      secondary: Color(0xFF948FA3),
+      accent: Color(0xFFEDE9FE),
+      text: Color(0xFFF3F1F8),
+      muted: Color(0xFFA7A2B5),
+    ),
+  ];
+
+  static const terminal = [
+    // Fósforo.
+    CreationPalette(
+      background: Color(0xFF0A0F0A),
+      surface: Color(0xFF0F1A10),
+      primary: Color(0xFF33FF66),
+      secondary: Color(0xFF9DFFB0),
+      accent: Color(0xFFFFB000),
+      text: Color(0xFFD7FFE0),
+      muted: Color(0xFF7FBF8E),
+    ),
+    // Ámbar.
+    CreationPalette(
+      background: Color(0xFF120C02),
+      surface: Color(0xFF1C1405),
+      primary: Color(0xFFFFB000),
+      secondary: Color(0xFFFFD580),
+      accent: Color(0xFF33FF66),
+      text: Color(0xFFFFE8C2),
+      muted: Color(0xFFC49A55),
+    ),
+    // Cian.
+    CreationPalette(
+      background: Color(0xFF03101A),
+      surface: Color(0xFF081A28),
+      primary: Color(0xFF00E5FF),
+      secondary: Color(0xFF7FDBFF),
+      accent: Color(0xFFFF5C8A),
+      text: Color(0xFFDDF7FF),
+      muted: Color(0xFF7FB3C9),
+    ),
+    // Moderna.
+    CreationPalette(
+      background: Color(0xFF0D1117),
+      surface: Color(0xFF161B22),
+      primary: Color(0xFF58A6FF),
+      secondary: Color(0xFF3FB950),
+      accent: Color(0xFFD29922),
+      text: Color(0xFFE6EDF3),
+      muted: Color(0xFF8B949E),
+    ),
+    // Solarizada.
+    CreationPalette(
+      background: Color(0xFF002B36),
+      surface: Color(0xFF073642),
+      primary: Color(0xFFB58900),
+      secondary: Color(0xFF2AA198),
+      accent: Color(0xFFCB4B16),
+      text: Color(0xFFEEE8D5),
+      muted: Color(0xFF93A1A1),
+    ),
+    // Morado.
+    CreationPalette(
+      background: Color(0xFF12091C),
+      surface: Color(0xFF1C1029),
+      primary: Color(0xFFC792EA),
+      secondary: Color(0xFF82AAFF),
+      accent: Color(0xFFFFCB6B),
+      text: Color(0xFFEEE6F8),
+      muted: Color(0xFFA99BC0),
+    ),
+  ];
+
+  static const artDeco = [
+    // Esmeralda y oro.
+    CreationPalette(
+      background: Color(0xFF0F2A24),
+      surface: Color(0xFF163630),
+      primary: Color(0xFFD4AF37),
+      secondary: Color(0xFFE8D5A3),
+      accent: Color(0xFF9C7A2B),
+      text: Color(0xFFF3EBD8),
+      muted: Color(0xFFC2B48F),
+    ),
+    // Negro y oro.
+    CreationPalette(
+      background: Color(0xFF0D0D0D),
+      surface: Color(0xFF181818),
+      primary: Color(0xFFD4AF37),
+      secondary: Color(0xFFC0C0C0),
+      accent: Color(0xFFF2E3B3),
+      text: Color(0xFFF5EFE0),
+      muted: Color(0xFFB3A88F),
+    ),
+    // Marino.
+    CreationPalette(
+      background: Color(0xFF0F1B33),
+      surface: Color(0xFF172645),
+      primary: Color(0xFFE0B654),
+      secondary: Color(0xFF9FB4D9),
+      accent: Color(0xFFF2E1B3),
+      text: Color(0xFFF2EEE3),
+      muted: Color(0xFFB2AE9F),
+    ),
+    // Bordó.
+    CreationPalette(
+      background: Color(0xFF2A0E16),
+      surface: Color(0xFF381621),
+      primary: Color(0xFFE2B65A),
+      secondary: Color(0xFFE8A0A8),
+      accent: Color(0xFFF0DDB0),
+      text: Color(0xFFF7EBE6),
+      muted: Color(0xFFC9AEA6),
+    ),
+    // Cobre.
+    CreationPalette(
+      background: Color(0xFF1A1A1D),
+      surface: Color(0xFF242428),
+      primary: Color(0xFFC8834A),
+      secondary: Color(0xFFE3C29B),
+      accent: Color(0xFFF0DCC3),
+      text: Color(0xFFF4EEE6),
+      muted: Color(0xFFB4AA9F),
+    ),
+    // Petróleo.
+    CreationPalette(
+      background: Color(0xFF0B2533),
+      surface: Color(0xFF113344),
+      primary: Color(0xFFE8C468),
+      secondary: Color(0xFF8FC1C9),
+      accent: Color(0xFFF3E3B5),
+      text: Color(0xFFEEF3F2),
+      muted: Color(0xFFA9BDBF),
+    ),
+  ];
+
+  static const blueprint = [
+    // Plano.
+    CreationPalette(
+      background: Color(0xFF123B73),
+      surface: Color(0xFF184887),
+      primary: Color(0xFF9FD3FF),
+      secondary: Color(0xFFFFFFFF),
+      accent: Color(0xFFFFD166),
+      text: Color(0xFFF4F8FF),
+      muted: Color(0xFFBFD3EE),
+    ),
+    // Noche.
+    CreationPalette(
+      background: Color(0xFF0B1D3A),
+      surface: Color(0xFF11284D),
+      primary: Color(0xFF7CC4FF),
+      secondary: Color(0xFFE0ECFF),
+      accent: Color(0xFFFFB86B),
+      text: Color(0xFFEEF4FF),
+      muted: Color(0xFFA9BEDD),
+    ),
+    // Verde técnico.
+    CreationPalette(
+      background: Color(0xFF0E3B34),
+      surface: Color(0xFF144A41),
+      primary: Color(0xFF8FF0D4),
+      secondary: Color(0xFFE6FFF7),
+      accent: Color(0xFFFFD166),
+      text: Color(0xFFF0FFFA),
+      muted: Color(0xFFACD6CB),
+    ),
+    // Grafito.
+    CreationPalette(
+      background: Color(0xFF1E252E),
+      surface: Color(0xFF27303B),
+      primary: Color(0xFF9CC9FF),
+      secondary: Color(0xFFE5ECF4),
+      accent: Color(0xFFFF9F68),
+      text: Color(0xFFF2F5F8),
+      muted: Color(0xFFB0BAC6),
+    ),
+    // Rojo.
+    CreationPalette(
+      background: Color(0xFF3A1418),
+      surface: Color(0xFF4A1C21),
+      primary: Color(0xFFFFB3A7),
+      secondary: Color(0xFFFFE9E5),
+      accent: Color(0xFFFFD166),
+      text: Color(0xFFFFF4F2),
+      muted: Color(0xFFDDB3AD),
+    ),
+    // Diazo.
+    CreationPalette(
+      background: Color(0xFFF4F7FB),
+      surface: Color(0xFFFFFFFF),
+      primary: Color(0xFF1F4E9C),
+      secondary: Color(0xFF0E7C86),
+      accent: Color(0xFFD9480F),
+      text: Color(0xFF0F1A2E),
+      muted: Color(0xFF4A5872),
+    ),
+  ];
+
   static const editorial = [
     // Rojo tinta.
     CreationPalette(
