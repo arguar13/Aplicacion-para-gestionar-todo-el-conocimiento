@@ -615,6 +615,84 @@ void main() {
     expect(find.byType(MapCanvasView), findsNothing);
   });
 
+  group('⚲ Buscar en el mapa (F44, paso 5)', () {
+    final search = find.byKey(const ValueKey('map-search'));
+
+    Future<void> searchFor(WidgetTester tester, String query) async {
+      await tester.tap(search);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), query);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('un tema: desde el Resumen, el Mapa vuela a los temas de su '
+        'comunidad, con él resaltado y su ficha', (tester) async {
+      await seed();
+      await pump(tester);
+      expect(find.byType(MapCanvasView), findsNothing);
+
+      await searchFor(tester, 'rom');
+      expect(find.text(es.f44S5SearchResults(1)), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('map-search-hit-topic-roma')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MapCanvasView), findsOneWidget);
+      expect(node('topic:roma'), findsOneWidget);
+      expect(
+        tester
+            .widget<MapNetworkNode>(
+              find.descendant(
+                of: node('topic:roma'),
+                matching: find.byType(MapNetworkNode),
+              ),
+            )
+            .highlighted,
+        isTrue,
+      );
+      expect(find.byKey(const ValueKey('map-sheet')), findsOneWidget);
+    });
+
+    testWidgets('un documento: sus hermanos de tema, con él resaltado; sin '
+        'tema, la burbuja «Sin tema»', (tester) async {
+      await seed();
+      await item('suelto', const []);
+      await pump(tester);
+
+      await searchFor(tester, 'Fuente s4');
+      expect(
+        find.text(es.f44S5SearchDocumentIn('note', 'Egipto')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('map-search-hit-document-s4')),
+      );
+      await tester.pumpAndSettle();
+      expect(node('item:s4'), findsOneWidget);
+
+      await searchFor(tester, 'suelto');
+      await tester.tap(
+        find.byKey(const ValueKey('map-search-hit-document-suelto')),
+      );
+      await tester.pumpAndSettle();
+      expect(node('item:suelto'), findsOneWidget);
+      expect(find.byKey(const ValueKey('map-crumb-unthemed')), findsOneWidget);
+    });
+
+    testWidgets('sin coincidencias lo dice, y volver no pide nada', (
+      tester,
+    ) async {
+      await seed();
+      await pump(tester);
+
+      await searchFor(tester, 'zzz');
+      expect(find.text(es.f44S5SearchNone('zzz')), findsOneWidget);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MapCanvasView), findsNothing);
+    });
+  });
+
   group('los documentos vinculados, en el Mapa (F28; F44, paso 2)', () {
     /// Lo vinculado se mira desde la capa «Vínculos» (F44, paso 5); sin
     /// ningún tema, desde lo que dice el lienzo vacío.

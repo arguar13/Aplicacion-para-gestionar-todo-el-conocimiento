@@ -15,6 +15,7 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart'
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/presentation/repasar_navigation.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
+import 'package:sinapsis/features/map/domain/entities/map_search.dart';
 import 'package:sinapsis/features/map/domain/usecases/export_map_usecase.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_canvas_request.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_filter_provider.dart';
@@ -24,6 +25,7 @@ import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_vie
 import 'package:sinapsis/features/map/presentation/widgets/map_board_pane.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_filter_sheet.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_search_delegate.dart';
 import 'package:sinapsis/features/organize/presentation/open_organized_item.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/fills_on_triage.dart';
@@ -82,6 +84,34 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   /// Lo que ofrece la capa «Parecidos» sin el modelo de vínculos (F30).
   void _openEmbeddingModel() => context.push(RoutePaths.embeddingModel);
+
+  /// «⚲ Buscar en el mapa» (F44, paso 5): lo elegido queda pedido al lienzo,
+  /// que vuela hasta él —cambia de altura si hace falta, lo encuadra y lo
+  /// marca con un pulso—, y la pantalla pasa a la pestaña Mapa.
+  Future<void> _search(
+    KnowledgeMapSnapshot snapshot,
+    TopicDimension dimension,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final communities = snapshot.insights.communities;
+    final hit = await showSearch<MapSearchEntry?>(
+      context: context,
+      delegate: MapSearchDelegate(
+        index: snapshot.insights.search,
+        topicKind: topicSelectKind(dimension),
+        communityName: (id) => switch (communities.of(id)?.name) {
+          final name? when name.isNotEmpty => name,
+          _ => null,
+        },
+        hint: l10n.f44S5SearchHint,
+      ),
+    );
+    if (hit == null || !mounted) return;
+    ref.read(mapCanvasRequestProvider.notifier).state = switch (hit.kind) {
+      MapSearchKind.topic => MapShowTopic(hit.id),
+      MapSearchKind.document => MapShowDocument(hit.id),
+    };
+  }
 
   /// «✨ Preguntar al chat» desde la ficha de un nodo: una conversación nueva
   /// sobre lo procesado, con la pregunta hecha y a la vista; se manda sola al
@@ -178,13 +208,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // recuerdo, no algo que se dibuje, así que no hace falta `setState`.
     _dimensionId ??= selected.id;
     final request = MapRequest(selected.id, filter: filter);
+    // Se busca en el mapa que se ve: el último que se pudo armar.
+    final searchable = ref.watch(
+      knowledgeMapProvider(request).select(
+        (state) => switch (state.valueOrNull) {
+          MapReady(:final snapshot) => snapshot,
+          MapFailed(:final lastGood?) => lastGood,
+          _ => null,
+        },
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.mapTitle),
         actions: [
-          // Ola 2 (F44, paso 5): acá va «⚲ Buscar en el mapa», que deja un
-          // `MapCanvasRequest` para que el lienzo vuele hasta lo elegido.
+          IconButton(
+            key: const ValueKey('map-search'),
+            tooltip: searchable == null
+                ? l10n.f44S5SearchUnavailable
+                : l10n.f44S5Search,
+            icon: const Icon(Icons.search),
+            onPressed: searchable == null
+                ? null
+                : () => unawaited(_search(searchable, selected)),
+          ),
           IconButton(
             key: const ValueKey('map-filters'),
             tooltip: l10n.mapFiltersTooltip,
