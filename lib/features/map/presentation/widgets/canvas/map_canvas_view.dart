@@ -1,19 +1,15 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
-import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_view_fit.dart';
-import 'package:sinapsis/features/graph/presentation/widgets/ai_suggest_relations_dialog.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/degree_selector.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
@@ -28,17 +24,19 @@ import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.d
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_chrome.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_gesture_cache.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_motion.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_network.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_placement.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_tree.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_viewport.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_layers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_list.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_minimap.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_root_picker.dart';
 import 'package:sinapsis/features/map/presentation/widgets/link_strength_selector.dart';
-import 'package:sinapsis/features/map/presentation/widgets/map_edges_painter.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
-import 'package:sinapsis/features/map/presentation/widgets/map_node_size.dart';
+import 'package:sinapsis/features/map/presentation/widgets/suggest_links.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/add_relation_flow.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -63,18 +61,6 @@ const _kMaxScale = 4.0;
 /// alejar. Menos que esto es arrastrar, y arrastrar no cambia de altura.
 const _kZoomChange = 1.05;
 
-/// Cuánto puede cambiar el zoom desde que se capturó `_gestureSnapshot` antes
-/// de que se vea inaceptablemente borroso: a partir de acá se recaptura una
-/// vez a mitad del gesto (F18, 18.2).
-const _kMaxSnapshotZoomChange = 2.0;
-
-/// Iteraciones del layout desde cero, y en caliente: con lo ya acomodado
-/// alcanzan unas pocas.
-const _kColdIterations = 260;
-const _kWarmIterations = 60;
-
-const _kCanvasMargin = 120.0;
-
 /// Hasta cuánto se agranda la letra adentro del lienzo: el lienzo se acerca
 /// con el zoom, y sus cajas tienen un tamaño fijo para el layout. La letra
 /// entera la sigue «Ver como lista».
@@ -84,9 +70,6 @@ const _kCanvasMaxTextScale = 1.5;
 /// elige— y las notas de abajo: el resto es del dibujo.
 const _kMaxChromeShare = 0.4;
 const _kMaxFootnotesShare = 0.2;
-
-/// Lo menos que necesitan las migas al lado de los botones.
-const _kMinCrumbsWidth = 140.0;
 
 /// La comunidad —o el conjunto de temas— que se mira a la altura de los
 /// temas, como raíz de Radial y Árbol.
@@ -118,6 +101,13 @@ const _kFocusId = 'focus';
 /// Los ganchos de la ola 2: tocar un nodo pasa por `_select` —donde va la
 /// ficha—, el resaltado de `_highlight` es el lugar del foco, y la búsqueda y
 /// el Resumen llegan por `mapCanvasRequestProvider`.
+///
+/// Acá vive lo que se mira y cómo se pasa de una cosa a otra; lo demás tiene
+/// su pieza: el dibujo de la red y del árbol (`map_canvas_layers.dart`), lo de
+/// alrededor —migas, botones, notas de abajo— (`canvas_chrome.dart`), dónde va
+/// cada nodo (`canvas_placement.dart`), el caché del gesto
+/// (`canvas_gesture_cache.dart`) y lo que el árbol ya sabe de cada nodo
+/// (`knownCanvasTreeLinks`).
 class MapCanvasView extends ConsumerStatefulWidget {
   const MapCanvasView({
     required this.snapshot,
@@ -190,11 +180,9 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   // --- La red ---
 
   GraphScene _scene = const GraphScene.empty();
-  Map<String, Offset> _positions = {};
-  Size _canvas = Size.zero;
-
-  /// La última posición de cada nodo, para arrancar en caliente.
-  final Map<String, Offset> _remembered = {};
+  final _placement = CanvasNetworkPlacement();
+  Map<String, Offset> get _positions => _placement.positions;
+  Size get _canvas => _placement.canvas;
 
   /// Para descartar lo que llega de un cálculo que ya no vale.
   int _generation = 0;
@@ -233,16 +221,13 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   double _labelScale = 1;
 
   /// Lo ya dibujado, capturado al empezar un arrastre o un zoom (F18, 18.2):
-  /// moverlo es mucho más barato que recorrer cientos de nodos en cada cuadro.
-  /// `null` fuera de un gesto, o si la captura falló.
-  ui.Image? _gestureSnapshot;
-
-  /// El zoom con el que se capturó [_gestureSnapshot].
-  double _snapshotScale = 1;
-
-  /// Si hay un gesto en curso: una captura que resuelve con el gesto ya
-  /// terminado se descarta sin mostrarla.
-  bool _gesturing = false;
+  /// mientras dura el gesto se pinta eso en vez del dibujo.
+  late final _gestureCache = CanvasGestureCache(
+    boundaryKey: _boundaryKey,
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+  );
 
   // --- El movimiento entre alturas ---
 
@@ -345,7 +330,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       ..removeListener(_onZoom)
       ..dispose();
     _motionController.dispose();
-    _gestureSnapshot?.dispose();
+    _gestureCache.dispose();
     super.dispose();
   }
 
@@ -593,7 +578,9 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
     ({Float64List xs, Float64List ys})? placed;
     if (!_isTree) {
-      final layout = await _layout(scene, warm: warm);
+      final layout = await ref.read(mapLayoutRunnerProvider)(
+        _placement.jobFor(scene, warm: warm),
+      );
       if (!mounted || generation != _generation) return;
       placed = (xs: layout.xs, ys: layout.ys);
     }
@@ -607,77 +594,12 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     setState(() {
       _motion = null;
       _scene = scene;
-      if (placed != null) _rememberAndPlace(placed.xs, placed.ys);
+      if (placed != null) _placement.place(scene, placed.xs, placed.ys);
       _rebuildTree();
       _busy = false;
     });
     _fitIfNeeded();
     _startArrival();
-  }
-
-  Future<({Float64List xs, Float64List ys})> _layout(
-    GraphScene scene, {
-    required bool warm,
-  }) async {
-    // Los que ya tenían lugar parten de él; los nuevos, `NaN`.
-    final startX = Float64List(scene.nodes.length);
-    final startY = Float64List(scene.nodes.length);
-    var known = 0;
-    for (var i = 0; i < scene.nodes.length; i++) {
-      final at = warm ? _remembered[scene.nodes[i].key] : null;
-      startX[i] = at?.dx ?? double.nan;
-      startY[i] = at?.dy ?? double.nan;
-      if (at != null) known++;
-    }
-    final groups = Int32List(scene.nodes.length);
-    for (var i = 0; i < groups.length; i++) {
-      groups[i] = scene.nodes[i].group ?? -1 - i;
-    }
-    final layout = await ref.read(mapLayoutRunnerProvider)((
-      count: scene.nodes.length,
-      links: scene.links,
-      groups: groups,
-      startX: known == 0 ? null : startX,
-      startY: known == 0 ? null : startY,
-      iterations: known == 0 ? _kColdIterations : _kWarmIterations,
-      widths: Float64List.fromList([
-        for (final node in scene.nodes) mapNodeSize(node).width,
-      ]),
-      heights: Float64List.fromList([
-        for (final node in scene.nodes) mapNodeSize(node).height,
-      ]),
-    ));
-    return (xs: layout.xs, ys: layout.ys);
-  }
-
-  /// Guarda las posiciones y las pone dentro del lienzo, con margen.
-  void _rememberAndPlace(Float64List xs, Float64List ys) {
-    _remembered.clear();
-    if (xs.isEmpty) {
-      _positions = {};
-      _canvas = Size.zero;
-      return;
-    }
-    var left = double.infinity;
-    var top = double.infinity;
-    var right = double.negativeInfinity;
-    var bottom = double.negativeInfinity;
-    for (var i = 0; i < xs.length; i++) {
-      left = math.min(left, xs[i]);
-      top = math.min(top, ys[i]);
-      right = math.max(right, xs[i]);
-      bottom = math.max(bottom, ys[i]);
-      _remembered[_scene.nodes[i].key] = Offset(xs[i], ys[i]);
-    }
-    final shift = Offset(_kCanvasMargin - left, _kCanvasMargin - top);
-    _positions = {
-      for (var i = 0; i < xs.length; i++)
-        _scene.nodes[i].key: Offset(xs[i], ys[i]) + shift,
-    };
-    _canvas = Size(
-      right - left + 2 * _kCanvasMargin,
-      bottom - top + 2 * _kCanvasMargin,
-    );
   }
 
   // --- Radial, Árbol y la lista ---
@@ -725,62 +647,20 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   }
 
   /// Lo que el lienzo ya sabe de los nodos que arma él, y de la raíz.
-  Map<String, List<CanvasTreeLink>> _treeLinks(CanvasTreeRef root) {
-    final links = <String, List<CanvasTreeLink>>{..._fetched};
-    List<CanvasTreeLink> topicsOf(Iterable<int> members) => [
-      for (final m in rootTopicsAmong(_graph, members))
-        CanvasTreeLink(
-          target: CanvasTreeRef.topic(_graph.nodes[m].valueId),
-          title: _graph.nodes[m].label,
-          edge: CanvasTreeEdge.member,
-        ),
-    ];
-    switch (root.kind) {
-      case CanvasTreeKind.all:
-        final scene = sceneOfOverview(_graph, _overview);
-        links[root.key] = [
-          for (var i = 0; i < _overview.nodes.length; i++)
-            CanvasTreeLink(
-              target: CanvasTreeRef.community('$i'),
-              title: _labelOf(scene.nodes[i]),
-              edge: CanvasTreeEdge.member,
-              group: scene.nodes[i].group,
-              count: scene.nodes[i].count,
-            ),
-        ];
-        for (var i = 0; i < _overview.nodes.length; i++) {
-          links['community:$i'] = topicsOf(_overview.nodes[i].members);
-        }
-      case CanvasTreeKind.community:
-        links[root.key] = topicsOf(_selection?.topics ?? const []);
-      case CanvasTreeKind.links:
-        links[root.key] = [
-          for (final item in _linkGraph?.items ?? const <TopicItemNode>[])
-            CanvasTreeLink(
-              target: CanvasTreeRef.item(item.id),
-              title: item.title,
-              edge: CanvasTreeEdge.member,
-              isNote: item.isNote,
-            ),
-        ];
-      case CanvasTreeKind.topic:
+  Map<String, List<CanvasTreeLink>> _treeLinks(CanvasTreeRef root) =>
+      knownCanvasTreeLinks(
+        root: root,
+        graph: _graph,
+        overview: _overview,
+        labelOf: _labelOf,
+        fetched: _fetched,
+        focusTopics: _selection?.topics ?? const [],
+        linked: _linkGraph?.items ?? const [],
         // Los documentos del tema que se mira son los mismos de la red.
-        if (_altitude == MapAltitude.documents && root.id == _topicId) {
-          links[root.key] = [
-            ...?_fetched[root.key],
-            for (final item in _topicItems?.items ?? const <TopicItemNode>[])
-              CanvasTreeLink(
-                target: CanvasTreeRef.item(item.id),
-                title: item.title,
-                edge: CanvasTreeEdge.member,
-                isNote: item.isNote,
-              ),
-          ];
-        }
-      case CanvasTreeKind.item:
-    }
-    return links;
-  }
+        shownTopic: _altitude == MapAltitude.documents && _topicId != null
+            ? (valueId: _topicId!, items: _topicItems?.items ?? const [])
+            : null,
+      );
 
   /// Arma el árbol con lo que hay ahora y, si se dibuja, su forma.
   void _rebuildTree() {
@@ -1169,63 +1049,18 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   void _onInteractionStart(ScaleStartDetails details) {
     _gestureStartScale = _controller.value.getMaxScaleOnAxis();
-    _gesturing = true;
-    unawaited(_captureGestureSnapshot());
+    _gestureCache.start(
+      pixelRatio: MediaQuery.devicePixelRatioOf(context),
+      scale: _controller.value.getMaxScaleOnAxis,
+    );
   }
 
-  /// Mientras dura el gesto: si el zoom ya cambió demasiado desde la última
-  /// captura, recaptura una vez para que la imagen no se vea borrosa (F18,
-  /// 18.2). Un arrastre puro no cambia el zoom, así que no recaptura nada.
-  void _onInteractionUpdate(ScaleUpdateDetails details) {
-    if (_gestureSnapshot == null) return;
-    final change = _controller.value.getMaxScaleOnAxis() / _snapshotScale;
-    if (change > _kMaxSnapshotZoomChange ||
-        change < 1 / _kMaxSnapshotZoomChange) {
-      unawaited(_captureGestureSnapshot());
-    }
-  }
-
-  /// Captura lo ya dibujado en [_gestureSnapshot] (F18, 18.2). Si algo falla
-  /// —sin tamaño todavía, o lo que sea—, no pasa nada: sin captura, el dibujo
-  /// sigue siendo el vectorial de siempre.
-  Future<void> _captureGestureSnapshot() async {
-    ui.Image? image;
-    try {
-      image = await captureBoundaryImage(
-        _boundaryKey,
-        pixelRatio: MediaQuery.devicePixelRatioOf(context),
-      );
-      // Cualquier falla acá degrada al dibujo vectorial de siempre, no
-      // rompe la vista: no hace falta distinguir el tipo de excepción.
-      // ignore: avoid_catches_without_on_clauses
-    } catch (_) {
-      return;
-    }
-    // El gesto ya terminó mientras la captura estaba en camino: esta imagen
-    // ya no le corresponde a nada, se descarta sin mostrarla.
-    if (image == null || !mounted || !_gesturing) {
-      image?.dispose();
-      return;
-    }
-    _snapshotScale = _controller.value.getMaxScaleOnAxis();
-    _replaceGestureSnapshot(image);
-  }
-
-  void _discardGestureSnapshot() {
-    _gesturing = false;
-    _replaceGestureSnapshot(null);
-  }
-
-  /// Un `ui.Image` vivo a la vez (F18, 18.2): el anterior se libera recién
-  /// después de que el cuadro siguiente —que ya no lo usa— se pintó.
-  void _replaceGestureSnapshot(ui.Image? next) {
-    final previous = _gestureSnapshot;
-    if (identical(previous, next)) return;
-    setState(() => _gestureSnapshot = next);
-    if (previous != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
-    }
-  }
+  /// Mientras dura el gesto, el caché recaptura si el zoom ya cambió
+  /// demasiado (F18, 18.2).
+  void _onInteractionUpdate(ScaleUpdateDetails details) => _gestureCache.update(
+    pixelRatio: MediaQuery.devicePixelRatioOf(context),
+    scale: _controller.value.getMaxScaleOnAxis,
+  );
 
   /// Al soltar un gesto en la red: si cambió el zoom y pasó un umbral, cambia
   /// de altura en el nodo que quedó en el centro.
@@ -1234,7 +1069,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   /// queda por debajo de [kZoomOutThreshold], y si bastara estar por debajo,
   /// arrastrar el mapa —que no toca el zoom— lo sacaría de la altura.
   void _onInteractionEnd(ScaleEndDetails details) {
-    _discardGestureSnapshot();
+    _gestureCache.end();
     if (_busy || _viewport.isEmpty || _isTree || _links) return;
     final scale = _controller.value.getMaxScaleOnAxis();
     final change = scale / _gestureStartScale;
@@ -1266,40 +1101,19 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   /// Los documentos a la vista y los vínculos entre ellos, tal cual están
   /// dibujados: de ahí salen los candidatos de la IA.
-  Future<void> _suggestRelations() async {
-    final l10n = AppLocalizations.of(context)!;
-    final messenger = ScaffoldMessenger.of(context);
-    final ids = {
+  Future<void> _suggestRelations() => suggestLinksAmong(
+    context,
+    ref,
+    ids: {
       for (final node in _scene.nodes)
         if (node.ref case final id?) id,
-    };
-    final links = [
+    },
+    links: [
       for (final edge in _scene.edges)
         if (_scene.nodes[edge.a].ref case final from?)
           if (_scene.nodes[edge.b].ref case final to?) (from: from, to: to),
-    ];
-
-    // Los títulos de cada documento —la escena solo trae el título—: son
-    // documentos procesados, como todo lo del Mapa (F41, paso 6).
-    final loaded = await ref
-        .read(libraryRepositoryProvider)
-        .list(LibraryQuery(ids: ids, scope: LibraryScope.processed));
-    if (!mounted) return;
-
-    final failure = loaded.getLeft().toNullable();
-    if (failure != null) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
-      return;
-    }
-    await showAiSuggestRelationsDialog(
-      context,
-      ref,
-      items: loaded.getRight().toNullable() ?? const [],
-      links: links,
-    );
-  }
+    ],
+  );
 
   // --- Dibujo ---
 
@@ -1367,41 +1181,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         onPressed: () => unawaited(showAddRelationFlow(context, ref)),
       ),
     ];
-    final crumbs = MapBreadcrumb(crumbs: _crumbs(l10n));
-    // Las migas y los botones en una fila; si no entran con aire para las
-    // migas, los botones bajan a la suya.
-    final header = Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 0, 4),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final room = constraints.maxWidth - actions.length * 48;
-          if (room >= _kMinCrumbsWidth) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: crumbs,
-                  ),
-                ),
-                ...actions,
-              ],
-            );
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 4, right: 12),
-                child: crumbs,
-              ),
-              Wrap(alignment: WrapAlignment.end, children: actions),
-            ],
-          );
-        },
-      ),
-    );
+    final header = MapCanvasHeader(crumbs: _crumbs(l10n), actions: actions);
 
     final Widget body;
     if (noTopics) {
@@ -1415,7 +1195,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       );
     } else if (_links && graph == null) {
       body = _linksFailed
-          ? _LinksLoadError(onRetry: _listenLinks)
+          ? MapLinksLoadError(onRetry: _listenLinks)
           : const Center(child: CircularProgressIndicator());
     } else if (_links && graph!.items.isEmpty) {
       body = EmptyStateView(
@@ -1523,103 +1303,28 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
           },
         ),
       ],
-      if ((_isTree || _asList) && _tree != null) _rootRow(l10n),
+      if ((_isTree || _asList) && _tree != null)
+        MapTreeRootRow(
+          root: _tree!.entries[_tree!.root.id],
+          chosen: _rootOverride != null,
+          onPick: () => unawaited(_pickRoot()),
+          onReset: _resetRoot,
+        ),
     ];
-  }
-
-  Widget _rootRow(AppLocalizations l10n) {
-    final root = _tree!.entries[_tree!.root.id];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 8, 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: Tooltip(
-              message: l10n.mapSchemaRootTooltip,
-              child: OutlinedButton.icon(
-                key: const ValueKey('map-tree-root'),
-                onPressed: () => unawaited(_pickRoot()),
-                icon: Icon(
-                  root == null ? Icons.account_tree_outlined : treeIconOf(root),
-                ),
-                label: Text(
-                  root?.title ?? '',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ),
-          if (_rootOverride != null)
-            IconButton(
-              key: const ValueKey('map-tree-root-reset'),
-              tooltip: l10n.f44S2RootReset,
-              icon: const Icon(Icons.close),
-              onPressed: _resetRoot,
-            ),
-        ],
-      ),
-    );
   }
 
   /// Lo que no se dibujó, y por qué.
-  List<Widget> _footnotes(AppLocalizations l10n) {
-    final graph = _linkGraph;
-    final tree = _asList ? _listTree : _tree;
-    return [
-      if (!_links && _altitude == MapAltitude.topics && _scene.hidden > 0)
-        MapFootnote(
-          key: const ValueKey('map-cut'),
-          text: l10n.mapGraphTopicsCut(
-            _scene.nodes.length,
-            _scene.nodes.length + _scene.hidden,
-          ),
-        ),
-      if (!_links &&
-          !_isTree &&
-          !_asList &&
-          _altitude == MapAltitude.topics &&
-          _scene.hiddenEdges > 0)
-        MapFootnote(
-          key: const ValueKey('map-edges-cut'),
-          text: l10n.mapGraphEdgesCut(
-            _scene.edges.length,
-            _scene.edges.length + _scene.hiddenEdges,
-          ),
-        ),
-      if (!_links && _altitude == MapAltitude.documents && _scene.hidden > 0)
-        MapFootnote(
-          key: const ValueKey('map-cut'),
-          text: l10n.mapGraphItemsCut(_scene.nodes.length),
-        ),
-      if ((_isTree || _asList) && tree != null && tree.truncated)
-        MapFootnote(
-          key: const ValueKey('map-tree-truncated'),
-          text: l10n.mapSchemaTruncated(tree.entries.length),
-        ),
-      if (_links && graph != null) ...[
-        if (graph.hidden > 0)
-          MapFootnote(
-            key: const ValueKey('map-links-cut'),
-            text: l10n.mapLinksCut(graph.items.length, graph.linkedCount),
-          ),
-        if (_strength != LinkStrengthFilter.all)
-          MapFootnote(
-            key: const ValueKey('map-links-strength-cut'),
-            text: l10n.mapLinksStrengthCut(
-              graph.shownLinks,
-              graph.totalLinks,
-              _strength.name,
-            ),
-          ),
-        if (graph.unlinkedCount > 0)
-          MapFootnote(
-            key: const ValueKey('map-links-unlinked'),
-            text: l10n.mapLinksUnlinked(graph.unlinkedCount),
-          ),
-      ],
-    ];
-  }
+  List<Widget> _footnotes(AppLocalizations l10n) => mapCanvasFootnotes(
+    l10n,
+    links: _links,
+    altitude: _altitude,
+    scene: _scene,
+    isTree: _isTree,
+    asList: _asList,
+    tree: _asList ? _listTree : _tree,
+    linkGraph: _linkGraph,
+    strength: _strength,
+  );
 
   Widget _canvasArea(
     BuildContext context,
@@ -1668,7 +1373,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
                           // soltar vuelve el dibujo vectorial de siempre,
                           // idéntico, porque la imagen es una captura exacta
                           // de esa misma caja.
-                          child: switch (_gestureSnapshot) {
+                          child: switch (_gestureCache.image) {
                             final snapshot? => RawImage(
                               image: snapshot,
                               fit: BoxFit.fill,
@@ -1678,7 +1383,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
                               child: AnimatedBuilder(
                                 animation: _motionController,
                                 builder: (context, _) =>
-                                    _isTree ? _treeLayer(theme) : _network(),
+                                    _isTree ? _treeLayer() : _network(),
                               ),
                             ),
                           },
@@ -1689,59 +1394,24 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
                 ),
               ),
             ),
-            // Abajo, la disposición y los vínculos a un lado y el zoom con el
-            // minimapa al otro. En lo muy angosto se achican, no se pisan.
             PositionedDirectional(
               start: 12,
               end: 12,
               bottom: 12,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Flexible(
-                    flex: 3,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: AlignmentDirectional.bottomStart,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          MapArrangementSelector(
-                            arrangement: _arrangement,
-                            showLabels: constraints.maxWidth >= 560,
-                            onChanged: _setArrangement,
-                          ),
-                          const SizedBox(width: 8),
-                          _LinksToggle(on: _links, onChanged: _setLinks),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    flex: 2,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: AlignmentDirectional.bottomEnd,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          ValueListenableBuilder<Matrix4>(
-                            valueListenable: _controller,
-                            builder: (context, transform, _) =>
-                                _minimap(transform, theme),
-                          ),
-                          MapZoomControls(
-                            onZoomOut: () => _zoomBy(1 / kCanvasZoomStep),
-                            onZoomIn: () => _zoomBy(kCanvasZoomStep),
-                            onFit: _fitAll,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+              child: MapCanvasControls(
+                arrangement: _arrangement,
+                showLabels: constraints.maxWidth >= 560,
+                onArrangement: _setArrangement,
+                links: _links,
+                onLinks: _setLinks,
+                minimap: ValueListenableBuilder<Matrix4>(
+                  valueListenable: _controller,
+                  builder: (context, transform, _) =>
+                      _minimap(transform, theme),
+                ),
+                onZoomOut: () => _zoomBy(1 / kCanvasZoomStep),
+                onZoomIn: () => _zoomBy(kCanvasZoomStep),
+                onFit: _fitAll,
               ),
             ),
           ],
@@ -1797,174 +1467,36 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     );
   }
 
+  /// La red, con lo que se mueve entre alturas a la altura de ahora.
   Widget _network() {
     final motion = _motion;
     final t = Curves.easeOutCubic.transform(_motionController.value);
-    final positions = motion == null ? _positions : motion.positionsAt(t);
-    final highlight = _highlight;
-    final layer = Stack(
-      children: [
-        Positioned.fill(
-          child: CustomPaint(
-            // Miles de líneas que no cambian mientras se arrastra: que el
-            // motor las guarde dibujadas.
-            isComplex: true,
-            painter: MapEdgesPainter(
-              scene: _scene,
-              positions: positions,
-              colors: Theme.of(context).colorScheme,
-            ),
-          ),
-        ),
-        for (final node in _scene.nodes)
-          if (positions[node.key] case final at?)
-            _placed(node, at, highlighted: node.key == highlight),
-      ],
-    );
-    return motion == null
-        ? layer
-        : Opacity(opacity: motion.opacityAt(t), child: layer);
-  }
-
-  Widget _placed(SceneNode node, Offset at, {required bool highlighted}) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final size = mapNodeSize(node);
-    final label = _labelOf(node);
-    final semantics = switch (node.kind) {
-      SceneKind.community => l10n.mapGraphCommunitySemantics(
-        label,
-        l10n.mapTopicCount(_topicKind, node.count),
-      ),
-      SceneKind.overflow || SceneKind.isolated => '$label: ${node.count}',
-      SceneKind.topic => '$label: ${l10n.mapItemCount(node.size)}',
-      SceneKind.note || SceneKind.source => label,
-    };
-
-    return Positioned(
-      left: at.dx - size.width / 2,
-      top: at.dy - size.height / 2,
-      width: size.width,
-      height: size.height,
-      child: Semantics(
-        label: semantics,
-        button: true,
-        selected: highlighted,
-        excludeSemantics: true,
-        onTap: () => _select(node),
-        child: GestureDetector(
-          key: ValueKey('map-node-${node.key}'),
-          behavior: HitTestBehavior.opaque,
-          onTap: () => _select(node),
-          child: MapNetworkNode(
-            node: node,
-            label: label,
-            color: mapSceneNodeColor(node, theme.colorScheme, theme.brightness),
-            labelScale: _labelScale,
-            highlighted: highlighted,
-          ),
-        ),
-      ),
+    return MapNetworkLayer(
+      scene: _scene,
+      positions: motion == null ? _positions : motion.positionsAt(t),
+      opacity: motion?.opacityAt(t),
+      labelOf: _labelOf,
+      topicKind: _topicKind,
+      labelScale: _labelScale,
+      highlight: _highlight,
+      onSelect: _select,
     );
   }
 
-  Widget _treeLayer(ThemeData theme) {
+  /// Radial o Árbol, con lo que se mueve a la altura de ahora.
+  Widget _treeLayer() {
     final tree = _tree;
     if (tree == null) return const SizedBox.shrink();
-    final l10n = AppLocalizations.of(context)!;
     final motion = _motion;
     final t = Curves.easeOutCubic.transform(_motionController.value);
-    final positions = motion == null ? _treePositions : motion.positionsAt(t);
-    final layer = Stack(
-      children: [
-        Positioned.fill(
-          child: CustomPaint(
-            painter: MapTreeEdgesPainter(
-              entries: tree.entries.values.toList(),
-              positions: positions,
-              colors: theme.colorScheme,
-              labelOf: (entry) => treeEdgeLabel(l10n, entry),
-              textColor: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        for (final entry in tree.entries.values)
-          if (positions[entry.key] case final at?)
-            Positioned(
-              left: at.dx - kTreeNodeSize.width / 2,
-              top: at.dy - kTreeNodeSize.height / 2,
-              width: kTreeNodeSize.width,
-              height: kTreeNodeSize.height,
-              child: Builder(
-                builder: (context) {
-                  final open = _openOf(entry);
-                  return MapTreeNodeCard(
-                    entry: entry,
-                    topicKind: _topicKind,
-                    onToggle: () => _toggle(entry),
-                    onOpen: open?.onOpen,
-                    openTooltip: open?.tooltip,
-                    highlighted:
-                        entry.ref.kind == CanvasTreeKind.item &&
-                        _highlight == 'item:${entry.ref.id}',
-                  );
-                },
-              ),
-            ),
-      ],
-    );
-    return motion == null
-        ? layer
-        : Opacity(opacity: motion.opacityAt(t), child: layer);
-  }
-}
-
-/// Prende o apaga los documentos vinculados entre sí: el lugar provisorio,
-/// hasta la ola 2, de la capa «Vínculos».
-class _LinksToggle extends StatelessWidget {
-  const _LinksToggle({required this.on, required this.onChanged});
-
-  final bool on;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final colors = Theme.of(context).colorScheme;
-    return Material(
-      color: on ? colors.secondaryContainer : colors.surfaceContainerHigh,
-      elevation: 2,
-      shadowColor: colors.shadow.withValues(alpha: 0.3),
-      shape: const CircleBorder(),
-      child: IconButton(
-        key: const ValueKey('map-links-toggle'),
-        isSelected: on,
-        tooltip: on ? l10n.f44S2LinksOff : l10n.f44S2LinksOn,
-        icon: const Icon(Icons.link),
-        color: on ? colors.onSecondaryContainer : null,
-        onPressed: () => onChanged(!on),
-      ),
-    );
-  }
-}
-
-class _LinksLoadError extends StatelessWidget {
-  const _LinksLoadError({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(l10n.mapLinksLoadError),
-          const SizedBox(height: 8),
-          TextButton(onPressed: onRetry, child: Text(l10n.mapRetry)),
-        ],
-      ),
+    return MapTreeLayer(
+      tree: tree,
+      positions: motion == null ? _treePositions : motion.positionsAt(t),
+      opacity: motion?.opacityAt(t),
+      topicKind: _topicKind,
+      onToggle: _toggle,
+      openOf: _openOf,
+      highlight: _highlight,
     );
   }
 }

@@ -3,13 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
-import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/presentation/repasar_navigation.dart';
-import 'package:sinapsis/features/graph/presentation/widgets/ai_suggest_relations_dialog.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
@@ -19,7 +15,7 @@ import 'package:sinapsis/features/map/presentation/providers/board_providers.dar
 import 'package:sinapsis/features/map/presentation/providers/map_canvas_request.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_target.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
-import 'package:sinapsis/l10n/generated/app_localizations.dart';
+import 'package:sinapsis/features/map/presentation/widgets/suggest_links.dart';
 
 /// El Resumen del Mapa con lo que necesita de afuera (F44, paso 3): lee lo que
 /// cuenta además del grafo de temas y resuelve sus salidas —«Estudiar»,
@@ -88,33 +84,12 @@ class _MapBoardPaneState extends ConsumerState<MapBoardPane> {
 
   /// «Sugerir vínculos» entre lo suelto: se elige de cuál partir y la IA
   /// propone con cuáles de los otros unirlo; nada se vincula sin confirmar.
-  Future<void> _suggestLinks(List<String> itemIds) async {
-    final l10n = AppLocalizations.of(context)!;
-    final messenger = ScaffoldMessenger.of(context);
-    final loaded = await ref
-        .read(libraryRepositoryProvider)
-        .list(
-          LibraryQuery(
-            ids: itemIds.take(kMaxGraphItems).toSet(),
-            scope: LibraryScope.processed,
-          ),
-        );
-    if (!mounted) return;
-    final failure = loaded.getLeft().toNullable();
-    if (failure != null) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
-      return;
-    }
-    await showAiSuggestRelationsDialog(
-      context,
-      ref,
-      items: loaded.getRight().toNullable() ?? const [],
-      // Son sueltos: no tienen vínculos que descontar.
-      links: const [],
-    );
-  }
+  /// Son sueltos: no tienen vínculos que descontar.
+  Future<void> _suggestLinks(List<String> itemIds) => suggestLinksAmong(
+    context,
+    ref,
+    ids: itemIds.take(kMaxGraphItems).toSet(),
+  );
 
   @override
   Widget build(BuildContext context) {

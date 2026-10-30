@@ -413,3 +413,61 @@ String treeSvg({
   }
   return svg.build();
 }
+
+/// De dónde parte Radial, Árbol y la lista: el nombre de la raíz, que al
+/// tocarlo deja partir de una nota mapa o de cualquier tema, y —si se eligió
+/// una— la ✕ que vuelve a lo que se mira.
+class MapTreeRootRow extends StatelessWidget {
+  const MapTreeRootRow({
+    required this.root,
+    required this.chosen,
+    required this.onPick,
+    required this.onReset,
+    super.key,
+  });
+
+  /// La raíz del árbol, o `null` si todavía no se armó.
+  final CanvasTreeEntry? root;
+
+  /// Si la raíz la eligió la persona, en vez de ser lo que se mira.
+  final bool chosen;
+  final VoidCallback onPick;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final root = this.root;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 8, 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Tooltip(
+              message: l10n.mapSchemaRootTooltip,
+              child: OutlinedButton.icon(
+                key: const ValueKey('map-tree-root'),
+                onPressed: onPick,
+                icon: Icon(
+                  root == null ? Icons.account_tree_outlined : treeIconOf(root),
+                ),
+                label: Text(
+                  root?.title ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+          if (chosen)
+            IconButton(
+              key: const ValueKey('map-tree-root-reset'),
+              tooltip: l10n.f44S2RootReset,
+              icon: const Icon(Icons.close),
+              onPressed: onReset,
+            ),
+        ],
+      ),
+    );
+  }
+}

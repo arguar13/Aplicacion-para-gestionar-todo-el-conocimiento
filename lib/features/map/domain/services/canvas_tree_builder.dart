@@ -2,6 +2,9 @@ import 'package:meta/meta.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
+import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
+import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
+import 'package:sinapsis/features/map/domain/services/level_of_detail.dart';
 import 'package:sinapsis/features/map/domain/services/schema_layout.dart';
 
 /// Cuántos nodos dibuja el árbol del lienzo, como máximo: pasado eso, lo que
@@ -343,4 +346,74 @@ List<int> rootTopicsAmong(TopicGraph graph, Iterable<int> members) {
     final bySize = graph.nodes[y].itemCount.compareTo(graph.nodes[x].itemCount);
     return bySize != 0 ? bySize : x.compareTo(y);
   });
+}
+
+/// Lo que el lienzo ya sabe de lo que arma él y de la raíz [root], sumado a lo
+/// que la base ya trajo ([fetched]): los hijos que [buildCanvasTree] recibe en
+/// `links`.
+///
+/// - De todo ([CanvasTreeKind.all]): las comunidades de [overview], rotuladas
+///   con [labelOf], y los temas de cada una.
+/// - De la comunidad que se mira: [focusTopics].
+/// - De lo vinculado: [linked].
+/// - Del tema cuyos documentos se miran ([shownTopic]): esos documentos, los
+///   mismos de la red, sin pedirlos otra vez.
+///
+/// Es puro.
+Map<String, List<CanvasTreeLink>> knownCanvasTreeLinks({
+  required CanvasTreeRef root,
+  required TopicGraph graph,
+  required CommunityOverview overview,
+  required String Function(SceneNode node) labelOf,
+  required Map<String, List<CanvasTreeLink>> fetched,
+  List<int> focusTopics = const [],
+  List<TopicItemNode> linked = const [],
+  ({String valueId, List<TopicItemNode> items})? shownTopic,
+}) {
+  final links = <String, List<CanvasTreeLink>>{...fetched};
+  List<CanvasTreeLink> topicsOf(Iterable<int> members) => [
+    for (final m in rootTopicsAmong(graph, members))
+      CanvasTreeLink(
+        target: CanvasTreeRef.topic(graph.nodes[m].valueId),
+        title: graph.nodes[m].label,
+        edge: CanvasTreeEdge.member,
+      ),
+  ];
+  CanvasTreeLink itemLink(TopicItemNode item) => CanvasTreeLink(
+    target: CanvasTreeRef.item(item.id),
+    title: item.title,
+    edge: CanvasTreeEdge.member,
+    isNote: item.isNote,
+  );
+
+  switch (root.kind) {
+    case CanvasTreeKind.all:
+      final scene = sceneOfOverview(graph, overview);
+      links[root.key] = [
+        for (var i = 0; i < overview.nodes.length; i++)
+          CanvasTreeLink(
+            target: CanvasTreeRef.community('$i'),
+            title: labelOf(scene.nodes[i]),
+            edge: CanvasTreeEdge.member,
+            group: scene.nodes[i].group,
+            count: scene.nodes[i].count,
+          ),
+      ];
+      for (var i = 0; i < overview.nodes.length; i++) {
+        links['community:$i'] = topicsOf(overview.nodes[i].members);
+      }
+    case CanvasTreeKind.community:
+      links[root.key] = topicsOf(focusTopics);
+    case CanvasTreeKind.links:
+      links[root.key] = [for (final item in linked) itemLink(item)];
+    case CanvasTreeKind.topic:
+      if (shownTopic != null && root.id == shownTopic.valueId) {
+        links[root.key] = [
+          ...?fetched[root.key],
+          for (final item in shownTopic.items) itemLink(item),
+        ];
+      }
+    case CanvasTreeKind.item:
+  }
+  return links;
 }

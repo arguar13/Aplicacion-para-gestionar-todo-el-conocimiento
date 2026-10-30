@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
+import 'package:sinapsis/features/map/domain/services/canvas_tree_builder.dart';
+import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
+import 'package:sinapsis/features/map/domain/services/link_strength.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_canvas_request.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
+
+/// Lo menos que necesitan las migas al lado de los botones.
+const _kMinCrumbsWidth = 140.0;
 
 /// Un paso del camino de migas: cómo se llama, qué altura es —para su clave—
 /// y adónde lleva; `null` en el último, que es donde se está.
@@ -174,4 +181,265 @@ class MapFootnote extends StatelessWidget {
       child: Text(text, style: Theme.of(context).textTheme.bodySmall),
     );
   }
+}
+
+/// Lo de arriba del lienzo (F44, paso 2): las migas y los botones de lo que se
+/// mira en una fila; si no entran con aire para las migas, los botones bajan a
+/// la suya.
+class MapCanvasHeader extends StatelessWidget {
+  const MapCanvasHeader({
+    required this.crumbs,
+    required this.actions,
+    super.key,
+  });
+
+  final List<MapCrumb> crumbs;
+
+  /// Botones de 48 de ancho, como los `IconButton`.
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final breadcrumb = MapBreadcrumb(crumbs: crumbs);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 0, 4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final room = constraints.maxWidth - actions.length * 48;
+          if (room >= _kMinCrumbsWidth) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: breadcrumb,
+                  ),
+                ),
+                ...actions,
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 4, right: 12),
+                child: breadcrumb,
+              ),
+              Wrap(alignment: WrapAlignment.end, children: actions),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Lo de abajo del lienzo (F44, paso 2): la disposición y los vínculos a un
+/// lado, y el minimapa con el zoom al otro. En lo muy angosto se achican, no
+/// se pisan.
+class MapCanvasControls extends StatelessWidget {
+  const MapCanvasControls({
+    required this.arrangement,
+    required this.onArrangement,
+    required this.links,
+    required this.onLinks,
+    required this.minimap,
+    required this.onZoomOut,
+    required this.onZoomIn,
+    required this.onFit,
+    this.showLabels = false,
+    super.key,
+  });
+
+  final MapArrangement arrangement;
+  final ValueChanged<MapArrangement> onArrangement;
+
+  /// Si están prendidos los vínculos entre documentos.
+  final bool links;
+  final ValueChanged<bool> onLinks;
+
+  /// El minimapa, encima del zoom: se esconde solo.
+  final Widget minimap;
+  final VoidCallback onZoomOut;
+  final VoidCallback onZoomIn;
+  final VoidCallback onFit;
+
+  /// Si hay lugar para el nombre de cada disposición.
+  final bool showLabels;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Flexible(
+          flex: 3,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.bottomStart,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                MapArrangementSelector(
+                  arrangement: arrangement,
+                  showLabels: showLabels,
+                  onChanged: onArrangement,
+                ),
+                const SizedBox(width: 8),
+                MapLinksToggle(on: links, onChanged: onLinks),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          flex: 2,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.bottomEnd,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                minimap,
+                MapZoomControls(
+                  onZoomOut: onZoomOut,
+                  onZoomIn: onZoomIn,
+                  onFit: onFit,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Prende o apaga los documentos vinculados entre sí: el lugar provisorio,
+/// hasta la ola 2, de la capa «Vínculos».
+class MapLinksToggle extends StatelessWidget {
+  const MapLinksToggle({required this.on, required this.onChanged, super.key});
+
+  final bool on;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: on ? colors.secondaryContainer : colors.surfaceContainerHigh,
+      elevation: 2,
+      shadowColor: colors.shadow.withValues(alpha: 0.3),
+      shape: const CircleBorder(),
+      child: IconButton(
+        key: const ValueKey('map-links-toggle'),
+        isSelected: on,
+        tooltip: on ? l10n.f44S2LinksOff : l10n.f44S2LinksOn,
+        icon: const Icon(Icons.link),
+        color: on ? colors.onSecondaryContainer : null,
+        onPressed: () => onChanged(!on),
+      ),
+    );
+  }
+}
+
+/// Los vínculos entre documentos no se pudieron leer: lo dice y deja
+/// reintentar.
+class MapLinksLoadError extends StatelessWidget {
+  const MapLinksLoadError({required this.onRetry, super.key});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(l10n.mapLinksLoadError),
+          const SizedBox(height: 8),
+          TextButton(onPressed: onRetry, child: Text(l10n.mapRetry)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lo que no se dibujó, y por qué: los temas y las uniones que no entraron,
+/// los documentos de más, el árbol cortado y, con los vínculos prendidos
+/// ([links]), cuántos quedaron afuera, cuántos deja ver la fuerza elegida y
+/// cuántos documentos no tienen ninguno.
+///
+/// [tree] es el árbol que se muestra —el del dibujo o el de la lista—, y
+/// [linkGraph], lo vinculado, cuando ya llegó.
+List<Widget> mapCanvasFootnotes(
+  AppLocalizations l10n, {
+  required bool links,
+  required MapAltitude altitude,
+  required GraphScene scene,
+  required bool isTree,
+  required bool asList,
+  required CanvasTree? tree,
+  required LinkGraph? linkGraph,
+  required LinkStrengthFilter strength,
+}) {
+  final graph = linkGraph;
+  return [
+    if (!links && altitude == MapAltitude.topics && scene.hidden > 0)
+      MapFootnote(
+        key: const ValueKey('map-cut'),
+        text: l10n.mapGraphTopicsCut(
+          scene.nodes.length,
+          scene.nodes.length + scene.hidden,
+        ),
+      ),
+    if (!links &&
+        !isTree &&
+        !asList &&
+        altitude == MapAltitude.topics &&
+        scene.hiddenEdges > 0)
+      MapFootnote(
+        key: const ValueKey('map-edges-cut'),
+        text: l10n.mapGraphEdgesCut(
+          scene.edges.length,
+          scene.edges.length + scene.hiddenEdges,
+        ),
+      ),
+    if (!links && altitude == MapAltitude.documents && scene.hidden > 0)
+      MapFootnote(
+        key: const ValueKey('map-cut'),
+        text: l10n.mapGraphItemsCut(scene.nodes.length),
+      ),
+    if ((isTree || asList) && tree != null && tree.truncated)
+      MapFootnote(
+        key: const ValueKey('map-tree-truncated'),
+        text: l10n.mapSchemaTruncated(tree.entries.length),
+      ),
+    if (links && graph != null) ...[
+      if (graph.hidden > 0)
+        MapFootnote(
+          key: const ValueKey('map-links-cut'),
+          text: l10n.mapLinksCut(graph.items.length, graph.linkedCount),
+        ),
+      if (strength != LinkStrengthFilter.all)
+        MapFootnote(
+          key: const ValueKey('map-links-strength-cut'),
+          text: l10n.mapLinksStrengthCut(
+            graph.shownLinks,
+            graph.totalLinks,
+            strength.name,
+          ),
+        ),
+      if (graph.unlinkedCount > 0)
+        MapFootnote(
+          key: const ValueKey('map-links-unlinked'),
+          text: l10n.mapLinksUnlinked(graph.unlinkedCount),
+        ),
+    ],
+  ];
 }
