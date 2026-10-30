@@ -3,37 +3,31 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
-import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
-import 'package:sinapsis/features/study/domain/entities/document_study.dart';
-import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
-import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
-import '../../../../support/fake_study_analysis.dart';
 import '../../../../support/library_harness.dart';
-import '../../../../support/memory_study_repository.dart';
 import '../../../../support/quiet_video_player.dart';
 import '../../../../support/read_aloud_test_support.dart';
 
 /// El detalle de un elemento con el lector flotante (F25): qué ofrece para
-/// leer —la nota del usuario, el texto, una nota de bloques bloque por
-/// bloque—, qué pinta de amarillo mientras lee y cuándo deja de ofrecerlo.
+/// leer —la nota del usuario, el texto de una nota, una nota de bloques bloque
+/// por bloque—, qué pinta de amarillo mientras lee y cuándo deja de
+/// ofrecerlo. El texto de una fuente no se muestra en la Biblioteca (F45, paso
+/// 3): no se ofrece, se escucha en su documento procesado.
 void main() {
-  final es = AppLocalizationsEs();
   final now = DateTime(2026, 10, 2, 10);
   late LibraryHarness harness;
 
@@ -95,15 +89,6 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Despliega el texto, plegado en la tarjeta de estudiar (F39): plegado no
-  /// se ve, y lo que no se ve no se ofrece para leer.
-  Future<void> unfoldText(WidgetTester tester) async {
-    final row = find.byKey(const Key('study-extract-text'));
-    await tester.ensureVisible(row);
-    await tester.tap(row);
-    await tester.pumpAndSettle();
-  }
-
   group('con su propio audio no se ofrece: sería un segundo audio de lo '
       'mismo', () {
     /// Un elemento de [kind] con su archivo, que se resuelve como audio:
@@ -162,30 +147,36 @@ void main() {
 
       await tester.pumpWidget(const SizedBox());
     });
+  });
 
-    testWidgets('un YouTube sin el audio bajado sí: no hay otra forma de '
-        'escucharlo', (tester) async {
+  for (final kind in [
+    SourceKind.youtube,
+    SourceKind.document,
+    SourceKind.webPage,
+  ]) {
+    testWidgets('${kind.name}: de una fuente se ofrece solo la nota del '
+        'usuario, no su texto, que ya no se ve (F45, paso 3)', (tester) async {
       final id = await save(
-        kind: SourceKind.youtube,
+        kind: kind,
+        notes: 'Mi nota.',
         renditions: (id) => [text(id, '[0:00] hola a todos')],
       );
       await pumpDetail(tester, id);
-      await unfoldText(tester);
 
       expect(offered()?.id, 'item:$id');
+      expect(offered()!.segments.map((s) => s.spoken), ['Mi nota.']);
     });
-  });
+  }
 
-  testWidgets('ofrece la nota del usuario y después el texto, línea por '
-      'línea, con su lugar en cada uno', (tester) async {
+  testWidgets('ofrece la nota del usuario y después el texto de la nota, '
+      'línea por línea, con su lugar en cada uno', (tester) async {
     final id = await save(
-      kind: SourceKind.webPage,
+      kind: SourceKind.manualNote,
       notes: 'Mi nota.',
       renditions: (id) => [text(id, 'Primera línea.\n\nSegunda línea.')],
     );
 
     await pumpDetail(tester, id);
-    await unfoldText(tester);
 
     final document = offered()!;
     expect(document.id, 'item:$id');
@@ -215,12 +206,11 @@ void main() {
   testWidgets('la línea que se lee se ve en amarillo: en la nota del usuario '
       'y en el texto, solo esa', (tester) async {
     final id = await save(
-      kind: SourceKind.webPage,
+      kind: SourceKind.manualNote,
       notes: 'Mi nota.',
       renditions: (id) => [text(id, 'Primera línea.\n\nSegunda línea.')],
     );
     await pumpDetail(tester, id);
-    await unfoldText(tester);
     expect(readAloudHighlights(tester), isEmpty);
 
     reader().readAt(offered()!, 0);
@@ -230,23 +220,6 @@ void main() {
     reader().readAt(offered()!, 2);
     await tester.pump();
     expect(readAloudHighlights(tester), ['Segunda línea.']);
-  });
-
-  testWidgets('una transcripción se lee sin las marcas de tiempo, y se '
-      'resalta el renglón entero', (tester) async {
-    final id = await save(
-      kind: SourceKind.audio,
-      renditions: (id) => [text(id, '[0:00] hola a todos\n[0:05] y chau')],
-    );
-    await pumpDetail(tester, id);
-    await unfoldText(tester);
-
-    final document = offered()!;
-    expect(document.segments.map((s) => s.spoken), ['hola a todos', 'y chau']);
-
-    reader().readAt(document, 1);
-    await tester.pump();
-    expect(readAloudHighlights(tester), ['[0:05] y chau']);
   });
 
   testWidgets('una nota de bloques se lee bloque por bloque, sin el formato, '
@@ -290,37 +263,13 @@ void main() {
     expect(readAloudHighlights(tester), ['Un párrafo firme.']);
   });
 
-  testWidgets('el texto plegado de un documento se ofrece recién al '
-      'desplegarlo, y deja de ofrecerse al plegarlo', (tester) async {
-    final id = await save(
-      kind: SourceKind.document,
-      notes: 'Mi nota.',
-      renditions: (id) => [text(id, 'Lo que dice el documento.')],
-    );
-    await pumpDetail(tester, id);
-    expect(offered()!.segments.map((s) => s.spoken), ['Mi nota.']);
-
-    await tester.tap(find.text(es.studyExtractText));
-    await tester.pumpAndSettle();
-    expect(offered()!.id, 'item:$id');
-    expect(offered()!.segments.map((s) => s.spoken), [
-      'Mi nota.',
-      'Lo que dice el documento.',
-    ]);
-
-    await tester.tap(find.text(es.studyExtractText));
-    await tester.pumpAndSettle();
-    expect(offered()!.segments.map((s) => s.spoken), ['Mi nota.']);
-  });
-
   testWidgets('tapado por otra pantalla deja de ofrecerse, y vuelve al '
       'volver; al salir, nada', (tester) async {
     final id = await save(
-      kind: SourceKind.webPage,
+      kind: SourceKind.manualNote,
       renditions: (id) => [text(id, 'Algo para leer.')],
     );
     await pumpDetail(tester, id);
-    await unfoldText(tester);
     expect(offered()?.id, 'item:$id');
 
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
@@ -340,157 +289,5 @@ void main() {
     // Lo que el detalle deja programado al cerrarse termina antes de que
     // termine la prueba.
     await tester.pump(const Duration(seconds: 1));
-  });
-
-  group('lo estudiado se escucha aparte (F39)', () {
-    const body = 'Primera frase. Segunda frase.\n\nOtra línea más.';
-
-    StudyMark mark(String id, StudyMarkKind kind, String part) {
-      final start = body.indexOf(part);
-      return StudyMark(
-        id: id,
-        kind: kind,
-        origin: ContentOrigin.ai,
-        start: start,
-        end: start + part.length,
-      );
-    }
-
-    final studied = DocumentStudy(
-      marks: [
-        mark('s1', StudyMarkKind.summary, 'Segunda frase.'),
-        mark('k1', StudyMarkKind.keyword, 'Otra'),
-      ],
-      analyzedUntil: body.length,
-      complete: true,
-    );
-
-    /// El detalle de un elemento de [kind] con [studied], y con su propio
-    /// audio si [withAudio].
-    Future<String> pumpStudied(
-      WidgetTester tester, {
-      required SourceKind kind,
-      bool withAudio = false,
-      String? notes,
-    }) async {
-      VideoPlayerPlatform.instance = QuietVideoPlayer();
-      harness = await LibraryHarness.create(
-        extraOverrides: [
-          readAloudControllerProvider.overrideWith(FakeReadAloudController.new),
-          studyRepositoryProvider.overrideWithValue(
-            MemoryStudyRepository(studied),
-          ),
-          studyAnalysisProvider.overrideWith((ref, id) => FakeStudyAnalysis()),
-          if (withAudio)
-            resolvedFileViewerProvider.overrideWith(
-              (ref, item) async => const MediaResolvedViewer(
-                path: '/boveda/archivos/clase.opus',
-                isVideo: false,
-              ),
-            ),
-        ],
-      );
-      const id = 'f39-estudiado';
-      await harness.container
-          .read(libraryRepositoryProvider)
-          .save(
-            KnowledgeItem(
-              id: id,
-              title: 'Estudiado',
-              notes: notes,
-              source: Source(
-                id: id,
-                kind: kind,
-                capturedAt: now,
-                originalFilePath: withAudio ? 'clase.opus' : null,
-              ),
-              processingState: ProcessingState.ready,
-              createdAt: now,
-              updatedAt: now,
-              renditions: [text(id, body)],
-            ),
-          );
-      await pumpDetail(tester, id);
-      return id;
-    }
-
-    testWidgets('con el texto plegado se ofrece lo estudiado, sin el texto '
-        'entero: el reproductor deja «Todo» apagado', (tester) async {
-      final id = await pumpStudied(tester, kind: SourceKind.webPage);
-
-      final document = offered()!;
-      expect(document.id, 'item:$id');
-      expect(document.segments, isEmpty);
-      expect(document.segmentsOf(ReadScope.summary).map((s) => s.spoken), [
-        'Segunda frase.',
-      ]);
-      expect(document.segmentsOf(ReadScope.keywords).map((s) => s.spoken), [
-        'Otra',
-      ]);
-      expect(document.offers(ReadScope.synthesis), isFalse);
-    });
-
-    testWidgets('desplegado el texto, se ofrece también entero, con las '
-        'mismas posiciones', (tester) async {
-      await pumpStudied(tester, kind: SourceKind.webPage);
-      await unfoldText(tester);
-
-      final document = offered()!;
-      expect(document.segments.map((s) => s.spoken), [
-        'Primera frase. Segunda frase.',
-        'Otra línea más.',
-      ]);
-      final summary = document.segmentsOf(ReadScope.summary).single;
-      expect(summary.sourceKey, document.segments.first.sourceKey);
-      expect(body.substring(summary.start, summary.end), 'Segunda frase.');
-    });
-
-    testWidgets('lo que suena del resumen se ve en amarillo en su lugar del '
-        'texto, no la línea entera', (tester) async {
-      await pumpStudied(tester, kind: SourceKind.webPage);
-      await unfoldText(tester);
-
-      reader().readAt(offered()!, 0, scope: ReadScope.summary);
-      await tester.pump();
-
-      expect(
-        readAloudHighlights(
-          tester,
-          within: find.byKey(const Key('study-extract-text')),
-        ),
-        ['Segunda frase.'],
-      );
-    });
-
-    testWidgets('con su propio audio, el lector empieza por lo estudiado, y '
-        '«Todo» también se puede elegir (F23, F40)', (tester) async {
-      await pumpStudied(
-        tester,
-        kind: SourceKind.audio,
-        withAudio: true,
-        notes: 'Mi nota.',
-      );
-
-      // El texto ya suena en su propio audio: quien no elige empieza por el
-      // resumen, no por un segundo audio de lo mismo.
-      final document = offered()!;
-      expect(document.ownAudio, isTrue);
-      expect(document.offers(ReadScope.all), isTrue);
-      expect(document.offers(ReadScope.summary), isTrue);
-      expect(document.offers(ReadScope.keywords), isTrue);
-      expect(document.defaultScope, ReadScope.summary);
-
-      // Desplegada, la transcripción se ofrece entera y trae «Escuchar». Lo
-      // estudiado se sigue ofreciendo al lector; su fila para leerlo está en
-      // el documento procesado (F41, decisión K).
-      await unfoldText(tester);
-      expect(offered()!.ownAudio, isTrue);
-      expect(offered()!.offers(ReadScope.all), isTrue);
-      expect(offered()!.defaultScope, ReadScope.summary);
-      expect(find.byKey(const Key('study-listen-all')), findsOneWidget);
-      expect(find.byKey(const Key('study-extract-summary')), findsNothing);
-
-      await tester.pumpWidget(const SizedBox());
-    });
   });
 }

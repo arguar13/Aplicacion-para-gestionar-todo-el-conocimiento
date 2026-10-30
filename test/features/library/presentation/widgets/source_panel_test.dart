@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
-import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -134,8 +133,10 @@ KnowledgeItem _source(
 );
 
 /// El panel de la fuente (F26): qué partes muestra según la fuente, qué
-/// ofrece "Más", cómo cuenta lo que está pasando, qué hacen los mosaicos y
-/// que entra sin desbordarse en un teléfono.
+/// ofrece "Más" de una nota, cómo cuenta lo que está pasando, qué hacen los
+/// mosaicos de una nota y que entra sin desbordarse en un teléfono. Una
+/// fuente no lleva mosaicos (F45, paso 3): lo de su «Más» se prueba en
+/// Procesado, en `source_text_button_test.dart`.
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -164,6 +165,8 @@ void main() {
     String? summarizeResponse,
     List<Override> extraOverrides = const [],
     Future<void> Function()? beforeShow,
+    double gapAbove = 0,
+    double textScale = 1,
   }) async {
     harness = await LibraryHarness.create(
       chatModelReady: chatModelReady,
@@ -179,20 +182,24 @@ void main() {
 
     await tester.pumpWidget(
       harness.wrap(
-        Theme(
-          data: theme ?? AppTheme.lightTheme,
-          child: Scaffold(
-            body: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Consumer(
-                builder: (context, ref, _) {
-                  final current = ref
-                      .watch(libraryItemProvider(item.id))
-                      .valueOrNull;
-                  return current == null
-                      ? const SizedBox.shrink()
-                      : SourcePanel(item: current);
-                },
+        MediaQuery.withClampedTextScaling(
+          minScaleFactor: textScale,
+          maxScaleFactor: textScale,
+          child: Theme(
+            data: theme ?? AppTheme.lightTheme,
+            child: Scaffold(
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final current = ref
+                        .watch(libraryItemProvider(item.id))
+                        .valueOrNull;
+                    return current == null
+                        ? const SizedBox.shrink()
+                        : SourcePanel(item: current, gapAbove: gapAbove);
+                  },
+                ),
               ),
             ),
           ),
@@ -220,31 +227,35 @@ void main() {
   final panel = find.byType(SourcePanel);
 
   group('las partes, según la fuente', () {
-    testWidgets('una página web con texto: Leer · Copiar · Más, sin '
-        'separadores ni «Resumir», y «Más» apagado: organizarla es de su '
-        'documento procesado (F41, decisión K)', (tester) async {
-      await pumpPanel(
+    for (final (kind, file) in [
+      (SourceKind.webPage, null),
+      (SourceKind.document, 'originales/f26/libro.pdf'),
+      // La vista previa de un audio ya es su reproductor: el panel no lo
+      // repite.
+      (SourceKind.audio, 'originales/f26/clase.m4a'),
+    ]) {
+      testWidgets('${kind.name} lista, con su texto: sin Leer · Copiar · Más '
+          'ni nada que contar, el panel no se dibuja (F45, paso 3)', (
         tester,
-        _source(
-          SourceKind.webPage,
-          url: 'https://ejemplo.org/nota',
-          texts: ['Un artículo.'],
-        ),
-      );
+      ) async {
+        await pumpPanel(
+          tester,
+          _source(
+            kind,
+            file: file,
+            url: 'https://ejemplo.org/nota',
+            texts: ['[0:00] Un artículo.'],
+          ),
+        );
 
-      expect(find.byType(SourcePanelTile), findsNWidgets(3));
-      expect(find.byKey(const Key('source-panel-summarize')), findsNothing);
-      expect(enabled(tester, 'source-panel-read'), isTrue);
-      expect(enabled(tester, 'source-panel-copy'), isTrue);
-      expect(enabled(tester, 'source-panel-more'), isFalse);
-      expect(find.byTooltip(es.sourcePanelNothingMore), findsOneWidget);
-      expect(find.byType(SourcePanelStatus), findsNothing);
-      expect(find.byType(SourcePanelAudio), findsNothing);
-      expect(
-        find.descendant(of: panel, matching: find.byType(Divider)),
-        findsNothing,
-      );
-    });
+        expect(find.byType(SourcePanelTile), findsNothing);
+        expect(find.byType(SourcePanelStatus), findsNothing);
+        expect(find.byType(SourcePanelAudio), findsNothing);
+        expect(find.byKey(const Key('source-panel')), findsNothing);
+        // Ni el aire de arriba: vacío, no deja un hueco.
+        expect(tester.getSize(panel).height, 0);
+      });
+    }
 
     testWidgets('una nota propia con texto: los cuatro mosaicos, con '
         '«Resumir», y «Más» ofrece que la organice la IA y buscarle fechas', (
@@ -273,8 +284,8 @@ void main() {
       expect(find.byKey(const Key('source-more-reextract')), findsNothing);
     });
 
-    testWidgets('una página web que no se pudo traer: "Más" apagado porque '
-        'no hay nada que ofrecer, ni organizarla', (tester) async {
+    testWidgets('una página web que no se pudo traer: el motivo, con su '
+        '«Reintentar», y nada más', (tester) async {
       await pumpPanel(
         tester,
         _source(
@@ -283,10 +294,21 @@ void main() {
           state: ProcessingState.failed,
         ),
         beforeShow: () => fail(ProcessingFailureReason.network),
+        gapAbove: 12,
       );
 
-      expect(enabled(tester, 'source-panel-more'), isFalse);
-      expect(find.byTooltip(es.sourcePanelNothingMore), findsOneWidget);
+      expect(find.text(es.failureNetwork), findsOneWidget);
+      expect(find.byType(SourcePanelTile), findsNothing);
+      expect(
+        find.descendant(of: panel, matching: find.byType(Divider)),
+        findsNothing,
+      );
+      // Con algo que contar, va con su aire debajo del original.
+      expect(
+        tester.getTopLeft(find.byKey(const Key('source-panel'))).dy -
+            tester.getTopLeft(panel).dy,
+        12,
+      );
     });
 
     testWidgets('una nota de bloques: Leer · Resumir · Copiar · Editar, y '
@@ -318,110 +340,8 @@ void main() {
       expect(find.byType(BlockEditorScreen), findsOneWidget);
     });
 
-    testWidgets('un audio con su transcripción: "Más" ofrece volver a '
-        'extraer y quitar las marcas, cada una con lo que hace; ni la IA ni '
-        'borrar el archivo (F41, decisión K)', (tester) async {
-      await pumpPanel(
-        tester,
-        _source(
-          SourceKind.audio,
-          file: 'originales/f26/clase.m4a',
-          texts: ['[0:00] hola\n[0:05] chau'],
-        ),
-      );
-
-      // La vista previa de un audio ya es su reproductor: el panel no lo
-      // repite.
-      expect(find.byType(SourcePanelAudio), findsNothing);
-
-      await openMore(tester);
-
-      expect(find.text(es.sourcePanelMoreTitle), findsOneWidget);
-      expect(find.byKey(const Key('source-more-reextract')), findsOneWidget);
-      expect(
-        find.byKey(const Key('source-more-removeTimestamps')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('source-more-fullScreen')), findsNothing);
-      // La fuente queda de consulta: la IA trabaja su documento procesado, y
-      // de la Biblioteca nada se borra.
-      for (final key in [
-        'source-more-organizeWithAi',
-        'source-more-findDatesWithAi',
-        'source-more-deleteOriginalFile',
-      ]) {
-        expect(find.byKey(Key(key)), findsNothing, reason: key);
-      }
-      expect(find.text(es.sourcePanelReextractHint), findsOneWidget);
-      expect(find.text(es.sourcePanelRemoveTimestampsHint), findsOneWidget);
-      // El texto de una transcripción no se suelta: no queda un «libro».
-      expect(find.byKey(const Key('source-more-deleteText')), findsNothing);
-    });
-
-    testWidgets('en una pantalla baja, la hoja de "Más" se desplaza: ninguna '
-        'fila queda cortada ni inalcanzable', (tester) async {
-      await pumpPanel(
-        tester,
-        _source(
-          SourceKind.document,
-          file: 'originales/f26/libro.pdf',
-          texts: ['Nació en 1809.'],
-        ),
-        height: 480,
-      );
-
-      await openMore(tester);
-
-      expect(tester.takeException(), isNull);
-      final last = find.byKey(const Key('source-more-deleteText'));
-      await tester.scrollUntilVisible(
-        last,
-        80,
-        scrollable: find.descendant(
-          of: find.byType(BottomSheet),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      expect(last, findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets(
-      'un documento: "Más" ofrece volver a extraer y soltar el '
-      'texto (F30); nada de marcas de tiempo, de soltar el archivo (F41, '
-      'decisión K) ni de pantalla completa: la hace «Leer como libro» (F45)',
-      (tester) async {
-        await pumpPanel(
-          tester,
-          _source(
-            SourceKind.document,
-            file: 'originales/f26/libro.pdf',
-            texts: ['[12:30] Horario de atención'],
-          ),
-        );
-
-        // A la vista aunque el texto quede plegado debajo.
-        expect(enabled(tester, 'source-panel-read'), isTrue);
-
-        await openMore(tester);
-
-        expect(find.byKey(const Key('source-more-reextract')), findsOneWidget);
-        expect(find.byKey(const Key('source-more-fullScreen')), findsNothing);
-        expect(
-          find.byKey(const Key('source-more-removeTimestamps')),
-          findsNothing,
-        );
-        expect(
-          find.byKey(const Key('source-more-deleteOriginalFile')),
-          findsNothing,
-        );
-        expect(find.byKey(const Key('source-more-deleteText')), findsOneWidget);
-        expect(find.text(es.sourcePanelDeleteTextHint), findsOneWidget);
-      },
-    );
-
-    testWidgets('un video: arriba, el audio con su encabezado y los controles '
-        'compactos, separados de los mosaicos', (tester) async {
+    testWidgets('un video: el audio con su encabezado y los controles '
+        'compactos, solo, sin mosaicos', (tester) async {
       const path = '/boveda/archivos/reel.mp4';
       await pumpPanel(
         tester,
@@ -452,15 +372,10 @@ void main() {
       ]) {
         expect(find.byKey(Key(key)), findsOneWidget, reason: key);
       }
-      expect(
-        tester.getBottomLeft(find.byType(SourcePanelAudio)).dy,
-        lessThan(
-          tester.getTopLeft(find.byKey(const Key('source-panel-read'))).dy,
-        ),
-      );
+      expect(find.byType(SourcePanelTile), findsNothing);
       expect(
         find.descendant(of: panel, matching: find.byType(Divider)),
-        findsOneWidget,
+        findsNothing,
       );
 
       await tester.pumpWidget(const SizedBox());
@@ -468,8 +383,7 @@ void main() {
   });
 
   group('lo que está pasando', () {
-    testWidgets('sin texto todavía: lo dice, y los mosaicos se ven apagados, '
-        'no desaparecen', (tester) async {
+    testWidgets('sin texto todavía: lo dice', (tester) async {
       await pumpPanel(
         tester,
         _source(
@@ -480,15 +394,7 @@ void main() {
       );
 
       expect(find.text(es.detailNoContentYet), findsOneWidget);
-      expect(find.byType(SourcePanelTile), findsNWidgets(3));
-      for (final key in [
-        'source-panel-read',
-        'source-panel-copy',
-        'source-panel-more',
-      ]) {
-        expect(enabled(tester, key), isFalse, reason: key);
-      }
-      expect(find.byTooltip(es.sourcePanelNeedsText), findsNWidgets(2));
+      expect(find.byType(SourcePanelTile), findsNothing);
       expect(find.text(es.detailRetry), findsNothing);
     });
 
@@ -561,8 +467,7 @@ void main() {
       expect(find.text(es.detailRetry), findsNothing);
     });
 
-    testWidgets('volviendo a extraer: lo dice, y los mosaicos esperan al '
-        'texto nuevo', (tester) async {
+    testWidgets('volviendo a extraer: lo dice', (tester) async {
       await pumpPanel(
         tester,
         _source(
@@ -574,10 +479,7 @@ void main() {
       );
 
       expect(find.byKey(const Key('reextracting-text')), findsOneWidget);
-      expect(enabled(tester, 'source-panel-copy'), isFalse);
-      // Ni volver a extraer otra vez, ni quitar marcas a un texto que se va
-      // a reemplazar, ni soltar el archivo que se está leyendo.
-      expect(enabled(tester, 'source-panel-more'), isFalse);
+      expect(find.text(es.detailReextractInProgress), findsOneWidget);
     });
 
     testWidgets('si volver a extraer falló sin un motivo conocido, dice que '
@@ -596,7 +498,6 @@ void main() {
 
       expect(find.text(es.sourcePanelReextractFailed), findsOneWidget);
       expect(find.text(es.detailRetry), findsOneWidget);
-      expect(enabled(tester, 'source-panel-copy'), isTrue);
     });
   });
 
@@ -626,11 +527,7 @@ void main() {
       );
       await pumpPanel(
         tester,
-        _source(
-          SourceKind.webPage,
-          url: 'https://ejemplo.org/nota',
-          texts: ['Todo el artículo.'],
-        ),
+        _source(SourceKind.manualNote, texts: ['Todo el artículo.']),
       );
 
       await tester.tap(find.byKey(const Key('source-panel-copy')));
@@ -698,16 +595,14 @@ void main() {
       expect(tile(tester, 'source-panel-summarize').busy, isFalse);
     });
 
-    testWidgets('"Leer" abre la lectura para destilar', (tester) async {
+    testWidgets('"Leer" de una nota abre la lectura para destilar', (
+      tester,
+    ) async {
       harness = await LibraryHarness.create();
       await harness.container
           .read(libraryRepositoryProvider)
           .save(
-            _source(
-              SourceKind.webPage,
-              url: 'https://ejemplo.org/nota',
-              texts: ['Para leer con calma.'],
-            ),
+            _source(SourceKind.manualNote, texts: ['Para leer con calma.']),
           );
       tester.view.physicalSize = const Size(800, 2400);
       tester.view.devicePixelRatio = 1;
@@ -722,40 +617,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ReadingScreen), findsOneWidget);
-    });
-
-    testWidgets('"Más" → "Quitar marcas de tiempo" deja el texto sin los '
-        'minutos, cada línea en su lugar', (tester) async {
-      await pumpPanel(
-        tester,
-        _source(
-          SourceKind.audio,
-          file: 'originales/f26/clase.m4a',
-          texts: ['[0:00] hola\n[0:05] chau'],
-        ),
-      );
-
-      await openMore(tester);
-      await tester.tap(find.byKey(const Key('source-more-removeTimestamps')));
-      await tester.pumpAndSettle();
-
-      final saved =
-          (await harness.container
-                  .read(libraryRepositoryProvider)
-                  .findById(_id))
-              .getRight()
-              .toNullable()!;
-      expect(
-        saved.renditions.whereType<TextRendition>().single.content,
-        'hola\nchau',
-      );
-      expect(find.text(es.detailTimestampsRemoved), findsOneWidget);
-      // Sin marcas, ya no se ofrece quitarlas.
-      await openMore(tester);
-      expect(
-        find.byKey(const Key('source-more-removeTimestamps')),
-        findsNothing,
-      );
     });
   });
 
@@ -915,20 +776,6 @@ void main() {
 
         expect(find.text(es.aiOrganizeNowNeedsModel), findsOneWidget);
       });
-    });
-
-    testWidgets('mientras se procesa, no se ofrece', (tester) async {
-      await pumpPanel(
-        tester,
-        _source(
-          SourceKind.audio,
-          file: 'originales/f26/clase.m4a',
-          state: ProcessingState.processing,
-          texts: ['[0:00] el texto de antes'],
-        ),
-      );
-
-      expect(enabled(tester, 'source-panel-more'), isFalse);
     });
   });
 
@@ -1163,8 +1010,8 @@ void main() {
         ('claro', AppTheme.lightTheme),
         ('oscuro', AppTheme.darkTheme),
       ]) {
-        testWidgets('a $width px, tema $name: nada se desborda y los '
-            'mosaicos van en un solo renglón, del mismo ancho', (tester) async {
+        testWidgets('a $width px, tema $name: el audio y el fallo de una '
+            'fuente entran sin desbordarse', (tester) async {
           await pumpPanel(
             tester,
             _source(
@@ -1188,36 +1035,10 @@ void main() {
 
           expect(tester.takeException(), isNull);
           expect(tester.getSize(panel).width, width - 48);
-          // Las tres partes: el audio, el fallo y los mosaicos.
+          // Las dos partes: el audio y el fallo. Los mosaicos, en una nota.
           expect(find.byType(SourcePanelAudio), findsOneWidget);
           expect(find.text(es.failureNetwork), findsOneWidget);
-
-          final tiles = find.byType(SourcePanelTile);
-          expect(tiles, findsNWidgets(3));
-          final rects = [
-            for (var i = 0; i < 3; i++) tester.getRect(tiles.at(i)),
-          ];
-          for (final rect in rects) {
-            expect(rect.top, rects.first.top);
-            expect(rect.width, closeTo(rects.first.width, 0.01));
-          }
-          // El nombre entra entero, sin puntos suspensivos.
-          for (final label in [
-            es.sourcePanelRead,
-            es.sourcePanelCopy,
-            es.sourcePanelMore,
-          ]) {
-            final text = find.text(label);
-            expect(
-              tester.getSize(text).width,
-              lessThanOrEqualTo(rects.first.width),
-            );
-            expect(
-              tester.renderObject<RenderParagraph>(text).didExceedMaxLines,
-              isFalse,
-              reason: label,
-            );
-          }
+          expect(find.byType(SourcePanelTile), findsNothing);
           // Los controles del audio, sin pisarse: la velocidad a la derecha
           // del botón de avanzar.
           expect(
@@ -1233,98 +1054,74 @@ void main() {
     }
   });
 
-  testWidgets('a 360 px, los cuatro mosaicos de una nota entran en un '
-      'renglón, con «Resumir» entero', (tester) async {
-    await pumpPanel(
-      tester,
-      _source(SourceKind.manualNote, texts: ['Una idea.']),
-      width: 360,
-    );
-
-    expect(tester.takeException(), isNull);
-    final tiles = find.byType(SourcePanelTile);
-    expect(tiles, findsNWidgets(4));
-    final width = tester.getRect(tiles.first).width;
-    for (final label in [
-      es.sourcePanelRead,
-      es.sourcePanelSummarize,
-      es.sourcePanelCopy,
-      es.sourcePanelMore,
-    ]) {
-      final text = find.text(label);
-      expect(tester.getSize(text).width, lessThanOrEqualTo(width));
-      expect(
-        tester.renderObject<RenderParagraph>(text).didExceedMaxLines,
-        isFalse,
-        reason: label,
+  for (final (name, theme) in [
+    ('claro', AppTheme.lightTheme),
+    ('oscuro', AppTheme.darkTheme),
+  ]) {
+    testWidgets('a 360 px con la letra al doble, tema $name: lo que cuenta '
+        'el panel de una fuente entra, con su «Reintentar», y el lector de '
+        'pantalla lo dice', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpPanel(
+        tester,
+        _source(
+          SourceKind.webPage,
+          url: 'https://ejemplo.org/sin-red',
+          state: ProcessingState.failed,
+        ),
+        beforeShow: () => fail(ProcessingFailureReason.network),
+        width: 360,
+        theme: theme,
+        textScale: 2,
+        gapAbove: 12,
       );
-    }
-  });
 
-  group('lo que se suelta va a la papelera de la app (F30, decisión 68)', () {
-    const path = 'originales/$_id/libro.pdf';
+      expect(tester.takeException(), isNull);
+      expect(find.byType(SourcePanelTile), findsNothing);
+      expect(find.bySemanticsLabel(es.failureNetwork), findsOneWidget);
+      expect(
+        tester.getSemantics(find.text(es.detailRetry)),
+        isSemantics(label: es.detailRetry, isButton: true, hasTapAction: true),
+      );
+      semantics.dispose();
+    });
 
-    /// Un libro con su archivo guardado de verdad en el almacén de la
-    /// prueba, y su texto.
-    Future<void> pumpBook(WidgetTester tester) => pumpPanel(
+    testWidgets('a 360 px, tema $name: los cuatro mosaicos de una nota '
+        'entran en un renglón, del mismo ancho, con «Resumir» entero', (
       tester,
-      _source(SourceKind.document, file: path, texts: ['Roma, un libro.']),
-      beforeShow: () async {
-        await harness.files.save(
-          bytes: Uint8List.fromList([1, 2, 3]),
-          suggestedName: 'libro.pdf',
-          id: _id,
+    ) async {
+      await pumpPanel(
+        tester,
+        _source(SourceKind.manualNote, texts: ['Una idea.']),
+        width: 360,
+        theme: theme,
+      );
+
+      expect(tester.takeException(), isNull);
+      final tiles = find.byType(SourcePanelTile);
+      expect(tiles, findsNWidgets(4));
+      final rects = [for (var i = 0; i < 4; i++) tester.getRect(tiles.at(i))];
+      for (final rect in rects) {
+        expect(rect.top, rects.first.top);
+        expect(rect.width, closeTo(rects.first.width, 0.01));
+      }
+      for (final label in [
+        es.sourcePanelRead,
+        es.sourcePanelSummarize,
+        es.sourcePanelCopy,
+        es.sourcePanelMore,
+      ]) {
+        final text = find.text(label);
+        expect(
+          tester.getSize(text).width,
+          lessThanOrEqualTo(rects.first.width),
         );
-      },
-    );
-
-    Future<KnowledgeSourceRow> sourceRow() => (harness.database.select(
-      harness.database.knowledgeSources,
-    )..where((s) => s.itemId.equals(_id))).getSingle();
-
-    Future<int> textCount() async => (await (harness.database.select(
-      harness.database.renditions,
-    )..where((r) => r.itemId.equals(_id))).get()).length;
-
-    testWidgets('«Borrar el texto»: el libro no se vuelve a extraer solo, se '
-        'dice en el panel, y «Volver a extraer» sigue ahí', (tester) async {
-      await pumpBook(tester);
-
-      await openMore(tester);
-      await tester.tap(find.byKey(const Key('source-more-deleteText')));
-      await tester.pumpAndSettle();
-
-      expect(await textCount(), 0);
-      expect((await sourceRow()).onlyFile, isTrue);
-      expect(find.text(es.detailTextTrashed), findsOneWidget);
-      expect(find.byKey(const Key('only-file-status')), findsOneWidget);
-      expect(find.text(es.sourcePanelOnlyFile), findsOneWidget);
-      // La IA y las acciones del texto no tienen de qué trabajar.
-      expect(enabled(tester, 'source-panel-read'), isFalse);
-
-      await openMore(tester);
-      expect(find.byKey(const Key('source-more-reextract')), findsOneWidget);
-      expect(
-        find.byKey(const Key('source-more-deleteOriginalFile')),
-        findsNothing,
-      );
-      expect(find.byKey(const Key('source-more-deleteText')), findsNothing);
+        expect(
+          tester.renderObject<RenderParagraph>(text).didExceedMaxLines,
+          isFalse,
+          reason: label,
+        );
+      }
     });
-
-    testWidgets('el aviso de «Borrar el texto» lo devuelve, con la marca '
-        'sacada', (tester) async {
-      await pumpBook(tester);
-      await openMore(tester);
-      await tester.tap(find.byKey(const Key('source-more-deleteText')));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text(es.contentTrashUndo));
-      await tester.pumpAndSettle();
-
-      expect(await textCount(), 1);
-      expect((await sourceRow()).onlyFile, isFalse);
-      expect(find.byKey(const Key('only-file-status')), findsNothing);
-      expect(enabled(tester, 'source-panel-read'), isTrue);
-    });
-  });
+  }
 }

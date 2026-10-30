@@ -43,23 +43,32 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// 2. **Lo que está pasando**: bajando el audio, extrayendo o volviendo a
 ///    extraer el texto, un fallo con su único "Reintentar", el modelo que
 ///    falta. Ver [SourcePanelStatus].
-/// 3. **Los mosaicos** iguales (decisión A): Leer, Copiar y Más. Una nota
-///    propia suma Resumir, y en una nota de bloques Editar va en vez de Más.
-///    Una fuente no resume acá: queda de consulta y se estudia en su
-///    documento procesado (F41, decisión K) —ver `isConsultationSource`—. Ver
-///    [SourcePanelTile].
+/// 3. **Los mosaicos** iguales (decisión A), solo en una nota propia: Leer,
+///    Resumir, Copiar y Más, y en una nota de bloques Editar en vez de Más.
+///    Ver [SourcePanelTile]. Una fuente no los lleva (F45, paso 3): de ella la
+///    Biblioteca muestra el original —ver `isConsultationSource`—; su texto se
+///    lee, se marca y se estudia en su documento procesado, y lo que había en
+///    su «Más» —volver a extraer el texto, quitarle las marcas de tiempo,
+///    soltarlo— está ahí, en «El texto de la fuente».
 /// 4. Lo que se le sume después, en [extraSections].
 ///
-/// Las partes que aparecen o se van —una descarga que termina, un fallo que
-/// se reintenta— lo hacen con una animación de alto, sin saltos.
+/// Sin nada que mostrar —una fuente lista, sin audio—, no dibuja nada, ni el
+/// aire de arriba. Las partes que aparecen o se van —una descarga que
+/// termina, un fallo que se reintenta— lo hacen con una animación de alto, sin
+/// saltos.
 class SourcePanel extends ConsumerWidget {
   const SourcePanel({
     required this.item,
     this.extraSections = const [],
+    this.gapAbove = 0,
     super.key,
   });
 
   final KnowledgeItem item;
+
+  /// El aire entre lo que va arriba —el original— y el panel, solo si el
+  /// panel tiene algo: vacío, no deja un hueco.
+  final double gapAbove;
 
   /// Secciones de más, debajo de los mosaicos y con el mismo separador: el
   /// lugar donde F27 cuenta lo que la IA organizó sola ("La IA organizó
@@ -81,42 +90,54 @@ class SourcePanel extends ConsumerWidget {
           playerKey: const Key('video-audio-player'),
         ),
       if (_hasStatus(item)) _ProcessingStatus(item: item),
-      _ActionTiles(item: item),
+      if (!isConsultationSource(item)) _ActionTiles(item: item),
       ...extraSections,
     ];
 
-    // `Material` y no una caja pintada: la onda de los mosaicos se dibuja en
-    // el `Material` más cercano, y debajo de una caja con color quedaría
-    // tapada.
-    return Material(
-      key: const Key('source-panel'),
-      color: scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-        alignment: Alignment.topCenter,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final (index, section) in sections.indexed) ...[
-              if (index > 0)
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  indent: sourcePanelInset,
-                  endIndent: sourcePanelInset,
-                  color: scheme.outlineVariant.withValues(alpha: 0.5),
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: sections.isEmpty
+          ? const SizedBox(width: double.infinity)
+          : Padding(
+              padding: EdgeInsets.only(top: gapAbove),
+              // `Material` y no una caja pintada: la onda de los mosaicos se
+              // dibuja en el `Material` más cercano, y debajo de una caja con
+              // color quedaría tapada.
+              child: Material(
+                key: const Key('source-panel'),
+                color: scheme.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: scheme.outlineVariant.withValues(alpha: 0.6),
+                  ),
                 ),
-              section,
-            ],
-          ],
-        ),
-      ),
+                clipBehavior: Clip.antiAlias,
+                child: AnimatedSize(
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final (index, section) in sections.indexed) ...[
+                        if (index > 0)
+                          Divider(
+                            height: 1,
+                            thickness: 1,
+                            indent: sourcePanelInset,
+                            endIndent: sourcePanelInset,
+                            color: scheme.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                        section,
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
     );
   }
 
@@ -291,10 +312,9 @@ String _emptyStateMessage(
   return fromFile ? l10n.detailNoContentYetFile : l10n.detailNoContentYet;
 }
 
-/// Las acciones a la vista (F26, decisión A), siempre las mismas y en el
-/// mismo lugar: sin texto todavía —o mientras se vuelve a extraer— se ven
-/// apagadas, no desaparecen. «Resumir», solo en una nota propia (F41,
-/// decisión K).
+/// Las acciones a la vista de una nota propia (F26, decisión A), siempre las
+/// mismas y en el mismo lugar: sin texto todavía —o mientras se vuelve a
+/// extraer— se ven apagadas, no desaparecen.
 class _ActionTiles extends ConsumerWidget {
   const _ActionTiles({required this.item});
 
@@ -331,8 +351,7 @@ class _ActionTiles extends ConsumerWidget {
                   : null,
             ),
           ),
-          if (!isConsultationSource(item))
-            Expanded(child: _SummarizeTile(content: text)),
+          Expanded(child: _SummarizeTile(content: text)),
           Expanded(
             child: SourcePanelTile(
               key: const Key('source-panel-copy'),

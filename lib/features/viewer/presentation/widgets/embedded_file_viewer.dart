@@ -49,13 +49,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// acá abajo: es la parte de arriba del panel de la fuente (F26, decisión
 /// B), junto a las acciones. Acá queda solo el original.
 class EmbeddedFileViewer extends ConsumerWidget {
-  const EmbeddedFileViewer({required this.item, this.gapBelow = 0, super.key});
+  const EmbeddedFileViewer({required this.item, super.key});
 
   final KnowledgeItem item;
-
-  /// El aire entre el visor y lo que sigue, solo si hay un visor: sin nada
-  /// que mostrar —una nota, un enlace sin archivo— no deja un hueco (F26).
-  final double gapBelow;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -93,11 +89,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
         child: Center(child: CircularProgressIndicator()),
       ),
     };
-    if (frame == null) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.only(bottom: gapBelow),
-      child: frame,
-    );
+    return frame ?? const SizedBox.shrink();
   }
 
   /// El marco con el visor que le toca a [resolved], o `null` si no hay

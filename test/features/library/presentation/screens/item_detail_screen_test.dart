@@ -16,7 +16,6 @@ import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
-import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
@@ -101,21 +100,6 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Abre la hoja "Más" del panel de la fuente (F26): lo que se usa de vez
-  /// en cuando —volver a extraer, quitar las marcas de tiempo— vive ahí.
-  Future<void> openMore(WidgetTester tester) async {
-    await tester.tap(find.byKey(const Key('source-panel-more')));
-    await tester.pumpAndSettle();
-  }
-
-  /// Despliega el texto, que va plegado en la tarjeta de estudiar (F39).
-  Future<void> unfoldText(WidgetTester tester) async {
-    final row = find.byKey(const Key('study-extract-text'));
-    await tester.ensureVisible(row);
-    await tester.tap(row);
-    await tester.pumpAndSettle();
-  }
-
   /// El mosaico [key] del panel de la fuente (F26).
   SourcePanelTile tile(WidgetTester tester, String key) =>
       tester.widget<SourcePanelTile>(find.byKey(Key(key)));
@@ -174,54 +158,6 @@ void main() {
       return id;
     }
 
-    testWidgets('una transcripción se ve tal cual —nada de Markdown— y '
-        'ofrece quitar las marcas de tiempo (F22)', (tester) async {
-      final id = await saveWithText(
-        SourceKind.audio,
-        '[0:00] se llama var_uno_dos\n[0:14] # 3 no es un título',
-      );
-
-      await pumpDetail(tester, id);
-      expect(find.text(es.studyExtractTranscript), findsOneWidget);
-      await unfoldText(tester);
-
-      expect(find.textContaining('var_uno_dos'), findsOneWidget);
-      expect(find.textContaining('# 3 no es un título'), findsOneWidget);
-      await openMore(tester);
-      expect(find.text(es.detailRemoveTimestamps), findsOneWidget);
-    });
-
-    testWidgets('volver a extraer: en un audio pregunta el idioma, lo guarda '
-        'y deja pedido volver a extraerlo (F22)', (tester) async {
-      final id = await saveWithText(
-        SourceKind.audio,
-        'es tu maquillaje, es tu maquillaje',
-        file: 'originales/f22/alabanza.m4a',
-      );
-
-      await pumpDetail(tester, id);
-      await openMore(tester);
-      await tester.tap(find.text(es.detailReextract));
-      await tester.pumpAndSettle();
-
-      expect(find.text(es.detailReextractLanguage), findsOneWidget);
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('English').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(es.detailReextractConfirm));
-      await tester.pumpAndSettle();
-
-      final source = await (harness.database.select(
-        harness.database.knowledgeSources,
-      )..where((s) => s.itemId.equals(id))).getSingle();
-      expect(source.language, 'en');
-      final marks = await (harness.database.select(
-        harness.database.processingCheckpoints,
-      )..where((c) => c.itemId.equals(id))).get();
-      expect(marks.map((m) => m.kind), [ProcessingCheckpointKind.reextract]);
-    });
-
     testWidgets('mientras se vuelve a extraer, el texto viejo ya no se ve: '
         'en su lugar, el aviso de que el nuevo está en camino', (tester) async {
       final id = await saveWithText(
@@ -238,8 +174,8 @@ void main() {
       expect(find.text(es.detailReextract), findsNothing);
     });
 
-    testWidgets('si volver a extraer falla, el texto de antes vuelve a verse, '
-        'con "Reintentar": no se pierde', (tester) async {
+    testWidgets('si volver a extraer falla, dice que el texto de antes sigue '
+        'guardado, con "Reintentar": no se pierde', (tester) async {
       final id = await saveWithText(
         SourceKind.audio,
         'es tu maquillaje, es tu maquillaje',
@@ -248,27 +184,12 @@ void main() {
       );
 
       await pumpDetail(tester, id);
-      await unfoldText(tester);
 
-      expect(find.textContaining('maquillaje'), findsOneWidget);
+      expect(find.text(es.sourcePanelReextractFailed), findsOneWidget);
       expect(find.text(es.detailRetry), findsOneWidget);
       expect(find.text(es.detailReextractInProgress), findsNothing);
-    });
-
-    testWidgets('un PDF con una línea que empieza como una marca no ofrece '
-        'quitarla: no es una transcripción (F22)', (tester) async {
-      final id = await saveWithText(
-        SourceKind.document,
-        '[12:30] Horario de atención',
-        file: 'originales/f22/libro.pdf',
-      );
-
-      await pumpDetail(tester, id);
-
-      expect(find.textContaining('[12:30] Horario'), findsOneWidget);
-      await openMore(tester);
-      expect(find.text(es.detailReextract), findsOneWidget);
-      expect(find.text(es.detailRemoveTimestamps), findsNothing);
+      // El texto de una fuente no se muestra en la Biblioteca (F45, paso 3).
+      expect(find.textContaining('maquillaje'), findsNothing);
     });
 
     testWidgets('muestra el texto guardado', (tester) async {
@@ -294,15 +215,14 @@ void main() {
       expect(tile(tester, 'source-panel-read').onTap, isNotNull);
     });
 
-    testWidgets('sin texto todavía, "Leer" se ve apagado y dice por qué', (
-      tester,
-    ) async {
+    testWidgets('una fuente no ofrece «Leer»: su texto se lee en su '
+        'documento procesado (F45, paso 3)', (tester) async {
       final id = await captureAndGetId('https://ejemplo.org/un-articulo');
 
       await pumpDetail(tester, id);
 
-      expect(tile(tester, 'source-panel-read').onTap, isNull);
-      expect(find.byTooltip(es.sourcePanelNeedsText), findsNWidgets(3));
+      expect(find.byKey(const Key('source-panel-read')), findsNothing);
+      expect(find.byTooltip(es.readingOpenAction), findsNothing);
     });
 
     testWidgets('la nota del usuario se ve aparte del contenido', (

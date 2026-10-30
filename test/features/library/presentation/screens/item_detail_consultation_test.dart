@@ -16,7 +16,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/generate_derived_note_button.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/source_study_line.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_document_card.dart';
+import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -24,7 +24,8 @@ import '../../../processed/presentation/processed_ui_fixture.dart';
 
 /// La fuente de la Biblioteca queda de consulta (F41, decisión K): su detalle
 /// deja de ofrecer lo que es estudiarla —se estudia en su documento
-/// procesado—. Una nota propia no cambia.
+/// procesado—, y muestra solo su original (F45, paso 3). Una nota propia no
+/// cambia.
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -81,11 +82,9 @@ void main() {
     SourceKind.socialPost,
     SourceKind.image,
   ]) {
-    testWidgets('${kind.name}: sin «Resumir», sin el resumen, la síntesis ni '
-        'las palabras clave para leer, sin Mapa, sin tarjetas, sin lo de la '
-        'IA, sin derivado ni quiz; con la línea que lleva a estudiarlo', (
-      tester,
-    ) async {
+    testWidgets('${kind.name}: sin «Resumir», sin la tarjeta de estudiar, sin '
+        'Mapa, sin tarjetas, sin lo de la IA, sin derivado ni quiz; con la '
+        'línea que lleva a estudiarlo', (tester) async {
       await harness.saveTextSource('fuente', title: 'Roma', kind: kind);
       await openDetail(tester, 'fuente');
 
@@ -97,20 +96,31 @@ void main() {
       expect(find.byType(GenerateDerivedNoteButton), findsNothing);
       expect(find.byType(SourceStudyLine), findsOneWidget);
 
-      // La tarjeta de estudiar sigue: marca el original y trae su texto.
-      expect(find.byType(StudyDocumentCard), findsOneWidget);
-      expect(find.byKey(const Key('study-toggle-summary')), findsOneWidget);
-      expect(find.byKey(const Key('study-extract-text')), findsOneWidget);
-      for (final key in [
-        'study-extract-summary',
-        'study-extract-synthesis',
-        'study-extract-keywords',
-      ]) {
-        expect(find.byKey(Key(key)), findsNothing, reason: key);
-      }
-      expect(find.byKey(const Key('study-extract-summary')), findsNothing);
+      // Ni la tarjeta de estudiar (F45, paso 3): se marca y se estudia en
+      // Procesado.
+      expect(find.byKey(const Key('study-document-card')), findsNothing);
+      expect(find.byKey(const Key('study-toggle-summary')), findsNothing);
+      expect(find.byKey(const Key('source-panel-read')), findsNothing);
     });
   }
+
+  testWidgets('una cita sigue llevando al pasaje: la lectura de una fuente ya '
+      'no se abre desde su detalle, pero sí desde lo que la cita', (
+    tester,
+  ) async {
+    const text = 'La república romana cayó. César cruzó el Rubicón.';
+    await harness.saveTextSource('fuente', title: 'Roma');
+    await pumpApp(tester, harness);
+    final start = text.indexOf('César');
+    await pushAndSettle(
+      tester,
+      harness,
+      RoutePaths.reading('fuente', start: start, end: start + 5),
+    );
+
+    expect(find.byType(ReadingScreen), findsOneWidget);
+    expect(find.textContaining('Rubicón'), findsWidgets);
+  });
 
   testWidgets('una nota propia no cambia: «Resumir», sus tarjetas, lo de la '
       'IA, el derivado y el quiz; Mapa no tiene, porque el grafo lee solo lo '

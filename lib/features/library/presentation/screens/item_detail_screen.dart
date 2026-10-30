@@ -20,7 +20,6 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organized_line.dart';
-import 'package:sinapsis/features/attachments/presentation/providers/attachment_providers.dart';
 import 'package:sinapsis/features/attachments/presentation/widgets/item_content_section.dart';
 import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
 import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
@@ -41,7 +40,6 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/floating_mini_player.dart';
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
-import 'package:sinapsis/features/library/presentation/widgets/playback_synced_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
@@ -58,13 +56,8 @@ import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart'
 import 'package:sinapsis/features/processed/domain/services/consultation_source.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/source_study_line.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/reference_section.dart';
-import 'package:sinapsis/features/study/domain/study_target.dart';
-import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
-import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
-import 'package:sinapsis/features/study/presentation/widgets/study_document_card.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/item_timeline_link.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -243,37 +236,19 @@ class _DetailBodyState extends State<_DetailBody> {
   /// cuando sale de la pantalla (F23).
   final _playerKey = GlobalKey();
 
-  /// Para que "Volver al audio" lleve a la palabra que suena (F23), aunque
-  /// la transcripción esté plegada en la tarjeta (F39): la despliega.
-  late final _follow = PlaybackFollowLink()..unfold = _textFold.expand;
-
-  /// La fila del texto en la tarjeta de estudiar (F39).
-  final _textFold = ExpansibleController();
-
   /// Lo que se ofrece para leer en voz alta (F25): se arma de nuevo solo
   /// cuando el elemento cambia, no con cada cuadro.
   late ReadableDocument _readable = _readableOf(widget.item);
 
-  /// Lo mismo con el texto plegado de un documento, recién cuando alguien
-  /// lo despliega: ver [_ExtractedTextBody].
-  ReadableDocument? _unfolded;
-
-  ReadableDocument _readableUnfolded() =>
-      _unfolded ??= _readableOf(widget.item, unfolded: true);
-
   @override
   void didUpdateWidget(_DetailBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.item != widget.item) {
-      _readable = _readableOf(widget.item);
-      _unfolded = null;
-    }
+    if (oldWidget.item != widget.item) _readable = _readableOf(widget.item);
   }
 
   @override
   void dispose() {
     _scroll.dispose();
-    _textFold.dispose();
     super.dispose();
   }
 
@@ -286,25 +261,16 @@ class _DetailBodyState extends State<_DetailBody> {
     return Stack(
       children: [
         // Con su propio audio —un audio, un video, un reel, el de YouTube ya
-        // bajado—, el texto ya se escucha con la voz original y se resalta
-        // solo (F23): el lector en voz alta no arranca por él, que sería un
-        // segundo audio de lo mismo (pedido del usuario), y sin nada
-        // estudiado no lo ofrece. Mientras se averigua si tiene audio, se
-        // trata como si lo tuviera —así el botón no aparece para irse
+        // bajado—, lo que dice ya se escucha con la voz original (F23): el
+        // lector en voz alta no arranca por él, que sería un segundo audio de
+        // lo mismo (pedido del usuario). Mientras se averigua si tiene audio,
+        // se trata como si lo tuviera —así el botón no aparece para irse
         // enseguida—; si averiguarlo falla, no hay audio propio y se ofrece
-        // tal cual.
-        //
-        // Lo estudiado —el resumen, la síntesis, las palabras clave— se
-        // ofrece siempre (F39), y con él «Todo» también se puede elegir (F40,
-        // pedido del dueño). Ver `ReadableDocument.ownAudio`.
+        // tal cual. Ver `ReadableDocument.ownAudio`.
         Consumer(
           builder: (context, ref, child) {
             return ReadableRegion(
-              document: _offeredAloud(
-                ref,
-                item,
-                _withStudy(ref, _readable, _studiedText(item)),
-              ),
+              document: _offeredAloud(ref, item, _readable),
               child: child!,
             );
           },
@@ -317,7 +283,6 @@ class _DetailBodyState extends State<_DetailBody> {
             item: item,
             scrollController: _scroll,
             playerKey: _playerKey,
-            link: _follow,
           ),
         ),
       ],
@@ -330,12 +295,6 @@ class _DetailBodyState extends State<_DetailBody> {
     ThemeData theme,
     List<TextRendition> texts,
   ) {
-    final study = _studiedText(item);
-    // Con la tarjeta de estudiar, el texto se lee en su «Extraer texto»
-    // —en un audio o un video, «Extraer transcripción»—, plegado: desplegado
-    // debajo de todo ocupaba la pantalla entera (F39).
-    final textInCard = study != null;
-    final transcript = isTranscriptSource(item.source);
     final consultation = isConsultationSource(item);
 
     return Center(
@@ -414,7 +373,9 @@ class _DetailBodyState extends State<_DetailBody> {
                 // algo que mostrar, ya se está mostrando.
                 //
                 // Debajo, el panel de la fuente (F26): el audio, lo que está
-                // pasando y las acciones, en una sola tarjeta. Los dos juntos
+                // pasando y, en una nota, las acciones, en una sola tarjeta.
+                // De una fuente se ve eso, su original, y nada de su texto
+                // (F45, paso 3): ver `SourcePanel`. Los dos juntos
                 // son "el reproductor" para el mini reproductor (F23): el
                 // audio se maneja desde la vista previa —un audio— o desde el
                 // panel —un video, YouTube—, y mientras se vea un tercio del
@@ -424,44 +385,11 @@ class _DetailBodyState extends State<_DetailBody> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      EmbeddedFileViewer(item: item, gapBelow: 12),
+                      EmbeddedFileViewer(item: item),
                       _SourcePanelWithAi(item: item),
                     ],
                   ),
                 ),
-
-                // Estudiar el documento o la página (F36): resaltar el resumen
-                // o la síntesis en el original. Extraerlos para leerlos y
-                // escucharlos es de su documento procesado (F41, decisión
-                // K): acá la tarjeta marca lo que la hoja de triar lleva.
-                if (study != null) ...[
-                  const SizedBox(height: 16),
-                  // Las fotos de la página o la publicación van en la
-                  // tarjeta, plegadas, y no en «Contenido» (F39).
-                  Consumer(
-                    builder: (context, ref, _) => StudyDocumentCard(
-                      text: study,
-                      item: item,
-                      kind: item.source.kind,
-                      extractedText: (context) => _ExtractedTextBody(
-                        item: item,
-                        texts: texts,
-                        readable: _readableUnfolded,
-                        study: study,
-                        link: _follow,
-                      ),
-                      extractedTextTitle: transcript
-                          ? AppLocalizations.of(context)!.studyExtractTranscript
-                          : null,
-                      extractedTextSubtitle: AppLocalizations.of(
-                        context,
-                      )!.detailExtractedTextSubtitle,
-                      extractedTextController: _textFold,
-                      photoCount: ref.watch(itemPhotosProvider(item.id)).length,
-                      photos: (context) => ItemPhotosGrid(itemId: item.id),
-                    ),
-                  ),
-                ],
 
                 // Una fuente se estudia en su documento procesado (F41,
                 // decisión K): en el lugar de su Mapa y de sus tarjetas, la
@@ -480,36 +408,27 @@ class _DetailBodyState extends State<_DetailBody> {
                 // nada en la papelera, no ocupa lugar.
                 ContentTrashSection(itemId: item.id),
 
-                // Lo que se bajó de la página, en su formato y con su texto
-                // (F30): arriba del texto, que puede ser un libro entero. Sin
-                // nada bajado ni por bajar, no ocupa lugar. Con la tarjeta de
-                // estudiar, sin las fotos: van en ella (F39).
-                ItemContentSection(item: item, showImages: study == null),
+                // Lo que se bajó de la página, en su formato (F30): sus
+                // documentos, audios, videos y fotos. Sin nada bajado ni por
+                // bajar, no ocupa lugar.
+                ItemContentSection(item: item),
 
-                // El texto, salvo mientras se vuelve a extraer: ahí el panel
-                // cuenta cómo va, y el viejo deja de verse.
-                if (texts.isNotEmpty &&
-                    !item.isBeingProcessed &&
-                    !textInCard) ...[
+                // El texto de una nota propia, salvo mientras se vuelve a
+                // extraer: ahí el panel cuenta cómo va, y el viejo deja de
+                // verse. El de una fuente no se muestra (F45, paso 3, decisión
+                // E): la Biblioteca muestra su original, y el texto que se sacó
+                // de él sigue guardado para la búsqueda, el chat, los vínculos
+                // y las citas —que abren la lectura en su pasaje—, y se lee,
+                // se marca y se estudia en su documento procesado.
+                if (_showsText(item)) ...[
                   const SizedBox(height: 16),
-                  if (item.source.kind == SourceKind.document)
-                    _CollapsedExtractedText(
-                      item: item,
-                      texts: texts,
-                      readable: _readableUnfolded,
-                    )
-                  else
-                    for (final rendition in texts) ...[
-                      if (rendition.kind == RenditionKind.blocks)
-                        _BlocksRendition(item: item, rendition: rendition)
-                      else
-                        _TextRenditionView(
-                          item: item,
-                          rendition: rendition,
-                          link: _follow,
-                        ),
-                      const SizedBox(height: 16),
-                    ],
+                  for (final rendition in texts) ...[
+                    if (rendition.kind == RenditionKind.blocks)
+                      _BlocksRendition(item: item, rendition: rendition)
+                    else
+                      _TextRenditionView(item: item, rendition: rendition),
+                    const SizedBox(height: 16),
+                  ],
                 ],
 
                 if (!consultation) ...[
@@ -551,10 +470,13 @@ class _DetailBodyState extends State<_DetailBody> {
   }
 }
 
-/// Lo que se estudia de [item] (F36); mientras se vuelve a extraer el texto,
-/// nada: lo estudiado se reubica al terminar.
-StudyText? _studiedText(KnowledgeItem item) =>
-    item.isBeingProcessed ? null : studyTextOf(item);
+/// Si el detalle muestra el texto de [item]: el de una nota propia, salvo
+/// mientras se vuelve a extraer. El de una fuente no (F45, paso 3): ver
+/// [isConsultationSource].
+bool _showsText(KnowledgeItem item) =>
+    !isConsultationSource(item) &&
+    !item.isBeingProcessed &&
+    item.renditions.whereType<TextRendition>().isNotEmpty;
 
 /// Si el lector en voz alta puede leer el texto entero: no cuando el elemento
 /// tiene su propio audio —un audio, un video, un reel, el de YouTube ya
@@ -566,9 +488,7 @@ bool _readsTextAloud(AsyncValue<String?> playback) => switch (playback) {
 };
 
 /// Lo que de [document] se ofrece leer en voz alta en [item]: tal cual, o,
-/// con su propio audio, marcado así ([ReadableDocument.ownAudio]). Una sola
-/// regla para cada región que ofrece el texto de [item]: el detalle entero y
-/// el texto desplegado adentro.
+/// con su propio audio, marcado así ([ReadableDocument.ownAudio]).
 ReadableDocument _offeredAloud(
   WidgetRef ref,
   KnowledgeItem item,
@@ -577,30 +497,16 @@ ReadableDocument _offeredAloud(
     ? document
     : document.withOwnAudio();
 
-/// [document] con lo que se lee de cada capa de lo estudiado de [study] (F39),
-/// al día con los cambios; sin [study], tal cual.
-ReadableDocument _withStudy(
-  WidgetRef ref,
-  ReadableDocument document,
-  StudyText? study,
-) => study == null
-    ? document
-    : document.withScopes(ref.watch(studyReadScopesProvider(study)));
-
 /// Lo que se lee en voz alta del detalle de [item] (F25), en el orden en que
 /// se ve: la nota del usuario, y después cada forma de texto —una nota de
 /// bloques, bloque por bloque—.
 ///
-/// Solo lo que se ve: sin el texto que se está volviendo a extraer —en su
-/// lugar, el panel de la fuente cuenta cómo va—, y sin el que va plegado en
-/// la tarjeta de estudiar mientras está plegado —con [unfolded], con él—.
-/// El original de un Word o un EPUB, en su lector embebido, lo ofrece ese
-/// lector, que va por delante.
-ReadableDocument _readableOf(KnowledgeItem item, {bool unfolded = false}) {
+/// Solo lo que se ve —ver [_showsText]—: ni el texto que se está volviendo a
+/// extraer, ni el de una fuente. El original de un Word o un EPUB, en su
+/// lector embebido, lo ofrece ese lector, que va por delante.
+ReadableDocument _readableOf(KnowledgeItem item) {
   final markdown = extractedTextIsMarkdown(item.source);
   final transcript = isTranscriptSource(item.source);
-  final textsShown =
-      !item.isBeingProcessed && (unfolded || studyRendition(item) == null);
 
   return documentFrom('item:${item.id}', item.title, [
     if (item.notes case final notes? when notes.isNotEmpty)
@@ -610,12 +516,8 @@ ReadableDocument _readableOf(KnowledgeItem item, {bool unfolded = false}) {
         markdown: false,
         transcript: false,
       ),
-    if (textsShown)
-      // El texto largo se lee por páginas y cada página se ofrece sola: partir
-      // el libro entero en líneas llevaría segundos.
-      for (final rendition in item.renditions.whereType<TextRendition>().where(
-        (rendition) => !_readsByPages(item, rendition),
-      ))
+    if (_showsText(item))
+      for (final rendition in item.renditions.whereType<TextRendition>())
         if (rendition.kind == RenditionKind.blocks)
           for (final (index, block) in decodeContentBlocks(
             rendition.content,
@@ -635,24 +537,6 @@ ReadableDocument _readableOf(KnowledgeItem item, {bool unfolded = false}) {
           ),
   ]);
 }
-
-/// Desde cuántos caracteres el texto extraído de lo que se estudia se lee por
-/// páginas, como en «Leer como libro», y no de corrido en un solo bloque.
-///
-/// Un bloque de texto se mide y se dibuja entero: el de un libro son decenas
-/// de segundos con la interfaz congelada, y la app deja de responder. A esta
-/// altura son unas veinte páginas; un artículo, una transcripción corta, no
-/// llegan.
-const kPagedTextChars = 60000;
-
-/// Si el texto de [rendition] se lee por páginas: el que se estudia, cuando es
-/// largo. La transcripción de un audio o un video sigue al audio mientras
-/// suena —ver `PlaybackSyncedText`— y queda como siempre.
-bool _readsByPages(KnowledgeItem item, TextRendition rendition) =>
-    rendition.kind != RenditionKind.blocks &&
-    rendition.content.length > kPagedTextChars &&
-    studyRendition(item)?.id == rendition.id &&
-    !(isTranscriptSource(item.source) && rendition.isPrimary);
 
 /// Con qué nombre conoce el lector flotante a la nota del usuario (F25).
 String _userNoteKey(String itemId) => 'note:$itemId';
@@ -674,7 +558,11 @@ class _SourcePanelWithAi extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (isConsultationSource(item)) return SourcePanel(item: item);
+    // Debajo del original, con su aire. Una nota no tiene original: el panel
+    // va pegado a lo de arriba.
+    if (isConsultationSource(item)) {
+      return SourcePanel(item: item, gapAbove: 12);
+    }
     final ai = ref.watch(aiItemSummaryProvider(item.id));
     return SourcePanel(
       item: item,
@@ -787,214 +675,23 @@ class _MapNoteToggle extends ConsumerWidget {
   }
 }
 
-/// El texto que se sacó de un documento, plegado (F21, decisión A), cuando no
-/// hay tarjeta de estudiar donde va su «Extraer texto» (F36).
-///
-/// En un documento lo principal es el original, arriba, en su visor: el
-/// texto extraído existe para la búsqueda, el chat, las tarjetas y el quiz,
-/// no para leerlo acá. Plegado tampoco se construye: el de un libro de
-/// cientos de páginas no se arma hasta que alguien lo abre. Sus acciones
-/// —leer, resumir, copiar— quedan a la vista igual, en el panel de la
-/// fuente (F26).
-///
-/// Desplegado, se lee en voz alta (F25) —es lo que se puede leer de un PDF—:
-/// ofrece el detalle entero con este texto, por encima de lo que ofrece el
-/// resto de la pantalla, y lo retira al plegarse.
-class _CollapsedExtractedText extends StatelessWidget {
-  const _CollapsedExtractedText({
-    required this.item,
-    required this.texts,
-    required this.readable,
-  });
-
-  final KnowledgeItem item;
-  final List<TextRendition> texts;
-
-  /// Lo que se lee desplegado; se arma recién al desplegar.
-  final ReadableDocument Function() readable;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-
-    return ExpansionTile(
-      tilePadding: EdgeInsets.zero,
-      childrenPadding: EdgeInsets.zero,
-      expandedCrossAxisAlignment: CrossAxisAlignment.start,
-      leading: const Icon(Icons.notes_outlined),
-      title: Text(l10n.detailExtractedTextTitle),
-      subtitle: Text(
-        l10n.detailExtractedTextSubtitle,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-      children: [
-        // Un `Builder`: plegado, `ExpansionTile` no monta lo de adentro, y
-        // así tampoco se parte el texto en líneas.
-        Builder(
-          builder: (context) =>
-              _ExtractedTextBody(item: item, texts: texts, readable: readable),
-        ),
-      ],
-    );
-  }
-}
-
-/// El texto que se sacó de un documento, desplegado: se lee en voz alta
-/// (F25), y lo estudiado se ve con sus colores (F36). Lo mismo plegado en el
-/// detalle que en el «Extraer texto» de la tarjeta de estudiar.
-class _ExtractedTextBody extends ConsumerWidget {
-  const _ExtractedTextBody({
-    required this.item,
-    required this.texts,
-    required this.readable,
-    this.study,
-    this.link,
-  });
-
-  final KnowledgeItem item;
-  final List<TextRendition> texts;
-  final ReadableDocument Function() readable;
-
-  /// El texto que se estudia, si este es: lo que ofrece para leer suma lo
-  /// estudiado (F39).
-  final StudyText? study;
-
-  /// Con el mini reproductor, para "Volver al audio" (F23).
-  final PlaybackFollowLink? link;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => ReadableRegion(
-    document: _offeredAloud(ref, item, _withStudy(ref, readable(), study)),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final rendition in texts) ...[
-          if (rendition.kind == RenditionKind.blocks)
-            _BlocksRendition(item: item, rendition: rendition)
-          else
-            _TextRenditionView(item: item, rendition: rendition, link: link),
-          const SizedBox(height: 16),
-        ],
-      ],
-    ),
-  );
-}
-
-/// Una forma de texto plano, Markdown o la transcripción de un video o un
-/// audio, para leer, subrayar y seguir al audio. Lo que se hace con ella
-/// —leer para destilar, resumir, copiar, quitar las marcas de tiempo— está
+/// Una forma de texto plano o Markdown de una nota propia, para leer y
+/// subrayar. Lo que se hace con ella —leer para destilar, resumir, copiar— está
 /// en el panel de la fuente (F26), una sola vez por elemento y no repetido
 /// encima de cada texto.
-///
-/// El texto que se estudia de un documento lleva lo estudiado con sus
-/// colores, y eligiendo palabras clave, tocar una la agrega o la saca (F36).
-class _TextRenditionView extends ConsumerWidget {
-  const _TextRenditionView({
-    required this.item,
-    required this.rendition,
-    this.link,
-  });
-
-  final KnowledgeItem item;
-  final TextRendition rendition;
-
-  /// Con el mini reproductor: "Volver al audio" muestra lo que suena en
-  /// este texto (F23).
-  final PlaybackFollowLink? link;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final studied = studyRendition(item)?.id == rendition.id;
-    if (_readsByPages(item, rendition)) {
-      return _PagedText(item: item, rendition: rendition);
-    }
-    // La transcripción de un audio o un video sigue al audio mientras
-    // suena: la palabra que se dice, en amarillo (F23), con lo estudiado
-    // debajo (F39).
-    if (isTranscriptSource(item.source) && rendition.isPrimary) {
-      return PlaybackSyncedText(
-        item: item,
-        rendition: rendition,
-        markdown: extractedTextIsMarkdown(item.source),
-        link: link,
-        paints: studied
-            ? watchStudyPaints(ref, context, rendition.id)
-            : const [],
-        // Eligiendo palabras clave, un toque es para elegirlas: el audio no
-        // se mueve.
-        onStudyTap: studied
-            ? (offset) {
-                if (!ref.read(studyViewProvider(rendition.id)).picking) {
-                  return false;
-                }
-                unawaited(
-                  pickStudyAt(
-                    ref,
-                    context,
-                    renditionId: rendition.id,
-                    content: rendition.content,
-                    markdown: extractedTextIsMarkdown(item.source),
-                    offset: offset,
-                  ),
-                );
-                return true;
-              }
-            : null,
-      );
-    }
-    return HighlightableText(
-      itemId: item.id,
-      renditionId: rendition.id,
-      content: rendition.content,
-      markdown: extractedTextIsMarkdown(item.source),
-      paints: studied ? watchStudyPaints(ref, context, rendition.id) : const [],
-      onTapOffset: studied
-          ? (offset) => unawaited(
-              pickStudyAt(
-                ref,
-                context,
-                renditionId: rendition.id,
-                content: rendition.content,
-                markdown: extractedTextIsMarkdown(item.source),
-                offset: offset,
-              ),
-            )
-          : null,
-    );
-  }
-}
-
-/// El texto largo de lo que se estudia, por páginas (ver [kPagedTextChars]): el
-/// mismo lector de «Leer como libro», en un marco del alto de la pantalla,
-/// sin sus botones de estudiar —la tarjeta ya los tiene arriba—. Subrayar a
-/// mano, lo estudiado y escuchar caen en la página que se ve.
-class _PagedText extends StatelessWidget {
-  const _PagedText({required this.item, required this.rendition});
+class _TextRenditionView extends StatelessWidget {
+  const _TextRenditionView({required this.item, required this.rendition});
 
   final KnowledgeItem item;
   final TextRendition rendition;
 
   @override
-  Widget build(BuildContext context) {
-    final height = (MediaQuery.sizeOf(context).height * 0.7).clamp(
-      360.0,
-      760.0,
-    );
-    return SizedBox(
-      key: const Key('detail-paged-text'),
-      height: height,
-      child: DocumentReaderView(
-        title: item.title,
-        content: rendition.content,
-        markdown: extractedTextIsMarkdown(item.source),
-        study: studyTextOf(item),
-        showStudyBar: false,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => HighlightableText(
+    itemId: item.id,
+    renditionId: rendition.id,
+    content: rendition.content,
+    markdown: extractedTextIsMarkdown(item.source),
+  );
 }
 
 /// Una nota de bloques dentro del detalle: la muestra de solo lectura. Para
@@ -1151,8 +848,9 @@ class _Provenance extends ConsumerWidget {
         // ninguna parte que la copia original está a salvo, y el usuario
         // tendría que confiar en que sí.
         // Ni "Ver" ni "Abrir archivo" hacen falta acá: el archivo ya se ve
-        // directo arriba, en `EmbeddedFileViewer`, con su propio ícono de
-        // pantalla completa para quien quiera más lugar.
+        // directo arriba, en `EmbeddedFileViewer`, con su propio botón de
+        // pantalla completa —«Leer como libro», «Ampliar»— para quien quiera
+        // más lugar.
         if (source.originalFilePath != null)
           _ProvenanceRow(
             icon: Icons.folder_outlined,
