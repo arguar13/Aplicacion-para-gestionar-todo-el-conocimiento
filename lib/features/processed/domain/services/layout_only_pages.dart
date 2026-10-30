@@ -17,8 +17,9 @@ typedef PageToCompare = ({String id, String content, int start, int end});
 ///
 /// Es la comprobación de siempre de lo ordenado (`checkTidiedText`), contra
 /// el tramo de la fuente de cada página y con los encabezados y los pies que
-/// se repiten en `input.source`. Una página cuyas palabras cambió la persona —una
-/// letra, una palabra de más o de menos— no está: es suya, y nada la toca.
+/// se repiten en `input.source`. Una página cuyas palabras cambió la persona
+/// —una letra, una palabra de más o de menos— no está: es suya, y nada la
+/// toca.
 ///
 /// Sirve antes de volver a extraer la fuente (F45, paso 4): después, su texto
 /// viejo ya no está, y no hay contra qué comparar.
