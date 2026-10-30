@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -60,8 +61,8 @@ class _UnsortedItemsScreenState extends ConsumerState<UnsortedItemsScreen> {
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
+      ..showAppSnackBar(
+        AppSnackBar(
           content: Text(
             result.match(
               (failure) => failure.localizedMessage(l10n),

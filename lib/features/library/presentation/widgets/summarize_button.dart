@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_selection_aloud.dart';
@@ -97,7 +98,7 @@ mixin SummarizeOnDemand<T extends ConsumerStatefulWidget> on ConsumerState<T> {
       setState(() => _summarizing = false);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.summarizeError)));
+        ..showAppSnackBar(AppSnackBar(content: Text(l10n.summarizeError)));
       return;
     }
 
@@ -144,7 +145,9 @@ mixin SummarizeOnDemand<T extends ConsumerStatefulWidget> on ConsumerState<T> {
               if (!dialogContext.mounted) return;
               ScaffoldMessenger.of(dialogContext)
                 ..hideCurrentSnackBar()
-                ..showSnackBar(SnackBar(content: Text(l10n.summarizeCopied)));
+                ..showAppSnackBar(
+                  AppSnackBar(content: Text(l10n.summarizeCopied)),
+                );
             },
           ),
           TextButton(

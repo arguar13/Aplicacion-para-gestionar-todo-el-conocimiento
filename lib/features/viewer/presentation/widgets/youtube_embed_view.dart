@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/util/external_url_launcher.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -106,6 +107,8 @@ class YoutubeEmbedView extends StatelessWidget {
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.detailYoutubeOpenFailed)));
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(l10n.detailYoutubeOpenFailed)),
+      );
   }
 }

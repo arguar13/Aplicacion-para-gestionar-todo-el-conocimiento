@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/features/library/presentation/widgets/spaces_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
@@ -82,7 +83,7 @@ class _SpacesFieldState extends ConsumerState<SpacesField> {
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.spacesKeepOne)));
+        ..showAppSnackBar(AppSnackBar(content: Text(l10n.spacesKeepOne)));
       return;
     }
     widget.onChanged({

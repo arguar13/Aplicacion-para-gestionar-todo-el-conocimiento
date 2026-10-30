@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/thumbnail_decode.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/services/item_thumbnail.dart';
@@ -347,11 +348,13 @@ class _ItemMenuButton extends ConsumerWidget {
     result.match(
       (failure) => ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+        ),
       (_) => ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
+        ..showAppSnackBar(
+          AppSnackBar(
             content: Text(
               l10n.libraryItemMoved(
                 chosen.isEmpty
@@ -386,7 +389,7 @@ class _ItemMenuButton extends ConsumerWidget {
           l10n.detailLinkNotFound(item.title);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(message)));
+        ..showAppSnackBar(AppSnackBar(content: Text(message)));
       return;
     }
 
@@ -398,10 +401,12 @@ class _ItemMenuButton extends ConsumerWidget {
     result.match(
       (failure) => ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+        ),
       (_) => ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.libraryItemExported))),
+        ..showAppSnackBar(AppSnackBar(content: Text(l10n.libraryItemExported))),
     );
   }
 }

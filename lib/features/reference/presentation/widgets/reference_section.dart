@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/publication_date.dart';
@@ -385,8 +386,8 @@ class _ReferenceFormState extends ConsumerState<_ReferenceForm> {
         await repository.savePublishedAt(widget.item.id, draft.publishedAt);
       }
       if (!saved) {
-        messenger.showSnackBar(
-          SnackBar(content: Text(l10n.referenceSaveFailed)),
+        messenger.showAppSnackBar(
+          AppSnackBar(content: Text(l10n.referenceSaveFailed)),
         );
         if (mounted) setState(() => _saving = false);
         return;
@@ -396,7 +397,9 @@ class _ReferenceFormState extends ConsumerState<_ReferenceForm> {
       // `Exception`, y también hay que avisarlo.
       // ignore: avoid_catches_without_on_clauses
     } catch (_) {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.referenceSaveFailed)));
+      messenger.showAppSnackBar(
+        AppSnackBar(content: Text(l10n.referenceSaveFailed)),
+      );
       if (mounted) setState(() => _saving = false);
     }
   }

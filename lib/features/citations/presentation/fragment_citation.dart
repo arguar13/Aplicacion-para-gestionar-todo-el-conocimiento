@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/citations/data/services/fragment_locator_resolver.dart';
 import 'package:sinapsis/features/citations/domain/entities/citation.dart';
@@ -67,5 +68,5 @@ Future<void> copyFragmentCitation(
   await Clipboard.setData(ClipboardData(text: citation.toPlainText()));
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(l10n.citationCopied)));
+    ..showAppSnackBar(AppSnackBar(content: Text(l10n.citationCopied)));
 }

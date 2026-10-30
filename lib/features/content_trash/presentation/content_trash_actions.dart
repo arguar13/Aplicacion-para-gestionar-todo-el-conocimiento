@@ -57,13 +57,13 @@ Future<void> _trash(
   messenger.hideCurrentSnackBar();
   final failure = outcome.getLeft().toNullable();
   if (failure != null) {
-    messenger.showSnackBar(
-      SnackBar(content: Text(failure.localizedMessage(l10n))),
+    messenger.showAppSnackBar(
+      AppSnackBar(content: Text(failure.localizedMessage(l10n))),
     );
     return;
   }
   final trashed = outcome.getRight().getOrElse(() => const []);
-  messenger.showSnackBar(
+  messenger.showAppSnackBar(
     AppSnackBar(
       content: Text(message),
       action: SnackBarAction(
@@ -86,8 +86,8 @@ Future<void> _restore(
     messenger.hideCurrentSnackBar();
     final failure = result.getLeft().toNullable();
     if (failure != null) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(failure.localizedMessage(l10n))),
+      messenger.showAppSnackBar(
+        AppSnackBar(content: Text(failure.localizedMessage(l10n))),
       );
       continue;
     }
@@ -100,6 +100,6 @@ Future<void> _restore(
       ContentRestoreOutcome.alreadyHasFile => l10n.contentTrashAlreadyHasFile,
       ContentRestoreOutcome.gone => l10n.contentTrashGone,
     };
-    messenger.showSnackBar(SnackBar(content: Text(message)));
+    messenger.showAppSnackBar(AppSnackBar(content: Text(message)));
   }
 }

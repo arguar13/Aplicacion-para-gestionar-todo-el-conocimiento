@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
 import 'package:sinapsis/features/citations/domain/services/bibliography_builder.dart';
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
@@ -34,7 +35,9 @@ Future<void> exportBibliography(
   if (sources.isEmpty) {
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.bibliographyExportEmpty)));
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(l10n.bibliographyExportEmpty)),
+      );
     return;
   }
 
@@ -63,7 +66,9 @@ Future<void> exportBibliography(
     if (!context.mounted) return;
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.bibliographyExportFailed)));
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(l10n.bibliographyExportFailed)),
+      );
   }
 }
 

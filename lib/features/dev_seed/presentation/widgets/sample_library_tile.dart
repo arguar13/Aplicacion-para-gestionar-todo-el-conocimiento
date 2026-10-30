@@ -31,7 +31,7 @@ class SampleLibraryTile extends ConsumerWidget {
       final report = next.report;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
+        ..showAppSnackBar(
           AppSnackBar(
             content: Text(
               l10n.sampleLibraryDoneSnack(

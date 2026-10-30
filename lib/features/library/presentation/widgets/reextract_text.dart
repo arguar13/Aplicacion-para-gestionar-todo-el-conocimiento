@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -106,8 +107,8 @@ Future<void> reextractText(
   if (!context.mounted) return;
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(content: Text(startedMessage ?? l10n.detailReextractStarted)),
+    ..showAppSnackBar(
+      AppSnackBar(content: Text(startedMessage ?? l10n.detailReextractStarted)),
     );
 }
 

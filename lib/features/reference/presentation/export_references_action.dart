@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/reference/domain/entities/reference_file_format.dart';
@@ -34,7 +35,7 @@ Future<void> exportReferences(
   if (content == null) {
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.exportReferencesEmpty)));
+      ..showAppSnackBar(AppSnackBar(content: Text(l10n.exportReferencesEmpty)));
     return;
   }
 
@@ -54,7 +55,9 @@ Future<void> exportReferences(
     if (!context.mounted) return;
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.exportReferencesFailed)));
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(l10n.exportReferencesFailed)),
+      );
   }
 }
 

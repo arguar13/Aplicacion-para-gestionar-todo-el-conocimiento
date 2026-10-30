@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -25,7 +26,9 @@ Future<void> importReferences(BuildContext context, WidgetRef ref) async {
     if (!context.mounted) return;
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.captureFileAccessDenied)));
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(l10n.captureFileAccessDenied)),
+      );
     return;
   }
   if (files.isEmpty || !context.mounted) return;
@@ -37,7 +40,9 @@ Future<void> importReferences(BuildContext context, WidgetRef ref) async {
   if (report == null) {
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.importReferencesFailed)));
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(l10n.importReferencesFailed)),
+      );
     return;
   }
 

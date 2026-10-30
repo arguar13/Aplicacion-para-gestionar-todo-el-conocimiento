@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart' show Either, Unit, right, unit;
 import 'package:intl/intl.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
@@ -162,8 +163,8 @@ class TrashScreen extends ConsumerWidget {
   ) {
     messenger.hideCurrentSnackBar();
     final failure = result.getLeft().toNullable();
-    messenger.showSnackBar(
-      SnackBar(
+    messenger.showAppSnackBar(
+      AppSnackBar(
         content: Text(
           failure == null ? success : failure.localizedMessage(l10n),
         ),

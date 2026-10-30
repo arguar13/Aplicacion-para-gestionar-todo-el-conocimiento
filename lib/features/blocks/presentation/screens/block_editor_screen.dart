@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
@@ -330,7 +331,9 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     if (failure != null) {
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+        );
       return;
     }
     await _checkLinks(force: true);
@@ -406,7 +409,7 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     if (title.isEmpty && !hasContent) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.blocksEmptyError)));
+        ..showAppSnackBar(AppSnackBar(content: Text(l10n.blocksEmptyError)));
       return;
     }
 
@@ -486,7 +489,9 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
       setState(() => _saving = false);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+        );
       return;
     }
 
@@ -567,8 +572,8 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(l10n.blocksTemplateSaved(name.trim()))),
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(l10n.blocksTemplateSaved(name.trim()))),
       );
   }
 

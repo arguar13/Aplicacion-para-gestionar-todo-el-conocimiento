@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/thumbnail_decode.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/design/widgets/custom_text_field.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -330,7 +331,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
 
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.captureFileAccessDenied)));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(l10n.captureFileAccessDenied)),
+        );
     }
   }
 
@@ -357,7 +360,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
 
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.captureCameraAccessDenied)));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(l10n.captureCameraAccessDenied)),
+        );
     }
   }
 
@@ -381,7 +386,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     if (dropped.length != 1 || dropped.single is DropItemDirectory) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.captureDropSingleFileOnly)));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(l10n.captureDropSingleFileOnly)),
+        );
       return;
     }
 
@@ -443,7 +450,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     if (file == null && _inputController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.captureEmptyError)));
+        ..showAppSnackBar(AppSnackBar(content: Text(l10n.captureEmptyError)));
       return;
     }
 
@@ -511,8 +518,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       if (next case CaptureFailed(:final failure)) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text(failure.localizedMessage(l10n))),
+          ..showAppSnackBar(
+            AppSnackBar(content: Text(failure.localizedMessage(l10n))),
           );
       }
     });

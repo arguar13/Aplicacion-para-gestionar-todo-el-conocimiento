@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/attachment_download_status.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -187,8 +188,8 @@ class _Pending extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     await ref.read(attachmentRepositoryProvider).requestRest(item.id);
     await ref.read(processingQueueProvider.notifier).retry(item.id);
-    messenger.showSnackBar(
-      SnackBar(content: Text(l10n.contentDownloadRestStarted)),
+    messenger.showAppSnackBar(
+      AppSnackBar(content: Text(l10n.contentDownloadRestStarted)),
     );
   }
 }
@@ -461,7 +462,7 @@ Future<void> _open(
     FileOpenResult.failed => l10n.contentOpenFailed,
   };
   if (message != null) {
-    messenger.showSnackBar(SnackBar(content: Text(message)));
+    messenger.showAppSnackBar(AppSnackBar(content: Text(message)));
   }
 }
 

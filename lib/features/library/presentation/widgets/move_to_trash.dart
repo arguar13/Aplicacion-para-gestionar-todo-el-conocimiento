@@ -30,13 +30,13 @@ Future<bool> moveToTrashWithUndo(
   messenger.hideCurrentSnackBar();
   final failure = result.getLeft().toNullable();
   if (failure != null) {
-    messenger.showSnackBar(
-      SnackBar(content: Text(failure.localizedMessage(l10n))),
+    messenger.showAppSnackBar(
+      AppSnackBar(content: Text(failure.localizedMessage(l10n))),
     );
     return false;
   }
 
-  messenger.showSnackBar(
+  messenger.showAppSnackBar(
     AppSnackBar(
       content: Text(l10n.trashMoved(ids.length)),
       action: SnackBarAction(
@@ -47,8 +47,8 @@ Future<bool> moveToTrashWithUndo(
           if (undoFailure != null) {
             messenger
               ..hideCurrentSnackBar()
-              ..showSnackBar(
-                SnackBar(content: Text(undoFailure.localizedMessage(l10n))),
+              ..showAppSnackBar(
+                AppSnackBar(content: Text(undoFailure.localizedMessage(l10n))),
               );
           }
         },

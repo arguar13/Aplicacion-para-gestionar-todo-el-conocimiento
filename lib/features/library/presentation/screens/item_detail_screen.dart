@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
@@ -178,7 +179,9 @@ class _ExportButton extends ConsumerWidget {
     result.match((failure) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+        );
     }, (_) {});
   }
 }
@@ -749,7 +752,9 @@ class _BlocksRendition extends ConsumerWidget {
     if (target == null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.detailLinkNotFound(title))));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(l10n.detailLinkNotFound(title))),
+        );
       return;
     }
 
@@ -972,7 +977,9 @@ class _OriginalLink extends StatelessWidget {
             if (!context.mounted) return;
             ScaffoldMessenger.of(context)
               ..hideCurrentSnackBar()
-              ..showSnackBar(SnackBar(content: Text(l10n.detailLinkCopied)));
+              ..showAppSnackBar(
+                AppSnackBar(content: Text(l10n.detailLinkCopied)),
+              );
           },
           icon: const Icon(Icons.copy, size: 18),
           label: Text(l10n.detailCopyLink),

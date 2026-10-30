@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/design/widgets/custom_text_field.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -79,8 +80,8 @@ class _CreateVaultScreenState extends ConsumerState<CreateVaultScreen> {
       if (next case CreateVaultFailed(:final failure)) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text(failure.localizedMessage(l10n))),
+          ..showAppSnackBar(
+            AppSnackBar(content: Text(failure.localizedMessage(l10n))),
           );
       }
     });
