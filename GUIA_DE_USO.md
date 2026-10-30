@@ -3340,7 +3340,7 @@ tipo:
   elegido: tocás uno y queda escrito (mapa mental, tarjetas y cuestionario).
 - Las opciones del tipo, con botones que marcan lo elegido con ✓: el
   **formato** (*Detallada* o *Del presentador*; *Interactivo* o *Documento*), la
-  **plantilla** (las dieciséis de la presentación, o las del informe con
+  **plantilla** (las veintiocho de la presentación, o las del informe con
   **✎ Una propia**, que abre un campo para contar cómo lo querés), la
   **duración**, el **número** (*Menos · Estándar · Más*), la **dificultad**,
   **incluir imágenes** (ilustraciones con IA en algunas tarjetas o preguntas),
@@ -3544,8 +3544,12 @@ que querés crear":
 - **Detalle**: *Conciso* (lo esencial), *Estándar* o *Detallado*.
 - **"Ilustraciones con IA"**: prendido, se dibujan con el modelo de imágenes de
   tu cuenta; apagado, la lámina va con los dibujos de la app.
-- **"Estilo visual"**: los dieciocho estilos en un carrusel que se desliza de
+- **"Estilo visual"**: los treinta estilos en un carrusel que se desliza de
   costado, cada uno con una **lámina de muestra** en la orientación elegida.
+  Los doce más nuevos se llaman y se ven como las plantillas nuevas de la
+  presentación —Periódico, Tinta, Revista, Bauhaus, Brutalista, Minimal
+  oscuro, Terminal, Art déco, Retro, Manuscrito, Pizarra blanca y Plano—: una
+  lámina y una presentación del mismo nombre combinan.
   *Automático* deja que la IA sugiera el que mejor va con el tema (con
   ilustraciones, uno de los ilustrados). Si elegís uno ilustrado —Plastilina,
   Kawaii, Acuarela, Isométrico, Cómic, Fotográfico— sin el interruptor, la hoja
@@ -3567,8 +3571,25 @@ avance; se puede cancelar en cualquier momento.
   **−**, **"Ver la lámina entera"** y **+**.
 - **"Cambiar el estilo"** (🎨, arriba): el estilo, la composición, la paleta
   —seis por estilo, o un color propio—, la tipografía, la orientación, el
-  detalle, los íconos y el fondo, con la lámina cambiando atrás mientras
-  elegís; **"Cambiar"** abre la galería entera de estilos, en sus dos familias.
+  detalle, los íconos y el fondo (*Liso*, *Textura* o *Degradé*), con la
+  lámina cambiando atrás mientras elegís; **"Cambiar"** abre la galería entera
+  de estilos, en sus dos familias.
+- **Las composiciones** son dieciséis, en una tira con la lámina en
+  miniatura armada así: además de las de siempre, **Línea de tiempo
+  vertical** (la línea a la izquierda y cada bloque a su derecha, también en
+  horizontal), **Tabla comparativa** (la comparación renglón por renglón, en
+  dos columnas), **Embudo** (franjas que se angostan, con el texto adentro),
+  **Ciclo** (los bloques en una rueda, unidos por flechas), **Mapa de temas**
+  (el tema arriba y sus subtemas colgados de una llave) y **Estadísticas en
+  mosaico** (las cifras en baldosas de dos tamaños, la primera destacada).
+- **Los gráficos** que dibuja la app cuando el material trae números: barras,
+  anillo, avance y pictograma, y ahora también **columnas**, **anillos
+  concéntricos** (hasta cuatro porcentajes contra el mismo total), la
+  **cuadrícula de cien** (un porcentaje o las partes de un todo, cuadradito
+  por cuadradito) y la **escala** (dónde cae una cifra entre un mínimo y un
+  máximo, como el pH entre 0 y 14, con sus puntas nombradas). Los elige la IA;
+  si los números no alcanzan para uno, va el que corresponde. El lector de
+  pantalla los lee con sus números, y la escala con sus dos puntas.
   **No vuelve a la IA**: el contenido queda igual y no se gasta nada. Lo
   elegido se guarda al cerrar la hoja, y "Volver a generar" arranca con eso.
 - **"Guardar como imagen"** (🖼): un PNG al doble de la lámina, donde elijas.
@@ -3861,14 +3882,21 @@ o «Generar más tarde».
   ilustraciones**: *Igual que la plantilla*, *Fotográfico*, *Acuarela*,
   *Plastilina*, *Línea* o *Isométrico*, cada uno con su muestra.
 - **La plantilla, a la vista**: una tira con **"Automática"** —la elige la IA
-  según el tema— y las dieciséis, cada una con la portada de tu presentación
+  según el tema— y las veintiocho, cada una con la portada de tu presentación
   ya dibujada (con el título de la primera fuente). **"Ver todas las
-  plantillas"** abre la galería entera, por familias.
+  plantillas"** abre la galería entera, en seis familias: *Clásicas* (con
+  **Periódico** y **Tinta**), *Modernas*, *Gráficas* (**Revista**,
+  **Bauhaus** y **Brutalista**), *Oscuras* (con **Minimal oscuro**,
+  **Terminal** y **Art déco**), *Cálidas y creativas* (con **Retro**,
+  **Manuscrito** y **Pizarra blanca**) y *Sobrias de trabajo* (con
+  **Plano**).
 - La descripción, para orientarla: *"para alguien que empieza"*.
 
 La IA escribe el contenido y **elige el diseño de cada diapositiva** —portada,
-viñetas, cita, cifra destacada, línea de pasos, comparación, cronología…—; el
-dibujo lo hace la app. Un libro largo se lee por partes y el último paso arma
+viñetas, cita, cifra destacada, línea de pasos, comparación, cronología…, y
+ocho más: **cita a toda página**, **cuadrícula de imágenes**, **mapa de
+conceptos**, **cierre con preguntas**, **panel de cifras**, **ciclo**,
+**matriz de dos por dos** y **definición**—; el dibujo lo hace la app. Un libro largo se lee por partes y el último paso arma
 el relato, de la portada al cierre. Con ilustraciones, después de escribir
 dibuja **una por diapositiva que la pida**, como mucho las que avisó "Con tu IA
 actual" (cuatro en una corta, siete en una estándar) y con la cuenta que
@@ -3892,8 +3920,12 @@ ve el dibujo de la plantilla, y el visor dice por qué.
   notas—, que se esconden solos. Al salir vuelve todo como estaba, en la misma
   diapositiva.
 - **Plantilla y diseño** (🎨 arriba): la paleta (seis, más un color propio), la
-  tipografía, la densidad, la transición, el formato, la numeración y el pie, y
-  **"Cambiar"** para elegir otra plantilla en la galería. **Nada de esto le
+  tipografía (diez pares, entre ellos *Diario*, *Geométrica*, *Monoespaciada*
+  y *Carta*), la densidad, el **fondo** —*Liso* (solo el color, el que mejor
+  se imprime), *Textura* (el de la plantilla, de fábrica) o *Degradé* (con los
+  colores de la paleta)—, la transición, el formato, la numeración y el pie, y
+  **"Cambiar"** para elegir otra plantilla en la galería: elegir otra deja el
+  fondo, la densidad y el formato como estaban. **Nada de esto le
   vuelve a pedir algo a la IA**: el contenido queda igual y el diseño se guarda
   aparte, enseguida.
 - **"Volver a dibujar"** la ilustración de la que se ve —o **"Dibujar la

@@ -554,6 +554,49 @@ Trece commits, de `918ff036` a `d3c1d8de` (mejoras 5, 6 y 7, decisión D).
   - mirar el video real en el teléfono: `source.language`, `word_timings`, la fecha contra el
     30/09, y las pistas con `audioIsDefault` y `xtags`.
 
+### Paso 5 (hecho): el diseño
+
+Mejora 11, en `lib/features/creations` (los commits, en el informe del paso).
+
+- **Siete de los nombres del plan ya existían desde F43** (Editorial, Suizo,
+  Pizarra, Académica, Acuarela, Neón y Corporativa entre las plantillas;
+  cronología, comparación, cifra destacada y línea de pasos entre los diseños;
+  comparación, panel de cifras y pictograma entre lo de la infografía). En su
+  lugar van otros de su mismo espíritu, con nombre propio, así la cuenta del
+  plan se cumple con cosas nuevas de verdad.
+- **Presentación: +12 plantillas**, con sus seis paletas (el contraste
+  comprobado), su fondo dibujado, su pista para las ilustraciones y la IA que
+  las conoce en «Automática»: Periódico y Tinta (clásicas); Revista, Bauhaus y
+  Brutalista, en una familia nueva, *Gráficas*; Minimal oscuro, Terminal y
+  Art déco (oscuras); Retro, Manuscrito y Pizarra blanca (cálidas), y Plano
+  (de trabajo). Formas nuevas: la portada con cabecera de diario, el panel
+  brutalista, la nota adhesiva, la viñeta «>» y la de las tres figuras, y el
+  título con resaltador (se aclara hasta que el título se lee encima a 4,5:1).
+- **+8 diseños de diapositiva**: cita a toda página, cuadrícula de imágenes,
+  mapa de conceptos, cierre con preguntas, panel de cifras, ciclo, matriz de
+  dos por dos y definición. La IA los conoce; la lectura tolera sus claves en
+  castellano, y uno a medias o mal formado pasa a viñetas sin perder texto.
+  La cuadrícula de imágenes lleva la ilustración de la diapositiva en la
+  primera; las demás las dibuja la app con su ícono (pedir varias por
+  diapositiva cambiaría el costo que se avisa: queda para después).
+- **Personalizar la Presentación**: el fondo —liso, con la textura de la
+  plantilla o en degradé—; liso y degradé sacan los adornos pero no la banda
+  de Ejecutiva, donde va el título en claro. Y diez pares de letras: Diario,
+  Geométrica, Monoespaciada y Carta combinan las familias que ya trae la app
+  (no se sumó ninguna tipografía).
+- **Infografía: +12 estilos** (los mismos nombres, paletas y letras que las
+  plantillas nuevas), con doce texturas, la caja brutalista, la nota adhesiva
+  y la cabecera de diario; **+6 composiciones**: línea de tiempo vertical,
+  tabla comparativa, embudo, ciclo, mapa de temas y estadísticas en mosaico;
+  **+4 gráficos**: columnas, anillos concéntricos, cuadrícula de cien y escala
+  (con su mínimo y el nombre de sus puntas, campos nuevos que la IA conoce y
+  la lectura tolera). Su «personalizar» ya traía colores, letras y fondo: suma
+  los pares nuevos.
+- **Lo guardado se abre igual**: el diseño y el contenido solo suman claves
+  optativas (`background`, `min`, `min_label`, `max_label`); un mazo, un
+  diseño y un gráfico guardados por F43 se leen idénticos, con su prueba. No
+  hace falta migrar nada.
+
 ### Paso 7c (hecho): «sin tema» y la tarjeta «Bandeja»
 
 Tres commits, de `73ed09e1` a `1962e5ba` (mejoras 17 y 18).
