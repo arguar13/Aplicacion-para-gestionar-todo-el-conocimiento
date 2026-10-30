@@ -11,6 +11,7 @@ import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
+import 'package:sinapsis/features/map/domain/entities/map_insights.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
@@ -112,6 +113,7 @@ void main() {
     int isolatedTopics = 1,
     int alfaSize = 4,
     bool empty = false,
+    bool withInsights = true,
   }) {
     final alfa = [for (var i = 1; i <= alfaSize; i++) 'a$i'];
     final beta = withBeta ? ['b1', 'b2', 'b3', 'b4'] : <String>[];
@@ -168,6 +170,7 @@ void main() {
         total: Duration.zero,
       ),
       sequence: sequence,
+      insights: withInsights ? computed.insights : const MapInsights.empty(),
     );
   }
 
@@ -238,6 +241,10 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// El nombre de la comunidad de Alfa: sus dos temas principales, como lo
+  /// calcula el motor (F44, paso 1).
+  const alfa = 'Alfa 1 · Alfa 2';
+
   Finder node(String key) => find.byKey(ValueKey('map-node-$key'));
   Finder card(String key) => find.byKey(ValueKey('map-tree-node-$key'));
   Finder crumb(String level) => find.byKey(ValueKey('map-crumb-$level'));
@@ -305,6 +312,29 @@ void main() {
       expect(crumb('topics'), findsNothing);
       // El nodo de los aislados se rotula solo.
       expect(find.text(es.mapBoardIsolatedTitle('spaces')), findsOneWidget);
+    });
+
+    testWidgets('una comunidad se llama por sus dos temas principales, en la '
+        'burbuja y en la miga; sin lo que calcula el motor, por el más '
+        'unido', (tester) async {
+      await pump(tester);
+
+      expect(
+        find.descendant(of: node('overview:0'), matching: find.text(alfa)),
+        findsOneWidget,
+      );
+      await tapAndSettle(tester, node('overview:0'));
+      expect(
+        find.descendant(of: crumb('topics'), matching: find.text(alfa)),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(app(snapshot(sequence: 2, withInsights: false)));
+      await tapAndSettle(tester, crumb('overview'));
+      expect(
+        find.descendant(of: node('overview:0'), matching: find.text('Alfa 1')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('tocar una comunidad muestra sus temas, y la miga vuelve', (
@@ -1115,9 +1145,9 @@ void main() {
       final community = tester.getSemantics(card('community:0'));
       expect(
         community.label,
-        es.mapGraphCommunitySemantics('Alfa 1', es.mapTopicCount('spaces', 4)),
+        es.mapGraphCommunitySemantics(alfa, es.mapTopicCount('spaces', 4)),
       );
-      expect(community.hint, es.mapSchemaExpand('Alfa 1'));
+      expect(community.hint, es.mapSchemaExpand(alfa));
       semantics.dispose();
     });
   });
@@ -1211,7 +1241,7 @@ void main() {
           hasExpandedState: true,
           isExpanded: false,
           isButton: true,
-          tooltip: es.mapSchemaExpand('Alfa 1'),
+          tooltip: es.mapSchemaExpand(alfa),
         ),
       );
 
@@ -1374,7 +1404,7 @@ void main() {
 
       expect(svg, startsWith('<?xml'));
       expect('<circle'.allMatches(svg), hasLength(3));
-      expect(svg, contains('>Alfa 1</text>'));
+      expect(svg, contains('>$alfa</text>'));
       expect(svg, contains('>${es.mapBoardIsolatedTitle('spaces')}</text>'));
       expect(handle!.subject!(), (arrangement: 'red', links: false));
     });
@@ -1444,7 +1474,7 @@ void main() {
 
       expect(
         tester.getSemantics(node('overview:0')).label,
-        es.mapGraphCommunitySemantics('Alfa 1', es.mapTopicCount('spaces', 4)),
+        es.mapGraphCommunitySemantics(alfa, es.mapTopicCount('spaces', 4)),
       );
       expect(find.bySemanticsLabel(es.f44S2CanvasSemantics(3)), findsOneWidget);
       expect(find.byTooltip(es.f44S2AsList), findsOneWidget);

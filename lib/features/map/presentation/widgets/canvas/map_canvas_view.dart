@@ -514,15 +514,26 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   // --- Armar lo que se mira ---
 
-  /// Cómo se rotula un nodo de la red: los que juntan varias comunidades no
-  /// tienen nombre propio.
+  /// Cómo se rotula un nodo de la red: una comunidad, con sus dos temas
+  /// principales («Cristianismo · Tomás de Aquino», F44, paso 1) —o con su
+  /// tema más unido si el motor no lo calculó—; los que juntan varias
+  /// comunidades no tienen nombre propio.
   String _labelOf(SceneNode node) {
     final l10n = AppLocalizations.of(context)!;
     return switch (node.kind) {
       SceneKind.overflow => l10n.mapGraphOverflow,
       SceneKind.isolated => l10n.mapBoardIsolatedTitle(_topicKind),
+      SceneKind.community => switch (node.group) {
+        final group? => _communityName(group) ?? node.label,
+        null => node.label,
+      },
       _ => node.label,
     };
+  }
+
+  String? _communityName(int communityId) {
+    final name = widget.snapshot.insights.communities.of(communityId)?.name;
+    return name == null || name.isEmpty ? null : name;
   }
 
   TopicSelection _selectTopics() {
@@ -1808,7 +1819,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     final label = _labelOf(node);
     final semantics = switch (node.kind) {
       SceneKind.community => l10n.mapGraphCommunitySemantics(
-        node.label,
+        label,
         l10n.mapTopicCount(_topicKind, node.count),
       ),
       SceneKind.overflow || SceneKind.isolated => '$label: ${node.count}',
