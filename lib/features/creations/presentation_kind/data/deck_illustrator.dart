@@ -214,10 +214,13 @@ class DeckIllustrator {
       failure == ImageFailure.modelNotFound;
 
   /// La forma de la ilustración de [slide]: la del lugar donde va. La
-  /// portada es ancha; el comienzo de una parte, un medallón; lo demás, un
-  /// panel de 4:3. Lo que sobra se recorta al dibujarla.
+  /// portada y la cita a toda página son anchas; el comienzo de una parte, un
+  /// medallón; lo demás, un panel de 4:3. Lo que sobra se recorta al
+  /// dibujarla.
   static IllustrationAspect aspectFor(Slide slide) => switch (slide.layout) {
-    SlideLayout.cover || SlideLayout.closing => IllustrationAspect.wide,
+    SlideLayout.cover ||
+    SlideLayout.closing ||
+    SlideLayout.fullQuote => IllustrationAspect.wide,
     SlideLayout.section => IllustrationAspect.square,
     _ => IllustrationAspect.classic,
   };

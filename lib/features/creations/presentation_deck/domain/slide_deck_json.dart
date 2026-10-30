@@ -30,6 +30,15 @@ abstract final class SlideLimits {
   static const int events = 6;
   static const int concepts = 6;
   static const int takeaways = 4;
+
+  // Los diseños de F45.
+  static const int images = 4;
+  static const int nodes = 6;
+  static const int questions = 4;
+  static const int stats = 4;
+  static const int cycleSteps = 6;
+  static const int quadrants = 4;
+  static const int definition = 400;
 }
 
 /// El JSON de un mazo, en los dos sentidos (F43, decisión G).
@@ -108,6 +117,14 @@ abstract final class SlideDeckJson {
       SlideLayout.imageText => _imageText(json, common),
       SlideLayout.conceptGrid => _conceptGrid(json, common),
       SlideLayout.closing => _closing(json, common),
+      SlideLayout.fullQuote => _fullQuote(json, common),
+      SlideLayout.imageGrid => _imageGrid(json, common),
+      SlideLayout.conceptMap => _conceptMap(json, common),
+      SlideLayout.questions => _questions(json, common),
+      SlideLayout.statGrid => _statGrid(json, common),
+      SlideLayout.cycle => _cycle(json, common),
+      SlideLayout.matrix => _matrix(json, common),
+      SlideLayout.definition => _definition(json, common),
       null => null,
     };
     // Las viñetas son también la red de un diseño desconocido o al que le
@@ -203,6 +220,71 @@ abstract final class SlideDeckJson {
         put('title', title);
         put('subtitle', subtitle);
         putList('takeaways', takeaways);
+      case FullQuoteSlide(:final quote, :final author, :final source):
+        put('quote', quote);
+        put('author', author);
+        put('source', source);
+      case ImageGridSlide(:final title, :final images):
+        put('title', title);
+        putList('images', [
+          for (final image in images)
+            {
+              'caption': image.caption,
+              if (image.icon != null) 'icon': image.icon,
+            },
+        ]);
+      case ConceptMapSlide(:final title, :final center, :final nodes):
+        put('title', title);
+        put('center', center);
+        putList('nodes', [
+          for (final n in nodes)
+            {
+              'title': n.title,
+              if (n.detail.isNotEmpty) 'detail': n.detail,
+              if (n.icon != null) 'icon': n.icon,
+            },
+        ]);
+      case QuestionsSlide(:final title, :final subtitle, :final questions):
+        put('title', title);
+        put('subtitle', subtitle);
+        putList('questions', questions);
+      case StatGridSlide(:final title, :final stats):
+        put('title', title);
+        putList('stats', [
+          for (final s in stats)
+            {
+              'value': s.value,
+              if (s.label.isNotEmpty) 'label': s.label,
+              if (s.detail.isNotEmpty) 'detail': s.detail,
+            },
+        ]);
+      case CycleSlide(:final title, :final center, :final steps):
+        put('title', title);
+        put('center', center);
+        putList('steps', [
+          for (final s in steps)
+            {'title': s.title, if (s.detail.isNotEmpty) 'detail': s.detail},
+        ]);
+      case MatrixSlide(
+        :final title,
+        :final xAxis,
+        :final yAxis,
+        :final quadrants,
+      ):
+        put('title', title);
+        put('x_axis', xAxis);
+        put('y_axis', yAxis);
+        putList('quadrants', [for (final q in quadrants) column(q)]);
+      case DefinitionSlide(
+        :final term,
+        :final definition,
+        :final example,
+        :final kicker,
+      ):
+        put('term', term);
+        put('definition', definition);
+        put('example', example);
+        put('kicker', kicker);
     }
     put('illustration_prompt', slide.illustrationPrompt ?? '');
     put('illustration_ref', slide.illustrationRef ?? '');
@@ -250,7 +332,15 @@ abstract final class SlideDeckJson {
           for (final s in _list(j['steps'])) ..._joinedTexts(s),
           for (final e in _list(j['events'])) ..._joinedTexts(e),
           for (final k in _list(j['concepts'])) ..._joinedTexts(k),
-        ]);
+          // Los de F45.
+          for (final n in _list(j['nodes'])) ..._joinedTexts(n),
+          for (final i in _list(j['images'])) ..._joinedTexts(i),
+          for (final s in _list(j['stats'])) ..._joinedTexts(s),
+          for (final q in _list(j['quadrants']))
+            if (q is Map)
+              ..._strings(_normalizeKeys(q)['points'], SlideLimits.bullet),
+        ])
+        ..addAll(_strings(j['questions'], SlideLimits.bullet));
       for (final side in [j['left'], j['right']]) {
         if (side is Map) {
           final column = _normalizeKeys(side);
@@ -266,6 +356,9 @@ abstract final class SlideDeckJson {
         _text(j['detail'], SlideLimits.bullet),
         _text(j['subtitle'], SlideLimits.bullet),
         _text(j['conclusion'], SlideLimits.bullet),
+        _text(j['term'], SlideLimits.bullet),
+        _text(j['definition'], SlideLimits.bullet),
+        _text(j['example'], SlideLimits.bullet),
       ].where((t) => t.isNotEmpty);
       bullets.addAll(loose);
     }
@@ -396,22 +489,7 @@ abstract final class SlideDeckJson {
   }
 
   static Slide? _conceptGrid(Map<String, Object?> j, _Common c) {
-    final concepts = <SlideConcept>[];
-    for (final raw in _list(j['concepts'])) {
-      final pair = _titleDetail(raw);
-      if (pair == null) continue;
-      final icon = raw is Map
-          ? _text(_normalizeKeys(raw)['icon'], SlideLimits.icon)
-          : '';
-      concepts.add(
-        SlideConcept(
-          title: pair.$1,
-          detail: pair.$2,
-          icon: icon.isEmpty ? null : icon,
-        ),
-      );
-      if (concepts.length == SlideLimits.concepts) break;
-    }
+    final concepts = _concepts(j['concepts'], SlideLimits.concepts);
     if (concepts.length < 2) return null;
     return Slide.conceptGrid(
       title: _text(j['title'], SlideLimits.title),
@@ -432,6 +510,165 @@ abstract final class SlideDeckJson {
         j['takeaways'] ?? j['bullets'],
         SlideLimits.bullet,
       ).take(SlideLimits.takeaways).toList(),
+      illustrationPrompt: c.prompt,
+      illustrationRef: c.reference,
+      speakerNotes: c.notes,
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Los de F45.
+
+  static Slide? _fullQuote(Map<String, Object?> j, _Common c) {
+    final quote = _text(j['quote'] ?? j['body'], SlideLimits.quote);
+    if (quote.isEmpty) return null;
+    return Slide.fullQuote(
+      quote: _unquote(quote),
+      author: _text(j['author'], SlideLimits.attribution),
+      source: _text(j['source'], SlideLimits.attribution),
+      illustrationPrompt: c.prompt,
+      illustrationRef: c.reference,
+      speakerNotes: c.notes,
+    );
+  }
+
+  static Slide? _imageGrid(Map<String, Object?> j, _Common c) {
+    final images = <SlideImage>[];
+    for (final raw in _list(j['images'])) {
+      final String caption;
+      String? icon;
+      if (raw is Map) {
+        final image = _normalizeKeys(raw);
+        caption = _text(
+          image['caption'] ?? image['title'] ?? image['detail'],
+          SlideLimits.label,
+        );
+        final named = _text(image['icon'], SlideLimits.icon);
+        icon = named.isEmpty ? null : named;
+      } else {
+        caption = _text(raw, SlideLimits.label);
+      }
+      if (caption.isNotEmpty) {
+        images.add(SlideImage(caption: caption, icon: icon));
+      }
+      if (images.length == SlideLimits.images) break;
+    }
+    if (images.length < 2) return null;
+    return Slide.imageGrid(
+      title: _text(j['title'], SlideLimits.title),
+      images: images,
+      illustrationPrompt: c.prompt,
+      illustrationRef: c.reference,
+      speakerNotes: c.notes,
+    );
+  }
+
+  static Slide? _conceptMap(Map<String, Object?> j, _Common c) {
+    final nodes = _concepts(j['nodes'] ?? j['concepts'], SlideLimits.nodes);
+    final title = _text(j['title'], SlideLimits.title);
+    final center = _text(j['center'], SlideLimits.label);
+    if (nodes.length < 3 || (title.isEmpty && center.isEmpty)) return null;
+    return Slide.conceptMap(
+      title: title,
+      center: center,
+      nodes: nodes,
+      illustrationPrompt: c.prompt,
+      illustrationRef: c.reference,
+      speakerNotes: c.notes,
+    );
+  }
+
+  static Slide? _questions(Map<String, Object?> j, _Common c) {
+    final questions = _strings(
+      j['questions'] ?? j['bullets'],
+      SlideLimits.bullet,
+    ).take(SlideLimits.questions).toList();
+    if (questions.isEmpty) return null;
+    return Slide.questions(
+      title: _text(j['title'], SlideLimits.title),
+      subtitle: _text(j['subtitle'], SlideLimits.subtitle),
+      questions: questions,
+      illustrationPrompt: c.prompt,
+      illustrationRef: c.reference,
+      speakerNotes: c.notes,
+    );
+  }
+
+  static Slide? _statGrid(Map<String, Object?> j, _Common c) {
+    final stats = <SlideStat>[];
+    for (final raw in _list(j['stats'])) {
+      if (raw is! Map) continue;
+      final stat = _normalizeKeys(raw);
+      final value = _text(stat['value'], SlideLimits.value);
+      if (value.isEmpty) continue;
+      stats.add(
+        SlideStat(
+          value: value,
+          label: _text(stat['label'] ?? stat['title'], SlideLimits.label),
+          detail: _text(stat['detail'], SlideLimits.detail),
+        ),
+      );
+      if (stats.length == SlideLimits.stats) break;
+    }
+    if (stats.length < 2) return null;
+    return Slide.statGrid(
+      title: _text(j['title'], SlideLimits.title),
+      stats: stats,
+      illustrationPrompt: c.prompt,
+      illustrationRef: c.reference,
+      speakerNotes: c.notes,
+    );
+  }
+
+  static Slide? _cycle(Map<String, Object?> j, _Common c) {
+    final steps = <SlideStep>[];
+    for (final raw in _list(j['steps'])) {
+      final pair = _titleDetail(raw);
+      if (pair != null) steps.add(SlideStep(title: pair.$1, detail: pair.$2));
+      if (steps.length == SlideLimits.cycleSteps) break;
+    }
+    // Un ciclo de dos es un ida y vuelta: se lee mejor como pasos.
+    if (steps.length < 3) return null;
+    return Slide.cycle(
+      title: _text(j['title'], SlideLimits.title),
+      center: _text(j['center'], SlideLimits.label),
+      steps: steps,
+      illustrationPrompt: c.prompt,
+      illustrationRef: c.reference,
+      speakerNotes: c.notes,
+    );
+  }
+
+  static Slide? _matrix(Map<String, Object?> j, _Common c) {
+    final quadrants = <SlideColumn>[
+      for (final raw in _list(j['quadrants']))
+        if (_column(raw) case final column?) column,
+    ];
+    // Una matriz necesita sus cuatro: con menos, no se sabe qué va dónde.
+    if (quadrants.length < SlideLimits.quadrants) return null;
+    return Slide.matrix(
+      title: _text(j['title'], SlideLimits.title),
+      xAxis: _text(j['xaxis'], SlideLimits.label),
+      yAxis: _text(j['yaxis'], SlideLimits.label),
+      quadrants: quadrants.take(SlideLimits.quadrants).toList(),
+      illustrationPrompt: c.prompt,
+      illustrationRef: c.reference,
+      speakerNotes: c.notes,
+    );
+  }
+
+  static Slide? _definition(Map<String, Object?> j, _Common c) {
+    final term = _text(j['term'] ?? j['title'], SlideLimits.title);
+    final definition = _text(
+      j['definition'] ?? j['body'] ?? j['detail'],
+      SlideLimits.definition,
+    );
+    if (term.isEmpty || definition.isEmpty) return null;
+    return Slide.definition(
+      term: term,
+      definition: definition,
+      example: _text(j['example'], SlideLimits.detail),
+      kicker: _text(j['kicker'], SlideLimits.kicker),
       illustrationPrompt: c.prompt,
       illustrationRef: c.reference,
       speakerNotes: c.notes,
@@ -538,6 +775,25 @@ abstract final class SlideDeckJson {
     'ilustracion': 'prompt',
     'illustrationref': 'reference',
     'illustration': 'reference',
+    // Los de F45.
+    'imagenes': 'images',
+    'fotos': 'images',
+    'epigrafe': 'caption',
+    'leyenda': 'caption',
+    'pie': 'caption',
+    'centro': 'center',
+    'nodos': 'nodes',
+    'ramas': 'nodes',
+    'branches': 'nodes',
+    'preguntas': 'questions',
+    'estadisticas': 'stats',
+    'cifras': 'stats',
+    'cuadrantes': 'quadrants',
+    'ejex': 'xaxis',
+    'ejey': 'yaxis',
+    'termino': 'term',
+    'definicion': 'definition',
+    'ejemplo': 'example',
   };
 
   static SlideLayout? _layout(Object? raw) {
@@ -583,6 +839,27 @@ abstract final class SlideDeckJson {
     'cierre': SlideLayout.closing,
     'conclusion': SlideLayout.closing,
     'end': SlideLayout.closing,
+    // Los de F45.
+    'citaatodapagina': SlideLayout.fullQuote,
+    'citagrande': SlideLayout.fullQuote,
+    'cuadriculadeimagenes': SlideLayout.imageGrid,
+    'galeria': SlideLayout.imageGrid,
+    'gallery': SlideLayout.imageGrid,
+    'mapadeconceptos': SlideLayout.conceptMap,
+    'mapaconceptual': SlideLayout.conceptMap,
+    'mindmap': SlideLayout.conceptMap,
+    'preguntas': SlideLayout.questions,
+    'cierreconpreguntas': SlideLayout.questions,
+    'qa': SlideLayout.questions,
+    'paneldecifras': SlideLayout.statGrid,
+    'stats': SlideLayout.statGrid,
+    'estadisticas': SlideLayout.statGrid,
+    'ciclo': SlideLayout.cycle,
+    'matriz': SlideLayout.matrix,
+    'matriz2x2': SlideLayout.matrix,
+    'cuadrantes': SlideLayout.matrix,
+    'definicion': SlideLayout.definition,
+    'glosario': SlideLayout.definition,
   };
 
   static DeckFormat _format(Object? raw) {
@@ -637,8 +914,8 @@ abstract final class SlideDeckJson {
     return out;
   }
 
-  /// Los textos de un objeto, en un orden razonable: título, detalle y lo
-  /// demás.
+  /// Los textos de un objeto, en un orden razonable: la fecha o la cifra, el
+  /// título (o el epígrafe, o el rótulo) y el detalle.
   static List<String> _joinedTexts(Object? raw) {
     if (raw is String) {
       final text = _text(raw, SlideLimits.bullet);
@@ -647,10 +924,40 @@ abstract final class SlideDeckJson {
     if (raw is! Map) return const [];
     final json = _normalizeKeys(raw);
     final parts = [
-      for (final key in ['date', 'title', 'body', 'detail'])
+      for (final key in [
+        'date',
+        'value',
+        'title',
+        'caption',
+        'label',
+        'body',
+        'detail',
+      ])
         _text(json[key], SlideLimits.bullet),
     ].where((t) => t.isNotEmpty).toList();
     return parts.isEmpty ? const [] : [parts.join(' — ')];
+  }
+
+  /// Los conceptos de [raw], hasta [max]: los de la cuadrícula y las ramas
+  /// del mapa.
+  static List<SlideConcept> _concepts(Object? raw, int max) {
+    final concepts = <SlideConcept>[];
+    for (final item in _list(raw)) {
+      final pair = _titleDetail(item);
+      if (pair == null) continue;
+      final icon = item is Map
+          ? _text(_normalizeKeys(item)['icon'], SlideLimits.icon)
+          : '';
+      concepts.add(
+        SlideConcept(
+          title: pair.$1,
+          detail: pair.$2,
+          icon: icon.isEmpty ? null : icon,
+        ),
+      );
+      if (concepts.length == max) break;
+    }
+    return concepts;
   }
 
   /// Un paso o un concepto: un objeto con título y detalle, o un texto solo.

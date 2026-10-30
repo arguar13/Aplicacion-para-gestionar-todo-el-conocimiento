@@ -17,14 +17,51 @@ void main() {
   })!.slides.single;
 
   group('ida y vuelta', () {
-    test('el mazo de ejemplo vuelve idéntico, con sus doce diseños', () {
+    test('los mazos de ejemplo vuelven idénticos, con los veinte diseños', () {
       final deck = sampleDeck(illustrations: true);
       final again = SlideDeckJson.decode(SlideDeckJson.encodeString(deck));
-
       expect(again, deck);
+
+      final more = moreDeck(illustrations: true);
+      final moreAgain = SlideDeckJson.decode(SlideDeckJson.encodeString(more));
+      expect(moreAgain, more);
+
+      expect({
+        ...again.slides.map((s) => s.layout),
+        ...moreAgain.slides.map((s) => s.layout),
+      }, SlideLayout.values.toSet());
+    });
+
+    test('el peor caso de F45 vuelve idéntico', () {
+      final deck = longMoreDeck();
+      expect(SlideDeckJson.decode(SlideDeckJson.encode(deck)), deck);
+    });
+
+    test('un mazo guardado por F43 se sigue leyendo igual', () {
+      // Tal como lo escribía la versión de F43: sin nada de lo nuevo.
+      final saved = jsonEncode({
+        'title': 'Éxodo',
+        'format': 'detailed',
+        'slides': [
+          {'layout': 'cover', 'title': 'Éxodo', 'kicker': 'Estudio'},
+          {'layout': 'big_number', 'value': '40 años', 'label': 'de travesía'},
+          {
+            'layout': 'closing',
+            'title': 'Fin',
+            'takeaways': ['Uno', 'Dos'],
+          },
+        ],
+      });
       expect(
-        again.slides.map((s) => s.layout).toSet(),
-        SlideLayout.values.toSet(),
+        SlideDeckJson.decode(saved),
+        const SlideDeck(
+          title: 'Éxodo',
+          slides: [
+            Slide.cover(title: 'Éxodo', kicker: 'Estudio'),
+            Slide.bigNumber(value: '40 años', label: 'de travesía'),
+            Slide.closing(title: 'Fin', takeaways: ['Uno', 'Dos']),
+          ],
+        ),
       );
     });
 
@@ -239,6 +276,303 @@ void main() {
         'balance',
         null,
       ]);
+    });
+  });
+
+  group('los diseños de F45, de la IA', () {
+    test('por su nombre en castellano y con sus claves en castellano', () {
+      expect(
+        only({
+          'tipo': 'Matriz 2x2',
+          'título': 'Actitudes',
+          'eje_x': 'Saber',
+          'eje_y': 'Hacer',
+          'cuadrantes': [
+            {'titulo': 'A', 'puntos': 'uno'},
+            {
+              'titulo': 'B',
+              'puntos': ['dos'],
+            },
+            {'titulo': 'C'},
+            {'titulo': 'D'},
+          ],
+        }),
+        const Slide.matrix(
+          title: 'Actitudes',
+          xAxis: 'Saber',
+          yAxis: 'Hacer',
+          quadrants: [
+            SlideColumn(heading: 'A', points: ['uno']),
+            SlideColumn(heading: 'B', points: ['dos']),
+            SlideColumn(heading: 'C'),
+            SlideColumn(heading: 'D'),
+          ],
+        ),
+      );
+      expect(
+        only({
+          'diseño': 'definición',
+          'término': 'Pascua',
+          'definición': 'La fiesta de la salida',
+          'ejemplo': 'El cordero',
+        }),
+        const Slide.definition(
+          term: 'Pascua',
+          definition: 'La fiesta de la salida',
+          example: 'El cordero',
+        ),
+      );
+      expect(
+        only({
+          'layout': 'ciclo',
+          'title': 'Agua',
+          'centro': 'El agua',
+          'pasos': ['Lluvia', 'Río', 'Mar'],
+        }),
+        const Slide.cycle(
+          title: 'Agua',
+          center: 'El agua',
+          steps: [
+            SlideStep(title: 'Lluvia'),
+            SlideStep(title: 'Río'),
+            SlideStep(title: 'Mar'),
+          ],
+        ),
+      );
+      expect(
+        only({
+          'layout': 'preguntas',
+          'title': 'Para pensar',
+          'preguntas': '1. ¿Por qué?\n2. ¿Para qué?',
+        }),
+        const Slide.questions(
+          title: 'Para pensar',
+          questions: ['¿Por qué?', '¿Para qué?'],
+        ),
+      );
+      expect(
+        only({
+          'layout': 'galeria',
+          'title': 'Lugares',
+          'imagenes': [
+            'Egipto',
+            {'epigrafe': 'El mar', 'icono': 'water'},
+          ],
+        }),
+        const Slide.imageGrid(
+          title: 'Lugares',
+          images: [
+            SlideImage(caption: 'Egipto'),
+            SlideImage(caption: 'El mar', icon: 'water'),
+          ],
+        ),
+      );
+      expect(
+        only({
+          'layout': 'paneldecifras',
+          'cifras': [
+            {'valor': 40, 'etiqueta': 'años'},
+            {'value': '10', 'title': 'plagas'},
+            'suelta',
+          ],
+        }),
+        const Slide.statGrid(
+          title: '',
+          stats: [
+            SlideStat(value: '40', label: 'años'),
+            SlideStat(value: '10', label: 'plagas'),
+          ],
+        ),
+      );
+      expect(
+        only({
+          'layout': 'mapa conceptual',
+          'title': 'Alianza',
+          'ramas': ['Ley', 'Promesa', 'Memoria'],
+        }),
+        const Slide.conceptMap(
+          title: 'Alianza',
+          nodes: [
+            SlideConcept(title: 'Ley'),
+            SlideConcept(title: 'Promesa'),
+            SlideConcept(title: 'Memoria'),
+          ],
+        ),
+      );
+      expect(
+        only({'layout': 'cita grande', 'cita': '«Yo soy»', 'autor': 'Dios'}),
+        const Slide.fullQuote(quote: 'Yo soy', author: 'Dios'),
+      );
+    });
+
+    test('a medias: lo que les falta los pasa a viñetas, sin perder texto', () {
+      // Una matriz de tres no dice qué va dónde.
+      expect(
+        only({
+          'layout': 'matrix',
+          'title': 'Tres',
+          'quadrants': [
+            {
+              'heading': 'A',
+              'points': ['uno'],
+            },
+            {
+              'heading': 'B',
+              'points': ['dos'],
+            },
+            {
+              'heading': 'C',
+              'points': ['tres'],
+            },
+          ],
+        }),
+        const Slide.bullets(title: 'Tres', bullets: ['uno', 'dos', 'tres']),
+      );
+      // Un ciclo de dos se lee mejor como pasos; acá, como viñetas.
+      expect(
+        only({
+          'layout': 'cycle',
+          'title': 'Ida y vuelta',
+          'steps': [
+            {'title': 'Ida'},
+            {'title': 'Vuelta'},
+          ],
+        }),
+        const Slide.bullets(title: 'Ida y vuelta', bullets: ['Ida', 'Vuelta']),
+      );
+      // Una definición sin qué es: el término queda de título.
+      expect(
+        only({'layout': 'definition', 'term': 'Pascua', 'example': 'Cordero'}),
+        const Slide.bullets(title: '', bullets: ['Pascua', 'Cordero']),
+      );
+      // Un mapa de dos ramas, una cuadrícula de una imagen, un panel de una
+      // cifra, unas preguntas vacías.
+      expect(
+        only({
+          'layout': 'concept_map',
+          'title': 'Poco',
+          'nodes': ['a', 'b'],
+        }),
+        const Slide.bullets(title: 'Poco', bullets: ['a', 'b']),
+      );
+      expect(
+        only({
+          'layout': 'image_grid',
+          'title': 'Una',
+          'images': [
+            {'caption': 'sola'},
+          ],
+        }),
+        const Slide.bullets(title: 'Una', bullets: ['sola']),
+      );
+      expect(
+        only({
+          'layout': 'stat_grid',
+          'title': 'Una cifra',
+          'stats': [
+            {'value': '40', 'label': 'años'},
+          ],
+        }),
+        const Slide.bullets(title: 'Una cifra', bullets: ['40 — años']),
+      );
+      expect(
+        SlideDeckJson.tryDecode({
+          'slides': [
+            {'layout': 'questions', 'questions': <String>[]},
+          ],
+        }),
+        isNull,
+      );
+    });
+
+    test('mal formados: los tipos raros no rompen nada', () {
+      expect(
+        only({
+          'layout': 'stat_grid',
+          'title': 'Raro',
+          'stats': {'value': '1'},
+        }),
+        const Slide.bullets(title: 'Raro'),
+      );
+      expect(
+        only({
+          'layout': 'matrix',
+          'title': 'Raro',
+          'quadrants': 'cuatro',
+          'x_axis': 3,
+        }),
+        const Slide.bullets(title: 'Raro'),
+      );
+      expect(
+        only({
+          'layout': 'full_quote',
+          'quote': ['no', 'es', 'texto'],
+          'title': 'Sin cita',
+        }),
+        const Slide.bullets(title: 'Sin cita'),
+      );
+    });
+
+    test('sus listas no pasan de su tope', () {
+      final many = [for (var i = 0; i < 12; i++) 'cosa $i'];
+      final grid =
+          only({'layout': 'image_grid', 'title': 'T', 'images': many})
+              as ImageGridSlide;
+      expect(grid.images, hasLength(SlideLimits.images));
+      final map =
+          only({'layout': 'concept_map', 'title': 'T', 'nodes': many})
+              as ConceptMapSlide;
+      expect(map.nodes, hasLength(SlideLimits.nodes));
+      final questions =
+          only({'layout': 'questions', 'title': 'T', 'questions': many})
+              as QuestionsSlide;
+      expect(questions.questions, hasLength(SlideLimits.questions));
+      final cycle =
+          only({'layout': 'cycle', 'title': 'T', 'steps': many}) as CycleSlide;
+      expect(cycle.steps, hasLength(SlideLimits.cycleSteps));
+      final matrix =
+          only({
+                'layout': 'matrix',
+                'title': 'T',
+                'quadrants': [
+                  for (final m in many)
+                    {
+                      'heading': m,
+                      'points': [m],
+                    },
+                ],
+              })
+              as MatrixSlide;
+      expect(matrix.quadrants, hasLength(SlideLimits.quadrants));
+      final stats =
+          only({
+                'layout': 'stat_grid',
+                'title': 'T',
+                'stats': [
+                  for (final m in many) {'value': '1', 'label': m},
+                ],
+              })
+              as StatGridSlide;
+      expect(stats.stats, hasLength(SlideLimits.stats));
+    });
+
+    test('el título que se ve, para la miniatura y el índice', () {
+      expect(
+        const Slide.definition(term: 'Pascua', definition: 'x').headline,
+        'Pascua',
+      );
+      expect(const Slide.fullQuote(quote: 'Yo soy').headline, 'Yo soy');
+      expect(
+        const Slide.conceptMap(title: '', center: 'Alianza').headline,
+        'Alianza',
+      );
+      expect(
+        const Slide.statGrid(
+          title: '',
+          stats: [SlideStat(value: '40')],
+        ).headline,
+        '40',
+      );
     });
   });
 

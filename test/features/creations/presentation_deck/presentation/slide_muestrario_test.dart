@@ -73,6 +73,56 @@ void main() {
         });
       }
 
+      testWidgets('los ocho diseños de F45, en 16:9 y 4:3: comunes sin «…», '
+          'el peor caso sin desbordar y el mínimo entero', (tester) async {
+        final problems = <String>[];
+        for (final aspect in DeckAspect.values) {
+          final tag = tagOf(aspect);
+          final design = DeckDesign(template: template, aspect: aspect);
+          problems
+            ..addAll(
+              await renderDeck(
+                tester,
+                moreDeck(illustrations: true),
+                design,
+                width: 360,
+                allowEllipsis: false,
+                name: '${template.id}-$tag-f45-360',
+              ),
+            )
+            ..addAll(
+              await renderDeck(
+                tester,
+                moreDeck(),
+                design,
+                width: 1280,
+                allowEllipsis: false,
+                name: '${template.id}-$tag-f45-1280',
+              ),
+            )
+            ..addAll(
+              await renderDeck(
+                tester,
+                longMoreDeck(),
+                design,
+                width: 360,
+                name: '${template.id}-$tag-f45-largo-360',
+              ),
+            );
+        }
+        problems.addAll(
+          await renderDeck(
+            tester,
+            minimalMoreDeck(),
+            DeckDesign(template: template),
+            width: 640,
+            allowEllipsis: false,
+            name: '${template.id}-f45-minimo',
+          ),
+        );
+        expect(problems, isEmpty, reason: problems.join('\n'));
+      });
+
       testWidgets('un mazo mínimo se dibuja entero', (tester) async {
         final problems = await renderDeck(
           tester,

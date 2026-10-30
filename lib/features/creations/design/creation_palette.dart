@@ -50,6 +50,21 @@ class CreationPalette {
   Color get accentText =>
       CreationContrast.ensureOnAll(primary, [background, surfaceOnBackground]);
 
+  /// El papel de una nota adhesiva (F45): la superficie teñida del acento, lo
+  /// justo para que se vea de color sin que el texto deje de leerse a 7:1 ni
+  /// el tenue a 4,5:1.
+  Color get noteColor {
+    final base = surfaceOnBackground;
+    for (var tint = 0.3; tint > 0; tint -= 0.02) {
+      final paper = Color.lerp(base, accent, tint)!;
+      if (CreationContrast.ratio(text, paper) >= 7 &&
+          CreationContrast.ratio(muted, paper) >= 4.5) {
+        return paper;
+      }
+    }
+    return base;
+  }
+
   /// La paleta con el texto y el texto tenue llevados hasta 4,5:1 sobre el
   /// fondo y la superficie. Las paletas escritas a mano ya cumplen —lo
   /// comprueba la prueba de las plantillas—; esto es para las que se arman

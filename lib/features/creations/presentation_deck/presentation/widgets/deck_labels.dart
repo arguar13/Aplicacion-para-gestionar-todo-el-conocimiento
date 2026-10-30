@@ -58,6 +58,14 @@ extension DeckLabels on AppLocalizations {
     SlideLayout.imageText => f43DeckLayoutImageText,
     SlideLayout.conceptGrid => f43DeckLayoutConceptGrid,
     SlideLayout.closing => f43DeckLayoutClosing,
+    SlideLayout.fullQuote => f45S5LayoutFullQuote,
+    SlideLayout.imageGrid => f45S5LayoutImageGrid,
+    SlideLayout.conceptMap => f45S5LayoutConceptMap,
+    SlideLayout.questions => f45S5LayoutQuestions,
+    SlideLayout.statGrid => f45S5LayoutStatGrid,
+    SlideLayout.cycle => f45S5LayoutCycle,
+    SlideLayout.matrix => f45S5LayoutMatrix,
+    SlideLayout.definition => f45S5LayoutDefinition,
   };
 
   String deckFonts(CreationFontPair pair) => switch (pair) {

@@ -34,7 +34,9 @@ class DeckBackgroundPainter extends CustomPainter {
   CreationPalette get p => style.palette;
 
   /// La portada, las secciones y el cierre: el fondo con todo lo que no
-  /// ocupa lugar (las estrellas, las manchas, los resplandores).
+  /// ocupa lugar (las estrellas, las manchas, los resplandores). El cierre con
+  /// preguntas (F45) no: sus paneles llegan arriba a la derecha, donde
+  /// algunas plantillas ponen un adorno.
   bool get grand => hero || layout == SlideLayout.closing;
 
   /// La portada y las secciones: además, lo que ocupa lugar (el círculo

@@ -54,6 +54,7 @@ class SlideFrame extends StatelessWidget {
     required this.child,
     this.padded = true,
     this.footerLeft,
+    this.footerColor,
     super.key,
   });
 
@@ -66,6 +67,10 @@ class SlideFrame extends StatelessWidget {
   /// Dónde empieza el pie, si no es en el margen: después de una banda de
   /// color a la izquierda, para no escribir el título del mazo encima.
   final double? footerLeft;
+
+  /// El color del número y del pie, si no es el tenue de la paleta: sobre un
+  /// campo de color a sangre (la cita a toda página, F45).
+  final Color? footerColor;
 
   @override
   Widget build(BuildContext buildContext) {
@@ -104,7 +109,7 @@ class SlideFrame extends StatelessWidget {
             right: style.marginX,
             bottom: style.marginY * 0.55,
             height: style.footerHeight * 0.7,
-            child: _Footer(context: context),
+            child: _Footer(context: context, color: footerColor),
           ),
       ],
     );
@@ -112,15 +117,16 @@ class SlideFrame extends StatelessWidget {
 }
 
 class _Footer extends StatelessWidget {
-  const _Footer({required this.context});
+  const _Footer({required this.context, this.color});
 
   final SlideContext context;
+  final Color? color;
 
   @override
   Widget build(BuildContext buildContext) {
     final style = context.style;
     final design = style.design;
-    final color = style.muted;
+    final color = this.color ?? style.muted;
     final number = '${context.index + 1}'.padLeft(2, '0');
     return Row(
       children: [
@@ -547,19 +553,8 @@ class DeckPanel extends StatelessWidget {
   /// Un relleno propio en vez de la superficie (una tarjeta de color).
   final Color? fill;
 
-  /// El papel de una nota adhesiva: la superficie teñida del acento, lo justo
-  /// para que se vea de color sin que el texto deje de leerse a 7:1.
-  static Color noteColor(CreationPalette palette) {
-    final base = palette.surfaceOnBackground;
-    for (var tint = 0.3; tint > 0; tint -= 0.02) {
-      final paper = Color.lerp(base, palette.accent, tint)!;
-      if (CreationContrast.ratio(palette.text, paper) >= 7 &&
-          CreationContrast.ratio(palette.muted, paper) >= 4.5) {
-        return paper;
-      }
-    }
-    return base;
-  }
+  /// El papel de una nota adhesiva (ver `CreationPalette.noteColor`).
+  static Color noteColor(CreationPalette palette) => palette.noteColor;
 
   /// El relleno de adentro de un panel, sin sus bordes.
   static EdgeInsets innerPadding(DeckStyle style) =>

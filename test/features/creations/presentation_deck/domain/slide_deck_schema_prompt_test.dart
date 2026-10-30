@@ -8,10 +8,10 @@ import 'package:sinapsis/features/creations/presentation_deck/domain/slide_deck_
 import '../support/sample_decks.dart';
 
 /// El esquema que se le explica a la IA (F43, decisión G) dice exactamente
-/// lo que el lector entiende: los doce diseños, cada clave que se escribe y
-/// los íconos del juego.
+/// lo que el lector entiende: los veinte diseños (los ocho de F45 también),
+/// cada clave que se escribe y los íconos del juego.
 void main() {
-  test('nombra los doce diseños por su nombre de JSON', () {
+  test('nombra los veinte diseños por su nombre de JSON', () {
     for (final layout in SlideLayout.values) {
       expect(slideDeckJsonSchemaPrompt, contains('"${layout.jsonName}"'));
     }
@@ -31,6 +31,7 @@ void main() {
     }
 
     collect(SlideDeckJson.encode(sampleDeck(illustrations: true)));
+    collect(SlideDeckJson.encode(longMoreDeck()));
     // La referencia de la ilustración la pone la app, no la IA.
     keys.remove('illustration_ref');
     for (final key in keys) {
@@ -48,6 +49,16 @@ void main() {
       slideDeckJsonSchemaPrompt,
       contains('${SlideLimits.bullets} textos'),
     );
+    for (final limit in [
+      SlideLimits.images,
+      SlideLimits.nodes,
+      SlideLimits.questions,
+      SlideLimits.stats,
+      SlideLimits.cycleSteps,
+    ]) {
+      expect(slideDeckJsonSchemaPrompt, contains('a $limit'));
+    }
+    expect(slideDeckJsonSchemaPrompt, contains('exactamente 4 objetos'));
   });
 
   test('pide no inventar y está en castellano', () {

@@ -6,6 +6,7 @@ import 'package:sinapsis/features/creations/presentation_deck/domain/slide_deck.
 import 'package:sinapsis/features/creations/presentation_deck/presentation/templates/deck_style.dart';
 import 'package:sinapsis/features/creations/presentation_deck/presentation/widgets/slide_layouts_content.dart';
 import 'package:sinapsis/features/creations/presentation_deck/presentation/widgets/slide_layouts_hero.dart';
+import 'package:sinapsis/features/creations/presentation_deck/presentation/widgets/slide_layouts_more.dart';
 import 'package:sinapsis/features/creations/presentation_deck/presentation/widgets/slide_layouts_structured.dart';
 import 'package:sinapsis/features/creations/presentation_deck/presentation/widgets/slide_parts.dart';
 
@@ -92,6 +93,14 @@ class SlideView extends StatelessWidget {
     final ImageTextSlide s => ImageTextLayout(c: c, slide: s),
     final ConceptGridSlide s => ConceptGridLayout(c: c, slide: s),
     final ClosingSlide s => ClosingLayout(c: c, slide: s),
+    final FullQuoteSlide s => FullQuoteLayout(c: c, slide: s),
+    final ImageGridSlide s => ImageGridLayout(c: c, slide: s),
+    final ConceptMapSlide s => ConceptMapLayout(c: c, slide: s),
+    final QuestionsSlide s => QuestionsLayout(c: c, slide: s),
+    final StatGridSlide s => StatGridLayout(c: c, slide: s),
+    final CycleSlide s => CycleLayout(c: c, slide: s),
+    final MatrixSlide s => MatrixLayout(c: c, slide: s),
+    final DefinitionSlide s => DefinitionLayout(c: c, slide: s),
   };
 
   static int _indexOf(Slide slide, SlideDeck deck) {

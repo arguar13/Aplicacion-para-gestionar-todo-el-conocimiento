@@ -28,7 +28,7 @@ aceptan además:
     verdad a entenderla: describí la imagen en una o dos oraciones, sin texto
     escrito adentro de la imagen.
 
-Los doce diseños ("layout") y sus campos:
+Los veinte diseños ("layout") y sus campos:
 - "cover" (portada; la primera diapositiva): "title", "subtitle" opcional,
   "kicker" opcional (una línea muy corta arriba del título, hasta
   ${SlideLimits.kicker} caracteres).
@@ -56,11 +56,37 @@ Los doce diseños ("layout") y sus campos:
   opcional, "icon": uno de los nombres de íconos de abajo}.
 - "closing" (cierre; la última diapositiva): "title", "subtitle" opcional,
   "takeaways": lista opcional de hasta ${SlideLimits.takeaways} ideas para llevarse.
+- "full_quote" (cita a toda página, para una frase textual del material que
+  merece ocupar todo): "quote" (sin comillas), "author" opcional, "source"
+  opcional.
+- "image_grid" (cuadrícula de imágenes): "title", "images": lista de 2 a
+  ${SlideLimits.images} objetos {"caption": un epígrafe corto, "icon": uno de los
+  nombres de íconos de abajo}; conviene "illustration_prompt" para la
+  primera.
+- "concept_map" (mapa de conceptos: una idea y sus ramas): "title", "center"
+  (la idea del medio, corta), "nodes": lista de 3 a ${SlideLimits.nodes} objetos
+  {"title": texto corto, "detail": texto opcional, "icon": opcional}.
+- "questions" (cierre con preguntas para pensar o conversar; puede ir
+  después del cierre): "title", "subtitle" opcional, "questions": lista de 1 a
+  ${SlideLimits.questions} preguntas.
+- "stat_grid" (panel de cifras): "title", "stats": lista de 2 a ${SlideLimits.stats}
+  objetos {"value": la cifra tal como se escribe (hasta ${SlideLimits.value}
+  caracteres), "label": qué es, "detail": opcional}.
+- "cycle" (ciclo: pasos que vuelven a empezar): "title", "center" opcional (lo
+  que gira, corto), "steps": lista de 3 a ${SlideLimits.cycleSteps} objetos
+  {"title": texto corto, "detail": texto opcional}.
+- "matrix" (matriz de dos por dos): "title", "x_axis" y "y_axis" opcionales
+  (el nombre de cada eje), "quadrants": exactamente 4 objetos {"heading":
+  texto corto, "points": lista de 1 a 3 textos}, en orden: arriba a la
+  izquierda, arriba a la derecha, abajo a la izquierda, abajo a la derecha.
+- "definition" (definición de un término clave): "term", "definition" (una o
+  dos oraciones), "example" opcional, "kicker" opcional (la disciplina o la
+  categoría, muy corta).
 
 Reglas:
 - Usá solo lo que dice el material: no inventes datos, cifras, fechas ni citas.
-  Una "quote" es una frase textual del material; una "big_number", una cifra
-  que el material da.
+  Una "quote" o una "full_quote" es una frase textual del material; una
+  "big_number" o una "stat_grid", cifras que el material da.
 - Elegí el diseño que mejor cuente cada idea y variá: no repitas el mismo
   diseño más de dos veces seguidas.
 - Textos cortos y claros: títulos de hasta 8 palabras; viñetas de una línea o

@@ -2,8 +2,9 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'slide.freezed.dart';
 
-/// Los doce diseños de diapositiva (F43, «Plantillas → Presentación»). La IA
-/// elige cuál va en cada una; la plantilla decide cómo se ve.
+/// Los veinte diseños de diapositiva: los doce de F43 («Plantillas →
+/// Presentación») y los ocho de F45. La IA elige cuál va en cada una; la
+/// plantilla decide cómo se ve.
 ///
 /// [jsonName] es lo que viaja en el JSON de la IA y lo que se guarda: no
 /// cambia aunque cambie el nombre del valor.
@@ -19,7 +20,17 @@ enum SlideLayout {
   timeline('timeline'),
   imageText('image_text'),
   conceptGrid('concept_grid'),
-  closing('closing');
+  closing('closing'),
+
+  // F45.
+  fullQuote('full_quote'),
+  imageGrid('image_grid'),
+  conceptMap('concept_map'),
+  questions('questions'),
+  statGrid('stat_grid'),
+  cycle('cycle'),
+  matrix('matrix'),
+  definition('definition');
 
   const SlideLayout(this.jsonName);
 
@@ -63,6 +74,25 @@ abstract class SlideConcept with _$SlideConcept {
     @Default('') String detail,
     String? icon,
   }) = _SlideConcept;
+}
+
+/// Una imagen de la cuadrícula de imágenes (F45): su epígrafe y el ícono
+/// del juego de lo creado con que se dibuja mientras no haya una de verdad.
+@freezed
+abstract class SlideImage with _$SlideImage {
+  const factory SlideImage({required String caption, String? icon}) =
+      _SlideImage;
+}
+
+/// Una cifra del panel de cifras (F45), como en la cifra destacada: el
+/// número tal como se escribe, qué es y un detalle.
+@freezed
+abstract class SlideStat with _$SlideStat {
+  const factory SlideStat({
+    required String value,
+    @Default('') String label,
+    @Default('') String detail,
+  }) = _SlideStat;
 }
 
 /// Una diapositiva: su contenido, y nada de su diseño (decisión G). El
@@ -200,6 +230,96 @@ sealed class Slide with _$Slide {
     @Default('') String speakerNotes,
   }) = ClosingSlide;
 
+  /// Una cita a toda página (F45): la frase enorme sobre un campo de
+  /// color, o sobre su ilustración.
+  const factory Slide.fullQuote({
+    required String quote,
+    @Default('') String author,
+    @Default('') String source,
+    String? illustrationPrompt,
+    String? illustrationRef,
+    @Default('') String speakerNotes,
+  }) = FullQuoteSlide;
+
+  /// Una cuadrícula de imágenes (F45), cada una con su epígrafe. La
+  /// ilustración de la diapositiva va en la primera; las demás las dibuja
+  /// la app con su ícono.
+  const factory Slide.imageGrid({
+    required String title,
+    @Default(<SlideImage>[]) List<SlideImage> images,
+    String? illustrationPrompt,
+    String? illustrationRef,
+    @Default('') String speakerNotes,
+  }) = ImageGridSlide;
+
+  /// Un mapa de conceptos (F45): la idea del centro y sus ramas.
+  const factory Slide.conceptMap({
+    required String title,
+
+    /// La idea del centro; vacía, el título.
+    @Default('') String center,
+    @Default(<SlideConcept>[]) List<SlideConcept> nodes,
+    String? illustrationPrompt,
+    String? illustrationRef,
+    @Default('') String speakerNotes,
+  }) = ConceptMapSlide;
+
+  /// Un cierre con preguntas (F45): para pensar o conversar al final.
+  const factory Slide.questions({
+    required String title,
+    @Default('') String subtitle,
+    @Default(<String>[]) List<String> questions,
+    String? illustrationPrompt,
+    String? illustrationRef,
+    @Default('') String speakerNotes,
+  }) = QuestionsSlide;
+
+  /// Un panel de cifras (F45): dos a cuatro cifras destacadas juntas.
+  const factory Slide.statGrid({
+    required String title,
+    @Default(<SlideStat>[]) List<SlideStat> stats,
+    String? illustrationPrompt,
+    String? illustrationRef,
+    @Default('') String speakerNotes,
+  }) = StatGridSlide;
+
+  /// Un ciclo (F45): pasos que vuelven a empezar, en una rueda.
+  const factory Slide.cycle({
+    required String title,
+
+    /// Lo que gira, en el medio de la rueda; vacío, nada.
+    @Default('') String center,
+    @Default(<SlideStep>[]) List<SlideStep> steps,
+    String? illustrationPrompt,
+    String? illustrationRef,
+    @Default('') String speakerNotes,
+  }) = CycleSlide;
+
+  /// Una matriz de dos por dos (F45): cuatro cuadrantes, de arriba a la
+  /// izquierda a abajo a la derecha, con el nombre de cada eje.
+  const factory Slide.matrix({
+    required String title,
+    @Default('') String xAxis,
+    @Default('') String yAxis,
+    @Default(<SlideColumn>[]) List<SlideColumn> quadrants,
+    String? illustrationPrompt,
+    String? illustrationRef,
+    @Default('') String speakerNotes,
+  }) = MatrixSlide;
+
+  /// Una definición (F45): el término grande, qué es y un ejemplo.
+  const factory Slide.definition({
+    required String term,
+    @Default('') String definition,
+    @Default('') String example,
+
+    /// La línea chica de arriba del término (la disciplina, la categoría).
+    @Default('') String kicker,
+    String? illustrationPrompt,
+    String? illustrationRef,
+    @Default('') String speakerNotes,
+  }) = DefinitionSlide;
+
   const Slide._();
 
   SlideLayout get layout => switch (this) {
@@ -215,6 +335,14 @@ sealed class Slide with _$Slide {
     ImageTextSlide() => SlideLayout.imageText,
     ConceptGridSlide() => SlideLayout.conceptGrid,
     ClosingSlide() => SlideLayout.closing,
+    FullQuoteSlide() => SlideLayout.fullQuote,
+    ImageGridSlide() => SlideLayout.imageGrid,
+    ConceptMapSlide() => SlideLayout.conceptMap,
+    QuestionsSlide() => SlideLayout.questions,
+    StatGridSlide() => SlideLayout.statGrid,
+    CycleSlide() => SlideLayout.cycle,
+    MatrixSlide() => SlideLayout.matrix,
+    DefinitionSlide() => SlideLayout.definition,
   };
 
   /// El título que se ve —en una cita, la cita misma—: para la miniatura,
@@ -229,9 +357,18 @@ sealed class Slide with _$Slide {
     TimelineSlide(:final title) ||
     ImageTextSlide(:final title) ||
     ConceptGridSlide(:final title) ||
-    ClosingSlide(:final title) => title,
-    QuoteSlide(:final quote) => quote,
+    ClosingSlide(:final title) ||
+    ImageGridSlide(:final title) ||
+    QuestionsSlide(:final title) ||
+    CycleSlide(:final title) ||
+    MatrixSlide(:final title) => title,
+    QuoteSlide(:final quote) || FullQuoteSlide(:final quote) => quote,
     BigNumberSlide(:final title, :final value) => title.isEmpty ? value : title,
+    ConceptMapSlide(:final title, :final center) =>
+      title.isEmpty ? center : title,
+    StatGridSlide(:final title, :final stats) =>
+      title.isNotEmpty || stats.isEmpty ? title : stats.first.value,
+    DefinitionSlide(:final term) => term,
   };
 
   /// Si la diapositiva quiere una ilustración: la pidió la IA o ya tiene una.

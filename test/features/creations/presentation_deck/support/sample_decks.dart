@@ -311,3 +311,219 @@ SlideDeck minimalDeck() => const SlideDeck(
     Slide.closing(title: 'Fin'),
   ],
 );
+
+/// Los ocho diseños de F45 como los escribiría la IA, con textos de largo
+/// común: nada debería cortarse con «…».
+SlideDeck moreDeck({bool illustrations = false}) => SlideDeck(
+  title: 'Éxodo: liberación y alianza',
+  format: DeckFormat.presenter,
+  slides: [
+    Slide.fullQuote(
+      quote: 'Yo soy el que soy',
+      author: 'La voz desde la zarza',
+      source: 'Éxodo 3, 14',
+      illustrationPrompt: illustrations ? 'Una zarza que arde' : null,
+    ),
+    Slide.imageGrid(
+      title: 'Los lugares del relato',
+      images: const [
+        SlideImage(caption: 'Egipto, la casa de la servidumbre', icon: 'home'),
+        SlideImage(caption: 'El mar que se abre', icon: 'water'),
+        SlideImage(caption: 'El desierto de la prueba', icon: 'landscape'),
+        SlideImage(caption: 'El monte de la alianza', icon: 'flag'),
+      ],
+      illustrationPrompt: illustrations ? 'Las pirámides al atardecer' : null,
+    ),
+    const Slide.conceptMap(
+      title: 'Qué es la alianza',
+      center: 'Alianza',
+      nodes: [
+        SlideConcept(title: 'Elección', detail: 'Dios elige a un pueblo'),
+        SlideConcept(title: 'Ley', detail: 'Las palabras del Sinaí'),
+        SlideConcept(title: 'Promesa', detail: 'Una tierra y un futuro'),
+        SlideConcept(title: 'Fidelidad', detail: 'Cumplir lo pactado'),
+        SlideConcept(title: 'Memoria', detail: 'La Pascua que recuerda'),
+      ],
+    ),
+    const Slide.questions(
+      title: 'Para conversar',
+      subtitle: 'Antes de la próxima clase',
+      questions: [
+        '¿Qué significa hoy salir de una esclavitud?',
+        '¿Por qué la libertad necesita una ley?',
+        '¿Qué recuerdos fundan la identidad de un pueblo?',
+      ],
+    ),
+    const Slide.statGrid(
+      title: 'El relato en cifras',
+      stats: [
+        SlideStat(value: '40', label: 'años en el desierto'),
+        SlideStat(value: '10', label: 'plagas', detail: 'Del agua a la noche'),
+        SlideStat(value: '600.000', label: 'hombres a pie'),
+      ],
+    ),
+    const Slide.cycle(
+      title: 'El ciclo de la fidelidad',
+      center: 'Alianza',
+      steps: [
+        SlideStep(title: 'Promesa', detail: 'Dios se compromete'),
+        SlideStep(title: 'Respuesta', detail: 'El pueblo acepta'),
+        SlideStep(title: 'Caída', detail: 'El becerro de oro'),
+        SlideStep(title: 'Perdón', detail: 'La alianza se renueva'),
+      ],
+    ),
+    const Slide.matrix(
+      title: 'Actitudes ante la ley',
+      xAxis: 'Conocimiento',
+      yAxis: 'Compromiso',
+      quadrants: [
+        SlideColumn(heading: 'Fervor', points: ['Cumple sin entender']),
+        SlideColumn(heading: 'Fidelidad', points: ['Entiende y cumple']),
+        SlideColumn(heading: 'Olvido', points: ['Ni conoce ni cumple']),
+        SlideColumn(heading: 'Distancia', points: ['Conoce y no cumple']),
+      ],
+    ),
+    const Slide.definition(
+      term: 'Pascua',
+      kicker: 'Liturgia',
+      definition:
+          'La fiesta que recuerda el paso de Dios y la salida de Egipto, con '
+          'el cordero y el pan sin levadura.',
+      example: 'Cada año, las familias repiten el relato en la mesa.',
+    ),
+  ],
+);
+
+/// El peor caso de los diseños de F45: cada campo en su tope y cada lista
+/// con lo máximo que se acepta, con palabras largas.
+SlideDeck longMoreDeck() {
+  String text(int limit) =>
+      SlideDeckJson.clamp(_long('Constantinopla', limit), limit);
+  final title = text(SlideLimits.title);
+  final column = SlideColumn(
+    heading: text(SlideLimits.label),
+    points: [for (var i = 0; i < 3; i++) text(SlideLimits.bullet)],
+  );
+  return SlideDeck(
+    title: title,
+    slides: [
+      Slide.fullQuote(
+        quote: text(SlideLimits.quote),
+        author: text(SlideLimits.attribution),
+        source: text(SlideLimits.attribution),
+        illustrationPrompt: 'algo',
+      ),
+      Slide.imageGrid(
+        title: title,
+        images: [
+          for (var i = 0; i < SlideLimits.images; i++)
+            SlideImage(caption: text(SlideLimits.label), icon: 'no-existe'),
+        ],
+        illustrationPrompt: 'algo',
+      ),
+      Slide.conceptMap(
+        title: title,
+        center: text(SlideLimits.label),
+        nodes: [
+          for (var i = 0; i < SlideLimits.nodes; i++)
+            SlideConcept(
+              title: text(SlideLimits.label),
+              detail: text(SlideLimits.detail),
+            ),
+        ],
+      ),
+      Slide.questions(
+        title: title,
+        subtitle: text(SlideLimits.subtitle),
+        questions: [
+          for (var i = 0; i < SlideLimits.questions; i++)
+            text(SlideLimits.bullet),
+        ],
+      ),
+      Slide.statGrid(
+        title: title,
+        stats: [
+          for (var i = 0; i < SlideLimits.stats; i++)
+            SlideStat(
+              value: '3.000.000.000.000',
+              label: text(SlideLimits.label),
+              detail: text(SlideLimits.detail),
+            ),
+        ],
+      ),
+      Slide.cycle(
+        title: title,
+        center: text(SlideLimits.label),
+        steps: [
+          for (var i = 0; i < SlideLimits.cycleSteps; i++)
+            SlideStep(
+              title: text(SlideLimits.label),
+              detail: text(SlideLimits.detail),
+            ),
+        ],
+      ),
+      Slide.matrix(
+        title: title,
+        xAxis: text(SlideLimits.label),
+        yAxis: text(SlideLimits.label),
+        quadrants: [for (var i = 0; i < SlideLimits.quadrants; i++) column],
+      ),
+      Slide.definition(
+        term: title,
+        kicker: text(SlideLimits.kicker),
+        definition: text(SlideLimits.definition),
+        example: text(SlideLimits.detail),
+      ),
+    ],
+  );
+}
+
+/// Los diseños de F45 con lo justo: sin títulos ni detalles que se puedan
+/// omitir, y las listas en su mínimo.
+SlideDeck minimalMoreDeck() => const SlideDeck(
+  title: 'Mínimo',
+  slides: [
+    Slide.fullQuote(quote: 'Breve'),
+    Slide.imageGrid(
+      title: '',
+      images: [
+        SlideImage(caption: 'a'),
+        SlideImage(caption: 'b'),
+      ],
+    ),
+    Slide.conceptMap(
+      title: 'Centro',
+      nodes: [
+        SlideConcept(title: 'a'),
+        SlideConcept(title: 'b'),
+        SlideConcept(title: 'c'),
+      ],
+    ),
+    Slide.questions(title: '', questions: ['¿Sí?']),
+    Slide.statGrid(
+      title: '',
+      stats: [
+        SlideStat(value: '1'),
+        SlideStat(value: '2'),
+      ],
+    ),
+    Slide.cycle(
+      title: '',
+      steps: [
+        SlideStep(title: 'a'),
+        SlideStep(title: 'b'),
+        SlideStep(title: 'c'),
+      ],
+    ),
+    Slide.matrix(
+      title: '',
+      quadrants: [
+        SlideColumn(heading: 'A'),
+        SlideColumn(heading: 'B'),
+        SlideColumn(heading: 'C'),
+        SlideColumn(heading: 'D'),
+      ],
+    ),
+    Slide.definition(term: 'Uno', definition: 'Lo primero'),
+  ],
+);
