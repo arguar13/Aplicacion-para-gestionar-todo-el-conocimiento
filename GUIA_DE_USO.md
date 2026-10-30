@@ -3059,9 +3059,8 @@ de escucharlo.
      aparecen apagadas; elegir una empieza a leerla desde el principio
      —dentro de un documento abierto, desde lo que estás mirando—.
    - **La velocidad**, de 0,5× a 2×.
-   - **Voz y acento**: el acento es el idioma y la región (Español de
-     Argentina, de España, inglés de Estados Unidos…), según las voces
-     instaladas en tu teléfono.
+   - **La voz**: abre la **biblioteca de voces** (ver
+     [La biblioteca de voces](#la-biblioteca-de-voces)).
    - **Minimizar**: vuelve al botón redondo, que muestra con un anillo
      cuánto leyó, y sigue leyendo aunque cambies de pantalla.
    - **Cerrar**: deja de leer.
@@ -3073,6 +3072,71 @@ revés: nunca suenan los dos a la vez.
 
 También podés leer solo un pedazo: seleccionalo y elegí **"Leer en voz
 alta"** en el menú (ver [Seleccionar texto: el menú](#seleccionar-texto-el-menú)).
+
+### La biblioteca de voces
+
+Se abre con el botón de la voz del reproductor (también en el reproductor de
+los visores de Repasar) y desde **Ajustes → Voz y lectura → Biblioteca de
+voces**. Ocupa casi toda la pantalla y tiene tres pestañas:
+
+- **Todas**: arriba, **«Te puede interesar»**, hasta tres voces del idioma de
+  lo que se está leyendo que suenan bien. Si en ese idioma no bajaste ninguna,
+  lo dice: por ahora lee la del teléfono. Debajo, **«La voz del sistema»** (la
+  que tenga elegida el teléfono) y todas las voces, primero las del idioma
+  que se lee, después las del idioma de la app y después las demás.
+- **Favoritas**: las que marcaste con **♡**. Quedan guardadas.
+- **Mías**: las voces que clones (la tuya, o la de quien te dé permiso) y las
+  que crees describiéndolas. Llegan en un paso siguiente; por ahora la
+  pestaña lo explica.
+
+Arriba dice qué voz **lee ahora**.
+
+**Cada voz es una tarjeta** con su **cara** —un círculo de colores con sus
+iniciales y una onda; nunca la foto de una persona, y la misma voz tiene
+siempre la misma cara—, su nombre con la **bandera de su acento**, sus rasgos
+(el idioma, la región, el género si se sabe y la calidad) y **de dónde es**:
+
+- **Teléfono**: las voces que trae el teléfono. Algunas dicen «necesita
+  internet»: leen desde la red.
+- **Sin conexión**: voces neuronales que suenan casi humanas y leen sin
+  internet ni gastos. Hay de **Piper** —en español de **Argentina**,
+  **España** y **México**, en inglés de Estados Unidos y del Reino Unido, en
+  portugués de Brasil y de Portugal, en francés, en italiano y en alemán— y
+  de **Kokoro**, que suma más voces en inglés, español, francés, italiano,
+  portugués de Brasil e hindi. **Ninguna se baja sola**: la tarjeta dice
+  cuánto pesa y tiene su botón **«Bajar»**. Las de Kokoro se bajan todas
+  juntas, una sola vez. Mientras baja dice cuánto va, con **«Pausar»** y
+  **«Cancelar»**; si el teléfono se queda sin lugar, lo dice. Sigue bajando
+  aunque cierres la app, como los demás modelos. Solo en Android: en la
+  computadora y en la web leen las voces del sistema.
+
+Con cada tarjeta:
+
+- **Tocala** para leer con esa voz (si es sin conexión, una vez bajada).
+- **♡** la suma a Favoritas o la saca.
+- **▶** pasa una **muestra corta**: la voz dice una oración en su idioma. Una
+  sin conexión que todavía no bajaste suena con la muestra que publicó
+  sherpa-onnx (hace falta internet); las de Kokoro sin bajar no tienen
+  muestra, porque las publicadas no están en su idioma. Si estaba leyendo, la
+  lectura se pausa.
+
+**Filtrar** (arriba a la derecha) abre el panel de filtros de siempre: el
+**idioma**, el **acento** (México, España, Argentina…) y el **género**; para
+qué es ideal, el timbre, el estilo y la edad aparecen con las voces que crees
+(las publicadas no los dicen). Cada filtro se aplica al tocarlo, el número de
+filtros queda en el botón, **«Limpiar filtros»** los saca y abajo **«Ver N
+voces»** cierra el panel y muestra la lista desde arriba (con cero, «Ninguna
+voz», apagado).
+
+**La voz sigue al idioma del texto.** Elegís una voz por idioma: la que tocás
+queda para el suyo. Un documento en inglés se lee con tu voz inglesa y uno en
+francés con la francesa, y en un texto con partes en dos idiomas —una cita en
+inglés dentro de un texto en español— cada parte se lee con la voz de su
+idioma. Si en un idioma no elegiste ninguna, lee la mejor sin conexión que
+hayas bajado de ese idioma, o una del teléfono en ese idioma, o la del
+sistema: nunca una de otro idioma. Lo que no se sabe en qué idioma está se
+lee con la última que elegiste. Elegir una voz de otro idioma no traduce
+nada: queda para cuando el texto esté en su idioma, y te lo avisa.
 
 ### Escuchar dentro del documento
 
@@ -4602,6 +4666,12 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
   resaltadores de estudiar, tus subrayados, el amarillo de lo que se lee en
   voz alta y la hoja del PDF se siguen leyendo bien en cada tema (en Sepia, el
   amarillo claro se carga un poco para que se vea sobre el papel crema).
+- **Voz y lectura:** **«Biblioteca de voces»** (ver
+  [La biblioteca de voces](#la-biblioteca-de-voces)); **«Voces por
+  idioma»**, la voz elegida para cada idioma, con **✕** para volver a la del
+  teléfono; y, en Android, **«Voces descargadas»**: las voces sin conexión que
+  bajaste, con lo que ocupa cada una y **«Borrar»** (pide confirmar; la podés
+  volver a bajar, y mientras tanto ese idioma se lee con la del teléfono).
 - **Citas:** el estilo de cita por defecto (APA, MLA, etc.) y su idioma.
 - **IA y modelos:** primero se elige la IA y después lo que hace con ella.
   - Arriba, los accesos a los tres modelos: **"Modelo de lenguaje"** (con
