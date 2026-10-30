@@ -2082,8 +2082,9 @@ no está en el idioma en que se habla (ver
 arriba del original lo dice —*"El texto no está en el idioma del video"*, en
 qué está y qué se habla— y ofrece **"Volver a extraer"**: la fuente vuelve a
 sacar su texto, de los subtítulos o del audio, en su idioma, y cuando llega,
-**la sección Texto del documento se actualiza sola** (lo que editaste a mano
-se conserva), aunque la app se haya cerrado mientras tanto. Si la fuente ya lo
+**la sección Texto del documento se actualiza sola**, como con [El texto de la
+fuente](#el-texto-de-la-fuente) (lo que editaste a mano se conserva, y lo que
+la IA había ordenado se vuelve a ordenar). Si la fuente ya lo
 tenía bien —lo volviste a extraer en la Bandeja—, lo trae en el acto. En la
 lista de Procesado, una franja arriba cuenta los que hay (*"3 videos tienen el
 texto en otro idioma"*) con **"Volver a extraer los 3"**, para todos de una
@@ -2122,8 +2123,22 @@ hacer ahora, cada opción con una línea que explica qué hace:
   nada: lo suyo es una copia.
 
 Todo eso cambia **el texto de la fuente**, el que usan la búsqueda, el chat y
-los vínculos, y la hoja lo recuerda arriba: para traer el texto nuevo a este
-documento, tocá **"Volver a triar"**. Con la copia del original, lo que
+los vínculos, y la hoja lo recuerda arriba. Además, **el texto nuevo llega
+solo a este documento** —y a ningún otro—, sin tener que volver a triar:
+
+- **Lo que volviste a extraer**, apenas la fuente termina de leerlo, aunque la
+  app se haya cerrado mientras tanto. En un video o un video de YouTube, solo
+  si llegó en el idioma en que se habla; si no, el documento sigue ofreciendo
+  volver a extraer.
+- **El texto sin las marcas de tiempo**, en el acto.
+- **Lo que editaste a mano se queda** como lo dejaste. Lo que la IA solo
+  había **ordenado** (sin cambiar ninguna palabra) se renueva con el texto
+  nuevo y **se vuelve a ordenar** con la IA. Una página ordenada que después
+  tocaste vos cuenta como tuya, y se queda.
+- **Borrar el texto, quedarme con el libro** no toca este documento: conserva
+  su copia.
+
+Con la copia del original, lo que
 marcaste en ella deja de verse mientras el texto de la fuente no sea el de la
 copia (ver arriba). Mientras la fuente está extrayendo su
 texto, la hoja lo dice y no ofrece nada; con la fuente en la papelera, el
