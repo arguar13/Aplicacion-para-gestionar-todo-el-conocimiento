@@ -1,7 +1,8 @@
 # F45 — Pulido del 30/10: avisos, triar, la Biblioteca solo con el original, Procesado y el diseño
 
 > **Estado: APROBADO** (2026-10-30, «Aprobado» en el chat), con las decisiones A a E como están;
-> la B con la recomendada, hasta que llegue la explicación del dueño.
+> la B, la recomendada, **elegida por el dueño** el 30/10: «Al elegir «Texto extraído» en el
+> triaje, la IA de turno lo ordena (columnas, encabezados, cortes y títulos)».
 >
 > Pedido del dueño, el 30/10, con diez capturas: *"Ahora vamos con una serie de mejoras"* —once,
 > con la de la Infografía y la Presentación—. Se construye en paralelo con F44 (el Mapa), en
@@ -164,7 +165,7 @@ Hoy (F43): 16 plantillas y 12 diseños de diapositiva; 18 estilos y 10 composici
 - **A. La ✕ en todos los avisos**, también en los cortos («Copiado»). Pedido literal: «para que se
   pueda sacar siempre». Cambia la regla de F43 M1, que la ponía solo en los largos o con botón.
 - **B. «Texto extraído» al triar: la IA de turno lo arma, con la extracción de siempre como
-  base.** *(Espera tu explicación.)*
+  base.** *(Elegida por el dueño el 30/10.)*
   - **Recomendada:**
     - la app sigue sacando el texto por su cuenta, como hoy, pero ya no se muestra en la
       Biblioteca; lo siguen usando por dentro la búsqueda, el chat y los vínculos;
