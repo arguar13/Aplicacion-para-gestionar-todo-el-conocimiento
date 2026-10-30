@@ -14,7 +14,8 @@ enum NarrationEvent {
   error,
 }
 
-/// El motor de texto a voz del sistema.
+/// El motor de texto a voz: el del sistema y, desde F47, el sin conexión de
+/// la app, detrás de este mismo contrato.
 ///
 /// Existe como contrato de dominio y no como `FlutterTts` a secas por el
 /// mismo motivo de siempre en este proyecto —`FileChooser`, `FileOpener`—:
@@ -55,6 +56,13 @@ abstract interface class TextToSpeechService {
   /// [events]—, así que quien llama puede seguir reaccionando a otras
   /// cosas mientras tanto.
   Future<void> speak(String text);
+
+  /// Lo que se va a pedir con el próximo [speak], para tenerlo listo antes
+  /// (F47, paso 3): una voz sin conexión genera el audio de cada oración, y
+  /// generarlo recién al pedirlo sería una pausa entre oración y oración. Es
+  /// una sugerencia: un motor que dice al instante —el del sistema— no hace
+  /// nada, y un [speak] de otro texto la descarta.
+  Future<void> prepare(String text);
 
   /// Corta la lectura en seco, ahí donde esté.
   Future<void> stop();

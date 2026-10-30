@@ -210,6 +210,7 @@ class LongWorkService : Service() {
                         DETAIL_RELATIONS_MODEL -> R.string.long_work_model_relations
                         DETAIL_TRANSCRIPTION_MODEL -> R.string.long_work_model_transcription
                         DETAIL_IMAGE_MODEL -> R.string.long_work_model_image
+                        DETAIL_VOICE_MODEL -> R.string.long_work_model_voice
                         else -> R.string.long_work_model_language
                     },
                 )
@@ -347,6 +348,7 @@ class LongWorkService : Service() {
         private const val DETAIL_RELATIONS_MODEL = "relations_model"
         private const val DETAIL_TRANSCRIPTION_MODEL = "transcription_model"
         private const val DETAIL_IMAGE_MODEL = "image_model"
+        private const val DETAIL_VOICE_MODEL = "voice_model"
         private const val DETAIL_WHILE_CHARGING = "while_charging"
         private const val DETAIL_FLASHCARDS = "flashcards"
 

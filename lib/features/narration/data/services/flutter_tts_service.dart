@@ -104,6 +104,11 @@ class FlutterTtsService implements TextToSpeechService {
     await _tts.speak(text);
   }
 
+  /// El motor del sistema empieza a decir apenas se le pide: no hay nada que
+  /// tener listo.
+  @override
+  Future<void> prepare(String text) async {}
+
   @override
   Future<void> stop() async {
     await _tts.stop();

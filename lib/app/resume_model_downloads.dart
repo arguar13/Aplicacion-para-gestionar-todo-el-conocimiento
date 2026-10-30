@@ -4,6 +4,8 @@ import 'package:sinapsis/features/ai_models/domain/entities/on_device_image_mode
 import 'package:sinapsis/features/ai_models/presentation/providers/on_device_image_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/hugging_face_token_notifier.dart';
+import 'package:sinapsis/features/narration/domain/voices/offline_voice_catalog.dart';
+import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 
@@ -29,6 +31,7 @@ Future<void> resumeModelDownloads(
   final embedding = read(embeddingModelManagerProvider);
   final whisper = read(whisperModelManagerProvider);
   final images = read(onDeviceModelFilesProvider);
+  final voices = read(offlineVoiceFilesProvider);
 
   // `Future.wait` espera a todas aunque una falle, y después lanza el
   // primer error: no mirar una no deja sin engancharse a las otras, y el
@@ -56,5 +59,12 @@ Future<void> resumeModelDownloads(
         isDownloading: () => images.isDownloading(model),
         download: () => images.download(model),
       ),
+    // Las voces sin conexión (F47, paso 3), donde se ofrecen.
+    if (voices != null)
+      for (final package in OfflineVoiceCatalog.packages)
+        read(offlineVoiceDownloadProvider(package.id).notifier).resume(
+          isDownloading: () => voices.isDownloading(package),
+          download: () => voices.download(package),
+        ),
   ]);
 }

@@ -94,6 +94,7 @@ class SystemDownloadsChannel(private val context: Context) : MethodChannel.Metho
                 LABEL_RELATIONS_MODEL -> R.string.long_work_model_relations
                 LABEL_TRANSCRIPTION_MODEL -> R.string.long_work_model_transcription
                 LABEL_IMAGE_MODEL -> R.string.long_work_model_image
+                LABEL_VOICE_MODEL -> R.string.long_work_model_voice
                 else -> R.string.long_work_model_language
             },
         )
@@ -169,5 +170,6 @@ class SystemDownloadsChannel(private val context: Context) : MethodChannel.Metho
         private const val LABEL_RELATIONS_MODEL = "relations_model"
         private const val LABEL_TRANSCRIPTION_MODEL = "transcription_model"
         private const val LABEL_IMAGE_MODEL = "image_model"
+        private const val LABEL_VOICE_MODEL = "voice_model"
     }
 }

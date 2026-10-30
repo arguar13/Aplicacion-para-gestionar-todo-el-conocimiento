@@ -64,6 +64,14 @@ class FakeTextToSpeechService implements TextToSpeechService {
     spoken.add(text);
   }
 
+  /// Cada texto que se le pidió tener listo, en orden (F47, paso 3).
+  final prepared = <String>[];
+
+  @override
+  Future<void> prepare(String text) async {
+    prepared.add(text);
+  }
+
   @override
   Future<void> stop() async {
     stopCount++;

@@ -143,11 +143,16 @@ class FakeModelTransfer implements ModelFileTransfer {
 
   /// Termina con [content] (lo verificado, si no se dice otra cosa): pasa
   /// por la comprobación y toma su nombre definitivo, o se borra.
-  Future<void> finish(String fileName, String content) async {
+  Future<void> finish(String fileName, String content) =>
+      finishBytes(fileName, utf8.encode(content));
+
+  /// Lo mismo que [finish], con un archivo binario: un paquete comprimido
+  /// (F47, paso 3).
+  Future<void> finishBytes(String fileName, List<int> content) async {
     final fetch = fetchOf(fileName);
     final partial = InAppModelFileTransfer.partialOf(fetch.target);
     partial.parent.createSync(recursive: true);
-    partial.writeAsStringSync(content);
+    partial.writeAsBytesSync(content);
     try {
       await fetch.verify?.call(partial);
     } on Object catch (error) {

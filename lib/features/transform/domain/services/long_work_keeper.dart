@@ -58,6 +58,9 @@ abstract final class LongWorkDetail {
   /// Un modelo de imágenes del teléfono (F43, «Exigente»).
   static const imageModel = 'image_model';
 
+  /// Una voz sin conexión para leer en voz alta (F47, paso 3).
+  static const voiceModel = 'voice_model';
+
   /// [LongWorkOwner.aiOrganize]: la biblioteca que ya existía, que solo se
   /// recorre con el cargador puesto.
   static const whileCharging = 'while_charging';

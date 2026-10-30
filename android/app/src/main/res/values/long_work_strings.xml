@@ -18,6 +18,7 @@
     <string name="long_work_model_relations">el modelo de relaciones</string>
     <string name="long_work_model_transcription">el modelo de transcripción</string>
     <string name="long_work_model_image">el modelo de imágenes</string>
+    <string name="long_work_model_voice">una voz para leer</string>
     <string name="long_work_model_starting">Bajando %1$s…</string>
     <string name="long_work_model_progress">Bajando %1$s · %2$d %%</string>
     <!-- Bajar el audio de un video de YouTube (F24). -->
