@@ -2405,11 +2405,62 @@ no entra— con lo que vale para las dos:
 
 ### Resumen
 
-Tarjetas con números — los temas con más material, los más conectados entre
-sí, los aislados, contradicciones abiertas, cuánto creció lo procesado mes a
-mes, y **cuánto lo trabajaste** (cuántos documentos solo con el texto, con
-resumen o síntesis, con fragmentos y con notas propias). Sin ningún Tema
-todavía, se ve igual.
+Es lo primero que ves del Mapa: de un vistazo, cuánto tenés, qué es nuevo,
+qué conviene estudiar y qué quedó suelto. **Todo lleva al Mapa**: tocar una
+cifra o una fila pasa a la pestaña **Mapa** y te lo muestra en el lienzo: una
+cifra, a su altura; un tema, entre los de su comunidad y resaltado; un
+documento, entre lo vinculado y en foco (el material de un tema en el
+Explorador sigue a un toque). Sin ningún Tema todavía, se ve igual. Mira lo
+mismo que el resto del Mapa: tus documentos procesados, con los filtros y el
+"Agrupar por" de arriba.
+
+#### Las cuatro cifras
+
+Arriba, cuatro cifras grandes: **documentos**, **temas** (o etiquetas, o
+valores, según lo que agrupes), **comunidades** y **vínculos**. Debajo de
+cada una, lo que sumó en los últimos 30 días ("+3 en 30 días"), o "sin
+cambios". Un tema cuenta como nuevo si su primer documento llegó en esos
+días, y una comunidad, si todos sus temas son nuevos. Tocar una cifra abre el
+Mapa a su altura: las comunidades de lejos, los temas, o los documentos y sus
+vínculos.
+
+#### Las nueve tarjetas
+
+Todas tienen el mismo diseño que las estadísticas de Repasar: un título, una
+línea que dice qué muestran y, si no hay nada, una frase que lo dice.
+
+- **Lo nuevo · esta semana**: lo que procesaste y lo que vinculaste en los
+  últimos 7 días, lo último primero, con la fecha y el tema de cada uno.
+- **Para estudiar**: los temas con **tarjetas para hoy** (los de más
+  tarjetas primero) y los que tienen **material y ninguna tarjeta** (los de
+  más material primero). Cada uno lleva **"🎓 Estudiar"**, que abre Repasar
+  con ese tema ya elegido en el selector. Cuenta como Repasar: un tema con
+  sus subtemas, y de cada documento también las tarjetas de su fuente. Se
+  actualiza solo: repasás o creás una tarjeta y el número baja o sube.
+- **Temas con más material**: cada tema con cuántos documentos tiene y qué
+  parte del total ("3 · 75 %"), y una barra.
+- **Puentes entre temas**: los temas que unen partes distintas del mapa —"Une
+  con Roma, Grecia"— o que, si los sacaras, dejarían partes sueltas ("Si se
+  saca, quedan 3 partes sueltas"). Son los que mejor ordenan lo que sabés.
+- **Los más conectados entre sí**: los pares de temas que más comparten, con
+  un rayo si entre ellos hay una contradicción.
+- **Sueltos y aislados**: los temas sin ninguna unión y los documentos sin
+  ningún vínculo. Tocar un tema lo muestra en el Mapa; tocar un documento lo
+  abre, para vincularlo desde ahí. **"✨ Sugerir vínculos"** (con dos sueltos
+  o más) te deja elegir uno y la IA propone con cuáles de los otros sueltos
+  unirlo: nada se vincula sin que lo confirmes. **"Organizar con IA"** le pide
+  a la IA que ubique lo suelto y lo que no tiene tema.
+- **Contradicciones abiertas**: las que todavía no revisaste; tocar una la
+  muestra en el Mapa, y **"Ver todas"** abre Tensión.
+- **Cómo creció**: una columna por mes con lo que procesaste, con su eje y
+  sus meses, y el total debajo. Tocar una columna dice su número exacto;
+  **"Ver los números"** los muestra todos.
+- **Cuánto lo trabajaste**: cuántos documentos hay solo con el texto, con
+  resumen o síntesis, con fragmentos y con notas propias.
+
+En el teléfono con la letra grande, "Estudiar" baja debajo del nombre del
+tema y nada se corta; con el lector de pantalla, cada cifra y cada fila es un
+botón que dice lo que muestra y adónde lleva.
 
 ### Mapa: un solo lienzo que se recorre con el zoom
 
