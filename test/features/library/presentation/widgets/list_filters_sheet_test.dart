@@ -240,11 +240,13 @@ void main() {
 
   testWidgets('no salta de tamaño mientras cuenta: guarda el lugar de la '
       'cifra de antes', (tester) async {
-    // A 360 con la letra al doble, «Ver 120 resultados» ocupa dos líneas y
-    // «Ver resultados» una.
+    // A 360 con la letra al doble, «Ver 12 resultados» entra en una línea,
+    // como «Ver resultados»; una cifra larga ocupa dos.
     await openSheet(tester);
-    await show(tester, const AsyncData(120));
+    final oneLine = tester.getSize(footer);
+    await show(tester, const AsyncData(1234567));
     final counted = tester.getSize(footer);
+    expect(counted.height, greaterThan(oneLine.height));
 
     await show(tester, const AsyncLoading());
     expect(label(tester), es.f47P0FiltersCounting);
@@ -252,9 +254,14 @@ void main() {
 
     // Lo que guarda el lugar no se lee.
     expect(
-      find.bySemanticsLabel(es.f47P0FiltersShowResults(120)),
+      find.bySemanticsLabel(es.f47P0FiltersShowResults(1234567)),
       findsNothing,
     );
+
+    // Contado de nuevo, toma el tamaño de su frase: dejar de guardar el
+    // lugar no es quedarse grande.
+    await show(tester, const AsyncData(12));
+    expect(tester.getSize(footer), oneLine);
   });
 
   testWidgets('para el lector de pantalla, un botón con la frase entera y una '
