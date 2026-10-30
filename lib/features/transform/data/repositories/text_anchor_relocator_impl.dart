@@ -8,9 +8,10 @@ import 'package:sinapsis/features/transform/domain/usecases/reextraction.dart';
 /// [TextAnchorRelocator] sobre la base (F22).
 ///
 /// Escribe directo en `highlights`, `flashcards`, `flashcard_options`,
-/// `relations`, `study_marks`, `dated_events` y el ancla de `processed_parts`
-/// (F41): no hay otra forma de mover una posición, y es un ajuste del mismo
-/// dato —dónde está ese fragmento—, no una edición del usuario.
+/// `relations`, `study_marks`, `dated_events`, el ancla de `processed_parts`
+/// (F41) y el lugar de `text_notes` (F45, mejora 19): no hay otra forma de
+/// mover una posición, y es un ajuste del mismo dato —dónde está ese
+/// fragmento—, no una edición del usuario.
 class TextAnchorRelocatorImpl implements TextAnchorRelocator {
   const TextAnchorRelocatorImpl(this._db);
 
@@ -64,6 +65,7 @@ class TextAnchorRelocatorImpl implements TextAnchorRelocator {
 
     await _relocateStudy(renditionId, from: from, to: to, find: find);
     await _relocateDatedEvents(renditionId, find: find);
+    await _relocateTextNotes(itemId, renditionId, find: find);
     await _relocateProcessedParts(
       renditionId,
       excerptAt: excerptAt,
@@ -239,6 +241,60 @@ class TextAnchorRelocatorImpl implements TextAnchorRelocator {
         _db.datedEvents,
       )..where((e) => e.id.equals(event.id))).write(
         DatedEventsCompanion(
+          startOffset: Value(range?.start),
+          endOffset: Value(range?.end),
+        ),
+      );
+    }
+  }
+
+  /// Las notas en el texto que valen sobre este texto (F45, mejora 19), cada
+  /// una por su pedazo citado: las del original de la fuente escritas sobre
+  /// esta forma, las de la copia del original de sus documentos procesados —en
+  /// las posiciones del texto de la fuente, como lo elegido— y las del texto
+  /// propio de un procesado que no tiene «Texto» y se lee sobre el de su
+  /// fuente (decisión I de F41).
+  ///
+  /// Como un hecho fechado, la que ya no se encuentra NO se va: queda sin
+  /// lugar, con lo que dice y su pedazo, y vuelve a buscarse la próxima vez
+  /// —la que estaba sin lugar también se busca, y si el texto nuevo la tiene,
+  /// vuelve a su lugar—. Ni la fecha de la nota ni su escritura cambian:
+  /// moverla no es editarla.
+  Future<void> _relocateTextNotes(
+    String itemId,
+    String renditionId, {
+    required ({int start, int end})? Function(String excerpt, int oldStart)
+    find,
+  }) async {
+    final notes = await _db
+        .customSelect(
+          'SELECT * FROM text_notes n '
+          "WHERE (n.target = 'source_original' AND n.rendition_id = ?1) "
+          "OR (n.target = 'processed_original' AND n.item_id IN ( "
+          'SELECT d.item_id FROM processed_documents d '
+          'WHERE d.source_item_id = ?2)) '
+          "OR (n.target = 'processed_text' AND n.item_id IN ( "
+          'SELECT d.item_id FROM processed_documents d '
+          'WHERE d.source_item_id = ?2 AND NOT EXISTS ( '
+          'SELECT 1 FROM processed_parts p '
+          "WHERE p.document_id = d.item_id AND p.section = 'text')))",
+          variables: [
+            Variable.withString(renditionId),
+            Variable.withString(itemId),
+          ],
+          readsFrom: {_db.textNotes},
+        )
+        .asyncMap(_db.textNotes.mapFromRow)
+        .get();
+    for (final note in notes) {
+      final range = _relocated(note.excerpt, note.startOffset ?? 0, find);
+      if (range?.start == note.startOffset && range?.end == note.endOffset) {
+        continue;
+      }
+      await (_db.update(
+        _db.textNotes,
+      )..where((n) => n.id.equals(note.id))).write(
+        TextNotesCompanion(
           startOffset: Value(range?.start),
           endOffset: Value(range?.end),
         ),
