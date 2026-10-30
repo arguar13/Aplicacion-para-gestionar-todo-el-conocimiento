@@ -1,12 +1,15 @@
 # F45 — Pulido del 30/10: avisos, triar, la Biblioteca solo con el original, Procesado y el diseño
 
-> **Estado: PARA APROBAR.** Se aprueba escribiendo «aprobado» en el chat; las decisiones de abajo
-> llevan la recomendada y se pueden cambiar antes. **La decisión B espera la explicación que
-> prometiste** («después te explico por qué»): sin ella, se construye con la recomendada.
+> **Estado: APROBADO** (2026-10-30, «Aprobado» en el chat), con las decisiones A a E como están;
+> la B con la recomendada, hasta que llegue la explicación del dueño.
 >
 > Pedido del dueño, el 30/10, con diez capturas: *"Ahora vamos con una serie de mejoras"* —once,
-> con la de la Infografía y la Presentación—. Va después de F44 (el Mapa) o en paralelo, en
-> pantallas distintas: no se pisan.
+> con la de la Infografía y la Presentación—. Se construye en paralelo con F44 (el Mapa), en
+> pantallas distintas:
+>
+> - **ola 1**: F44 pasos 1 a 3 y F45 pasos 2 a 4;
+> - **ola 2**: F44 pasos 4 y 5 y F45 paso 5;
+> - **ola 3**: F45 paso 1, los avisos. Va solo al final porque toca los 179 avisos de toda la app.
 
 ## Las once mejoras
 
