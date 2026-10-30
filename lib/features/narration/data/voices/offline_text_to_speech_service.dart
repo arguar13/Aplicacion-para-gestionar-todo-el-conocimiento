@@ -49,6 +49,8 @@ class OfflineTextToSpeechService implements TextToSpeechService {
   /// es el último —su fin, su avance, su audio recién generado— no cuenta.
   int _generation = 0;
 
+  /// El tramo que se generó por adelantado ([prepare]). Vale para la voz y la
+  /// velocidad de ahora: cambiar una u otra lo descarta.
   _Prepared? _prepared;
   Future<Directory>? _folder;
   var _clipNumber = 0;
@@ -77,13 +79,12 @@ class OfflineTextToSpeechService implements TextToSpeechService {
   Future<void> prepare(String text) async {
     final voice = _voice;
     if (voice == null || text.trim().isEmpty) return;
-    final key = _keyOf(voice, text);
-    if (_prepared?.key == key) return;
+    if (_prepared?.text == text) return;
     _discardPrepared();
     final clip = _synthesize(voice, text);
     // Un tramo que no se pudo generar falla recién cuando se lo pide.
     unawaited(clip.then<void>((_) {}, onError: (Object _) {}));
-    _prepared = _Prepared(key, clip);
+    _prepared = _Prepared(text, clip);
   }
 
   /// Genera [text] —o toma el que ya estaba listo— y empieza a hacerlo sonar.
@@ -97,10 +98,9 @@ class OfflineTextToSpeechService implements TextToSpeechService {
     if (voice == null) {
       throw const OfflineSpeechException('ninguna voz sin conexión elegida');
     }
-    final key = _keyOf(voice, text);
     final prepared = _prepared;
     final Future<_Clip> pending;
-    if (prepared != null && prepared.key == key) {
+    if (prepared != null && prepared.text == text) {
       _prepared = null;
       pending = prepared.clip;
     } else {
@@ -186,8 +186,6 @@ class OfflineTextToSpeechService implements TextToSpeechService {
     return folder;
   }
 
-  String _keyOf(OfflineVoice voice, String text) => '${voice.id}|$_speed|$text';
-
   void _discardPrepared() {
     final prepared = _prepared;
     _prepared = null;
@@ -219,9 +217,9 @@ class OfflineTextToSpeechService implements TextToSpeechService {
 }
 
 class _Prepared {
-  const _Prepared(this.key, this.clip);
+  const _Prepared(this.text, this.clip);
 
-  final String key;
+  final String text;
   final Future<_Clip> clip;
 }
 

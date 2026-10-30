@@ -141,6 +141,18 @@ void main() {
       expect(File(stale).existsSync(), isFalse);
     });
 
+    test('lo preparado con otra voz tampoco: se genera con la nueva', () async {
+      await service.prepare('Segunda oración.');
+      await pumpEventQueue();
+      await service.setVoice(narrationVoiceOf(_sharvardF));
+      await pumpEventQueue();
+
+      await service.speak('Segunda oración.');
+
+      expect(synthesizer.requests, hasLength(2));
+      expect(synthesizer.requests.last.speakerId, 1);
+    });
+
     test('cortado mientras genera, no suena', () async {
       service = create(hold: true);
       await service.setVoice(narrationVoiceOf(_daniela));
