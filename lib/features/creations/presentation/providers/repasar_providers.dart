@@ -9,10 +9,12 @@ import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_material.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope_catalog.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope_summary.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_queue_providers.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart'
     as study;
@@ -32,7 +34,8 @@ void chooseRepasarScope(WidgetRef ref, CreationScope scope) {
 }
 
 /// Los últimos recortes que se eligieron, el más reciente primero: los que
-/// van arriba de la hoja del selector.
+/// van arriba de la hoja del selector, como mucho tres de cada pestaña
+/// (`kRecentScopesShown`, M11).
 ///
 /// Mismo almacén que los límites del día: es una preferencia de este
 /// teléfono, no un dato de la bóveda. Se guardan por su `storageKey`; uno que
@@ -42,8 +45,9 @@ class RecentCreationScopes extends StateNotifier<List<CreationScope>> {
     : _prefs = prefs,
       super(_read(prefs));
 
-  /// Cuántos se recuerdan: los cuatro del plan.
-  static const max = 4;
+  /// Cuántos se recuerdan: más de los tres que se ven, para que cada pestaña
+  /// tenga los suyos aunque lo último elegido sea de otra.
+  static const max = 12;
 
   static const _key = 'repasar_recent_scopes';
 
@@ -143,6 +147,44 @@ class CreationSourceIds {
   @override
   int get hashCode => Object.hashAll(ids);
 }
+
+/// Unos recortes como clave de un proveedor: dos con los mismos, en cualquier
+/// orden, son la misma.
+@immutable
+class CreationScopeKeys {
+  const CreationScopeKeys(this.scopes);
+
+  final Set<CreationScope> scopes;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CreationScopeKeys && setEquals(other.scopes, scopes);
+
+  @override
+  int get hashCode => Object.hashAllUnordered(scopes);
+}
+
+/// Lo que ofrece el selector (M11), con la línea de cada uno, al día: todos
+/// los documentos y los cuadernos, y los temas de la clave —los de la
+/// categoría elegida y los recientes—. Una lectura en lote, nunca una por
+/// fila.
+final creationScopeCatalogProvider = StreamProvider.autoDispose
+    .family<CreationScopeCatalog, CreationScopeKeys>(
+      (ref, key) =>
+          ref.watch(creationScopeResolverProvider).watchCatalog(key.scopes),
+    );
+
+/// Los documentos procesados que tienen el texto buscado —en el título o en
+/// cualquiera de sus partes, como busca Procesado—: lo que el buscador del
+/// selector suma después de lo que lo tiene en el nombre. Una lectura por
+/// búsqueda, nunca una por fila.
+final creationScopeTextSearchProvider = FutureProvider.autoDispose
+    .family<Set<String>, String>((ref, text) async {
+      final ids = await ref
+          .watch(processedRepositoryProvider)
+          .matchingIds(ProcessedQuery(searchText: text));
+      return ids.getOrElse((_) => const []).toSet();
+    });
 
 /// Los documentos procesados vivos de un recorte, lo tocado más
 /// recientemente primero: lo que la hoja ofrece en «Fuentes».

@@ -12186,17 +12186,9 @@
   "@f43StudioPickerTitle": {
     "description": "Repasar (F43): título de la hoja del selector."
   },
-  "f43StudioPickerSearch": "Buscar en lo procesado",
-  "@f43StudioPickerSearch": {
-    "description": "Repasar (F43): buscador de la hoja del selector."
-  },
   "f43StudioPickerRecent": "Recientes",
   "@f43StudioPickerRecent": {
     "description": "Repasar (F43): los últimos recortes elegidos, arriba de la hoja."
-  },
-  "f43StudioPickerTabAll": "Todo lo procesado",
-  "@f43StudioPickerTabAll": {
-    "description": "Repasar (F43): pestaña de la hoja del selector."
   },
   "f43StudioPickerTabDocument": "Documento",
   "@f43StudioPickerTabDocument": {
@@ -12209,10 +12201,6 @@
   "f43StudioPickerTabTopic": "Tema",
   "@f43StudioPickerTabTopic": {
     "description": "Repasar (F43): pestaña de la hoja del selector."
-  },
-  "f43StudioPickerAllHint": "Todos los documentos procesados, sus tarjetas y lo creado sobre ellos.",
-  "@f43StudioPickerAllHint": {
-    "description": "Repasar (F43): explicación de «Todo lo procesado» en la hoja."
   },
   "f43StudioPickerNothing": "Todavía no hay nada acá. Lo que proceses aparece en esta lista.",
   "@f43StudioPickerNothing": {
@@ -13819,5 +13807,23 @@
   "f43S21CoverageFailed": "No se pudo contar qué documentos entran.",
   "@f43S21CoverageFailed": {"description": "«Para cada documento»: falló la cuenta de los que entran (F43, M18)."},
   "f43S21Start": "{count, plural, =0{Nada para hacer} =1{Crear tarjetas de 1 documento} other{Crear tarjetas de {count} documentos}}",
-  "@f43S21Start": {"description": "«Para cada documento»: el botón de abajo, que dice a cuántos les pide tarjetas (F43, M18).", "placeholders": {"count": {"type": "int"}}}
+  "@f43S21Start": {"description": "«Para cada documento»: el botón de abajo, que dice a cuántos les pide tarjetas (F43, M18).", "placeholders": {"count": {"type": "int"}}},
+  "f43S18TabAll": "Todo",
+  "@f43S18TabAll": {"description": "Selector de Repasar: la pestaña con todo (F43, M11)."},
+  "f43S18TabDocuments": "Documentos",
+  "@f43S18TabDocuments": {"description": "Selector de Repasar: la pestaña de los documentos procesados (F43, M11)."},
+  "f43S18TabNotebooks": "Cuadernos",
+  "@f43S18TabNotebooks": {"description": "Selector de Repasar: la pestaña de los cuadernos (F43, M11)."},
+  "f43S18TabTopics": "Temas",
+  "@f43S18TabTopics": {"description": "Selector de Repasar: la pestaña de los temas del Atlas (F43, M11)."},
+  "f43S18Search": "Buscar documentos, cuadernos y temas",
+  "@f43S18Search": {"description": "Selector de Repasar: el buscador de arriba (F43, M11)."},
+  "f43S18Everything": "Todos",
+  "@f43S18Everything": {"description": "Selector de Repasar: el título de la lista de la A a la Z, debajo de «Recientes» (F43, M11)."},
+  "f43S18Results": "{count, plural, =1{1 resultado} other{{count} resultados}}",
+  "@f43S18Results": {"description": "Selector de Repasar: cuántos encontró el buscador (F43, M11).", "placeholders": {"count": {"type": "int"}}},
+  "f43S18Summary": "Resumen",
+  "@f43S18Summary": {"description": "Selector de Repasar: el documento tiene su resumen marcado (F43, M11)."},
+  "f43S18Synthesis": "Síntesis",
+  "@f43S18Synthesis": {"description": "Selector de Repasar: el documento tiene su síntesis marcada (F43, M11)."}
 }

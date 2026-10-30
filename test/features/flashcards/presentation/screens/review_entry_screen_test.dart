@@ -324,12 +324,12 @@ void main() {
       expect(countOf(tester, 'review-entry-new'), '1');
     });
 
-    testWidgets('la búsqueda filtra y pasa a los documentos', (tester) async {
+    testWidgets('la búsqueda filtra, también desde «Todo»', (tester) async {
       await harness.processed('p-roma', 'Roma procesada');
       await harness.processed('p-grecia', 'Grecia procesada');
       await openEntry(tester);
       await openPicker(tester);
-      // Abre en «Todo»: buscar lleva a los documentos.
+      // Abre en «Todo», que busca en todo (M11).
       await tester.enterText(
         find.byKey(const Key('creation-scope-search')),
         'Grecia',
@@ -347,8 +347,8 @@ void main() {
       expect(find.text(es.f43StudioPickerNoMatch('Cartago')), findsOneWidget);
     });
 
-    testWidgets('los recientes: los últimos cuatro que se eligieron, el más '
-        'nuevo primero', (tester) async {
+    testWidgets('los recientes: los últimos tres que se eligieron, el más '
+        'nuevo primero (M11)', (tester) async {
       for (var i = 1; i <= 5; i++) {
         await harness.processed('p-$i', 'Doc $i');
       }
@@ -369,7 +369,7 @@ void main() {
               .evaluate()
               .isNotEmpty,
       ];
-      expect(shown, [true, true, true, true, false]);
+      expect(shown, [true, true, true, false, false]);
       final top = tester.getTopLeft(
         find.byKey(const ValueKey('creation-scope-recent-document:p-5')),
       );
@@ -378,8 +378,9 @@ void main() {
       );
       expect(top.dy, lessThan(next.dy));
 
+      // El cuarto ya no es reciente: está abajo, en «Todos».
       await tester.tap(
-        find.byKey(const ValueKey('creation-scope-recent-document:p-2')),
+        find.byKey(const ValueKey('creation-scope-option-document:p-2')),
       );
       await tester.pumpAndSettle();
       expect(scopeName(tester), 'Doc 2');
