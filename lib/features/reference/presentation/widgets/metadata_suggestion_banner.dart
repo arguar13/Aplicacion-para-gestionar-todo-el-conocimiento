@@ -20,10 +20,20 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// tarjeta de la Bandeja: es la misma sugerencia vista desde dos lugares, y
 /// aceptarla o descartarla en cualquiera de los dos la saca de los dos —es
 /// una sola fila de la base, no una copia por pantalla.
+///
+/// En la tarjeta de la Bandeja va [compact] (F45): un aviso de un renglón,
+/// con «Usar» y la ✕ a la derecha, que no le quita lugar a lo que se tría.
 class MetadataSuggestionBanner extends ConsumerStatefulWidget {
-  const MetadataSuggestionBanner({required this.suggestion, super.key});
+  const MetadataSuggestionBanner({
+    required this.suggestion,
+    this.compact = false,
+    super.key,
+  });
 
   final MetadataSuggestion suggestion;
+
+  /// Como aviso compacto: el texto a la izquierda, «Usar» y la ✕.
+  final bool compact;
 
   @override
   ConsumerState<MetadataSuggestionBanner> createState() =>
@@ -67,6 +77,68 @@ class _MetadataSuggestionBannerState
     final scheme = theme.colorScheme;
     final summary = extractedMetadataSummary(l10n, widget.suggestion.extracted);
     final repository = ref.read(suggestionRepositoryProvider);
+
+    if (widget.compact) {
+      return Material(
+        color: scheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+          child: Row(
+            children: [
+              ExcludeSemantics(
+                child: Icon(
+                  Icons.auto_awesome,
+                  size: 18,
+                  color: scheme.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.referenceSuggestionBanner,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: scheme.onSecondaryContainer,
+                        ),
+                      ),
+                      if (summary.isNotEmpty)
+                        Text(
+                          summary,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSecondaryContainer,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              TextButton(
+                key: const Key('metadata-suggestion-use'),
+                style: TextButton.styleFrom(
+                  foregroundColor: scheme.onSecondaryContainer,
+                ),
+                onPressed: _busy ? null : () => _resolve(repository.accept),
+                child: Text(l10n.referenceSuggestionUse),
+              ),
+              IconButton(
+                key: const Key('metadata-suggestion-discard'),
+                tooltip: l10n.referenceSuggestionDiscard,
+                color: scheme.onSecondaryContainer,
+                onPressed: _busy ? null : () => _resolve(repository.reject),
+                icon: const Icon(Icons.close, size: 20),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Card(
       margin: EdgeInsets.zero,

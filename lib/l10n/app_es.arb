@@ -4146,7 +4146,7 @@
   "@inboxActionExtractDisabledTooltip": {
     "description": "Tooltip del botón de extraer nota cuando el elemento no tiene ninguna forma de texto."
   },
-  "inboxActionLink": "Vincular a nota viva",
+  "inboxActionLink": "Vincular",
   "@inboxActionLink": {
     "description": "Botón para vincular el elemento actual con una nota viva existente."
   },
@@ -4154,7 +4154,7 @@
   "@inboxActionReviewSuggestions": {
     "description": "Botón para revisar las propiedades que el modelo sugirió para el elemento actual, visible solo si hay alguna pendiente."
   },
-  "inboxActionTriage": "Triado",
+  "inboxActionTriage": "Triar",
   "@inboxActionTriage": {
     "description": "Acción de la Bandeja: marcar la fuente como triada, sin trabajarla todavía."
   },
@@ -4180,7 +4180,7 @@
       }
     }
   },
-  "inboxShortcutsHint": "← descartar · → triado · Shift+→ pasar todo · ↑ extraer · Ctrl+Z deshacer",
+  "inboxShortcutsHint": "← descartar · → triar · Shift+→ pasar todo · ↑ extraer · Ctrl+Z deshacer",
   "@inboxShortcutsHint": {
     "description": "Ayuda con los gestos y atajos de la Bandeja."
   },
@@ -10204,7 +10204,7 @@
       }
     }
   },
-  "inboxActionPassUnchanged": "Pasar todo sin modificar",
+  "inboxActionPassUnchanged": "Pasar todo",
   "@inboxActionPassUnchanged": {
     "description": "Botón de la tarjeta de la Bandeja: el texto original entero a Procesado."
   },

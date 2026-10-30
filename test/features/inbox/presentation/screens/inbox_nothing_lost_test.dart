@@ -134,13 +134,13 @@ void main() {
   }
 
   Future<void> undo(WidgetTester tester) async {
-    await tester.tap(find.widgetWithIcon(IconButton, Icons.undo));
+    await tester.tap(find.byKey(const Key('inbox-undo')));
     await tester.pumpAndSettle();
   }
 
   bool canUndo(WidgetTester tester) =>
       tester
-          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.undo))
+          .widget<ButtonStyleButton>(find.byKey(const Key('inbox-undo')))
           .onPressed !=
       null;
 

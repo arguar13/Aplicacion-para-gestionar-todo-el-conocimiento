@@ -181,7 +181,7 @@ void main() {
       // Nada que deshacer: no se decidió nada.
       expect(
         tester
-            .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.undo))
+            .widget<ButtonStyleButton>(find.byKey(const Key('inbox-undo')))
             .onPressed,
         isNull,
       );

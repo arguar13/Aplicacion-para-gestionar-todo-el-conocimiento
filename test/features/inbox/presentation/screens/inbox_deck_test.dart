@@ -331,8 +331,8 @@ void main() {
       await seedSource();
       await pumpInbox(tester);
 
-      final button = tester.widget<IconButton>(
-        find.widgetWithIcon(IconButton, Icons.undo),
+      final button = tester.widget<ButtonStyleButton>(
+        find.byKey(const Key('inbox-undo')),
       );
 
       expect(button.onPressed, isNull);
@@ -344,7 +344,7 @@ void main() {
       await swipe(tester, const Offset(-300, 0));
       expect(find.text('Vuelve'), findsNothing);
 
-      await tester.tap(find.widgetWithIcon(IconButton, Icons.undo));
+      await tester.tap(find.byKey(const Key('inbox-undo')));
       await tester.pumpAndSettle();
 
       expect(await stateOf(id), ItemState.processed);
@@ -382,11 +382,11 @@ void main() {
       await seedSource();
       await pumpInbox(tester);
       await swipe(tester, const Offset(-300, 0));
-      await tester.tap(find.widgetWithIcon(IconButton, Icons.undo));
+      await tester.tap(find.byKey(const Key('inbox-undo')));
       await tester.pumpAndSettle();
 
-      final button = tester.widget<IconButton>(
-        find.widgetWithIcon(IconButton, Icons.undo),
+      final button = tester.widget<ButtonStyleButton>(
+        find.byKey(const Key('inbox-undo')),
       );
 
       expect(button.onPressed, isNull);
@@ -399,7 +399,7 @@ void main() {
       await swipe(tester, const Offset(-300, 0));
       await swipe(tester, const Offset(-300, 0));
 
-      await tester.tap(find.widgetWithIcon(IconButton, Icons.undo));
+      await tester.tap(find.byKey(const Key('inbox-undo')));
       await tester.pumpAndSettle();
 
       expect(await stateOf(second), ItemState.processed);
@@ -415,7 +415,7 @@ void main() {
       await swipe(tester, const Offset(-300, 0));
       expect(find.text('Segunda'), findsOneWidget);
 
-      await tester.tap(find.widgetWithIcon(IconButton, Icons.undo));
+      await tester.tap(find.byKey(const Key('inbox-undo')));
       await tester.pumpAndSettle();
 
       // Sigue siendo la primera de la fila, no la última.

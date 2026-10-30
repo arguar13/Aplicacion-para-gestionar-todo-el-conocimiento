@@ -34,6 +34,13 @@ Rendition _text(String itemId, DateTime at) => Rendition.text(
 );
 
 void main() {
+  // El «Deshacer» del aviso: el de arriba de la Bandeja también dice
+  // «Deshacer» en una pantalla ancha (F45).
+  Finder snackUndo() => find.descendant(
+    of: find.byType(SnackBar),
+    matching: find.text(AppLocalizationsEs().suggestionReviewUndo),
+  );
+
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
   var counter = 0;
@@ -300,7 +307,7 @@ void main() {
       }
       // Y el aviso, con su «Deshacer», a la vista en la pantalla de abajo.
       expect(find.text(es.suggestionReviewAccepted(1)), findsOneWidget);
-      expect(find.text(es.suggestionReviewUndo), findsOneWidget);
+      expect(snackUndo(), findsOneWidget);
     });
 
     testWidgets('el deshacer del aviso revierte lo aceptado en la hoja', (
@@ -319,7 +326,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(await propertyOwners(), unorderedEquals([ids[1], ids[2]]));
 
-      await tester.tap(find.text(es.suggestionReviewUndo));
+      await tester.tap(snackUndo());
       await tester.pumpAndSettle();
 
       expect(await propertyOwners(), isEmpty);
@@ -350,7 +357,7 @@ void main() {
       expect((await statuses())[ids[2]], SuggestionStatus.rejected);
       expect((await statuses())[ids[1]], SuggestionStatus.pending);
       expect(find.text(es.suggestionReviewRejected(1)), findsOneWidget);
-      expect(find.text(es.suggestionReviewUndo), findsNothing);
+      expect(snackUndo(), findsNothing);
       // Queda uno solo con la sugerencia: «1 elemento más».
       expect(offer(1), findsOneWidget);
     });

@@ -185,22 +185,26 @@ class _NoLivingNotes extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
+    // Se desliza: con la letra grande en un teléfono, la explicación no entra
+    // en el lugar de la lista (F45).
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.spa_outlined, color: theme.colorScheme.primary),
-          const SizedBox(height: 12),
-          Text(l10n.pickLivingNoteNoOthers, textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          Text(
-            l10n.pickLivingNoteCreateHint,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.spa_outlined, color: theme.colorScheme.primary),
+            const SizedBox(height: 12),
+            Text(l10n.pickLivingNoteNoOthers, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text(
+              l10n.pickLivingNoteCreateHint,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -194,10 +194,10 @@ void main() {
     expect(find.text(es.inboxActionExtract), findsOneWidget);
     expect(
       tester
-          .widget<OutlinedButton>(
+          .widget<ButtonStyleButton>(
             find.ancestor(
               of: find.text(es.inboxActionExtract),
-              matching: find.byType(OutlinedButton),
+              matching: find.bySubtype<ButtonStyleButton>(),
             ),
           )
           .onPressed,
