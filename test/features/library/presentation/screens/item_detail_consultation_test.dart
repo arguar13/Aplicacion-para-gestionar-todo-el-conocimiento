@@ -22,6 +22,13 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 import '../../../../support/library_harness.dart';
 import '../../../processed/presentation/processed_ui_fixture.dart';
 
+/// Cualquier botón de Material —relleno, tonal, con borde, de texto—:
+/// `find.byType` busca el tipo exacto, y cada uno es una subclase.
+final Finder _anyButton = find.byWidgetPredicate(
+  (widget) => widget is ButtonStyleButton,
+  description: 'un botón',
+);
+
 /// La fuente de la Biblioteca queda de consulta (F41, decisión K): su detalle
 /// deja de ofrecer lo que es estudiarla —se estudia en su documento
 /// procesado—, y muestra solo su original (F45, paso 3). Una nota propia no
@@ -84,7 +91,9 @@ void main() {
   ]) {
     testWidgets('${kind.name}: sin «Resumir», sin la tarjeta de estudiar, sin '
         'Mapa, sin tarjetas, sin lo de la IA, sin derivado ni quiz; con la '
-        'línea que lleva a estudiarlo', (tester) async {
+        'línea que lleva a estudiarlo, que sin documento no dibuja nada', (
+      tester,
+    ) async {
       await harness.saveTextSource('fuente', title: 'Roma', kind: kind);
       await openDetail(tester, 'fuente');
 
@@ -134,7 +143,68 @@ void main() {
     expect(find.byType(AiOrganizedLine), findsOneWidget);
     expect(find.byType(GenerateQuizButton), findsOneWidget);
     expect(find.byType(GenerateDerivedNoteButton), findsOneWidget);
-    expect(find.text(es.sourceStudyTriage), findsNothing);
+    expect(find.byKey(const Key('inbox-standing-card')), findsNothing);
     expect(find.text(es.sourceStudyInProcessed), findsNothing);
+  });
+
+  group('triar se ofrece una sola vez, en la tarjeta «Bandeja» (F45, paso '
+      '7c)', () {
+    final card = find.byKey(const Key('inbox-standing-card'));
+    final line = find.byType(SourceStudyLine);
+
+    /// Cuántos botones del detalle llevan a triar la fuente, y dónde.
+    void expectTriageOnceInCard(String label) {
+      expect(find.text(label), findsOneWidget, reason: label);
+      expect(
+        find.descendant(of: card, matching: find.text(label)),
+        findsOneWidget,
+        reason: label,
+      );
+      for (final other in [es.inboxTriageNow, es.processedRetriage]) {
+        if (other == label) continue;
+        expect(find.text(other), findsNothing, reason: other);
+      }
+      expect(find.descendant(of: line, matching: _anyButton), findsNothing);
+    }
+
+    testWidgets('en la Bandeja y sin documento: solo «Triar ahora»', (
+      tester,
+    ) async {
+      await harness.saveTextSource('fuente', title: 'Roma');
+      await openDetail(tester, 'fuente');
+
+      expectTriageOnceInCard(es.inboxTriageNow);
+      expect(find.text(es.sourceStudyInProcessed), findsNothing);
+    });
+
+    testWidgets('triada y sin documento: «Volver a triar» una sola vez', (
+      tester,
+    ) async {
+      await harness.saveTextSource('fuente', title: 'Roma');
+      await harness.markTriaged('fuente');
+      await openDetail(tester, 'fuente');
+
+      expectTriageOnceInCard(es.processedRetriage);
+      expect(find.text(es.sourceStudyInProcessed), findsNothing);
+    });
+
+    testWidgets('con documento: la línea, solo «Estudiarlo en Procesado»; '
+        'triar, en la tarjeta', (tester) async {
+      await harness.saveTextSource('fuente', title: 'Roma');
+      await harness.processTextAndNotes('fuente');
+      await harness.markTriaged('fuente');
+      await openDetail(tester, 'fuente');
+
+      expect(find.text(es.processedRetriage), findsOneWidget);
+      expect(
+        find.descendant(of: card, matching: find.text(es.processedRetriage)),
+        findsOneWidget,
+      );
+      expect(find.descendant(of: line, matching: _anyButton), findsOneWidget);
+      expect(
+        find.descendant(of: line, matching: find.text(es.sourceStudyOpen)),
+        findsOneWidget,
+      );
+    });
   });
 }

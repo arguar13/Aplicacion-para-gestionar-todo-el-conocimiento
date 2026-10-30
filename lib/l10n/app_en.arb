@@ -11529,14 +11529,6 @@
   "@sourceStudyOpen": {
     "description": "Detalle de una fuente (F41): el botón que abre su documento procesado."
   },
-  "sourceStudyTriage": "To study it, triage it",
-  "@sourceStudyTriage": {
-    "description": "Detalle de una fuente sin documento procesado (F41, decisión K)."
-  },
-  "sourceStudyTriageAction": "Triage",
-  "@sourceStudyTriageAction": {
-    "description": "Detalle de una fuente en la Bandeja: abre la hoja «¿Qué va a Procesado?»."
-  },
   "flashcardsFromSource": "From the source",
   "@flashcardsFromSource": {
     "description": "Tarjetas de un documento procesado (F41): el grupo plegado con las tarjetas que ya tenía la fuente."

@@ -394,15 +394,14 @@ class _DetailBodyState extends State<_DetailBody> {
 
                 // Una fuente se estudia en su documento procesado (F41,
                 // decisión K): en el lugar de su Mapa y de sus tarjetas, la
-                // línea que lleva ahí, o a triarla si todavía no se trió.
+                // línea que lleva ahí. Sin documento todavía no dibuja nada
+                // —ni su espacio—: a triarla se llega por la tarjeta «Bandeja»
+                // de arriba (F45, paso 7c).
                 //
                 // Una nota de la persona no tiene Mapa: el grafo local lee
                 // solo lo procesado (F41, paso 6). Sus vínculos están en
                 // «Vínculos», más abajo.
-                if (consultation) ...[
-                  const SizedBox(height: 16),
-                  SourceStudyLine(item: item),
-                ],
+                if (consultation) SourceStudyLine(item: item),
 
                 // Lo que se soltó del elemento —su archivo o su texto— y se
                 // puede recuperar durante 30 días (F30, decisión 68). Sin
