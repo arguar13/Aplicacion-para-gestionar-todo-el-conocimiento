@@ -57,13 +57,24 @@ IconData reviewGradeIcon(ReviewGrade grade) => switch (grade) {
 /// algo que la corrección de una opción múltiple pueda decidir sola—.
 class ReviewGradeRow extends ConsumerWidget {
   const ReviewGradeRow({
-    required this.card,
+    required Flashcard this.card,
     required this.grading,
     required this.onGrade,
     super.key,
   });
 
-  final Flashcard card;
+  /// Los mismos cuatro botones para calificar **de práctica** (F43, M13):
+  /// una tarjeta sin calendario —la de un mazo que no se sumó al repaso— no
+  /// tiene cuándo volver, así que debajo de cada nombre no va ningún
+  /// intervalo.
+  const ReviewGradeRow.practice({
+    required this.grading,
+    required this.onGrade,
+    super.key,
+  }) : card = null;
+
+  /// La tarjeta que se califica; `null` de práctica.
+  final Flashcard? card;
   final bool grading;
   final ValueChanged<ReviewGrade> onGrade;
 
@@ -72,7 +83,10 @@ class ReviewGradeRow extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     // Lo que pasaría con cada respuesta, calculado con el mismo planificador
     // que la aplica de verdad.
-    final intervals = previewIntervals(card, now: ref.read(clockProvider)());
+    final scheduled = card;
+    final intervals = scheduled == null
+        ? null
+        : previewIntervals(scheduled, now: ref.read(clockProvider)());
 
     return Row(
       children: [
@@ -82,7 +96,9 @@ class ReviewGradeRow extends ConsumerWidget {
               key: Key('grade-${grade.name}'),
               grade: grade,
               label: reviewGradeLabel(l10n, grade),
-              interval: _intervalText(l10n, intervals[grade]!),
+              interval: intervals == null
+                  ? null
+                  : _intervalText(l10n, intervals[grade]!),
               onPressed: grading ? null : () => onGrade(grade),
             ),
           ),
@@ -122,7 +138,9 @@ class _GradeButton extends StatelessWidget {
 
   final ReviewGrade grade;
   final String label;
-  final String interval;
+
+  /// Cuándo vuelve la tarjeta; `null` de práctica.
+  final String? interval;
   final VoidCallback? onPressed;
 
   @override
@@ -134,11 +152,14 @@ class _GradeButton extends StatelessWidget {
       grade,
     );
     final enabled = onPressed != null;
+    final interval = this.interval;
 
     return Semantics(
       button: true,
       enabled: enabled,
-      label: l10n.reviewGradeSemantics(label, interval),
+      label: interval == null
+          ? label
+          : l10n.reviewGradeSemantics(label, interval),
       excludeSemantics: true,
       child: Material(
         color: enabled ? background : background.withValues(alpha: 0.4),
@@ -170,18 +191,20 @@ class _GradeButton extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      interval,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: textTheme.labelSmall?.copyWith(
-                        color: foreground.withValues(alpha: 0.75),
+                  if (interval != null) ...[
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        interval,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: textTheme.labelSmall?.copyWith(
+                          color: foreground.withValues(alpha: 0.75),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
