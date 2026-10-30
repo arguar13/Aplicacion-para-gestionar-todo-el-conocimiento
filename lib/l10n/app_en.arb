@@ -675,14 +675,6 @@
   "@youtubeAudioFailed": {
     "description": "A YouTube audio download failed for an unknown reason"
   },
-  "detailExtractedTextTitle": "Extracted text",
-  "@detailExtractedTextTitle": {
-    "description": "Header of the collapsed extracted text of a document in its detail"
-  },
-  "detailExtractedTextSubtitle": "Used by search, chat, cards and quizzes. The original, above, is what matters.",
-  "@detailExtractedTextSubtitle": {
-    "description": "Why the extracted text of a document is collapsed"
-  },
   "youtubeAudioDownloaded": "Audio downloaded: you can listen offline.",
   "@youtubeAudioDownloaded": {
     "description": "Above the player of a YouTube video's downloaded audio"
@@ -5774,10 +5766,6 @@
   "@sourcePanelDeleteFileHint": {
     "description": "Línea que explica \"Borrar archivo, quedarme con el texto\" en la hoja \"Más\" del panel de la fuente (F26)."
   },
-  "sourcePanelFullScreenHint": "Open the original document full screen",
-  "@sourcePanelFullScreenHint": {
-    "description": "Línea que explica \"Ver a pantalla completa\" en la hoja \"Más\" del panel de la fuente (F26), en un documento."
-  },
   "libraryFilterSpaceLabel": "Topic",
   "@libraryFilterSpaceLabel": {
     "description": "Encabezado de la sección de temas dentro del panel de filtros de la biblioteca, arriba de «Tipo»."
@@ -9841,22 +9829,6 @@
   "@detailViewWebPage": {"description": "Detalle: el botón grande del centro de una página web archivada, que la abre a pantalla completa."},
   "studyCardTitle": "Study the document",
   "@studyCardTitle": {"description": "Estudiar (F36): título de la tarjeta del detalle de un documento."},
-  "studyCardTitleWebPage": "Study the page",
-  "@studyCardTitleWebPage": {"description": "Estudiar (F36): título de la tarjeta del detalle de una página web."},
-  "studyCardTitlePost": "Study the post",
-  "@studyCardTitlePost": {"description": "Estudiar (F39): título de la tarjeta del detalle de una publicación de una red social."},
-  "studyCardTitleImage": "Study the image",
-  "@studyCardTitleImage": {"description": "Estudiar (F39): título de la tarjeta del detalle de una imagen (su texto leído)."},
-  "studyCardTitleAudio": "Study the audio",
-  "@studyCardTitleAudio": {"description": "Estudiar (F39): título de la tarjeta del detalle de un audio (su transcripción)."},
-  "studyCardTitleVideo": "Study the video",
-  "@studyCardTitleVideo": {"description": "Estudiar (F39): título de la tarjeta del detalle de un video o un YouTube (su transcripción)."},
-  "studyExtractTranscript": "Extract transcript",
-  "@studyExtractTranscript": {"description": "Estudiar (F39): la fila con la transcripción de un audio o un video."},
-  "studyExtractPhotos": "Photos",
-  "@studyExtractPhotos": {"description": "Estudiar (F39): la fila plegada de la tarjeta con las fotos de la página o la publicación."},
-  "studyPhotoCount": "{count, plural, =1{1 photo} other{{count} photos}}",
-  "@studyPhotoCount": {"description": "Estudiar (F39): cuántas fotos trae la página o la publicación, debajo de «Fotos».", "placeholders": {"count": {"type": "int"}}},
   "studySummarize": "Summarize",
   "@studySummarize": {"description": "Estudiar (F36): botón que resalta el resumen —las oraciones principales— en el documento; tocarlo de nuevo lo apaga."},
   "studySynthesize": "Synthesize",
@@ -9883,18 +9855,6 @@
   "@studyUnreadParts": {"description": "Estudiar (F36): al terminar, las partes en que el modelo no contestó en el formato.", "placeholders": {"count": {"type": "int"}}},
   "studyUnreadAcknowledge": "Got it",
   "@studyUnreadAcknowledge": {"description": "Estudiar (F36): cierra el aviso de las partes que no se pudieron leer."},
-  "studyMoreTooltip": "More options",
-  "@studyMoreTooltip": {"description": "Estudiar (F36): el menú de la tarjeta."},
-  "studyReanalyze": "Analyze again",
-  "@studyReanalyze": {"description": "Estudiar (F36): rehace el análisis entero, desde el menú de la tarjeta."},
-  "studyReanalyzeTitle": "Analyze again?",
-  "@studyReanalyzeTitle": {"description": "Estudiar (F36): título de la confirmación de volver a analizar."},
-  "studyReanalyzeBody": "What the AI marked is redone with the chosen model. What you picked yourself —sentences and keywords— stays.",
-  "@studyReanalyzeBody": {"description": "Estudiar (F36): qué pasa al volver a analizar."},
-  "studyExtractTitle": "Extract",
-  "@studyExtractTitle": {"description": "Estudiar (F36): el título de la sección con lo que se puede extraer."},
-  "studyExtractText": "Extract text",
-  "@studyExtractText": {"description": "Estudiar (F36): la fila con el texto extraído del documento."},
   "studySentenceCount": "{count, plural, =1{1 sentence} other{{count} sentences}}",
   "@studySentenceCount": {"description": "Estudiar (F36): cuántas oraciones tiene lo extraído.", "placeholders": {"count": {"type": "int"}}},
   "studyKeywordCount": "{count, plural, =1{1 keyword} other{{count} keywords}}",
@@ -9983,8 +9943,6 @@
   "@unsortedEmptyBody": {"description": "Temas (F37): texto de la lista para ordenar vacía."},
   "libraryBulkSpacesChanged": "{count, plural, =1{Topics changed for 1 item} other{Topics changed for {count} items}}",
   "@libraryBulkSpacesChanged": {"description": "Temas (F37): aviso al elegir temas para varios en el modo selección.", "placeholders": {"count": {"type": "int"}}},
-  "studyDownload": "Download",
-  "@studyDownload": {"description": "Descargar marcado (F38): botón de la tarjeta Estudiar el documento que abre la hoja."},
   "studyDownloadTitle": "Download with highlights",
   "@studyDownloadTitle": {"description": "Descargar marcado (F38): título de la hoja."},
   "studyDownloadBody": "It comes out in the same format as the original ({format}), with what you choose highlighted. You can combine them.",
