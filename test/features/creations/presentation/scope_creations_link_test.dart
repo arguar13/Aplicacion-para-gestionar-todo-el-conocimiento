@@ -220,7 +220,7 @@ void main() {
       );
       await openDocument(tester);
 
-      await tester.tap(inSection(doc, find.text('Informe del Éxodo')));
+      await tester.tap(inSection(doc, tileOf(own)));
       await tester.pumpAndSettle();
       expect(find.byKey(ValueKey('creation-viewer-${own.id}')), findsOneWidget);
 
@@ -474,7 +474,7 @@ void main() {
       );
       await openNotebook(tester, notebook);
 
-      await tester.tap(inSection(scope, find.text('Informe del cuaderno')));
+      await tester.tap(inSection(scope, tileOf(made)));
       await tester.pumpAndSettle();
       expect(
         find.byKey(ValueKey('creation-viewer-${made.id}')),

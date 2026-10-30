@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show Variable;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
+import 'package:sinapsis/features/creations/presentation/creation_presentation.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
 import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
@@ -44,6 +46,25 @@ void main() {
 
   Finder statusOf(StudyCreation creation) =>
       find.byKey(ValueKey('creation-status-${creation.id}'));
+
+  /// Lo que dice la fila arriba y en grande: de dónde sale (M12).
+  String originOf(WidgetTester tester, StudyCreation creation) => [
+    for (final element
+        in find
+            .descendant(
+              of: find.byKey(ValueKey('creation-origin-${creation.id}')),
+              matching: find.byType(Text),
+              matchRoot: true,
+            )
+            .evaluate())
+      (element.widget as Text).data!,
+  ].join();
+
+  /// Lo que dice la fila abajo y en chico: el tipo y el título propio.
+  String metaOf(WidgetTester tester, StudyCreation creation) => tester
+      .widget<Text>(find.byKey(ValueKey('creation-meta-${creation.id}')))
+      .textSpan!
+      .toPlainText();
 
   /// Mantiene apretada la fila de [creation] y toca [action] en su menú.
   Future<void> menu(
@@ -98,22 +119,158 @@ void main() {
         ),
       );
 
-  group('los estados de cada fila', () {
-    testWidgets('lista: su título, cuántas fuentes y cuándo', (tester) async {
+  group('cada fila dice de qué es (M12)', () {
+    testWidgets('arriba, grande, el documento; abajo, chico, el tipo con su '
+        'ícono en color, su título y cuándo', (tester) async {
       final ready = await harness.creation(
         StudyCreationKind.report,
+        scope: const CreationScope.document('p-1'),
         sources: ['p-1'],
         title: 'Éxodo: Liberación y Alianza',
       );
       await harness.openRepasar(tester);
 
-      expect(find.text('Éxodo: Liberación y Alianza'), findsOneWidget);
+      expect(originOf(tester, ready), 'Éxodo — Comentario');
       expect(
-        tester.widget<Text>(statusOf(ready)).data,
-        '${es.f43StudioSourceCount(1)} · ${es.f43StudioAgoNow}',
+        metaOf(tester, ready),
+        '${es.f43DataKindReport} · '
+        'Éxodo: Liberación y Alianza',
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(ValueKey('creation-when-${ready.id}')))
+            .data,
+        ' · ${es.f43StudioAgoNow}',
+      );
+      // El ícono del tipo, en la línea chica y con el color de su tipo.
+      final icon = tester.widget<Icon>(
+        find.descendant(of: tileOf(ready), matching: find.byType(Icon)),
+      );
+      expect(icon.icon, studyCreationKindIcon(StudyCreationKind.report));
+      expect(icon.color, isNotNull);
+      // Lista, no hay otra línea de estado.
+      expect(statusOf(ready), findsNothing);
+      // El origen va arriba del tipo.
+      expect(
+        tester
+            .getTopLeft(find.byKey(ValueKey('creation-origin-${ready.id}')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(ValueKey('creation-meta-${ready.id}')))
+              .dy,
+        ),
       );
     });
 
+    testWidgets('con varias fuentes, «X y N más», en el orden en que se '
+        'leyeron', (tester) async {
+      final many = await harness.creation(
+        StudyCreationKind.quiz,
+        sources: ['p-2', 'p-1', 'p-3'],
+        title: 'Preguntas del Pentateuco',
+      );
+      await harness.openRepasar(tester);
+
+      expect(originOf(tester, many), 'Génesis ${es.f43S17OriginMore(2)}');
+    });
+
+    testWidgets('un cuaderno o un tema la nombran ellos; uno que ya no existe '
+        'lo dice', (tester) async {
+      final notebook = await harness.container
+          .read(notebookRepositoryProvider)
+          .create(name: 'Pentateuco', mode: NotebookMode.manual);
+      final fromNotebook = await harness.creation(
+        StudyCreationKind.mindMap,
+        scope: CreationScope.notebook(notebook.id),
+        sources: ['p-1', 'p-2'],
+      );
+      final gone = await harness.creation(
+        StudyCreationKind.mindMap,
+        scope: const CreationScope.notebook('borrado'),
+        sources: ['p-1'],
+      );
+      await harness.openRepasar(tester);
+
+      expect(originOf(tester, fromNotebook), 'Pentateuco');
+      expect(originOf(tester, gone), es.f43S17OriginDeleted(1));
+    });
+
+    testWidgets('una fuente borrada lo dice, y con varias borradas, cuántas', (
+      tester,
+    ) async {
+      final one = await harness.creation(
+        StudyCreationKind.report,
+        sources: ['ya-no-esta'],
+        title: 'Informe',
+      );
+      final two = await harness.creation(
+        StudyCreationKind.report,
+        sources: ['ya-no-esta', 'tampoco'],
+        title: 'Otro informe',
+      );
+      await harness.openRepasar(tester);
+
+      expect(originOf(tester, one), es.f43S17OriginDeleted(1));
+      expect(originOf(tester, two), es.f43S17OriginDeleted(2));
+    });
+
+    testWidgets('el título solo va si es otro: ni el del documento ni el del '
+        'tipo se repiten', (tester) async {
+      final sameAsSource = await harness.creation(
+        StudyCreationKind.report,
+        sources: ['p-1'],
+        title: 'éxodo — comentario',
+      );
+      final sameAsKind = await harness.creation(
+        StudyCreationKind.report,
+        sources: ['p-2'],
+        title: es.f43DataKindReport,
+      );
+      final untitled = await harness.creation(
+        StudyCreationKind.mindMap,
+        status: CreationStatus.queued,
+        sources: ['p-3'],
+      );
+      await harness.openRepasar(tester);
+
+      expect(metaOf(tester, sameAsSource), es.f43DataKindReport);
+      expect(metaOf(tester, sameAsKind), es.f43DataKindReport);
+      expect(metaOf(tester, untitled), es.f43DataKindMindMap);
+      // En la cola: el tipo y, debajo, cómo va.
+      expect(
+        tester.widget<Text>(statusOf(untitled)).data,
+        es.f43StudioStatusQueued,
+      );
+    });
+
+    testWidgets('al día: si el documento se renombra, la fila lo dice sola', (
+      tester,
+    ) async {
+      final ready = await harness.creation(
+        StudyCreationKind.report,
+        sources: ['p-1'],
+        title: 'Informe',
+      );
+      await harness.openRepasar(tester);
+      expect(originOf(tester, ready), 'Éxodo — Comentario');
+
+      final db = harness.library.database;
+      await db.customUpdate(
+        'UPDATE item SET title = ? WHERE id = ?',
+        variables: [
+          Variable.withString('Éxodo, segunda lectura'),
+          Variable.withString('p-1'),
+        ],
+        updates: {db.knowledgeEntries},
+      );
+      await tester.pumpAndSettle();
+
+      expect(originOf(tester, ready), 'Éxodo, segunda lectura');
+    });
+  });
+
+  group('los estados de cada fila', () {
     testWidgets('en la cola, ahora o más tarde, con su brillo quieto', (
       tester,
     ) async {
@@ -259,8 +416,10 @@ void main() {
       await tester.tap(find.byKey(const Key('creation-rename-save')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Análisis exegético del Éxodo'), findsOneWidget);
-      expect(find.text('Un informe'), findsNothing);
+      expect(
+        metaOf(tester, ready),
+        '${es.f43DataKindReport} · Análisis exegético del Éxodo',
+      );
     });
 
     testWidgets('«Eliminar» la manda a la papelera, y «Deshacer» la trae', (
@@ -914,6 +1073,13 @@ void main() {
       expect(tileOf(own), findsOneWidget);
       expect(tileOf(viaNotebook), findsOneWidget);
       expect(tileOf(other), findsNothing);
+      // Las mismas filas de «Lo creado», con su origen arriba (M12).
+      expect(originOf(tester, own), 'Éxodo — Comentario');
+      expect(originOf(tester, viaNotebook), 'Pentateuco');
+      expect(
+        metaOf(tester, viaNotebook),
+        '${es.f43DataKindQuiz} · Del cuaderno',
+      );
 
       await tester.tapAt(tester.getTopLeft(tileOf(own)) + const Offset(80, 20));
       await tester.pumpAndSettle();

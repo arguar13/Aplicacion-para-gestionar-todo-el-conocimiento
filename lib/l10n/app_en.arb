@@ -14947,5 +14947,15 @@
   "f43S20HardestLapses": "{count, plural, =0{no lapses} =1{1 lapse} other{{count} lapses}}",
   "@f43S20HardestLapses": {"description": "Estadísticas e historial (F43, paso 20, M16 y M17).", "placeholders": {"count": {"type": "int"}}},
   "f43S20PracticeThese": "{count, plural, =1{Practice this one} other{Practice these {count}}}",
-  "@f43S20PracticeThese": {"description": "Estadísticas e historial (F43, paso 20, M16 y M17).", "placeholders": {"count": {"type": "int"}}}
+  "@f43S20PracticeThese": {"description": "Estadísticas e historial (F43, paso 20, M16 y M17).", "placeholders": {"count": {"type": "int"}}},
+  "f43S17OriginMore": "and {count} more",
+  "@f43S17OriginMore": {"description": "Fila de «Lo creado», arriba, después del nombre de la primera fuente: «Lazarillo y 2 más» (F43, M12).", "placeholders": {"count": {"type": "int"}}},
+  "f43S17OriginDeleted": "{count, plural, =1{Source deleted} other{{count} sources deleted}}",
+  "@f43S17OriginDeleted": {"description": "Fila de «Lo creado», arriba: lo que la nombraba ya no existe (F43, M12).", "placeholders": {"count": {"type": "int"}}},
+  "f43S17HeldCards": "Review cards",
+  "@f43S17HeldCards": {"description": "«Lo creado»: la fila de las tarjetas que el recorte ya tenía, aunque no salgan de una creación (F43, M10)."},
+  "f43S17HeldMarkedAll": "{count, plural, =1{Marked in the document} other{Marked in all {count} documents}}",
+  "@f43S17HeldMarkedAll": {"description": "«Lo creado»: debajo de «Resumen» o «Síntesis», todos los documentos del recorte lo tienen marcado (F43, M10).", "placeholders": {"count": {"type": "int"}}},
+  "f43S17HeldMarkedSome": "Marked in {marked} of {total} documents",
+  "@f43S17HeldMarkedSome": {"description": "«Lo creado»: debajo de «Resumen» o «Síntesis», cuántos documentos del recorte lo tienen marcado (F43, M10).", "placeholders": {"marked": {"type": "int"}, "total": {"type": "int"}}}
 }

@@ -5,11 +5,13 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope_summary.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/presentation/creation_actions.dart';
 import 'package:sinapsis/features/creations/presentation/creation_presentation.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_kinds.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_queue_providers.dart';
+import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
 import 'package:sinapsis/features/creations/presentation/repasar_navigation.dart';
 import 'package:sinapsis/features/creations/presentation/widgets/creation_kind_icon.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -18,9 +20,14 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// deslizarla): una sola a la vez.
 final openCreationRowProvider = StateProvider<String?>((ref) => null);
 
-/// Una fila de «Lo creado» (F43), como las del Studio de NotebookLM: plana,
-/// con el ícono de su tipo en su color, el título en una línea y «N fuentes ·
-/// Hace 5 d».
+/// Una fila de «Lo creado» (F43), como las del Studio de NotebookLM: plana, y
+/// que dice de qué es (M12):
+///
+/// - **arriba, grande**, de dónde sale —el documento, el cuaderno o el tema;
+///   con varias fuentes, «Lazarillo y 2 más»; una fuente borrada lo dice—;
+/// - **abajo, chico**, el ícono de su tipo en su color, el tipo, el título
+///   propio si lo tiene y es otro, y cuándo: «Tarjetas didácticas · San
+///   Jerónimo: Vida y obra · Hace 5 min».
 ///
 /// - **Tocarla**, lista, abre su visor.
 /// - **Mantenerla apretada** (o el clic derecho) abre su menú flotante:
@@ -152,35 +159,22 @@ class _CreationTileState extends ConsumerState<CreationTile>
       onLongPress: () => unawaited(_menu()),
       onSecondaryTap: () => unawaited(_menu()),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.fromLTRB(20, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Icon(
-                spec.iconData,
-                size: 26,
-                color: spec.accent.resolve(theme.brightness, scheme.surface),
-              ),
+            _Origin(creation: creation),
+            const SizedBox(height: 4),
+            _KindLine(
+              creation: creation,
+              icon: spec.iconData,
+              accent: spec.accent.resolve(theme.brightness, scheme.surface),
             ),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    studyCreationTitle(l10n, creation),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 2),
-                  _Status(creation: creation),
-                ],
-              ),
-            ),
+            if (!ready) ...[
+              const SizedBox(height: 4),
+              _Status(creation: creation),
+            ],
           ],
         ),
       ),
@@ -286,7 +280,139 @@ class _SwipeButton extends StatelessWidget {
   }
 }
 
-/// La línea de su estado: lista, en la cola, generándose o fallida.
+/// De dónde sale [creation], al día.
+CreationOrigin? _originOf(WidgetRef ref, StudyCreation creation) => ref
+    .watch(
+      creationOriginProvider(
+        CreationOriginKey(
+          creation.scope,
+          CreationSourceIds(creation.sourceIds),
+        ),
+      ),
+    )
+    .valueOrNull;
+
+/// Arriba y en grande, de dónde sale (M12): el documento, el cuaderno o el
+/// tema; con varias fuentes, «Lazarillo y 2 más», con el «y 2 más» siempre a
+/// la vista aunque el nombre no entre; si ya no está, lo dice.
+class _Origin extends ConsumerWidget {
+  const _Origin({required this.creation});
+
+  final StudyCreation creation;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final style = theme.textTheme.titleMedium;
+    final key = ValueKey('creation-origin-${creation.id}');
+    final origin = _originOf(ref, creation);
+
+    // Lo que tarda en llegar es un instante: el renglón, en su alto.
+    if (origin == null) return Text(' ', key: key, style: style);
+    if (origin.deleted) {
+      return Text(
+        l10n.f43S17OriginDeleted(origin.more + 1),
+        key: key,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+    final name = Text(
+      origin.name ?? l10n.f43StudioScopeAll,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
+    if (origin.more == 0) return KeyedSubtree(key: key, child: name);
+    return Row(
+      key: key,
+      children: [
+        Flexible(child: name),
+        Text(' ${l10n.f43S17OriginMore(origin.more)}', style: style),
+      ],
+    );
+  }
+}
+
+/// Abajo y chico (M12): el ícono del tipo en su color, el tipo, el título
+/// propio —el que puso la IA o la persona, si dice algo más que el origen o
+/// el tipo— y, lista, cuándo: «Tarjetas didácticas · San Jerónimo: Vida y
+/// obra · Hace 5 min». Lo que no entra es el título, con «…»; el cuándo queda
+/// siempre a la vista.
+class _KindLine extends ConsumerWidget {
+  const _KindLine({
+    required this.creation,
+    required this.icon,
+    required this.accent,
+  });
+
+  final StudyCreation creation;
+  final IconData icon;
+  final Color accent;
+
+  static bool _same(String a, String? b) =>
+      b != null && a.toLowerCase() == b.trim().toLowerCase();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final muted = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final kind = studyCreationKindLabel(l10n, creation.kind);
+    final title = creation.title?.trim() ?? '';
+    final ownTitle =
+        title.isNotEmpty &&
+        !_same(title, kind) &&
+        !_same(title, _originOf(ref, creation)?.name);
+    final ready = creation.status == CreationStatus.ready;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final now = ref.watch(clockProvider)();
+    final iconSize = MediaQuery.textScalerOf(
+      context,
+    ).scale(16).clamp(16.0, 28.0);
+
+    return Row(
+      children: [
+        Icon(icon, size: iconSize, color: accent),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: kind,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                if (ownTitle) TextSpan(text: ' · $title'),
+              ],
+            ),
+            key: ValueKey('creation-meta-${creation.id}'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: muted,
+          ),
+        ),
+        if (ready)
+          Text(
+            ' · ${creationAgo(l10n, creation.createdAt, now, locale: locale)}',
+            key: ValueKey('creation-when-${creation.id}'),
+            maxLines: 1,
+            style: muted,
+          ),
+      ],
+    );
+  }
+}
+
+/// Cómo va, debajo del tipo, mientras no está lista: en la cola, generándose
+/// o fallida. Lista no dice nada más: el cuándo va en la línea del tipo.
 class _Status extends ConsumerWidget {
   const _Status({required this.creation});
 
@@ -304,13 +430,7 @@ class _Status extends ConsumerWidget {
 
     switch (creation.status) {
       case CreationStatus.ready:
-        final now = ref.watch(clockProvider)();
-        return Text(
-          '${l10n.f43StudioSourceCount(creation.sourceIds.length)} · '
-          '${creationAgo(l10n, creation.createdAt, now, locale: locale)}',
-          key: ValueKey('creation-status-${creation.id}'),
-          style: muted,
-        );
+        return const SizedBox.shrink();
       case CreationStatus.queued:
         return Text(
           creation.runNow
