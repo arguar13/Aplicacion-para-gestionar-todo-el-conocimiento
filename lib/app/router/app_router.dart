@@ -28,7 +28,6 @@ import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_s
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_stats_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/local_graph_screen.dart';
-import 'package:sinapsis/features/habit/presentation/screens/review_history_screen.dart';
 import 'package:sinapsis/features/health/presentation/screens/grown_notes_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/keep_working/presentation/screens/keep_working_screen.dart';
@@ -254,7 +253,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.reviewHistory,
         name: RouteNames.reviewHistory,
-        builder: (context, state) => const ReviewHistoryScreen(),
+        // F43, M17: el historial es una pestaña de las estadísticas.
+        builder: (context, state) =>
+            const ReviewStatsScreen(initialTab: ReviewStatsTab.history),
       ),
       // La sesión de repaso, a pantalla completa (F31, ola 2): sin la barra de
       // navegación, con «atrás» para volver a la entrada.

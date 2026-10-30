@@ -3833,10 +3833,6 @@
   "@reviewHistoryTooltip": {
     "description": "Tooltip del botón en la barra de Repaso que abre el historial de repasos (F17, D8/commit 10b)."
   },
-  "reviewHistoryTitle": "Historial de repasos",
-  "@reviewHistoryTitle": {
-    "description": "Título de la pantalla del historial de repasos (F17, D8)."
-  },
   "reviewHistoryLoadError": "No se pudo leer el historial.",
   "@reviewHistoryLoadError": {
     "description": "Mensaje cuando falla la lectura del historial de repasos."
@@ -3849,39 +3845,13 @@
   "@reviewHistoryRetentionEmpty": {
     "description": "Estado vacío de la curva de retención, cuando las últimas semanas no tuvieron ningún repaso."
   },
-  "reviewHistoryRetentionTooltip": "{count, plural, =0{Sin repasos esta semana} =1{1 repaso, {percent}% retenido} other{{count} repasos, {percent}% retenido}}",
-  "@reviewHistoryRetentionTooltip": {
-    "description": "Tooltip de una barra de la curva de retención.",
-    "placeholders": {
-      "count": {"type": "int"},
-      "percent": {"type": "int"}
-    }
-  },
   "reviewHistoryActivitySectionTitle": "Constancia",
   "@reviewHistoryActivitySectionTitle": {
     "description": "Encabezado del calendario de actividad del historial de repasos."
   },
-  "reviewHistoryActivityTooltip": "{count, plural, =0{Sin repasos} =1{1 repaso} other{{count} repasos}}",
-  "@reviewHistoryActivityTooltip": {
-    "description": "Tooltip de una celda del calendario de actividad.",
-    "placeholders": {
-      "count": {"type": "int"}
-    }
-  },
   "reviewHistoryHardestCardsSectionTitle": "Tarjetas difíciles",
   "@reviewHistoryHardestCardsSectionTitle": {
     "description": "Encabezado de la sección de tarjetas difíciles del historial de repasos."
-  },
-  "reviewHistoryHardestCardsEmpty": "Todavía no hay suficientes repasos para señalar ninguna.",
-  "@reviewHistoryHardestCardsEmpty": {
-    "description": "Estado vacío de tarjetas difíciles, cuando ninguna tarjeta llegó al piso de repasos."
-  },
-  "reviewHistoryHardestCardsAgainRatio": "{percent}% \"de nuevo\"",
-  "@reviewHistoryHardestCardsAgainRatio": {
-    "description": "Proporción de repasos calificados \"de nuevo\" de una tarjeta difícil.",
-    "placeholders": {
-      "percent": {"type": "int"}
-    }
   },
   "reviewAllDone": "No hay nada para repasar por ahora. Volvé más tarde.",
   "@reviewAllDone": {
@@ -7506,22 +7476,9 @@
   "@cardStatsLoadError": {
     "description": "Estadísticas de repaso: falló la lectura."
   },
-  "cardStatsStreakDays": "{days, plural, =0{Sin racha todavía} =1{Racha de 1 día} other{Racha de {days} días}}",
-  "@cardStatsStreakDays": {
-    "description": "Estadísticas de repaso: la racha de hoy.",
-    "placeholders": {
-      "days": {
-        "type": "int"
-      }
-    }
-  },
   "cardStatsForecastTitle": "Lo que viene",
   "@cardStatsForecastTitle": {
     "description": "Estadísticas de repaso: título del pronóstico."
-  },
-  "cardStatsForecastEmpty": "No hay repasos programados en los próximos 30 días.",
-  "@cardStatsForecastEmpty": {
-    "description": "Estadísticas de repaso: el pronóstico no tiene nada."
   },
   "cardStatsForecastToday": "{count, plural, =0{Hoy no vence ninguna} =1{Hoy vence 1} other{Hoy vencen {count}}}",
   "@cardStatsForecastToday": {
@@ -7535,24 +7492,6 @@
   "cardStatsForecastOverdue": "{count, plural, =1{1 atrasada} other{{count} atrasadas}}",
   "@cardStatsForecastOverdue": {
     "description": "Estadísticas de repaso: cuántas de las de hoy estaban atrasadas.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "cardStatsForecastTotal": "{total, plural, =1{1 tarjeta en los próximos 30 días} other{{total} tarjetas en los próximos 30 días}}",
-  "@cardStatsForecastTotal": {
-    "description": "Estadísticas de repaso: cuántas vencen en total en el pronóstico.",
-    "placeholders": {
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "cardStatsForecastPeak": "Máximo en un día: {count}",
-  "@cardStatsForecastPeak": {
-    "description": "Estadísticas de repaso: el día con más tarjetas, sobre el gráfico.",
     "placeholders": {
       "count": {
         "type": "int"
@@ -7580,18 +7519,6 @@
     "description": "Estadísticas de repaso: rótulo de un día del eje.",
     "placeholders": {
       "days": {
-        "type": "int"
-      }
-    }
-  },
-  "cardStatsForecastChartLabel": "Gráfico de columnas con las tarjetas que vencen cada uno de los próximos 30 días: {total} en total, con un máximo de {peak} en un día",
-  "@cardStatsForecastChartLabel": {
-    "description": "Estadísticas de repaso: lectura del gráfico para lectores de pantalla.",
-    "placeholders": {
-      "total": {
-        "type": "int"
-      },
-      "peak": {
         "type": "int"
       }
     }

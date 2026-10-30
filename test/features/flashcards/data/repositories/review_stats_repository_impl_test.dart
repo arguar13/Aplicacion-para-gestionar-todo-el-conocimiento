@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/card_phase.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/review_stats_repository_impl.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/card_browser_query.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_stats.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 
 import '../../../../support/card_browser_harness.dart';
 import '../../../../support/item_rows.dart';
@@ -24,19 +25,19 @@ void main() {
       database: h.db,
       telemetry: h.telemetry,
       clock: () => now,
-      browser: h.browser,
+      resolver: h.resolver,
     );
   });
 
   tearDown(() => h.close());
 
-  Future<ReviewStats> load({StatsPeriod period = StatsPeriod.all}) async =>
-      (await stats.load(period: period)).getOrElse((f) => fail('$f'));
+  Future<ReviewStats> load({StudyScope scope = const StudyScope.all()}) async =>
+      (await stats.load(scope: scope)).getOrElse((f) => fail('$f'));
 
   List<int> counts(ReviewStats s) => [for (final d in s.forecast.days) d.count];
 
   group('el pronóstico', () {
-    test('sin tarjetas: treinta días en cero', () async {
+    test('sin tarjetas: noventa días en cero', () async {
       final s = await load();
       expect(s.forecast.days, hasLength(kForecastDays));
       expect(counts(s).every((n) => n == 0), isTrue);
@@ -60,6 +61,7 @@ void main() {
       expect(counts(s).take(4), [2, 2, 1, 0]);
       expect(s.forecast.days[1].start, DateTime(2026, 10, 9, 4));
       expect(s.forecast.days[29].start, DateTime(2026, 11, 6, 4));
+      expect(s.forecast.days[89].start, DateTime(2027, 1, 5, 4));
     });
 
     test('lo atrasado cuenta hoy, y se dice cuánto', () async {
@@ -71,13 +73,26 @@ void main() {
       expect(s.forecast.overdue, 2);
     });
 
-    test('la última casilla es el día 30; después, afuera', () async {
-      await h.card('ultimo', dueAt: DateTime(2026, 11, 7, 3, 59));
-      await h.card('afuera', dueAt: DateTime(2026, 11, 7, 4));
+    test('cada tramo corta en su último día; después, afuera', () async {
+      await h.card('dia-7', dueAt: DateTime(2026, 10, 15, 3, 59));
+      await h.card('dia-8', dueAt: DateTime(2026, 10, 15, 4));
+      await h.card('ultimo-30', dueAt: DateTime(2026, 11, 7, 3, 59));
+      await h.card('dia-31', dueAt: DateTime(2026, 11, 7, 4));
+      await h.card('ultimo-90', dueAt: DateTime(2027, 1, 6, 3, 59));
+      await h.card('afuera', dueAt: DateTime(2027, 1, 6, 4));
       await h.card('lejos', dueAt: DateTime(2027, 5));
       final s = await load();
       expect(s.forecast.days.last.count, 1);
-      expect(s.forecast.total, 1);
+      expect(s.forecast.total, 5);
+      final week = s.forecast.window(ForecastRange.days7);
+      expect(week.days, hasLength(7));
+      expect(week.total, 1);
+      final month = s.forecast.window(ForecastRange.days30);
+      expect(month.days, hasLength(30));
+      expect(month.total, 3);
+      expect(month.days.last.count, 1);
+      expect(month.averagePerDay, 3 / 30);
+      expect(s.forecast.window(ForecastRange.months3).total, 5);
     });
 
     test('no cuenta nuevas, pausadas ni elementos en la papelera', () async {
@@ -240,7 +255,7 @@ void main() {
       await log('again', phase: CardPhase.review, intervalBefore: 400);
       await log('hard', phase: CardPhase.review, intervalBefore: 400);
 
-      final b = (await load()).buttons;
+      final b = (await load()).buttonsFor(StatsPeriod.all);
       expect(b.of(StatsStage.newCard), const ButtonUsage(again: 1, good: 3));
       expect(b.of(StatsStage.newCard).accuracy, 0.75);
       expect(b.of(StatsStage.learning), const ButtonUsage(hard: 1, easy: 1));
@@ -258,14 +273,14 @@ void main() {
 
     test('una etapa sin respuestas no tiene porcentaje, no un cero', () async {
       await log('good', phase: CardPhase.newCard);
-      final b = (await load()).buttons;
+      final b = (await load()).buttonsFor(StatsPeriod.all);
       expect(b.of(StatsStage.mature).total, 0);
       expect(b.of(StatsStage.mature).accuracy, isNull);
       expect(b.overall.accuracy, 1.0);
     });
 
     test('sin ningún repaso', () async {
-      final b = (await load()).buttons;
+      final b = (await load()).buttonsFor(StatsPeriod.all);
       expect(b.overall.total, 0);
       expect(b.overall.accuracy, isNull);
     });
@@ -281,13 +296,10 @@ void main() {
       );
       await log('good', phase: CardPhase.newCard, at: DateTime(2026, 7));
 
-      expect((await load(period: StatsPeriod.days30)).buttons.overall.total, 1);
-      expect((await load(period: StatsPeriod.days90)).buttons.overall.total, 2);
-      expect((await load()).buttons.overall.total, 3);
-      expect(
-        (await load(period: StatsPeriod.days30)).period,
-        StatsPeriod.days30,
-      );
+      final s = await load();
+      expect(s.buttonsFor(StatsPeriod.days30).overall.total, 1);
+      expect(s.buttonsFor(StatsPeriod.days90).overall.total, 2);
+      expect(s.buttonsFor(StatsPeriod.all).overall.total, 3);
     });
 
     test('no cuenta el historial de una tarjeta de la papelera', () async {
@@ -298,7 +310,7 @@ void main() {
       await (h.db.update(h.db.knowledgeEntries)
             ..where((e) => e.id.equals('borrado')))
           .write(KnowledgeEntriesCompanion(deletedAt: Value(now)));
-      expect((await load()).buttons.overall.total, 1);
+      expect((await load()).buttonsFor(StatsPeriod.all).overall.total, 1);
     });
   });
 
@@ -319,7 +331,7 @@ void main() {
 
   test('watch emite al cambiar una tarjeta', () async {
     final values = <ReviewStats>[];
-    final sub = stats.watch(period: StatsPeriod.all).listen(values.add);
+    final sub = stats.watch(scope: const StudyScope.all()).listen(values.add);
     await pumpEventQueue(times: 50);
     final before = values.length;
     expect(before, greaterThan(0));
@@ -328,5 +340,237 @@ void main() {
     expect(values.length, greaterThan(before));
     expect(values.last.forecast.total, 1);
     await sub.cancel();
+  });
+
+  group('lo de hoy (F43, M17)', () {
+    test(
+      'cuenta desde las 4:00: tarjetas, respuestas, acierto y nuevas',
+      () async {
+        await h.card('c');
+        await h.card('d');
+        await h.answered(
+          'c',
+          phase: CardPhase.newCard,
+          at: DateTime(2026, 10, 8, 5),
+          grade: 'again',
+        );
+        await h.answered(
+          'c',
+          phase: CardPhase.learning,
+          at: DateTime(2026, 10, 8, 6),
+        );
+        await h.answered(
+          'c',
+          phase: CardPhase.review,
+          at: DateTime(2026, 10, 8, 9),
+          intervalBefore: 3,
+        );
+        await h.answered(
+          'd',
+          phase: CardPhase.review,
+          at: DateTime(2026, 10, 8, 9, 30),
+          intervalBefore: 30,
+        );
+        // A las 3:59 todavía era el día de estudio de ayer.
+        await h.answered(
+          'd',
+          phase: CardPhase.newCard,
+          at: DateTime(2026, 10, 8, 3, 59),
+        );
+
+        final today = (await load()).today;
+        expect(
+          today,
+          const TodayStats(cards: 2, answers: 4, correct: 3, newCards: 1),
+        );
+        expect(today.accuracy, 0.75);
+      },
+    );
+
+    test('sin respuestas hoy, el acierto no es un cero', () async {
+      final today = (await load()).today;
+      expect(today, const TodayStats.empty());
+      expect(today.accuracy, isNull);
+    });
+  });
+
+  group('los repasos por día (F43, M17)', () {
+    test(
+      'por día de estudio y por tipo, aprender aparte de reaprender',
+      () async {
+        await h.card('c');
+        Future<void> at(DateTime when, CardPhase phase, {int before = 0}) =>
+            h.answered('c', phase: phase, at: when, intervalBefore: before);
+        // El 8 a las 3:00 todavía es el día del 7.
+        await at(DateTime(2026, 10, 8, 3), CardPhase.newCard);
+        await at(DateTime(2026, 10, 8, 5), CardPhase.newCard);
+        await at(DateTime(2026, 10, 8, 5, 10), CardPhase.learning);
+        await at(DateTime(2026, 10, 8, 6), CardPhase.review, before: 5);
+        await at(DateTime(2026, 10, 8, 7), CardPhase.review, before: 40);
+        await at(DateTime(2026, 10, 8, 8), CardPhase.relearning, before: 40);
+
+        final daily = (await load()).daily;
+        expect(daily, [
+          DayReviews(day: DateTime(2026, 10, 7, 4), byKind: const [1, 0, 0, 0]),
+          DayReviews(day: DateTime(2026, 10, 8, 4), byKind: const [1, 1, 2, 1]),
+        ]);
+        expect(daily.last.of(DailyReviewKind.review), 2);
+        expect(daily.last.total, 5);
+      },
+    );
+  });
+
+  group('los intervalos y la facilidad (F43, M17)', () {
+    test('solo las tarjetas en repaso, cada una en su tramo', () async {
+      for (final (i, days) in [1, 2, 7, 8, 21, 22, 90, 91, 400].indexed) {
+        await h.card('r$i', interval: days);
+      }
+      await h.card('nueva', phase: CardPhase.newCard);
+      await h.card('aprendiendo', phase: CardPhase.learning);
+      await h.card('pausada', interval: 50, suspended: true);
+
+      final s = await load();
+      expect(s.intervals, {
+        IntervalRange.oneDay: 1,
+        IntervalRange.upToWeek: 2,
+        IntervalRange.upToThreeWeeks: 2,
+        IntervalRange.upToThreeMonths: 2,
+        IntervalRange.longer: 2,
+      });
+      expect(s.reviewCards, 9);
+    });
+
+    test('la facilidad, en por ciento redondeado y con su promedio', () async {
+      // «b» y «c», con la facilidad de siempre: 2,5.
+      await h.card('a', ease: 1.3);
+      await h.card('b');
+      await h.card('c');
+      await h.card('d', ease: 2.36);
+      await h.card('nueva', phase: CardPhase.newCard, ease: 3);
+
+      final s = await load();
+      expect(s.ease, const [
+        EaseCount(percent: 130, count: 1),
+        EaseCount(percent: 236, count: 1),
+        EaseCount(percent: 250, count: 2),
+      ]);
+      expect(s.averageEase, (130 + 236 + 250 * 2) / 4);
+    });
+  });
+
+  group('las horas (F43, M17)', () {
+    test(
+      'el acierto de cada hora y la mejor con respuestas suficientes',
+      () async {
+        await h.card('c');
+        for (var n = 0; n < 12; n++) {
+          await h.answered(
+            'c',
+            phase: CardPhase.review,
+            at: DateTime(2026, 10, 7, 9, n * 4),
+            grade: n == 0 ? 'again' : 'good',
+            intervalBefore: 5,
+          );
+        }
+        // Dos respuestas perfectas a las 21: no alcanzan para ser «la mejor».
+        for (var n = 0; n < 2; n++) {
+          await h.answered(
+            'c',
+            phase: CardPhase.review,
+            at: DateTime(2026, 10, 6, 21, 30 + n),
+            intervalBefore: 5,
+          );
+        }
+
+        final s = await load();
+        expect(s.hours, hasLength(24));
+        expect(
+          s.hours[9],
+          const HourAccuracy(hour: 9, answers: 12, correct: 11),
+        );
+        expect(s.hours[21].accuracy, 1.0);
+        expect(s.hours[10].accuracy, isNull);
+        expect(s.bestHour?.hour, 9);
+      },
+    );
+  });
+
+  group('las agregadas (F43, M17)', () {
+    test('las tarjetas nuevas de cada día de estudio', () async {
+      await h.card('a', createdAt: DateTime(2026, 10, 8, 5));
+      await h.card('b', createdAt: DateTime(2026, 10, 8, 23));
+      await h.card('c', createdAt: DateTime(2026, 10, 8, 3));
+      await h.card('d', createdAt: DateTime(2026, 9, 1, 12));
+
+      expect((await load()).added, [
+        DayCount(day: DateTime(2026, 9, 1, 4), count: 1),
+        DayCount(day: DateTime(2026, 10, 7, 4), count: 1),
+        DayCount(day: DateTime(2026, 10, 8, 4), count: 2),
+      ]);
+    });
+  });
+
+  group('sigue al recorte (F43, M17)', () {
+    test('cuenta solo las tarjetas del recorte y su historial', () async {
+      await insertItemRows(h.db, id: 'otro', title: 'Otro');
+      await h.card('mia', interval: 5, dueAt: DateTime(2026, 10, 9, 12));
+      await h.card(
+        'ajena',
+        itemId: 'otro',
+        interval: 50,
+        dueAt: DateTime(2026, 10, 9, 12),
+        createdAt: DateTime(2026, 10, 8, 5),
+      );
+      await h.card(
+        'ajena-2',
+        itemId: 'otro',
+        phase: CardPhase.newCard,
+        createdAt: DateTime(2026, 10, 8, 6),
+      );
+      await h.answered(
+        'mia',
+        phase: CardPhase.review,
+        at: DateTime(2026, 10, 8, 9),
+        intervalBefore: 5,
+      );
+      await h.answered(
+        'ajena',
+        phase: CardPhase.review,
+        at: DateTime(2026, 10, 8, 9),
+        intervalBefore: 50,
+        grade: 'again',
+      );
+
+      final s = await load(scope: const StudyScope.item('otro'));
+      expect(s.distribution.total, 2);
+      expect(s.distribution.mature, 1);
+      expect(s.distribution.newCards, 1);
+      expect(s.forecast.total, 1);
+      expect(
+        s.today,
+        const TodayStats(cards: 1, answers: 1, correct: 0, newCards: 0),
+      );
+      expect(
+        s.buttonsFor(StatsPeriod.all).overall,
+        const ButtonUsage(again: 1),
+      );
+      expect(s.intervals[IntervalRange.upToThreeMonths], 1);
+      expect(s.reviewCards, 1);
+      expect(s.added, [DayCount(day: DateTime(2026, 10, 8, 4), count: 2)]);
+
+      final all = await load();
+      expect(all.distribution.total, 3);
+      expect(all.today.answers, 2);
+    });
+
+    test('un recorte sin elementos da todo en cero', () async {
+      await h.card('c');
+      await h.answered('c', phase: CardPhase.newCard, at: now);
+      final s = await load(scope: const StudyScope.space('vacio'));
+      expect(s.distribution.total, 0);
+      expect(s.today.answers, 0);
+      expect(s.daily, isEmpty);
+      expect(s.added, isEmpty);
+    });
   });
 }

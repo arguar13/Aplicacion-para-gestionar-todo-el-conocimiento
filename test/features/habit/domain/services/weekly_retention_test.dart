@@ -1,90 +1,68 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/review_activity.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/habit/domain/services/weekly_retention.dart';
 
-/// `weeklyRetention` (F17, D8): pura. Hoy es siempre el 25 de septiembre de
-/// 2026 (viernes) en estas pruebas.
+/// `weeklyRetention` (F17, D8; F43, M16): pura. Hoy es siempre el viernes
+/// 25 de septiembre de 2026 a las 14:00.
 void main() {
-  final today = DateTime(2026, 9, 25, 14);
+  final now = DateTime(2026, 9, 25, 14);
+
+  ReviewActivityBucket at(
+    DateTime start, {
+    ReviewGrade grade = ReviewGrade.good,
+    ReviewLogStage stage = ReviewLogStage.young,
+    int count = 1,
+  }) => ReviewActivityBucket(
+    start: start,
+    stage: stage,
+    grade: grade,
+    count: count,
+  );
 
   test('sin repasos, las doce semanas aparecen igual, todas en cero', () {
-    final weeks = weeklyRetention(const [], today: today);
+    final weeks = weeklyRetention(const [], now: now);
 
     expect(weeks, hasLength(12));
-    for (final week in weeks) {
-      expect(week.total, 0);
-      expect(week.retained, 0);
-      expect(week.ratio, 0);
-    }
-    // La última fila es la semana de hoy: del 19 al 25.
-    expect(weeks.last.weekStart, DateTime(2026, 9, 19));
-    // La primera es la más vieja de las doce, 77 días atrás.
-    expect(weeks.first.weekStart, DateTime(2026, 7, 4));
+    expect(weeks.every((w) => w.total == 0 && w.ratio == 0), isTrue);
+    // La de hoy va del 19 a las 4:00 hasta hoy; la más vieja, 77 días antes.
+    expect(weeks.last.weekStart, DateTime(2026, 9, 19, 4));
+    expect(weeks.first.weekStart, DateTime(2026, 7, 4, 4));
   });
 
-  test('un repaso hoy, retenido, cuenta en la semana de hoy', () {
+  test('«Difícil» se recordó; «De nuevo», no', () {
     final weeks = weeklyRetention([
-      (reviewedAt: today, retained: true),
-    ], today: today);
-
-    expect(weeks.last.total, 1);
-    expect(weeks.last.retained, 1);
-    expect(weeks.last.ratio, 1);
+      at(now, grade: ReviewGrade.hard, count: 3),
+      at(now, grade: ReviewGrade.again),
+    ], now: now);
+    expect(weeks.last.total, 4);
+    expect(weeks.last.retained, 3);
   });
 
-  test('un repaso "again" cuenta en el total pero no en lo retenido', () {
+  test('solo cuentan los repasos en días, jóvenes o maduros', () {
     final weeks = weeklyRetention([
-      (reviewedAt: today, retained: false),
-    ], today: today);
-
-    expect(weeks.last.total, 1);
-    expect(weeks.last.retained, 0);
-    expect(weeks.last.ratio, 0);
-  });
-
-  test('un repaso de hace 8 días va a la semana anterior, no a la de hoy', () {
-    final weeks = weeklyRetention([
-      (reviewedAt: today.subtract(const Duration(days: 8)), retained: true),
-    ], today: today);
-
-    expect(weeks.last.total, 0);
-    expect(weeks[weeks.length - 2].total, 1);
-  });
-
-  test('un repaso fuera de la ventana no aparece en ninguna semana', () {
-    final weeks = weeklyRetention([
-      (reviewedAt: today.subtract(const Duration(days: 90)), retained: true),
-    ], today: today);
-
-    expect(weeks.fold<int>(0, (sum, w) => sum + w.total), 0);
-  });
-
-  test('la hora del día no importa, solo la fecha', () {
-    final weeks = weeklyRetention([
-      (reviewedAt: DateTime(2026, 9, 25, 23, 59), retained: true),
-    ], today: DateTime(2026, 9, 25, 0, 1));
-
+      at(now, stage: ReviewLogStage.mature),
+      at(now, stage: ReviewLogStage.newCard, grade: ReviewGrade.again),
+      at(now, stage: ReviewLogStage.learning),
+      at(now, stage: ReviewLogStage.relearning),
+    ], now: now);
     expect(weeks.last.total, 1);
   });
 
-  test('con weeks: 1, una sola fila, la semana de hoy', () {
-    final weeks = weeklyRetention(
-      [(reviewedAt: today, retained: true)],
-      today: today,
-      weeks: 1,
-    );
-
-    expect(weeks, hasLength(1));
-    expect(weeks.single.total, 1);
+  test('a las 3:59 todavía es el día de antes', () {
+    final weeks = weeklyRetention([
+      at(DateTime(2026, 9, 19, 3, 59)),
+      at(DateTime(2026, 9, 19, 4)),
+    ], now: now);
+    expect(weeks.last.total, 1);
+    expect(weeks[10].total, 1);
   });
 
-  test('varios repasos en la misma semana se suman', () {
+  test('más viejo que la ventana, o en el futuro, no cuenta', () {
     final weeks = weeklyRetention([
-      (reviewedAt: today, retained: true),
-      (reviewedAt: today, retained: true),
-      (reviewedAt: today.subtract(const Duration(days: 1)), retained: false),
-    ], today: today);
-
-    expect(weeks.last.total, 3);
-    expect(weeks.last.retained, 2);
+      at(DateTime(2026, 7, 4, 3)),
+      at(DateTime(2026, 9, 26, 5)),
+    ], now: now);
+    expect(weeks.every((w) => w.total == 0), isTrue);
   });
 }

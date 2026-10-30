@@ -147,8 +147,17 @@ class _ReviewEntryScreenState extends ConsumerState<ReviewEntryScreen> {
           // La racha y el historial se ven siempre (F39, decisión D): ya no
           // hay un interruptor en Ajustes que los apague.
           const _StreakIndicator(),
+          // F43, M17: las estadísticas y el historial, juntos; cada uno abre
+          // su pestaña de la misma pantalla.
           IconButton(
-            icon: const Icon(Icons.query_stats_outlined),
+            key: const Key('review-open-stats'),
+            icon: const Icon(Icons.bar_chart_rounded),
+            tooltip: l10n.f43S20StatsTooltip,
+            onPressed: () => context.push(kRouteReviewStats),
+          ),
+          IconButton(
+            key: const Key('review-open-history'),
+            icon: const Icon(Icons.show_chart_rounded),
             tooltip: l10n.reviewHistoryTooltip,
             onPressed: () => context.push(RoutePaths.reviewHistory),
           ),

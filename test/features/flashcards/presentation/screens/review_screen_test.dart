@@ -22,7 +22,7 @@ import 'package:sinapsis/features/flashcards/presentation/providers/study_limits
 import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
-import 'package:sinapsis/features/habit/presentation/screens/review_history_screen.dart';
+import 'package:sinapsis/features/flashcards/presentation/screens/review_stats_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
@@ -181,7 +181,14 @@ void main() {
     await tester.tap(find.byTooltip(es.reviewHistoryTooltip));
     await tester.pumpAndSettle();
 
-    expect(find.byType(ReviewHistoryScreen), findsOneWidget);
+    // F43, M17: el historial es la pestaña «Historial» de las estadísticas.
+    expect(
+      tester
+          .widget<ReviewStatsScreen>(find.byType(ReviewStatsScreen))
+          .initialTab,
+      ReviewStatsTab.history,
+    );
+    expect(find.byKey(const Key('review-history-retention')), findsOneWidget);
   });
 
   testWidgets(

@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' show Variable;
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
@@ -6,53 +6,63 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/card_browser_sql.dart';
+import 'package:sinapsis/features/flashcards/data/repositories/review_scope_reader.dart';
+import 'package:sinapsis/features/flashcards/data/repositories/review_scope_sql.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/card_browser_query.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_stats.dart';
-import 'package:sinapsis/features/flashcards/domain/repositories/card_browser_repository.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/review_stats_repository.dart';
+import 'package:sinapsis/features/flashcards/domain/services/review_stats_math.dart';
 import 'package:sinapsis/features/flashcards/domain/services/study_day.dart';
+import 'package:sinapsis/features/flashcards/domain/services/study_scope_resolver.dart';
 
-/// [ReviewStatsRepository] sobre la base (F31, ola 2, decisión 72).
+/// [ReviewStatsRepository] sobre la base (F43, M17; F31, decisión 72).
 ///
-/// El reparto por etapa NO se calcula acá: lo pide a [CardBrowserRepository]
-/// (`statusCounts`), el mismo que rotula los filtros de «Mis tarjetas». Hay una
-/// sola respuesta a «cuántas son maduras», y los dos números no pueden
-/// discrepar.
+/// El recorte se resuelve una vez y cada número sale de una consulta en lote
+/// (`ReviewScopeSql`): el reparto, el pronóstico, las respuestas agrupadas, lo
+/// de hoy, la forma de las tarjetas y lo agregado. Seis lecturas, tenga el
+/// recorte diez tarjetas o diez mil.
+///
+/// El reparto por etapa usa el mismo SQL que rotula los filtros de «Mis
+/// tarjetas» (`CardBrowserSql.statusCountsSql`): hay una sola respuesta a
+/// «cuántas son maduras», y los dos números no pueden discrepar.
 class ReviewStatsRepositoryImpl implements ReviewStatsRepository {
-  const ReviewStatsRepositoryImpl({
+  ReviewStatsRepositoryImpl({
     required AppDatabase database,
     required TelemetryService telemetry,
     required Clock clock,
-    required CardBrowserRepository browser,
+    required StudyScopeResolver resolver,
     StudyDay day = const StudyDay(),
   }) : _db = database,
        _telemetry = telemetry,
        _clock = clock,
-       _browser = browser,
-       _day = day;
+       _day = day,
+       _reader = ReviewScopeReader(database: database, resolver: resolver);
 
   final AppDatabase _db;
   final TelemetryService _telemetry;
   final Clock _clock;
-  final CardBrowserRepository _browser;
   final StudyDay _day;
+  final ReviewScopeReader _reader;
 
   @override
-  Future<Either<Failure, ReviewStats>> load({
-    required StatsPeriod period,
-  }) async {
+  Future<Either<Failure, ReviewStats>> load({required StudyScope scope}) async {
     try {
       final now = _clock();
-      final distribution = await _distribution();
-      return await distribution.match(
-        (failure) async => left(failure),
-        (distribution) async => right(
-          ReviewStats(
-            forecast: await _forecast(now),
-            distribution: distribution,
-            buttons: await _buttons(now, period),
-            period: period,
-          ),
+      final sql = await _reader.sqlFor(scope);
+      final activity = await _reader.activity(sql);
+      final shape = await _cardShape(sql);
+      return right(
+        ReviewStats(
+          today: await _today(sql, now),
+          forecast: await _forecast(sql, now),
+          daily: dailyReviews(activity, day: _day),
+          distribution: await _distribution(sql, now),
+          buttons: buttonsByPeriod(activity, now: now, day: _day),
+          intervals: shape.intervals,
+          ease: shape.ease,
+          hours: hourAccuracy(activity),
+          added: await _added(sql),
         ),
       );
       // Catch-all deliberado, igual que en el resto de los repositorios: un
@@ -69,11 +79,11 @@ class ReviewStatsRepositoryImpl implements ReviewStatsRepository {
   }
 
   @override
-  Stream<ReviewStats> watch({required StatsPeriod period}) => watchQuery(
+  Stream<ReviewStats> watch({required StudyScope scope}) => watchQuery(
     db: _db,
-    tables: [_db.flashcards, _db.reviewLogs, _db.knowledgeEntries],
+    tables: _reader.watched,
     read: () async {
-      final result = await load(period: period);
+      final result = await load(scope: scope);
       // Un fallo viaja por el stream, como en el resto de las lecturas.
       return result.getOrElse((failure) => throw StateError('$failure'));
     },
@@ -81,57 +91,53 @@ class ReviewStatsRepositoryImpl implements ReviewStatsRepository {
     hint: 'ReviewStatsRepositoryImpl.watch',
   );
 
-  Future<Either<Failure, CardDistribution>> _distribution() async {
-    final counts = await _browser.statusCounts(const CardBrowserQuery());
-    return counts.map(
-      (c) => CardDistribution(
-        newCards: c[CardBrowserStatus.newCards] ?? 0,
-        learning: c[CardBrowserStatus.learning] ?? 0,
-        young: c[CardBrowserStatus.young] ?? 0,
-        mature: c[CardBrowserStatus.mature] ?? 0,
-        suspended: c[CardBrowserStatus.suspended] ?? 0,
-      ),
+  Future<CardDistribution> _distribution(
+    ReviewScopeSql sql,
+    DateTime now,
+  ) async {
+    final rows = await _reader.rows((
+      sql: CardBrowserSql.statusCountsSql(sql.where),
+      variables: [
+        Variable.withDateTime(_day.endOf(now)),
+        Variable.withDateTime(now),
+        ...sql.args,
+      ],
+    ));
+    final c = CardBrowserSql.statusCountsOf(rows.single);
+    return CardDistribution(
+      newCards: c[CardBrowserStatus.newCards]!,
+      learning: c[CardBrowserStatus.learning]!,
+      young: c[CardBrowserStatus.young]!,
+      mature: c[CardBrowserStatus.mature]!,
+      suspended: c[CardBrowserStatus.suspended]!,
+    );
+  }
+
+  Future<TodayStats> _today(ReviewScopeSql sql, DateTime now) async {
+    final row = (await _reader.rows(sql.today(_day.startOf(now)))).single;
+    return TodayStats(
+      cards: row.read<int>('cards'),
+      answers: row.read<int>('answers'),
+      correct: row.read<int>('correct'),
+      newCards: row.read<int>('new_cards'),
     );
   }
 
   /// Cuántas vencen en cada uno de los próximos [kForecastDays] días de
-  /// estudio.
-  ///
-  /// Cuenta lo programado —no lo nuevo, que no tiene fecha— y no pausado. Una
-  /// tarjeta pospuesta cuenta el día en que vuelve, no el que tenía. Los bordes
-  /// de cada día son `DateTime(año, mes, día, 4)` en la zona de ahora, no sumas
-  /// de 24 horas: el día del cambio de horario mide 23 o 25.
-  Future<ReviewForecast> _forecast(DateTime now) async {
+  /// estudio. Los bordes de cada día son `DateTime(año, mes, día, 4)` en la
+  /// zona de ahora, no sumas de 24 horas: el día del cambio de horario mide 23
+  /// o 25.
+  Future<ReviewForecast> _forecast(ReviewScopeSql sql, DateTime now) async {
     final today = _day.startOf(now);
-    // Los bordes: el principio de hoy, y el fin de cada día del pronóstico.
     DateTime edge(int days) =>
         DateTime(today.year, today.month, today.day + days, _day.startHour);
-    final ends = [for (var k = 1; k <= kForecastDays; k++) edge(k)];
-
-    final whens = [
-      'WHEN eff < ? THEN -1',
-      for (var k = 0; k < kForecastDays; k++) 'WHEN eff < ? THEN $k',
-    ].join(' ');
-    final rows = await _db
-        .customSelect(
-          'SELECT CASE $whens END AS bucket, COUNT(*) AS n FROM ( '
-          'SELECT CASE WHEN f.buried_until IS NOT NULL '
-          'AND f.buried_until > ? AND f.buried_until > f.due_at '
-          'THEN f.buried_until ELSE f.due_at END AS eff '
-          '${CardBrowserSql.from} '
-          'WHERE i.deleted_at IS NULL AND f.suspended = 0 '
-          'AND NOT (${CardBrowserSql.isNew}) '
-          ') WHERE eff < ? GROUP BY bucket',
-          variables: [
-            Variable.withDateTime(today),
-            for (final end in ends) Variable.withDateTime(end),
-            Variable.withDateTime(now),
-            Variable.withDateTime(ends.last),
-          ],
-          readsFrom: {_db.flashcards, _db.knowledgeEntries},
-        )
-        .get();
-
+    final rows = await _reader.rows(
+      sql.forecast(
+        today: today,
+        now: now,
+        ends: [for (var k = 1; k <= kForecastDays; k++) edge(k)],
+      ),
+    );
     final perBucket = {
       for (final row in rows) row.read<int>('bucket'): row.read<int>('n'),
     };
@@ -148,67 +154,29 @@ class ReviewStatsRepositoryImpl implements ReviewStatsRepository {
     );
   }
 
-  /// Cuántas veces se apretó cada botón en cada etapa, con el historial de
-  /// [period]. La etapa es la que tenía la tarjeta ANTES de contestarla
-  /// (`phase_before`); un repaso se reparte entre joven y maduro por el
-  /// intervalo de antes.
-  Future<ButtonUsageByStage> _buttons(DateTime now, StatsPeriod period) async {
-    final days = period.days;
-    final since = days == null
-        ? null
-        : () {
-            final today = _day.startOf(now);
-            return DateTime(
-              today.year,
-              today.month,
-              today.day - (days - 1),
-              _day.startHour,
-            );
-          }();
-
-    final rows = await _db
-        .customSelect(
-          'SELECT CASE '
-          "WHEN rl.phase_before = 'newCard' THEN 'new' "
-          "WHEN rl.phase_before IN ('learning', 'relearning') THEN 'learning' "
-          "WHEN rl.interval_before < $kMatureIntervalDays THEN 'young' "
-          "ELSE 'mature' END AS stage, rl.grade AS grade, COUNT(*) AS n "
-          'FROM review_log rl JOIN flashcards f ON f.id = rl.flashcard_id '
-          'JOIN item i ON i.id = f.item_id '
-          'WHERE i.deleted_at IS NULL '
-          '${since == null ? '' : 'AND rl.reviewed_at >= ? '}'
-          'GROUP BY stage, grade',
-          variables: [if (since != null) Variable.withDateTime(since)],
-          readsFrom: {_db.reviewLogs, _db.flashcards, _db.knowledgeEntries},
-        )
-        .get();
-
-    final tally = <StatsStage, List<int>>{}; // again, hard, good, easy
-    for (final row in rows) {
-      final stage = switch (row.read<String>('stage')) {
-        'new' => StatsStage.newCard,
-        'learning' => StatsStage.learning,
-        'young' => StatsStage.young,
-        _ => StatsStage.mature,
-      };
-      final slot = switch (row.read<String>('grade')) {
-        'again' => 0,
-        'hard' => 1,
-        'good' => 2,
-        'easy' => 3,
-        _ => -1,
-      };
-      if (slot < 0) continue;
-      (tally[stage] ??= [0, 0, 0, 0])[slot] += row.read<int>('n');
+  Future<({Map<IntervalRange, int> intervals, List<EaseCount> ease})>
+  _cardShape(ReviewScopeSql sql) async {
+    final intervals = {for (final range in IntervalRange.values) range: 0};
+    final ease = <int, int>{};
+    for (final row in await _reader.rows(sql.cardShape)) {
+      final n = row.read<int>('n');
+      final range = IntervalRange.values[row.read<int>('band')];
+      intervals[range] = intervals[range]! + n;
+      final percent = row.read<int>('ease');
+      ease[percent] = (ease[percent] ?? 0) + n;
     }
-    return ButtonUsageByStage({
-      for (final entry in tally.entries)
-        entry.key: ButtonUsage(
-          again: entry.value[0],
-          hard: entry.value[1],
-          good: entry.value[2],
-          easy: entry.value[3],
-        ),
-    });
+    final percents = ease.keys.toList()..sort();
+    return (
+      intervals: intervals,
+      ease: [for (final p in percents) EaseCount(percent: p, count: ease[p]!)],
+    );
   }
+
+  Future<List<DayCount>> _added(ReviewScopeSql sql) async => addedPerDay([
+    for (final row in await _reader.rows(sql.added))
+      (
+        start: ReviewScopeReader.quarterStart(row.read<int>('q')),
+        count: row.read<int>('n'),
+      ),
+  ], day: _day);
 }

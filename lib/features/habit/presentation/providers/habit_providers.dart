@@ -3,6 +3,8 @@ import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/database/habit_event_recorder.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/habit/data/repositories/review_history_repository_impl.dart';
 import 'package:sinapsis/features/habit/data/repositories/streak_repository_impl.dart';
 import 'package:sinapsis/features/habit/domain/entities/review_history.dart';
@@ -44,11 +46,15 @@ final reviewHistoryRepositoryProvider = Provider<ReviewHistoryRepository>((
     database: ref.watch(appDatabaseProvider),
     telemetry: ref.watch(telemetryServiceProvider),
     clock: ref.watch(clockProvider),
+    resolver: ref.watch(studyScopeResolverProvider),
   );
 });
 
-/// El historial de repasos (F17, D8): se actualiza solo con cada repaso
-/// nuevo.
-final reviewHistoryProvider = StreamProvider.autoDispose<ReviewHistory>((ref) {
-  return ref.watch(reviewHistoryRepositoryProvider).watch();
-});
+/// El historial de repasos de un recorte (F17, D8; F43, M16): se actualiza
+/// solo con cada repaso nuevo y al empezar un día de estudio nuevo, que mueve
+/// las semanas y el calendario.
+final reviewHistoryProvider = StreamProvider.autoDispose
+    .family<ReviewHistory, StudyScope>((ref, scope) {
+      ref.watch(studyDayStartProvider);
+      return ref.watch(reviewHistoryRepositoryProvider).watch(scope);
+    });
