@@ -13862,5 +13862,19 @@
   "f43S19QuizTheRightOne": "La correcta",
   "@f43S19QuizTheRightOne": {"description": "Cuestionario: la correcta que no se eligió (F43, M15)."},
   "f43S19QuizMenu": "Más opciones",
-  "@f43S19QuizMenu": {"description": "Cuestionario: el ⋮ de arriba (F43, M15)."}
+  "@f43S19QuizMenu": {"description": "Cuestionario: el ⋮ de arriba (F43, M15)."},
+  "f43S21How": "Cómo",
+  "@f43S21How": {"description": "Hoja de «Tarjetas didácticas» con varios documentos: la pregunta entre un mazo y tarjetas para cada documento (F43, M18)."},
+  "f43S21HowOne": "Un mazo",
+  "@f43S21HowOne": {"description": "«Cómo»: una sola creación con todas las fuentes, en «Lo creado» (F43, M18)."},
+  "f43S21HowEach": "Para cada documento",
+  "@f43S21HowEach": {"description": "«Cómo»: cada documento recibe sus tarjetas con la cola de la IA (F43, M18)."},
+  "f43S21HowEachHint": "Cada documento recibe sus propias tarjetas, en segundo plano. No se arma un mazo en «Lo creado»: el avance se ve arriba de Repasar y se deshace desde «Lo que hizo la IA». El número va según el largo de cada uno: «Menos» es la mitad y «Más», una vez y media.",
+  "@f43S21HowEachHint": {"description": "Debajo de «Cómo», con «Para cada documento» elegido (F43, M18)."},
+  "f43S21Coverage": "{count, plural, =0{Ningún documento de acá tiene texto todavía} =1{Entra 1 documento con texto} other{Entran {count} documentos con texto}}",
+  "@f43S21Coverage": {"description": "«Para cada documento»: cuántos de los documentos tildados tienen texto del que salgan tarjetas (F43, M18).", "placeholders": {"count": {"type": "int"}}},
+  "f43S21CoverageFailed": "No se pudo contar qué documentos entran.",
+  "@f43S21CoverageFailed": {"description": "«Para cada documento»: falló la cuenta de los que entran (F43, M18)."},
+  "f43S21Start": "{count, plural, =0{Nada para hacer} =1{Crear tarjetas de 1 documento} other{Crear tarjetas de {count} documentos}}",
+  "@f43S21Start": {"description": "«Para cada documento»: el botón de abajo, que dice a cuántos les pide tarjetas (F43, M18).", "placeholders": {"count": {"type": "int"}}}
 }

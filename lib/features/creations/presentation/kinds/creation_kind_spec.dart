@@ -217,6 +217,85 @@ class CreationOptionsContext {
 typedef CreationOptionsBuilder =
     Widget Function(BuildContext context, CreationOptionsContext options);
 
+/// Lo que la hoja le da a «Para cada documento» ([CreationEachDocument], F43,
+/// M18): sobre qué documentos, con qué opciones y cómo terminar.
+@immutable
+class CreationEachDocumentContext {
+  const CreationEachDocumentContext({
+    required this.sourceIds,
+    required this.options,
+    required this.languageCode,
+    required this.topic,
+    required this.alsoExisting,
+    required this.setAlsoExisting,
+    required this.finish,
+  });
+
+  /// Los documentos tildados en «Fuentes», en el orden del recorte.
+  final List<String> sourceIds;
+
+  /// Las opciones de ahora, con las de fábrica ya puestas.
+  final Map<String, Object?> options;
+
+  final String languageCode;
+
+  /// El tema escrito en la hoja, leído al momento: se escribe sin volver a
+  /// dibujarla.
+  final String Function() topic;
+
+  /// «También los que ya tienen»: vuelve a hacerles a los que ya tienen lo
+  /// suyo. Lo guarda la hoja, para que el panel y el botón digan lo mismo.
+  final bool alsoExisting;
+  final ValueChanged<bool> setAlsoExisting;
+
+  /// Recuerda lo elegido para la próxima, cierra la hoja y avisa con el
+  /// mensaje que recibe.
+  final Future<void> Function(String message) finish;
+}
+
+/// «Cómo» en la hoja de un tipo (F43, M18), con más de un documento en las
+/// fuentes: **una** creación sobre todos —la de siempre, una fila en «Lo
+/// creado»— o **«Para cada documento»**, que le hace lo suyo a cada uno por
+/// otro camino, sin fila en «Lo creado». Lo usa «Tarjetas didácticas»: cada
+/// documento recibe sus tarjetas con la cola de la IA de F30.
+///
+/// La hoja dibuja la pregunta, esconde las opciones que valen solo para una
+/// creación ([onlyForOne]) y, en lugar de «Uso de IA» y los dos botones de
+/// generar, pone [action]; [panel] va debajo de las opciones.
+@immutable
+class CreationEachDocument {
+  const CreationEachDocument({
+    required this.oneLabel,
+    required this.eachLabel,
+    required this.eachHint,
+    required this.panel,
+    required this.action,
+    this.onlyForOne = const {},
+  });
+
+  /// «Un mazo».
+  final CreationText oneLabel;
+
+  /// «Para cada documento».
+  final CreationText eachLabel;
+
+  /// Qué pasa con «Para cada documento», debajo de la pregunta.
+  final CreationText eachHint;
+
+  /// Lo que se ve debajo de las opciones: cuántos entran, «También los que ya
+  /// tienen».
+  final Widget Function(BuildContext context, CreationEachDocumentContext each)
+  panel;
+
+  /// El botón de abajo, que dice qué va a pasar y lo pide.
+  final Widget Function(BuildContext context, CreationEachDocumentContext each)
+  action;
+
+  /// Las claves de las opciones que no valen para «Para cada documento»: no
+  /// se muestran mientras está elegido.
+  final Set<String> onlyForOne;
+}
+
 /// Lo pedido con las opciones dibujadas a mano de un tipo
 /// ([CreationKindSpec.optionsBuilder]), para «Ver petición y fuentes»: cada
 /// una con su nombre y su valor, en el idioma de la app («Estilo visual:
@@ -327,6 +406,7 @@ class CreationKindSpec {
     this.viewerBuilder,
     this.viewerActions,
     this.exporter,
+    this.eachDocument,
   });
 
   final StudyCreationKind kind;
@@ -384,6 +464,10 @@ class CreationKindSpec {
   /// mantener apretado y el botón que aparece al deslizar). Sin esto, esas
   /// dos no se ofrecen: nunca un botón que no hace nada.
   final CreationExporter? exporter;
+
+  /// «Cómo», con más de un documento: una creación o «Para cada documento»
+  /// (F43, M18). Sin esto, siempre una.
+  final CreationEachDocument? eachDocument;
 
   /// Lo que la IA escribe por defecto, si el tipo no dice otra cosa.
   static const defaultOutputTokens = 2000;
@@ -455,6 +539,7 @@ class CreationKindSpec {
     CreationViewerBuilder? viewerBuilder,
     CreationViewerActionsBuilder? viewerActions,
     CreationExporter? exporter,
+    CreationEachDocument? eachDocument,
   }) => CreationKindSpec(
     kind: kind,
     accent: accent ?? this.accent,
@@ -472,5 +557,6 @@ class CreationKindSpec {
     viewerBuilder: viewerBuilder ?? this.viewerBuilder,
     viewerActions: viewerActions ?? this.viewerActions,
     exporter: exporter ?? this.exporter,
+    eachDocument: eachDocument ?? this.eachDocument,
   );
 }

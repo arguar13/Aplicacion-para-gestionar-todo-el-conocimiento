@@ -105,6 +105,12 @@ class _CreationCustomizeSheetState
   var _sourcesOpen = false;
   var _busy = false;
 
+  /// «Cómo» (F43, M18): si se eligió «Para cada documento», y su «También los
+  /// que ya tienen». Abre siempre en una sola creación: «Para cada documento»
+  /// pone a trabajar a la IA con cada uno, y eso se elige cada vez.
+  var _eachDocument = false;
+  var _alsoExisting = false;
+
   final _description = TextEditingController();
   final _topic = TextEditingController();
   final _texts = <String, TextEditingController>{};
@@ -183,6 +189,45 @@ class _CreationCustomizeSheetState
     });
   }
 
+  /// Si la hoja pregunta «Cómo» (F43, M18): el tipo lo ofrece y hay más de un
+  /// documento tildado. Con uno solo no hay pregunta: es una creación. Volver
+  /// a generar es de una creación que ya existe: tampoco.
+  bool _offersHow(List<String> chosen) =>
+      _spec.eachDocument != null &&
+      widget.regenerating == null &&
+      chosen.length > 1;
+
+  /// Si va «Para cada documento»: elegido, y todavía con la pregunta a la
+  /// vista (destildar hasta dejar uno vuelve a una creación).
+  bool _isEach(List<String> chosen) => _eachDocument && _offersHow(chosen);
+
+  CreationEachDocumentContext _eachContext(List<String> chosen) =>
+      CreationEachDocumentContext(
+        sourceIds: chosen,
+        options: Map.unmodifiable(_options),
+        languageCode: _language,
+        topic: () => _topic.text.trim(),
+        alsoExisting: _alsoExisting,
+        setAlsoExisting: (on) => setState(() => _alsoExisting = on),
+        finish: _finishEach,
+      );
+
+  /// Lo pidió «Para cada documento»: se recuerda lo elegido como al generar,
+  /// y la hoja se cierra con su aviso. No hay fila en «Lo creado»: el avance
+  /// se ve en el aviso de arriba de Repasar.
+  Future<void> _finishEach(String message) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    await ref
+        .read(creationLastChoicesProvider)
+        .save(widget.kind, _options, _language);
+    if (!mounted) return;
+    navigator.pop();
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _generate(List<String> sourceIds, {required bool runNow}) async {
     if (sourceIds.isEmpty || _busy) return;
     final l10n = AppLocalizations.of(context)!;
@@ -255,19 +300,25 @@ class _CreationCustomizeSheetState
         .watch(creationScopeDocumentIdsProvider(widget.scope))
         .valueOrNull;
     final chosen = all == null ? const <String>[] : _chosen(all);
-    final estimate = _spec.usesAi && chosen.isNotEmpty
+    final each = _isEach(chosen) ? _spec.eachDocument : null;
+    final eachContext = each == null ? null : _eachContext(chosen);
+    // «Uso de IA» estima una creación: «Para cada documento» no lo es.
+    final estimate = _spec.usesAi && chosen.isNotEmpty && each == null
         ? _estimate(chosen)
         : null;
     final maxHeight = media.size.height * 0.92;
-    final bar = _ActionBar(
-      usesAi: _spec.usesAi,
-      estimate: estimate,
-      estimating: _spec.usesAi && chosen.isNotEmpty && estimate == null,
-      busy: _busy,
-      canGenerate: chosen.isNotEmpty,
-      onNow: () => unawaited(_generate(chosen, runNow: true)),
-      onLater: () => unawaited(_generate(chosen, runNow: false)),
-    );
+    final Widget bar = each != null && eachContext != null
+        ? _BarFrame(child: each.action(context, eachContext))
+        : _ActionBar(
+            usesAi: _spec.usesAi,
+            estimate: estimate,
+            estimating: _spec.usesAi && chosen.isNotEmpty && estimate == null,
+            busy: _busy,
+            canGenerate: chosen.isNotEmpty,
+            onNow: () => unawaited(_generate(chosen, runNow: true)),
+            onLater: () => unawaited(_generate(chosen, runNow: false)),
+          );
+    final onlyForOne = each?.onlyForOne ?? const <String>{};
     // Abajo y fijo, como en las capturas, mientras deje lugar para las
     // opciones. Con la letra muy grande en un teléfono bajo, la barra sola
     // ocuparía casi toda la hoja: pasa al final de la lista, que se desplaza.
@@ -312,7 +363,8 @@ class _CreationCustomizeSheetState
                     if (!_spec.usesAi) _extractIntro(context, chosen),
                     ..._commonFields(context, all, chosen),
                     for (final option in _spec.options)
-                      if (option.isVisible(_options))
+                      if (option.isVisible(_options) &&
+                          !onlyForOne.contains(option.key))
                         ..._option(context, option),
                     if (_spec.optionsBuilder case final builder?)
                       builder(
@@ -325,6 +377,8 @@ class _CreationCustomizeSheetState
                           sources: _sourcesOf(all),
                         ),
                       ),
+                    if (each != null && eachContext != null)
+                      each.panel(context, eachContext),
                     if (estimate != null &&
                         (estimate.wantsIllustrations ||
                             !estimate.canWriteText)) ...[
@@ -460,6 +514,7 @@ class _CreationCustomizeSheetState
       // Las fuentes van siempre: sin ellas no hay nada que crear.
       CreationSectionLabel(l10n.f43StudioSourcesTitle),
       _sources(context, all, chosen),
+      if (_offersHow(chosen)) ..._howField(context, _spec.eachDocument!),
       if (fields.contains(CreationField.description)) ...[
         CreationSectionLabel(l10n.f43StudioDescribe),
         TextField(
@@ -599,6 +654,35 @@ class _CreationCustomizeSheetState
         ),
       ],
     );
+  }
+
+  /// «Cómo» (F43, M18): una creación o «Para cada documento», y, con este,
+  /// qué va a pasar.
+  List<Widget> _howField(BuildContext context, CreationEachDocument each) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return [
+      CreationSectionLabel(l10n.f43S21How),
+      CreationSegmented<bool>(
+        keyPrefix: 'creation-how',
+        selected: _eachDocument,
+        onChanged: (value) => setState(() => _eachDocument = value),
+        segments: [
+          CreationSegment(value: false, label: each.oneLabel(l10n), id: 'one'),
+          CreationSegment(value: true, label: each.eachLabel(l10n), id: 'each'),
+        ],
+      ),
+      if (_eachDocument) ...[
+        const SizedBox(height: 8),
+        Text(
+          each.eachHint(l10n),
+          key: const Key('creation-how-each-hint'),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    ];
   }
 
   List<Widget> _topicField(BuildContext context) {
@@ -765,6 +849,88 @@ class _ActionBar extends StatelessWidget {
     // Si la IA elegida no puede escribir ahora, «Generar ahora» no se ofrece:
     // la tarjeta de arriba dice por qué, y «más tarde» espera a que pueda.
     final canNow = enabled && (estimate?.canWriteText ?? true);
+    return _BarFrame(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (usesAi) ...[
+            Text(
+              l10n.f43StudioAiUsage,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (estimate case final estimate?)
+              AiUsageBar(estimate: estimate)
+            else if (estimating)
+              Text(
+                l10n.f43StudioEstimating,
+                key: const Key('creation-estimating'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            const SizedBox(height: 12),
+          ],
+          OverflowBar(
+            alignment: MainAxisAlignment.end,
+            spacing: 8,
+            overflowSpacing: 8,
+            overflowAlignment: OverflowBarAlignment.end,
+            children: usesAi
+                ? [
+                    OutlinedButton(
+                      key: const Key('creation-generate-later'),
+                      style: creationSheetButtonStyle,
+                      onPressed: enabled ? onLater : null,
+                      child: Text(l10n.f43StudioGenerateLater),
+                    ),
+                    FilledButton.icon(
+                      key: const Key('creation-generate-now'),
+                      style: creationSheetButtonStyle,
+                      onPressed: canNow ? onNow : null,
+                      icon: const Icon(Icons.auto_awesome),
+                      label: Text(l10n.f43StudioGenerateNow),
+                    ),
+                  ]
+                : [
+                    FilledButton.icon(
+                      key: const Key('creation-create'),
+                      style: creationSheetButtonStyle,
+                      onPressed: enabled ? onNow : null,
+                      icon: const Icon(Icons.check),
+                      label: Text(l10n.f43StudioCreateNow),
+                    ),
+                  ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Los botones de abajo de la hoja: altos y redondos, como en las capturas.
+/// Los usa también el botón de «Para cada documento» (F43, M18).
+final creationSheetButtonStyle = ButtonStyle(
+  minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+  shape: WidgetStatePropertyAll(
+    RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+  ),
+);
+
+/// El fondo de la barra de abajo, con su borde arriba y el margen del
+/// sistema: el mismo para «Uso de IA» con sus botones y para el botón de
+/// «Para cada documento».
+class _BarFrame extends StatelessWidget {
+  const _BarFrame({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: scheme.surfaceContainer,
@@ -776,74 +942,11 @@ class _ActionBar extends StatelessWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (usesAi) ...[
-                Text(
-                  l10n.f43StudioAiUsage,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                if (estimate case final estimate?)
-                  AiUsageBar(estimate: estimate)
-                else if (estimating)
-                  Text(
-                    l10n.f43StudioEstimating,
-                    key: const Key('creation-estimating'),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                const SizedBox(height: 12),
-              ],
-              OverflowBar(
-                alignment: MainAxisAlignment.end,
-                spacing: 8,
-                overflowSpacing: 8,
-                overflowAlignment: OverflowBarAlignment.end,
-                children: usesAi
-                    ? [
-                        OutlinedButton(
-                          key: const Key('creation-generate-later'),
-                          style: _buttonStyle,
-                          onPressed: enabled ? onLater : null,
-                          child: Text(l10n.f43StudioGenerateLater),
-                        ),
-                        FilledButton.icon(
-                          key: const Key('creation-generate-now'),
-                          style: _buttonStyle,
-                          onPressed: canNow ? onNow : null,
-                          icon: const Icon(Icons.auto_awesome),
-                          label: Text(l10n.f43StudioGenerateNow),
-                        ),
-                      ]
-                    : [
-                        FilledButton.icon(
-                          key: const Key('creation-create'),
-                          style: _buttonStyle,
-                          onPressed: enabled ? onNow : null,
-                          icon: const Icon(Icons.check),
-                          label: Text(l10n.f43StudioCreateNow),
-                        ),
-                      ],
-              ),
-            ],
-          ),
+          child: child,
         ),
       ),
     );
   }
-
-  static final _buttonStyle = ButtonStyle(
-    minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
-    shape: WidgetStatePropertyAll(
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-    ),
-  );
 }
 
 /// Una píldora que muestra lo elegido y abre la lista: el idioma, la

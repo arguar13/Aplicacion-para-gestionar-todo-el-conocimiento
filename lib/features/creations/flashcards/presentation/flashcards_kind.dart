@@ -8,6 +8,7 @@ import 'package:sinapsis/features/creations/flashcards/domain/deck_review.dart';
 import 'package:sinapsis/features/creations/flashcards/domain/flashcard_deck_generator.dart';
 import 'package:sinapsis/features/creations/flashcards/domain/flashcard_deck_prompt.dart';
 import 'package:sinapsis/features/creations/flashcards/domain/item_illustrations.dart';
+import 'package:sinapsis/features/creations/flashcards/presentation/deck_each_document.dart';
 import 'package:sinapsis/features/creations/flashcards/presentation/export/flashcard_deck_export.dart';
 import 'package:sinapsis/features/creations/flashcards/presentation/widgets/flashcard_deck_viewer.dart';
 import 'package:sinapsis/features/creations/flashcards/presentation/widgets/study_viewer_parts.dart';
@@ -45,7 +46,8 @@ final flashcardsGeneratorProvider = Provider<CreationGenerator>(
 /// `creationKindSpecsProvider`. Las opciones de fábrica del plan —número,
 /// dificultad, «Incluir imágenes», idioma, fuentes y tema—, con «Incluir
 /// imágenes» como ilustraciones con IA y «Sumar a mi repaso» prendido; su
-/// visor, su botón de descargar y su archivo.
+/// visor, su botón de descargar y su archivo. Con varios documentos, «Cómo»:
+/// un mazo, o «Para cada documento» con la cola de la IA (M18).
 final flashcardsKindSpecProvider = Provider<CreationKindSpec>((ref) {
   final base = defaultCreationKindSpec(StudyCreationKind.flashcards);
   return base.copyWith(
@@ -69,5 +71,6 @@ final flashcardsKindSpecProvider = Provider<CreationKindSpec>((ref) {
       StudyDownloadButton(creation: creation),
     ],
     exporter: exportFlashcardDeck,
+    eachDocument: deckEachDocument,
   );
 });

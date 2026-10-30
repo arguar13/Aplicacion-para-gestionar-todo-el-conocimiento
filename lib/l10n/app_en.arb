@@ -14845,5 +14845,19 @@
   "f43S19QuizTheRightOne": "The right one",
   "@f43S19QuizTheRightOne": {"description": "Cuestionario: la correcta que no se eligió (F43, M15)."},
   "f43S19QuizMenu": "More options",
-  "@f43S19QuizMenu": {"description": "Cuestionario: el ⋮ de arriba (F43, M15)."}
+  "@f43S19QuizMenu": {"description": "Cuestionario: el ⋮ de arriba (F43, M15)."},
+  "f43S21How": "How",
+  "@f43S21How": {"description": "Hoja de «Tarjetas didácticas» con varios documentos: la pregunta entre un mazo y tarjetas para cada documento (F43, M18)."},
+  "f43S21HowOne": "One deck",
+  "@f43S21HowOne": {"description": "«Cómo»: una sola creación con todas las fuentes, en «Lo creado» (F43, M18)."},
+  "f43S21HowEach": "For each document",
+  "@f43S21HowEach": {"description": "«Cómo»: cada documento recibe sus tarjetas con la cola de la IA (F43, M18)."},
+  "f43S21HowEachHint": "Each document gets its own flashcards, in the background. No deck is made in «Created»: progress shows at the top of Review and can be undone from «What the AI did». The number follows each one's length: «Fewer» is half and «More», one and a half times.",
+  "@f43S21HowEachHint": {"description": "Debajo de «Cómo», con «Para cada documento» elegido (F43, M18)."},
+  "f43S21Coverage": "{count, plural, =0{No document here has text yet} =1{1 document with text} other{{count} documents with text}}",
+  "@f43S21Coverage": {"description": "«Para cada documento»: cuántos de los documentos tildados tienen texto del que salgan tarjetas (F43, M18).", "placeholders": {"count": {"type": "int"}}},
+  "f43S21CoverageFailed": "Couldn't count which documents are included.",
+  "@f43S21CoverageFailed": {"description": "«Para cada documento»: falló la cuenta de los que entran (F43, M18)."},
+  "f43S21Start": "{count, plural, =0{Nothing to do} =1{Create flashcards for 1 document} other{Create flashcards for {count} documents}}",
+  "@f43S21Start": {"description": "«Para cada documento»: el botón de abajo, que dice a cuántos les pide tarjetas (F43, M18).", "placeholders": {"count": {"type": "int"}}}
 }
