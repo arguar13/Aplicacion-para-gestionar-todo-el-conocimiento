@@ -605,8 +605,11 @@ filosofía de anki … el botón ese de explicar y que te lleve al chat de IA co
   1. el selector;
   2. las diez tarjetas de crear;
   3. «Lo creado»;
-  4. **«Para hoy»**, con «291 nuevas más esperan…»;
-  5. «Mis tarjetas» y «Estadísticas».
+  4. **«Para hoy»**, con «291 nuevas más esperan…» y, al lado de «Empezar», **«Mis tarjetas»**
+     como botón con borde (pedido del 29/10: *"el botón … de 'Mis tarjetas' … integrarlo a esa
+     cosa que está dentro del círculo anaranjado así queda unificado"*).
+- **La fila de abajo sale**: «Mis tarjetas» pasa a «Para hoy» y «Estadísticas» está arriba, en la
+  barra (M17).
 - Así lo de crear y lo creado quedan juntos, y el repaso del día va justo después, en la mitad de
   la pantalla.
 
@@ -664,7 +667,7 @@ actualizada"*.
 - **En la barra de arriba de Repasar, dos íconos juntos** (pedido del 29/10: *"el botón de
   estadísticas súmale a la parte superior … al lado del de historial"*): 📊 Estadísticas y 📈
   Historial, cada uno abre su pestaña. Van en el lugar que deja el ✨ (M18). El botón
-  «Estadísticas» de abajo abre lo mismo.
+  «Estadísticas» de abajo sale (M14).
 - **Sigue al selector de Repasar** (todo, documento, cuaderno o tema), con la píldora arriba para
   cambiarlo: las estadísticas de un libro son las de sus tarjetas.
 - **El orden**, de lo de hoy a lo de siempre:
