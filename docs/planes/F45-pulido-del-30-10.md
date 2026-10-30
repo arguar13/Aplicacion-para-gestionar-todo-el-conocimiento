@@ -495,6 +495,65 @@ Nueve commits, de `f80939b0` a `30a69926` (mejoras 3, 4, 8 y 9, decisión E).
     unifica el paso 7b;
   - «Volver a extraer» de «El texto de la fuente» se une con el del paso 4 al integrarlo.
 
+### Paso 4 (hecho): Procesado y el idioma de un video
+
+Trece commits, de `918ff036` a `d3c1d8de` (mejoras 5, 6 y 7, decisión D).
+
+- **El texto en árabe de un video en español, de raíz.** Había varios caminos por los que entraba
+  otro idioma:
+  - **la pista «de siempre», doblada con IA**: YouTube marca como `audioIsDefault` la pista del
+    idioma de quien la pide. Ahora se busca la original: la que lleva `xtags=acont=original` en
+    su dirección, como mira yt-dlp, u «original» en su nombre;
+  - **el idioma guardado de la pista bajada**: se pedía después como si lo hubiera elegido la
+    persona, y fijaba a Whisper en ese idioma. Ahora `expectedVideoLanguage` deja mandar solo a
+    los idiomas que la app ofrece elegir, y un idioma guardado por la app vale solo si su
+    escritura coincide con la del título;
+  - **la copia de Procesado**, que volver a extraer no tocaba: ahora llega (ver abajo).
+- **La red de seguridad del idioma** (`checkVideoText`):
+  - si menos del 35 % de las letras están en la escritura del idioma que se habla, el texto es
+    de otro idioma. Si los dos idiomas se escriben en latín, se compara además el idioma
+    reconocido;
+  - un texto corto o mezclado no se rechaza;
+  - si no pasa, los subtítulos no se guardan, se transcribe el audio con el idioma fijado y un
+    aviso con su ✕ lo dice (`VideoTextNoticeListener`). El texto nunca sale de una IA.
+- **«Volver a extraer» lo ya guardado** en otro idioma:
+  - en la tarjeta de la Bandeja y en el documento de Procesado;
+  - una franja arriba de la Bandeja y de la lista de Procesado cuenta los demás y ofrece «Volver
+    a extraer los N».
+- **Un solo «Volver a extraer» en Procesado**, unido con «El texto de la fuente» del paso 3:
+  - lo que se vuelve a extraer o se limpia de marcas de tiempo desde el documento **llega solo a
+    ese documento**, en cualquier tipo de fuente y sin «Volver a triar»
+    (`ProcessedTextRefresh`, que sobrevive a que se cierre la app);
+  - lo editado a mano se queda;
+  - **lo que la IA solo ordenó** (paso 2) se renueva y se vuelve a ordenar. Al pedir, se anota qué
+    páginas tienen exactamente las palabras de la fuente, con su huella. Si nadie las tocó, al
+    llegar el texto nuevo vuelven a ser de la fuente;
+  - soltar el texto no llega al documento: de la Biblioteca a Procesado nada se borra.
+- **Las tres fichas** Resumen · Síntesis · Palabras clave, en una fila del mismo alto, cada una con
+  su punto de color como leyenda, su estado («Haciendo… N %», «Hecho» u «Oculto») y sus marcas.
+- **Fuera «Escuchar» de la tarjeta «Texto»**: lo lee el lector flotante. Resumen y Síntesis
+  conservan el suyo.
+- **La página web del original, como en el teléfono** (decisión D):
+  - el ancho del teléfono, sin el menú lateral ni las columnas de escritorio, y con lo de
+    Wikipedia que no es el artículo oculto;
+  - el cuadro de datos a lo ancho, las fotos achicadas y las tablas anchas que se desplazan de
+    costado;
+  - lo oculto sigue en la página, así que lo marcado cae en el mismo lugar;
+  - en una pantalla ancha mide 412, centrada en su tarjeta. La Biblioteca la sigue mostrando como
+    era.
+- **Verificado:**
+  - analyze en 19, sobre `main` con los pasos 2, 3 y 7c;
+  - 3.452 pruebas de Procesado, transformar, la Bandeja, la Biblioteca, la navegación y la base,
+    y 2.365 de las creaciones y las tarjetas;
+  - murieron las 18 mutaciones, las 10 del paso y las 8 de la unión. La de apagar la vista móvil
+    sobrevivió primero y la mató `92b8e291`.
+- **Queda abierto:**
+  - un idioma latino equivocado guardado como elegible (por ejemplo «en» en un video en español)
+    se toma como elección; se corrige con el diálogo de volver a extraer;
+  - si la fuente se volvió a extraer en otro lado, el texto llega sin renovar lo ordenado;
+  - mirar el video real en el teléfono: `source.language`, `word_timings`, la fecha contra el
+    30/09, y las pistas con `audioIsDefault` y `xtags`.
+
 ### Paso 7c (hecho): «sin tema» y la tarjeta «Bandeja»
 
 Tres commits, de `73ed09e1` a `1962e5ba` (mejoras 17 y 18).
