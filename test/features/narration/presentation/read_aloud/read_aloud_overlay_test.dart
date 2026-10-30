@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
+import 'package:sinapsis/core/design/widgets/snack_bar_footprint.dart';
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
@@ -233,8 +235,9 @@ void main() {
           locale: const Locale('es'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          builder: (context, child) =>
-              ReadAloudOverlay(router: router, child: child!),
+          builder: (context, child) => SnackBarFootprintHost(
+            child: ReadAloudOverlay(router: router, child: child!),
+          ),
         ),
       ),
     );
@@ -348,6 +351,82 @@ void main() {
       );
 
       expect(tester.getRect(button).bottom, _phone.height - 100 - 12);
+    });
+
+    /// Una pantalla que muestra un aviso con «Deshacer» al tocar «avisar».
+    final noticeScreen = Scaffold(
+      body: Builder(
+        builder: (context) => Center(
+          child: TextButton(
+            onPressed: () => ScaffoldMessenger.of(context).showAppSnackBar(
+              AppSnackBar(
+                content: const Text('Movido a la papelera'),
+                action: SnackBarAction(label: 'Deshacer', onPressed: () {}),
+              ),
+            ),
+            child: const Text('avisar'),
+          ),
+        ),
+      ),
+    );
+    Rect notice(WidgetTester tester) => tester.getRect(
+      find
+          .descendant(
+            of: find.byType(SnackBar),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    final noticeClose = find.byTooltip('Cerrar aviso');
+
+    testWidgets('se corre arriba de un aviso, sin tapar su ✕, y vuelve '
+        'cuando se va (F45, decisión C)', (tester) async {
+      await pump(tester, offered: _document, screen: noticeScreen);
+      expect(tester.getRect(button).bottom, _phone.height - 16);
+
+      await tester.tap(find.text('avisar'));
+      await tester.pumpAndSettle();
+
+      // Sigue a la vista y a un toque, encima del aviso.
+      expect(button, findsOneWidget);
+      expect(
+        tester.getRect(button).bottom,
+        closeTo(notice(tester).top - 12, 0.5),
+      );
+      expect(
+        tester.getRect(button).overlaps(tester.getRect(noticeClose)),
+        isFalse,
+      );
+
+      // La ✕ se toca: el lector, que va por encima de todo, ya no la tapa.
+      await tester.tap(noticeClose);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SnackBar), findsNothing);
+      expect(tester.getRect(button).bottom, _phone.height - 16);
+    });
+
+    testWidgets('el reproductor también se corre arriba del aviso', (
+      tester,
+    ) async {
+      await pump(tester, initial: _reading, screen: noticeScreen);
+      final resting = tester.getRect(player).bottom;
+
+      await tester.tap(find.text('avisar'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getRect(player).bottom,
+        closeTo(notice(tester).top - 12, 0.5),
+      );
+      expect(
+        tester.getRect(player).overlaps(tester.getRect(noticeClose)),
+        isFalse,
+      );
+
+      await tester.tap(noticeClose);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(player).bottom, resting);
     });
   });
 

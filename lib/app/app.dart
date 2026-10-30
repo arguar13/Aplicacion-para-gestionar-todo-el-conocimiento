@@ -13,6 +13,7 @@ import 'package:sinapsis/app/study_reminder_binding.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/design/widgets/snack_bar_footprint.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_notice_listener.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_review_switch_offer.dart';
@@ -118,39 +119,45 @@ class _AppState extends ConsumerState<App> {
       //
       // Y la oferta, una sola vez, de la ayuda para que el trabajo siga con
       // la app cerrada (F29), con el mismo navegador.
-      builder: (context, child) => KeepWorkingOfferListener(
-        navigatorKey: router.routerDelegate.navigatorKey,
-        onOpenHelp: () => unawaited(router.push(RoutePaths.keepWorking)),
-        child: ReadAloudOverlay(
-          router: router,
-          // El aviso diario para repasar (F31): se reprograma al abrir, cuenta
-          // cuántas tarjetas hay y lleva a Repasar al tocar la notificación.
-          child: StudyReminderBinding(
+      //
+      // Por encima de todo, el anfitrión de los avisos de abajo (F45, paso
+      // 1): cada aviso le dice lo que ocupa, y el lector flotante se corre
+      // arriba de él.
+      builder: (context, child) => SnackBarFootprintHost(
+        child: KeepWorkingOfferListener(
+          navigatorKey: router.routerDelegate.navigatorKey,
+          onOpenHelp: () => unawaited(router.push(RoutePaths.keepWorking)),
+          child: ReadAloudOverlay(
             router: router,
-            // Los avisos de la IA en la nube (F32): qué cuenta se agotó, a
-            // cuál se pasó, cuándo vuelve.
-            child: AiNoticeListener(
-              onOpenAccounts: () =>
-                  unawaited(router.push(RoutePaths.languageModel)),
-              // Al cambiar a un modelo más capaz, una vez, que revise lo
-              // que hizo el anterior (F33).
-              child: AiReviewSwitchOfferListener(
-                navigatorKey: router.routerDelegate.navigatorKey,
-                // Cómo terminó ordenar con la IA el texto de lo que se trió
-                // (F45, decisión B), con «Ver».
-                child: ProcessedTidyNoticeListener(
-                  onOpen: (documentId) => unawaited(
-                    router.push(RoutePaths.processedDocument(documentId)),
-                  ),
-                  // El texto de un video que no estaba en el idioma que se
-                  // habla (F45, paso 4): no se guardó, y sale del audio.
-                  child: VideoTextNoticeListener(
-                    // Los widgets de la pantalla de inicio (F47, paso 7): lo
-                    // que muestran y adónde lleva tocarlos.
-                    child: HomeWidgetsBinding(
-                      router: router,
-                      child: GlobalErrorListener(
-                        child: child ?? const SizedBox.shrink(),
+            // El aviso diario para repasar (F31): se reprograma al abrir, cuenta
+            // cuántas tarjetas hay y lleva a Repasar al tocar la notificación.
+            child: StudyReminderBinding(
+              router: router,
+              // Los avisos de la IA en la nube (F32): qué cuenta se agotó, a
+              // cuál se pasó, cuándo vuelve.
+              child: AiNoticeListener(
+                onOpenAccounts: () =>
+                    unawaited(router.push(RoutePaths.languageModel)),
+                // Al cambiar a un modelo más capaz, una vez, que revise lo
+                // que hizo el anterior (F33).
+                child: AiReviewSwitchOfferListener(
+                  navigatorKey: router.routerDelegate.navigatorKey,
+                  // Cómo terminó ordenar con la IA el texto de lo que se trió
+                  // (F45, decisión B), con «Ver».
+                  child: ProcessedTidyNoticeListener(
+                    onOpen: (documentId) => unawaited(
+                      router.push(RoutePaths.processedDocument(documentId)),
+                    ),
+                    // El texto de un video que no estaba en el idioma que se
+                    // habla (F45, paso 4): no se guardó, y sale del audio.
+                    child: VideoTextNoticeListener(
+                      // Los widgets de la pantalla de inicio (F47, paso 7): lo
+                      // que muestran y adónde lleva tocarlos.
+                      child: HomeWidgetsBinding(
+                        router: router,
+                        child: GlobalErrorListener(
+                          child: child ?? const SizedBox.shrink(),
+                        ),
                       ),
                     ),
                   ),

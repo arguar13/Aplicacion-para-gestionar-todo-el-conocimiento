@@ -1,7 +1,7 @@
-import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/top_edge_probe.dart';
 
 /// Lo que el lector flotante tiene que esquivar abajo (F25): el mini
 /// reproductor del audio, la caja para escribir del chat... Cada uno avisa
@@ -93,8 +93,10 @@ class _ReadAloudClearanceState extends ConsumerState<ReadAloudClearance> {
   }
 
   /// Fuera del dibujo y de la construcción: cambiar un provider en medio de
-  /// un cuadro no está permitido.
+  /// un cuadro no está permitido. La medida puede llegar ya al final del
+  /// cuadro (ver `TopEdgeProbe`): entonces va en el que sigue, que se pide.
   void _publish() {
+    SchedulerBinding.instance.ensureVisualUpdate();
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final top = _top;
@@ -117,38 +119,5 @@ class _ReadAloudClearanceState extends ConsumerState<ReadAloudClearance> {
 
   @override
   Widget build(BuildContext context) =>
-      _TopProbe(onTop: _measured, child: widget.child);
-}
-
-/// Avisa dónde quedó el borde de arriba de [child] cada vez que se dibuja,
-/// si cambió.
-class _TopProbe extends SingleChildRenderObjectWidget {
-  const _TopProbe({required this.onTop, super.child});
-
-  final ValueChanged<double> onTop;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderTopProbe(onTop);
-
-  @override
-  void updateRenderObject(BuildContext context, _RenderTopProbe renderObject) {
-    renderObject.onTop = onTop;
-  }
-}
-
-class _RenderTopProbe extends RenderProxyBox {
-  _RenderTopProbe(this.onTop);
-
-  ValueChanged<double> onTop;
-  double? _reported;
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    super.paint(context, offset);
-    final top = localToGlobal(Offset.zero).dy;
-    if (top == _reported) return;
-    _reported = top;
-    onTop(top);
-  }
+      TopEdgeProbe(onTop: _measured, child: widget.child);
 }
