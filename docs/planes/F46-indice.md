@@ -1,6 +1,6 @@
 # F46 — El Índice: lo procesado, con sus capítulos, como el índice automático de Word
 
-> **Estado: PARA APROBAR.** Pedido del dueño, el 30/10: *"agregar en la pestaña de Estudiar,
+> **Estado: APROBADO** (2026-10-30, «Aprobado» en el chat), con las decisiones A a F como están. Pedido del dueño, el 30/10: *"agregar en la pestaña de Estudiar,
 > debajo de la sección de Procesado, una nueva sección llamada Índice … algo parecido a cuando yo
 > hago en Word … un índice dinámico"*. Ajustes del mismo día:
 >
