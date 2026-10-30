@@ -3922,15 +3922,6 @@
       }
     }
   },
-  "mapCommunityCount": "{count, plural, =1{1 community} other{{count} communities}}",
-  "@mapCommunityCount": {
-    "description": "Cuántas comunidades de temas hay en el mapa.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "mapItemCount": "{count, plural, =1{1 item} other{{count} items}}",
   "@mapItemCount": {
     "description": "Cuántos elementos tiene la bóveda, en el tablero del mapa.",
@@ -3993,34 +3984,6 @@
     "description": "Botón que abre la pantalla de Tensión con todas las contradicciones abiertas.",
     "placeholders": {
       "count": {
-        "type": "int"
-      }
-    }
-  },
-  "mapBoardGrowthTitle": "Vault size",
-  "@mapBoardGrowthTitle": {
-    "description": "Título de la tarjeta del tablero con cuánto creció la bóveda."
-  },
-  "mapBoardGrowthRange": "From {from} to {to}",
-  "@mapBoardGrowthRange": {
-    "description": "Rango de meses que cubre el gráfico de crecimiento.",
-    "placeholders": {
-      "from": {
-        "type": "String"
-      },
-      "to": {
-        "type": "String"
-      }
-    }
-  },
-  "mapBoardGrowthSemantics": "Vault growth: {count} items over {months} months",
-  "@mapBoardGrowthSemantics": {
-    "description": "Descripción accesible del gráfico de crecimiento de la bóveda.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      },
-      "months": {
         "type": "int"
       }
     }
