@@ -34,8 +34,8 @@ import 'synthetic_vault.dart';
 import 'vault_benchmark.dart'
     show BenchmarkEnvironment, Measurement, MockTelemetryService, measure;
 
-/// Las iteraciones del layout que usa la vista del grafo: desde cero y en
-/// caliente. Son las de `map_graph_view.dart`; se repiten acá para medir lo
+/// Las iteraciones del layout que usa el lienzo del Mapa: desde cero y en
+/// caliente. Son las de `map_canvas_view.dart`; se repiten acá para medir lo
 /// mismo.
 const _kColdIterations = 260;
 const _kWarmIterations = 60;

@@ -11,10 +11,10 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 import '../../../../support/library_harness.dart';
 import '../../../../support/processed_rows.dart';
 
-/// Lo que el grafo del mapa hace con los vínculos (F14): agregar uno entre dos
-/// elementos cualquiera y pedirle a la IA que sugiera entre los de un tema. Son
-/// las dos acciones que tenía el grafo completo que el mapa reemplazó, contra
-/// SQLite real y el router real.
+/// Lo que el lienzo del Mapa hace con los vínculos (F14; F44, paso 2): agregar
+/// uno entre dos elementos cualquiera y pedirle a la IA que sugiera entre los
+/// de un tema o entre lo vinculado. Son las dos acciones que tenía el grafo
+/// completo que el mapa reemplazó, contra SQLite real y el router real.
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -96,13 +96,18 @@ void main() {
     await tester.pumpAndSettle();
     harness.goTo(RoutePaths.graph);
     await tester.pumpAndSettle();
-    await tester.tap(find.text(es.mapViewGraph));
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('map-tabs')),
+        matching: find.text(es.f44S2TabMap),
+      ),
+    );
     await tester.pumpAndSettle();
   }
 
-  Finder node(String key) => find.byKey(ValueKey('map-graph-node-$key'));
-  final addRelation = find.byKey(const ValueKey('map-graph-add-relation'));
-  final aiSuggest = find.byKey(const ValueKey('map-graph-ai-suggest'));
+  Finder node(String key) => find.byKey(ValueKey('map-node-$key'));
+  final addRelation = find.byKey(const ValueKey('map-add-link'));
+  final aiSuggest = find.byKey(const ValueKey('map-ai-suggest'));
 
   /// Un elemento de la lista de un diálogo, no el del mapa que queda detrás.
   Finder inDialog(String text) =>
@@ -113,14 +118,10 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Del panorama a los elementos de Roma.
+  /// De las comunidades a los documentos de Roma.
   Future<void> openRomaItems(WidgetTester tester) async {
     await tapAndSettle(tester, node('overview:0'));
     await tapAndSettle(tester, node('topic:roma'));
-    await tapAndSettle(
-      tester,
-      find.byKey(const ValueKey('map-graph-action-items')),
-    );
   }
 
   Future<List<RelationRow>> relations() => db.select(db.relations).get();
@@ -145,8 +146,10 @@ void main() {
       expect(created.single.kind, RelationKind.relatedTo);
     });
 
-    testWidgets('avisa «Vinculado» y «Ver en el Mapa» lleva a la vista '
-        '«Vínculos» con el foco en lo vinculado (F28)', (tester) async {
+    testWidgets('avisa «Vinculado» y «Ver en el Mapa» lleva al lienzo con lo '
+        'vinculado a la vista y el foco en él (F28; F44, paso 2)', (
+      tester,
+    ) async {
       await seed();
       await pump(tester);
 
@@ -159,11 +162,12 @@ void main() {
       await tapAndSettle(tester, find.text(es.relationSeeInMap));
 
       final s3 = find.descendant(
-        of: find.byKey(const ValueKey('map-links-node-s3')),
+        of: node('item:s3'),
         matching: find.byType(MapItemBox),
       );
       expect(tester.widget<MapItemBox>(s3).highlighted, isTrue);
-      expect(find.byKey(const ValueKey('map-links-node-s4')), findsOneWidget);
+      expect(node('item:s4'), findsOneWidget);
+      expect(find.byKey(const ValueKey('map-crumb-links')), findsOneWidget);
     });
 
     testWidgets('está a mano también con los elementos de un tema a la vista', (
@@ -212,7 +216,7 @@ void main() {
   });
 
   group('sugerir vínculos con IA', () {
-    testWidgets('solo se ofrece con los elementos de un tema a la vista', (
+    testWidgets('solo se ofrece con los documentos de un tema a la vista', (
       tester,
     ) async {
       await seed();
@@ -224,10 +228,6 @@ void main() {
       expect(aiSuggest, findsNothing);
 
       await tapAndSettle(tester, node('topic:roma'));
-      await tapAndSettle(
-        tester,
-        find.byKey(const ValueKey('map-graph-action-items')),
-      );
       expect(aiSuggest, findsOneWidget);
     });
 
@@ -240,10 +240,6 @@ void main() {
       // Egipto solo tiene la fuente s4.
       await tapAndSettle(tester, node('overview:1'));
       await tapAndSettle(tester, node('topic:egipto'));
-      await tapAndSettle(
-        tester,
-        find.byKey(const ValueKey('map-graph-action-items')),
-      );
 
       expect(node('item:s4'), findsOneWidget);
       expect(aiSuggest, findsNothing);

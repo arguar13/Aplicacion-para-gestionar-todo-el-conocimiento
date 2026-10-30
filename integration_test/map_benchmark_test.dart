@@ -12,8 +12,8 @@ import 'package:sinapsis/features/map/data/repositories/knowledge_map_repository
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_tree.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
-import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -233,7 +233,7 @@ void main() {
       Finder graphNode(String prefix) => find.byWidgetPredicate((widget) {
         final key = widget.key;
         return key is ValueKey<String> &&
-            key.value.startsWith('map-graph-node-$prefix');
+            key.value.startsWith('map-node-$prefix');
       });
 
       /// Lo que tarda [action] hasta que aparece [finder] y la pantalla se
@@ -270,12 +270,25 @@ void main() {
         'base): $boardMs ms',
       );
 
-      // 2. El esquema.
-      final schemaMs = await timeTo(
-        find.byType(MapSchemaView),
-        () => tester.tap(find.text(es.mapViewSchema)),
-      );
-      say('- pasar al esquema, hasta verlo dibujado: $schemaMs ms');
+      // 2. El lienzo en radial (lo que era el Esquema, F44): la pestaña
+      // Mapa, y Radial.
+      final schemaMs = await timeTo(find.byType(MapTreeNodeCard), () async {
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(const ValueKey('map-tabs')),
+            matching: find.text(es.f44S2TabMap),
+          ),
+        );
+        await until(find.byKey(const ValueKey('map-arrangement')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(const ValueKey('map-arrangement')),
+            matching: find.byIcon(Icons.radar),
+          ),
+        );
+      });
+      say('- pasar al lienzo en radial, hasta verlo dibujado: $schemaMs ms');
 
       // Un arrastre sostenido en el esquema.
       await binding.watchPerformance(() async {
@@ -305,10 +318,15 @@ void main() {
         violations,
       );
 
-      // 3. El grafo: el panorama, con una comunidad por nodo.
+      // 3. La red: el panorama, con una comunidad por nodo.
       final graphMs = await timeTo(
         graphNode('overview:0'),
-        () => tester.tap(find.text(es.mapViewGraph)),
+        () => tester.tap(
+          find.descendant(
+            of: find.byKey(const ValueKey('map-arrangement')),
+            matching: find.byIcon(Icons.hub_outlined),
+          ),
+        ),
       );
       final overviewNodes = graphNode('overview:').evaluate().length;
       say(
@@ -316,7 +334,7 @@ void main() {
         '$graphMs ms',
       );
 
-      final canvas = find.byKey(const ValueKey('map-graph-canvas'));
+      final canvas = find.byKey(const ValueKey('map-canvas'));
 
       /// El nodo con [prefix] más cerca del centro del lienzo: a la vista
       /// aunque un gesto anterior haya movido el mapa, y no tapado por los de
@@ -327,9 +345,7 @@ void main() {
         var bestDistance = double.infinity;
         for (final element in graphNode(prefix).evaluate()) {
           final key = element.widget.key! as ValueKey<String>;
-          final id = key.value.substring(
-            'map-graph-node-'.length + prefix.length,
-          );
+          final id = key.value.substring('map-node-'.length + prefix.length);
           if (where != null && !where(id)) continue;
           final box = element.renderObject! as RenderBox;
           final at = box.localToGlobal(box.size.center(Offset.zero));
@@ -454,7 +470,7 @@ void main() {
         for (final e in graphNode('topic:').evaluate())
           if (withItems.contains(
             (e.widget.key! as ValueKey<String>).value.substring(
-              'map-graph-node-topic:'.length,
+              'map-node-topic:'.length,
             ),
           ))
             e,
@@ -463,14 +479,14 @@ void main() {
         '- temas a la vista: $visibleTopics; con elementos en la base: '
         '$withRows (de ${withItems.length} en toda la bóveda)',
       );
-      final itemsMs = await timeTo(graphNode('item:'), () async {
-        await tester.tap(
+      // Tocar un tema baja a sus documentos (F44, paso 2).
+      final itemsMs = await timeTo(
+        graphNode('item:'),
+        () => tester.tap(
           centerMost('topic:', where: withItems.contains),
           warnIfMissed: false,
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('map-graph-action-items')));
-      });
+        ),
+      );
       final itemNodes = graphNode('item:').evaluate().length;
       say(
         '- bajar a los elementos de un tema ($itemNodes nodos, lectura de la '
@@ -496,7 +512,7 @@ void main() {
 
       // 6. El criterio de F14: el mapa se recalcula de fondo —en otro
       // isolate— mientras se sigue arrastrando, y la interfaz no se detiene.
-      await tester.tap(find.byKey(const ValueKey('map-graph-crumb-overview')));
+      await tester.tap(find.byKey(const ValueKey('map-crumb-overview')));
       await until(graphNode('overview:0'));
       await tester.pumpAndSettle();
       var writes = 0;
@@ -548,7 +564,7 @@ void main() {
         relations: vault.profile.relations,
         areaDepth: 2,
       );
-      await tester.tap(find.byKey(const ValueKey('map-graph-crumb-overview')));
+      await tester.tap(find.byKey(const ValueKey('map-crumb-overview')));
       await tester.pumpAndSettle();
       structured.write(narrowInput);
       // El recálculo corre en otro isolate: un pump acotado, no

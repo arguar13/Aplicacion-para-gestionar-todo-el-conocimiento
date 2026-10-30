@@ -3,8 +3,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Hasta cuántos saltos de distancia mostrar desde la semilla del grafo:
 /// 0, 1, 2 o sin techo, en un estilo horizontal desplazable: en el grafo
-/// local (`LocalGraphScreen`) y en los temas del grafo del Mapa
-/// (`MapGraphView`).
+/// local (`LocalGraphScreen`) y en los temas del lienzo del Mapa
+/// (`MapCanvasView`).
 class DegreeSelector extends StatelessWidget {
   const DegreeSelector({
     required this.degree,

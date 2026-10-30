@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
-import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
@@ -14,39 +13,25 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/usecases/export_map_usecase.dart';
+import 'package:sinapsis/features/map/presentation/providers/map_canvas_request.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_filter_provider.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
+import 'package:sinapsis/features/map/presentation/providers/map_tab_provider.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_filter_sheet.dart';
-import 'package:sinapsis/features/map/presentation/widgets/map_graph_view.dart';
-import 'package:sinapsis/features/map/presentation/widgets/map_links_view.dart';
-import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
 import 'package:sinapsis/features/organize/presentation/open_organized_item.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/fills_on_triage.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Las vistas del mapa: cuatro maneras de mirar la bóveda con los mismos
-/// filtros. Tres miran los temas con el mismo motor; «Vínculos», los
-/// elementos y sus vínculos, tengan o no temas (F28).
-enum MapView {
-  /// Los números que resumen la bóveda.
-  board,
-
-  /// Los elementos y los vínculos entre ellos, sin temas de por medio.
-  links,
-
-  /// Un árbol que parte de un tema y se despliega.
-  schema,
-
-  /// La red de comunidades, temas y elementos, según el zoom.
-  graph,
-}
-
-/// El mapa de conocimiento (F14): la bóveda vista por temas, en una dimensión
-/// a la vez (F28): los **temas** —lo que se elige al guardar— si hay alguno, o
-/// las **etiquetas**, u otra categoría de texto.
+/// El mapa de conocimiento (F14; F44): lo procesado visto por temas, en una
+/// dimensión a la vez (F28) —los **temas** si hay alguno, las **etiquetas** u
+/// otra categoría de texto—, en dos pestañas: el **Resumen**, con lo que se
+/// cuenta, y el **Mapa**, un solo lienzo que se recorre con el zoom (F44, paso
+/// 2). Antes eran cuatro —Tablero, Vínculos, Esquema y Grafo— que dibujaban lo
+/// mismo a tres alturas sin hablarse.
 ///
 /// La pantalla no calcula nada: pide el mapa al motor y lo muestra. Mientras el
 /// motor recalcula, sigue mostrando el mapa anterior; si el recálculo falla,
@@ -64,37 +49,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// tema que se crea mientras se mira no cambia el Mapa de golpe.
   String? _dimensionId;
 
-  MapView _view = MapView.board;
-
-  /// El elemento en foco en la vista «Vínculos»: el último que se pidió ver
-  /// con «Ver en el Mapa» (F28).
-  String? _focusId;
-
-  /// Lo que la vista de ahora ofrece para exportarse.
+  /// Lo que el lienzo ofrece para exportarse.
   final _exportHandle = MapExportHandle();
 
   @override
   void initState() {
     super.initState();
-    // Un pedido que llegó con el Mapa cerrado se atiende al abrirlo; uno que
-    // llega con el Mapa abierto, en el acto.
-    ref.listenManual(mapLinksFocusRequestProvider, (_, itemId) {
-      if (itemId != null) _focusOn(itemId);
+    // Un pedido para el lienzo —«Ver en el Mapa», una fila del Resumen— lleva
+    // a la pestaña Mapa; el pedido lo atiende y lo borra el lienzo.
+    ref.listenManual(mapCanvasRequestProvider, (_, request) {
+      if (request == null) return;
+      scheduleMicrotask(() {
+        if (mounted) ref.read(mapTabProvider.notifier).select(MapTab.map);
+      });
     }, fireImmediately: true);
-  }
-
-  /// Pasa a la vista «Vínculos» con el foco en [itemId], y da el pedido por
-  /// atendido. Un proveedor no se modifica mientras se arma el árbol: se
-  /// vuelve a `null` apenas termina.
-  void _focusOn(String itemId) {
-    setState(() {
-      _view = MapView.links;
-      _focusId = itemId;
-    });
-    scheduleMicrotask(() {
-      if (!mounted) return;
-      ref.read(mapLinksFocusRequestProvider.notifier).state = null;
-    });
   }
 
   /// Abre el material de un tema: lo procesado de ese espacio, o de ese
@@ -109,17 +77,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _openTension() => context.push(RoutePaths.graphTension);
 
-  /// Guarda el dibujo de la vista de ahora como [format] —`png` o `svg`—,
-  /// donde el usuario elija.
+  /// Guarda el dibujo del lienzo como [format] —`png` o `svg`—, donde el
+  /// usuario elija.
   Future<void> _export(String format, TopicDimension dimension) async {
     // Antes de esperar nada: al terminar, esta pantalla puede haber cambiado.
     final l10n = AppLocalizations.of(context)!;
-    // «Vínculos» no depende de la dimensión: su archivo no la nombra.
-    final subject = _view == MapView.links
-        ? ''
-        : '-${_fileSlug(topicDimensionLabel(l10n, dimension))}';
     final messenger = ScaffoldMessenger.of(context);
     final export = ref.read(exportMapUseCaseProvider);
+    void say(String text) => messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+
+    // Visto como lista, no hay un dibujo que guardar.
+    if (!_exportHandle.available) {
+      say(l10n.f44S2ExportFromList);
+      return;
+    }
+    final subject =
+        _exportHandle.subject?.call() ?? (arrangement: 'red', links: false);
+    // Los vínculos entre documentos no dependen de lo que se agrupa: su
+    // archivo no nombra la dimensión.
+    final what = subject.links
+        ? 'vinculos'
+        : _fileSlug(topicDimensionLabel(l10n, dimension));
 
     final Uint8List? bytes;
     if (format == 'svg') {
@@ -132,30 +112,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     final result = await export(
       ExportMapParams(
-        fileName: 'mapa-${_viewSlug(_view)}$subject.$format',
+        fileName: 'mapa-${subject.arrangement}-$what.$format',
         bytes: bytes,
       ),
     );
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            result.fold(
-              (failure) => failure.localizedMessage(l10n),
-              (_) => l10n.mapExportSaved,
-            ),
-          ),
-        ),
-      );
+    say(
+      result.fold(
+        (failure) => failure.localizedMessage(l10n),
+        (_) => l10n.mapExportSaved,
+      ),
+    );
   }
-
-  static String _viewSlug(MapView view) => switch (view) {
-    MapView.board => 'tablero',
-    MapView.links => 'vinculos',
-    MapView.schema => 'esquema',
-    MapView.graph => 'grafo',
-  };
 
   /// El nombre de la dimensión como parte de un nombre de archivo: en
   /// minúsculas, sin acentos y con guiones.
@@ -172,6 +139,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final l10n = AppLocalizations.of(context)!;
     final definitions = ref.watch(allPropertyDefinitionsProvider).valueOrNull;
     final spaces = ref.watch(allSpacesProvider).valueOrNull;
+    final tab = ref.watch(mapTabProvider);
     // El filtro de la biblioteca sobre el que se calcula el mapa: sin
     // restricciones, abarca todo.
     final filter = ref.watch(mapFilterProvider);
@@ -193,11 +161,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // La de por defecto queda fija desde ahora: ver [_dimensionId]. Es un
     // recuerdo, no algo que se dibuje, así que no hace falta `setState`.
     _dimensionId ??= selected.id;
+    final request = MapRequest(selected.id, filter: filter);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.mapTitle),
         actions: [
+          // Ola 2 (F44, paso 5): acá va «⚲ Buscar en el mapa», que deja un
+          // `MapCanvasRequest` para que el lienzo vuele hasta lo elegido.
           IconButton(
             key: const ValueKey('map-filters'),
             tooltip: l10n.mapFiltersTooltip,
@@ -208,14 +179,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
             onPressed: () => showMapFilters(context),
           ),
-          // El tablero no es un dibujo que se pueda guardar; las otras vistas,
-          // sí.
+          // El Resumen no es un dibujo que se pueda guardar; el Mapa, sí.
           PopupMenuButton<String>(
             key: const ValueKey('map-export'),
-            enabled: _view != MapView.board,
-            tooltip: _view == MapView.board
-                ? l10n.mapExportUnavailable
-                : l10n.mapExportAction,
+            enabled: tab == MapTab.map,
+            tooltip: tab == MapTab.map
+                ? l10n.mapExportAction
+                : l10n.mapExportUnavailable,
             icon: const Icon(Icons.ios_share),
             onSelected: (format) => unawaited(_export(format, selected)),
             itemBuilder: (context) => [
@@ -233,56 +203,135 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _viewSelector(l10n),
-          // La dimensión solo importa a las vistas de temas: «Vínculos» no
-          // agrupa.
-          if (_view != MapView.links || activeFilters > 0)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (_view != MapView.links)
-                    TopicDimensionMenu(
-                      key: const ValueKey('map-category'),
-                      options: options,
-                      selected: selected,
-                      onSelected: (dimension) =>
-                          setState(() => _dimensionId = dimension.id),
-                    ),
-                  if (activeFilters > 0)
-                    InputChip(
-                      key: const ValueKey('map-filter-active'),
-                      avatar: const Icon(Icons.filter_list, size: 18),
-                      label: Text(l10n.mapFilterActive(activeFilters)),
-                      deleteButtonTooltipMessage: l10n.mapFilterClear,
-                      onDeleted: ref.read(mapFilterProvider.notifier).clear,
-                      onPressed: () => showMapFilters(context),
-                    ),
-                ],
-              ),
-            ),
-          Expanded(
-            child: _MapBody(
-              request: MapRequest(selected.id, filter: filter),
+      // Empieza de cero (F41, paso 6): el Mapa se arma con lo procesado, y sin
+      // nada procesado se dice cómo se llena.
+      body: ref.watch(hasProcessedProvider) == false
+          ? FillsOnTriage(
+              icon: Icons.hub_outlined,
+              title: l10n.mapFillsOnTriageTitle,
+              message: l10n.mapFillsOnTriageMessage,
+            )
+          : _MapBody(
+              request: request,
+              tab: tab,
               dimension: selected,
-              view: _view,
-              focusId: _focusId,
+              dimensionOptions: options,
+              onDimension: (dimension) =>
+                  setState(() => _dimensionId = dimension.id),
+              activeFilters: activeFilters,
               exportHandle: _exportHandle,
-              unassignedLabel: (count) =>
-                  _unassignedLabel(l10n, selected, count),
               onOpenTopic: (valueId) => _openTopic(selected, valueId),
               onOpenItem: _openItem,
               onOpenTension: _openTension,
-              onShowLinks: () => setState(() => _view = MapView.links),
+            ),
+    );
+  }
+}
+
+/// Las pestañas, la línea de arriba y lo que se mira, para un pedido al motor.
+///
+/// Nunca es un vacío mudo (F28): sin temas, el Resumen sigue ahí y el lienzo
+/// dice por qué no tiene nada y lleva a los vínculos; arriba se cuenta lo que
+/// quedó sin ubicar, con «Organizar con IA».
+class _MapBody extends ConsumerWidget {
+  const _MapBody({
+    required this.request,
+    required this.tab,
+    required this.dimension,
+    required this.dimensionOptions,
+    required this.onDimension,
+    required this.activeFilters,
+    required this.exportHandle,
+    required this.onOpenTopic,
+    required this.onOpenItem,
+    required this.onOpenTension,
+  });
+
+  final MapRequest request;
+  final MapTab tab;
+
+  /// Lo que se mira: los textos dicen «temas», «etiquetas» o «valores».
+  final TopicDimension dimension;
+  final List<TopicDimension> dimensionOptions;
+  final ValueChanged<TopicDimension> onDimension;
+  final int activeFilters;
+  final MapExportHandle exportHandle;
+  final void Function(String valueId) onOpenTopic;
+  final void Function(String itemId) onOpenItem;
+  final VoidCallback onOpenTension;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final state = ref.watch(knowledgeMapProvider(request)).valueOrNull;
+    final (snapshot, stale) = switch (state) {
+      MapReady(:final snapshot) => (snapshot, false),
+      MapFailed(:final lastGood?) => (lastGood, true),
+      _ => (null, false),
+    };
+
+    final Widget content;
+    if (snapshot == null) {
+      content = state is MapFailed
+          ? _Failed(
+              l10n: l10n,
+              onRetry: () => ref.invalidate(knowledgeMapProvider(request)),
+            )
+          : const Center(child: CircularProgressIndicator());
+    } else {
+      content = switch (tab) {
+        MapTab.summary => MapBoardView(
+          snapshot: snapshot,
+          dimension: dimension,
+          dashboard: ref.watch(mapDashboardProvider(request)).valueOrNull,
+          onOpenTopic: onOpenTopic,
+          onOpenItem: onOpenItem,
+          onOpenTension: onOpenTension,
+        ),
+        MapTab.map => MapCanvasView(
+          key: const ValueKey('map-canvas-view'),
+          snapshot: snapshot,
+          dimension: dimension,
+          filter: request.filter,
+          exportHandle: exportHandle,
+          onOpenTopic: onOpenTopic,
+          onOpenItem: onOpenItem,
+        ),
+      };
+    }
+
+    final unassigned = snapshot?.unassignedItemIds ?? const <String>[];
+    return Column(
+      children: [
+        _Tabs(tab: tab),
+        SizedBox(
+          width: double.infinity,
+          child: _TopLine(
+            dimension: dimension,
+            options: dimensionOptions,
+            onDimension: onDimension,
+            activeFilters: activeFilters,
+            unassignedLabel: unassigned.isEmpty
+                ? null
+                : _unassignedLabel(l10n, dimension, unassigned.length),
+            onOrganize: () => unawaited(
+              organizeAllNowWithAi(context, ref, itemIds: unassigned),
             ),
           ),
-        ],
-      ),
+        ),
+        if (stale)
+          MaterialBanner(
+            key: const ValueKey('map-stale'),
+            content: Text(l10n.mapStaleNotice),
+            actions: [
+              TextButton(
+                onPressed: () => ref.invalidate(knowledgeMapProvider(request)),
+                child: Text(l10n.mapRetry),
+              ),
+            ],
+          ),
+        Expanded(child: _fade(context, content)),
+      ],
     );
   }
 
@@ -297,261 +346,140 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     return l10n.mapUnassignedCategory(count, dimension.category!.name);
   }
 
-  Widget _viewSelector(AppLocalizations l10n) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // Cuatro vistas no entran con ícono y nombre en un celular angosto:
-          // ahí, solo el nombre, que es lo que dice cuál es cuál.
-          final icons = constraints.maxWidth >= 520;
-          ButtonSegment<MapView> segment(
-            MapView view,
-            IconData icon,
-            String label,
-          ) => ButtonSegment(
-            value: view,
-            icon: icons ? Icon(icon) : null,
-            label: Text(label, maxLines: 1, softWrap: false),
-          );
-          return Semantics(
-            label: l10n.mapViewSelectorLabel,
-            child: SegmentedButton<MapView>(
-              key: const ValueKey('map-view-selector'),
-              showSelectedIcon: false,
-              segments: [
-                segment(
-                  MapView.board,
-                  Icons.dashboard_outlined,
-                  l10n.mapViewBoard,
-                ),
-                segment(MapView.links, Icons.link, l10n.mapViewLinks),
-                segment(
-                  MapView.schema,
-                  Icons.account_tree_outlined,
-                  l10n.mapViewSchema,
-                ),
-                segment(MapView.graph, Icons.hub_outlined, l10n.mapViewGraph),
-              ],
-              selected: {_view},
-              onSelectionChanged: (views) =>
-                  setState(() => _view = views.single),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// El mapa de un pedido: pide el estado al motor y muestra la vista elegida.
-///
-/// Nunca es un vacío mudo (F28): sin temas, el tablero y la vista «Vínculos»
-/// siguen ahí, el esquema y el grafo dicen por qué no tienen nada y llevan a
-/// los vínculos, y arriba se cuenta lo que quedó sin ubicar con «Organizar con
-/// IA».
-class _MapBody extends ConsumerWidget {
-  const _MapBody({
-    required this.request,
-    required this.dimension,
-    required this.view,
-    required this.exportHandle,
-    required this.unassignedLabel,
-    required this.onOpenTopic,
-    required this.onOpenItem,
-    required this.onOpenTension,
-    required this.onShowLinks,
-    this.focusId,
-  });
-
-  final MapRequest request;
-
-  /// Lo que se mira: los textos dicen «temas», «etiquetas» o «valores».
-  final TopicDimension dimension;
-  final MapView view;
-  final MapExportHandle exportHandle;
-
-  /// Cómo se dice que tantos elementos quedaron sin ubicar en lo que se mira:
-  /// «sin etiquetas», «sin «Época»».
-  final String Function(int count) unassignedLabel;
-  final void Function(String valueId) onOpenTopic;
-  final void Function(String itemId) onOpenItem;
-  final VoidCallback onOpenTension;
-  final VoidCallback onShowLinks;
-
-  /// El elemento en foco en la vista «Vínculos».
-  final String? focusId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    // Empieza de cero (F41, paso 6): el Mapa se arma con lo procesado, y sin
-    // nada procesado se dice cómo se llena, en todas las vistas.
-    if (ref.watch(hasProcessedProvider) == false) {
-      return FillsOnTriage(
-        icon: Icons.hub_outlined,
-        title: l10n.mapFillsOnTriageTitle,
-        message: l10n.mapFillsOnTriageMessage,
-      );
-    }
-    // Los vínculos no esperan al grafo de temas: no lo usan.
-    if (view == MapView.links) {
-      return Column(children: [Expanded(child: _fade(context, _links()))]);
-    }
-    final state = ref.watch(knowledgeMapProvider(request)).valueOrNull;
-
-    return switch (state) {
-      null || MapLoading() => const Center(child: CircularProgressIndicator()),
-      MapReady(:final snapshot) => _ready(context, ref, snapshot, l10n),
-      MapFailed(:final lastGood) =>
-        lastGood == null
-            ? _Failed(
-                l10n: l10n,
-                onRetry: () => ref.invalidate(knowledgeMapProvider(request)),
-              )
-            : _ready(context, ref, lastGood, l10n, stale: true),
-    };
-  }
-
-  Widget _ready(
-    BuildContext context,
-    WidgetRef ref,
-    KnowledgeMapSnapshot snapshot,
-    AppLocalizations l10n, {
-    bool stale = false,
-  }) {
-    final dashboard = ref.watch(mapDashboardProvider(request)).valueOrNull;
-    final noTopics = snapshot.graph.nodes.isEmpty;
-    final body = switch (view) {
-      MapView.links => _links(),
-      MapView.board => MapBoardView(
-        snapshot: snapshot,
-        dimension: dimension,
-        dashboard: dashboard,
-        onOpenTopic: onOpenTopic,
-        onOpenItem: onOpenItem,
-        onOpenTension: onOpenTension,
-      ),
-      // El esquema y el grafo dibujan temas: sin ninguno no hay qué, pero los
-      // vínculos se ven igual en su vista.
-      MapView.schema || MapView.graph when noTopics => EmptyStateView(
-        key: const ValueKey('map-no-topics'),
-        icon: Icons.hub_outlined,
-        title: l10n.mapEmptyTitle(topicSelectKind(dimension)),
-        message: l10n.mapEmptyMessage(topicSelectKind(dimension)),
-        actionLabel: l10n.mapSeeLinksAction,
-        onAction: onShowLinks,
-      ),
-      MapView.schema => MapSchemaView(
-        key: const ValueKey('map-schema'),
-        snapshot: snapshot,
-        dimension: dimension,
-        exportHandle: exportHandle,
-        onOpenTopic: onOpenTopic,
-        onOpenItem: onOpenItem,
-      ),
-      MapView.graph => MapGraphView(
-        key: const ValueKey('map-graph'),
-        snapshot: snapshot,
-        dimension: dimension,
-        exportHandle: exportHandle,
-        onOpenTopic: onOpenTopic,
-        onOpenItem: onOpenItem,
-      ),
-    };
-
-    final unassigned = snapshot.unassignedItemIds;
-    return Column(
-      children: [
-        if (stale)
-          MaterialBanner(
-            key: const ValueKey('map-stale'),
-            content: Text(l10n.mapStaleNotice),
-            actions: [
-              TextButton(
-                onPressed: () => ref.invalidate(knowledgeMapProvider(request)),
-                child: Text(l10n.mapRetry),
-              ),
-            ],
-          ),
-        if (unassigned.isNotEmpty)
-          _UnassignedNotice(
-            label: unassignedLabel(unassigned.length),
-            onOrganize: () => unawaited(
-              organizeAllNowWithAi(context, ref, itemIds: unassigned),
-            ),
-          ),
-        Expanded(child: _fade(context, body)),
-      ],
-    );
-  }
-
-  Widget _links() => MapLinksView(
-    key: const ValueKey('map-links'),
-    filter: request.filter,
-    focusId: focusId,
-    exportHandle: exportHandle,
-    onOpenItem: onOpenItem,
-  );
-
-  /// Un fundido corto entre vistas, salvo que el sistema pida menos
+  /// Un fundido corto entre pestañas, salvo que el sistema pida menos
   /// movimiento.
   Widget _fade(BuildContext context, Widget body) => AnimatedSwitcher(
     duration: MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
         : const Duration(milliseconds: 180),
-    child: KeyedSubtree(key: ValueKey(view), child: body),
+    child: KeyedSubtree(key: ValueKey(tab), child: body),
   );
 }
 
-/// Cuántos elementos quedaron sin ubicar en lo que se mira, con «Organizar con
-/// IA» (F28): lo que el grafo de temas no puede dibujar, dicho en vez de
-/// callado. Una fila, y no un cartel que tape: el tablero y las vistas siguen
-/// abajo.
-class _UnassignedNotice extends StatelessWidget {
-  const _UnassignedNotice({required this.label, required this.onOrganize});
+/// Resumen · Mapa: dos pestañas que se reparten el ancho.
+class _Tabs extends ConsumerWidget {
+  const _Tabs({required this.tab});
 
-  final String label;
+  final MapTab tab;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Semantics(
+        container: true,
+        label: l10n.f44S2TabsLabel,
+        child: SegmentedButton<MapTab>(
+          key: const ValueKey('map-tabs'),
+          expandedInsets: EdgeInsets.zero,
+          showSelectedIcon: false,
+          segments: [
+            ButtonSegment(
+              value: MapTab.summary,
+              icon: const Icon(Icons.dashboard_outlined),
+              label: Text(l10n.f44S2TabSummary, maxLines: 1, softWrap: false),
+            ),
+            ButtonSegment(
+              value: MapTab.map,
+              icon: const Icon(Icons.hub_outlined),
+              label: Text(l10n.f44S2TabMap, maxLines: 1, softWrap: false),
+            ),
+          ],
+          selected: {tab},
+          onSelectionChanged: (tabs) =>
+              ref.read(mapTabProvider.notifier).select(tabs.single),
+        ),
+      ),
+    );
+  }
+}
+
+/// La línea de arriba, compacta: «Agrupar por», los filtros puestos y cuántos
+/// elementos quedaron sin ubicar, con «Organizar con IA» (F28). Antes eran
+/// dos filas enteras, y la franja se repetía en cada pestaña; en lo angosto,
+/// baja de renglón en vez de cortarse.
+class _TopLine extends ConsumerWidget {
+  const _TopLine({
+    required this.dimension,
+    required this.options,
+    required this.onDimension,
+    required this.activeFilters,
+    required this.unassignedLabel,
+    required this.onOrganize,
+  });
+
+  final TopicDimension dimension;
+  final List<TopicDimension> options;
+  final ValueChanged<TopicDimension> onDimension;
+  final int activeFilters;
+  final String? unassignedLabel;
   final VoidCallback onOrganize;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final unassigned = unassignedLabel;
+
     return Padding(
-      key: const ValueKey('map-unassigned'),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Material(
-        color: colors.secondaryContainer,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
-          child: Row(
+      padding: const EdgeInsets.fromLTRB(16, 0, 8, 4),
+      child: Wrap(
+        // A lo ancho: lo que se agrupa a un lado y lo sin ubicar al otro.
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        runSpacing: 4,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Icon(
-                Icons.label_off_outlined,
-                size: 20,
-                color: colors.onSecondaryContainer,
+              TopicDimensionMenu(
+                key: const ValueKey('map-category'),
+                options: options,
+                selected: dimension,
+                onSelected: onDimension,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  label,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colors.onSecondaryContainer,
-                  ),
+              if (activeFilters > 0)
+                InputChip(
+                  key: const ValueKey('map-filter-active'),
+                  avatar: const Icon(Icons.filter_list, size: 18),
+                  label: Text(l10n.mapFilterActive(activeFilters)),
+                  deleteButtonTooltipMessage: l10n.mapFilterClear,
+                  onDeleted: ref.read(mapFilterProvider.notifier).clear,
+                  onPressed: () => showMapFilters(context),
                 ),
-              ),
-              TextButton.icon(
-                key: const ValueKey('map-organize-with-ai'),
-                onPressed: onOrganize,
-                icon: const Icon(Icons.auto_awesome, size: 18),
-                label: Text(l10n.mapOrganizeWithAi),
-              ),
             ],
           ),
-        ),
+          if (unassigned != null)
+            Wrap(
+              key: const ValueKey('map-unassigned'),
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Icon(
+                  Icons.label_off_outlined,
+                  size: 18,
+                  color: colors.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  unassigned,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                TextButton.icon(
+                  key: const ValueKey('map-organize-with-ai'),
+                  onPressed: onOrganize,
+                  icon: const Icon(Icons.auto_awesome, size: 18),
+                  label: Text(l10n.mapOrganizeWithAi),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }

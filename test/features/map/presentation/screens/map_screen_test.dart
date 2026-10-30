@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -13,9 +14,12 @@ import 'package:sinapsis/features/explorer/presentation/providers/explorer_provi
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/map/presentation/providers/map_canvas_request.dart';
+import 'package:sinapsis/features/map/presentation/providers/map_tab_provider.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
-import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_item_box.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/tension_screen.dart';
@@ -26,8 +30,9 @@ import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 import '../../../../support/processed_rows.dart';
 
-/// La pantalla del mapa (F14), contra SQLite real y el router real: el tablero
-/// con lo que hay en la bóveda, adónde lleva cada cosa y que se actualiza solo.
+/// La pantalla del mapa (F14; F44, paso 2), contra SQLite real y el router
+/// real: las dos pestañas —el Resumen con lo que hay en la bóveda y el lienzo
+/// único—, adónde lleva cada cosa y que se actualiza solo.
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -112,8 +117,36 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('sin temas, el tablero no se tapa: cuenta lo que hay, y el '
-      'esquema dice que todavía no hay temas (F28)', (tester) async {
+  /// La pestaña del lienzo, en el selector de las dos.
+  final mapTab = find.descendant(
+    of: find.byKey(const ValueKey('map-tabs')),
+    matching: find.text(es.f44S2TabMap),
+  );
+
+  Future<void> openMap(WidgetTester tester) async {
+    await tester.tap(mapTab);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> openSummary(WidgetTester tester) async {
+    await tester.tap(find.text(es.f44S2TabSummary));
+    await tester.pumpAndSettle();
+  }
+
+  Finder node(String key) => find.byKey(ValueKey('map-node-$key'));
+
+  Future<void> arrange(WidgetTester tester, IconData icon) async {
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('map-arrangement')),
+        matching: find.byIcon(icon),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('sin temas, el Resumen no se tapa: cuenta lo que hay, y el '
+      'Mapa dice que todavía no hay temas (F28)', (tester) async {
     await item('suelto', const []);
     await pump(tester);
 
@@ -121,10 +154,124 @@ void main() {
     expect(find.byType(MapBoardView), findsOneWidget);
     expect(find.text(es.mapTopicCount('tags', 0)), findsOneWidget);
 
-    await tester.tap(find.text(es.mapViewSchema));
-    await tester.pumpAndSettle();
+    await openMap(tester);
 
     expect(find.text(es.mapEmptyTitle('tags')), findsOneWidget);
+  });
+
+  group('las dos pestañas (F44, paso 2)', () {
+    testWidgets('Resumen y Mapa, y el Resumen la primera vez', (tester) async {
+      await seed();
+      await pump(tester);
+
+      // Dos, y no cuatro como antes.
+      expect(
+        tester
+            .widget<SegmentedButton<MapTab>>(
+              find.byKey(const ValueKey('map-tabs')),
+            )
+            .segments
+            .map((segment) => segment.value),
+        [MapTab.summary, MapTab.map],
+      );
+      expect(find.byType(MapBoardView), findsOneWidget);
+
+      await openMap(tester);
+
+      expect(find.byType(MapCanvasView), findsOneWidget);
+      expect(find.byType(MapBoardView), findsNothing);
+      expect(node('overview:0'), findsOneWidget);
+    });
+
+    testWidgets('la línea de arriba —«Agrupar por» y lo sin ubicar— es una '
+        'sola, y está en las dos pestañas', (tester) async {
+      await seed();
+      await item('suelto', const []);
+      await pump(tester);
+      // Con lugar de sobra —la letra de las pruebas es más ancha que la de
+      // la app—, todo en una fila.
+      tester.view.physicalSize = const Size(1600, 3000);
+      await tester.pumpAndSettle();
+      final category = find.byKey(const ValueKey('map-category'));
+      final unassigned = find.byKey(const ValueKey('map-unassigned'));
+
+      expect(category, findsOneWidget);
+      expect(unassigned, findsOneWidget);
+      // En la misma fila: «Agrupar por» a un lado y lo sin ubicar al otro.
+      expect(
+        (tester.getCenter(category).dy - tester.getCenter(unassigned).dy).abs(),
+        lessThan(12),
+      );
+      expect(
+        tester.getTopLeft(unassigned).dx,
+        greaterThan(tester.getTopRight(category).dx),
+      );
+
+      await openMap(tester);
+      expect(category, findsOneWidget);
+      expect(unassigned, findsOneWidget);
+    });
+
+    testWidgets('«Ver en el Mapa» desde el Resumen pasa al Mapa, con lo '
+        'vinculado a la vista y el foco en el documento', (tester) async {
+      await item('a', const []);
+      await item('b', const []);
+      await relate('a', 'b');
+      await pump(tester);
+      expect(find.byType(MapBoardView), findsOneWidget);
+
+      harness.container.read(mapCanvasRequestProvider.notifier).state =
+          const MapShowLinks(focusId: 'a');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MapCanvasView), findsOneWidget);
+      expect(
+        tester
+            .widget<MapItemBox>(
+              find.descendant(
+                of: node('item:a'),
+                matching: find.byType(MapItemBox),
+              ),
+            )
+            .highlighted,
+        isTrue,
+      );
+      expect(harness.container.read(mapCanvasRequestProvider), isNull);
+    });
+
+    for (final (name, dark) in [('claro', false), ('oscuro', true)]) {
+      testWidgets('en el teléfono, en $name, con la letra al doble: las '
+          'pestañas, la línea de arriba y el lienzo sin desbordes', (
+        tester,
+      ) async {
+        await seed();
+        await item('suelto', const []);
+        // La última pestaña que se miró fue el Mapa: abre ahí. El Resumen lo
+        // rehace el paso 3, con sus propias pruebas en el teléfono.
+        await harness.container
+            .read(sharedPreferencesProvider)
+            .setString('map_last_tab', 'map');
+        tester.view.physicalSize = const Size(360 * 3, 720 * 3);
+        tester.view.devicePixelRatio = 3;
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        tester.platformDispatcher.platformBrightnessTestValue = dark
+            ? Brightness.dark
+            : Brightness.light;
+        addTearDown(tester.view.reset);
+        addTearDown(tester.platformDispatcher.clearAllTestValues);
+        await tester.pumpWidget(harness.wrapWithAppRouter());
+        await tester.pumpAndSettle();
+        harness.goTo(RoutePaths.graph);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(MapCanvasView), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        expect(node('overview:0'), findsOneWidget);
+        await tester.tap(node('overview:0'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 
   testWidgets('muestra el tablero de lo que hay en la bóveda', (tester) async {
@@ -176,19 +323,16 @@ void main() {
     expect(find.byType(ExplorerScreen), findsOneWidget);
   });
 
-  testWidgets('en el grafo, tocar un elemento abre su detalle', (tester) async {
+  testWidgets('en el Mapa, tocar un documento abre su detalle', (tester) async {
     await seed();
     await pump(tester);
-    await tester.tap(find.text(es.mapViewGraph));
+    await openMap(tester);
+    await tester.tap(node('overview:0'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('map-graph-node-overview:0')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('map-graph-node-topic:roma')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('map-graph-action-items')));
+    await tester.tap(node('topic:roma'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('map-graph-node-item:s3')));
+    await tester.tap(node('item:s3'));
     await tester.pumpAndSettle();
 
     // Un documento procesado se abre en su pantalla (F41).
@@ -210,8 +354,9 @@ void main() {
     expect(find.byKey(const ValueKey('map-isolated-egipto')), findsNothing);
   });
 
-  testWidgets('el selector cambia al esquema, que parte del tema con más '
-      'material y trae de la base sus notas mapa', (tester) async {
+  testWidgets('en radial, un tema trae de la base sus notas mapa', (
+    tester,
+  ) async {
     await seed();
     await insertItemRows(
       db,
@@ -231,30 +376,34 @@ void main() {
           ),
         );
     await pump(tester);
-    expect(find.byType(MapSchemaView), findsNothing);
-
-    await tester.tap(find.text(es.mapViewSchema));
+    await openMap(tester);
+    await tester.tap(node('overview:0'));
+    await tester.pumpAndSettle();
+    await tester.tap(node('topic:roma'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(MapSchemaView), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('map-schema-node-topic:roma')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('map-schema-node-item:m1')),
-      findsOneWidget,
-    );
+    await arrange(tester, Icons.radar);
 
-    // Y volver al tablero.
-    await tester.tap(find.text(es.mapViewBoard));
-    await tester.pumpAndSettle();
-    expect(find.byType(MapSchemaView), findsNothing);
+    expect(
+      find.byKey(const ValueKey('map-tree-node-topic:roma')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('map-tree-node-item:m1')), findsOneWidget);
+
+    // Y volver al Resumen.
+    await openSummary(tester);
+    expect(find.byType(MapCanvasView), findsNothing);
   });
 
-  group('la vista «Vínculos» (F28)', () {
+  group('los documentos vinculados, en el Mapa (F28; F44, paso 2)', () {
+    /// Los vínculos se prenden con su botón; sin ningún tema, desde lo que
+    /// dice el lienzo vacío.
     Future<void> openLinks(WidgetTester tester) async {
-      await tester.tap(find.text(es.mapViewLinks));
+      await openMap(tester);
+      final toggle = find.byKey(const ValueKey('map-links-toggle'));
+      await tester.tap(
+        toggle.evaluate().isEmpty ? find.text(es.mapSeeLinksAction) : toggle,
+      );
       await tester.pumpAndSettle();
     }
 
@@ -268,9 +417,9 @@ void main() {
 
       await openLinks(tester);
 
-      expect(find.byKey(const ValueKey('map-links-node-a')), findsOneWidget);
-      expect(find.byKey(const ValueKey('map-links-node-b')), findsOneWidget);
-      expect(find.byKey(const ValueKey('map-links-node-suelto')), findsNothing);
+      expect(node('item:a'), findsOneWidget);
+      expect(node('item:b'), findsOneWidget);
+      expect(node('item:suelto'), findsNothing);
       expect(find.text(es.mapLinksSummary(2)), findsOneWidget);
       expect(find.text(es.mapLinksUnlinked(1)), findsOneWidget);
     });
@@ -282,12 +431,12 @@ void main() {
       await relate('a', 'b');
       await pump(tester);
       await openLinks(tester);
-      expect(find.byKey(const ValueKey('map-links-node-c')), findsNothing);
+      expect(node('item:c'), findsNothing);
 
       await tester.runAsync(() => relate('b', 'c'));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('map-links-node-c')), findsOneWidget);
+      expect(node('item:c'), findsOneWidget);
       expect(find.text(es.mapLinksSummary(3)), findsOneWidget);
     });
 
@@ -300,8 +449,7 @@ void main() {
         await relate('c', 'd', kind: RelationKind.relatedTo);
       }
 
-      bool shows(String id) =>
-          find.byKey(ValueKey('map-links-node-$id')).evaluate().isNotEmpty;
+      bool shows(String id) => node('item:$id').evaluate().isNotEmpty;
 
       testWidgets('arranca en «Todos» y no avisa nada de un corte', (
         tester,
@@ -427,15 +575,14 @@ void main() {
       await pump(tester);
       await openLinks(tester);
 
-      await tester.tap(find.byKey(const ValueKey('map-links-node-a')));
+      await tester.tap(node('item:a'));
       await tester.pumpAndSettle();
 
       expect(find.byType(ProcessedDocumentScreen), findsOneWidget);
     });
 
-    testWidgets('se exporta como SVG con el nombre de la vista', (
-      tester,
-    ) async {
+    testWidgets('se exporta como SVG con un nombre que dice que son los '
+        'vínculos', (tester) async {
       await seed();
       await pump(tester);
       await openLinks(tester);
@@ -445,7 +592,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('map-export-svg')));
       await tester.pumpAndSettle();
 
-      expect(harness.fileSaver.savedFileName, 'mapa-vinculos.svg');
+      expect(harness.fileSaver.savedFileName, 'mapa-red-vinculos.svg');
       final text = String.fromCharCodes(harness.fileSaver.savedBytes!);
       expect(text, contains('Fuente s1'));
     });
@@ -561,23 +708,20 @@ void main() {
       expect(find.byKey(const ValueKey('map-unassigned')), findsNothing);
     });
 
-    testWidgets('el esquema y el grafo sin temas lo dicen y llevan a los '
-        'vínculos, que se ven igual', (tester) async {
+    testWidgets('el Mapa sin temas lo dice y lleva a los vínculos, que se ven '
+        'igual', (tester) async {
       await item('a', const []);
       await item('b', const []);
       await relate('a', 'b');
       await pump(tester);
 
-      for (final view in [es.mapViewSchema, es.mapViewGraph]) {
-        await tester.tap(find.text(view));
-        await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('map-no-topics')), findsOneWidget);
-      }
+      await openMap(tester);
+      expect(find.byKey(const ValueKey('map-no-topics')), findsOneWidget);
 
       await tester.tap(find.text(es.mapSeeLinksAction));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('map-links-node-a')), findsOneWidget);
+      expect(node('item:a'), findsOneWidget);
     });
 
     testWidgets('vincular dos fuentes desde el detalle avisa, sin prometer un '
@@ -614,23 +758,23 @@ void main() {
     });
   });
 
-  group('la transición entre vistas', () {
+  group('la transición entre pestañas', () {
     testWidgets('es un fundido corto: un instante después de tocar, las dos '
-        'vistas conviven, y al terminar queda solo la nueva', (tester) async {
+        'pestañas conviven, y al terminar queda solo la nueva', (tester) async {
       await seed();
       await pump(tester);
 
-      await tester.tap(find.text(es.mapViewSchema));
+      await tester.tap(mapTab);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 60));
 
       expect(find.byType(MapBoardView), findsOneWidget);
-      expect(find.byType(MapSchemaView), findsOneWidget);
+      expect(find.byType(MapCanvasView), findsOneWidget);
 
       await tester.pumpAndSettle();
 
       expect(find.byType(MapBoardView), findsNothing);
-      expect(find.byType(MapSchemaView), findsOneWidget);
+      expect(find.byType(MapCanvasView), findsOneWidget);
     });
 
     testWidgets('si el sistema pide menos movimiento, es inmediata', (
@@ -644,12 +788,12 @@ void main() {
       await seed();
       await pump(tester);
 
-      await tester.tap(find.text(es.mapViewSchema));
+      await tester.tap(mapTab);
       await tester.pump();
       await tester.pump();
 
       expect(find.byType(MapBoardView), findsNothing);
-      expect(find.byType(MapSchemaView), findsOneWidget);
+      expect(find.byType(MapCanvasView), findsOneWidget);
     });
   });
 
@@ -665,7 +809,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('en el tablero no hay nada que exportar: el botón está '
+    testWidgets('en el Resumen no hay nada que exportar: el botón está '
         'apagado y dice por qué', (tester) async {
       await seed();
       await pump(tester);
@@ -678,31 +822,32 @@ void main() {
       expect(button.tooltip, es.mapExportUnavailable);
     });
 
-    testWidgets('en el esquema guarda un SVG con el nombre de la vista y la '
+    testWidgets('en radial guarda un SVG con el nombre de la disposición y la '
         'categoría', (tester) async {
       await seed();
       await pump(tester);
-      await tester.tap(find.text(es.mapViewSchema));
-      await tester.pumpAndSettle();
+      await openMap(tester);
+      await arrange(tester, Icons.radar);
 
       await pickExport(tester, 'map-export-svg');
 
-      expect(harness.fileSaver.savedFileName, 'mapa-esquema-etiquetas.svg');
+      expect(harness.fileSaver.savedFileName, 'mapa-radial-etiquetas.svg');
       final text = String.fromCharCodes(harness.fileSaver.savedBytes!);
       expect(text, startsWith('<?xml'));
-      expect(text, contains('Roma'));
+      // De lejos, en radial: «Todo» en el centro y las comunidades alrededor.
+      expect(text, contains('>${es.f44S2CrumbAll}</text>'));
+      expect(text, contains('>${es.mapBoardIsolatedTitle('tags')}</text>'));
       expect(find.text(es.mapExportSaved), findsOneWidget);
     });
 
-    testWidgets('en el grafo guarda un PNG', (tester) async {
+    testWidgets('en la red guarda un PNG', (tester) async {
       await seed();
       await pump(tester);
-      await tester.tap(find.text(es.mapViewGraph));
-      await tester.pumpAndSettle();
+      await openMap(tester);
 
       await pickExport(tester, 'map-export-png');
 
-      expect(harness.fileSaver.savedFileName, 'mapa-grafo-etiquetas.png');
+      expect(harness.fileSaver.savedFileName, 'mapa-red-etiquetas.png');
       expect(harness.fileSaver.savedBytes!.sublist(0, 8), [
         137,
         80,
@@ -718,14 +863,28 @@ void main() {
     testWidgets('si guardar falla, lo dice', (tester) async {
       await seed();
       await pump(tester);
-      await tester.tap(find.text(es.mapViewSchema));
-      await tester.pumpAndSettle();
+      await openMap(tester);
       harness.fileSaver.error = StateError('disco lleno');
 
       await pickExport(tester, 'map-export-svg');
 
       expect(find.text(es.mapExportSaved), findsNothing);
       expect(find.byType(SnackBar), findsOneWidget);
+    });
+
+    testWidgets('visto como lista no hay dibujo que guardar, y lo dice', (
+      tester,
+    ) async {
+      await seed();
+      await pump(tester);
+      await openMap(tester);
+      await tester.tap(find.byKey(const ValueKey('map-as-list')));
+      await tester.pumpAndSettle();
+
+      await pickExport(tester, 'map-export-svg');
+
+      expect(find.text(es.f44S2ExportFromList), findsOneWidget);
+      expect(harness.fileSaver.savedFileName, isNull);
     });
   });
 
@@ -821,7 +980,7 @@ void main() {
       expect(find.widgetWithText(Chip, es.mapItemCount(5)), findsOneWidget);
     });
 
-    testWidgets('el filtro rige a las tres vistas: sigue puesto al cambiar de '
+    testWidgets('el filtro rige a las dos pestañas: sigue puesto al cambiar de '
         'una a otra', (tester) async {
       await seed();
       await item('d1', ['roma'], kind: SourceKind.document);
@@ -831,12 +990,10 @@ void main() {
       await tester.pumpAndSettle();
       await closeSheet(tester);
 
-      await tester.tap(find.text(es.mapViewSchema));
-      await tester.pumpAndSettle();
+      await openMap(tester);
       expect(find.byKey(const ValueKey('map-filter-active')), findsOneWidget);
 
-      await tester.tap(find.text(es.mapViewGraph));
-      await tester.pumpAndSettle();
+      await openSummary(tester);
       expect(find.byKey(const ValueKey('map-filter-active')), findsOneWidget);
     });
 
