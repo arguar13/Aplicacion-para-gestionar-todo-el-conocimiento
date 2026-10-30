@@ -8,6 +8,8 @@ todo lo que la app ya hace.
   - Cambia la forma; no se pierde ninguna función.
 - **Un reproductor anclado abajo**, con su cola, su temporizador para dormir, su velocidad y la
   voz a la vista.
+- **Escuchar en segundo plano:** con la app minimizada o la pantalla apagada, con su tarjeta en
+  la barra de notificaciones y en la pantalla de bloqueo.
 - **Una biblioteca rica de voces:**
   - las del teléfono;
   - voces neuronales sin conexión;
@@ -100,8 +102,20 @@ que cambia es el cuerpo: la página del PDF, la página web o el texto de corrid
       **Exportar** e **Imprimir**;
     - al final, en rojo, **lo que se borra**: la copia, la creación o el documento procesado,
       nunca la fuente de la Biblioteca.
-- **El original de la Biblioteca y el de Procesado:** el mismo marco, con su cuerpo de siempre (la
-  página del PDF, la web, el libro o la foto) y las marcas adentro (F45, mejora 15).
+- **El original de la Biblioteca y el de Procesado:** el mismo marco, con su cuerpo de siempre y
+  las marcas adentro (F45, mejora 15).
+- **Todo tipo de documento**, sin excepciones. Cada uno con su cuerpo y el mismo marco, la misma
+  fila de IA, Apariencia, ⋮ y reproductor:
+  - una **página web guardada** y una **publicación**, en vista móvil (F45, paso 4);
+  - un **PDF**, con su página de verdad;
+  - un **EPUB**, un **Word**, un **texto** o un **Markdown**, como libro paginado;
+  - una **foto** o un **escaneo**, con su imagen y el texto que se leyó;
+  - un **audio**, un **video** o un **YouTube**, con su reproductor y la transcripción que se
+    sigue;
+  - una **nota** tuya y una **referencia** con su texto;
+  - lo creado en Repasar: el texto completo, el resumen, la síntesis, el informe y el podcast.
+  - Apariencia cambia lo que se puede cambiar en cada cuerpo: en el texto, la tipografía y el
+    tamaño; en un PDF o una foto, el zoom y el modo de color de la página.
 
 ### 2. El reproductor anclado (capturas 3, 7, 8 y 15)
 
@@ -127,6 +141,28 @@ que cambia es el cuerpo: la página del PDF, la página web o el texto de corrid
 - **Lectura enfocada** (Ajustes): el reproductor se achica solo mientras te desplazás.
 - **Sigue sonando** al cambiar de pestaña. El mini reproductor queda encima de la barra de
   navegación, como el del audio (captura 16).
+
+### 2b. En segundo plano y en la notificación
+
+- **Sigue sonando** con la app minimizada, con otra app abierta o con la pantalla apagada. Lee el
+  documento entero o la cola hasta el final, o hasta el temporizador.
+- **Una tarjeta de reproducción en la barra de notificaciones** (la de los reproductores de música,
+  la de Android):
+  - la portada: la miniatura del documento o la cara de la voz;
+  - el título y la voz, por ejemplo «Leyendo con Marisa · 1,0×»;
+  - −10 s, ▶/⏸ y +10 s, y siguiente en la cola;
+  - la barra de avance, que se puede arrastrar;
+  - tocarla abre el documento en la línea que suena.
+- **En la pantalla de bloqueo**, la misma tarjeta, y en los auriculares y en el reloj, ▶/⏸ y
+  saltar.
+- **Se porta bien con el resto del teléfono:**
+  - una llamada o el GPS hablando lo pausan o le bajan el volumen;
+  - desconectar los auriculares lo pausa;
+  - al terminar, la tarjeta se va sola.
+- **Un solo servicio en primer plano**, de tipo «reproducción de medios», con el permiso que
+  pide Android. No es el de procesar, que sigue aparte.
+- La misma tarjeta para todo lo que suena en la app: el lector, un podcast, un audio y la voz del
+  chat.
 
 ### 3. La biblioteca de voces (capturas 10, 11, 12 y 13)
 
@@ -266,6 +302,11 @@ Lo que no se suma, y por qué (para que quede dicho):
   software que se instale en la PC ni en el teléfono.
   - *Alternativa:* dejarlos para después.
 - **H. La velocidad va de 0,5× a 3,0×, sin candados.**
+- **J. Segundo plano y notificación con `audio_service`.** Arma la sesión de medios de Android (la
+  tarjeta, la pantalla de bloqueo, los auriculares y el reloj) para cualquier cosa que suene,
+  también la voz del teléfono, que no es un archivo. Es una dependencia nueva del código.
+  - *Alternativa:* escribir la sesión de medios a mano en Kotlin (Media3), como el servicio de
+    procesar. Es más código propio para lo mismo.
 - **I. El orden:**
   - F47 va **después de F45 y antes de F46**, porque cambia todas las pantallas de lectura y
     conviene que el Índice nazca con el marco nuevo.
@@ -284,8 +325,10 @@ y en oscuro, con el lector de pantalla) y sus mutaciones. Se integran en `main` 
    - en el original, el texto extraído, el resumen, la síntesis y lo creado, sin el botón
      flotante en ellos;
    - con las mejoras 12 y 13 de F45.
-2. **El reproductor anclado:**
+2. **El reproductor anclado y en segundo plano:**
    - abierto y achicado;
+   - la tarjeta en la notificación y en la pantalla de bloqueo, los auriculares y la app
+     minimizada;
    - el tiempo, ±10 s y la velocidad con su regla;
    - la cola, Repetir y el Temporizador para dormir;
    - Lectura enfocada.
