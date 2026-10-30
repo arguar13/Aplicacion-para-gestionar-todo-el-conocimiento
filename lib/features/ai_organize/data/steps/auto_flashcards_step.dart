@@ -10,6 +10,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.d
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_target.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcard_style.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcards_by_parts.dart';
 import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_card_text.dart';
@@ -39,8 +40,10 @@ const kMaxFlashcardsForReview = 3;
 /// No repite una pregunta que el elemento ya tiene, una que ya está para
 /// revisar o se descartó ahí, ni una que la persona dijo que «no era».
 ///
-/// Es también el que hace **solo** las tarjetas que pide el ✨ de Repasar
-/// (F30, [AiFlashcardMaker]): las mismas, con la misma regla.
+/// Es también el que hace **solo** las tarjetas que pide «Para cada
+/// documento» en Repasar (F30, [AiFlashcardMaker]; F43, M18): las mismas, con
+/// la misma regla, y con lo que se eligió en la hoja —el idioma, la
+/// dificultad y el tema van al modelo por `styled`; cuántas, a la cantidad—.
 ///
 /// **De un documento procesado, del texto procesado** (F41, decisión I): sus
 /// partes en el orden en que se leen (`readProcessedCardText`), nunca la
@@ -54,14 +57,20 @@ class AutoFlashcardsStep implements AiOrganizeStep, AiFlashcardMaker {
     required AiRunRepository runs,
     required ProcessedRepository processed,
     required ModelTextBudget Function() textBudget,
+    FlashcardGenerator Function(FlashcardStyle style)? styled,
   }) : _generator = generator,
        _flashcards = flashcards,
        _suggestions = suggestions,
        _runs = runs,
        _processed = processed,
-       _textBudget = textBudget;
+       _textBudget = textBudget,
+       _styled = styled;
 
   final FlashcardGenerator _generator;
+
+  /// El mismo generador, pidiendo con un estilo (F43, M18). Sin él —las
+  /// pruebas que no lo miran—, un estilo solo cambia cuántas.
+  final FlashcardGenerator Function(FlashcardStyle style)? _styled;
   final FlashcardRepository _flashcards;
   final SuggestionRepository _suggestions;
   final AiRunRepository _runs;
@@ -83,6 +92,7 @@ class AutoFlashcardsStep implements AiOrganizeStep, AiFlashcardMaker {
     KnowledgeItem item, {
     required String runId,
     bool anotherBatch = false,
+    FlashcardStyle style = FlashcardStyle.plain,
   }) async {
     // De un procesado, lo procesado (decisión I). Si no se puede leer, no se
     // cae a la fuente: se dice.
@@ -105,7 +115,8 @@ class AutoFlashcardsStep implements AiOrganizeStep, AiFlashcardMaker {
     // la persona haya pedido otra—.
     final existing = await _flashcards.watchForItem(item.id).first;
     final wanted =
-        flashcardTargetFor(text) - (anotherBatch ? 0 : existing.length);
+        flashcardTargetFor(text, amount: style.amount) -
+        (anotherBatch ? 0 : existing.length);
     if (wanted <= 0) return AiStepReport.nothing;
 
     // Las que ya están para revisar, o que la persona descartó ahí, tampoco
@@ -120,7 +131,9 @@ class AutoFlashcardsStep implements AiOrganizeStep, AiFlashcardMaker {
     };
     var forReview = 0;
     final created = await generateFlashcardsByParts(
-      generator: _generator,
+      generator: style.changesPrompt
+          ? (_styled?.call(style) ?? _generator)
+          : _generator,
       text: text,
       wanted: wanted,
       budget: _textBudget(),

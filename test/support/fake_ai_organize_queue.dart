@@ -1,4 +1,5 @@
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcard_style.dart';
 
 /// La cola de la IA de mentira (F27), para las pantallas que solo le piden
 /// algo: lo que importa ahí es que pidan lo correcto, no que la cola lo haga
@@ -27,12 +28,20 @@ class FakeAiOrganizeQueue implements AiOrganizeQueue {
   void enqueueProcessedForOrganizing(String documentId) =>
       processedForOrganizing.add(documentId);
 
-  /// Lo que se pidió hacer solo en tarjetas (F30), en orden.
+  /// Lo que se pidió hacer solo en tarjetas (F30), en orden, y con qué: si
+  /// era otra tanda y el estilo de la hoja (F43, M18).
   final flashcardRequests = <List<String>>[];
+  final flashcardOptions = <({bool anotherBatch, FlashcardStyle style})>[];
 
   @override
-  void makeFlashcards(Iterable<String> itemIds, {bool anotherBatch = false}) =>
-      flashcardRequests.add(itemIds.toList());
+  void makeFlashcards(
+    Iterable<String> itemIds, {
+    bool anotherBatch = false,
+    FlashcardStyle style = FlashcardStyle.plain,
+  }) {
+    flashcardRequests.add(itemIds.toList());
+    flashcardOptions.add((anotherBatch: anotherBatch, style: style));
+  }
 
   /// Lo que se pidió buscar solo en fechas (F40), en orden.
   final dateRequests = <List<String>>[];

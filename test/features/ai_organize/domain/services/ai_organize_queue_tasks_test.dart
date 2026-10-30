@@ -19,6 +19,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.d
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/chat/domain/entities/language_model_performance.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_meter.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcard_style.dart';
 import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
 
 import '../../../../support/ai_organize_harness.dart';
@@ -69,6 +70,7 @@ class _TalkingStep implements AiOrganizeStep, AiFlashcardMaker, AiDatesFinder {
     KnowledgeItem item, {
     required String runId,
     bool anotherBatch = false,
+    FlashcardStyle style = FlashcardStyle.plain,
   }) => _work(item);
 
   @override

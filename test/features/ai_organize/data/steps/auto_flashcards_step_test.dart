@@ -9,6 +9,7 @@ import 'package:sinapsis/features/ai_organize/data/steps/auto_flashcards_step.da
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_target.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcard_style.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 
@@ -117,6 +118,91 @@ void main() {
 
     test('sin texto, ninguna', () {
       expect(flashcardTargetFor('  \n '), 0);
+    });
+
+    test('«Menos» es la mitad y «Más», una vez y media, sobre lo que da el '
+        'largo (F43, M18)', () {
+      int target(int n, FlashcardAmount amount) =>
+          flashcardTargetFor(words(n), amount: amount);
+      expect(target(800, FlashcardAmount.fewer), 2);
+      expect(target(800, FlashcardAmount.standard), 3);
+      expect(target(800, FlashcardAmount.more), 5);
+      expect(target(9000, FlashcardAmount.fewer), 5);
+      expect(target(9000, FlashcardAmount.more), 14);
+      expect(target(200000, FlashcardAmount.fewer), 6);
+      expect(target(200000, FlashcardAmount.more), kMaxMoreAiFlashcards);
+      expect(flashcardTargetFor(' ', amount: FlashcardAmount.more), 0);
+    });
+  });
+
+  group('con lo elegido en «Para cada documento» (F43, M18)', () {
+    late _SentenceFlashcards styledModel;
+    late List<FlashcardStyle> styledWith;
+
+    setUp(() {
+      styledModel = _SentenceFlashcards();
+      styledWith = [];
+      step = AutoFlashcardsStep(
+        generator: model,
+        flashcards: vault.flashcards,
+        suggestions: vault.suggestions,
+        runs: vault.runs,
+        processed: vault.processed,
+        textBudget: () => budget,
+        styled: (style) {
+          styledWith.add(style);
+          return styledModel;
+        },
+      );
+    });
+
+    test('el idioma, la dificultad y el tema van al generador con estilo, y '
+        'cuántas, a la cantidad', () async {
+      const style = FlashcardStyle(
+        languageCode: 'en',
+        difficulty: FlashcardDifficulty.hard,
+        topic: 'el Senado',
+        amount: FlashcardAmount.fewer,
+      );
+      final item = await vault.source('a', title: 'Roma', content: article);
+
+      final report = await step.makeFlashcards(
+        item,
+        runId: await vault.startRun('a'),
+        style: style,
+      );
+
+      // El artículo da 3; «Menos», 2.
+      expect(report, const AiStepReport(applied: 2));
+      expect(styledWith, [style]);
+      expect(styledModel.contents, isNotEmpty);
+      expect(model.contents, isEmpty);
+    });
+
+    test('«Más» pide más que lo de siempre, sin estilo en el pedido: el '
+        'generador de siempre', () async {
+      final item = await vault.source('a', title: 'Roma', content: article);
+
+      final report = await step.makeFlashcards(
+        item,
+        runId: await vault.startRun('a'),
+        style: const FlashcardStyle(amount: FlashcardAmount.more),
+      );
+
+      // Cinco pedidas (lo de siempre serían 3); el texto tiene cuatro
+      // oraciones.
+      expect(report, const AiStepReport(applied: 4));
+      expect(styledWith, isEmpty);
+      expect(model.contents, isNotEmpty);
+    });
+
+    test('lo de siempre no pasa por el generador con estilo', () async {
+      final item = await vault.source('a', title: 'Roma', content: article);
+
+      await step.organize(item, runId: await vault.startRun('a'));
+
+      expect(styledWith, isEmpty);
+      expect(await vault.db.select(vault.db.flashcards).get(), hasLength(3));
     });
   });
 

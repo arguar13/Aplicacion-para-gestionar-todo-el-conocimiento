@@ -10,6 +10,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcard_style.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -27,8 +28,11 @@ class _RecordingQueue implements AiOrganizeQueue {
   final calls = <String>[];
 
   @override
-  void makeFlashcards(Iterable<String> itemIds, {bool anotherBatch = false}) =>
-      requests.add((ids: itemIds.toList(), anotherBatch: anotherBatch));
+  void makeFlashcards(
+    Iterable<String> itemIds, {
+    bool anotherBatch = false,
+    FlashcardStyle style = FlashcardStyle.plain,
+  }) => requests.add((ids: itemIds.toList(), anotherBatch: anotherBatch));
 
   @override
   void pauseFlashcards() => calls.add('pausar');

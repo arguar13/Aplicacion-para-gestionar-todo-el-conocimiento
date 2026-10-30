@@ -25,6 +25,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_run_usage_saver
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/content_change.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/organize_text.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcard_style.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
@@ -239,10 +240,12 @@ class AiOrganizeQueue {
   /// Lo que se pidió organizar a mano, en orden.
   final _requested = Queue<String>();
 
-  /// Los elementos de los que se pidieron solo tarjetas (F30), en orden, y
-  /// los que pidieron otra tanda aunque ya tengan.
+  /// Los elementos de los que se pidieron solo tarjetas (F30), en orden, los
+  /// que pidieron otra tanda aunque ya tengan y los que las pidieron con un
+  /// estilo (F43, M18); los demás, con el de siempre.
   final _cardRequests = Queue<String>();
   final _anotherBatch = <String>{};
+  final _cardStyles = <String, FlashcardStyle>{};
 
   /// Cómo va el pedido de tarjetas, o `null` si no hay ninguno a la vista.
   AiFlashcardsBatch? _batch;
@@ -364,18 +367,24 @@ class AiOrganizeQueue {
     unawaited(wake());
   }
 
-  /// Hace **solo las tarjetas** de [itemIds] (F30, el ✨ de Repasar), en ese
-  /// orden, después de lo pedido a mano y antes que lo nuevo: sin vínculos,
-  /// temas ni etiquetas, y **sin esperar el cargador**, aunque sean de la
-  /// biblioteca que ya existía. Solo necesita el modelo de lenguaje, y no
-  /// mira los interruptores de cada tipo —lo pidió la persona—; la pausa
-  /// general de la IA, sí.
+  /// Hace **solo las tarjetas** de [itemIds] (F30; desde F43, M18, «Para cada
+  /// documento» en la hoja de «Tarjetas didácticas»), en ese orden, después
+  /// de lo pedido a mano y antes que lo nuevo: sin vínculos, temas ni
+  /// etiquetas, y **sin esperar el cargador**. Solo necesita el modelo de
+  /// lenguaje, y no mira los interruptores de cada tipo —lo pidió la
+  /// persona—; la pausa general de la IA, sí.
   ///
   /// Con [anotherBatch], los que ya tienen tarjetas suman otra tanda
-  /// (`AiFlashcardMaker`). Cada elemento es una pasada de solo tarjetas
-  /// (`AiRunRepository.startRun`), que se deshace como cualquiera y no cuenta
-  /// como organizarlo. Si ya había un pedido en curso, estos se le suman.
-  void makeFlashcards(Iterable<String> itemIds, {bool anotherBatch = false}) {
+  /// (`AiFlashcardMaker`); con [style], se piden en ese idioma, con esa
+  /// dificultad, ese tema y esa cantidad. Cada elemento es una pasada de solo
+  /// tarjetas (`AiRunRepository.startRun`), que se deshace como cualquiera y
+  /// no cuenta como organizarlo. Si ya había un pedido en curso, estos se le
+  /// suman; uno que ya estaba en la fila sigue como se pidió.
+  void makeFlashcards(
+    Iterable<String> itemIds, {
+    bool anotherBatch = false,
+    FlashcardStyle style = FlashcardStyle.plain,
+  }) {
     final queued = _cardRequests.toSet();
     final interrupted = _interrupted;
     if (interrupted != null &&
@@ -388,6 +397,7 @@ class AiOrganizeQueue {
       if (!queued.add(itemId)) continue;
       _cardRequests.add(itemId);
       if (anotherBatch) _anotherBatch.add(itemId);
+      if (style != FlashcardStyle.plain) _cardStyles[itemId] = style;
       added++;
     }
     if (added == 0) return;
@@ -422,6 +432,7 @@ class AiOrganizeQueue {
   void cancelFlashcards() {
     _cardRequests.clear();
     _anotherBatch.clear();
+    _cardStyles.clear();
     _cardsPaused = false;
     _batchSerial++;
     _publishBatch(null);
@@ -996,6 +1007,7 @@ class AiOrganizeQueue {
               runId: runId,
               done: done,
               anotherBatch: false,
+              style: FlashcardStyle.plain,
             );
             return false;
           }
@@ -1068,6 +1080,8 @@ class AiOrganizeQueue {
     // que dé no se le suma al nuevo.
     final batchOf = _batchSerial;
     final anotherBatch = resume?.anotherBatch ?? _anotherBatch.remove(itemId);
+    final style =
+        resume?.style ?? _cardStyles.remove(itemId) ?? FlashcardStyle.plain;
     var report = AiStepReport.nothing;
     var waiting = false;
     // Pase lo que pase —salvo esperar al modelo—, el elemento cuenta como
@@ -1147,6 +1161,7 @@ class AiOrganizeQueue {
             item,
             runId: runId,
             anotherBatch: anotherBatch,
+            style: style,
           ),
         );
         // Como un paso de la pasada entera: el modelo es de terceros y falla
@@ -1164,6 +1179,7 @@ class AiOrganizeQueue {
             runId: runId,
             done: const <AiOrganizeToggle>{},
             anotherBatch: anotherBatch,
+            style: style,
           );
           final current = _batch;
           if (current != null && batchOf == _batchSerial) {
@@ -1304,6 +1320,7 @@ class AiOrganizeQueue {
             runId: runId,
             done: const <AiOrganizeToggle>{},
             anotherBatch: false,
+            style: FlashcardStyle.plain,
           );
           final current = _datesBatch;
           if (current != null && batchOf == _datesSerial) {
@@ -1411,13 +1428,14 @@ typedef _Next = ({String itemId, AiWorkSource source, _Interrupted? resume});
 
 /// Lo que se cortó porque el modelo dejó de contestar (F32): qué elemento, de
 /// dónde salió, en qué pasada, qué pasos ya terminó y —un pedido de
-/// tarjetas— si era otra tanda.
+/// tarjetas— si era otra tanda y con qué estilo (F43, M18).
 typedef _Interrupted = ({
   String itemId,
   AiWorkSource source,
   String runId,
   Set<AiOrganizeToggle> done,
   bool anotherBatch,
+  FlashcardStyle style,
 });
 
 extension on AiWorkSource {

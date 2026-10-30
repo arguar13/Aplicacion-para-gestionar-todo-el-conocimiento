@@ -141,6 +141,8 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
       runs: runs,
       processed: ref.watch(processedRepositoryProvider),
       textBudget: ref.watch(languageModelTextBudgetProvider),
+      // Lo elegido en «Para cada documento» (F43, M18), con el mismo turno.
+      styled: model.flashcardsWith,
     ),
     // El Atlas, al final: trabaja con los temas que dejaron los de arriba.
     AutoAtlasStep(

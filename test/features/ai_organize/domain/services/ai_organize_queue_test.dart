@@ -23,6 +23,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dar
 import 'package:sinapsis/features/ai_organize/domain/services/content_change.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/organize_text.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcard_style.dart';
 import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 
@@ -74,13 +75,18 @@ class _CardsStep extends _Step implements AiFlashcardMaker {
   /// Si está, el próximo pedido lanza esto, una sola vez (F32).
   Exception? failNext;
 
+  /// Con qué estilo se pidió cada uno, en orden (F43, M18).
+  final styles = <({String itemId, FlashcardStyle style})>[];
+
   @override
   Future<AiStepReport> makeFlashcards(
     KnowledgeItem item, {
     required String runId,
     bool anotherBatch = false,
+    FlashcardStyle style = FlashcardStyle.plain,
   }) async {
     made.add((itemId: item.id, runId: runId, anotherBatch: anotherBatch));
+    styles.add((itemId: item.id, style: style));
     if (item.id == heldItem) await hold!.future;
     if (item.id == failsOn) throw StateError('sin memoria');
     final failure = failNext;
@@ -948,6 +954,54 @@ void main() {
       expect(batches.last!.total, 2);
     });
 
+    test('lo elegido en «Para cada documento» llega al paso de cada uno; lo '
+        'que se pidió sin estilo, con el de siempre (F43, M18)', () async {
+      const english = FlashcardStyle(
+        languageCode: 'en',
+        difficulty: FlashcardDifficulty.hard,
+        topic: 'Moisés',
+        amount: FlashcardAmount.more,
+      );
+      final ai = queue();
+      await ai.start();
+
+      ai
+        ..makeFlashcards(['v1'], style: english)
+        ..makeFlashcards(['v2']);
+      await ai.settled;
+
+      expect(cards.styles, [
+        (itemId: 'v1', style: english),
+        (itemId: 'v2', style: FlashcardStyle.plain),
+      ]);
+    });
+
+    test('cancelar olvida el estilo: pedirlo de nuevo sin él va con el de '
+        'siempre', () async {
+      final ai = queue();
+      cards
+        ..hold = Completer<void>()
+        ..heldItem = 'v1';
+      await ai.start();
+
+      ai.makeFlashcards([
+        'v1',
+        'v2',
+      ], style: const FlashcardStyle(languageCode: 'fr'));
+      await pumpEventQueue();
+      ai.cancelFlashcards();
+      cards.hold!.complete();
+      await ai.settled;
+
+      ai.makeFlashcards(['v2']);
+      await ai.settled;
+
+      expect(cards.styles.map((s) => (s.itemId, s.style.languageCode)), [
+        ('v1', 'fr'),
+        ('v2', 'es'),
+      ]);
+    });
+
     test('solo necesita el modelo de lenguaje', () async {
       embeddingModel.ready = false;
       final ai = queue();
@@ -1469,6 +1523,30 @@ void main() {
           const AiFlashcardsBatch(total: 2, done: 2, created: 4, forReview: 2),
         );
         expect((await onlyRunOf('v1')).finishedAt, isNotNull);
+      });
+
+      test('el que se cortó se retoma con el estilo con que se pidió '
+          '(F43, M18)', () async {
+        const style = FlashcardStyle(
+          languageCode: 'en',
+          difficulty: FlashcardDifficulty.easy,
+          amount: FlashcardAmount.fewer,
+        );
+        final ai = queue();
+        await ai.start();
+        cards.failNext = const CloudModelException(
+          CloudModelFailure.quotaExhausted,
+        );
+
+        ai.makeFlashcards(['v1'], style: style);
+        await ai.settled;
+        vault.now = vault.now.add(kAiModelRetryDelay);
+        await ai.wake();
+
+        expect(cards.styles, [
+          (itemId: 'v1', style: style),
+          (itemId: 'v1', style: style),
+        ]);
       });
 
       test('pedir de nuevo las tarjetas del que se cortó no lo suma otra '

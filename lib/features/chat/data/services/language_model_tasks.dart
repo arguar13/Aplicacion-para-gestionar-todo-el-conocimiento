@@ -21,6 +21,7 @@ import 'package:sinapsis/features/flashcards/domain/services/cloze.dart';
 import 'package:sinapsis/features/flashcards/domain/services/cloze_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_draft_parser.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcard_style.dart';
 import 'package:sinapsis/features/flashcards/domain/services/quiz_question_generator.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_parser.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
@@ -74,13 +75,62 @@ const _quizQuestionSystemInstruction =
 /// contestar una pregunta: sin citas ni corchetes, con el formato exacto
 /// que `parseFlashcardDrafts` sabe leer.
 const _flashcardSystemInstruction =
-    'Respondé siempre en español. Tu única tarea es generar preguntas de '
+    'Respondé siempre en español. $_flashcardTaskInstruction';
+
+const _flashcardTaskInstruction =
+    'Tu única tarea es generar preguntas de '
     'estudio con su respuesta a partir del contenido que se te da, '
     'basándote ÚNICAMENTE en ese contenido. Usá EXACTAMENTE este formato, '
     'una pregunta y una respuesta por vez, sin numerar, sin usar Markdown '
     'ni comillas:\nP: <pregunta>\nR: <respuesta>\nC: <la frase del '
     'contenido de la que sale la respuesta, copiada TEXTUALMENTE, sin '
     'cambiar ni una palabra>';
+
+/// La instrucción de las tarjetas pedidas con [style] (F43, M18): la de
+/// siempre, con el idioma elegido para la pregunta y la respuesta en vez del
+/// español. La frase de `C:` sigue en el idioma del contenido, tal cual: es lo
+/// que ubica la tarjeta en el texto (`anchorQuote`).
+@visibleForTesting
+String flashcardInstructionFor(FlashcardStyle style) => style.isSpanish
+    ? _flashcardSystemInstruction
+    : 'Escribí la pregunta y la respuesta siempre en '
+          '${languageNameOf(style.languageCode)}, aunque el contenido esté en '
+          'otro idioma. $_flashcardTaskInstruction. La frase de C: va en el '
+          'idioma del contenido, tal como está escrita.';
+
+/// El pedido de [count] tarjetas de [content] con [style] (F43, M18): el de
+/// siempre, con la dificultad y el tema elegidos. Con [FlashcardStyle.plain],
+/// letra por letra el de antes.
+@visibleForTesting
+String flashcardPromptFor(
+  String content, {
+  required int count,
+  FlashcardStyle style = FlashcardStyle.plain,
+}) {
+  final difficulty = switch (style.difficulty) {
+    null => null,
+    FlashcardDifficulty.easy =>
+      'preguntas directas sobre las ideas principales, los nombres y las '
+          'definiciones, para alguien que recién empieza',
+    FlashcardDifficulty.medium =>
+      'preguntas que pidan entender las ideas y sus relaciones, no solo '
+          'repetirlas',
+    FlashcardDifficulty.hard =>
+      'preguntas exigentes, que pidan relacionar, comparar, explicar causas y '
+          'consecuencias y recordar detalles precisos',
+  };
+  // Por partes, una puede no tocar el tema: mejor lo más importante que
+  // ninguna.
+  final topic = style.topic.trim();
+  final focus = topic.isEmpty
+      ? null
+      : 'concentrate en lo que tenga que ver con «$topic» (si este contenido '
+            'no habla de eso, en lo más importante)';
+  final asks = [?difficulty, ?focus];
+  final how = asks.isEmpty ? '' : ' (${asks.join('; ')})';
+  return 'Generá hasta $count tarjetas$how a partir de este contenido:\n\n'
+      '$content';
+}
 
 /// Revisar tarjetas que hizo otro modelo (F33): el formato exacto que lee
 /// `parseFlashcardReview`. Solo corregir o sacar —nunca agregar—, y contra el
@@ -574,18 +624,30 @@ class LanguageModelTasks
   Future<List<FlashcardDraft>> generate({
     required String content,
     int count = 5,
-  }) {
+  }) => _flashcards(content, count, FlashcardStyle.plain);
+
+  /// Quien hace las tarjetas como [generate], pero con lo elegido en la hoja
+  /// de «Tarjetas didácticas» (F43, M18): el idioma, la dificultad y el
+  /// tema. Con el turno de esta instancia —la de la cola, si es [background]—.
+  /// Un estilo que no cambia el pedido es este mismo.
+  FlashcardGenerator flashcardsWith(FlashcardStyle style) =>
+      style.changesPrompt ? _StyledFlashcards(this, style) : this;
+
+  Future<List<FlashcardDraft>> _flashcards(
+    String content,
+    int count,
+    FlashcardStyle style,
+  ) {
     return _withTurn(() async {
       final chat = await _backend.openExchange(
-        instruction: _flashcardSystemInstruction,
+        instruction: flashcardInstructionFor(style),
         maxOutputTokens: draftsReplyTokens(count),
       );
 
       try {
         final text = await _generate(
           chat,
-          'Generá hasta $count tarjetas a partir de este contenido:\n\n'
-          '$content',
+          flashcardPromptFor(content, count: count, style: style),
         );
 
         return parseFlashcardDrafts(text).take(count).toList();
@@ -1356,6 +1418,22 @@ String buildNotebookNamesPrompt(List<NotebookNamingInput> inputs) {
 String _short(String text, int max) {
   final trimmed = text.trim();
   return trimmed.length <= max ? trimmed : '${trimmed.substring(0, max)}…';
+}
+
+/// Las tarjetas de [LanguageModelTasks] con un estilo fijo (F43, M18): lo que
+/// recibe la lectura por partes, que pide sin saber de estilos
+/// (`generateFlashcardsByParts`).
+class _StyledFlashcards implements FlashcardGenerator {
+  const _StyledFlashcards(this._tasks, this._style);
+
+  final LanguageModelTasks _tasks;
+  final FlashcardStyle _style;
+
+  @override
+  Future<List<FlashcardDraft>> generate({
+    required String content,
+    int count = 5,
+  }) => _tasks._flashcards(content, count, _style);
 }
 
 /// La persona pidió el modelo mientras la cola de la IA lo usaba: el trabajo
