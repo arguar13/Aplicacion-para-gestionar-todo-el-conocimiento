@@ -443,3 +443,36 @@ Cinco commits, de `139637ff` a `97cb2181` (mejoras 2 y 10, decisión B).
     teléfono.
 - **Queda para después:** la barra de la Bandeja desborda en 400 dp con la letra al doble, y no
   hay deshacer para lo que ordenó la IA.
+
+### Paso 7c (hecho): «sin tema» y la tarjeta «Bandeja»
+
+Tres commits, de `73ed09e1` a `1962e5ba` (mejoras 17 y 18).
+
+- **«49 sin tema», en su lugar** (`library/presentation/widgets/unsorted_task.dart`). Sale
+  `unsorted_items_card.dart`, la tarjeta que empujaba la lista de la Biblioteca.
+  - En el panel de estado, plegado, es una píldora más, con la carpeta tachada; abre la lista
+    para ordenarlos. Desplegado, la tarea va debajo de los indicadores, con para qué sirve y
+    «Ordenarlos».
+  - No se muestra en cero ni mientras se cuenta, para que no aparezca y se vaya. Con un filtro
+    puesto sigue, porque todas las cifras del panel son de toda la bóveda.
+  - Cada píldora del panel es un botón propio para el lector de pantalla, con su nombre; antes se
+    fundían con la fila.
+  - En «Organizar», en el teléfono, la tarea va debajo de la Bandeja y el Atlas, y «Ordenarlos»
+    cierra la lista y abre lo que no tiene tema. En la computadora no hay esa lista, así que la
+    cuenta queda en el panel.
+- **La tarjeta «Bandeja» de una fuente** (`inbox_standing_line.dart`; el detalle no cambia):
+  - arriba, el estado con su ícono: «Triado el 10 oct», «Descartado el…» o «En la Bandeja»;
+  - debajo, del mismo alto, «Volver a triar» (relleno, con el ícono de toda la app) y «Volver a
+    la Bandeja» (con borde y el ícono de la Bandeja, ya no la flecha de deshacer); lo que espera
+    tiene solo «Triar ahora»;
+  - van al lado si cada nombre entra en su mitad en hasta dos renglones sin partir una palabra,
+    medido con la letra del botón y la escala de la persona; si no, apilados a lo ancho.
+- **Verificado:**
+  - analyze en 19, sobre `main` con el paso 2;
+  - 2.472 pruebas del panel, la navegación, la Biblioteca, la Bandeja, Organizar, Procesado y la
+    base; antes, 2.365 de las creaciones y las tarjetas;
+  - murieron las 6 mutaciones: la píldora en cero, la tarea en «Estudiar», «Volver a la Bandeja»
+    con la flecha de deshacer, al lado solo si entran en un renglón, siempre al lado y «Volver a
+    triar» con borde.
+- **Queda para después:** en una fuente triada sin documento procesado, «Volver a triar» sale dos
+  veces en el detalle, en esta tarjeta y en `SourceStudyLine`. Se ve al integrar los pasos 3 y 4.
