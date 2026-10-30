@@ -330,25 +330,34 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
   }
 
   /// Dónde se calcula que empieza la fila [row]: desde la fila armada más
-  /// cercana, con el alto promedio de las filas.
+  /// cercana, con el alto promedio de las filas. Hacia abajo se cuenta desde
+  /// donde **termina** esa fila, que se sabe: un bloque de un libro puede ser
+  /// mucho más alto que el promedio —más con una letra grande o ancha—, y
+  /// contar desde su comienzo dejaría la fila buscada adentro de él, sin
+  /// armarse nunca.
   double _estimatedOffset(int row) {
     final position = _scroll.position;
     final average =
         (position.maxScrollExtent + position.viewportDimension) /
         math.max(1, _rows.length);
     int? nearest;
-    double? nearestOffset;
+    double? nearestTop;
+    double? nearestHeight;
     for (final entry in _built.entries) {
       final box = entry.value.revealBox;
       final viewport = box == null ? null : RenderAbstractViewport.maybeOf(box);
-      if (box == null || viewport == null) continue;
+      if (box == null || viewport == null || !box.hasSize) continue;
       if (nearest == null || (entry.key - row).abs() < (nearest - row).abs()) {
         nearest = entry.key;
-        nearestOffset = viewport.getOffsetToReveal(box, 0).offset;
+        nearestTop = viewport.getOffsetToReveal(box, 0).offset;
+        nearestHeight = box.size.height;
       }
     }
-    if (nearest == null || nearestOffset == null) return row * average;
-    return nearestOffset + (row - nearest) * average;
+    if (nearest == null || nearestTop == null || nearestHeight == null) {
+      return row * average;
+    }
+    if (row <= nearest) return nearestTop - (nearest - row) * average;
+    return nearestTop + nearestHeight + (row - nearest - 1) * average;
   }
 
   void _register(int row, _Revealable target) => _built[row] = target;
@@ -454,7 +463,13 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
     final read = widget.read;
     final sections = [
       for (final id in read.documentIds)
-        ref.watch(extractSectionProvider((kind: read.kind, documentId: id))),
+        ref.watch(
+          extractSectionProvider((
+            kind: read.kind,
+            documentId: id,
+            readsTrashed: read.readsTrashed,
+          )),
+        ),
     ];
     for (final section in sections) {
       if (section.status == ExtractSectionStatus.ready) _fillKeywords(section);
@@ -605,7 +620,13 @@ class ExtractPlayer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sections = [
       for (final id in read.documentIds)
-        ref.watch(extractSectionProvider((kind: read.kind, documentId: id))),
+        ref.watch(
+          extractSectionProvider((
+            kind: read.kind,
+            documentId: id,
+            readsTrashed: read.readsTrashed,
+          )),
+        ),
     ];
     final accent = ref
         .watch(creationKindRegistryProvider)

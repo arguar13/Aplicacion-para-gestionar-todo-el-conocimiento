@@ -61,12 +61,17 @@ ProcessedStudyText? _ownOf(Ref ref, String documentId) => ref.watch(
 );
 
 /// Los bloques del texto entero de un documento —un libro, en otro hilo—, una
-/// vez por texto: los de «Extraer texto completo».
+/// vez por texto: los de «Extraer texto completo». Van con el texto del que
+/// salieron: mientras se parte el texto nuevo —se editó una página—, los
+/// bloques de antes ya no le caben, y quien los muestra los descarta.
 final extractTextBlocksProvider = FutureProvider.autoDispose
-    .family<List<ExtractBlock>, String>((ref, documentId) async {
+    .family<({ProcessedStudyText? own, List<ExtractBlock> blocks}), String>((
+      ref,
+      documentId,
+    ) async {
       final own = _ownOf(ref, documentId);
-      if (own == null) return const [];
-      return extractTextBlocksOff(own.content);
+      if (own == null) return (own: null, blocks: const <ExtractBlock>[]);
+      return (own: own, blocks: await extractTextBlocksOff(own.content));
     });
 
 /// En qué está un documento de una extracción.
@@ -154,7 +159,15 @@ class ExtractSection {
 }
 
 /// Qué documento de qué extracción.
-typedef ExtractSectionKey = ({StudyCreationKind kind, String documentId});
+///
+/// Con `readsTrashed`, un documento en la papelera se lee igual —el lector de
+/// «Texto», «Resumen» o «Síntesis» de Procesado (F47, paso 1)—; si no —lo
+/// creado—, dice «Fuente borrada».
+typedef ExtractSectionKey = ({
+  StudyCreationKind kind,
+  String documentId,
+  bool readsTrashed,
+});
 
 /// Un documento de una extracción, y cada cambio: si se marca algo en el
 /// original, si se edita el texto, si se ocultan las palabras clave —acá o
@@ -164,7 +177,7 @@ final extractSectionProvider = Provider.autoDispose
       final id = key.documentId;
       final document = ref.watch(processedDocumentProvider(id));
       final found = document.valueOrNull;
-      if (found == null || found.inTrash) {
+      if (found == null || (found.inTrash && !key.readsTrashed)) {
         return ExtractSection(
           documentId: id,
           status: document.isLoading && found == null
@@ -187,7 +200,12 @@ final extractSectionProvider = Provider.autoDispose
       }
       final study = ref.watch(documentStudyProvider(own.key)).valueOrNull;
       final blocks = key.kind == StudyCreationKind.fullText
-          ? ref.watch(extractTextBlocksProvider(id)).valueOrNull
+          ? switch (ref.watch(extractTextBlocksProvider(id)).valueOrNull) {
+              // Los de este mismo texto: los de un texto anterior no caben.
+              (own: final built?, :final blocks) when identical(built, own) =>
+                blocks,
+              _ => null,
+            }
           : study == null
           ? null
           : extractSentenceBlocks(
@@ -237,6 +255,7 @@ class ExtractRead {
     required this.kind,
     required this.documentIds,
     required this.readableId,
+    this.readsTrashed = false,
   });
 
   /// Lo que lee la extracción [creation].
@@ -254,22 +273,28 @@ class ExtractRead {
         kind: kind,
         documentIds: [documentId],
         readableId: 'procesado-lectura:${kind.storageKey}:$documentId',
+        readsTrashed: true,
       );
 
   final StudyCreationKind kind;
   final List<String> documentIds;
   final String readableId;
 
+  /// Si un documento en la papelera se lee igual: en Procesado, sí; en lo
+  /// creado, dice «Fuente borrada».
+  final bool readsTrashed;
+
   @override
   bool operator ==(Object other) =>
       other is ExtractRead &&
       other.kind == kind &&
       other.readableId == readableId &&
+      other.readsTrashed == readsTrashed &&
       listEquals(other.documentIds, documentIds);
 
   @override
   int get hashCode =>
-      Object.hash(kind, readableId, Object.hashAll(documentIds));
+      Object.hash(kind, readableId, readsTrashed, Object.hashAll(documentIds));
 }
 
 /// Lo que se escucha de una extracción (F43, paso 7, M8): lo mismo que se ve,
@@ -287,7 +312,11 @@ final extractSegmentsProvider = Provider.autoDispose
       final segments = <ReadableSegment>[];
       for (final id in read.documentIds) {
         final section = ref.watch(
-          extractSectionProvider((kind: read.kind, documentId: id)),
+          extractSectionProvider((
+            kind: read.kind,
+            documentId: id,
+            readsTrashed: read.readsTrashed,
+          )),
         );
         if (section.status == ExtractSectionStatus.loading) return null;
         final own = section.own;

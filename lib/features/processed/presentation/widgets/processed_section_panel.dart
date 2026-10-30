@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
+import 'package:sinapsis/features/creations/extract/presentation/providers/extract_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
@@ -24,7 +25,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// mismo lector que el de «Lo creado», con el texto limpio, la letra de
 /// «Apariencia» y un solo «Escuchar»—, y editar se hace desde su ⋮. Las demás
 /// —las palabras clave, las notas, los fragmentos, las imágenes— se despliegan
-/// acá, con sus partes.
+/// acá, con sus partes; también el resumen y la síntesis de un documento sin
+/// texto propio, que el lector no tiene sobre qué mostrar.
 ///
 /// Lo que cambia por sección se decide en un `switch` exhaustivo sobre
 /// `ProcessedSection`: sumar una sección es sumar sus casos, no otra
@@ -33,7 +35,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Plegada no pide nada a la base —`ExpansionTile` no arma lo plegado—, y el
 /// texto entero no se trae a esta pantalla: lo trae el lector, de a bloques.
 /// Respeta «sin animaciones»: se abre y se cierra de una.
-class ProcessedSectionPanel extends StatelessWidget {
+class ProcessedSectionPanel extends ConsumerWidget {
   const ProcessedSectionPanel({
     required this.document,
     required this.section,
@@ -44,7 +46,7 @@ class ProcessedSectionPanel extends StatelessWidget {
   final ProcessedSection section;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
@@ -71,7 +73,14 @@ class ProcessedSectionPanel extends StatelessWidget {
       ),
     );
 
-    if (extractKindOfSection(section) case final kind?) {
+    // El resumen y la síntesis se leen sobre el texto propio del documento
+    // —sus páginas de «Texto» o la copia de su original—, donde están
+    // marcados. Un documento que solo trajo sus oraciones, sin texto, las
+    // muestra acá, como siempre.
+    final own = ref.watch(extractOwnTextProvider(document.id));
+    final readable =
+        section == ProcessedSection.text || own.isLoading || own.value != null;
+    if (extractKindOfSection(section) case final kind? when readable) {
       return Material(
         color: colors.surfaceContainerLow,
         shape: shape,

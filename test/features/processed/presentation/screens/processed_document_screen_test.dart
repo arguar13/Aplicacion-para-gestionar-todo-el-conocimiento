@@ -210,7 +210,24 @@ void main() {
       await open(tester, id);
 
       expect(section(ProcessedSection.summary), findsOneWidget);
+      // Sin texto propio —ni «Texto» ni la copia del original—, sus oraciones
+      // se ven acá: el lector no tiene sobre qué mostrarlas.
+      expect(find.text('César cruzó el Rubicón.'), findsOneWidget);
       expect(find.text(es.studySentenceCount(1)), findsOneWidget);
+      expect(find.byKey(const Key('processed-read-summary')), findsNothing);
+    });
+
+    testWidgets('con su texto, el resumen se abre en el lector, con sus '
+        'oraciones', (tester) async {
+      await harness.addSummarySentence('roma', text, 'César cruzó el Rubicón.');
+      final id = await harness.process('roma', {
+        ProcessedSection.text: SectionEdit.add(const SectionInput.fromSource()),
+        ProcessedSection.summary: SectionEdit.add(
+          const SectionInput.fromSource(),
+        ),
+      });
+      await open(tester, id);
+
       await read(tester, ProcessedSection.summary);
       expect(shown(tester), contains('César cruzó el Rubicón.'));
     });
@@ -252,7 +269,12 @@ void main() {
       );
       await tester.tap(find.text(es.processedPartSave));
       await tester.pumpAndSettle();
-      await tester.pageBack();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ProcessedSectionEditScreen),
+          matching: find.byType(BackButton),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(shown(tester), contains('La república cayó.'));
       await tester.tap(find.byKey(const Key('reading-frame-back')));
@@ -647,7 +669,14 @@ void main() {
       );
       await read(tester, ProcessedSection.text);
       expect(tester.takeException(), isNull);
-      expect(shown(tester), contains('Oración número 0 del libro.'));
+      // Con la letra al doble, arriba del texto va lo que le falta (las
+      // palabras clave): el texto, desplazándose.
+      await tester.dragUntilVisible(
+        find.textContaining('Oración número 0 del libro.'),
+        find.byKey(const Key('extract-viewer-list')),
+        const Offset(0, -200),
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('uno que no existe lo dice', (tester) async {

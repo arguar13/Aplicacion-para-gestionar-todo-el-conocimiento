@@ -85,6 +85,8 @@ class ProcessedReaderScreen extends ConsumerWidget {
       documentIds: documentIds,
       readableId:
           'procesado-lectura:${kind.storageKey}:${documentIds.join(',')}',
+      // Un documento en la papelera se lee igual.
+      readsTrashed: true,
     );
     final section = processedSectionShowing(kind);
     final single = documentIds.length == 1;

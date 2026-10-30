@@ -67,7 +67,11 @@ ExtractStudyState _studyOf(
   final missing = <ExtractSection>[];
   for (final id in read.documentIds) {
     final section = look(
-      extractSectionProvider((kind: extractKindShowing(kind), documentId: id)),
+      extractSectionProvider((
+        kind: extractKindShowing(kind),
+        documentId: id,
+        readsTrashed: read.readsTrashed,
+      )),
     );
     final own = section.own;
     if (own == null) continue;
