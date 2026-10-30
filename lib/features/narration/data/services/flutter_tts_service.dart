@@ -1,16 +1,41 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/services.dart'
     show MissingPluginException, PlatformException;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 import 'package:sinapsis/features/narration/domain/services/text_to_speech_service.dart';
 
-/// La velocidad "normal" del motor nativo, en la escala 0.0–1.0 que usa
-/// `flutter_tts`. El multiplicador de [TextToSpeechService.setSpeed] —de
-/// 0.5x a 2.0x— se traduce contra este valor, así que 1.0x cae exactamente
-/// en la velocidad que el motor ya trae por defecto.
-const _kBaseRate = 0.5;
+/// Lo que hay que pedirle a `flutter_tts` para que la voz hable a [speed]
+/// —de 0,5× a 3×, la regla del lector (F47, paso 2)— en [platform], o en la
+/// web con [web].
+///
+/// `flutter_tts` 4.2.5 no tiene una escala común: cada plataforma pasa el
+/// número tal cual a su motor, con su propio "normal". Hasta F47 se pedía
+/// siempre la mitad de la velocidad, que es lo justo solo en Android: en la
+/// web 1× sonaba a la mitad, y en Windows 2× sonaba a 1,5×.
+///
+/// - **Android**: el motor recibe el doble de lo que se pide —su normal es
+///   1, el nuestro 0,5— y acepta hasta 1,5 (3×).
+/// - **Windows**: el motor suma 0,5 a lo que se pide —su normal es 1—, hasta
+///   6×.
+/// - **La web**: `SpeechSynthesisUtterance.rate`, con 1 de normal.
+/// - **iOS y macOS**: `AVSpeechUtterance.rate`, con 0,5 de normal y 1 de
+///   techo: más rápido que eso no se puede, y 3× suena como el techo.
+double flutterTtsRate(
+  double speed, {
+  required TargetPlatform platform,
+  required bool web,
+}) {
+  if (web) return speed.clamp(0.1, 10.0);
+  return switch (platform) {
+    TargetPlatform.android => (speed * 0.5).clamp(0.0, 1.5),
+    TargetPlatform.windows => (speed - 0.5).clamp(0.0, 5.5),
+    _ => (speed * 0.5).clamp(0.0, 1.0),
+  };
+}
 
 /// [TextToSpeechService] sobre `flutter_tts`: el motor de voz nativo de
 /// Android, iOS, macOS, Windows y Web. Ver la decisión 28 en
@@ -94,8 +119,9 @@ class FlutterTtsService implements TextToSpeechService {
 
   @override
   Future<void> setSpeed(double speed) async {
-    final rate = (speed * _kBaseRate).clamp(0.0, 1.0);
-    await _tts.setSpeechRate(rate);
+    await _tts.setSpeechRate(
+      flutterTtsRate(speed, platform: defaultTargetPlatform, web: kIsWeb),
+    );
   }
 
   @override

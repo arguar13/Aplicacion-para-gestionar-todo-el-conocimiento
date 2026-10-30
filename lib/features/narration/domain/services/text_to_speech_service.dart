@@ -49,7 +49,8 @@ abstract interface class TextToSpeechService {
   Future<void> setVoice(NarrationVoice? voice);
 
   /// La velocidad de lectura, de 0.5 (la mitad de la velocidad normal del
-  /// motor) a 2.0 (el doble). 1.0 es la velocidad normal.
+  /// motor) a 3.0 (el triple; F47, paso 2). 1.0 es la velocidad normal. Un
+  /// motor que no llega tan rápido habla lo más rápido que puede.
   Future<void> setSpeed(double speed);
 
   /// Lee [text] en voz alta. No espera a que termine —eso se sabe por
