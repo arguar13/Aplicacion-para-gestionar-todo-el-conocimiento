@@ -2905,10 +2905,11 @@ el contador se ve en el mismo botón **"Estudiar"**).
 #### La entrada
 
 Repasar es ahora un **estudio**, como el «Studio» de NotebookLM: arriba elegís
-**sobre qué** estudiar, debajo está **lo de hoy**, después las **diez tarjetas
-para crear** cosas sobre eso y, al final, **lo que ya creaste**. Todo va en una
-sola lista que se desplaza: con la letra grande o en un teléfono chico no se
-corta nada.
+**sobre qué** estudiar, debajo están las **diez tarjetas para crear** cosas
+sobre eso, después **lo que ya tenés y lo que ya creaste** y, enseguida, **lo
+de hoy**. Así lo de crear y lo creado quedan juntos, y el repaso del día va
+justo después, en la mitad de la pantalla. Todo va en una sola lista que se
+desplaza: con la letra grande o en un teléfono chico no se corta nada.
 
 - **Arriba**, como siempre: la racha, dos íconos juntos —**📊 Estadísticas** y
   **📈 Historial**, que abren cada uno su pestaña de la misma pantalla (ver
@@ -2943,17 +2944,19 @@ corta nada.
   toda la pantalla —«Para hoy», las tarjetas de crear y «Lo creado» trabajan
   sobre eso— y queda mientras la app esté abierta. Si lo elegido se borra, la
   píldora dice **"Ya no existe"** y ofrece estudiar todo.
-- **Para hoy**, en una franja: cuántas tarjetas **nuevas**, cuántas se están
-  **aprendiendo** (vuelven en minutos) y cuántas **por repasar**, con
-  **▶ Empezar**. Si el límite de cada día deja algunas afuera, lo aclara ("2
-  nuevas más esperan: hoy no entran por el límite"). Un documento cuenta sus
-  tarjetas **y** las de su fuente —las que muestra en «De la fuente»—, así no
-  queda ninguna afuera. Si no hay nada para hoy, la franja dice por qué y
-  ofrece **"Practicar igual"** o **"Crear tarjetas con IA"** (ver [Cuando
-  Repasar está vacío](#cuando-repasar-está-vacío)).
 - **Las tarjetas de crear** y **Lo creado**: ver [Crear sobre lo
   procesado](#crear-sobre-lo-procesado-el-estudio-de-repasar).
-- **Al final**, **Mis tarjetas** y **Estadísticas** llevan a esas pantallas.
+- **Para hoy**, en una franja debajo de «Lo creado»: cuántas tarjetas
+  **nuevas**, cuántas se están **aprendiendo** (vuelven en minutos) y cuántas
+  **por repasar**, con **▶ Empezar** y, al lado, **Mis tarjetas** (con borde),
+  que lleva a la lista de todas. Si no entran en una fila —con la letra muy
+  grande—, bajan uno debajo del otro, «Empezar» arriba. Si el límite de cada
+  día deja algunas afuera, lo aclara ("2 nuevas más esperan: hoy no entran por
+  el límite"). Un documento cuenta sus tarjetas **y** las de su fuente —las
+  que muestra en «De la fuente»—, así no queda ninguna afuera. Si no hay nada
+  para hoy, la franja dice por qué y ofrece **"Practicar igual"** o **"Crear
+  tarjetas con IA"** (ver [Cuando Repasar está
+  vacío](#cuando-repasar-está-vacío)); «Mis tarjetas» sigue ahí.
 
 #### La sesión
 
@@ -3031,8 +3034,8 @@ día](#aviso-diario-y-tarjetas-por-día-ajustes--repasar).
 
 ### Crear sobre lo procesado: el estudio de Repasar
 
-**Cómo llegar:** pantalla "Repasar", debajo de «Para hoy». Todo se crea sobre
-lo elegido en el selector de arriba.
+**Cómo llegar:** pantalla "Repasar", debajo del selector. Todo se crea sobre
+lo elegido en él.
 
 #### Las diez tarjetas de crear
 
@@ -3094,9 +3097,32 @@ cuenta que sí puede** o agregar una clave—.
 
 #### Lo creado
 
-Debajo de las tarjetas, **«Lo creado»** sobre lo elegido, lo más nuevo arriba,
-en filas planas como las de NotebookLM: el ícono de su tipo en su color, el
-título en una línea y **"1 fuente · Hace 5 d"**.
+Debajo de las tarjetas, **«Lo creado»** sobre lo elegido.
+
+**Arriba, lo que el recorte ya tenía**, aunque no lo hayas creado acá:
+
+- **"Tarjetas de repaso · 3 tarjetas"**: las tarjetas del documento, del
+  cuaderno o del tema —las de «Crear tarjetas con IA», las hechas a mano y las
+  de su fuente—. Tocarla abre el repaso de esas tarjetas (lo de hoy, o
+  «Practicar igual» si hoy no te toca ninguna).
+- **"Resumen"** y **"Síntesis"**, si algún documento los tiene marcados en el
+  original: *"Marcado en el documento"* o *"Marcado en 2 de 5 documentos"*.
+  Tocarla abre el resumen o la síntesis vivos, **sin IA y sin costo**: la
+  primera vez se crean solos, con los documentos que ya lo tienen marcado, y
+  desde ahí quedan como una fila más de lo creado.
+
+Aparecen y se actualizan solas: si marcás el resumen en el original o sumás
+una tarjeta, la fila está al volver. *"Todavía no creaste nada sobre esto"*
+solo se ve cuando no hay nada de nada.
+
+**Después, lo creado**, lo más nuevo arriba, en filas planas como las de
+NotebookLM, que dicen **de qué es** cada una:
+
+- **arriba, grande**, de dónde sale: el documento, el cuaderno o el tema. Con
+  varias fuentes, *"Lazarillo y 2 más"*; si ya no está, *"Fuente borrada"*.
+- **abajo, chico**, el ícono de su tipo en su color, el tipo, el título que le
+  puso la IA (o vos) si dice algo más, y cuándo: *"Tarjetas didácticas · San
+  Jerónimo: Vida y obra · Hace 5 min"*.
 
 - **Mientras se genera**, la fila aparece enseguida con un brillo suave (quieto
   si pediste «sin animaciones») y dice en qué va: en la cola, el paso y cuánto
@@ -3150,9 +3176,10 @@ muestran lo suyo**, en una tarjeta **«En Repasar»**.
 - **Sus tarjetas para hoy**, si hay: *"3 tarjetas para hoy"* y **"Empezar"**,
   que abre el repaso de ese documento o de ese cuaderno. Al terminar, o con
   «atrás», volvés adonde estabas.
-- **Lo creado**, las cinco más nuevas, con las mismas filas de «Lo creado»: el
-  ícono y el color de su tipo, cómo va y su menú al mantenerla apretada o al
-  deslizarla. Si hay más, **"Ver las N en Repasar"**.
+- **Lo creado**, las cinco más nuevas, con las mismas filas de «Lo creado»: de
+  dónde sale arriba, el ícono y el color de su tipo abajo, cómo va y su menú
+  al mantenerla apretada o al deslizarla. Si hay más, **"Ver las N en
+  Repasar"**.
 
 **Qué entra en cada uno:**
 
@@ -3683,7 +3710,8 @@ cada una ni cuenta como repaso. **"Terminar"** vuelve a Repasar.
 
 ### Mis tarjetas: ver, buscar y ordenar todas
 
-**Cómo llegar:** pantalla "Repasar" → botón **"Mis tarjetas"**, abajo de todo.
+**Cómo llegar:** pantalla "Repasar" → botón **"Mis tarjetas"**, en la franja
+«Para hoy», al lado de «Empezar».
 
 Una lista con **todas** tus tarjetas, de cualquier elemento, para encontrar
 una, ordenarlas o actuar sobre varias a la vez. Cada renglón muestra el frente
