@@ -2,7 +2,7 @@
 
 > **Estado: APROBADO** (2026-10-28, «aprobado» en el chat, con las ilustraciones con IA de la
 > decisión H y su aviso detallado —ver «H en detalle»—). **Construida** el 2026-10-29: los dieciséis
-> pasos y el cierre, con la decisión 89. **Mejoras M10 a M15 (29/10): propuestas, esperan
+> pasos y el cierre, con la decisión 89. **Mejoras M10 a M17 (29/10): propuestas, esperan
 > «aprobado».**
 >
 > Pedido del dueño, con catorce capturas de NotebookLM (la pestaña «Studio», sus hojas de
@@ -628,6 +628,64 @@ filosofía de anki … el botón ese de explicar y que te lleve al chat de IA co
 - **El mismo botón va en las tarjetas**: en el visor del mazo (M13) y en la sesión de Repasar de
   siempre, con la pregunta y la respuesta.
 
+### M16. El historial de repasos, completo y legible
+
+Pedido del 29/10, con su captura: *"Esta sección hazla más completa y actualizada"*.
+
+- **Hoy:**
+  - la curva de retención son barras por semana sin escala, sin fechas y sin porcentajes;
+  - la constancia es una grilla sin meses, sin días ni leyenda;
+  - entre las «Tarjetas difíciles» aparece una con **0 % «de nuevo»**, que no es difícil: un error
+    de la consulta, que se arregla de raíz.
+- **La retención:**
+  - barras por semana con su porcentaje encima, eje de 0 a 100 %, la fecha de cada semana y una
+    línea tenue en el 90 %, la meta de SM-2;
+  - debajo, la **retención real** como en Anki: Hoy, Ayer, Última semana, Último mes y Último año,
+    separada en jóvenes y maduras, con cuántos repasos entran en cada una.
+- **La constancia:**
+  - el calendario con los meses arriba, los días de la semana al costado y la leyenda «Menos ·
+    Más»;
+  - tocar un día dice «12 repasos · 85 % de acierto»;
+  - arriba, la racha actual, la más larga, los días estudiados del período («21 de 30 días ·
+    70 %») y el promedio por día estudiado.
+- **Las tarjetas difíciles:**
+  - solo las que de verdad cuestan: al menos un «De nuevo» y un mínimo de repasos;
+  - ordenadas por los lapsos, con «3 de 9 "De nuevo" · 2 lapsos»;
+  - tocar una la abre con «Ver en la fuente» y «Explicar» (M15);
+  - «Repasar estas» arma una sesión solo con ellas.
+
+### M17. Las estadísticas, al nivel de Anki
+
+Pedido del 29/10, con su captura: *"Está parte también de estadísticas hazla más profesional y
+actualizada"*.
+
+- **Una sola pantalla**, «Estadísticas», con el historial adentro: el 📈 de arriba y el botón de
+  abajo llevan al mismo lugar. Hoy son dos pantallas que repiten partes.
+- **Sigue al selector de Repasar** (todo, documento, cuaderno o tema), con la píldora arriba para
+  cambiarlo: las estadísticas de un libro son las de sus tarjetas.
+- **El orden**, de lo de hoy a lo de siempre:
+  1. **Hoy**: tarjetas repasadas, acierto, nuevas aprendidas y la racha, en cuatro cifras grandes.
+  2. **Lo que viene**: las barras con su número encima y su eje, eligiendo 7 días, 30 días o 3
+     meses; «Hoy vencen 10 · 10 atrasadas» y la carga promedio por día.
+  3. **Repasos por día**: barras apiladas por etapa (nuevas, aprendiendo, repaso y reaprender),
+     en 30 días, 90 días o todo.
+  4. **Cómo están tus tarjetas**: un anillo con las cinco etapas y el total en el centro, con la
+     lista de hoy al lado o debajo.
+  5. **Cómo respondés**: los cuatro botones por etapa, como barras apiladas con su porcentaje y
+     el acierto de cada etapa.
+  6. **Intervalos**: cuántas tarjetas hay en cada tramo (1 día, 2 a 7, 8 a 21, 22 a 90 y más de
+     90).
+  7. **Facilidad**: el reparto del factor de SM-2.
+  8. **Las horas**: el acierto por hora del día, con «Tu mejor hora: 9 a 10».
+  9. **Agregadas**: tarjetas nuevas por día.
+  10. **El historial** de M16: retención, constancia y difíciles.
+- **Cada gráfico** lleva su título y una línea que dice qué muestra. Tocar una barra dice su número
+  exacto, el lector de pantalla los lee, y queda «Ver los números» como hoy.
+- Los gráficos se dibujan con la base de diseño de F43 (los de la infografía), sin librería, en
+  claro y en oscuro.
+- **Sin cambios en la base**: el registro de repasos ya guarda la etapa, el intervalo y la
+  facilidad de cada respuesta. El **tiempo** de cada respuesta no se guarda (decisión N).
+
 ## Decisiones (se pueden cambiar mientras no se llegue a su paso)
 
 - **A. Atlas se queda en Organizar**, junto a la Bandeja. El pedido no lo nombra entre los que
@@ -658,6 +716,10 @@ filosofía de anki … el botón ese de explicar y que te lleve al chat de IA co
   las fuentes y con el modelo elegido. No se manda nada sin que se toque el botón.
 - **M. Las tarjetas didácticas se califican como en Repasar** (M13). El visor para hojear sale,
   porque el estudio es con recuerdo activo y repetición espaciada.
+- **N. El tiempo de estudio queda para después.** Anki muestra los minutos estudiados; acá el
+  registro no guarda cuánto tarda cada respuesta. Sumarlo es una columna nueva (esquema v49) en el
+  registro y en sus tres censos, y solo daría cifras desde ese día. Se hace si el dueño lo pide;
+  M17 no lo necesita.
 
 ## Pasos (cada uno, su commit y su push)
 
@@ -728,7 +790,7 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
     - la GUÍA, CONTEXTO y la suite entera;
     - la APK en el teléfono, si se pide.
 
-**Mejoras del 29/10 (M10 a M15), tres agentes en paralelo:**
+**Mejoras del 29/10 (M10 a M17), cuatro agentes en paralelo:**
 
 17. **Repasar** (M10, M12 y M14): el orden nuevo, las filas de lo que el recorte ya tenía y la
     fila de «Lo creado» con su fuente arriba.
@@ -736,6 +798,9 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
 19. **Estudiar las tarjetas y el cuestionario** (M13 y M15): el visor del mazo con los cuatro
     botones y SM-2, el cuestionario con el diseño de las capturas, y «Explicar» como pieza común
     en el mazo, el cuestionario y la sesión de Repasar.
+20. **Estadísticas e historial** (M16 y M17): una sola pantalla que sigue al selector, los
+    gráficos nuevos con sus ejes, la retención real, el calendario legible y las difíciles de
+    verdad (con el arreglo de la consulta).
 
 ## Lo que no entra (para que quede dicho)
 
