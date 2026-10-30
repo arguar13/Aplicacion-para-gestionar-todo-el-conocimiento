@@ -14,7 +14,6 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_image.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
-import 'package:sinapsis/features/processed/domain/entities/processed_triage.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/images/stored_image.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_triage_sheet.dart';
@@ -98,6 +97,15 @@ void main() {
     receivedOriginals.clear();
   });
 
+  /// La fila de las imágenes, sin lo que despliega: lo que se toca para
+  /// plegarla o desplegarla.
+  Finder imagesHeader() => find
+      .descendant(
+        of: find.byKey(const Key('triage-images-toggle')),
+        matching: find.byType(ListTile),
+      )
+      .first;
+
   Future<void> pumpSheet(
     WidgetTester tester, {
     Map<ProcessedSection, int> existing = const {},
@@ -105,6 +113,10 @@ void main() {
     Set<ProcessedChange> changes = const {ProcessedChange.add},
     double textScale = 1,
     Size size = const Size(900, 1600),
+
+    /// Si se despliega la fila de las imágenes (F45): plegada de entrada, la
+    /// grilla recién se arma al desplegarla.
+    bool expand = true,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -149,6 +161,23 @@ void main() {
     );
     await tester.tap(find.text('Abrir'));
     await tester.pumpAndSettle();
+    final toggle = find.byKey(const Key('triage-images-toggle'));
+    if (expand) {
+      await tester.scrollUntilVisible(
+        toggle,
+        120,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const Key('processed-triage-sheet')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.ensureVisible(imagesHeader());
+      await tester.pumpAndSettle();
+      await tester.tap(imagesHeader());
+      await tester.pumpAndSettle();
+    }
   }
 
   Finder tile(String path) => find.byKey(Key('triage-image-$path'));
@@ -188,16 +217,63 @@ void main() {
     await pumpSheet(tester);
 
     expect(find.byKey(const Key('triage-section-images')), findsOneWidget);
-    expect(
-      find.text(es.processedTriageImagesOffer(3, '120 B')),
-      findsOneWidget,
-    );
+    expect(find.text(es.f45S2ImagesSummary(3, '120 B', 0)), findsOneWidget);
     expect(find.byKey(const Key('triage-section-notes')), findsOneWidget);
     expect(find.byKey(const Key('triage-section-text')), findsNothing);
     expect(find.text(es.processedTriageImagesChosen(0, 3)), findsOneWidget);
     for (final path in photos) {
       expect(tile(path), findsOneWidget);
     }
+  });
+
+  testWidgets('plegada de entrada (F45): una fila con cuántas trae, cuánto '
+      'pesan y cuántas se eligieron, y la grilla recién al desplegarla', (
+    tester,
+  ) async {
+    await seedImage();
+    await pumpSheet(tester, expand: false);
+
+    expect(find.text(es.f45S2ImagesSummary(3, '120 B', 0)), findsOneWidget);
+    expect(find.byKey(const Key('triage-image-grid')), findsNothing);
+    expect(find.byKey(const Key('triage-images-all')), findsNothing);
+    for (final path in photos) {
+      expect(tile(path), findsNothing);
+    }
+
+    await tapKey(tester, 'triage-images-toggle');
+    expect(find.byKey(const Key('triage-image-grid')), findsOneWidget);
+    await tapKey(tester, 'triage-images-all');
+    // La fila dice las elegidas, también desplegada.
+    expect(find.text(es.f45S2ImagesSummary(3, '120 B', 3)), findsOneWidget);
+
+    // Plegarla no suelta lo elegido.
+    await tapFound(tester, imagesHeader());
+    expect(find.byKey(const Key('triage-image-grid')), findsNothing);
+    expect(find.text(es.f45S2ImagesSummary(3, '120 B', 3)), findsOneWidget);
+  });
+
+  testWidgets('la fila plegada le dice al lector de pantalla qué trae, que '
+      'está plegada y que se toca para desplegarla', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await seedImage();
+    await pumpSheet(tester, expand: false);
+
+    final header = tester.getSemantics(imagesHeader());
+    expect(
+      header,
+      isSemantics(
+        hasTapAction: true,
+        label:
+            '${es.processedSectionImages}\n'
+            '${es.f45S2ImagesSummary(3, '120 B', 0)}',
+      ),
+    );
+    expect(header.hint, isNotEmpty);
+
+    await tester.tap(imagesHeader());
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('triage-image-grid')), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('tocar una la elige, dice lo que va a ocupar, y «Listo» pide '
@@ -373,8 +449,8 @@ void main() {
   });
 
   testWidgets('una página guardada ofrece su original y sus fotos: el '
-      'conmutador del original, con su número, sigue a las secciones enteras, '
-      'la grilla va al final, y «Va a quedar» y «Listo» llevan las dos', (
+      'original, las imágenes y el texto, en ese orden (F45); el 1 prende el '
+      'original, y «Va a quedar» y «Listo» llevan las dos', (
     tester,
   ) async {
     final now = DateTime(2026, 10, 28, 9);
@@ -442,33 +518,36 @@ void main() {
         .first;
     final original = find.byKey(const Key('triage-section-original'));
     final images = find.byKey(const Key('triage-section-images'));
-    await tester.scrollUntilVisible(images, 120, scrollable: sheetList);
+    final text = find.byKey(const Key('triage-section-text'));
+    await tester.scrollUntilVisible(text, 120, scrollable: sheetList);
     await tester.pumpAndSettle();
     expect(original, findsOneWidget);
+    expect(images, findsOneWidget);
+    // El original, las imágenes y el texto, en ese orden (F45).
     expect(
       tester.getTopLeft(original).dy,
       lessThan(tester.getTopLeft(images).dy),
     );
+    expect(tester.getTopLeft(images).dy, lessThan(tester.getTopLeft(text).dy));
 
-    // El número del original es el que sigue a las secciones enteras: con
-    // texto, la fuente ofrece la única que queda, el texto —el resumen, la
-    // síntesis y las palabras clave ya no se trían (F43, decisión J)—.
-    final whole = [
-      for (final section in ProcessedSection.values)
-        if (triageShapeOf(section) == TriageSectionShape.whole &&
-            section == ProcessedSection.text)
-          section,
-    ];
-    const numberKeys = [
-      LogicalKeyboardKey.digit1,
-      LogicalKeyboardKey.digit2,
-      LogicalKeyboardKey.digit3,
-      LogicalKeyboardKey.digit4,
-      LogicalKeyboardKey.digit5,
-      LogicalKeyboardKey.digit6,
-    ];
-    await tester.sendKeyEvent(numberKeys[whole.length]);
+    // Los números siguen el orden en que se ven: el 1 es el original, el 2
+    // el texto.
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<SwitchListTile>(
+            find.byKey(const Key('triage-switch-original')),
+          )
+          .value,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<SwitchListTile>(find.byKey(const Key('triage-switch-text')))
+          .value,
+      isFalse,
+    );
     await tapTile(tester, photo);
 
     await tester.scrollUntilVisible(

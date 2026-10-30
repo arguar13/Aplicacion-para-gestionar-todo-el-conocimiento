@@ -8,14 +8,17 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_label.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_source_material.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_triage.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/processed/domain/services/triage_offer.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_tidy_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_cut_screen.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/triage_image_grid.dart';
@@ -56,6 +59,11 @@ typedef ProcessedTriageDone =
 ///   SectionEdit>` armado y lo pedido para la copia —en la Bandeja, procesar
 ///   y triar; al volver a triar, solo procesar—. La hoja no guarda nada por
 ///   su cuenta.
+/// - **El texto con la IA** (F45, decisión B): si se trae el texto extraído
+///   con «Ordenarlo con la IA» prendido, después de un «Listo» que salió bien
+///   la hoja le pide a la IA de turno que lo ordene
+///   (`ProcessedTidyQueue.enqueue`). Tampoco guarda nada: la cola lo hace en
+///   segundo plano, comprobado palabra por palabra, y lo avisa al terminar.
 /// - [startCutting]: abre enseguida «Cortar del original», encima: lo que
 ///   hace «Extraer nota» de la tarjeta.
 Future<bool> showProcessedTriageSheet(
@@ -100,14 +108,15 @@ Future<bool> showProcessedTriageSheet(
 /// La hoja «¿Qué va a Procesado?» (F41): triar es elegir qué información pura
 /// de la fuente va a su documento procesado. Ver [showProcessedTriageSheet].
 ///
-/// - **De la fuente**: el texto extraído, con su interruptor, y —si la fuente
-///   lo ofrece— la copia de su original, con lo que ocupa. El resumen, la
-///   síntesis y las palabras clave ya no se eligen acá (F43, decisión J): se
-///   marcan en el original del documento procesado, con la IA o a mano, y se
-///   extraen en Repasar.
-/// - **Las imágenes** (decisión L), si la fuente trae: una grilla con
-///   «Todas», «Ninguna» y la elección de cada una tocándola, con lo que va a
-///   ocupar su copia.
+/// - **De la fuente**, en este orden (F45): **el original** —si la fuente lo
+///   ofrece, la copia de su archivo, con lo que ocupa—; **las imágenes**
+///   (decisión L), si trae, plegadas en una fila con cuántas son, lo que pesan
+///   y cuántas se eligieron, que al desplegarse muestra la grilla con
+///   «Todas», «Ninguna» y la elección de cada una tocándola; y **el texto
+///   extraído**, con su interruptor y, debajo, quién lo ordena (decisión B).
+///   El resumen, la síntesis y las palabras clave ya no se eligen acá (F43,
+///   decisión J): se marcan en el original del documento procesado, con la
+///   IA o a mano, y se extraen en Repasar.
 /// - **Lo tuyo**: las notas —escritas, o extraídas del original— y los
 ///   fragmentos cortados a mano, cada uno en su lista, con «Quitar».
 /// - **La vista previa en vivo**: cuántas partes y palabras va a tener cada
@@ -118,8 +127,9 @@ Future<bool> showProcessedTriageSheet(
 /// de su forma ([triageShapeOf]): una sección nueva aparece sola, con su
 /// interruptor o su lista.
 ///
-/// Con el teclado: los números prenden cada sección de la fuente, C abre
-/// «Cortar del original», N escribe una nota y Ctrl+Enter es «Listo».
+/// Con el teclado: los números prenden cada sección de la fuente, en el orden
+/// en que se ven —el original primero—, C abre «Cortar del original», N
+/// escribe una nota y Ctrl+Enter es «Listo».
 class ProcessedTriageSheet extends ConsumerStatefulWidget {
   const ProcessedTriageSheet({
     required this.sourceItemId,
@@ -162,6 +172,9 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
   var _started = false;
   var _busy = false;
   String? _error;
+
+  /// Si el texto extraído va ordenado por la IA (decisión B): sí de entrada.
+  var _tidy = true;
 
   ProcessedTriageController get _controller =>
       ref.read(processedTriageProvider(widget.sourceItemId).notifier);
@@ -261,9 +274,17 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
       _busy = true;
       _error = null;
     });
+    final tidy = _tidiesText(triage);
     final failure = await widget.onDone(triage.edits, triage.originalEdit);
     if (!mounted) return;
     if (failure == null) {
+      if (tidy) {
+        unawaited(
+          ref
+              .read(processedTidyQueueProvider)
+              .enqueue(processedDocumentIdFor(widget.sourceItemId)),
+        );
+      }
       Navigator.of(context).pop(true);
       return;
     }
@@ -271,6 +292,16 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
       _busy = false;
       _error = failure.localizedMessage(AppLocalizations.of(context)!);
     });
+  }
+
+  /// Si «Listo» trae el texto para que la IA lo ordene: se pide, no se quita,
+  /// la casilla está prendida y hay una IA lista para hacerlo.
+  bool _tidiesText(ProcessedTriage triage) {
+    final edit = triage.edits[ProcessedSection.text];
+    return _tidy &&
+        edit != null &&
+        edit.change != ProcessedChange.remove &&
+        ref.read(triageTidyOfferProvider(widget.sourceItemId)) is TriageTidyBy;
   }
 
   @override
@@ -319,15 +350,19 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
       changes: widget.changes,
     );
 
-    final bindings = <ShortcutActivator, VoidCallback>{
-      for (final (index, section) in whole.take(9).indexed)
-        SingleActivator(_digits[index]): () =>
-            _controller.setSection(section, on: !triage.includes(section)),
-      if (offersOriginal && whole.length < 9)
-        SingleActivator(_digits[whole.length]): () => _controller.setOriginal(
+    // Los números siguen el orden en que se ven: el original primero.
+    final toggles = <VoidCallback>[
+      if (offersOriginal)
+        () => _controller.setOriginal(
           on: triage.original == null,
           change: sheet.originalChanges.first,
         ),
+      for (final section in whole)
+        () => _controller.setSection(section, on: !triage.includes(section)),
+    ];
+    final bindings = <ShortcutActivator, VoidCallback>{
+      for (final (index, toggle) in toggles.take(9).indexed)
+        SingleActivator(_digits[index]): toggle,
       if (offered.contains(ProcessedSection.fragments))
         const SingleActivator(LogicalKeyboardKey.keyC): _cut,
       if (offered.contains(ProcessedSection.notes))
@@ -376,18 +411,6 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
                       offersOriginal ||
                       galleries.isNotEmpty) ...[
                     _GroupTitle(l10n.processedTriageFromSource),
-                    for (final section in whole)
-                      _WholeSection(
-                        section: section,
-                        sheet: sheet,
-                        onChanged: (on) =>
-                            _controller.setSection(section, on: on),
-                        onChange: (change) => _controller.setSection(
-                          section,
-                          on: true,
-                          change: change,
-                        ),
-                      ),
                     if (offersOriginal)
                       _OriginalSection(
                         sheet: sheet,
@@ -404,6 +427,20 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
                       _GallerySection(
                         section: section,
                         sheet: sheet,
+                        onChange: (change) => _controller.setSection(
+                          section,
+                          on: true,
+                          change: change,
+                        ),
+                      ),
+                    for (final section in whole)
+                      _WholeSection(
+                        section: section,
+                        sheet: sheet,
+                        tidy: _tidy,
+                        onTidy: (on) => setState(() => _tidy = on),
+                        onChanged: (on) =>
+                            _controller.setSection(section, on: on),
                         onChange: (change) => _controller.setSection(
                           section,
                           on: true,
@@ -531,18 +568,24 @@ class _GroupTitle extends StatelessWidget {
   }
 }
 
-/// Una sección que se copia entera de la fuente —el texto—: su interruptor y
-/// cuánto va a tener.
+/// Una sección que se copia entera de la fuente —el texto—: su interruptor,
+/// cuánto va a tener y, prendida, quién la ordena (decisión B).
 class _WholeSection extends StatelessWidget {
   const _WholeSection({
     required this.section,
     required this.sheet,
+    required this.tidy,
+    required this.onTidy,
     required this.onChanged,
     required this.onChange,
   });
 
   final ProcessedSection section;
   final _SheetContext sheet;
+
+  /// Si la IA ordena el texto, y cómo cambiarlo.
+  final bool tidy;
+  final ValueChanged<bool> onTidy;
   final ValueChanged<bool> onChanged;
   final ValueChanged<ProcessedChange> onChange;
 
@@ -573,6 +616,14 @@ class _WholeSection extends StatelessWidget {
         ),
         if (on)
           _ChangeChoice(section: section, sheet: sheet, onChange: onChange),
+        if (on &&
+            section == ProcessedSection.text &&
+            sheet.triage.choices[section]?.change != ProcessedChange.remove)
+          _TidyChoice(
+            sourceItemId: sheet.triage.sourceItemId,
+            value: tidy,
+            onChanged: onTidy,
+          ),
       ],
     );
   }
@@ -585,6 +636,88 @@ class _WholeSection extends StatelessWidget {
       if (existing > 0) l10n.processedTriageExisting(existing),
       if (words > 0) l10n.processedTriageWordCount(words),
     ].join(' · ');
+  }
+}
+
+/// Debajo del texto prendido, quién lo ordena (F45, decisión B): «Ordenarlo
+/// con la IA», prendido de entrada, con el modelo que lo va a hacer —en la
+/// nube o en el teléfono— y que cada palabra se comprueba. Sin una IA lista,
+/// o con un texto que ya viene ordenado, dice que va como se extrajo.
+class _TidyChoice extends ConsumerWidget {
+  const _TidyChoice({
+    required this.sourceItemId,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String sourceItemId;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final offer = ref.watch(triageTidyOfferProvider(sourceItemId));
+    return switch (offer) {
+      null => const SizedBox.shrink(),
+      TriageTidyBy(:final model, :final cloud) => Padding(
+        padding: const EdgeInsets.only(left: 28, bottom: 8),
+        child: CheckboxListTile(
+          key: const Key('triage-tidy'),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: value,
+          onChanged: (on) => onChanged(on ?? false),
+          title: Text(l10n.f45S2TidyToggle),
+          subtitle: Text(
+            !value
+                ? l10n.f45S2TidyOff
+                : cloud
+                ? l10n.f45S2TidyByCloud(modelLabel(model))
+                : l10n.f45S2TidyByDevice(modelLabel(model)),
+          ),
+        ),
+      ),
+      TriageTidyUnavailable() => _TidyNote(
+        icon: Icons.info_outline,
+        text: l10n.f45S2TidyUnavailableHint,
+      ),
+      TriageTidyNotNeeded() => _TidyNote(
+        icon: Icons.check_circle_outline,
+        text: l10n.f45S2TidyNotNeeded,
+      ),
+    };
+  }
+}
+
+/// Por qué el texto va como se extrajo, en un renglón gris con su ícono.
+class _TidyNote extends StatelessWidget {
+  const _TidyNote({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.onSurfaceVariant;
+    return Padding(
+      key: const Key('triage-tidy-off'),
+      padding: const EdgeInsets.only(left: 40, bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ExcludeSemantics(child: Icon(icon, size: 18, color: color)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(color: color),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -787,8 +920,15 @@ class _ClipsSection extends StatelessWidget {
   }
 }
 
-/// Lo que la fuente ofrece para elegir de a una —sus imágenes, decisión L—:
-/// cuántas trae y cuánto pesan, lo que va a ocupar lo elegido y la grilla.
+/// Lo que la fuente ofrece para elegir de a una —sus imágenes, decisión L—,
+/// **plegado** (F45): una fila con cuántas trae, cuánto pesan y cuántas se
+/// eligieron, y la flecha. Recién al desplegarla se arman la grilla, con
+/// «Todas» y «Ninguna», y lo que va a ocupar lo elegido: una fuente con
+/// cuarenta fotos no le quita la hoja al original ni al texto.
+///
+/// Al volver a triar, lo que se le pide a la galería entera —agregar,
+/// reemplazar, quitar— queda a la vista, debajo de la fila; quitarla no elige
+/// nada, así que la fila no se despliega.
 class _GallerySection extends ConsumerWidget {
   const _GallerySection({
     required this.section,
@@ -808,44 +948,63 @@ class _GallerySection extends ConsumerWidget {
     final controller = ref.read(
       processedTriageProvider(sheet.triage.sourceItemId).notifier,
     );
-    final offerText = l10n.processedTriageImagesOffer(
-      offer.count,
-      formatFileSize(offer.sizeBytes, l10n.localeName),
-    );
+    final summary = [
+      if (existing > 0) l10n.processedTriageExisting(existing),
+      l10n.f45S2ImagesSummary(
+        offer.count,
+        formatFileSize(offer.sizeBytes, l10n.localeName),
+        sheet.triage.images.countOf(offer.count),
+      ),
+    ].join(' · ');
     final removing =
         sheet.triage.choices[section]?.change == ProcessedChange.remove;
+    final leading = Icon(triageSectionIcon(section));
+    final title = Text(triageSectionLabel(l10n, section));
+    final subtitle = Text(summary, key: const Key('triage-images-summary'));
 
     return Column(
       key: Key('triage-section-${section.name}'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(triageSectionIcon(section)),
-          title: Text(triageSectionLabel(l10n, section)),
-          subtitle: sheet.triage.edits.containsKey(section)
-              ? _PreviewText(sheet: sheet, section: section)
-              : Text(
-                  [
-                    if (existing > 0) l10n.processedTriageExisting(existing),
-                    offerText,
-                  ].join(' · '),
+        // Quitar la galería entera no elige nada: no hay qué desplegar.
+        if (removing)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: leading,
+            title: title,
+            subtitle: subtitle,
+          )
+        else
+          ExpansionTile(
+            key: const Key('triage-images-toggle'),
+            tilePadding: EdgeInsets.zero,
+            shape: const Border(),
+            collapsedShape: const Border(),
+            leading: leading,
+            title: title,
+            subtitle: subtitle,
+            expansionAnimationStyle: MediaQuery.disableAnimationsOf(context)
+                ? AnimationStyle.noAnimation
+                : null,
+            expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+            childrenPadding: const EdgeInsets.only(left: 40, bottom: 8),
+            children: [
+              if (sheet.triage.edits.containsKey(section))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _PreviewText(sheet: sheet, section: section),
                 ),
-        ),
-        _ChangeChoice(section: section, sheet: sheet, onChange: onChange),
-        // Quitar la sección entera no elige nada: la grilla no hace falta.
-        if (!removing)
-          Padding(
-            padding: const EdgeInsets.only(left: 40, bottom: 8),
-            child: TriageImageGrid(
-              sourceItemId: sheet.triage.sourceItemId,
-              count: offer.count,
-              choice: sheet.triage.images,
-              onToggle: controller.toggleImage,
-              onAll: controller.chooseAllImages,
-              onNone: controller.chooseNoImages,
-            ),
+              TriageImageGrid(
+                sourceItemId: sheet.triage.sourceItemId,
+                count: offer.count,
+                choice: sheet.triage.images,
+                onToggle: controller.toggleImage,
+                onAll: controller.chooseAllImages,
+                onNone: controller.chooseNoImages,
+              ),
+            ],
           ),
+        _ChangeChoice(section: section, sheet: sheet, onChange: onChange),
       ],
     );
   }

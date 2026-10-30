@@ -536,31 +536,29 @@ void main() {
       );
     });
 
-    testWidgets('con el teclado, el número siguiente a las secciones prende el '
-        'original', (tester) async {
+    testWidgets('va primero (F45): arriba del texto, y con el teclado el 1 lo '
+        'prende y el 2 prende el texto', (tester) async {
       await seedSource(withFile: true);
       await pumpSheet(tester);
 
-      final sheet = find.byKey(const Key('processed-triage-sheet'));
-      final digits = [
-        LogicalKeyboardKey.digit1,
-        LogicalKeyboardKey.digit2,
-        LogicalKeyboardKey.digit3,
-        LogicalKeyboardKey.digit4,
-        LogicalKeyboardKey.digit5,
-      ];
-      final wholeCount = tester
-          .widgetList(
-            find.descendant(of: sheet, matching: find.byType(SwitchListTile)),
-          )
-          .length;
-      await tester.sendKeyEvent(digits[wholeCount - 1]);
+      expect(
+        tester.getTopLeft(find.byKey(const Key('triage-section-original'))).dy,
+        lessThan(
+          tester.getTopLeft(find.byKey(const Key('triage-section-text'))).dy,
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
       await tester.pumpAndSettle();
-
       expect(
         tester.widget<SwitchListTile>(find.byKey(originalSwitch)).value,
         isTrue,
       );
+      expect(switchOf(tester, ProcessedSection.text).value, isFalse);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+      await tester.pumpAndSettle();
+      expect(switchOf(tester, ProcessedSection.text).value, isTrue);
+      expect(find.text(es.processedTriageKeysHint(2)), findsOneWidget);
     });
   });
 
