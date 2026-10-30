@@ -544,7 +544,11 @@ si no tiene nada que mostrar —una fuente lista, sin audio—, no aparece:
    **"Reintentar"** (o **"Descargar el modelo"** si falta el de
    transcripción). Si dejaste solo el libro, lo dice (*"Dejaste solo el
    libro…"*) y ofrece **"Volver a extraer el texto"**.
-3. **Los botones grandes**, solo en una nota propia:
+3. **La transcripción que sigue al audio**, en un audio, un video o un video
+   de YouTube con su audio bajado: *"La transcripción sigue al audio…"*, con
+   **"Ver la transcripción"**, que la abre en su pantalla (ver
+   [El texto sigue al audio](#el-texto-sigue-al-audio)).
+4. **Los botones grandes**, solo en una nota propia:
    - **Leer**: abre el [modo lectura](#modo-lectura-leer-para-destilar).
    - **Resumir**: la IA arma un resumen y te lo muestra para leerlo o
      copiarlo.
@@ -569,7 +573,7 @@ si no tiene nada que mostrar —una fuente lista, sin audio—, no aparece:
    previa: **«Leer como libro»**, **«Ver la página»** o **«Ampliar»**. Del
    archivo de una fuente no se borra nada desde acá: la Biblioteca es tu base
    de consulta.
-4. En una nota propia, **lo que hizo la IA con ella**, si hizo algo: la línea
+5. En una nota propia, **lo que hizo la IA con ella**, si hizo algo: la línea
    **"La IA organizó esto"**, con lo que sigue siendo suyo, **"Ver"** y
    **"Deshacer todo"** (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
    Lo que la IA ya había organizado en una fuente no se borra: sigue
@@ -804,8 +808,10 @@ detalle de una fuente de la Biblioteca: ahí se ve solo el original. El
 resumen, la síntesis y las palabras clave se marcan en el original de su
 **documento procesado**, con sus tres botones (ver
 [Marcar en el original](#marcar-en-el-original-resumen-síntesis-y-palabras-clave)),
-y su texto, la transcripción y las fotos se leen ahí. Lo que ya habías marcado
-en una fuente no se borra: sigue guardado.
+y su texto, la transcripción y las fotos se leen ahí. **Descargar** el original
+con lo marcado está en el **"Más"** del documento procesado, sobre la copia de
+su original (ver [Descargar con lo marcado](#descargar-con-lo-marcado)). Lo que
+ya habías marcado en una fuente no se borra: sigue guardado.
 
 Un video de YouTube solo muestra una miniatura: tocarla abre YouTube de
 verdad, no un reproductor propio dentro de la app. Su audio, en cambio, sí
@@ -817,11 +823,25 @@ pasa a ser el principal del elemento.
 ### El texto sigue al audio
 
 En el detalle de un audio o un video de la Biblioteca se ve el original con
-su reproductor; su transcripción ya no se muestra ahí, sino en su documento
-procesado. Si bajás por el detalle y el reproductor queda fuera de la
-pantalla, aparece abajo un **mini reproductor** flotante para pausar,
-cambiar la velocidad o **"Volver al audio"**, que te sube hasta el
-reproductor.
+su reproductor, y en el panel, la franja *"La transcripción sigue al
+audio…"* con **"Ver la transcripción"**. Se abre en su propia pantalla, como
+se amplía una foto: arriba, el mismo reproductor del detalle —el mismo audio,
+que sigue sonando donde estaba—, y abajo la transcripción. Mientras suena,
+**la palabra que se está diciendo se ve resaltada en amarillo**, y tocar una
+palabra lleva el audio a ese momento. La pantalla no se mueve sola: **"Ir a lo
+que suena"**, el botón de la barra, te lleva hasta la palabra que suena.
+
+Si en el detalle bajás y el reproductor queda fuera de la pantalla, aparece
+abajo un **mini reproductor** flotante para pausar, cambiar la velocidad o
+**"Volver al audio"**, que te sube hasta el reproductor. Leer, marcar y
+estudiar la transcripción es en su documento procesado; esta pantalla es para
+escucharla.
+
+Para que esto funcione con lo que ya tenías guardado de antes, bajá el
+modelo de transcripción nuevo (Ajustes → IA y modelos) y usá **"Volver a
+extraer el texto"** en ese elemento, desde **"El texto de la fuente"** de su
+documento procesado (ver [El texto de la fuente](#el-texto-de-la-fuente)): así
+se guardan los tiempos de cada palabra.
 
 ### Todo lo que trae una página: el «Contenido»
 
@@ -2013,7 +2033,8 @@ libro"**, o **"Ver la página"** en una página web) y un toque en la hoja lo
 abren en el visor de siempre, a pantalla completa. Arriba del original están
 **los botones de estudio** (ver abajo), y debajo, una línea con qué es (*"PDF"*,
 *"Página web archivada"* o *"Documento"*), cuánto ocupa y cuándo se copió
-(*"PDF · 26 kB · copiado el 28 oct 2026"*). Borrar la copia sigue en **"Más"**.
+(*"PDF · 26 kB · copiado el 28 oct 2026"*). Borrar la copia y descargarla con
+lo marcado están en **"Más"** (ver abajo).
 
 Es una copia tuya: lo que ves marcado es de tu documento procesado, no de la
 fuente, y la fuente no se toca. Si el texto de la fuente cambió desde que lo
@@ -2055,6 +2076,21 @@ copia (ver arriba). Mientras la fuente está extrayendo su
 texto, la hoja lo dice y no ofrece nada; con la fuente en la papelera, el
 botón no aparece (primero se restaura). Una página web o una publicación no lo
 tienen: volver a bajarlas no es volver a leer el mismo original.
+
+#### Descargar con lo marcado
+
+Con la copia del original, el **"Más"** del documento ofrece **"Descargar con
+lo marcado"**: baja **la copia en su mismo formato** con lo que marcaste en
+ella. Es el **"Descargar"** que antes estaba en la tarjeta de estudiar de la
+Biblioteca. En la hoja elegís qué lleva, y se combina: **con el resumen
+resaltado**, **con la síntesis resaltada** y **con las palabras clave
+resaltadas** (la copia no tiene resaltados tuyos: esa opción aparece apagada).
+Lo que todavía no existe aparece apagado y dice por qué, y la hoja arranca con
+lo que estás viendo resaltado. Tocás **Guardar** y elegís dónde, con el
+selector del teléfono. Cada formato sale como siempre: el PDF con resaltados de verdad,
+el Word con su sombreado, el EPUB coloreado, la página web resaltada, un texto
+como un Word y el Markdown con `==así==`. Si el texto de la fuente cambió desde
+que copiaste el original, no hay dónde poner lo marcado y no se ofrece.
 
 #### Marcar en el original: resumen, síntesis y palabras clave
 
