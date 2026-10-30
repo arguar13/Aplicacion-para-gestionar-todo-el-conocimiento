@@ -483,8 +483,9 @@ De arriba hacia abajo, vas a encontrar:
 
 1. **Barra superior**, con botones para exportar (PDF o Word) y eliminarlo (se
    manda a la papelera, no se borra directo). En una nota propia, además,
-   armar su bibliografía, generar una nota derivada con IA y generar un
-   cuestionario.
+   armar su bibliografía y **«Crear»** (el ✨): todo lo que se crea de ella,
+   con la IA o a mano, en una sola hoja (ver
+   [Crear: todo en un solo lugar](#crear-todo-en-un-solo-lugar)).
 2. **Título** y, si tiene, un subtítulo. Si es una fuente, debajo va su
    tarjeta **"Bandeja"**, a todo lo ancho: arriba, con su ícono, qué decidiste
    con ella (**"✓ Triado el 3 oct"** o **"Descartado el…"**) y, debajo, dos
@@ -568,13 +569,9 @@ si no tiene nada que mostrar —una fuente lista, sin audio—, no aparece:
      copiarlo.
    - **Copiar**: copia todo el texto.
    - **Más**: abre una lista con lo que se usa de vez en cuando, cada
-     opción con una línea que explica qué hace:
-     - **Organizar con IA**: que la IA la organice ahora, antes que lo
-       demás (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
-     - **Buscar fechas con IA**: que la IA lea el texto y ponga en la
-       [Línea de tiempo](#línea-de-tiempo) las fechas que cuenta, cada una
-       con su cita (ver [Buscar fechas con IA, a pedido](#buscar-fechas-con-ia-a-pedido)).
-       Aparece cuando la nota ya está lista y tiene algo escrito.
+     opción con una línea que explica qué hace. Organizarla con la IA y
+     buscarle fechas ya no están acá: son de **«Crear»**, arriba, con todo lo
+     que se crea de la nota. Si no queda nada, **Más** se ve apagado.
 
    En una nota de bloques, en vez de **Más** aparece **Editar**.
 
@@ -791,6 +788,25 @@ Para verlo a pantalla completa:
   semitransparente, la foto se ve debajo.
 - **En un video**, el botón es chico y está en la esquina, para no tapar el
   botón de reproducir.
+
+**Qué tiene marcado.** Debajo de la vista previa de un documento o una página
+web con su texto, un renglón chico lo dice: *"Marcado: ● Resumen · ● Palabras
+clave"*, cada una con el punto de su color (hueco si la dejaste oculta). Sin
+nada marcado, dice dónde se marca; mientras la IA marca, cuánto lleva.
+
+**El original es el mismo que en Procesado.** A pantalla completa, un PDF, una
+página web o un libro se abren en **la misma pantalla de original** que el de
+su documento procesado (ver
+[Marcar en el original](#marcar-en-el-original-resumen-síntesis-y-palabras-clave)):
+arriba, las tres fichas **Resumen**, **Síntesis** y **Palabras clave**, donde
+se marca con la IA o a mano; debajo, el mismo visor, con el mismo lector en voz
+alta, y en un Word, un EPUB o un texto, con **A− A+** para la letra. La página
+web se ve como en el navegador del teléfono, también en la computadora. Cada
+lado marca lo suyo: lo que marcás acá queda **sobre la fuente**, y no se mezcla
+con lo de su documento procesado, ni al revés. Lo que ocultás queda recordado
+para esa fuente. Lo único que no está acá es **"Borrar las marcas"** de una
+vez: de la Biblioteca nada se borra así; lo que no quieras se saca a mano, con
+**"Retocar a mano"**, de a una.
 
 Las fotos de una página web se guardan adentro del archivo, así que se ven
 sin conexión. Si alguna no se pudo guardar (por ejemplo, porque pesaba
@@ -1252,10 +1268,10 @@ elemento, y **nada cambia hasta que aceptás**:
 
 ### Organizar con IA, a pedido
 
-En la hoja **"Más"** del [panel del elemento](#el-panel-del-elemento),
-**"Organizar con IA"** le pide que lo organice ahora, antes que lo demás. Una
-fuente no se organiza: se organiza **su documento procesado**, desde su "Más"
-(ver [Procesado](#procesado)).
+En **«Crear»** (el ✨ de la barra) de una nota o de un documento procesado,
+**"Organizar"** le pide que lo organice ahora, antes que lo demás (ver
+[Crear: todo en un solo lugar](#crear-todo-en-un-solo-lugar)). Una fuente no se
+organiza: se organiza **su documento procesado**.
 Sirve para algo que guardaste antes de que la IA organizara sola (sin
 esperar al cargador), o para algo cuya organización deshiciste: en ese caso
 la línea del elemento dice **"Deshiciste lo que hizo la IA"** y ofrece
@@ -1268,12 +1284,11 @@ modelo).
 Hay dos formas de pedirle a la IA que busque fechas para la
 [Línea de tiempo](#línea-de-tiempo), sin hacer nada más:
 
-- **Un elemento:** en la hoja **"Más"** del [panel del elemento](#el-panel-del-elemento),
-  **"Buscar fechas con IA"**.
+- **Un elemento:** en **«Crear»** (el ✨ de la barra), **"Buscar fechas"**.
 - **Muchos:** **"Organizar con IA"** en la barra de la línea de tiempo (ver
   [Línea de tiempo](#línea-de-tiempo)).
 
-De una fuente se buscan en **su documento procesado**, desde su "Más". No hace vínculos, tarjetas ni etiquetas, no
+De una fuente se buscan en **su documento procesado**, desde su «Crear». No hace vínculos, tarjetas ni etiquetas, no
 espera al cargador y no depende del interruptor de las fechas: lo pediste vos. Como siempre, un aviso te dice
 si lo va a hacer en un momento o qué está esperando (que reanudes la IA, que
 bajes un modelo, que cargues una clave o que vuelva la cuota). Si el modelo
@@ -2081,10 +2096,13 @@ PDF o de un documento, o la página web archivada, en su marco, con lo marcado
 **encima** —el resumen en verde, la síntesis en celeste, las palabras clave en
 rosa y los fragmentos en durazno—. El botón grande del centro (**"Leer como
 libro"**, o **"Ver la página"** en una página web) y un toque en la hoja lo
-abren en el visor de siempre, a pantalla completa. Arriba del original están
-**los botones de estudio** (ver abajo), y debajo, una línea con qué es (*"PDF"*,
-*"Página web archivada"* o *"Documento"*), cuánto ocupa y cuándo se copió
-(*"PDF · 26 kB · copiado el 28 oct 2026"*). Borrar la copia y descargarla con
+abren en el visor de siempre, a pantalla completa: ahí, arriba, están **las
+fichas donde se marca** (ver abajo), la misma pantalla que el original de la
+fuente en la Biblioteca. Debajo de la vista previa, un renglón dice **qué tiene
+marcado** (*"Marcado: ● Resumen · ● Palabras clave"*, con el punto de su color,
+hueco si está oculto; mientras la IA marca, cuánto lleva), y otro, qué es
+(*"PDF"*, *"Página web archivada"* o *"Documento"*), cuánto ocupa y cuándo se
+copió (*"PDF · 26 kB · copiado el 28 oct 2026"*). Borrar la copia y descargarla con
 lo marcado están en **"Más"** (ver abajo).
 
 **Una página web se ve como en el navegador del teléfono**: con el ancho de la
@@ -2180,12 +2198,43 @@ el Word con su sombreado, el EPUB coloreado, la página web resaltada, un texto
 como un Word y el Markdown con `==así==`. Si el texto de la fuente cambió desde
 que copiaste el original, no hay dónde poner lo marcado y no se ofrece.
 
+#### Crear: todo en un solo lugar
+
+**«Crear»**, el ✨ de la barra de un documento procesado o de una nota propia,
+es **el único lugar donde se crea algo de él**. Antes eran cuatro: el ✨ de la
+nota derivada y el ícono del cuestionario arriba, "Organizar con IA" y "Buscar
+fechas con IA" en los tres puntos, y la ruedita y el "+" de "Tarjetas de
+repaso". Abre una hoja con dos grupos:
+
+- **Con IA** (con el modelo que lo hace al lado del título): **Organizar**
+  (temas, vínculos con otros documentos y tarjetas), **Tarjetas de repaso**,
+  **Cuestionario**, **Nota derivada** y **Buscar fechas**.
+- **A mano**: **Tarjeta**, **Nota** (la escribís y va a sus **Notas**, con
+  **"Deshacer"** en el aviso; solo en un documento procesado: en una nota
+  propia se escribe en la nota misma) y **Vínculo** (con otro documento, y qué
+  los une).
+
+Cada fila dice qué hace. **Mientras trabaja**, dice cómo va (*"Leyendo la parte
+1 de 2…"*), con su barra y **"Cancelar"**, que corta antes de la parte siguiente
+y descarta lo que llegue: no se guarda nada a medias. Organizar y buscar fechas
+los hace la IA de fondo, que sigue aunque cierres la pantalla: la fila lo dice
+con **"Ver"**, que lleva a lo que hizo. Mientras algo trabaja, el ✨ de arriba
+lleva **un anillo** que se llena con las partes que lleva (gira si no se sabe;
+sin animaciones, queda quieto). Lo que no se puede ahora se ve apagado y dice
+por qué: sin texto no hay fechas que buscar; con la fuente en la papelera, o
+sin ella, no se suman notas. Funciona con la letra grande en un teléfono
+angosto (la hoja se desplaza) y con el lector de pantalla, que lee cada fila
+como un botón, con lo que hace.
+
+"Tarjetas de repaso", abajo, queda para ver y repasar. En los tres puntos
+queda lo que no crea nada.
+
 #### Marcar en el original: resumen, síntesis y palabras clave
 
 Las tres fichas de arriba del original —**Resumen**, **Síntesis** y
 **Palabras clave**—, en una fila y del mismo alto, son el lugar donde se
-marca. Están en el documento y, iguales, arriba del original a pantalla
-completa. Cada una tiene **su punto de color**, el de su resaltador, que hace
+marca. Están arriba del original a pantalla completa, el mismo en Procesado y
+en la Biblioteca; en el documento, la vista previa dice qué tiene marcado. Cada una tiene **su punto de color**, el de su resaltador, que hace
 de leyenda (hueco si lo marcado está oculto); **su estado** debajo del nombre:
 *"Sin hacer"*, *"Haciendo… 40 %"* con una barra que se llena, *"Hecho"* u
 *"Oculto"*; y **cuántas marcas tiene** al lado (*"Hecho · 12"*). Un toque la
@@ -2201,8 +2250,7 @@ crea o la muestra y la oculta.
     ficha; la franja de abajo dice la parte que va, con **"Parar"**.
   - **"A mano"**: pasa a elegir en el original. Tocás una oración y entra al
     resumen (o a la síntesis); tocala de nuevo y sale. En las palabras clave
-    tocás palabras, hasta cuatro por oración. Desde el documento, se abre el
-    original entero, donde se toca; **"Listo"** termina.
+    tocás palabras, hasta cuatro por oración. **"Listo"** termina.
   - La **✕** cierra la hoja sin tocar nada.
 - **Con marcas**, tocarlo **prende y apaga** el resaltado, y queda
   **recordado para ese documento**: lo que ocultaste sigue oculto la próxima
@@ -2212,9 +2260,10 @@ crea o la muestra y la oculta.
 - **Su menú** —los tres puntos de la ficha, o mantenerla apretada— ofrece
   **"Rehacer con IA"** (dice qué hace y cuánto consume antes de empezar: la IA
   vuelve a marcar todo el documento, y lo que elegiste a mano se queda),
-  **"Retocar a mano"**, **"Ocultar"** (o **"Mostrar"**) y **"Borrar las
-  marcas"** (pregunta antes; borra las de la IA y las tuyas de esa clase, y el
-  original y la fuente no cambian).
+  **"Retocar a mano"**, **"Ocultar"** (o **"Mostrar"**) y, en Procesado,
+  **"Borrar las marcas"** (pregunta antes; borra las de la IA y las tuyas de
+  esa clase, y el original y la fuente no cambian). En la Biblioteca no está:
+  de la fuente nada se borra de una vez.
 - **Se superponen sin taparse**: una palabra clave se ve en rosa encima del
   verde del resumen o del celeste de la síntesis, y una oración que está en el
   resumen y en la síntesis se ve **celeste con una línea verde** debajo (con
@@ -2284,22 +2333,25 @@ el de la fuente):
   procesado y en cada cuaderno.
 - **Su Mapa**: el grafo local del documento, con lo que tiene vinculado, debajo
   de «En Repasar». Tocarlo abre el grafo entero.
-- **Sus Tarjetas de repaso**, debajo del Mapa: las agregás a mano o con el ✨, que
-  las saca de su texto procesado. **"De la fuente"**, plegado, junta las
+- **Sus Tarjetas de repaso**, debajo del Mapa, para verlas y repasarlas: se
+  hacen en **«Crear»**, arriba, a mano o con la IA, que las saca de su texto
+  procesado. **"De la fuente"**, plegado, junta las
   tarjetas que la fuente ya tenía: no se movieron ni se copiaron —siguen en
   Repasar con su historial, y su "Abrir en el original" lleva al pasaje de la
   fuente—; se editan y se borran como las demás.
 - **Lo que hizo la IA** con el documento, si hizo algo: la línea **"La IA
   organizó esto"**, arriba, con **"Para revisar"**, **"Ver"**, **"Deshacer
   todo"** y **"Revisar con otro modelo"**.
-- **Arriba, en la barra**: el ✨ de la **nota derivada** y el **cuestionario**,
-  los dos de su texto procesado. Lo que citan se ancla en la fuente, en el
-  pasaje que el documento copió de ella, así que "Ver en la fuente" lleva a la
+- **Arriba, en la barra, «Crear»** (el ✨): todo lo que se crea del documento,
+  sobre su texto procesado, en una sola hoja (ver
+  [Crear: todo en un solo lugar](#crear-todo-en-un-solo-lugar)). Lo que citan
+  la nota derivada y el cuestionario se ancla en la fuente, en el pasaje que
+  el documento copió de ella, así que "Ver en la fuente" lleva a la
   Biblioteca; lo que escribiste o editaste a mano no está en la fuente y no se
   cita.
-- **"Más"** (los tres puntos de la barra): **"Organizar con IA"** y **"Buscar
-  fechas con IA"**, sobre su texto procesado, y, si el documento tiene la copia
-  del original, **"Borrar la copia del original, quedarme con el texto"**: libera
+- **"Más"** (los tres puntos de la barra), con lo que no crea nada: si el
+  documento tiene la copia del original, **"Descargar con lo marcado"** y
+  **"Borrar la copia del original, quedarme con el texto"**: libera
   su espacio y **nunca toca el archivo de la fuente**, que sigue en la
   Biblioteca. No pregunta ni borra de una vez: la copia va a la
   [papelera de la app](#la-papelera-de-la-app) por 30 días y el aviso trae
@@ -3070,7 +3122,9 @@ detalle:
 Sinapsis puede generar, automáticamente, una nota nueva a partir de un
 elemento o de todo un cuaderno, en cuatro formas distintas.
 
-**Cómo llegar:** botón "✨ Generar derivado" en el detalle de un elemento. En
+**Cómo llegar:** **«Crear»** (el ✨ de la barra) de una nota o de un documento
+procesado, **"Nota derivada"**. Mientras la escribe, la fila dice qué parte lee,
+con **"Cancelar"**, y el ✨ lleva un anillo. En
 un cuaderno, el botón es [**"✨ Llenar con IA"**](#llenar-un-cuaderno-con-ia),
 que además deja la nota adentro del cuaderno.
 
@@ -3112,19 +3166,21 @@ arma las tarjetas de cada cosa que guardás —de 3 a 12, según el largo— y
 entran solas a tu repaso, con la marca **✨**. Las ves en la sección
 "Tarjetas de repaso" del detalle, donde además podés:
 
-- Botón "✨ Generar con IA": para pedir **más**. La IA propone preguntas y
+- **«Crear» › "Tarjetas de repaso"** (el ✨ de la barra): para pedir **más**. La IA propone preguntas y
   respuestas a partir del contenido y te las muestra para que elijas cuáles
   guardar antes de confirmarlas. Un texto largo —un libro, un video de
   horas— lo lee **por partes**, repartidas por todo el texto, y debajo del
-  título ves cuál está leyendo ("Leyendo la parte 2 de 6…"). El largo de cada
+  la fila de «Crear» dice cuál está leyendo ("Leyendo la parte 2 de 6…"), con
+  su barra y **"Cancelar"**, que corta antes de la parte siguiente; el ✨ lleva
+  un anillo que se llena. El largo de cada
   parte depende del modelo elegido: con Gemma, unas dos páginas; con Gemini,
   **un capítulo entero**, así cada tarjeta sale de entender el capítulo y no
   un pedazo suelto, y hacen falta menos pedidos. No te vuelve a
   proponer una pregunta que el elemento ya tiene. Si falta bajar el modelo
   de lenguaje te lo dice, con **"Bajarlo"**; si el modelo falla a mitad de
   camino, te muestra lo que alcanzó a proponer y te avisa.
-- Botón "+" "Agregar tarjeta": para escribir una tarjeta vos mismo, a mano,
-  en la forma que quieras (ver [Las formas de tarjeta](#las-formas-de-tarjeta)).
+- **«Crear» › "Tarjeta"**: para escribir una tarjeta vos mismo, a mano, en la
+  forma que quieras (ver [Las formas de tarjeta](#las-formas-de-tarjeta)).
 - **Corregir una tarjeta:** el lápiz de cada tarjeta —tuya o de la IA— la
   abre para editarla **en su forma**: una de huecos se edita como huecos y
   una de "Escribí la respuesta" como tal. El menú "⋮" tiene
@@ -3133,7 +3189,7 @@ entran solas a tu repaso, con la marca **✨**. Las ves en la sección
 
 ### Las formas de tarjeta
 
-Al tocar **"+"** en las tarjetas de un elemento, arriba del formulario
+Al tocar **«Crear» › "Tarjeta"**, arriba del formulario
 elegís la forma:
 
 - **Pregunta y respuesta:** la de siempre.
@@ -3162,7 +3218,7 @@ elegís la forma:
 
 ### Generar un cuestionario (quiz de opción múltiple)
 
-Botón con ícono de examen en el detalle de un elemento. La IA arma preguntas
+**«Crear» › "Cuestionario"** (el ✨ de la barra). La IA arma preguntas
 de opción múltiple, usando SIEMPRE material real de tu propia bóveda para las
 opciones incorrectas (nunca inventa datos falsos). Te muestra las preguntas
 propuestas para que elijas cuáles guardar antes de confirmarlas.
