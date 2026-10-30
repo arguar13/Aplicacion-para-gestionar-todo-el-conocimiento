@@ -297,7 +297,9 @@ void main() {
 
     testWidgets('dentro de una página más alta que la pantalla, se desplaza '
         'hasta la línea; desplazarla a mano lo deja tranquilo', (tester) async {
-      await tester.binding.setSurfaceSize(const Size(400, 600));
+      // Alto: arriba van la barra del marco de lectura, la fila de IA y el
+      // título (F47, paso 1), y la página necesita su lugar.
+      await tester.binding.setSurfaceSize(const Size(400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       // Lugar de sobra arriba y abajo de lo que suena: nada lo acota.
       final long = [for (var i = 0; i < 120; i++) 'Renglón $i.'].join('\n');

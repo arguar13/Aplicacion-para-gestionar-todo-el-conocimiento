@@ -252,7 +252,7 @@ void main() {
           find.byKey(Key('original-study-${StudyMarkKind.keyword.name}')),
         );
         await tester.pumpAndSettle();
-        expect(chip(tester, StudyMarkKind.keyword).right, lessThan(361));
+        expect(chip(tester, StudyMarkKind.keyword).left, lessThan(360));
         expect(
           tester
               .state<ScrollableState>(

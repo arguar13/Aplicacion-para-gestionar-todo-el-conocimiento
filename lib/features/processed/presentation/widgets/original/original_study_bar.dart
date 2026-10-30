@@ -580,8 +580,9 @@ class StudyChip extends StatelessWidget {
                           borderRadius: BorderRadius.circular(999),
                           child: LinearProgressIndicator(
                             key: Key('original-study-progress-${kind.name}'),
-                            // Una barra que se llena: un valor siempre, nunca la
-                            // que va y viene sola (sin animaciones).
+                            // Una barra que se llena: un valor siempre,
+                            // nunca la que va y viene sola (sin
+                            // animaciones).
                             value: percent / 100,
                             minHeight: 4,
                             color: filled ? StudyPalette.ink : color,

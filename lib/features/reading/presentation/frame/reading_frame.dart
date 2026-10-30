@@ -373,12 +373,7 @@ class ReadingFrameBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
       child: Row(
         children: [
-          IconButton(
-            key: const Key('reading-frame-back'),
-            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => unawaited(Navigator.of(context).maybePop()),
-          ),
+          const BackButton(key: Key('reading-frame-back')),
           const Spacer(),
           ReadingRoundButton(
             key: const Key('reading-frame-contents'),

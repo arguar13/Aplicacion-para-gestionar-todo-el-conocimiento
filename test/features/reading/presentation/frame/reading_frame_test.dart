@@ -607,7 +607,9 @@ void main() {
         ]) {
           await tapKey(tester, sheet);
           expect(tester.takeException(), isNull, reason: sheet);
-          await tester.tapAt(const Offset(10, 10));
+          // Con la letra al doble la hoja puede ocupar toda la pantalla:
+          // se cierra como con «atrás».
+          Navigator.of(tester.element(find.byType(BottomSheet))).pop();
           await tester.pumpAndSettle();
         }
 
