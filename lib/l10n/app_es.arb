@@ -2184,10 +2184,6 @@
   "@notebookDetailEmpty": {
     "description": "Estado vacío del panel de un cuaderno."
   },
-  "derivedNoteGenerateTooltip": "Generar derivado",
-  "@derivedNoteGenerateTooltip": {
-    "description": "Tooltip del botón que abre el menú de tipos de derivado (F16, D5), en el detalle de un cuaderno o de un elemento."
-  },
   "derivedNoteTypeStudyGuide": "Guía de estudio",
   "@derivedNoteTypeStudyGuide": {
     "description": "Uno de los cuatro tipos de derivado, en el menú de generación."
@@ -3831,14 +3827,6 @@
   "@flashcardsAddAction": {
     "description": "Botón para agregar una tarjeta a mano."
   },
-  "flashcardsGenerateAction": "Generar con IA",
-  "@flashcardsGenerateAction": {
-    "description": "Botón para generar tarjetas con el modelo de lenguaje."
-  },
-  "flashcardsEmpty": "Todavía no tiene ninguna tarjeta.",
-  "@flashcardsEmpty": {
-    "description": "Mensaje cuando un elemento no tiene tarjetas."
-  },
   "flashcardsFrontHint": "Pregunta",
   "@flashcardsFrontHint": {
     "description": "Placeholder del campo de pregunta al crear una tarjeta."
@@ -3862,10 +3850,6 @@
   "flashcardsGenerationFailed": "No se pudo generar ninguna tarjeta. Probá crearlas a mano, o comprobá que el modelo de chat esté descargado.",
   "@flashcardsGenerationFailed": {
     "description": "Mensaje cuando la generación con IA no produjo ninguna tarjeta utilizable."
-  },
-  "quizGenerateTooltip": "Generar quiz",
-  "@quizGenerateTooltip": {
-    "description": "Botón para generar un quiz de opción múltiple con el modelo de lenguaje."
   },
   "quizModelRequired": "Generar un quiz necesita el modelo de lenguaje descargado.",
   "@quizModelRequired": {
@@ -5177,14 +5161,6 @@
   "settingsAiBackfillSubtitle": "Pasa por lo que ya tenías, de a poco y solo con el teléfono cargando.",
   "@settingsAiBackfillSubtitle": {
     "description": "Explicación del interruptor de la pasada por la biblioteca existente (F27)."
-  },
-  "sourcePanelOrganizeWithAi": "Organizar con IA",
-  "@sourcePanelOrganizeWithAi": {
-    "description": "Opción de la hoja «Más» del panel de la fuente que le pide a la IA que organice el elemento ahora (F27)."
-  },
-  "sourcePanelOrganizeWithAiHint": "Vínculos, tarjetas y temas ahora, antes que lo demás. También para lo de antes o lo que deshiciste",
-  "@sourcePanelOrganizeWithAiHint": {
-    "description": "Línea que explica «Organizar con IA» en la hoja «Más» del panel de la fuente (F27)."
   },
   "aiOrganizeNowQueued": "La IA lo organiza en un momento",
   "@aiOrganizeNowQueued": {
@@ -9174,10 +9150,6 @@
   "@timelineAiDone": {"description": "Indicador de la línea de tiempo (F40) cuando la IA terminó de buscar fechas."},
   "timelineAiFound": "{count, plural, =0{ninguna fecha nueva} =1{1 fecha nueva} other{{count} fechas nuevas}}",
   "@timelineAiFound": {"description": "Indicador de la línea de tiempo (F40): cuántas fechas nuevas puso la IA hasta ahora.", "placeholders": {"count": {"type": "int"}}},
-  "sourcePanelFindDates": "Buscar fechas con IA",
-  "@sourcePanelFindDates": {"description": "Hoja «Más» del panel de la fuente (F40): pide que la IA busque las fechas del texto para la línea de tiempo."},
-  "sourcePanelFindDatesHint": "Pone en la línea de tiempo las fechas que cuenta el texto, cada una con su cita",
-  "@sourcePanelFindDatesHint": {"description": "Explicación de «Buscar fechas con IA» en la hoja «Más» del panel de la fuente (F40)."},
   "timelineFactMadeByAi": "Hecho puesto por la IA",
   "@timelineFactMadeByAi": {"description": "Tooltip de la marca ✨ en la ficha de un hecho fechado que puso la IA (F40)."},
   "timelineFactQuoteLost": "El texto cambió y la cita ya no está en él: se conserva la fecha y el título.",
@@ -10542,14 +10514,6 @@
         "type": "int"
       }
     }
-  },
-  "processedOrganizeWithAiHint": "Temas, vínculos y tarjetas con su texto procesado",
-  "@processedOrganizeWithAiHint": {
-    "description": "«Más» del documento procesado (F41): para qué sirve «Organizar con IA»."
-  },
-  "processedFindDatesHint": "Las fechas de su texto procesado, a la línea de tiempo",
-  "@processedFindDatesHint": {
-    "description": "«Más» del documento procesado (F41): para qué sirve «Buscar fechas con IA»."
   },
   "processedDeleteOriginalCopy": "Borrar la copia del original, quedarme con el texto",
   "@processedDeleteOriginalCopy": {
@@ -14197,5 +14161,61 @@
   "f45S7bMarksNone": "Nada marcado todavía: el resumen, la síntesis y las palabras clave se marcan al abrir el original.",
   "@f45S7bMarksNone": {"description": "F45, paso 7b (mejora 15): debajo de la vista previa de un original sin nada marcado; dice dónde se marca."},
   "f45S7bMarksWorking": "La IA está marcando · {percent} %",
-  "@f45S7bMarksWorking": {"description": "F45, paso 7b (mejora 15): debajo de la vista previa de un original mientras la IA lo marca, con su avance.", "placeholders": {"percent": {"type": "int"}}}
+  "@f45S7bMarksWorking": {"description": "F45, paso 7b (mejora 15): debajo de la vista previa de un original mientras la IA lo marca, con su avance.", "placeholders": {"percent": {"type": "int"}}},
+  "f45S7bCreate": "Crear",
+  "@f45S7bCreate": {"description": "F45, paso 7b (mejora 14): el ✨ de la barra de un documento y el título de su hoja, el único lugar donde se crea algo de él."},
+  "f45S7bCreateBusy": "Crear · la IA está trabajando",
+  "@f45S7bCreateBusy": {"description": "F45, paso 7b (mejora 14): lo que dice el ✨ de «Crear» mientras algo de él trabaja, con su anillo."},
+  "f45S7bWithAi": "Con IA · {model}",
+  "@f45S7bWithAi": {"description": "F45, paso 7b (mejora 14): el grupo de lo que hace la IA en la hoja de «Crear», con el modelo que lo hace.", "placeholders": {"model": {"type": "String"}}},
+  "f45S7bByHand": "A mano",
+  "@f45S7bByHand": {"description": "F45, paso 7b (mejora 14): el grupo de lo que se hace a mano en la hoja de «Crear»."},
+  "f45S7bOrganize": "Organizar",
+  "@f45S7bOrganize": {"description": "F45, paso 7b (mejora 14): fila de «Crear» para que la IA organice el documento."},
+  "f45S7bOrganizeHint": "Temas, vínculos con otros documentos y tarjetas, de su texto",
+  "@f45S7bOrganizeHint": {"description": "F45, paso 7b (mejora 14): qué hace «Organizar» en la hoja de «Crear»."},
+  "f45S7bFlashcardsHint": "Te propone tarjetas de su texto y elegís cuáles guardar",
+  "@f45S7bFlashcardsHint": {"description": "F45, paso 7b (mejora 14): qué hace «Tarjetas de repaso» con IA en la hoja de «Crear»."},
+  "f45S7bQuiz": "Cuestionario",
+  "@f45S7bQuiz": {"description": "F45, paso 7b (mejora 14): fila de «Crear» para que la IA arme un cuestionario."},
+  "f45S7bQuizHint": "Preguntas de opción múltiple, que revisás antes de guardarlas",
+  "@f45S7bQuizHint": {"description": "F45, paso 7b (mejora 14): qué hace «Cuestionario» en la hoja de «Crear»."},
+  "f45S7bDerivedNote": "Nota derivada",
+  "@f45S7bDerivedNote": {"description": "F45, paso 7b (mejora 14): fila de «Crear» para que la IA escriba una nota derivada."},
+  "f45S7bDerivedNoteHint": "Una guía de estudio, preguntas abiertas, un esquema o una cronología, cada dato con su cita",
+  "@f45S7bDerivedNoteHint": {"description": "F45, paso 7b (mejora 14): qué hace «Nota derivada» en la hoja de «Crear»."},
+  "f45S7bDates": "Buscar fechas",
+  "@f45S7bDates": {"description": "F45, paso 7b (mejora 14): fila de «Crear» para que la IA busque las fechas del texto."},
+  "f45S7bDatesHint": "Las fechas de su texto, a la línea de tiempo, cada una con su cita",
+  "@f45S7bDatesHint": {"description": "F45, paso 7b (mejora 14): qué hace «Buscar fechas» en la hoja de «Crear»."},
+  "f45S7bCard": "Tarjeta",
+  "@f45S7bCard": {"description": "F45, paso 7b (mejora 14): fila de «Crear» para hacer una tarjeta a mano."},
+  "f45S7bCardHint": "Pregunta y respuesta, huecos, escribir la respuesta u opción múltiple",
+  "@f45S7bCardHint": {"description": "F45, paso 7b (mejora 14): qué hace «Tarjeta» a mano en la hoja de «Crear»."},
+  "f45S7bNote": "Nota",
+  "@f45S7bNote": {"description": "F45, paso 7b (mejora 14): fila de «Crear» para escribir una nota a mano en las notas del documento."},
+  "f45S7bNoteHint": "La escribís vos y va a sus Notas",
+  "@f45S7bNoteHint": {"description": "F45, paso 7b (mejora 14): qué hace «Nota» a mano en la hoja de «Crear»."},
+  "f45S7bLink": "Vínculo",
+  "@f45S7bLink": {"description": "F45, paso 7b (mejora 14): fila de «Crear» para vincular el documento con otro a mano."},
+  "f45S7bLinkHint": "Con otro documento, y qué los une",
+  "@f45S7bLinkHint": {"description": "F45, paso 7b (mejora 14): qué hace «Vínculo» a mano en la hoja de «Crear»."},
+  "f45S7bWorking": "Trabajando…",
+  "@f45S7bWorking": {"description": "F45, paso 7b (mejora 14): una fila de «Crear» mientras la IA trabaja, sin partes que contar."},
+  "f45S7bOrganizing": "Organizándolo; sigue aunque cierres la pantalla",
+  "@f45S7bOrganizing": {"description": "F45, paso 7b (mejora 14): la fila «Organizar» mientras la IA de fondo organiza este documento."},
+  "f45S7bFindingDates": "Buscando sus fechas; sigue aunque cierres la pantalla",
+  "@f45S7bFindingDates": {"description": "F45, paso 7b (mejora 14): la fila «Buscar fechas» mientras la IA de fondo busca las fechas de este documento."},
+  "f45S7bBlockNoText": "Sin texto del que sacarlas",
+  "@f45S7bBlockNoText": {"description": "F45, paso 7b (mejora 14): por qué una fila de «Crear» está apagada: el documento no tiene texto."},
+  "f45S7bBlockNotReady": "Todavía se está procesando",
+  "@f45S7bBlockNotReady": {"description": "F45, paso 7b (mejora 14): por qué una fila de «Crear» está apagada: la nota todavía se procesa."},
+  "f45S7bBlockSourceInTrash": "Su fuente está en la papelera: restaurala primero",
+  "@f45S7bBlockSourceInTrash": {"description": "F45, paso 7b (mejora 14): por qué «Nota» está apagada: la fuente del documento procesado está en la papelera."},
+  "f45S7bBlockSourceGone": "Perdió su fuente, y sus notas se arman con ella",
+  "@f45S7bBlockSourceGone": {"description": "F45, paso 7b (mejora 14): por qué «Nota» está apagada: el documento procesado perdió su fuente."},
+  "f45S7bNoteAdded": "Nota agregada a sus Notas",
+  "@f45S7bNoteAdded": {"description": "F45, paso 7b (mejora 14): el aviso al escribir una nota a mano desde «Crear»."},
+  "f45S7bFlashcardsEmpty": "Todavía no tiene ninguna tarjeta. Se hacen desde ✨ Crear, arriba, con la IA o a mano.",
+  "@f45S7bFlashcardsEmpty": {"description": "F45, paso 7b (mejora 14): la sección «Tarjetas de repaso» sin tarjetas; dice dónde se crean."}
 }

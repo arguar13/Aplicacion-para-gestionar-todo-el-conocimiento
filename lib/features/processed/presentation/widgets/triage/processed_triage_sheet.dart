@@ -23,6 +23,7 @@ import 'package:sinapsis/features/processed/presentation/providers/processed_tri
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_cut_screen.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/triage_image_grid.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/triage_section_texts.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/write_note_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Lo que hace «Listo»: guardar [edits] y, si se pidió, lo de la copia del
@@ -261,7 +262,7 @@ class _ProcessedTriageSheetState extends ConsumerState<ProcessedTriageSheet> {
   Future<void> _writeNote() async {
     final note = await showDialog<String>(
       context: context,
-      builder: (_) => const _WriteNoteDialog(),
+      builder: (_) => const WriteNoteDialog(),
     );
     if (note == null || !mounted) return;
     _controller.writeNote(note);
@@ -1295,64 +1296,6 @@ class _Actions extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Escribir una nota para el documento procesado: un campo de varias líneas
-/// y «Agregar». Cancelar no suma nada; en blanco, tampoco.
-class _WriteNoteDialog extends StatefulWidget {
-  const _WriteNoteDialog();
-
-  @override
-  State<_WriteNoteDialog> createState() => _WriteNoteDialogState();
-}
-
-class _WriteNoteDialogState extends State<_WriteNoteDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _add() {
-    final text = _controller.text.trim();
-    Navigator.of(context).pop(text.isEmpty ? null : text);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return AlertDialog(
-      title: Text(l10n.processedTriageNoteDialogTitle),
-      content: TextField(
-        key: const Key('triage-note-field'),
-        controller: _controller,
-        autofocus: true,
-        minLines: 3,
-        maxLines: 8,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: InputDecoration(
-          hintText: l10n.processedTriageNoteDialogHint,
-          border: const OutlineInputBorder(),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.commonCancel),
-        ),
-        ListenableBuilder(
-          listenable: _controller,
-          builder: (context, _) => FilledButton(
-            key: const Key('triage-note-add'),
-            onPressed: _controller.text.trim().isEmpty ? null : _add,
-            child: Text(l10n.processedTriageNoteDialogAdd),
-          ),
-        ),
-      ],
     );
   }
 }

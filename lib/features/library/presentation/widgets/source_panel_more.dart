@@ -1,20 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/core/util/transcript_timestamps.dart';
-import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
-import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_presentation.dart';
 import 'package:sinapsis/features/content_trash/presentation/content_trash_actions.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/reextract_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
-import 'package:sinapsis/features/processed/domain/services/consultation_source.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -26,16 +22,10 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// fuente, desde su documento procesado, en «El texto de la fuente» (F45, paso
 /// 3): la Biblioteca muestra solo su original, y lo que trabaja su texto queda
 /// en Procesado, sin perder nada.
+///
+/// Lo que crea algo —que la IA organice una nota o le busque las fechas— ya
+/// no está acá: va en «Crear», el ✨ de su barra (F45, paso 7b, mejora 14).
 enum SourceMoreAction {
-  /// Que la IA lo organice ahora, antes que lo demás (F27): lo de la
-  /// biblioteca existente sin esperar al cargador, o lo que se deshizo y la
-  /// IA no vuelve a tocar sola.
-  organizeWithAi,
-
-  /// Que la IA busque solo las fechas del texto y las ponga en la línea de
-  /// tiempo, cada una con su cita (F40).
-  findDatesWithAi,
-
   /// Volver a extraer el texto, con el idioma (F22).
   reextract,
 
@@ -49,31 +39,18 @@ enum SourceMoreAction {
 }
 
 /// Las opciones de "Más" que aplican a [item], en el orden de la hoja: solo
-/// las que se pueden hacer ahora. A una nota lista solo se le puede pedir que
-/// la organice la IA; mientras algo se procesa, o si falló sin texto, no hay
-/// nada que ofrecer.
+/// las que se pueden hacer ahora. Mientras algo se procesa, o si falló sin
+/// texto, no hay nada que ofrecer.
 ///
-/// Una fuente queda de consulta (F41, decisión K, `isConsultationSource`):
-/// organizarla o buscarle fechas con la IA se hace en su documento procesado,
-/// sobre lo procesado, y su archivo no se suelta para quedarse con el texto —de
-/// la Biblioteca nada se borra—. Le queda lo que trabaja su original: volver a
-/// extraer el texto, quitar las marcas de tiempo y soltar el texto de un libro.
+/// Una fuente queda de consulta (F41, decisión K, `isConsultationSource`): su
+/// archivo no se suelta para quedarse con el texto —de la Biblioteca nada se
+/// borra—. Le queda lo que trabaja su original: volver a extraer el texto,
+/// quitar las marcas de tiempo y soltar el texto de un libro.
 /// Verlo a pantalla completa ya no está acá (F45, paso 3): es el botón del
 /// centro de su vista previa —«Leer como libro», «Ver la página», «Ampliar»—.
 List<SourceMoreAction> sourceMoreActionsFor(KnowledgeItem item) {
   final hasText = item.renditions.whereType<TextRendition>().isNotEmpty;
-  final note = !isConsultationSource(item);
   return [
-    // Solo lo que está listo, como la cola de la IA: organizar a medio
-    // procesar sería vincular y hacer tarjetas de un texto que va a cambiar.
-    if (note && item.processingState == ProcessingState.ready)
-      SourceMoreAction.organizeWithAi,
-    // Lo mismo, y con algo escrito que leer: sin texto no hay fechas que
-    // buscar.
-    if (note &&
-        item.processingState == ProcessingState.ready &&
-        _hasWrittenText(item))
-      SourceMoreAction.findDatesWithAi,
     // También en «solo el libro» (F30, decisión 68): sin texto a propósito,
     // la persona sí puede pedir que se vuelva a extraer.
     if ((hasText || item.source.onlyFile) && canReextractText(item))
@@ -87,14 +64,6 @@ List<SourceMoreAction> sourceMoreActionsFor(KnowledgeItem item) {
       SourceMoreAction.deleteText,
   ];
 }
-
-/// Si alguna forma del elemento tiene algo escrito: lo extraído, la
-/// transcripción, el texto de una foto, la página o las palabras de una nota.
-/// Mira hasta la primera letra, no el texto entero.
-bool _hasWrittenText(KnowledgeItem item) =>
-    item.renditions.any((r) => r.searchableText?.contains(_notBlank) ?? false);
-
-final _notBlank = RegExp(r'\S');
 
 /// Las formas de texto de una transcripción que todavía tienen marcas de
 /// tiempo —`[mm:ss]` al principio de cada línea, las pone
@@ -150,15 +119,6 @@ Future<void> showSourceMoreSheet(
   if (chosen == null || !context.mounted) return;
 
   switch (chosen) {
-    case SourceMoreAction.organizeWithAi:
-      await organizeNowWithAi(context, ref, itemId: item.id);
-    case SourceMoreAction.findDatesWithAi:
-      await findDatesNowWithAi(
-        context,
-        ref,
-        itemIds: [item.id],
-        seeItemId: item.id,
-      );
     case SourceMoreAction.reextract:
       await reextractText(
         context,
@@ -244,14 +204,10 @@ class _SourceMoreSheet extends StatelessWidget {
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 24,
                       ),
-                      // Lo de la IA lleva su ✨, el mismo de todo lo que hace
-                      // sola.
-                      leading: action.usesAi
-                          ? const AiSparkCircle(size: 40)
-                          : SourcePanelIconCircle(
-                              icon: action.icon,
-                              tone: action.tone,
-                            ),
+                      leading: SourcePanelIconCircle(
+                        icon: action.icon,
+                        tone: action.tone,
+                      ),
                       title: Text(action.title(l10n)),
                       subtitle: Text(action.hint(l10n)),
                       onTap: () => Navigator.of(context).pop(action),
@@ -267,35 +223,24 @@ class _SourceMoreSheet extends StatelessWidget {
 }
 
 extension on SourceMoreAction {
-  /// Lo que hace la IA: lleva su ✨.
-  bool get usesAi =>
-      this == SourceMoreAction.organizeWithAi ||
-      this == SourceMoreAction.findDatesWithAi;
-
   /// Lo que suelta algo del elemento se ve como lo que es.
   SourcePanelTone get tone => this == SourceMoreAction.deleteText
       ? SourcePanelTone.error
       : SourcePanelTone.neutral;
 
   IconData get icon => switch (this) {
-    SourceMoreAction.organizeWithAi => Icons.auto_awesome,
-    SourceMoreAction.findDatesWithAi => Icons.timeline,
     SourceMoreAction.reextract => Icons.refresh,
     SourceMoreAction.removeTimestamps => Icons.timer_off_outlined,
     SourceMoreAction.deleteText => Icons.notes_outlined,
   };
 
   String title(AppLocalizations l10n) => switch (this) {
-    SourceMoreAction.organizeWithAi => l10n.sourcePanelOrganizeWithAi,
-    SourceMoreAction.findDatesWithAi => l10n.sourcePanelFindDates,
     SourceMoreAction.reextract => l10n.detailReextract,
     SourceMoreAction.removeTimestamps => l10n.detailRemoveTimestamps,
     SourceMoreAction.deleteText => l10n.detailDeleteText,
   };
 
   String hint(AppLocalizations l10n) => switch (this) {
-    SourceMoreAction.organizeWithAi => l10n.sourcePanelOrganizeWithAiHint,
-    SourceMoreAction.findDatesWithAi => l10n.sourcePanelFindDatesHint,
     SourceMoreAction.reextract => l10n.sourcePanelReextractHint,
     SourceMoreAction.removeTimestamps => l10n.sourcePanelRemoveTimestampsHint,
     SourceMoreAction.deleteText => l10n.sourcePanelDeleteTextHint,

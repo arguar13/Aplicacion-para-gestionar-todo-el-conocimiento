@@ -12,6 +12,7 @@ import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.da
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/create_hub/domain/create_kind.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_draft.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
@@ -24,6 +25,7 @@ import 'package:sinapsis/features/processed/presentation/providers/processed_pro
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/create_fixture.dart';
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 import '../../../processed/presentation/processed_ui_fixture.dart';
@@ -201,23 +203,24 @@ void main() {
     expect(find.byTooltip(es.flashcardMadeByAi), findsOneWidget);
   });
 
+  // Las de la IA se piden en «Crear», arriba (F45, paso 7b): la sección
+  // queda para verlas y repasarlas.
   group('en un documento procesado (F41, decisión K)', () {
     const processedText = 'La entropía mide el desorden. Siempre crece.';
 
     Future<void> pumpProcessed(WidgetTester tester) async {
       await tester.pumpWidget(
         harness.wrap(
-          Scaffold(
-            body: SingleChildScrollView(
-              child: FlashcardSection(item: item, processed: true),
-            ),
+          createScreen(
+            processedTargetOf(item),
+            body: SingleChildScrollView(child: FlashcardSection(item: item)),
           ),
         ),
       );
       await tester.pumpAndSettle();
     }
 
-    testWidgets('el ✨ lee el texto de sus tarjetas —lo procesado, no la '
+    testWidgets('«Crear» lee el texto de sus tarjetas —lo procesado, no la '
         'fuente—, y sus tarjetas no llevan pasaje: el procesado no tiene una '
         'forma donde caer', (tester) async {
       await harness.saveTextSource('roma', text: processedText);
@@ -227,8 +230,7 @@ void main() {
               .getOrElse((f) => fail('$f'))!;
       await pumpProcessed(tester);
 
-      await tester.tap(find.byTooltip(es.flashcardsGenerateAction));
-      await tester.pumpAndSettle();
+      await tapCreate(tester, CreateKind.flashcards);
 
       expect(model.contents, ['$processedText\n\nMi nota.']);
       await tester.tap(find.text(es.flashcardsSaveSelected));
@@ -259,8 +261,7 @@ void main() {
       await insertItemRows(harness.database, id: 'a', title: 'Termodinámica');
       await pumpProcessed(tester);
 
-      await tester.tap(find.byTooltip(es.flashcardsGenerateAction));
-      await tester.pumpAndSettle();
+      await tapCreate(tester, CreateKind.flashcards);
 
       expect(model.contents, isEmpty);
       expect(
@@ -269,17 +270,8 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(
-        tester
-            .widget<IconButton>(
-              find.ancestor(
-                of: find.byIcon(Icons.auto_awesome_outlined),
-                matching: find.byType(IconButton),
-              ),
-            )
-            .onPressed,
-        isNotNull,
-      );
+      // «Crear» queda sin nada trabajando, listo para otro intento.
+      expect(find.byKey(const Key('create-button-ring')), findsNothing);
     });
 
     testWidgets('sin texto procesado lo dice, sin llamar al modelo ni caer en '
@@ -287,23 +279,12 @@ void main() {
       // [item] no es un procesado: no tiene texto procesado que leer.
       await pumpProcessed(tester);
 
-      await tester.tap(find.byTooltip(es.flashcardsGenerateAction));
-      await tester.pumpAndSettle();
+      await tapCreate(tester, CreateKind.flashcards);
 
       expect(model.contents, isEmpty);
       expect(find.text(es.flashcardsNoContentToGenerate), findsOneWidget);
       // Vuelve a estar listo para otro intento.
-      expect(
-        tester
-            .widget<IconButton>(
-              find.ancestor(
-                of: find.byIcon(Icons.auto_awesome_outlined),
-                matching: find.byType(IconButton),
-              ),
-            )
-            .onPressed,
-        isNotNull,
-      );
+      expect(find.byKey(const Key('create-button-ring')), findsNothing);
     });
 
     group('«De la fuente»', () {
@@ -378,7 +359,7 @@ void main() {
     });
   });
 
-  group('el ✨ lee por partes (F30)', () {
+  group('«Crear» lee por partes (F30)', () {
     /// Un libro: miles de oraciones, mucho más de lo que entra en la ventana
     /// del modelo.
     final book = [
@@ -401,14 +382,14 @@ void main() {
     ) async {
       await tester.pumpWidget(
         harness.wrap(
-          Scaffold(
+          createScreen(
+            CreateTarget.note(item),
             body: SingleChildScrollView(child: FlashcardSection(item: item)),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip(es.flashcardsGenerateAction));
-      await tester.pumpAndSettle();
+      await tapCreate(tester, CreateKind.flashcards);
     }
 
     testWidgets('un texto largo se le manda de a partes que entran en la '

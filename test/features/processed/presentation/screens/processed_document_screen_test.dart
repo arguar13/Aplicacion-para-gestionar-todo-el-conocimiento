@@ -13,15 +13,15 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organized_line.dart';
+import 'package:sinapsis/features/create_hub/domain/create_kind.dart';
+import 'package:sinapsis/features/create_hub/presentation/widgets/create_button.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/generate_quiz_button.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/local_graph_panel.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
-import 'package:sinapsis/features/notes/presentation/widgets/generate_derived_note_button.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
@@ -622,7 +622,6 @@ void main() {
       expect(tester.widget<LocalGraphPanel>(map).item.id, id);
       final flashcards = tester.widget<FlashcardSection>(cards);
       expect(flashcards.item.id, id);
-      expect(flashcards.processed, isTrue);
       expect(flashcards.fromSourceItemId, 'roma');
       expect(
         tester.getTopLeft(map).dy,
@@ -698,9 +697,11 @@ void main() {
       expect(rows.single.itemId, 'roma');
     });
 
-    testWidgets('arriba, el derivado ✨, el quiz y «Más» con organizar y '
-        'buscar fechas sobre el documento; sin copia del original, no se '
-        'ofrece borrarla', (tester) async {
+    testWidgets('arriba, «Crear» (F45, paso 7b): organizar y buscar fechas '
+        'van de ahí a la cola de la IA, sobre el documento; sin copia del '
+        'original no hay nada que no cree, y «Más» no se dibuja', (
+      tester,
+    ) async {
       final queue = FakeAiOrganizeQueue();
       harness = await LibraryHarness.create(
         extraOverrides: [aiOrganizeQueueProvider.overrideWithValue(queue)],
@@ -709,33 +710,23 @@ void main() {
       final id = await harness.processTextAndNotes('roma');
       await open(tester, id);
 
-      final bar = find.byType(AppBar);
-      expect(
-        find.descendant(
-          of: bar,
-          matching: find.byType(GenerateDerivedNoteButton),
-        ),
-        findsOneWidget,
+      final create = find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byType(CreateButton),
       );
-      expect(
-        find.descendant(of: bar, matching: find.byType(GenerateQuizButton)),
-        findsOneWidget,
-      );
+      expect(create, findsOneWidget);
+      expect(tester.widget<CreateButton>(create).target.processed, isTrue);
+      expect(find.byKey(const Key('processed-more')), findsNothing);
 
-      await tester.tap(find.byKey(const Key('processed-more')));
+      await tester.tap(create);
       await tester.pumpAndSettle();
-      expect(find.text(es.sourcePanelOrganizeWithAi), findsOneWidget);
-      expect(find.text(es.processedOrganizeWithAiHint), findsOneWidget);
-      expect(find.text(es.sourcePanelFindDates), findsOneWidget);
-      expect(find.text(es.processedDeleteOriginalCopy), findsNothing);
-
-      await tester.tap(find.text(es.sourcePanelOrganizeWithAi));
+      await tester.tap(find.byKey(const Key('create-organize')));
       await tester.pumpAndSettle();
       expect(queue.organizeNowCalls, [id]);
 
-      await tester.tap(find.byKey(const Key('processed-more')));
+      await tester.tap(create);
       await tester.pumpAndSettle();
-      await tester.tap(find.text(es.sourcePanelFindDates));
+      await tester.tap(find.byKey(const Key('create-dates')));
       await tester.pumpAndSettle();
       expect(queue.dateRequests, [
         [id],
@@ -779,8 +770,7 @@ void main() {
 
       expect(find.byType(LocalGraphPanel), findsNothing);
       expect(find.byType(FlashcardSection), findsNothing);
-      expect(find.byType(GenerateQuizButton), findsNothing);
-      expect(find.byType(GenerateDerivedNoteButton), findsNothing);
+      expect(find.byType(CreateButton), findsNothing);
       expect(find.byKey(const Key('processed-more')), findsNothing);
     });
   });
@@ -839,6 +829,70 @@ void main() {
         expect(process.undone, [drop.undo]);
       });
 
+      testWidgets(
+        'censo (F45, paso 7b): todo lo que el documento ofrecía antes '
+        'de «Crear» sigue al alcance —lo que crea, en su hoja; lo que no, en '
+        '«Más» y en su lugar—',
+        (tester) async {
+          final id = await openWithCopy(tester);
+          // «Más»: solo lo que no crea nada.
+          expect(
+            find.byKey(const Key('processed-more-deleteOriginalCopy')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const Key('processed-more-organizeWithAi')),
+            findsNothing,
+          );
+          expect(
+            find.byKey(const Key('processed-more-findDatesWithAi')),
+            findsNothing,
+          );
+          await tester.tapAt(Offset.zero);
+          await tester.pumpAndSettle();
+
+          // «Crear»: lo que estaba en ✨, en el ícono del cuestionario, en ⋮ y
+          // en la ruedita y el «+» de las tarjetas, y lo nuevo a mano.
+          await tester.tap(find.byKey(const Key('create-button')));
+          await tester.pumpAndSettle();
+          for (final kind in CreateKind.values) {
+            final row = find.byKey(Key('create-${kind.name}'));
+            await tester.scrollUntilVisible(
+              row,
+              200,
+              scrollable: find.descendant(
+                of: find.byKey(const Key('create-sheet')),
+                matching: find.byType(Scrollable),
+              ),
+            );
+            expect(row, findsOneWidget, reason: kind.name);
+          }
+          await tester.tap(find.byTooltip(es.f43OrigClose));
+          await tester.pumpAndSettle();
+
+          // Lo demás, donde estaba: borrar, la fuente, el original y lo de
+          // estudiar —«En Repasar», el Mapa y las tarjetas, ya sin botones de
+          // crear—.
+          expect(find.byTooltip(es.detailDelete), findsOneWidget);
+          expect(
+            find.byKey(const Key('processed-open-source')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const Key('processed-original-section')),
+            findsOneWidget,
+          );
+          final cards = find.byType(FlashcardSection);
+          await tester.ensureVisible(cards);
+          expect(tester.widget<FlashcardSection>(cards).item.id, id);
+          expect(find.byType(LocalGraphPanel), findsOneWidget);
+          expect(
+            find.descendant(of: cards, matching: find.byType(IconButton)),
+            findsNothing,
+          );
+        },
+      );
+
       testWidgets('si ya tenía su Texto, el aviso solo dice dónde quedó la '
           'copia', (tester) async {
         await openWithCopy(tester, keptText: false);
@@ -858,12 +912,13 @@ void main() {
         expect(find.text(es.contentTrashUndo), findsNothing);
       });
 
-      testWidgets('sin copia no se ofrece', (tester) async {
+      testWidgets('sin copia no se ofrece: sin nada más, «Más» ni se dibuja', (
+        tester,
+      ) async {
         final id = await harness.processTextAndNotes('roma');
         await open(tester, id);
-        await tester.tap(find.byKey(const Key('processed-more')));
-        await tester.pumpAndSettle();
 
+        expect(find.byKey(const Key('processed-more')), findsNothing);
         expect(find.text(es.processedDeleteOriginalCopy), findsNothing);
       });
 
@@ -880,10 +935,13 @@ void main() {
         final id = await harness.processTextAndNotes('roma');
         await trashItemRows(harness.database, 'roma');
         await open(tester, id);
-        await tester.tap(find.byKey(const Key('processed-more')));
-        await tester.pumpAndSettle();
+        // «Más» se dibuja si queda algo —bajar la copia con lo marcado—.
+        final more = find.byKey(const Key('processed-more'));
+        if (more.evaluate().isNotEmpty) {
+          await tester.tap(more);
+          await tester.pumpAndSettle();
+        }
 
-        expect(find.text(es.sourcePanelOrganizeWithAi), findsOneWidget);
         expect(find.text(es.processedDeleteOriginalCopy), findsNothing);
       });
     },

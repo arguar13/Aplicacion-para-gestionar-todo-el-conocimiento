@@ -24,9 +24,10 @@ import 'package:sinapsis/features/processed/domain/entities/processed_document.d
 ///   encima de las tarjetas que cuenta;
 /// - **el Mapa**, el grafo local del documento (`LocalGraphPanel`), con sus
 ///   vínculos entre procesados;
-/// - **las Tarjetas de repaso** (`FlashcardSection`): las suyas, a mano o con
-///   IA de su propio texto, y, plegadas en «De la fuente», las que la fuente
-///   ya tenía.
+/// - **las Tarjetas de repaso** (`FlashcardSection`), para verlas y
+///   repasarlas: las suyas —que se crean en «Crear», arriba, a mano o con IA
+///   de su propio texto (F45, paso 7b)— y, plegadas en «De la fuente», las que
+///   la fuente ya tenía.
 ///
 /// En la papelera no se ven: el documento se lee y se restaura, pero no se
 /// estudia hasta que vuelve. Lo dice el elemento mismo —`libraryItemProvider`
@@ -52,7 +53,6 @@ class ProcessedStudyTools extends ConsumerWidget {
         const SizedBox(height: 24),
         FlashcardSection(
           item: item,
-          processed: true,
           fromSourceItemId: document.summary.sourceItemId,
         ),
       ],

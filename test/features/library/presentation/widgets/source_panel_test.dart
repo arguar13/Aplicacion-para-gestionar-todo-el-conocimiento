@@ -15,14 +15,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
-import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
-import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
-import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
-import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
-import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_presentation.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
-import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/transcript_follow_screen.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel.dart';
@@ -38,7 +31,6 @@ import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
-import '../../../../support/fake_ai_organize_queue.dart';
 import '../../../../support/library_harness.dart';
 
 /// El motor nativo, falso: un video de un minuto que se abre sin más. Hace
@@ -217,11 +209,6 @@ void main() {
   bool enabled(WidgetTester tester, String key) =>
       tile(tester, key).onTap != null;
 
-  Future<void> openMore(WidgetTester tester) async {
-    await tester.tap(find.byKey(const Key('source-panel-more')));
-    await tester.pumpAndSettle();
-  }
-
   Future<void> fail(ProcessingFailureReason reason) => harness.container
       .read(processingStateRepositoryProvider)
       .fail(_id, reason);
@@ -257,7 +244,8 @@ void main() {
     }
 
     testWidgets('una nota propia con texto: los cuatro mosaicos, con '
-        '«Resumir», y «Más» ofrece que la organice la IA y buscarle fechas', (
+        '«Resumir»; organizarla y buscarle fechas ya no van en «Más», sino en '
+        '«Crear» (F45, paso 7b), y sin nada más «Más» queda apagado', (
       tester,
     ) async {
       await pumpPanel(
@@ -267,20 +255,13 @@ void main() {
 
       expect(find.byType(SourcePanelTile), findsNWidgets(4));
       expect(enabled(tester, 'source-panel-summarize'), isTrue);
-
-      await openMore(tester);
-
+      expect(enabled(tester, 'source-panel-more'), isFalse);
       expect(
-        find.byKey(const Key('source-more-organizeWithAi')),
-        findsOneWidget,
+        sourceMoreActionsFor(
+          _source(SourceKind.manualNote, texts: ['Nació en 1809.']),
+        ),
+        isEmpty,
       );
-      expect(find.text(es.sourcePanelOrganizeWithAi), findsOneWidget);
-      expect(find.text(es.sourcePanelOrganizeWithAiHint), findsOneWidget);
-      expect(
-        find.byKey(const Key('source-more-findDatesWithAi')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('source-more-reextract')), findsNothing);
     });
 
     testWidgets('una página web que no se pudo traer: el motivo, con su '
@@ -626,390 +607,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ReadingScreen), findsOneWidget);
-    });
-  });
-
-  group('organizar con la IA (F27)', () {
-    late FakeAiOrganizeQueue queue;
-
-    Future<void> pumpWithQueue(
-      WidgetTester tester, {
-      required bool modelsReady,
-    }) async {
-      queue = FakeAiOrganizeQueue();
-      // Una nota propia: una fuente se organiza en su documento procesado
-      // (F41, decisión K).
-      await pumpPanel(
-        tester,
-        _source(SourceKind.manualNote, texts: ['Un artículo.']),
-        chatModelReady: modelsReady,
-        extraOverrides: [aiOrganizeQueueProvider.overrideWithValue(queue)],
-        beforeShow: () async =>
-            harness.embeddingModelManager.ready = modelsReady,
-      );
-    }
-
-    Future<void> organize(WidgetTester tester) async {
-      await openMore(tester);
-      await tester.tap(find.byKey(const Key('source-more-organizeWithAi')));
-      await tester.pumpAndSettle();
-    }
-
-    testWidgets('se lo pide a la cola y avisa que lo organiza en un momento', (
-      tester,
-    ) async {
-      await pumpWithQueue(tester, modelsReady: true);
-      await organize(tester);
-
-      expect(queue.organizeNowCalls, [_id]);
-      expect(find.text(es.aiOrganizeNowQueued), findsOneWidget);
-      // La hoja se cerró antes de pedirlo.
-      expect(find.text(es.sourcePanelMoreTitle), findsNothing);
-    });
-
-    testWidgets('si falta un modelo, lo pide igual y dice que espera', (
-      tester,
-    ) async {
-      await pumpWithQueue(tester, modelsReady: false);
-      await organize(tester);
-
-      expect(queue.organizeNowCalls, [_id]);
-      expect(find.text(es.aiOrganizeNowNeedsModel), findsOneWidget);
-    });
-
-    testWidgets('con la IA en pausa, lo pide igual y dice cuándo sigue', (
-      tester,
-    ) async {
-      await pumpWithQueue(tester, modelsReady: true);
-      await harness.container
-          .read(aiOrganizeSettingsProvider.notifier)
-          .set(AiOrganizeToggle.enabled, on: false);
-      await organize(tester);
-
-      expect(queue.organizeNowCalls, [_id]);
-      expect(find.text(es.aiOrganizeNowPaused), findsOneWidget);
-    });
-
-    group('con la IA en la nube (F32)', () {
-      late List<bool> asked;
-
-      Future<void> pumpWithCloud(
-        WidgetTester tester,
-        LanguageModelStatus status,
-      ) async {
-        queue = FakeAiOrganizeQueue();
-        asked = [];
-        await pumpPanel(
-          tester,
-          _source(SourceKind.manualNote, texts: ['Un artículo.']),
-          extraOverrides: [
-            aiOrganizeQueueProvider.overrideWithValue(queue),
-            languageModelStatusCheckProvider.overrideWithValue(({
-              bool background = false,
-            }) async {
-              asked.add(background);
-              return status;
-            }),
-          ],
-          beforeShow: () async => harness.embeddingModelManager.ready = true,
-        );
-      }
-
-      testWidgets('lista, avisa que lo organiza y pregunta por la de fondo', (
-        tester,
-      ) async {
-        await pumpWithCloud(
-          tester,
-          const LanguageModelReady(provider: AiProvider.gemini),
-        );
-        await organize(tester);
-
-        expect(queue.organizeNowCalls, [_id]);
-        expect(find.text(es.aiOrganizeNowQueued), findsOneWidget);
-        // Lo hace la IA de fondo: con su tope del día, no con el de la
-        // persona.
-        expect(asked, [true]);
-      });
-
-      testWidgets('sin clave, lo pide igual y dice que falta la clave', (
-        tester,
-      ) async {
-        await pumpWithCloud(
-          tester,
-          const LanguageModelNeedsAccount(provider: AiProvider.gemini),
-        );
-        await organize(tester);
-
-        expect(queue.organizeNowCalls, [_id]);
-        expect(find.text(es.aiOrganizeNowNeedsKey), findsOneWidget);
-        expect(find.text(es.aiOrganizeNowNeedsModel), findsNothing);
-      });
-
-      for (final (name, status) in [
-        (
-          'sin cuota',
-          LanguageModelOutOfQuota(
-            provider: AiProvider.gemini,
-            accounts: 2,
-            resetsAt: DateTime(2026, 10, 17, 4),
-          ),
-        ),
-        (
-          'en el tope del día de la IA de fondo',
-          LanguageModelBackgroundCapReached(
-            provider: AiProvider.gemini,
-            cap: 200,
-            resetsAt: DateTime(2026, 10, 17, 4),
-          ),
-        ),
-      ]) {
-        testWidgets('$name, lo pide igual y dice que espera la cuota', (
-          tester,
-        ) async {
-          await pumpWithCloud(tester, status);
-          await organize(tester);
-
-          expect(queue.organizeNowCalls, [_id]);
-          expect(find.text(es.aiOrganizeNowWaits), findsOneWidget);
-        });
-      }
-
-      testWidgets('lista pero sin el modelo de búsqueda, dice que falta '
-          'bajarlo', (tester) async {
-        await pumpWithCloud(
-          tester,
-          const LanguageModelReady(provider: AiProvider.gemini),
-        );
-        harness.embeddingModelManager.ready = false;
-        await organize(tester);
-
-        expect(find.text(es.aiOrganizeNowNeedsModel), findsOneWidget);
-      });
-    });
-  });
-
-  group('buscar fechas con IA (F40)', () {
-    late FakeAiOrganizeQueue queue;
-    late List<bool> asked;
-
-    Future<void> pumpWith(
-      WidgetTester tester, {
-      List<String> texts = const ['Nació en 1809.'],
-      ProcessingState state = ProcessingState.ready,
-      bool modelsReady = true,
-      LanguageModelStatus? cloud,
-    }) async {
-      queue = FakeAiOrganizeQueue();
-      asked = [];
-      await pumpPanel(
-        tester,
-        _source(SourceKind.manualNote, texts: texts, state: state),
-        chatModelReady: modelsReady,
-        extraOverrides: [
-          aiOrganizeQueueProvider.overrideWithValue(queue),
-          if (cloud != null)
-            languageModelStatusCheckProvider.overrideWithValue(({
-              bool background = false,
-            }) async {
-              asked.add(background);
-              return cloud;
-            }),
-        ],
-        beforeShow: () async =>
-            harness.embeddingModelManager.ready = modelsReady,
-      );
-    }
-
-    Future<void> findDates(WidgetTester tester) async {
-      await openMore(tester);
-      await tester.tap(find.byKey(const Key('source-more-findDatesWithAi')));
-      await tester.pumpAndSettle();
-    }
-
-    testWidgets('«Más» la ofrece con lo que hace, justo después de organizar', (
-      tester,
-    ) async {
-      await pumpWith(tester);
-      await openMore(tester);
-
-      expect(
-        find.byKey(const Key('source-more-findDatesWithAi')),
-        findsOneWidget,
-      );
-      expect(find.text(es.sourcePanelFindDates), findsOneWidget);
-      expect(find.text(es.sourcePanelFindDatesHint), findsOneWidget);
-      // Las dos cosas de la IA llevan su ✨; lo demás de la hoja, no.
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('source-more-findDatesWithAi')),
-          matching: find.byType(AiSparkCircle),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('source-more-organizeWithAi')),
-          matching: find.byType(AiSparkCircle),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        tester
-            .getTopLeft(find.byKey(const Key('source-more-organizeWithAi')))
-            .dy,
-        lessThan(
-          tester
-              .getTopLeft(find.byKey(const Key('source-more-findDatesWithAi')))
-              .dy,
-        ),
-      );
-    });
-
-    testWidgets('le pide a la cola solo las fechas de ese elemento y avisa '
-        'que las busca en un rato', (tester) async {
-      await pumpWith(tester);
-      await findDates(tester);
-
-      expect(queue.dateRequests, [
-        [_id],
-      ]);
-      // No pidió organizarlo entero.
-      expect(queue.organizeNowCalls, isEmpty);
-      expect(find.text(es.datesAskQueued(1)), findsOneWidget);
-      // La hoja se cerró antes de pedirlo.
-      expect(find.text(es.sourcePanelMoreTitle), findsNothing);
-    });
-
-    testWidgets('sin texto no se ofrece: no hay fechas que buscar', (
-      tester,
-    ) async {
-      await pumpWith(tester, texts: const []);
-      await openMore(tester);
-
-      expect(
-        find.byKey(const Key('source-more-organizeWithAi')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('source-more-findDatesWithAi')),
-        findsNothing,
-      );
-    });
-
-    testWidgets('con un texto en blanco tampoco', (tester) async {
-      await pumpWith(tester, texts: const ['  \n  ']);
-      await openMore(tester);
-
-      expect(
-        find.byKey(const Key('source-more-findDatesWithAi')),
-        findsNothing,
-      );
-    });
-
-    testWidgets('con el texto en cualquiera de sus formas se ofrece', (
-      tester,
-    ) async {
-      await pumpWith(tester, texts: const ['', 'Nació en 1809.']);
-      await openMore(tester);
-
-      expect(
-        find.byKey(const Key('source-more-findDatesWithAi')),
-        findsOneWidget,
-      );
-    });
-
-    test('mientras se procesa o si falló, no se ofrece: el texto va a '
-        'cambiar', () {
-      for (final state in [
-        ProcessingState.pending,
-        ProcessingState.processing,
-        ProcessingState.failed,
-      ]) {
-        final item = _source(
-          SourceKind.manualNote,
-          texts: const ['Nació en 1809.'],
-          state: state,
-        );
-        expect(
-          sourceMoreActionsFor(item),
-          isNot(contains(SourceMoreAction.findDatesWithAi)),
-          reason: state.name,
-        );
-      }
-    });
-
-    testWidgets('si falta un modelo, lo pide igual y dice que espera', (
-      tester,
-    ) async {
-      await pumpWith(tester, modelsReady: false);
-      await findDates(tester);
-
-      expect(queue.dateRequests, hasLength(1));
-      expect(find.text(es.datesAskNeedsModel(1)), findsOneWidget);
-    });
-
-    testWidgets('con la IA en pausa, lo pide igual y dice cuándo sigue', (
-      tester,
-    ) async {
-      await pumpWith(tester);
-      await harness.container
-          .read(aiOrganizeSettingsProvider.notifier)
-          .set(AiOrganizeToggle.enabled, on: false);
-      await findDates(tester);
-
-      expect(queue.dateRequests, hasLength(1));
-      expect(find.text(es.datesAskPaused(1)), findsOneWidget);
-    });
-
-    testWidgets('no necesita el modelo de búsqueda: con el de lenguaje '
-        'listo, alcanza', (tester) async {
-      await pumpWith(tester);
-      harness.embeddingModelManager.ready = false;
-      await findDates(tester);
-
-      expect(find.text(es.datesAskQueued(1)), findsOneWidget);
-      expect(find.text(es.datesAskNeedsModel(1)), findsNothing);
-    });
-
-    group('con la IA en la nube (F32)', () {
-      testWidgets('lista: avisa y pregunta por la de fondo', (tester) async {
-        await pumpWith(
-          tester,
-          cloud: const LanguageModelReady(provider: AiProvider.gemini),
-        );
-        await findDates(tester);
-
-        expect(find.text(es.datesAskQueued(1)), findsOneWidget);
-        expect(asked, [true]);
-      });
-
-      testWidgets('sin clave, lo pide igual y dice que falta la clave', (
-        tester,
-      ) async {
-        await pumpWith(
-          tester,
-          cloud: const LanguageModelNeedsAccount(provider: AiProvider.gemini),
-        );
-        await findDates(tester);
-
-        expect(queue.dateRequests, hasLength(1));
-        expect(find.text(es.datesAskNeedsKey(1)), findsOneWidget);
-      });
-
-      testWidgets('sin cuota, lo pide igual y dice que espera', (tester) async {
-        await pumpWith(
-          tester,
-          cloud: LanguageModelOutOfQuota(
-            provider: AiProvider.gemini,
-            accounts: 1,
-            resetsAt: DateTime(2026, 10, 17, 4),
-          ),
-        );
-        await findDates(tester);
-
-        expect(queue.dateRequests, hasLength(1));
-        expect(find.text(es.datesAskWaits(1)), findsOneWidget);
-      });
     });
   });
 

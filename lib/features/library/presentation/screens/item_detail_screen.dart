@@ -25,6 +25,8 @@ import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
 import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
 import 'package:sinapsis/features/citations/presentation/widgets/citation_section.dart';
 import 'package:sinapsis/features/content_trash/presentation/widgets/content_trash_section.dart';
+import 'package:sinapsis/features/create_hub/domain/create_kind.dart';
+import 'package:sinapsis/features/create_hub/presentation/widgets/create_button.dart';
 import 'package:sinapsis/features/duplicates/domain/entities/merged_provenance.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
@@ -32,7 +34,6 @@ import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dar
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/export/presentation/widgets/export_format_presentation.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/generate_quiz_button.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/inbox_standing_line.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -46,7 +47,6 @@ import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/cited_sources_section.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/derived_note_badge.dart';
-import 'package:sinapsis/features/notes/presentation/widgets/generate_derived_note_button.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/item_spaces_editor.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/map_note_links_section.dart';
@@ -91,16 +91,13 @@ class ItemDetailScreen extends ConsumerWidget {
             // bibliografía propia que exportar.
             if (item.valueOrNull!.source.kind == SourceKind.manualNote)
               _BibliographyButton(item: item.valueOrNull!),
-            // Una nota puede ser el origen de un derivado (F16, D5) y de un
-            // quiz (F20). Una fuente no: queda de consulta, y los dos salen
-            // de su documento procesado (F41, decisión K).
-            if (!isConsultationSource(item.valueOrNull!)) ...[
-              GenerateDerivedNoteButton(
-                sourceTitle: item.valueOrNull!.title,
-                itemId: item.valueOrNull!.id,
-              ),
-              GenerateQuizButton(item: item.valueOrNull!),
-            ],
+            // De una nota se crea —con la IA o a mano— desde «Crear» (F45,
+            // paso 7b, mejora 14): organizarla, sus tarjetas, un
+            // cuestionario, una nota derivada, sus fechas y un vínculo. Una
+            // fuente no: queda de consulta, y todo eso sale de su documento
+            // procesado (F41, decisión K).
+            if (!isConsultationSource(item.valueOrNull!))
+              CreateButton(target: CreateTarget.note(item.valueOrNull!)),
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: l10n.detailDelete,

@@ -75,8 +75,12 @@ void main() {
     await pumpApp(tester, harness);
     await pushAndSettle(tester, harness, RoutePaths.processedDocument(id));
     expect(find.byType(ProcessedDocumentScreen), findsOneWidget);
-    await tester.tap(find.byKey(const Key('processed-more')));
-    await tester.pumpAndSettle();
+    // Sin nada que no cree, «Más» no se dibuja (F45, paso 7b).
+    final more = find.byKey(const Key('processed-more'));
+    if (more.evaluate().isNotEmpty) {
+      await tester.tap(more);
+      await tester.pumpAndSettle();
+    }
     return id;
   }
 

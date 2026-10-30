@@ -6,6 +6,7 @@ import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/create_hub/domain/create_kind.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/sibling_card_draft.dart';
 import 'package:sinapsis/features/flashcards/domain/services/cloze.dart';
 import 'package:sinapsis/features/flashcards/domain/services/cloze_generator.dart';
@@ -16,6 +17,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/create_fixture.dart';
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 
@@ -44,7 +46,9 @@ void main() {
   Future<void> pumpSection(WidgetTester tester, [KnowledgeItem? shown]) async {
     await tester.pumpWidget(
       harness.wrap(
-        Scaffold(
+        // La tarjeta a mano se hace en «Crear» (F45, paso 7b).
+        createScreen(
+          CreateTarget.note(shown ?? item),
           body: SingleChildScrollView(
             child: FlashcardSection(item: shown ?? item),
           ),
@@ -56,8 +60,7 @@ void main() {
 
   Future<void> openForm(WidgetTester tester, String kindLabel) async {
     await pumpSection(tester);
-    await tester.tap(find.byTooltip(es.flashcardsAddAction));
-    await tester.pumpAndSettle();
+    await tapCreate(tester, CreateKind.card);
     if (kindLabel != es.cardFormKindQa) {
       await tester.tap(find.widgetWithText(ChoiceChip, kindLabel));
       await tester.pumpAndSettle();
@@ -303,8 +306,7 @@ void main() {
 
     Future<void> generate(WidgetTester tester, KnowledgeItem shown) async {
       await pumpSection(tester, shown);
-      await tester.tap(find.byTooltip(es.flashcardsAddAction));
-      await tester.pumpAndSettle();
+      await tapCreate(tester, CreateKind.card);
       await tester.tap(find.widgetWithText(ChoiceChip, es.cardFormKindClozeAi));
       await tester.pumpAndSettle();
       await tester.tap(find.text(es.cardFormAiGenerate));

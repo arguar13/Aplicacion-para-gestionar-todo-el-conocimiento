@@ -9,12 +9,11 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organized_line.dart';
+import 'package:sinapsis/features/create_hub/presentation/widgets/create_button.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/generate_quiz_button.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/local_graph_panel.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
-import 'package:sinapsis/features/notes/presentation/widgets/generate_derived_note_button.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/source_study_line.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -101,8 +100,8 @@ void main() {
       expect(find.byType(LocalGraphPanel), findsNothing);
       expect(find.byType(FlashcardSection), findsNothing);
       expect(find.byType(AiOrganizedLine), findsNothing);
-      expect(find.byType(GenerateQuizButton), findsNothing);
-      expect(find.byType(GenerateDerivedNoteButton), findsNothing);
+      // Ni «Crear» (F45, paso 7b): lo que se crea sale de su procesado.
+      expect(find.byType(CreateButton), findsNothing);
       expect(find.byType(SourceStudyLine), findsOneWidget);
 
       // Ni la tarjeta de estudiar (F45, paso 3): se marca y se estudia en
@@ -132,8 +131,9 @@ void main() {
   });
 
   testWidgets('una nota propia no cambia: «Resumir», sus tarjetas, lo de la '
-      'IA, el derivado y el quiz; Mapa no tiene, porque el grafo lee solo lo '
-      'procesado (F41, paso 6)', (tester) async {
+      'IA y «Crear» —el derivado, el quiz y lo demás, en un solo lugar (F45, '
+      'paso 7b)—; Mapa no tiene, porque el grafo lee solo lo procesado (F41, '
+      'paso 6)', (tester) async {
     await saveNote('nota');
     await openDetail(tester, 'nota');
 
@@ -141,8 +141,9 @@ void main() {
     expect(find.byType(LocalGraphPanel), findsNothing);
     expect(find.byType(FlashcardSection), findsOneWidget);
     expect(find.byType(AiOrganizedLine), findsOneWidget);
-    expect(find.byType(GenerateQuizButton), findsOneWidget);
-    expect(find.byType(GenerateDerivedNoteButton), findsOneWidget);
+    final create = find.byType(CreateButton);
+    expect(create, findsOneWidget);
+    expect(tester.widget<CreateButton>(create).target.processed, isFalse);
     expect(find.byKey(const Key('inbox-standing-card')), findsNothing);
     expect(find.text(es.sourceStudyInProcessed), findsNothing);
   });

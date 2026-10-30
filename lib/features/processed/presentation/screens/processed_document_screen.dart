@@ -7,13 +7,13 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/generate_quiz_button.dart';
+import 'package:sinapsis/features/create_hub/domain/create_kind.dart';
+import 'package:sinapsis/features/create_hub/presentation/widgets/create_button.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
-import 'package:sinapsis/features/notes/presentation/widgets/generate_derived_note_button.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_readable.dart';
@@ -55,10 +55,13 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   sección de tarjetas de siempre, sobre el documento. Las tarjetas con IA
 ///   salen de su texto procesado, y las que ya tenía la fuente se ven en «De
 ///   la fuente», plegadas.
-/// - **Arriba**, lo que la fuente ya no ofrece porque queda de consulta: la
-///   nota derivada ✨, el quiz y, en «Más», «Organizar con IA», «Buscar fechas
-///   con IA», «Descargar con lo marcado» y «Borrar la copia del original»
-///   —todos sobre lo procesado—.
+/// - **Arriba, «Crear»** (F45, paso 7b, mejora 14, decisión G): el ✨ abre la
+///   hoja con todo lo que se crea del documento, sobre lo procesado —con IA:
+///   organizar, tarjetas de repaso, cuestionario, nota derivada y fechas; a
+///   mano: tarjeta, nota y vínculo—, y lleva un anillo mientras algo trabaja.
+///   Es lo que la fuente ya no ofrece porque queda de consulta. En «Más»
+///   queda lo que no crea nada: «Descargar con lo marcado» y «Borrar la copia
+///   del original».
 /// - **Escuchar**: el botón flotante lee el documento entero, como en el
 ///   detalle de un elemento, empezando por la página del texto que se mira.
 ///
@@ -111,17 +114,15 @@ class ProcessedDocumentScreen extends ConsumerWidget {
     );
   }
 
-  /// La nota derivada ✨ y el quiz del documento, que salen de su texto
-  /// procesado (los dos preguntan primero si el elemento es un procesado: ver
-  /// `readProcessedCardText`), y «Más».
+  /// «Crear», sobre el texto procesado del documento, y «Más». «Crear» espera
+  /// al elemento: lo que se crea —el cuestionario, las tarjetas— lo lleva.
   List<Widget> _studyActions(WidgetRef ref, ProcessedDocument document) {
     final item = ref.watch(libraryItemProvider(document.id)).valueOrNull;
     return [
-      GenerateDerivedNoteButton(
-        sourceTitle: document.title,
-        itemId: document.id,
-      ),
-      if (item != null) GenerateQuizButton(item: item),
+      if (item != null)
+        CreateButton(
+          target: CreateTarget.processed(document: document, item: item),
+        ),
       ProcessedMoreMenu(document: document),
     ];
   }

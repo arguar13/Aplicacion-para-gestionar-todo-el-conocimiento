@@ -823,8 +823,11 @@ void main() {
       return extractableRendition(item)!.content;
     }
 
+    // Las tarjetas con IA se piden en «Crear» (F45, paso 7b).
     Future<void> generateAndSave(WidgetTester tester) async {
-      await tester.tap(find.byTooltip(es.flashcardsGenerateAction));
+      await tester.tap(find.byKey(const Key('create-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('create-flashcards')));
       await tester.pumpAndSettle();
       await tester.tap(find.text(es.flashcardsSaveSelected));
       await tester.pumpAndSettle();

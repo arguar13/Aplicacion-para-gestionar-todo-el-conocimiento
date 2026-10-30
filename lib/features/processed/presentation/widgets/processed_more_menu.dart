@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
-import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
 import 'package:sinapsis/features/export/presentation/providers/marked_download_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
@@ -128,18 +127,11 @@ VoidCallback? downloadMarkedOriginalAction(
   );
 }
 
-/// Lo que se le pide a la IA o se suelta de un documento procesado, a un
-/// toque más (F41, decisión K): lo que la fuente ya no ofrece porque queda de
-/// consulta, con la misma función, sobre lo procesado.
+/// Lo que se baja o se suelta de un documento procesado, a un toque más (F41,
+/// decisión K): lo que no crea nada. Lo que se crea —también organizar y
+/// buscar fechas con la IA, que estaban acá— va en «Crear» (F45, paso 7b,
+/// mejora 14).
 enum ProcessedMoreAction {
-  /// Que la IA organice ahora el documento —temas, vínculos entre procesados,
-  /// tarjetas— con su texto procesado.
-  organizeWithAi,
-
-  /// Que la IA busque las fechas de su texto procesado, para la línea de
-  /// tiempo.
-  findDatesWithAi,
-
   /// Ver [downloadMarkedOriginalAction].
   downloadMarkedOriginal,
 
@@ -160,28 +152,15 @@ class ProcessedMoreMenu extends ConsumerWidget {
     final download = downloadMarkedOriginalAction(context, ref, document);
     final deleteCopy = deleteOriginalCopyAction(context, ref, document);
     final actions = [
-      ProcessedMoreAction.organizeWithAi,
-      // Sin texto no hay fechas que buscar.
-      if (!document.summary.isEmpty) ProcessedMoreAction.findDatesWithAi,
       if (download != null) ProcessedMoreAction.downloadMarkedOriginal,
       if (deleteCopy != null) ProcessedMoreAction.deleteOriginalCopy,
     ];
+    if (actions.isEmpty) return const SizedBox.shrink();
 
     return PopupMenuButton<ProcessedMoreAction>(
       key: const Key('processed-more'),
       tooltip: l10n.sourcePanelMoreTitle,
       onSelected: (action) => unawaited(switch (action) {
-        ProcessedMoreAction.organizeWithAi => organizeNowWithAi(
-          context,
-          ref,
-          itemId: document.id,
-        ),
-        ProcessedMoreAction.findDatesWithAi => findDatesNowWithAi(
-          context,
-          ref,
-          itemIds: [document.id],
-          seeItemId: document.id,
-        ),
         ProcessedMoreAction.downloadMarkedOriginal => Future.sync(
           () => download!(),
         ),
@@ -213,16 +192,6 @@ class _MenuRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final (icon, title, hint) = switch (action) {
-      ProcessedMoreAction.organizeWithAi => (
-        Icons.auto_awesome,
-        l10n.sourcePanelOrganizeWithAi,
-        l10n.processedOrganizeWithAiHint,
-      ),
-      ProcessedMoreAction.findDatesWithAi => (
-        Icons.timeline,
-        l10n.sourcePanelFindDates,
-        l10n.processedFindDatesHint,
-      ),
       ProcessedMoreAction.downloadMarkedOriginal => (
         Icons.download_outlined,
         l10n.f45S3DownloadMarked,

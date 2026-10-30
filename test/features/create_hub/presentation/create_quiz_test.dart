@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
@@ -8,26 +10,32 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/create_hub/domain/create_kind.dart';
 import 'package:sinapsis/features/flashcards/domain/services/distractor_sourcer.dart';
 import 'package:sinapsis/features/flashcards/domain/usecases/generate_quiz_usecase.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/generate_quiz_button.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
-import '../../../../support/library_harness.dart';
+import '../../../support/create_fixture.dart';
+import '../../../support/library_harness.dart';
 
 /// Devuelve exactamente los resultados/lo que se le dé, sin tocar el modelo
 /// ni la bóveda —eso ya se prueba solo en `generate_quiz_usecase_test.dart`,
-/// acá lo que importa es cómo reacciona el BOTÓN y la pantalla de revisión—.
+/// acá lo que importa es cómo reacciona «Crear» y la pantalla de revisión—.
 class _FakeGenerateQuizUseCase implements GenerateQuizUseCase {
   _FakeGenerateQuizUseCase({
     Either<Failure, List<QuizQuestionResult>>? generateResult,
     Either<Failure, List<Flashcard>>? saveResult,
+    this.gate,
   }) : _generateResult = generateResult ?? right(const []),
        _saveResult = saveResult ?? right(const []);
 
   final Either<Failure, List<QuizQuestionResult>> _generateResult;
   final Either<Failure, List<Flashcard>> _saveResult;
+
+  /// Si está, la respuesta espera a que se complete: para cancelar mientras
+  /// la IA escribe.
+  final Completer<void>? gate;
 
   KnowledgeItem? itemSeen;
   List<QuizQuestionResult>? confirmedSeen;
@@ -38,6 +46,7 @@ class _FakeGenerateQuizUseCase implements GenerateQuizUseCase {
     int count = 5,
   }) async {
     itemSeen = item;
+    await gate?.future;
     return _generateResult;
   }
 
@@ -81,8 +90,9 @@ QuizQuestionResult _fixtureQuestion(String question) => QuizQuestionResult(
   ],
 );
 
-/// El botón "Generar quiz" (F20, 20.6/N): el aviso de modelo requerido, el
-/// paso a la pantalla de revisión, y el guardado desde ahí.
+/// «Cuestionario», en «Crear» (F20, 20.6/N; F45, paso 7b): el aviso de
+/// modelo requerido, el paso a la pantalla de revisión, el guardado desde ahí
+/// y «Cancelar» mientras la IA escribe.
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -95,7 +105,7 @@ void main() {
     harness = await LibraryHarness.create(
       chatModelReady: chatModelReady,
       // En el contenedor real de la harness, no en un `ProviderScope`
-      // interno: `GenerateQuizButton` empuja la revisión con
+      // interno: «Crear» empuja la revisión con
       // `Navigator.push`, y esa ruta cuelga del `Overlay` del `Navigator`
       // como HERMANA de la ruta inicial, no como su descendiente —un
       // `ProviderScope(overrides: …)` alrededor de `home:` no llega ahí—.
@@ -104,8 +114,12 @@ void main() {
           generateQuizUseCaseProvider.overrideWithValue(useCase),
       ],
     );
+    // Alta, para que la hoja entera de «Crear» entre a la vista.
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      harness.wrap(Scaffold(body: GenerateQuizButton(item: _fixtureItem('a')))),
+      harness.wrap(createScreen(CreateTarget.note(_fixtureItem('a')))),
     );
     await tester.pumpAndSettle();
   }
@@ -115,8 +129,7 @@ void main() {
   ) async {
     await pumpButton(tester);
 
-    await tester.tap(find.byTooltip(es.quizGenerateTooltip));
-    await tester.pumpAndSettle();
+    await tapCreate(tester, CreateKind.quiz);
 
     expect(find.text(es.quizModelRequired), findsOneWidget);
     expect(find.text(es.derivedNoteDownloadAction), findsOneWidget);
@@ -128,8 +141,7 @@ void main() {
     final useCase = _FakeGenerateQuizUseCase(generateResult: right(const []));
     await pumpButton(tester, chatModelReady: true, useCase: useCase);
 
-    await tester.tap(find.byTooltip(es.quizGenerateTooltip));
-    await tester.pumpAndSettle();
+    await tapCreate(tester, CreateKind.quiz);
 
     expect(find.text(es.quizGenerationFailed), findsOneWidget);
     expect(useCase.itemSeen?.id, 'a');
@@ -143,8 +155,7 @@ void main() {
     );
     await pumpButton(tester, chatModelReady: true, useCase: useCase);
 
-    await tester.tap(find.byTooltip(es.quizGenerateTooltip));
-    await tester.pumpAndSettle();
+    await tapCreate(tester, CreateKind.quiz);
 
     expect(find.text(es.globalErrorValidation), findsOneWidget);
   });
@@ -168,8 +179,7 @@ void main() {
       );
       await pumpButton(tester, chatModelReady: true, useCase: useCase);
 
-      await tester.tap(find.byTooltip(es.quizGenerateTooltip));
-      await tester.pumpAndSettle();
+      await tapCreate(tester, CreateKind.quiz);
 
       expect(find.text(es.quizReviewTitle), findsOneWidget);
       expect(find.text('¿Una pregunta?'), findsOneWidget);
@@ -203,8 +213,7 @@ void main() {
       );
       await pumpButton(tester, chatModelReady: true, useCase: useCase);
 
-      await tester.tap(find.byTooltip(es.quizGenerateTooltip));
-      await tester.pumpAndSettle();
+      await tapCreate(tester, CreateKind.quiz);
       await tester.tap(find.text(es.quizReviewConfirm(1)));
       await tester.pumpAndSettle();
 
@@ -227,8 +236,7 @@ void main() {
     );
     await pumpButton(tester, chatModelReady: true, useCase: useCase);
 
-    await tester.tap(find.byTooltip(es.quizGenerateTooltip));
-    await tester.pumpAndSettle();
+    await tapCreate(tester, CreateKind.quiz);
 
     expect(find.text(es.quizReviewConfirm(2)), findsOneWidget);
 
@@ -243,5 +251,54 @@ void main() {
     final confirmed = useCase.confirmedSeen!;
     expect(confirmed, hasLength(1));
     expect(confirmed.single.question, '¿Primera?');
+  });
+
+  testWidgets('mientras escribe, la fila lo dice con «Cancelar» y el ✨ gira; '
+      'cancelar descarta lo que llegue: no se abre la revisión', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final useCase = _FakeGenerateQuizUseCase(
+      generateResult: right([_fixtureQuestion('¿Una pregunta?')]),
+      gate: gate,
+    );
+    await pumpButton(tester, chatModelReady: true, useCase: useCase);
+
+    // A mano y sin esperar a que se aquiete: mientras escribe, el anillo
+    // gira.
+    await tester.tap(find.byKey(const Key('create-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('create-quiz')));
+    // Un cuadro para que empiece a subir la hoja y otro para que llegue.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    // Un solo pedido: sin partes que contar, el anillo gira.
+    final ring = tester.widget<CircularProgressIndicator>(
+      find.byKey(const Key('create-button-ring')),
+    );
+    expect(ring.value, isNull);
+
+    await tester.tap(find.byKey(const Key('create-button')));
+    // Un cuadro para que empiece a subir la hoja y otro para que llegue.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('create-quiz')),
+        matching: find.text(es.f45S7bWorking),
+      ),
+      findsOneWidget,
+    );
+    final cancel = find.byKey(const Key('create-quiz-cancel'));
+    await tester.ensureVisible(cancel);
+    await tester.pump();
+    await tester.tap(cancel);
+    await tester.pump();
+    expect(find.byKey(const Key('create-quiz-cancel')), findsNothing);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.text(es.quizReviewTitle), findsNothing);
+    expect(useCase.confirmedSeen, isNull);
   });
 }

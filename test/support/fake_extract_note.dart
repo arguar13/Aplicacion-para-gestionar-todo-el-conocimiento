@@ -32,6 +32,18 @@ class FakeExtractNote implements ExtractNoteToProcessed {
     return right(outcome);
   }
 
+  /// Lo que se escribió a mano desde «Crear» (F45, paso 7b).
+  final written = <({String documentId, String text})>[];
+
+  @override
+  Future<Either<Failure, ExtractNoteOutcome>> write({
+    required String documentId,
+    required String text,
+  }) async {
+    written.add((documentId: documentId, text: text));
+    return right(outcome);
+  }
+
   @override
   Future<Either<Failure, Unit>> undo(ProcessUndo undo) async {
     undone.add(undo);

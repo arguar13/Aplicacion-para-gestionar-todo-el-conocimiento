@@ -85,6 +85,41 @@ class ExtractNoteToProcessed {
     });
   }
 
+  /// Una nota escrita a mano en las notas del documento procesado
+  /// [documentId] (F45, paso 7b: «Nota», en «Crear»): el mismo camino que lo
+  /// extraído de él, como algo suyo y sin ancla. Una nota vacía no se guarda.
+  ///
+  /// Solo de un documento procesado con su fuente: su sección Notas se arma
+  /// contra ella ([ProcessSourceUseCase]).
+  Future<Either<Failure, ExtractNoteOutcome>> write({
+    required String documentId,
+    required String text,
+  }) async {
+    final note = text.trim();
+    if (note.isEmpty) {
+      return left(const Failure.validation(message: 'La nota está vacía.'));
+    }
+    final target = await _repository.extractTargetOf(documentId);
+    return target.match(left, (target) async {
+      if (target case ExtractToProcessed(:final sourceItemId?)) {
+        return _saved(
+          await _process(sourceItemId, {
+            ProcessedSection.notes: SectionEdit.add(
+              SectionInput.drafts([ProcessedDraft.written(note)]),
+            ),
+          }),
+        );
+      }
+      return left(
+        const Failure.validation(
+          message:
+              'Solo un documento procesado con su fuente suma notas escritas '
+              'a mano.',
+        ),
+      );
+    });
+  }
+
   /// Deshace lo que dejó [ExtractedToProcessed]: saca esa nota sola.
   Future<Either<Failure, Unit>> undo(ProcessUndo undo) => _process.undo(undo);
 
