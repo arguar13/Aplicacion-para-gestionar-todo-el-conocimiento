@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/account_usage.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_account.dart';
@@ -202,8 +203,8 @@ class AiAccountSwitcher extends ConsumerWidget {
         .chooseAccount(account.provider, account.id);
     messenger
       ?..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
+      ..showAppSnackBar(
+        AppSnackBar(
           behavior: SnackBarBehavior.floating,
           content: Text(l10n.lmNowUsing(account.label)),
         ),

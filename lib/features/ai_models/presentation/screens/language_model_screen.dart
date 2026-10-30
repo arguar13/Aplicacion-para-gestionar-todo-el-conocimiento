@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/app_semantic_colors.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_account.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_model_settings.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
@@ -800,8 +801,8 @@ class _AccountTile extends ConsumerWidget {
     final actions = ref.read(aiAccountActionsProvider);
     void say(String text) => messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
+      ..showAppSnackBar(
+        AppSnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
       );
 
     switch (action) {
@@ -917,8 +918,8 @@ class _ModelSectionState extends ConsumerState<_ModelSection> {
     try {
       await ref.read(aiAccountActionsProvider).refreshModels(widget.provider);
     } on CloudModelException catch (error) {
-      messenger.showSnackBar(
-        SnackBar(
+      messenger.showAppSnackBar(
+        AppSnackBar(
           behavior: SnackBarBehavior.floating,
           content: Text(
             l10n.lmTestFailed(aiFailureReason(l10n, error.failure)),

@@ -198,7 +198,7 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
 
     final rate = notice is RateLimitWaitNotice;
     final controller = (ScaffoldMessenger.of(context)..hideCurrentSnackBar())
-        .showSnackBar(
+        .showAppSnackBar(
           AppSnackBar(
             key: Key('ai-notice-$key'),
             behavior: SnackBarBehavior.floating,

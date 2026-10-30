@@ -95,7 +95,9 @@ class _AiActivityScreenState extends ConsumerState<AiActivityScreen> {
     if (mounted) setState(() => _hidden.remove(suggestion.id));
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+      );
   }
 
   /// Acepta o descarta todo lo de [items], con «Deshacer».
@@ -139,7 +141,7 @@ class _AiActivityScreenState extends ConsumerState<AiActivityScreen> {
 
     messenger.hideCurrentSnackBar();
     final reason = await messenger
-        .showSnackBar(
+        .showAppSnackBar(
           AppSnackBar(
             content: Text(
               accept
@@ -168,8 +170,8 @@ class _AiActivityScreenState extends ConsumerState<AiActivityScreen> {
     final failed = await _commit(repository, ids, accept: accept);
     if (failed.isEmpty) return;
     if (mounted) setState(() => _hidden.removeAll(failed));
-    messenger.showSnackBar(
-      SnackBar(content: Text(l10n.aiReviewSomeFailed(failed.length))),
+    messenger.showAppSnackBar(
+      AppSnackBar(content: Text(l10n.aiReviewSomeFailed(failed.length))),
     );
   }
 

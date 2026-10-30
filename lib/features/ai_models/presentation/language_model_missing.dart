@@ -67,7 +67,7 @@ void showLanguageModelMissing(
   );
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(
+    ..showAppSnackBar(
       AppSnackBar(
         content: Text(
           languageModelMissingMessage(

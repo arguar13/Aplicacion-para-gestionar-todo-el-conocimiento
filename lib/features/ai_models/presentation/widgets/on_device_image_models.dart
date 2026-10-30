@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/app_semantic_colors.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/network/model_file_transfer.dart';
 import 'package:sinapsis/core/util/external_url_launcher.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
@@ -181,8 +182,8 @@ class _OnDeviceModelCardState extends ConsumerState<OnDeviceModelCard> {
   void _say(String text) {
     ScaffoldMessenger.maybeOf(context)
       ?..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
+      ..showAppSnackBar(
+        AppSnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
       );
   }
 
@@ -252,8 +253,8 @@ class _OnDeviceModelCardState extends ConsumerState<OnDeviceModelCard> {
     final url = _model.spec.officialUrl;
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (await launchExternalUrl(url)) return;
-    messenger?.showSnackBar(
-      SnackBar(
+    messenger?.showAppSnackBar(
+      AppSnackBar(
         behavior: SnackBarBehavior.floating,
         content: SelectableText(l10n.f43AiOpenLinkFailed(url)),
       ),

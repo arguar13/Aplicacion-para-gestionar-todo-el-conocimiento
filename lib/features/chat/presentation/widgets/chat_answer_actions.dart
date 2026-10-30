@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/persisted_chat_message.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_feedback.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_message_menu.dart';
@@ -69,7 +70,9 @@ class ChatAnswerActions extends ConsumerWidget {
       if (marking) {
         messenger
           ?..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(l10n.chatAnswerRatedSnack)));
+          ..showAppSnackBar(
+            AppSnackBar(content: Text(l10n.chatAnswerRatedSnack)),
+          );
       }
     }
 

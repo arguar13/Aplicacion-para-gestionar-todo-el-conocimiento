@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Copia [text] y lo dice abajo (F42).
@@ -11,7 +12,7 @@ Future<void> copyChatText(BuildContext context, String text) async {
   await Clipboard.setData(ClipboardData(text: text));
   messenger
     ?..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(copied)));
+    ..showAppSnackBar(AppSnackBar(content: Text(copied)));
 }
 
 /// Lo que se puede hacer al mantener apretado un mensaje (F42): copiarlo,

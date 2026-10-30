@@ -44,14 +44,16 @@ Future<void> startAiReview(
       .reviewCandidates(reviewer: reviewer, madeBy: madeBy, itemId: itemId);
   if (!context.mounted) return;
   final candidates = found.fold<List<AiReviewCandidate>?>((failure) {
-    messenger.showSnackBar(
-      SnackBar(content: Text(failure.localizedMessage(l10n))),
+    messenger.showAppSnackBar(
+      AppSnackBar(content: Text(failure.localizedMessage(l10n))),
     );
     return null;
   }, (candidates) => candidates);
   if (candidates == null) return;
   if (candidates.isEmpty) {
-    messenger.showSnackBar(SnackBar(content: Text(l10n.aiRecheckNothing)));
+    messenger.showAppSnackBar(
+      AppSnackBar(content: Text(l10n.aiRecheckNothing)),
+    );
     return;
   }
 
@@ -71,7 +73,7 @@ Future<void> startAiReview(
     for (final candidate in candidates) candidate.itemId,
   ], skipOwnWork: itemId == null);
   if (itemId != null) {
-    messenger.showSnackBar(
+    messenger.showAppSnackBar(
       AppSnackBar(
         content: Text(l10n.aiRecheckQueued(modelLabel(reviewer))),
         action: router == null

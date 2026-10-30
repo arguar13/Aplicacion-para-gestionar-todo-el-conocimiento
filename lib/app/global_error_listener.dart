@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/exceptions.dart';
 import 'package:sinapsis/core/error/global_error_bus.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -30,8 +31,8 @@ class GlobalErrorListener extends ConsumerWidget {
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text(_messageFor(next.exception, l10n))),
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(_messageFor(next.exception, l10n))),
         );
     });
 

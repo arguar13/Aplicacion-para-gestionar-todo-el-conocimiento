@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/util/external_url_launcher.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_account.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
@@ -20,8 +21,8 @@ Future<void> openKeysPage(BuildContext context, AiProvider provider) async {
   final l10n = AppLocalizations.of(context)!;
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (await launchExternalUrl(url)) return;
-  messenger?.showSnackBar(
-    SnackBar(
+  messenger?.showAppSnackBar(
+    AppSnackBar(
       behavior: SnackBarBehavior.floating,
       content: SelectableText(l10n.lmCouldNotOpenLink(url)),
     ),

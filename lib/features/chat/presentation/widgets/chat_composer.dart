@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/chat/domain/services/dictation.dart';
 import 'package:sinapsis/features/chat/presentation/providers/dictation_providers.dart';
 import 'package:sinapsis/features/chat/presentation/widgets/chat_attachments.dart';
@@ -194,7 +195,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     };
     ScaffoldMessenger.maybeOf(context)
       ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showAppSnackBar(AppSnackBar(content: Text(message)));
   }
 
   void _dictationEnded() {

@@ -154,7 +154,7 @@ Future<void> _organizeWithAi(
 
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(
+    ..showAppSnackBar(
       AppSnackBar(
         content: Text(message(state)),
         action: SnackBarAction(

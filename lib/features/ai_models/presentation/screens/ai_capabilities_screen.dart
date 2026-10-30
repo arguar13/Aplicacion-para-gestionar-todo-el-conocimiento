@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sinapsis/core/design/app_semantic_colors.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/util/external_url_launcher.dart';
 import 'package:sinapsis/features/ai_models/data/services/illustration_service.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_account.dart';
@@ -526,8 +527,8 @@ class _ProbeImageAccountButtonState
     final account = widget.side.account;
     void say(String text) => messenger
       ?..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
+      ..showAppSnackBar(
+        AppSnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
       );
     setState(() => _probing = true);
     try {
@@ -608,8 +609,8 @@ class _OpenModelTile extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (await launchExternalUrl(model.url)) return;
-    messenger?.showSnackBar(
-      SnackBar(
+    messenger?.showAppSnackBar(
+      AppSnackBar(
         behavior: SnackBarBehavior.floating,
         content: SelectableText(l10n.f43AiOpenLinkFailed(model.url)),
       ),
