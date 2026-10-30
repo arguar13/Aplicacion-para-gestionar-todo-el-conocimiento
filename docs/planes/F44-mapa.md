@@ -1,7 +1,8 @@
 # F44 — El Mapa: dos pestañas, un solo lienzo inteligente
 
-> **Estado: PARA APROBAR.** Se aprueba escribiendo «aprobado» en el chat; las decisiones de abajo
-> llevan la recomendada y se pueden cambiar antes.
+> **Estado: APROBADO** (2026-10-29, «Aprobado» en el chat), con las decisiones A a G como están.
+> Se construye apenas se integren las mejoras M10 a M18 de F43: el Resumen usa las piezas de
+> gráficos de M17.
 >
 > Pedido del dueño, el 29/10, con cuatro capturas del Mapa (Grafo, Esquema, Vínculos y Tablero):
 > *"las tres pestañas de mapa «Vínculos», «Esquema» y «Grafo» dicen más o menos lo mismo? Se podría
