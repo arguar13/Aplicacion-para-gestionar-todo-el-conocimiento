@@ -2418,9 +2418,10 @@ mismo que el resto del Mapa: tus documentos procesados, con los filtros y el
 
 Arriba, cuatro cifras grandes: **documentos**, **temas** (o etiquetas, o
 valores, según lo que agrupes), **comunidades** y **vínculos**. Debajo de
-cada una, lo que sumó en los últimos 30 días ("+3 en 30 días"), o "sin
-cambios". Un tema cuenta como nuevo si su primer documento llegó en esos
-días, y una comunidad, si todos sus temas son nuevos. Tocar una cifra abre el
+cada una, cuánto cambió contra lo que había hace 30 días ("+3 en 30 días",
+"sin cambios en 30 días"). Puede bajar: si un vínculo nuevo junta dos
+comunidades en una, dice "−1 en 30 días". Lo de hace un mes se cuenta con lo
+que todavía tenés: lo que borraste después no cuenta. Tocar una cifra abre el
 Mapa a su altura: las comunidades de lejos, los temas, o los documentos y sus
 vínculos.
 
@@ -2439,9 +2440,11 @@ línea que dice qué muestran y, si no hay nada, una frase que lo dice.
   actualiza solo: repasás o creás una tarjeta y el número baja o sube.
 - **Temas con más material**: cada tema con cuántos documentos tiene y qué
   parte del total ("3 · 75 %"), y una barra.
-- **Puentes entre temas**: los temas que unen partes distintas del mapa —"Une
-  con Roma, Grecia"— o que, si los sacaras, dejarían partes sueltas ("Si se
-  saca, quedan 3 partes sueltas"). Son los que mejor ordenan lo que sabés.
+- **Puentes entre temas**: los temas que unen comunidades distintas, los que
+  más unen primero. Cada uno dice con cuáles, por el nombre de sus dos temas
+  principales ("Une con Cristianismo · Tomás de Aquino, Egipto") y, si es la
+  única unión directa con alguna, cuál ("Única unión con Egipto"): sin él,
+  esas partes quedarían sueltas. Son los que mejor ordenan lo que sabés.
 - **Los más conectados entre sí**: los pares de temas que más comparten, con
   un rayo si entre ellos hay una contradicción.
 - **Sueltos y aislados**: los temas sin ninguna unión y los documentos sin
