@@ -69,8 +69,7 @@ final _htmlTag = RegExp('</?[a-zA-Z][^>]*>');
 final _escaped = RegExp(r'\\([\\`*_{}\[\]()#+\-.!>|~])');
 
 /// Las partes de un texto que se ofrece para leer de una vez —ver
-/// [documentFrom]—: un mensaje del chat, el frente o el dorso de una
-/// tarjeta.
+/// [documentFrom]—: un mensaje del chat, una forma de texto del detalle.
 typedef ReadablePart = ({
   String sourceKey,
   String text,
@@ -225,7 +224,7 @@ List<ReadableSegment> buildReadableSegmentsWithin(
 }
 
 /// Un documento hecho de varios textos en pantalla, uno detrás del otro: los
-/// mensajes de una conversación, el frente y el dorso de una tarjeta (F25).
+/// mensajes de una conversación, las formas de texto de un elemento (F25).
 /// Cada pedazo recuerda de qué texto salió, para que cada uno se resalte en
 /// su lugar.
 ReadableDocument documentFrom(

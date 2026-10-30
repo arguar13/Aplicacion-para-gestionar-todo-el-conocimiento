@@ -16,9 +16,6 @@ import 'package:sinapsis/features/flashcards/presentation/widgets/review_card_fa
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_flip_card.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_grade_row.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_swipe_card.dart';
-import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
-import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Lo que necesita una tarjeta en «Practicar igual» (F30): cuántas van de
@@ -45,6 +42,12 @@ typedef ReviewPractice = ({
 ///
 /// Con la respuesta a la vista, junto a «Ver en la fuente» va «Explicar»
 /// (F43, M15): lleva la pregunta y la respuesta de la tarjeta al chat.
+///
+/// No se declara texto para leer en voz alta (F47, mejora 20): una tarjeta
+/// se repasa leyéndola y pensando la respuesta, y una voz que la dijera
+/// —revelada, con la respuesta— le haría el trabajo a la memoria. En
+/// Repasar no aparece el botón del lector; si algo venía sonando de otra
+/// pantalla, sigue, como al cambiar de pestaña.
 class ReviewSessionCard extends ConsumerStatefulWidget {
   const ReviewSessionCard({
     required this.card,
@@ -168,8 +171,6 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
     // (FlashcardRepositoryImpl.createMultipleChoice): la respuesta sale de
     // sus opciones, no de acá.
     final showsBack = revealed && !isMultipleChoice;
-    final frontKey = 'card:${card.id}:front';
-    final backKey = 'card:${card.id}:back';
 
     // Una tarjeta de huecos dice el hueco que tapa; si el texto no lo tiene
     // (se editó mal desde otro lado) se muestra tal cual, sin romperse.
@@ -186,46 +187,23 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
           )
         : null;
 
+    // La pregunta y la respuesta en texto plano, como se ven —de huecos, con
+    // el que se pregunta tapado y, del otro lado, resuelto—: lo que
+    // «Explicar» le lleva al chat.
     String join(List<ClozeSegment> segments) =>
         segments.map((s) => s.text).join();
-    final spokenFront = clozeCard == null
+    final questionText = clozeCard == null
         ? card.front
         : join(clozeCard.question);
-    final spokenBack = clozeCard == null
+    final answerText = clozeCard == null
         ? (isTyped ? TypedAnswerSpec.parse(card.back).answer : card.back)
         : [
             join(clozeCard.answer),
             if (card.back.trim().isNotEmpty) card.back,
           ].join('. ');
 
-    // Lo que se lee en voz alta (F25): la pregunta y, ya revelada, la
-    // respuesta. Revelarla es otro texto —otro `id`—: el lector vuelve a
-    // empezar por la pregunta en vez de seguir donde terminó. Dos textos
-    // cortos: armarlos acá cuesta nada, y esto se reconstruye solo al
-    // revelar o al pasar de tarjeta.
-    final readable = documentFrom(
-      showsBack ? 'review:${card.id}:answer' : 'review:${card.id}',
-      l10n.reviewTitle,
-      [
-        (
-          sourceKey: frontKey,
-          text: spokenFront,
-          markdown: false,
-          transcript: false,
-        ),
-        if (showsBack)
-          (
-            sourceKey: backKey,
-            text: spokenBack,
-            markdown: false,
-            transcript: false,
-          ),
-      ],
-    );
-
-    Widget question() => ReadAloudText(
+    Widget question() => Text(
       card.front,
-      sourceKey: frontKey,
       textAlign: TextAlign.center,
       style: theme.textTheme.titleLarge,
     );
@@ -286,9 +264,8 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
           if (isTyped && _result != null)
             ReviewTypedResult(result: _result!)
           else
-            ReadAloudText(
+            Text(
               isTyped ? TypedAnswerSpec.parse(card.back).answer : card.back,
-              sourceKey: backKey,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge,
             ),
@@ -315,7 +292,7 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
         ExplainInChatButton(
           key: const Key('review-explain'),
           subject: () =>
-              _explainSubject(question: spokenFront, answer: spokenBack),
+              _explainSubject(question: questionText, answer: answerText),
           sourceItemId: card.itemId,
           passageStart: card.sourceCharStart,
           passageEnd: card.sourceCharEnd,
@@ -324,106 +301,100 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
       ],
     );
 
-    return ReadableRegion(
-      document: readable,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        // De opción múltiple, la pregunta + hasta cuatro opciones + los
-        // cuatro botones de calificar a la vez pueden pasarse de la altura
-        // disponible en una pantalla chica —a diferencia de la tarjeta
-        // simple, que nunca mostraba las dos cosas juntas—. Se desplaza en
-        // vez de recortarse.
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (practice != null) ...[
-                Text(
-                  l10n.reviewPracticeProgress(
-                    practice.done + 1,
-                    practice.total,
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-              ReviewSwipeCard(
-                key: const Key('review-card'),
-                // Se desliza para calificar una vez dada la vuelta, y no
-                // practicando (ahí no se califica).
-                enabled: revealed && !widget.grading && practice == null,
-                onSwiped: widget.onGrade,
-                child: ReviewFlipCard(
-                  // De opción múltiple no se da vuelta: la respuesta son sus
-                  // opciones, más abajo.
-                  showBack: showsBack,
-                  // De opción múltiple no se "revela" tocando la caja: se
-                  // contesta tocando una opción. La de «escribí la
-                  // respuesta» tampoco: se contesta escribiendo.
-                  onTap: (revealed || isMultipleChoice || isTyped)
-                      ? null
-                      : widget.onReveal,
-                  front: front,
-                  back: back,
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      // De opción múltiple, la pregunta + hasta cuatro opciones + los
+      // cuatro botones de calificar a la vez pueden pasarse de la altura
+      // disponible en una pantalla chica —a diferencia de la tarjeta
+      // simple, que nunca mostraba las dos cosas juntas—. Se desplaza en
+      // vez de recortarse.
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (practice != null) ...[
+              Text(
+                l10n.reviewPracticeProgress(practice.done + 1, practice.total),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              if (revealed && practice == null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  l10n.reviewSessionSwipeHint,
-                  key: const Key('review-swipe-hint'),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
               const SizedBox(height: 24),
-              // Con la respuesta a la vista, se puede ir a ver de dónde salió
-              // y pedir que la explique el chat. De opción múltiple esto va
-              // debajo de las opciones, que ya traen cada una su fuente.
-              if (revealed && !isMultipleChoice) ...[
-                actions(),
-                const SizedBox(height: 8),
-              ],
-              if (isMultipleChoice) ...[
-                // Montado siempre, contestada o no —así conserva su propio
-                // estado de qué se tocó al revelar, en vez de perderlo
-                // cuando `revealed` cambia y esta sección se arma de
-                // nuevo—: las opciones, ya coloreadas, se quedan a la vista
-                // mientras se califica.
-                _MultipleChoiceAnswer(
-                  // Con clave: lo que se muestra antes de estas opciones
-                  // cambia al revelar (la pista de deslizar, el enlace a la
-                  // fuente), y sin ella perderían lo que se tocó.
-                  key: ValueKey('options:${card.id}'),
-                  flashcardId: card.id,
-                  onAnswered: (option) {
-                    setState(() => _chosenOptionId = option.id);
-                    widget.onReveal();
-                  },
-                ),
-                if (revealed) ...[
-                  const SizedBox(height: 8),
-                  actions(),
-                  const SizedBox(height: 16),
-                  _answered(),
-                ],
-              ] else if (revealed)
-                _answered()
-              else if (isTyped)
-                _TypedAnswerInput(controller: _typed, onCheck: _check)
-              else
-                FilledButton.tonal(
-                  key: const Key('review-show-answer'),
-                  style: reviewWideButtonStyle(),
-                  onPressed: widget.onReveal,
-                  child: Text(l10n.reviewShowAnswer),
-                ),
             ],
-          ),
+            ReviewSwipeCard(
+              key: const Key('review-card'),
+              // Se desliza para calificar una vez dada la vuelta, y no
+              // practicando (ahí no se califica).
+              enabled: revealed && !widget.grading && practice == null,
+              onSwiped: widget.onGrade,
+              child: ReviewFlipCard(
+                // De opción múltiple no se da vuelta: la respuesta son sus
+                // opciones, más abajo.
+                showBack: showsBack,
+                // De opción múltiple no se "revela" tocando la caja: se
+                // contesta tocando una opción. La de «escribí la
+                // respuesta» tampoco: se contesta escribiendo.
+                onTap: (revealed || isMultipleChoice || isTyped)
+                    ? null
+                    : widget.onReveal,
+                front: front,
+                back: back,
+              ),
+            ),
+            if (revealed && practice == null) ...[
+              const SizedBox(height: 12),
+              Text(
+                l10n.reviewSessionSwipeHint,
+                key: const Key('review-swipe-hint'),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            // Con la respuesta a la vista, se puede ir a ver de dónde salió
+            // y pedir que la explique el chat. De opción múltiple esto va
+            // debajo de las opciones, que ya traen cada una su fuente.
+            if (revealed && !isMultipleChoice) ...[
+              actions(),
+              const SizedBox(height: 8),
+            ],
+            if (isMultipleChoice) ...[
+              // Montado siempre, contestada o no —así conserva su propio
+              // estado de qué se tocó al revelar, en vez de perderlo
+              // cuando `revealed` cambia y esta sección se arma de
+              // nuevo—: las opciones, ya coloreadas, se quedan a la vista
+              // mientras se califica.
+              _MultipleChoiceAnswer(
+                // Con clave: lo que se muestra antes de estas opciones
+                // cambia al revelar (la pista de deslizar, el enlace a la
+                // fuente), y sin ella perderían lo que se tocó.
+                key: ValueKey('options:${card.id}'),
+                flashcardId: card.id,
+                onAnswered: (option) {
+                  setState(() => _chosenOptionId = option.id);
+                  widget.onReveal();
+                },
+              ),
+              if (revealed) ...[
+                const SizedBox(height: 8),
+                actions(),
+                const SizedBox(height: 16),
+                _answered(),
+              ],
+            ] else if (revealed)
+              _answered()
+            else if (isTyped)
+              _TypedAnswerInput(controller: _typed, onCheck: _check)
+            else
+              FilledButton.tonal(
+                key: const Key('review-show-answer'),
+                style: reviewWideButtonStyle(),
+                onPressed: widget.onReveal,
+                child: Text(l10n.reviewShowAnswer),
+              ),
+          ],
         ),
       ),
     );

@@ -4768,7 +4768,9 @@ había debajo de cada texto, que se quitó a pedido.
   texto. Lo ofrecen el detalle de un elemento (la nota del usuario, cada forma de texto, cada
   bloque de una nota de bloques), el modo lectura, el lector de libros y documentos (la página que
   se ve y las 19 siguientes; da vuelta la página solo), el editor de notas (sin resaltado: son
-  campos que se editan), el chat y el repaso de tarjetas.
+  campos que se editan), el chat y el repaso de tarjetas. El repaso dejó de ofrecerlo en F47
+  (mejora 20): una tarjeta se repasa leyéndola y pensando la respuesta, y lo que venía sonando
+  sigue al entrar.
 - **Un solo lector para toda la app** (`ReadAloudController`), que sigue leyendo al cambiar de
   pantalla hasta que se cierra. Le pasa al motor de voz un pedazo por vez —nunca el texto entero— y
   la pantalla se redibuja solo cuando cambia de pedazo; el anillo y el hilo de avance, por palabra.

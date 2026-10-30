@@ -566,10 +566,11 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
   }
 }
 
-/// Un texto corto que se muestra tal cual —un mensaje del chat, una cara de
-/// una tarjeta, la nota del usuario—, con lo que está leyendo el lector
-/// flotante en amarillo (F25): el mismo amarillo que [HighlightableText] y
-/// que el audio (F23), para los textos que no se subrayan.
+/// Un texto corto que se muestra tal cual —un mensaje del chat, la nota del
+/// usuario, una oración de un documento procesado—, con lo que está leyendo
+/// el lector flotante en amarillo (F25): el mismo amarillo que
+/// [HighlightableText] y que el audio (F23), para los textos que no se
+/// subrayan.
 ///
 /// Sin nada que resaltar se dibuja igual que un `Text` —o un
 /// `SelectableText`, con [selectable]— de siempre; solo el texto que se está
