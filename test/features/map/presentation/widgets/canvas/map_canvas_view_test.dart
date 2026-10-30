@@ -2254,6 +2254,28 @@ void main() {
         ];
       });
 
+      testWidgets('prendida de antes, sin el modelo —se borró—: con '
+          'documentos a la vista no compara nada, y abajo lo dice con su '
+          'atajo', (tester) async {
+        modelReady = false;
+        container
+            .read(mapLayersProvider.notifier)
+            .set(MapLayer.similar, on: true);
+        await pump(tester);
+        await topicDocuments(tester);
+
+        expect(similarRequests, isEmpty);
+        expect(
+          find.byKey(const ValueKey('map-similar-missing')),
+          findsOneWidget,
+        );
+        await tapAndSettle(
+          tester,
+          find.byKey(const ValueKey('map-similar-missing-download')),
+        );
+        expect(modelDownloads, 1);
+      });
+
       testWidgets('sin el modelo de vínculos, lo dice y lleva a descargarlo', (
         tester,
       ) async {
