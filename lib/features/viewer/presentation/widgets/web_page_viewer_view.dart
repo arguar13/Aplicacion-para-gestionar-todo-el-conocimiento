@@ -126,6 +126,7 @@ class WebPageViewerView extends ConsumerStatefulWidget {
     this.text,
     this.title = '',
     this.readAloud = false,
+    this.mobile = false,
     super.key,
   });
 
@@ -145,6 +146,12 @@ class WebPageViewerView extends ConsumerStatefulWidget {
   /// Si ofrece el artículo para leer en voz alta y sigue la lectura: a
   /// pantalla completa sí; embebida en el detalle, que ofrece lo suyo, no.
   final bool readAloud;
+
+  /// Si la página se ve como en un navegador del teléfono: con el ancho de la
+  /// pantalla, sin el menú lateral ni las columnas de escritorio (F45, paso
+  /// 4; ver `makeArchivedPageMobile`). Lo pide Procesado; la Biblioteca la
+  /// muestra como era.
+  final bool mobile;
 
   @override
   ConsumerState<WebPageViewerView> createState() => _WebPageViewerViewState();
@@ -304,8 +311,11 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     final study = text == null
         ? null
         : (content: text.content, colors: _colors());
+    final mobile = widget.mobile;
     // Una página archivada pesa megas: se arma fuera del hilo de la pantalla.
-    final shown = await Isolate.run(() => showArchivedPage(html, study: study));
+    final shown = await Isolate.run(
+      () => showArchivedPage(html, study: study, mobile: mobile),
+    );
     if (!mounted) return;
     if (study != null) await _prepareStudy();
     _alignment = shown.alignment;

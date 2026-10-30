@@ -17,6 +17,7 @@ import 'package:sinapsis/features/processed/presentation/widgets/original/origin
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_first_page_preview.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/mobile_page_width.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_first_page_preview.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/web_page_viewer_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -138,7 +139,11 @@ class ProcessedOriginalSection extends ConsumerWidget {
         tall: true,
         onExpand: expand,
         bigButtonLabel: l10n.detailViewWebPage,
-        child: WebPageViewerView(path: loaded.path, text: text),
+        // Como en el teléfono, también en la computadora (F45, paso 4,
+        // decisión D).
+        child: MobilePageWidth(
+          child: WebPageViewerView(path: loaded.path, text: text, mobile: true),
+        ),
       ),
       _ when text == null => EmbeddedViewerFrame(
         child: ProcessedOriginalUnreadable(path: loaded.path),

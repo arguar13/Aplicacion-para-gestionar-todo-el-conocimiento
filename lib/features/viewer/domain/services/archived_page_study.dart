@@ -10,6 +10,7 @@ import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/transform/domain/archive/page_images.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_alignment.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_fidelity.dart';
+import 'package:sinapsis/features/viewer/domain/services/archived_page_mobile.dart';
 
 /// Los colores de resaltador, como `0xAARRGGBB`, y la línea del resumen
 /// debajo de una oración que también es de la síntesis (F43, paso 15).
@@ -51,13 +52,18 @@ String showableArchivedPage(String html, {ArchivedPageStudy? study}) =>
 /// [study], cómo se corresponde su texto con el extraído (F38): de ahí salen
 /// los tramos de lo que se selecciona en la página y dónde pintar los
 /// resaltados de la persona.
+///
+/// Con [mobile], además, como en un navegador del teléfono —ver
+/// `makeArchivedPageMobile`—: lo de Procesado (F45, paso 4).
 ({String html, ArchivedPageAlignment? alignment}) showArchivedPage(
   String html, {
   ArchivedPageStudy? study,
+  bool mobile = false,
 }) {
   final document = html_parser.parse(html);
   showArchivedImages(document);
   restoreScriptState(document);
+  if (mobile) makeArchivedPageMobile(document);
   ArchivedPageAlignment? alignment;
   if (study != null) {
     _neutralize(document);

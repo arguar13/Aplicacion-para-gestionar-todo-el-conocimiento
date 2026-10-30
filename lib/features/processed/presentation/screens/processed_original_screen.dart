@@ -14,6 +14,7 @@ import 'package:sinapsis/features/processed/presentation/providers/processed_pro
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_bar.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/mobile_page_width.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_viewer_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/web_page_viewer_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -130,11 +131,16 @@ class _OriginalBody extends ConsumerWidget {
               text: text,
               title: title,
             ),
-            RenditionKind.html => WebPageViewerView(
-              path: loaded.path,
-              text: text,
-              title: title,
-              readAloud: text != null,
+            // Como en el teléfono, también en la computadora (F45, paso 4,
+            // decisión D).
+            RenditionKind.html => MobilePageWidth(
+              child: WebPageViewerView(
+                path: loaded.path,
+                text: text,
+                title: title,
+                readAloud: text != null,
+                mobile: true,
+              ),
             ),
             _ when text == null => ProcessedOriginalUnreadable(
               path: loaded.path,

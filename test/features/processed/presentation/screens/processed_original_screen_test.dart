@@ -12,6 +12,7 @@ import 'package:sinapsis/features/processed/presentation/providers/processed_tri
 import 'package:sinapsis/features/processed/presentation/screens/processed_original_screen.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/viewer/domain/services/archived_page_mobile.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/web_page_viewer_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -251,6 +252,37 @@ void main() {
       find.byType(WebPageViewerView),
     );
     expect(viewer.text, isNotNull);
+    // Como en el navegador del teléfono, también en la computadora, con el
+    // ancho de un teléfono (F45, paso 4, decisión D).
+    expect(viewer.mobile, isTrue);
+    expect(find.byKey(const Key('mobile-page-width')), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(WebPageViewerView)).width,
+      kMobilePageWidth,
+    );
+  });
+
+  testWidgets('en el documento, la página archivada también se ve como en el '
+      'teléfono, dentro de su tarjeta', (tester) async {
+    await harness.saveTextSource(
+      'pagina',
+      title: 'Una página',
+      originalName: 'pagina.html',
+    );
+    final id = await harness.process('pagina', {
+      ProcessedSection.text: SectionEdit.add(const SectionInput.fromSource()),
+    }, original: add);
+    await pumpApp(tester, harness);
+    await pushAndSettle(tester, harness, RoutePaths.processedDocument(id));
+
+    final viewer = tester.widget<WebPageViewerView>(
+      find.byType(WebPageViewerView),
+    );
+    expect(viewer.mobile, isTrue);
+    expect(
+      tester.getSize(find.byType(WebPageViewerView)).width,
+      kMobilePageWidth,
+    );
   });
 
   testWidgets('sin copia lo dice', (tester) async {
