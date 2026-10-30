@@ -3102,7 +3102,7 @@ original y se resalta solo (ver
 [El texto sigue al audio](#el-texto-sigue-al-audio)). Por eso este lector
 **empieza por lo estudiado**: el resumen, la síntesis y las palabras clave,
 con la voz del lector. Si querés la transcripción entera con la voz del
-lector, elegí **"Todo"** en la fila **"Leer:"** del reproductor, o tocá
+lector, elegí **"Todo"** en la fila **"Leer:"** de la cola (☰), o tocá
 **"Escuchar"** en **"Extraer transcripción"**. Sin nada estudiado todavía, el
 botón no aparece: sería un segundo audio de lo mismo. Si un video de YouTube
 no pudo bajar su audio, el botón lee el texto entero, porque es la única forma
@@ -3110,27 +3110,87 @@ de escucharlo.
 
 1. **Tocalo** y la app empieza a leer el texto de esa pantalla en voz alta.
    La **línea que está leyendo se ve en amarillo**. Lee el texto tal cual se
-   ve, sin las marcas "[3:15]" ni los símbolos de formato.
-2. Se abre el **mini reproductor de lectura**, con:
-   - **Reproducir / pausar**: la pausa es de verdad; al seguir, retoma en
-     la misma palabra.
-   - **Retroceder y avanzar 10 segundos**, medidos con la voz y la
-     velocidad que elegiste.
-   - **Leer: Todo · Resumen · Síntesis · Palabras clave**, en un texto que se
-     estudia (ver [Estudiar el documento](#estudiar-el-documento-resumen-síntesis-y-palabras-clave)):
+   ve, sin las marcas "[3:15]" ni los símbolos de formato. Mientras lee, el
+   botón redondo no aparece: lo que suena se maneja desde el reproductor.
+2. Abajo, a lo ancho, aparece **el reproductor de lectura**, como el de una
+   app de música: encima de la barra de navegación, y en las pantallas sin
+   barra, abajo del todo. Sigue ahí, y sonando, aunque cambies de pestaña o
+   abras otra pantalla. **Abierto** tiene:
+   - **El título**, que se desliza si no entra (dos veces, y después queda
+     quieto; con las animaciones apagadas en el teléfono no se mueve), y
+     debajo con qué voz y a qué velocidad lee: «Leyendo con la voz del
+     teléfono · 1,0×». Una lunita al lado dice que hay un temporizador para
+     dormir.
+   - **⟲ Repetir**: cada toque pasa de no repetir a **repetir la cola** y a
+     **repetir esto**, como en un reproductor de música.
+   - **☰ Cola**: ver más abajo. Con algo esperando, lleva un número.
+   - **⌄ Achicar**.
+   - **La barra de avance**, con el tiempo leído y el total. Con la voz del
+     teléfono el tiempo es **estimado por las palabras y la velocidad**
+     (unas 150 palabras por minuto a 1×), así que a 2× el total es la mitad.
+     Arrastrala y, al soltar, sigue desde ahí.
+   - **La cara de la voz**, a la izquierda: el retrato de la voz que lee lo
+     que suena —la del idioma del texto—. Tocala para abrir la
+     **biblioteca de voces** (ver [La biblioteca de voces](#la-biblioteca-de-voces)).
+   - **−10 s**, **▶ / ⏸** grande y **+10 s**. La pausa es de verdad: al
+     seguir, retoma en la misma palabra. **±10 s salta a la oración más
+     cercana** a ese tiempo, nunca a mitad de una: para atrás desde la mitad
+     de una oración, la vuelve a empezar.
+   - **La velocidad**, «1,0×»: abre **una regla de 0,5× a 3×** que se
+     arrastra de costado (hacia la izquierda, más rápido), con − y + de a
+     una décima y los atajos **1,0 · 1,2 · 1,5 · 2,0 · 3,0**. La regla se
+     aplica al soltarla. Con el lector de pantalla, se sube y se baja de a
+     una décima.
+3. **Achicado**, el reproductor es una sola línea: **▶**, el título, **+10 s**
+   y **⌃** para abrirlo (también tocando el título). **Arrastralo hacia
+   abajo** para dejar de leer; con el lector de pantalla, es la acción
+   «Dejar de leer».
+4. **☰ La cola**:
+   - **Ahora suena**: lo que se lee, con la fila **"Leer: Todo · Resumen ·
+     Síntesis · Palabras clave"** en un texto que se estudia (ver
+     [Estudiar el documento](#estudiar-el-documento-resumen-síntesis-y-palabras-clave)):
      elegís qué parte se lee. **Resumen** y **Síntesis** leen solo sus
      oraciones, **Palabras clave** las lee una tras otra, y **Todo** el
      texto. Lo que suena se resalta en amarillo en su lugar del texto, y
      siempre en el orden del texto. Las partes que todavía no tienen nada
      aparecen apagadas; elegir una empieza a leerla desde el principio
-     —dentro de un documento abierto, desde lo que estás mirando—.
-   - **La velocidad**, de 0,5× a 2×.
-   - **La voz**: abre la **biblioteca de voces** (ver
-     [La biblioteca de voces](#la-biblioteca-de-voces)).
-   - **Minimizar**: vuelve al botón redondo, que muestra con un anillo
-     cuánto leyó, y sigue leyendo aunque cambies de pantalla.
-   - **Cerrar**: deja de leer.
-3. Dentro de un documento abierto, ver
+     —dentro de un documento abierto, desde lo que estás mirando—. Debajo,
+     **Dejar de leer**.
+   - **En esta pantalla**: si la pantalla que estás mirando tiene otro
+     texto, **Añadir a la cola** (suena cuando termine lo de ahora) o **Leer
+     ahora**.
+   - **Siguiente**: lo que espera, en orden. Tocá uno para leerlo ya;
+     **mantenelo apretado y arrastralo** para cambiar el orden (o usá la
+     manija de la izquierda); **✕** lo saca, y **Limpiar cola** saca todo.
+     Al terminar algo, sigue solo con lo primero de la cola.
+   - **Repetir**: **No**, **La cola** (lo que termina vuelve al final de la
+     cola) o **Esto** (lo que suena vuelve a empezar).
+   - **Temporizador para dormir**: **15, 30, 45 o 60 min**, o **Al terminar
+     esto** (sin seguir con la cola). Dice cuánto falta; al cumplirse, la
+     lectura se pausa, y mañana sigue donde quedó.
+5. **Lectura enfocada** (Ajustes → Voz y lectura): con el interruptor prendido,
+   el reproductor abierto **se achica solo mientras te desplazás** por
+   cualquier pantalla y vuelve a abrirse al soltar. Viene apagada.
+6. **Los avisos de abajo van por encima del reproductor**: nunca te tapa un
+   aviso ni su ✕.
+7. **Con la app minimizada, otra app abierta o la pantalla apagada, sigue
+   sonando** (en Android), hasta el final de lo que lee o de la cola, o hasta
+   el temporizador. En la **barra de notificaciones** y en la **pantalla de
+   bloqueo** aparece su tarjeta, la de los reproductores de música: de
+   portada, la cara de la voz que lee; el título, «Leyendo con … · 1,0×», la
+   barra de avance (que se puede arrastrar), **−10 s, ▶/⏸ y +10 s**, y
+   **siguiente** si hay algo en la cola. Tocarla vuelve a la app con el reproductor abierto. Los
+   **auriculares y el reloj** pausan, siguen y saltan.
+   - Se porta bien con el teléfono: **una llamada o el GPS hablando lo
+     pausan**, y al cortar sigue solo; si otra app empieza a sonar, se pausa
+     y no vuelve; **desconectar los auriculares lo pausa**.
+   - En pausa, la tarjeta se puede descartar deslizándola: eso deja de leer.
+     **Al terminar, la tarjeta se va sola.**
+   - Es la misma tarjeta para todo lo que suena en la app: el lector, la voz
+     del chat y un audio o un video (con su título y su tiempo real).
+   - En la web y en Windows no hay tarjeta: suena con la app abierta, como
+     siempre.
+8. Dentro de un documento abierto, ver
    [Escuchar dentro del documento](#escuchar-dentro-del-documento).
 
 Si suena un audio o un video y empezás a leer, el audio se pausa, y al
@@ -3141,7 +3201,7 @@ alta"** en el menú (ver [Seleccionar texto: el menú](#seleccionar-texto-el-men
 
 ### La biblioteca de voces
 
-Se abre con el botón de la voz del reproductor (también en el reproductor de
+Se abre con la cara de la voz del reproductor (también en el reproductor de
 los visores de Repasar) y desde **Ajustes → Voz y lectura → Biblioteca de
 voces**. Ocupa casi toda la pantalla y tiene tres pestañas:
 
@@ -3209,7 +3269,7 @@ nada: queda para cuando el texto esté en su idioma, y te lo avisa.
 Abrí el documento a pantalla completa —**«Leer como libro»** en un Word, un
 EPUB o un texto; el **PDF**; **«Ver la página»** en una página web— y tocá el
 botón redondo. Se escucha **el documento entero**, con la fila **"Leer: Todo ·
-Resumen · Síntesis · Palabras clave"** del reproductor, igual que en el
+Resumen · Síntesis · Palabras clave"** de la cola (☰), igual que en el
 detalle:
 
 - **Empieza por lo que estás mirando**: abierto en la página 300, lee desde la
@@ -4803,7 +4863,9 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
   idioma»**, la voz elegida para cada idioma, con **✕** para volver a la del
   teléfono; y, en Android, **«Voces descargadas»**: las voces sin conexión que
   bajaste, con lo que ocupa cada una y **«Borrar»** (pide confirmar; la podés
-  volver a bajar, y mientras tanto ese idioma se lee con la del teléfono).
+  volver a bajar, y mientras tanto ese idioma se lee con la del teléfono); y
+  **«Lectura enfocada»**: el reproductor de lectura se achica solo mientras te
+  desplazás (ver [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)).
 - **Citas:** el estilo de cita por defecto (APA, MLA, etc.) y su idioma.
 - **IA y modelos:** primero se elige la IA y después lo que hace con ella.
   - Arriba, los accesos a los tres modelos: **"Modelo de lenguaje"** (con
