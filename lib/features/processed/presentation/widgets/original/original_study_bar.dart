@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,18 +28,20 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   una vez hechas, se ven en rosa cada vez que se abre el documento.
 /// - **Su menú** —el ⋯ o mantenerlo apretado— ofrece rehacer con IA, retocar
 ///   a mano, ocultar o mostrar, y borrar las marcas ([showOriginalStudyMenu]).
-/// - Cada uno con **su color de resaltador**, **cuántas marcas tiene** y **su
-///   estado**: sin hacer, generándose con su avance, hecho u oculto. Debajo,
-///   la **leyenda** de colores —con «Resumen y síntesis» cuando se ven los dos:
-///   celeste con la línea verde— y, mientras la IA marca, la franja de siempre
-///   con «Parar» ([StudyProgressStrip]).
+/// - **Una fila de tres fichas compactas** (F45, paso 4), del mismo alto, cada
+///   una con **su color de resaltador** —el punto, que hace de leyenda: ya no
+///   hay una leyenda aparte que repita los tres colores—, **su estado** —«Sin
+///   hacer», «Haciendo… 40 %», «Hecho» u «Oculto»— y **cuántas marcas
+///   tiene**. Debajo, solo con el resumen y la síntesis a la vista, cómo se
+///   ve una oración de los dos: celeste con la línea verde. Y, mientras la IA
+///   marca, la franja de siempre con «Parar» ([StudyProgressStrip]).
 /// - **Eligiendo a mano**, una línea dice qué se elige y cómo, con «Listo».
 ///   En el documento, donde el original es su primera página quieta,
 ///   [onOpenOriginal] lleva al original entero, donde se toca.
 ///
 /// Sin animaciones: el avance es un número y una barra que se llenan, nunca
-/// una ruedita que gira. Entra en 360 dp con la letra al doble: los botones se
-/// acomodan en renglones y sus textos se parten.
+/// una ruedita que gira. Entra en 360 dp con la letra al doble: las fichas
+/// pasan a dos renglones —o a uno cada una— sin cortar una palabra.
 class OriginalStudyBar extends ConsumerStatefulWidget {
   const OriginalStudyBar({required this.study, this.onOpenOriginal, super.key});
 
@@ -101,12 +104,10 @@ class _OriginalStudyBarState extends ConsumerState<OriginalStudyBar> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
+          _StudyChips(
+            chips: [
               for (final kind in StudyMarkKind.values)
-                _StudyButton(
+                _StudyChip(
                   key: Key('original-study-${kind.name}'),
                   kind: kind,
                   count: marks.of(kind).length,
@@ -121,8 +122,7 @@ class _OriginalStudyBarState extends ConsumerState<OriginalStudyBar> {
                 ),
             ],
           ),
-          const SizedBox(height: 10),
-          _Legend(view: view),
+          if (view.summary && view.synthesis) const _BothLegend(),
           if (view.pick case final pick?)
             _PickingLine(
               kind: pick,
@@ -262,17 +262,90 @@ String originalStudyCount(
     ? l10n.studyKeywordCount(count)
     : l10n.studySentenceCount(count);
 
-/// Un botón de estudio: grande, redondeado y con su color de resaltador.
+/// Las tres fichas en una fila, del mismo ancho y el mismo alto (F45, paso
+/// 4); si no entran —360 dp con la letra al doble—, en dos renglones: las dos
+/// primeras arriba y la tercera abajo, a lo ancho. Si tampoco, una debajo de
+/// la otra. Nunca se corta una palabra: la cuenta mide la palabra más larga de
+/// cada ficha con la letra de ahora.
+class _StudyChips extends StatelessWidget {
+  const _StudyChips({required this.chips});
+
+  final List<_StudyChip> chips;
+
+  /// El aire entre una ficha y la otra.
+  static const gap = 8.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final needed = chips
+        .map((chip) => chip.minWidth(context))
+        .fold<double>(0, max);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final perRow = studyChipsPerRow(
+          width: width,
+          needed: needed,
+          count: chips.length,
+        );
+        final rows = [
+          for (var start = 0; start < chips.length; start += perRow)
+            chips.sublist(start, min(start + perRow, chips.length)),
+        ];
+        return Column(
+          key: Key('original-study-chips-$perRow'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (index, row) in rows.indexed) ...[
+              if (index > 0) const SizedBox(height: gap),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (column, chip) in row.indexed) ...[
+                      if (column > 0) const SizedBox(width: gap),
+                      Expanded(child: chip),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Cuántas fichas van por renglón en [width]: todas si cada una tiene el
+/// ancho que necesita ([needed]), si no la mitad redondeada para arriba —dos
+/// renglones—, y si tampoco, una.
+@visibleForTesting
+int studyChipsPerRow({
+  required double width,
+  required double needed,
+  required int count,
+}) {
+  double each(int perRow) => (width - _StudyChips.gap * (perRow - 1)) / perRow;
+  if (each(count) >= needed) return count;
+  final half = (count + 1) ~/ 2;
+  if (half > 1 && each(half) >= needed) return half;
+  return 1;
+}
+
+/// Una ficha de estudio (F45, paso 4): compacta, del alto de sus vecinas, con
+/// su color, su estado y un toque para crearla o verla.
 ///
-/// - **Hecho y a la vista**: lleno con su color y la letra oscura, como lo que
-///   resalta.
-/// - **Oculto**: con el borde de su color, apagado, y el ojo tachado.
-/// - **Sin hacer**: tenue, con un «+» en su color.
-/// - **Generándose**: un anillo que se llena con el avance, sin girar.
-///
-/// A la derecha, cuántas marcas tiene y el ⋯ de su menú.
-class _StudyButton extends StatelessWidget {
-  const _StudyButton({
+/// - **El punto de color** es la leyenda: el color de su resaltador, lleno a
+///   la vista y hueco si está oculto.
+/// - **Hecha y a la vista**: llena con su color y la letra oscura, como lo que
+///   resalta, con cuántas marcas tiene y el ⋯ de su menú.
+/// - **Oculta**: con el borde de su color y «Oculto».
+/// - **Sin hacer**: tenue, con «Sin hacer»; tocarla crea.
+/// - **Haciéndose**: «Haciendo… 40 %» y una barra que se llena, sin girar.
+class _StudyChip extends StatelessWidget {
+  const _StudyChip({
     required this.kind,
     required this.count,
     required this.shown,
@@ -291,6 +364,70 @@ class _StudyButton extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onMenu;
 
+  bool get _done => count > 0;
+
+  static const _padding = EdgeInsets.fromLTRB(10, 8, 2, 8);
+  static const _dot = 10.0;
+  static const _dotGap = 6.0;
+  static const _menu = 32.0;
+
+  /// El aire a la derecha del nombre y de la barra, que no llegan al ⋯.
+  static const _end = 8.0;
+
+  TextStyle? _nameStyle(ThemeData theme) =>
+      theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600);
+
+  TextStyle? _stateStyle(ThemeData theme) => theme.textTheme.labelSmall;
+
+  String _state(AppLocalizations l10n) {
+    if (progress case final percent?) return l10n.f45S4StateWorking(percent);
+    if (!_done) return l10n.f43OrigStateNone;
+    return shown
+        ? l10n.f43OrigStateDone(kind.name)
+        : l10n.f43OrigStateHidden(kind.name);
+  }
+
+  /// El ancho que necesita para no cortar ninguna palabra con la letra de
+  /// ahora: la más larga de su nombre, con el punto; o la más larga de su
+  /// estado —también la de «Haciendo… 100 %», para que la fila no cambie de
+  /// forma mientras la IA avanza— con el ⋯ al lado.
+  double minWidth(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+    double widest(String text, TextStyle? style) => text
+        .split(RegExp(r'\s+'))
+        .map((word) {
+          final painter = TextPainter(
+            text: TextSpan(text: word, style: style),
+            textDirection: TextDirection.ltr,
+            textScaler: scaler,
+          )..layout();
+          final width = painter.width;
+          painter.dispose();
+          return width;
+        })
+        .fold<double>(0, max);
+    final name =
+        _dot +
+        _dotGap +
+        widest(originalStudyName(l10n, kind), _nameStyle(theme)) +
+        _end;
+    final state =
+        [
+          widest(l10n.f45S4StateWorking(100), _stateStyle(theme)),
+          widest(_state(l10n), _stateStyle(theme)),
+          if (_done) widest(_countText, _stateStyle(theme)),
+        ].fold<double>(0, max) +
+        (_done ? _menu : _end);
+    // Un píxel de más: lo que mide el texto y lo que ocupa redondean
+    // distinto.
+    return _padding.horizontal + max(name, state) + 1;
+  }
+
+  /// Cuántas marcas tiene, al lado del estado: «Hecho · 3».
+  String get _countText => '· $count';
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -299,42 +436,12 @@ class _StudyButton extends StatelessWidget {
     final color = originalStudyColor(StudyPalette.of(theme.brightness), kind);
     final name = originalStudyName(l10n, kind);
     final generating = progress != null;
-    final done = count > 0;
-    final filled = done && shown;
+    final filled = _done && shown;
     final ink = filled ? StudyPalette.ink : scheme.onSurface;
-    final state = generating
-        ? l10n.f43OrigStateGenerating(progress!)
-        : !done
-        ? l10n.f43OrigStateNone
-        : shown
-        ? l10n.f43OrigStateDone(kind.name)
-        : l10n.f43OrigStateHidden(kind.name);
-
-    final badge = switch ((generating, done)) {
-      (true, _) => SizedBox.square(
-        dimension: 22,
-        child: CircularProgressIndicator(
-          // Un anillo que se llena: un valor siempre, nunca la ruedita que
-          // gira sola (sin animaciones).
-          value: progress! / 100,
-          strokeWidth: 3,
-          color: filled ? StudyPalette.ink : color,
-          backgroundColor: (filled ? StudyPalette.ink : color).withValues(
-            alpha: 0.2,
-          ),
-        ),
-      ),
-      (false, true) => Icon(
-        shown ? originalStudyIcon(kind) : Icons.visibility_off_outlined,
-        size: 18,
-        color: filled ? StudyPalette.ink : color,
-      ),
-      (false, false) => const Icon(
-        Icons.add,
-        size: 20,
-        color: StudyPalette.ink,
-      ),
-    };
+    final soft = filled
+        ? StudyPalette.ink.withValues(alpha: 0.75)
+        : scheme.onSurfaceVariant;
+    final state = _state(l10n);
 
     return Semantics(
       button: true,
@@ -344,84 +451,131 @@ class _StudyButton extends StatelessWidget {
         state,
       ),
       excludeSemantics: true,
-      onLongPress: done ? onMenu : null,
+      onTap: onTap,
+      onTapHint: !_done && !generating
+          ? l10n.f45S4ChipCreateHint
+          : shown
+          ? l10n.f45S4ChipHideHint
+          : l10n.f45S4ChipShowHint,
+      onLongPress: _done ? onMenu : null,
+      onLongPressHint: _done ? l10n.f43OrigMoreTooltip(name) : null,
       child: Material(
         color: filled
             ? color
-            : done
+            : _done
             ? scheme.surfaceContainerHigh
             : scheme.surfaceContainerLow,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(16),
           side: BorderSide(
             color: filled
                 ? color
-                : done
+                : _done
                 ? color.withValues(alpha: 0.9)
                 : scheme.outlineVariant,
-            width: done ? 1.5 : 1,
+            width: _done ? 1.5 : 1,
           ),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          onLongPress: done ? onMenu : null,
+          onLongPress: _done ? onMenu : null,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56),
+            constraints: const BoxConstraints(minHeight: 64),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(10, 8, done ? 0 : 14, 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              padding: _padding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: filled
-                          ? Colors.white.withValues(alpha: 0.45)
-                          : done || generating
-                          ? color.withValues(alpha: 0.18)
-                          : color,
-                    ),
-                    child: badge,
-                  ),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Column(
+                  Padding(
+                    padding: const EdgeInsets.only(right: _end),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          name,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: ink,
-                            fontWeight: FontWeight.w600,
+                        Padding(
+                          // Centrado con el primer renglón del nombre.
+                          padding: const EdgeInsets.only(top: 5),
+                          child: _Dot(
+                            key: Key('original-study-dot-${kind.name}'),
+                            color: filled ? StudyPalette.ink : color,
+                            hollow: _done && !shown,
                           ),
                         ),
-                        Text(
-                          state,
-                          key: Key('original-study-state-${kind.name}'),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: filled
-                                ? StudyPalette.ink.withValues(alpha: 0.75)
-                                : scheme.onSurfaceVariant,
+                        const SizedBox(width: _dotGap),
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: _nameStyle(theme)?.copyWith(color: ink),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  if (done) ...[
-                    const SizedBox(width: 10),
-                    _CountBadge(count: count, filled: filled, color: color),
-                    IconButton(
-                      key: Key('original-study-more-${kind.name}'),
-                      tooltip: l10n.f43OrigMoreTooltip(name),
-                      visualDensity: VisualDensity.compact,
-                      color: ink,
-                      icon: const Icon(Icons.more_vert, size: 20),
-                      onPressed: onMenu,
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(right: _done ? 0 : _end),
+                          child: Wrap(
+                            spacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                state,
+                                key: Key('original-study-state-${kind.name}'),
+                                style: _stateStyle(
+                                  theme,
+                                )?.copyWith(color: soft),
+                              ),
+                              if (_done)
+                                Text(
+                                  _countText,
+                                  key: Key('original-study-count-${kind.name}'),
+                                  style: _stateStyle(theme)?.copyWith(
+                                    color: soft,
+                                    fontWeight: FontWeight.w700,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (_done)
+                        SizedBox.square(
+                          dimension: _menu,
+                          child: IconButton(
+                            key: Key('original-study-more-${kind.name}'),
+                            tooltip: l10n.f43OrigMoreTooltip(name),
+                            padding: EdgeInsets.zero,
+                            color: ink,
+                            icon: const Icon(Icons.more_vert, size: 18),
+                            onPressed: onMenu,
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (progress case final percent?) ...[
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(right: _end),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          key: Key('original-study-progress-${kind.name}'),
+                          // Una barra que se llena: un valor siempre, nunca la
+                          // que va y viene sola (sin animaciones).
+                          value: percent / 100,
+                          minHeight: 4,
+                          color: filled ? StudyPalette.ink : color,
+                          backgroundColor: (filled ? StudyPalette.ink : color)
+                              .withValues(alpha: 0.2),
+                        ),
+                      ),
                     ),
                   ],
                 ],
@@ -434,91 +588,65 @@ class _StudyButton extends StatelessWidget {
   }
 }
 
-/// Cuántas marcas tiene: un número en una pastilla.
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({
-    required this.count,
-    required this.filled,
-    required this.color,
-  });
+/// El punto de color de una ficha: su resaltador. Hueco, con el borde de su
+/// color, si lo marcado está oculto.
+class _Dot extends StatelessWidget {
+  const _Dot({required this.color, required this.hollow, super.key});
 
-  final int count;
-  final bool filled;
   final Color color;
+  final bool hollow;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: filled ? Colors.white.withValues(alpha: 0.55) : color,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        '$count',
-        style: theme.textTheme.labelMedium?.copyWith(
-          color: StudyPalette.ink,
-          fontWeight: FontWeight.w700,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    width: _StudyChip._dot,
+    height: _StudyChip._dot,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: hollow ? null : color,
+      border: Border.all(color: color, width: 2),
+    ),
+  );
 }
 
-/// Los colores y qué es cada uno; con el resumen y la síntesis a la vista,
-/// también cómo se ve una oración de los dos.
-class _Legend extends StatelessWidget {
-  const _Legend({required this.view});
-
-  final StudyView view;
+/// Con el resumen y la síntesis a la vista, cómo se ve una oración de los
+/// dos: celeste con la línea verde. Es lo único que los puntos de las fichas
+/// no dicen solos.
+class _BothLegend extends StatelessWidget {
+  const _BothLegend();
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final palette = StudyPalette.of(theme.brightness);
-    final style = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
 
-    Widget entry(Color color, String label, {Color? line, Key? key}) => Row(
-      key: key,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 14,
-          height: 14,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(3),
-            border: line == null
-                ? null
-                : Border(bottom: BorderSide(color: line, width: 3)),
+    return Padding(
+      key: const Key('original-study-legend-both'),
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: palette.synthesis,
+              borderRadius: BorderRadius.circular(3),
+              border: const Border(
+                bottom: BorderSide(color: StudyPalette.summaryLine, width: 3),
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 6),
-        Flexible(child: Text(label, style: style)),
-      ],
-    );
-
-    return Wrap(
-      key: const Key('original-study-legend'),
-      spacing: 16,
-      runSpacing: 4,
-      children: [
-        entry(palette.summary, l10n.studyLegendSummary),
-        entry(palette.synthesis, l10n.studyLegendSynthesis),
-        entry(palette.keyword, l10n.studyKeywords),
-        if (view.summary && view.synthesis)
-          entry(
-            palette.synthesis,
-            l10n.f43OrigLegendBoth,
-            line: StudyPalette.summaryLine,
-            key: const Key('original-study-legend-both'),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              l10n.f43OrigLegendBoth,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }

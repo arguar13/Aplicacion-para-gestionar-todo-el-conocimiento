@@ -192,7 +192,7 @@ void main() {
         expect(
           find.descendant(
             of: find.byKey(Key('original-study-${kind.name}')),
-            matching: find.text('1'),
+            matching: find.text('· 1'),
           ),
           findsOneWidget,
           reason: kind.name,
@@ -285,15 +285,13 @@ void main() {
       await tester.pumpAndSettle();
 
       for (final kind in StudyMarkKind.values) {
-        expect(stateOf(tester, kind), es.f43OrigStateGenerating(25));
+        expect(stateOf(tester, kind), es.f45S4StateWorking(25));
       }
-      final ring = tester.widget<CircularProgressIndicator>(
-        find.descendant(
-          of: find.byKey(const Key('original-study-synthesis')),
-          matching: find.byType(CircularProgressIndicator),
-        ),
+      // Una barra que se llena, en cada ficha (F45, paso 4).
+      final bar = tester.widget<LinearProgressIndicator>(
+        find.byKey(const Key('original-study-progress-synthesis')),
       );
-      expect(ring.value, 0.25);
+      expect(bar.value, 0.25);
       expect(find.byKey(const Key('study-progress')), findsOneWidget);
 
       await tap(tester, 'original-study-synthesis');
