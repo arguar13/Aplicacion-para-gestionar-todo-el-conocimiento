@@ -2,7 +2,8 @@
 
 > **Estado: APROBADO** (2026-10-28, «aprobado» en el chat, con las ilustraciones con IA de la
 > decisión H y su aviso detallado —ver «H en detalle»—). **Construida** el 2026-10-29: los dieciséis
-> pasos y el cierre, con la decisión 89.
+> pasos y el cierre, con la decisión 89. **Mejoras M10 a M15 (29/10): propuestas, esperan
+> «aprobado».**
 >
 > Pedido del dueño, con catorce capturas de NotebookLM (la pestaña «Studio», sus hojas de
 > personalizar y cinco resultados abiertos) y una de Repasar de hoy: *"vamos a cambiar eso para
@@ -540,6 +541,93 @@ de marcar:
   quedar a medias, de a una por vez. Lo mismo se puede hacer desde el menú, para quien no
   desliza.
 
+## Mejoras pedidas el 29/10, con la fase ya instalada (M10 a M15)
+
+Pedido del dueño, con nueve capturas del teléfono (la APK de `cc5a0cb9`) y dos de NotebookLM:
+*"cuando selecciono un documento sobre el cual ya ha IA creado tarjetas … no me deja ver abajo
+las tarjetas … haz que se vea menos confuso … las tarjetas generadas mantengan ese diseño … con la
+filosofía de anki … el botón ese de explicar y que te lleve al chat de IA con esa consulta"*.
+
+### M10. «Lo creado» muestra también lo que el recorte ya tenía
+
+- **Hoy:** con un documento elegido, la píldora dice «1 documento · 3 tarjetas», pero abajo dice
+  «Todavía no creaste nada sobre esto». Esas tarjetas vienen de «Crear tarjetas con IA» o se
+  hicieron a mano, y no son creaciones. Lo mismo pasa con el resumen y la síntesis marcados en el
+  original.
+- **Cambio:** arriba de las creaciones, filas propias para lo que el recorte ya tiene:
+  - **«Tarjetas de repaso · 3 tarjetas»**: abre esas tarjetas en el visor de M13;
+  - **«Resumen»** y **«Síntesis»**, si hay alguno marcado: abren la vista viva de extraer, sin IA
+    ni costo (decisión E).
+- El vacío solo se ve si no hay nada de nada.
+
+### M11. El selector, sin repetir ni confundir
+
+- **Hoy:** «Recientes» arriba y la lista de abajo repiten los mismos documentos, con dos detalles
+  distintos («1 documento · 3 tarjetas» y «3 tarjetas · con resumen»). Los chips del tipo quedan en
+  el medio, entre las dos listas.
+- **Cambio:**
+  - **Arriba**, el buscador y, debajo, el tipo como pestañas: Todo · Documentos · Cuadernos ·
+    Temas.
+  - **Debajo, una sola lista**: primero «Recientes» (como mucho tres) y después «Todos», de la A a
+    la Z, sin repetir los recientes.
+  - **Cada fila**: el nombre y, debajo, lo que tiene, con su ícono y su color de tipo: «12
+    tarjetas», «1 creación», «Resumen», «Síntesis». Es la misma línea en todos lados, y la de lo ya
+    elegido lleva ✓.
+
+### M12. Cada fila de «Lo creado» dice de qué es
+
+- **Arriba, grande:** el nombre del documento, cuaderno o tema de donde sale; con varias fuentes,
+  «Lazarillo y 2 más».
+- **Abajo, chico:** el tipo con su ícono en color, el título propio si la IA o la persona le puso
+  uno, y cuándo: «Tarjetas didácticas · San Jerónimo: Vida y obra · Hace 5 min».
+
+### M13. Las tarjetas didácticas se estudian como en Anki
+
+- **Hoy:** el visor del mazo es un pasador para hojear («Dar vuelta», anterior y siguiente). Las
+  calificaciones solo existen en la sesión de Repasar.
+- **Cambio:** el visor usa la tarjeta y los cuatro botones de la sesión de Repasar:
+  1. se ve la pregunta y se piensa la respuesta (el recuerdo activo);
+  2. «Mostrar respuesta», o tocar la tarjeta;
+  3. se califica con De nuevo, Difícil, Bien o Fácil, con el intervalo de SM-2 debajo de cada uno.
+     También se puede deslizar, igual que en Repasar.
+- **Las calificaciones van al calendario de esas tarjetas**, que son las del documento (decisión
+  F). «De nuevo» la vuelve a poner en la vuelta.
+- **Del visor de hoy se queda:** «3 / 18» con su barra, las fichas de la fuente, barajar, «Sumar
+  a mi repaso» y «Ver en la fuente».
+- **Con «Sumar a mi repaso» apagado** las tarjetas no tienen calendario: se califica de práctica y
+  lo dice.
+- **Al terminar la vuelta:** cuántas fueron a cada botón, y la vuelta suma a la racha.
+- **«Explicar»** (M15).
+
+### M14. «Para hoy», debajo de «Lo creado»
+
+- **Orden nuevo de Repasar:**
+  1. el selector;
+  2. las diez tarjetas de crear;
+  3. «Lo creado»;
+  4. **«Para hoy»**, con «291 nuevas más esperan…»;
+  5. «Mis tarjetas» y «Estadísticas».
+- Así lo de crear y lo creado quedan juntos, y el repaso del día va justo después, en la mitad de
+  la pantalla.
+
+### M15. El cuestionario como el de NotebookLM, y «Explicar» que lleva al chat
+
+- **El diseño de las capturas:**
+  - arriba, «6/14» con ⋮ («Ver en la fuente» y «Empezar de nuevo»);
+  - la pregunta en negrita y grande;
+  - cada opción en su tarjeta redondeada, con «A.» al costado.
+- **Al responder:**
+  - la correcta queda con borde verde y «✓ ¡Exacto!», o la elegida con borde rojo y «No es esa»;
+  - cada opción muestra su explicación debajo, en gris;
+  - abajo, fijos y a lo ancho, «Anterior» con borde y «Siguiente» lleno.
+  - Sin 👍/👎 (decisión I).
+- **«Explicar»**, con un ícono de chispa propio, abre el chat con una conversación nueva acotada a
+  las fuentes del cuestionario (`ChatHandoff`, el de «Preguntarle al chat» del mapa mental):
+  - antes de responder, pide una explicación de la pregunta sin decir cuál es la correcta;
+  - después, por qué la correcta es esa y por qué la elegida no.
+- **El mismo botón va en las tarjetas**: en el visor del mazo (M13) y en la sesión de Repasar de
+  siempre, con la pregunta y la respuesta.
+
 ## Decisiones (se pueden cambiar mientras no se llegue a su paso)
 
 - **A. Atlas se queda en Organizar**, junto a la Bandeja. El pedido no lo nombra entre los que
@@ -564,6 +652,12 @@ de marcar:
 - **J. Estudiar sale del documento procesado** (mejoras del 28/10, M4 y M5): cambia la
   decisión I de F41. Marcar el resumen, la síntesis y las palabras clave se hace en el original,
   y crear a partir de ellas, en Repasar. Las marcas ya hechas no se tocan.
+- **K. «Para hoy» va debajo de «Lo creado»** (M14). Cambia el lugar de la decisión B, no lo que
+  hace: sigue compacto y obedece al selector.
+- **L. «Explicar» es una pregunta al chat que la persona ve**, en una conversación nueva acotada a
+  las fuentes y con el modelo elegido. No se manda nada sin que se toque el botón.
+- **M. Las tarjetas didácticas se califican como en Repasar** (M13). El visor para hojear sale,
+  porque el estudio es con recuerdo activo y repetición espaciada.
 
 ## Pasos (cada uno, su commit y su push)
 
@@ -633,6 +727,15 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
     - la decisión 89;
     - la GUÍA, CONTEXTO y la suite entera;
     - la APK en el teléfono, si se pide.
+
+**Mejoras del 29/10 (M10 a M15), tres agentes en paralelo:**
+
+17. **Repasar** (M10, M12 y M14): el orden nuevo, las filas de lo que el recorte ya tenía y la
+    fila de «Lo creado» con su fuente arriba.
+18. **El selector** (M11): pestañas, una sola lista y la misma línea de lo que tiene cada uno.
+19. **Estudiar las tarjetas y el cuestionario** (M13 y M15): el visor del mazo con los cuatro
+    botones y SM-2, el cuestionario con el diseño de las capturas, y «Explicar» como pieza común
+    en el mazo, el cuestionario y la sesión de Repasar.
 
 ## Lo que no entra (para que quede dicho)
 
