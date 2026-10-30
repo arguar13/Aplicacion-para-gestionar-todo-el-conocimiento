@@ -380,6 +380,68 @@ void main() {
     expect(find.byType(MapScreen), findsNothing);
   });
 
+  testWidgets('«Lo nuevo» y el cambio de 30 días se miden con el reloj de la '
+      'app, no con la hora del sistema', (tester) async {
+    // El reloj fijo del arnés es el 11 de septiembre de 2026, a las 10. Lo de
+    // abajo es nuevo para él; para la hora del sistema, ya no.
+    await value('roma', 'Roma');
+    await insertProcessedDocument(
+      db,
+      id: 'nuevo',
+      title: 'Lo de esta semana',
+      createdAt: DateTime(2026, 9, 8, 10),
+    );
+    await insertProcessedDocument(
+      db,
+      id: 'viejo',
+      title: 'Lo de hace dos meses',
+      createdAt: DateTime(2026, 7, 2),
+    );
+    for (final id in ['nuevo', 'viejo']) {
+      await db
+          .into(db.itemPropertyValues)
+          .insert(
+            ItemPropertyValuesCompanion.insert(
+              itemId: id,
+              propertyValueId: 'roma',
+            ),
+          );
+    }
+    await db
+        .into(db.relations)
+        .insert(
+          RelationsCompanion.insert(
+            id: 'r-nuevo',
+            fromItemId: 'nuevo',
+            toItemId: 'viejo',
+            kind: RelationKind.relatedTo,
+            createdAt: DateTime(2026, 9, 9, 10),
+          ),
+        );
+    await pump(tester);
+
+    expect(find.byKey(const ValueKey('map-new-item-nuevo')), findsOneWidget);
+    expect(find.byKey(const ValueKey('map-new-item-viejo')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('map-new-link-nuevo-viejo')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('map-board-figure-documents')),
+        matching: find.text(es.f44S3FigureAdded(1)),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('map-board-figure-links')),
+        matching: find.text(es.f44S3FigureAdded(1)),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('«Para estudiar» se actualiza solo al crear una tarjeta, sin '
       'esperar al mapa', (tester) async {
     await seed();

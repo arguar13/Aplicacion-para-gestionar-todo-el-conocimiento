@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
+import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -16,10 +17,15 @@ import 'package:sinapsis/features/map/domain/usecases/export_map_usecase.dart';
 
 /// Cascada de inyección del feature. La capa de presentación depende del
 /// motor; nunca de la base de datos directamente.
+///
+/// El reloj es el de la app (`clockProvider`): «lo nuevo» y el cambio de 30
+/// días del motor (F44) se miden contra la misma hora que las tarjetas del
+/// Resumen y que todo lo demás, y una prueba con el reloj fijo los ve igual.
 final knowledgeMapRepositoryProvider = Provider<KnowledgeMapRepository>((ref) {
   return KnowledgeMapRepositoryImpl(
     database: ref.watch(appDatabaseProvider),
     library: ref.watch(libraryRepositoryProvider),
+    clock: ref.watch(clockProvider),
   );
 });
 
