@@ -2910,8 +2910,10 @@ para crear** cosas sobre eso y, al final, **lo que ya creaste**. Todo va en una
 sola lista que se desplaza: con la letra grande o en un teléfono chico no se
 corta nada.
 
-- **Arriba**, como siempre: la racha, el historial, **✨** para crear tarjetas
-  con IA y el botón de **exportar a Anki**.
+- **Arriba**, como siempre: la racha, el historial y el botón de **exportar a
+  Anki**. Crear tarjetas con IA para muchos documentos a la vez está ahora en
+  **Tarjetas didácticas** (ver [Crear tarjetas con IA, para muchos documentos
+  a la vez](#crear-tarjetas-con-ia-para-muchos-documentos-a-la-vez)).
 - **El selector** (la píldora ancha de arriba) dice qué está elegido —por
   ejemplo *"Éxodo — Comentario de Alonso · 1 documento · 386 tarjetas"*—. Al
   tocarla se abre una hoja con un **buscador**, **los recientes** (los últimos
@@ -3425,6 +3427,12 @@ ahora» o «Generar más tarde». Se abre desde «Lo creado».
   y relacionar; *Difícil*: comparar, explicar y recordar detalles), el
   **tema** (para concentrarse en uno), el **idioma**, las **fuentes** y
   **"Incluir imágenes"**.
+- **Con más de un documento en las fuentes, "Cómo":** **"Un mazo"** (lo de
+  siempre: un mazo con todas, en «Lo creado») o **"Para cada documento"**, que
+  le hace sus propias tarjetas a cada uno en segundo plano (ver [Crear
+  tarjetas con IA, para muchos documentos a la
+  vez](#crear-tarjetas-con-ia-para-muchos-documentos-a-la-vez)). Con un solo
+  documento no pregunta: es un mazo.
 - **Lo largo no se traba:** un libro entero se lee por partes; cada parte da
   sus tarjetas y la app las junta, repartidas de principio a fin y sin repetir
   la misma pregunta. Con Gemma en el teléfono funciona igual, solo que de a
@@ -3596,23 +3604,36 @@ libera las que ya no usa recién cuando lo nuevo quedó guardado —si lo
 cancelás o falla, siguen las de antes—, y todas se borran cuando la vaciás de
 la papelera.
 
-### Crear tarjetas con IA, para muchos elementos a la vez
+### Crear tarjetas con IA, para muchos documentos a la vez
 
-**Cómo llegar:** pantalla "Repasar" → botón **✨** arriba ("Crear tarjetas
-con IA").
+**Cómo llegar:** pantalla "Repasar" → elegí arriba sobre qué (todo lo
+procesado, un cuaderno o un tema) → **Tarjetas didácticas** → en **"Cómo"**,
+**"Para cada documento"**. Antes era el botón **✨** de la barra de arriba:
+ahora es una sola puerta, la de las tarjetas didácticas.
 
-1. Elegís **de qué**: **"Toda la biblioteca"**, **"Un tema"**, **"Una
-   etiqueta"** o **"Un cuaderno"** (y cuál).
-2. La hoja te dice cuántos elementos entran —los que tienen texto: una foto
-   sin texto leído o un audio sin transcribir no tienen de dónde sacar
-   preguntas— y cuántos **ya tienen tarjetas**.
+Trabaja sobre **tus documentos procesados**, los de lo elegido arriba (la
+Biblioteca y las etiquetas no entran: son tu base de consulta). Cada documento
+recibe **sus propias tarjetas**, que quedan en él y entran en «Para hoy» de
+cualquier cosa que lo incluya. No se arma un mazo ni aparece nada en «Lo
+creado».
+
+1. En **"Fuentes"** podés destildar los documentos que no quieras.
+2. La hoja te dice cuántos **entran** —los que tienen texto del que salgan
+   preguntas: uno que solo tiene imágenes no— y cuántos **ya tienen
+   tarjetas**.
 3. Por defecto se piden solo los que **no tienen ninguna**, así no se
    duplica nada. Con **"También los que ya tienen tarjetas"**, a esos les
    hace otra tanda, sin repetir preguntas.
-4. **"Crear tarjetas de N elementos"**. Podés seguir usando la app (o
-   salir): la IA trabaja en segundo plano, con su notificación ("Sinapsis
-   está creando tarjetas de repaso"), y **no espera al cargador**, aunque
-   sea la biblioteca que ya tenías.
+4. Lo de arriba de la hoja vale también acá: el **idioma** de la pregunta y
+   la respuesta, el **tema** en el que concentrarse, la **dificultad** y el
+   **número**, que va según el largo de cada documento (*Menos* es la mitad
+   de lo de siempre y *Más*, una vez y media). "Incluir imágenes" y "Sumar a
+   mi repaso" son de un mazo: acá no aparecen, porque estas tarjetas entran
+   siempre a tu repaso.
+5. El botón dice qué va a pasar: **"Crear tarjetas de 8 documentos"**. Podés
+   seguir usando la app (o salir): la IA trabaja en segundo plano, con su
+   notificación ("Sinapsis está creando tarjetas de repaso"), y **no espera
+   al cargador**.
 
 Arriba de Repasar ves cómo va: cuántos elementos lleva de cuántos, cuál está
 leyendo, cuántas tarjetas nuevas y cuántas quedaron "para revisar", con
@@ -3635,7 +3656,8 @@ no las hizo sola —falta bajar el modelo de lenguaje o el de vínculos (con
 espera que vuelva la cuota o la conexión (con **"Cuentas y cuota"** cuando
 hay algo que ver), la IA está en pausa (con **"Reanudar la IA"**), o la
 biblioteca que ya tenías espera el cargador—, con el botón **"Crear
-tarjetas con IA"** al lado. Si la IA ya las está haciendo, te avisa que
+tarjetas con IA"** al lado, que abre la hoja de **Tarjetas didácticas** sobre
+lo que tenés elegido en Repasar. Si la IA ya las está haciendo, te avisa que
 están en camino. Si no hay nada que hacer, te invita a volver más tarde.
 
 ### Practicar igual
