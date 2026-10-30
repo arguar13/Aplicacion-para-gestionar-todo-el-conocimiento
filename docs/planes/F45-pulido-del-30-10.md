@@ -547,6 +547,9 @@ Trece commits, de `918ff036` a `d3c1d8de` (mejoras 5, 6 y 7, decisión D).
     y 2.365 de las creaciones y las tarjetas;
   - murieron las 18 mutaciones, las 10 del paso y las 8 de la unión. La de apagar la vista móvil
     sobrevivió primero y la mató `92b8e291`.
+  - commit a commit (`verify_commit`): diez dan 19. `e97fea0a`, `bfa47a3b` y `739ec50d` dan 20,
+    por un renglón de comentario de 81 columnas en `layout_only_pages.dart` que corrige
+    `d3c1d8de`. La historia ya estaba subida y no se reescribió.
 - **Queda abierto:**
   - un idioma latino equivocado guardado como elegible (por ejemplo «en» en un video en español)
     se toma como elección; se corrige con el diálogo de volver a extraer;
