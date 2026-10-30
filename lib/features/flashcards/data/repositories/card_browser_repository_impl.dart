@@ -137,29 +137,9 @@ class CardBrowserRepositoryImpl implements CardBrowserRepository {
     CardBrowserQuery query,
   ) => _guarded('CardBrowserRepositoryImpl.statusCounts', () async {
     final sql = await _sqlFor(query, withStatus: false);
-    const isNew = CardBrowserSql.isNew;
     final row = await _db
         .customSelect(
-          'SELECT '
-          'COALESCE(SUM(CASE WHEN f.suspended = 0 AND ($isNew) '
-          'THEN 1 ELSE 0 END), 0) AS new_cards, '
-          'COALESCE(SUM(CASE WHEN f.suspended = 0 '
-          'AND f.learning_step IS NOT NULL THEN 1 ELSE 0 END), 0) AS learning, '
-          'COALESCE(SUM(CASE WHEN f.suspended = 0 '
-          'AND f.learning_step IS NULL AND NOT ($isNew) '
-          'AND f.interval_days < $kMatureIntervalDays '
-          'THEN 1 ELSE 0 END), 0) AS young, '
-          'COALESCE(SUM(CASE WHEN f.suspended = 0 '
-          'AND f.learning_step IS NULL AND NOT ($isNew) '
-          'AND f.interval_days >= $kMatureIntervalDays '
-          'THEN 1 ELSE 0 END), 0) AS mature, '
-          'COALESCE(SUM(CASE WHEN f.suspended = 1 THEN 1 ELSE 0 END), 0) '
-          'AS suspended, '
-          'COALESCE(SUM(CASE WHEN f.suspended = 0 AND NOT ($isNew) '
-          'AND f.due_at < ? THEN 1 ELSE 0 END), 0) AS due, '
-          'COALESCE(SUM(CASE WHEN f.buried_until IS NOT NULL '
-          'AND f.buried_until > ? THEN 1 ELSE 0 END), 0) AS buried '
-          '${CardBrowserSql.from} WHERE ${sql.where}',
+          CardBrowserSql.statusCountsSql(sql.where),
           variables: [
             Variable.withDateTime(sql.dayEnd),
             Variable.withDateTime(sql.now),
@@ -168,15 +148,7 @@ class CardBrowserRepositoryImpl implements CardBrowserRepository {
           readsFrom: _reads,
         )
         .getSingle();
-    return right({
-      CardBrowserStatus.newCards: row.read<int>('new_cards'),
-      CardBrowserStatus.learning: row.read<int>('learning'),
-      CardBrowserStatus.young: row.read<int>('young'),
-      CardBrowserStatus.mature: row.read<int>('mature'),
-      CardBrowserStatus.suspended: row.read<int>('suspended'),
-      CardBrowserStatus.due: row.read<int>('due'),
-      CardBrowserStatus.buried: row.read<int>('buried'),
-    });
+    return right(CardBrowserSql.statusCountsOf(row));
   });
 
   @override

@@ -99,6 +99,44 @@ class CardBrowserSql {
       'f.buried_until IS NOT NULL AND f.buried_until > ?',
   };
 
+  /// Cuántas tarjetas hay en cada estado con el `WHERE` [where] (sobre `f` e
+  /// `i`), en una sola lectura: lo que rotula los filtros de «Mis tarjetas» y
+  /// el reparto de las estadísticas, que así no pueden discrepar. Los
+  /// parámetros: el fin del día de estudio, ahora y después los de [where].
+  /// Se lee con [statusCountsOf].
+  static String statusCountsSql(String where) =>
+      'SELECT '
+      'COALESCE(SUM(CASE WHEN f.suspended = 0 AND ($isNew) '
+      'THEN 1 ELSE 0 END), 0) AS new_cards, '
+      'COALESCE(SUM(CASE WHEN f.suspended = 0 '
+      'AND f.learning_step IS NOT NULL THEN 1 ELSE 0 END), 0) AS learning, '
+      'COALESCE(SUM(CASE WHEN f.suspended = 0 '
+      'AND f.learning_step IS NULL AND NOT ($isNew) '
+      'AND f.interval_days < $kMatureIntervalDays '
+      'THEN 1 ELSE 0 END), 0) AS young, '
+      'COALESCE(SUM(CASE WHEN f.suspended = 0 '
+      'AND f.learning_step IS NULL AND NOT ($isNew) '
+      'AND f.interval_days >= $kMatureIntervalDays '
+      'THEN 1 ELSE 0 END), 0) AS mature, '
+      'COALESCE(SUM(CASE WHEN f.suspended = 1 THEN 1 ELSE 0 END), 0) '
+      'AS suspended, '
+      'COALESCE(SUM(CASE WHEN f.suspended = 0 AND NOT ($isNew) '
+      'AND f.due_at < ? THEN 1 ELSE 0 END), 0) AS due, '
+      'COALESCE(SUM(CASE WHEN f.buried_until IS NOT NULL '
+      'AND f.buried_until > ? THEN 1 ELSE 0 END), 0) AS buried '
+      '$from WHERE $where';
+
+  /// Lo que devuelve [statusCountsSql].
+  static Map<CardBrowserStatus, int> statusCountsOf(QueryRow row) => {
+    CardBrowserStatus.newCards: row.read<int>('new_cards'),
+    CardBrowserStatus.learning: row.read<int>('learning'),
+    CardBrowserStatus.young: row.read<int>('young'),
+    CardBrowserStatus.mature: row.read<int>('mature'),
+    CardBrowserStatus.suspended: row.read<int>('suspended'),
+    CardBrowserStatus.due: row.read<int>('due'),
+    CardBrowserStatus.buried: row.read<int>('buried'),
+  };
+
   /// Lo que viene después del `FROM` en toda consulta: las tarjetas unidas a su
   /// elemento (que tiene que estar vivo).
   static const from = 'FROM flashcards f JOIN item i ON i.id = f.item_id';
