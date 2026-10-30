@@ -415,3 +415,19 @@ flutter:
           weight: 500
         - asset: assets/fonts/JetBrainsMono-Variable.ttf
           weight: 700
+
+    # La quinta letra de lectura del marco (F47, paso 1): las otras cuatro
+    # —Lora, Source Sans 3, Inter y Nunito— ya venían. Ver
+    # tool/fetch_reading_fonts.sh y `ReadingFont`; licencia OFL al lado.
+    - family: Atkinson Hyperlegible Next
+      fonts:
+        - asset: assets/fonts/AtkinsonHyperlegibleNext-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/AtkinsonHyperlegibleNext-Variable.ttf
+          weight: 700
+        - asset: assets/fonts/AtkinsonHyperlegibleNext-Italic-Variable.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/AtkinsonHyperlegibleNext-Italic-Variable.ttf
+          weight: 700
+          style: italic
