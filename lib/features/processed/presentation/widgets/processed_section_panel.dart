@@ -123,14 +123,18 @@ class ProcessedSectionPanel extends StatelessWidget {
 }
 
 /// Qué se lee al tocar «Escuchar» en [section], o `null` si no tiene una
-/// lectura propia —las palabras clave, las notas y los fragmentos se escuchan
-/// con el botón flotante, que lee todo; las imágenes no se leen—. Las palabras
-/// clave no van con `ReadScope.keywords`: esa capa lee las palabras sueltas, y
-/// acá cada parte es la oración entera que las lleva.
+/// lectura propia —el texto, las palabras clave, las notas y los fragmentos se
+/// escuchan con el botón flotante, que lee todo; las imágenes no se leen—. Las
+/// palabras clave no van con `ReadScope.keywords`: esa capa lee las palabras
+/// sueltas, y acá cada parte es la oración entera que las lleva.
+///
+/// El texto no lleva el suyo (F45, paso 4): leía lo mismo que el lector
+/// flotante de abajo —el documento entero, desde la página que se mira—, y
+/// eran dos botones para una sola función.
 ReadScope? _listenScopeOf(ProcessedSection section) => switch (section) {
-  ProcessedSection.text => ReadScope.all,
   ProcessedSection.summary => ReadScope.summary,
   ProcessedSection.synthesis => ReadScope.synthesis,
+  ProcessedSection.text ||
   ProcessedSection.keywords ||
   ProcessedSection.notes ||
   ProcessedSection.fragments ||

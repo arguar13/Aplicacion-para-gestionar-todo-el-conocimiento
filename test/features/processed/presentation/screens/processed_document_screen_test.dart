@@ -516,10 +516,19 @@ void main() {
       // Cada pedazo, en su parte: así se resalta en su lugar.
       expect(readable.segments.map((s) => s.sourceKey).toSet(), hasLength(2));
       expect(find.byKey(const Key('processed-listen-summary')), findsOneWidget);
-      // El del texto, al desplegarlo.
+      // El texto, desplegado, no lleva «Escuchar» (F45, paso 4): lo lee el
+      // lector flotante, que ya lo ofrece entero.
       await tester.tap(find.text(es.processedSectionText));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('processed-listen-all')), findsOneWidget);
+      expect(find.text(text), findsWidgets);
+      expect(find.byKey(const Key('processed-listen-all')), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('processed-section-text')),
+          matching: find.text(es.studyListen),
+        ),
+        findsNothing,
+      );
     });
   });
 
