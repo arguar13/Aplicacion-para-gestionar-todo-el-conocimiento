@@ -4,13 +4,13 @@ import 'dart:collection';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
-import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_queue_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_text_refresh.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_tidy_providers.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/source_text_button.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
@@ -488,9 +488,10 @@ final processingQueueProvider =
           // queda como consulta, y la IA organiza lo que la persona elija de
           // ella al triarla, en su documento procesado.
           //
-          // Un video que se volvió a extraer desde Procesado (F45, paso 4):
-          // su texto nuevo va al documento.
-          if (item.source.kind == SourceKind.youtube) {
+          // Una fuente que se volvió a extraer desde su documento procesado
+          // (F45, paso 4): su texto nuevo va a ese documento. Solo las que
+          // lo pueden pedir: las demás no tienen nada que esperar.
+          if (offersSourceTextActions(item.source.kind)) {
             unawaited(
               ref.read(processedTextRefreshProvider).afterProcessed(item),
             );
