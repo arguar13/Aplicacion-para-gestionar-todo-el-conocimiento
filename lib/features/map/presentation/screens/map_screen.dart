@@ -80,6 +80,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _openTension() => context.push(RoutePaths.graphTension);
 
+  /// Lo que ofrece la capa «Parecidos» sin el modelo de vínculos (F30).
+  void _openEmbeddingModel() => context.push(RoutePaths.embeddingModel);
+
   /// «✨ Preguntar al chat» desde la ficha de un nodo: una conversación nueva
   /// sobre lo procesado, con la pregunta hecha y a la vista; se manda sola al
   /// tocar el botón, como «Explicar» (F43, decisión L).
@@ -236,6 +239,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               onOpenTopic: (valueId) => _openTopic(selected, valueId),
               onOpenItem: _openItem,
               onOpenTension: _openTension,
+              onDownloadModel: _openEmbeddingModel,
               onAsk: _ask,
               onStudy: _study,
             ),
@@ -260,6 +264,7 @@ class _MapBody extends ConsumerWidget {
     required this.onOpenTopic,
     required this.onOpenItem,
     required this.onOpenTension,
+    required this.onDownloadModel,
     required this.onAsk,
     required this.onStudy,
   });
@@ -276,6 +281,7 @@ class _MapBody extends ConsumerWidget {
   final void Function(String valueId) onOpenTopic;
   final void Function(String itemId) onOpenItem;
   final VoidCallback onOpenTension;
+  final VoidCallback onDownloadModel;
   final ValueChanged<String> onAsk;
   final ValueChanged<CreationScope> onStudy;
 
@@ -317,6 +323,8 @@ class _MapBody extends ConsumerWidget {
           onOpenItem: onOpenItem,
           onAsk: onAsk,
           onStudy: onStudy,
+          onOpenTension: onOpenTension,
+          onDownloadModel: onDownloadModel,
         ),
       };
     }

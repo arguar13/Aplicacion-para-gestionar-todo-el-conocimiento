@@ -4,6 +4,7 @@ import 'package:sinapsis/features/map/domain/services/canvas_tree_builder.dart';
 import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
 import 'package:sinapsis/features/map/domain/services/link_strength.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_canvas_request.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_layers_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Lo menos que necesitan las migas al lado de los botones.
@@ -236,15 +237,15 @@ class MapCanvasHeader extends StatelessWidget {
   }
 }
 
-/// Lo de abajo del lienzo (F44, paso 2): la disposición y los vínculos a un
+/// Lo de abajo del lienzo (F44, paso 2): la disposición y las capas a un
 /// lado, y el minimapa con el zoom al otro. En lo muy angosto se achican, no
 /// se pisan.
 class MapCanvasControls extends StatelessWidget {
   const MapCanvasControls({
     required this.arrangement,
     required this.onArrangement,
-    required this.links,
-    required this.onLinks,
+    required this.layersOn,
+    required this.onLayers,
     required this.minimap,
     required this.onZoomOut,
     required this.onZoomIn,
@@ -256,9 +257,9 @@ class MapCanvasControls extends StatelessWidget {
   final MapArrangement arrangement;
   final ValueChanged<MapArrangement> onArrangement;
 
-  /// Si están prendidos los vínculos entre documentos.
-  final bool links;
-  final ValueChanged<bool> onLinks;
+  /// Cuántas capas hay prendidas, y abrir su hoja (F44, paso 5).
+  final int layersOn;
+  final VoidCallback onLayers;
 
   /// El minimapa, encima del zoom: se esconde solo.
   final Widget minimap;
@@ -288,7 +289,11 @@ class MapCanvasControls extends StatelessWidget {
                   onChanged: onArrangement,
                 ),
                 const SizedBox(width: 8),
-                MapLinksToggle(on: links, onChanged: onLinks),
+                MapLayersButton(
+                  count: layersOn,
+                  showLabel: showLabels,
+                  onPressed: onLayers,
+                ),
               ],
             ),
           ),
@@ -314,35 +319,6 @@ class MapCanvasControls extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Prende o apaga los documentos vinculados entre sí: el lugar provisorio,
-/// hasta la ola 2, de la capa «Vínculos».
-class MapLinksToggle extends StatelessWidget {
-  const MapLinksToggle({required this.on, required this.onChanged, super.key});
-
-  final bool on;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final colors = Theme.of(context).colorScheme;
-    return Material(
-      color: on ? colors.secondaryContainer : colors.surfaceContainerHigh,
-      elevation: 2,
-      shadowColor: colors.shadow.withValues(alpha: 0.3),
-      shape: const CircleBorder(),
-      child: IconButton(
-        key: const ValueKey('map-links-toggle'),
-        isSelected: on,
-        tooltip: on ? l10n.f44S2LinksOff : l10n.f44S2LinksOn,
-        icon: const Icon(Icons.link),
-        color: on ? colors.onSecondaryContainer : null,
-        onPressed: () => onChanged(!on),
-      ),
     );
   }
 }

@@ -1,10 +1,17 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fpdart/fpdart.dart' hide State;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
+import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -14,21 +21,31 @@ import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/map_insights.dart';
+import 'package:sinapsis/features/map/domain/entities/map_layers.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
+import 'package:sinapsis/features/map/domain/services/board_facts.dart';
+import 'package:sinapsis/features/map/domain/services/canvas_layers.dart';
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
 import 'package:sinapsis/features/map/domain/services/link_strength.dart';
+import 'package:sinapsis/features/map/presentation/providers/board_providers.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_canvas_request.dart';
+import 'package:sinapsis/features/map/presentation/providers/map_layers_provider.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_network.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_tree.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_layers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_view.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_layer_marks.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_edges_painter.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_item_box.dart';
+import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/relations/domain/services/similar_pairs.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -101,6 +118,26 @@ class _FakeRepository implements KnowledgeMapRepository {
       const Stream.empty();
 }
 
+/// Lo único que el lienzo le pide a Organizar: vincular dos documentos desde un
+/// parecido (F44, paso 5).
+class _FakeOrganize extends Fake implements OrganizeRepository {
+  final created = <(String, String, RelationKind)>[];
+
+  @override
+  Future<Either<Failure, Unit>> createRelation({
+    required String fromItemId,
+    required String toItemId,
+    required RelationKind kind,
+    String? note,
+    int? sourceCharStart,
+    int? sourceCharEnd,
+    AiProvenance? ai,
+  }) async {
+    created.add((fromItemId, toItemId, kind));
+    return right(unit);
+  }
+}
+
 /// El lienzo único del Mapa (F44, paso 2) como widget: las tres alturas, Red ·
 /// Radial · Árbol, el minimapa, ⊕ ⊖ ⛶, la exportación, «Ver como lista» y los
 /// vínculos entre documentos.
@@ -112,10 +149,21 @@ void main() {
   final studied = <CreationScope>[];
   final linkRequests = <MapLinksRequest>[];
 
-  /// Cuántas veces se acomodó una escena: abrir una ficha o centrar no
-  /// acomoda nada.
+  /// Cuántas veces se acomodó una escena: abrir una ficha, centrar o prender
+  /// una capa no acomoda nada.
   var layouts = 0;
   late ProviderContainer container;
+  late SharedPreferences prefs;
+
+  // Lo que leen las capas (F44, paso 5), con dobles.
+  var tensionsOpened = 0;
+  var modelDownloads = 0;
+  var cardReads = 0;
+  var modelReady = true;
+  var cards = <String, BoardCardFact>{};
+  var similarPairs = <SimilarPair>[];
+  final similarRequests = <MapSimilarRequest>[];
+  late _FakeOrganize organize;
 
   /// Dos comunidades de temas muy unidos entre sí —Alfa, de [alfaSize], y
   /// Beta, de cuatro— con un vínculo entre las dos, y temas aislados.
@@ -126,6 +174,8 @@ void main() {
     int alfaSize = 4,
     bool empty = false,
     bool withInsights = true,
+    int unthemed = 0,
+    bool contradiction = false,
   }) {
     final alfa = [for (var i = 1; i <= alfaSize; i++) 'a$i'];
     final beta = withBeta ? ['b1', 'b2', 'b3', 'b4'] : <String>[];
@@ -163,11 +213,18 @@ void main() {
       items: empty ? const [] : items,
       relations: [
         if (withBeta && !empty)
-          const TopicRelation(
+          TopicRelation(
             fromItemId: 'x-a1-a2-0',
             toItemId: 'x-b1-b2-0',
-            kind: RelationKind.relatedTo,
+            kind: contradiction
+                ? RelationKind.contradicts
+                : RelationKind.relatedTo,
           ),
+      ],
+      // Los documentos sin ningún tema: la burbuja «Sin tema».
+      unassigned: [
+        for (var i = 0; i < unthemed; i++)
+          TopicItem(id: 'suelto$i', valueIds: const [], title: 'Suelto $i'),
       ],
     );
     final computed = computeMap(input, const CommunityMemory.none());
@@ -238,6 +295,8 @@ void main() {
           onOpenItem: (id) => opened.add('item:$id'),
           onAsk: asked.add,
           onStudy: studied.add,
+          onOpenTension: () => tensionsOpened++,
+          onDownloadModel: () => modelDownloads++,
         ),
       ),
     ),
@@ -305,7 +364,7 @@ void main() {
     ),
   );
 
-  setUp(() {
+  setUp(() async {
     repository = _FakeRepository();
     opened.clear();
     asked.clear();
@@ -313,6 +372,16 @@ void main() {
     layouts = 0;
     linkRequests.clear();
     handle = null;
+    tensionsOpened = 0;
+    modelDownloads = 0;
+    cardReads = 0;
+    modelReady = true;
+    cards = {};
+    similarPairs = [];
+    similarRequests.clear();
+    organize = _FakeOrganize();
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
     container = ProviderContainer(
       overrides: [
         knowledgeMapRepositoryProvider.overrideWithValue(repository),
@@ -324,10 +393,63 @@ void main() {
           linkRequests.add(request);
           return Stream.value(linkGraph(request));
         }),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        boardCardsProvider.overrideWith((ref) {
+          cardReads++;
+          return Stream.value(cards);
+        }),
+        mapSimilarModelReadyProvider.overrideWith((ref) async => modelReady),
+        mapSimilarPairsProvider.overrideWith((ref, request) async {
+          similarRequests.add(request);
+          return similarPairs;
+        }),
+        organizeRepositoryProvider.overrideWithValue(organize),
       ],
     );
     addTearDown(container.dispose);
   });
+
+  // --- Las capas (F44, paso 5) ---
+
+  final layersButton = find.byKey(const ValueKey('map-layers'));
+  Finder layerSwitch(MapLayer layer) =>
+      find.byKey(ValueKey('map-layer-${layer.name}'));
+
+  /// Abre la hoja de las capas.
+  Future<void> openLayers(WidgetTester tester) async {
+    await tester.tap(layersButton);
+    await tester.pumpAndSettle();
+  }
+
+  /// Cierra la hoja de las capas, como quien toca fuera de ella.
+  Future<void> closeLayers(WidgetTester tester) async {
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+  }
+
+  /// Prende o apaga [layer] desde su hoja y la cierra.
+  Future<void> setLayer(
+    WidgetTester tester,
+    MapLayer layer, {
+    required bool on,
+  }) async {
+    await openLayers(tester);
+    final tile = tester.widget<SwitchListTile>(layerSwitch(layer));
+    if (tile.value != on) {
+      await tester.ensureVisible(layerSwitch(layer));
+      await tester.tap(layerSwitch(layer));
+      await tester.pumpAndSettle();
+    }
+    await closeLayers(tester);
+  }
+
+  /// «Ver todo lo vinculado», desde la capa «Vínculos»: lo que era la vista
+  /// «Vínculos».
+  Future<void> seeAllLinks(WidgetTester tester) async {
+    await openLayers(tester);
+    await tester.tap(find.byKey(const ValueKey('map-layer-links-all')));
+    await tester.pumpAndSettle();
+  }
 
   test('los datos de las pruebas dan dos comunidades y un aislado', () {
     final map = snapshot();
@@ -1316,13 +1438,13 @@ void main() {
   });
 
   group('los documentos vinculados (lo que era la vista «Vínculos»)', () {
-    final toggle = find.byKey(const ValueKey('map-links-toggle'));
-
-    testWidgets('se prenden con su botón: lo vinculado tenga o no tema, '
-        'cuántos son y cuántos quedan sueltos', (tester) async {
+    testWidgets('«Ver todo lo vinculado», en la capa «Vínculos»: lo vinculado '
+        'tenga o no tema, cuántos son y cuántos quedan sueltos', (
+      tester,
+    ) async {
       await pump(tester);
 
-      await tapAndSettle(tester, toggle);
+      await seeAllLinks(tester);
 
       expect(node('item:a'), findsOneWidget);
       expect(node('item:c'), findsOneWidget);
@@ -1332,16 +1454,17 @@ void main() {
       expect(crumb('links'), findsOneWidget);
       expect(find.byKey(const ValueKey('map-ai-suggest')), findsOneWidget);
 
-      // Apagarlos vuelve a donde se estaba.
-      await tapAndSettle(tester, toggle);
+      // Apagar la capa vuelve a donde se estaba: eso era lo que mostraba.
+      await setLayer(tester, MapLayer.links, on: false);
       expect(node('overview:0'), findsOneWidget);
+      expect(crumb('links'), findsNothing);
     });
 
     testWidgets('«Más fuertes» pide la mitad que más pesa y lo avisa', (
       tester,
     ) async {
       await pump(tester);
-      await tapAndSettle(tester, toggle);
+      await seeAllLinks(tester);
       expect(
         find.byKey(const ValueKey('map-links-strength-cut')),
         findsNothing,
@@ -1364,18 +1487,20 @@ void main() {
         'comunidades', (tester) async {
       await pump(tester);
       await enter(tester, node('overview:0'));
-      await tapAndSettle(tester, toggle);
+      await seeAllLinks(tester);
 
       await tapAndSettle(tester, crumb('overview'));
 
       expect(node('overview:0'), findsOneWidget);
-      expect(tester.widget<IconButton>(toggle).isSelected, isFalse);
+      expect(crumb('links'), findsNothing);
+      // La capa sigue prendida: es una elección, no un lugar.
+      expect(container.read(mapLayersProvider), contains(MapLayer.links));
     });
 
     testWidgets('en radial, todo lo vinculado alrededor, y cada documento con '
         'sus vínculos', (tester) async {
       await pump(tester);
-      await tapAndSettle(tester, toggle);
+      await seeAllLinks(tester);
 
       await arrange(tester, Icons.radar);
 
@@ -1619,12 +1744,7 @@ void main() {
 
       await tapAndSettle(tester, action('see-links'));
       expect(linkRequests.last.focusId, 'i1');
-      expect(
-        tester
-            .widget<IconButton>(find.byKey(const ValueKey('map-links-toggle')))
-            .isSelected,
-        isTrue,
-      );
+      expect(crumb('links'), findsOneWidget);
     });
 
     testWidgets('un vecino dibujado: su ficha, ahí mismo', (tester) async {
@@ -1930,6 +2050,419 @@ void main() {
     });
   });
 
+  group('las capas (F44, paso 5)', () {
+    MapNetworkLayer network(WidgetTester tester) =>
+        tester.widget<MapNetworkLayer>(find.byType(MapNetworkLayer));
+    MapItemBox box(WidgetTester tester, String id) => tester.widget<MapItemBox>(
+      find.descendant(of: node('item:$id'), matching: find.byType(MapItemBox)),
+    );
+    Future<void> topicDocuments(WidgetTester tester) async {
+      await enter(tester, node('overview:0'));
+      await enter(tester, node('topic:a1'));
+    }
+
+    testWidgets('el botón «Capas» abre su hoja: arrancan apagadas salvo '
+        '«Vínculos», y la elección se recuerda', (tester) async {
+      await pump(tester);
+      expect(find.byTooltip(es.f44S5LayersTooltip(1)), findsOneWidget);
+
+      await openLayers(tester);
+      bool on(MapLayer layer) =>
+          tester.widget<SwitchListTile>(layerSwitch(layer)).value;
+      expect(on(MapLayer.links), isTrue);
+      expect([
+        for (final layer in MapLayer.values.skip(1)) on(layer),
+      ], everyElement(isFalse));
+
+      await tester.ensureVisible(layerSwitch(MapLayer.study));
+      await tapAndSettle(tester, layerSwitch(MapLayer.study));
+      expect(prefs.getStringList('map_layers'), ['links', 'study']);
+      expect(on(MapLayer.study), isTrue);
+    });
+
+    testWidgets('prender o apagar cualquiera no acomoda nada ni vuelve a leer '
+        'los documentos', (tester) async {
+      await pump(tester, snapshot(unthemed: 2, contradiction: true));
+      await topicDocuments(tester);
+      final layoutsBefore = layouts;
+      final readsBefore = [...repository.requested];
+
+      final layers = container.read(mapLayersProvider.notifier);
+      for (final layer in MapLayer.values) {
+        layers.set(
+          layer,
+          on: !container.read(mapLayersProvider).contains(layer),
+        );
+        await tester.pumpAndSettle();
+        layers.set(
+          layer,
+          on: !container.read(mapLayersProvider).contains(layer),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      expect(layouts, layoutsBefore);
+      expect(repository.requested, readsBefore);
+      expect(node('item:i1'), findsOneWidget);
+    });
+
+    testWidgets('«Vínculos»: apagada, los documentos de un tema se ven sin sus '
+        'uniones; prendida, con ellas', (tester) async {
+      await pump(tester);
+      await topicDocuments(tester);
+      expect(network(tester).scene.edges, hasLength(1));
+
+      await setLayer(tester, MapLayer.links, on: false);
+      expect(network(tester).scene.edges, isEmpty);
+      expect(node('item:i2'), findsOneWidget);
+
+      await setLayer(tester, MapLayer.links, on: true);
+      expect(network(tester).scene.edges.single.relation, RelationKind.cites);
+    });
+
+    group('«Sin tema»', () {
+      testWidgets('la burbuja gris aparece de lejos sin acomodar nada, y '
+          'tocarla muestra sus documentos sin pedirlos a la base', (
+        tester,
+      ) async {
+        final semantics = tester.ensureSemantics();
+        await pump(tester, snapshot(unthemed: 3));
+        expect(node(kUnthemedSceneKey), findsNothing);
+        final before = layouts;
+
+        await setLayer(tester, MapLayer.unthemed, on: true);
+        expect(node(kUnthemedSceneKey), findsOneWidget);
+        expect(layouts, before);
+        final name = es.f44S5LayerUnthemed('spaces');
+        expect(
+          tester.getSemantics(node(kUnthemedSceneKey)).label,
+          es.f44S5UnthemedSemantics(name, 3),
+        );
+
+        // Un toque entra: la burbuja no tiene ficha.
+        await tapAndSettle(tester, node(kUnthemedSceneKey));
+        expect(node('item:suelto0'), findsOneWidget);
+        expect(node('item:suelto2'), findsOneWidget);
+        expect(crumb('unthemed'), findsOneWidget);
+        expect(find.text(name), findsWidgets);
+        expect(repository.requested, isEmpty);
+        expect(sheet, findsNothing);
+        semantics.dispose();
+      });
+
+      testWidgets('apagarla mirando sus documentos vuelve a las comunidades', (
+        tester,
+      ) async {
+        await pump(tester, snapshot(unthemed: 2));
+        await setLayer(tester, MapLayer.unthemed, on: true);
+        await tapAndSettle(tester, node(kUnthemedSceneKey));
+
+        await setLayer(tester, MapLayer.unthemed, on: false);
+
+        expect(node('overview:0'), findsOneWidget);
+        expect(node(kUnthemedSceneKey), findsNothing);
+        expect(crumb('unthemed'), findsNothing);
+      });
+
+      testWidgets('alejarse desde sus documentos vuelve a las comunidades, no '
+          'a los temas', (tester) async {
+        await pump(tester, snapshot(unthemed: 2));
+        await setLayer(tester, MapLayer.unthemed, on: true);
+        await tapAndSettle(tester, node(kUnthemedSceneKey));
+
+        // Alejarse con dos dedos, mucho.
+        viewer(
+          tester,
+        ).transformationController!.value = Matrix4.diagonal3Values(
+          kZoomOutThreshold - 0.1,
+          kZoomOutThreshold - 0.1,
+          kZoomOutThreshold - 0.1,
+        );
+        viewer(tester).onInteractionEnd!(ScaleEndDetails());
+        await tester.pumpAndSettle();
+
+        expect(node(kUnthemedSceneKey), findsOneWidget);
+        expect(crumb('topics'), findsNothing);
+      });
+
+      testWidgets(
+        'un documento sin tema vuela a la burbuja, resaltado y con su '
+        'ficha, y la capa se prende sola',
+        (tester) async {
+          await pump(tester, snapshot(unthemed: 3));
+
+          container.read(mapCanvasRequestProvider.notifier).state =
+              const MapShowDocument('suelto1');
+          await tester.pumpAndSettle();
+
+          expect(crumb('unthemed'), findsOneWidget);
+          expect(box(tester, 'suelto1').highlighted, isTrue);
+          expect(sheet, findsOneWidget);
+          expect(
+            container.read(mapLayersProvider),
+            contains(MapLayer.unthemed),
+          );
+          expect(linkRequests, isEmpty);
+        },
+      );
+
+      testWidgets('en radial, la burbuja está entre las comunidades y se '
+          'despliega en sus documentos', (tester) async {
+        await pump(tester, snapshot(unthemed: 2));
+        await setLayer(tester, MapLayer.unthemed, on: true);
+        await arrange(tester, Icons.radar);
+
+        expect(card('unthemed:'), findsOneWidget);
+        await tapAndSettle(tester, card('unthemed:'));
+        expect(card('item:suelto0'), findsOneWidget);
+        expect(repository.schemaRequested, isEmpty);
+      });
+    });
+
+    testWidgets('«Contradicciones»: en rojo y con su rayo solo prendida; dice '
+        'cuántas hay a la vista y lleva a Tensión', (tester) async {
+      handle = MapExportHandle();
+      await pump(tester, snapshot(contradiction: true));
+      expect(network(tester).scene.edges.where((e) => e.tension), isEmpty);
+      expect(find.byKey(const ValueKey('map-tensions')), findsNothing);
+      expect(handle!.svg!(), isNot(contains('<polygon')));
+
+      await setLayer(tester, MapLayer.tensions, on: true);
+
+      expect(network(tester).scene.edges.where((e) => e.tension), hasLength(1));
+      expect(find.text(es.f44S5TensionsShown(1)), findsOneWidget);
+      // El rayo también en lo que se exporta (decisión G).
+      expect(handle!.svg!(), contains('<polygon'));
+      await tapAndSettle(
+        tester,
+        find.byKey(const ValueKey('map-tensions-open')),
+      );
+      expect(tensionsOpened, 1);
+    });
+
+    group('«Parecidos»', () {
+      setUp(() {
+        repository.items = const [
+          TopicItemNode(id: 'i1', title: 'Livio', isNote: false),
+          TopicItemNode(id: 'i2', title: 'Mi nota', isNote: true),
+          TopicItemNode(id: 'i3', title: 'Tácito', isNote: false),
+        ];
+        similarPairs = [
+          SimilarPair('i3', 'i1', 0.87),
+          // Ya vinculados: no se propone.
+          SimilarPair('i1', 'i2', 0.9),
+        ];
+      });
+
+      testWidgets('sin el modelo de vínculos, lo dice y lleva a descargarlo', (
+        tester,
+      ) async {
+        modelReady = false;
+        await pump(tester);
+        await openLayers(tester);
+
+        expect(
+          tester
+              .widget<SwitchListTile>(layerSwitch(MapLayer.similar))
+              .onChanged,
+          isNull,
+        );
+        expect(find.text(es.f44S5SimilarNeedsModel), findsOneWidget);
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('map-layer-similar-download')),
+        );
+        await tapAndSettle(
+          tester,
+          find.byKey(const ValueKey('map-layer-similar-download')),
+        );
+        expect(modelDownloads, 1);
+        expect(find.byKey(const ValueKey('map-layers-sheet')), findsNothing);
+        expect(similarRequests, isEmpty);
+      });
+
+      testWidgets('entre los documentos a la vista: una línea punteada con su '
+          '≈, y nunca entre lo ya vinculado', (tester) async {
+        final semantics = tester.ensureSemantics();
+        await pump(tester);
+        await setLayer(tester, MapLayer.similar, on: true);
+        // De lejos no hay documentos: no compara nada, y lo dice.
+        expect(similarRequests, isEmpty);
+        expect(find.text(es.f44S5SimilarOnlyDocuments), findsOneWidget);
+
+        await topicDocuments(tester);
+
+        expect(similarRequests.single.itemIds, ['i1', 'i2', 'i3']);
+        final marker = find.byKey(const ValueKey('map-similar-i1-i3'));
+        expect(marker, findsOneWidget);
+        expect(find.byKey(const ValueKey('map-similar-i1-i2')), findsNothing);
+        expect(find.text(es.f44S5SimilarShown(1)), findsOneWidget);
+        expect(
+          tester.getSemantics(marker).label,
+          es.f44S5SimilarPair('Livio', 'Tácito', 87),
+        );
+        semantics.dispose();
+      });
+
+      testWidgets('el ≈ propone y la persona confirma: «Ahora no» no vincula, '
+          '«Vincular» sí', (tester) async {
+        await pump(tester);
+        await setLayer(tester, MapLayer.similar, on: true);
+        await topicDocuments(tester);
+        final marker = find.byKey(const ValueKey('map-similar-i1-i3'));
+
+        await tapAndSettle(tester, marker);
+        expect(
+          find.text(es.f44S5SimilarBody('Livio', 'Tácito', 87)),
+          findsOneWidget,
+        );
+        await tapAndSettle(
+          tester,
+          find.byKey(const ValueKey('map-similar-dismiss')),
+        );
+        expect(organize.created, isEmpty);
+
+        await tapAndSettle(tester, marker);
+        await tapAndSettle(
+          tester,
+          find.byKey(const ValueKey('map-similar-link')),
+        );
+        expect(organize.created, [('i1', 'i3', RelationKind.relatedTo)]);
+        expect(find.text(es.relationLinked), findsOneWidget);
+        // Deja de proponerse en el acto, sin esperar a que el mapa lo dibuje.
+        expect(marker, findsNothing);
+      });
+
+      testWidgets('se exportan con su línea punteada', (tester) async {
+        handle = MapExportHandle();
+        await pump(tester);
+        await setLayer(tester, MapLayer.similar, on: true);
+        await topicDocuments(tester);
+
+        expect(handle!.svg!(), contains('stroke-dasharray="6 5"'));
+      });
+    });
+
+    group('«Estudio»', () {
+      setUp(() {
+        cards = {
+          'i1': const BoardCardFact(cards: 4, dueToday: 3),
+          'i2': const BoardCardFact(cards: 2, dueToday: 0),
+        };
+      });
+
+      testWidgets('tiñe cada documento con su insignia, y el lector oye cómo '
+          'va su estudio; apagada no lee nada', (tester) async {
+        final semantics = tester.ensureSemantics();
+        await pump(tester);
+        await topicDocuments(tester);
+        expect(box(tester, 'i1').study, isNull);
+        expect(cardReads, 0);
+
+        await setLayer(tester, MapLayer.study, on: true);
+
+        expect(cardReads, 1);
+        expect(
+          box(tester, 'i1').study,
+          const MapStudyMark(MapStudyState.due, due: 3),
+        );
+        expect(
+          box(tester, 'i2').study,
+          const MapStudyMark(MapStudyState.upToDate),
+        );
+        expect(
+          tester.getSemantics(node('item:i1')).label,
+          'Livio · ${es.f44S5StudyDue(3)}',
+        );
+        expect(find.byKey(const ValueKey('map-study-legend')), findsOneWidget);
+        semantics.dispose();
+      });
+
+      testWidgets('en radial tiñe las tarjetas, y la lista lo dice', (
+        tester,
+      ) async {
+        await pump(tester);
+        await topicDocuments(tester);
+        await setLayer(tester, MapLayer.study, on: true);
+
+        await arrange(tester, Icons.radar);
+        expect(
+          tester
+              .widget<MapTreeNodeCard>(
+                find.ancestor(
+                  of: card('item:i1'),
+                  matching: find.byType(MapTreeNodeCard),
+                ),
+              )
+              .study,
+          const MapStudyMark(MapStudyState.due, due: 3),
+        );
+
+        await tapAndSettle(tester, find.byKey(const ValueKey('map-as-list')));
+        expect(
+          find.text('${es.mapSchemaNodeSource} · ${es.f44S5StudyDue(3)}'),
+          findsOneWidget,
+        );
+      });
+    });
+
+    testWidgets('con el lector de pantalla: cada capa es un interruptor con su '
+        'nombre, y cada cambio se anuncia', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pump(tester);
+      await openLayers(tester);
+
+      final tensions = tester.getSemantics(layerSwitch(MapLayer.tensions));
+      expect(tensions.label, contains(es.f44S5LayerTensions));
+      expect(
+        tensions.getSemanticsData().flagsCollection.isToggled,
+        Tristate.isFalse,
+      );
+
+      await tester.ensureVisible(layerSwitch(MapLayer.tensions));
+      await tapAndSettle(tester, layerSwitch(MapLayer.tensions));
+      expect(
+        find.bySemanticsLabel(es.f44S5LayerOn(es.f44S5LayerTensions)),
+        findsOneWidget,
+      );
+      await tapAndSettle(tester, layerSwitch(MapLayer.tensions));
+      expect(
+        find.bySemanticsLabel(es.f44S5LayerOff(es.f44S5LayerTensions)),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('visto como lista, las capas se eligen arriba', (tester) async {
+      await pump(tester);
+      await tapAndSettle(tester, find.byKey(const ValueKey('map-as-list')));
+
+      await tapAndSettle(tester, find.byKey(const ValueKey('map-layers-list')));
+
+      expect(find.byKey(const ValueKey('map-layers-sheet')), findsOneWidget);
+    });
+
+    testWidgets('lo que se pide de afuera vuela hasta él y late', (
+      tester,
+    ) async {
+      await pump(tester);
+
+      container.read(mapCanvasRequestProvider.notifier).state =
+          const MapShowTopic('b2');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        find.descendant(
+          of: find.byType(MapNetworkLayer),
+          matching: find.byType(MapPulse),
+        ),
+        findsOneWidget,
+      );
+      expect(network(tester).pulse?.key, 'topic:b2');
+      await tester.pumpAndSettle();
+    });
+  });
+
   group('la exportación', () {
     testWidgets('el SVG de las comunidades: un círculo por comunidad, con su '
         'cuenta y su nombre, y dice qué es', (tester) async {
@@ -1969,10 +2502,7 @@ void main() {
       expect(handle!.svg!(), contains('>${es.f44S2CrumbAll}</text>'));
       expect(handle!.subject!(), (arrangement: 'radial', links: false));
 
-      await tapAndSettle(
-        tester,
-        find.byKey(const ValueKey('map-links-toggle')),
-      );
+      await seeAllLinks(tester);
       expect(handle!.subject!(), (arrangement: 'radial', links: true));
     });
 
@@ -2069,9 +2599,20 @@ void main() {
         await arrange(tester, Icons.radar);
         expect(tester.takeException(), isNull);
 
+        // La hoja de las capas, con todas prendidas.
+        await openLayers(tester);
+        expect(tester.takeException(), isNull);
+        for (final layer in MapLayer.values.skip(1)) {
+          await tester.ensureVisible(layerSwitch(layer));
+          await tapAndSettle(tester, layerSwitch(layer));
+          expect(tester.takeException(), isNull);
+        }
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('map-layer-links-all')),
+        );
         await tapAndSettle(
           tester,
-          find.byKey(const ValueKey('map-links-toggle')),
+          find.byKey(const ValueKey('map-layer-links-all')),
         );
         expect(tester.takeException(), isNull);
 

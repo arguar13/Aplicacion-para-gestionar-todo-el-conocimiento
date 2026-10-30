@@ -29,8 +29,8 @@ GraphScene sceneWithUnthemed(
   final weights = <int, double>{};
   for (final link in bubble.communities) {
     final at = nodeOf[link.communityId];
-    if (at != null)
-      weights.update(at, (w) => w + link.weight, ifAbsent: () => link.weight);
+    if (at == null) continue;
+    weights.update(at, (w) => w + link.weight, ifAbsent: () => link.weight);
   }
   final bubbleAt = scene.nodes.length;
   return GraphScene(

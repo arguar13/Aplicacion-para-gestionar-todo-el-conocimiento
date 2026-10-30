@@ -616,14 +616,18 @@ void main() {
   });
 
   group('los documentos vinculados, en el Mapa (F28; F44, paso 2)', () {
-    /// Los vínculos se prenden con su botón; sin ningún tema, desde lo que
-    /// dice el lienzo vacío.
+    /// Lo vinculado se mira desde la capa «Vínculos» (F44, paso 5); sin
+    /// ningún tema, desde lo que dice el lienzo vacío.
     Future<void> openLinks(WidgetTester tester) async {
       await openMap(tester);
-      final toggle = find.byKey(const ValueKey('map-links-toggle'));
-      await tester.tap(
-        toggle.evaluate().isEmpty ? find.text(es.mapSeeLinksAction) : toggle,
-      );
+      final layers = find.byKey(const ValueKey('map-layers'));
+      if (layers.evaluate().isEmpty) {
+        await tester.tap(find.text(es.mapSeeLinksAction));
+      } else {
+        await tester.tap(layers);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('map-layer-links-all')));
+      }
       await tester.pumpAndSettle();
     }
 

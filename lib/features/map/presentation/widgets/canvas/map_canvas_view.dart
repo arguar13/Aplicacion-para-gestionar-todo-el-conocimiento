@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_view_fit.dart';
@@ -13,22 +14,28 @@ import 'package:sinapsis/features/graph/presentation/widgets/degree_selector.dar
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
+import 'package:sinapsis/features/map/domain/entities/map_layers.dart';
 import 'package:sinapsis/features/map/domain/entities/map_node_facts.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
+import 'package:sinapsis/features/map/domain/entities/unthemed_bubble.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/canvas_focus.dart';
+import 'package:sinapsis/features/map/domain/services/canvas_layers.dart';
 import 'package:sinapsis/features/map/domain/services/canvas_tree_builder.dart';
 import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
 import 'package:sinapsis/features/map/domain/services/level_of_detail.dart';
 import 'package:sinapsis/features/map/domain/services/link_strength.dart';
 import 'package:sinapsis/features/map/domain/services/map_node_facts_builder.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_canvas_request.dart';
+import 'package:sinapsis/features/map/presentation/providers/map_layers_provider.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_chrome.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_gesture_cache.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_layer_notes.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_layer_state.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_motion.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_network.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_placement.dart';
@@ -36,6 +43,7 @@ import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_tree.da
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_viewport.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_layers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_list.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_layers_sheet.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_minimap.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_node_sheet.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_root_picker.dart';
@@ -108,26 +116,34 @@ const _kFocusId = 'focus';
 ///   raíz posible y cada vínculo rotulado con su tipo y su flecha—.
 /// - **El minimapa** y **⊕ ⊖ ⛶**, exportar a PNG y SVG, y **«Ver como
 ///   lista»** para el lector de pantalla.
-/// - **Los vínculos entre documentos** —tengan o no tema, con su filtro de
-///   fuerza, los sueltos y el foco de «Ver en el Mapa»— se prenden con su
-///   botón, al lado de la disposición: es el lugar provisorio de lo que en la
-///   ola 2 es la capa «Vínculos».
+/// - **Las capas** (F44, paso 5), con su botón al lado de la disposición:
+///   Vínculos, Sin tema, Contradicciones, Parecidos y Estudio, varias a la
+///   vez (`CanvasLayerState`). Prender o apagar una no acomoda nada ni vuelve
+///   a leer lo que ya se tiene. «Vínculos» al nivel de los documentos sin un
+///   tema es lo vinculado —tengan o no tema, con su filtro de fuerza, los
+///   sueltos y el foco de «Ver en el Mapa»—: lo que era la vista «Vínculos».
+///   Tocar la burbuja «Sin tema» muestra sus documentos, como los de un
+///   tema.
 ///
 /// Nunca dibuja miles de nodos: las comunidades son a lo sumo 60, los temas
 /// 300 y los documentos 200. Lo acomoda el layout de fuerzas en otro isolate,
 /// en caliente cuando el mapa se recalcula, y durante un gesto pinta una
 /// captura del dibujo en vez de recorrerlo (F18).
 ///
-/// Lo que piden de afuera —el Resumen, «Ver en el Mapa» y, en el paso 5, la
-/// búsqueda— llega por `mapCanvasRequestProvider`, y va por el mismo camino
-/// que lo que se toca en la ficha (`_goTo`).
+/// Lo que piden de afuera —el Resumen, «Ver en el Mapa» y «⚲ Buscar» (F44,
+/// paso 5)— llega por `mapCanvasRequestProvider`, y va por el mismo camino
+/// que lo que se toca en la ficha (`_goTo`): el lienzo vuela hasta lo pedido
+/// y lo marca con un pulso.
 ///
 /// Acá vive lo que se mira y cómo se pasa de una cosa a otra; lo demás tiene
 /// su pieza: el dibujo de la red y del árbol (`map_canvas_layers.dart`), lo de
 /// alrededor —migas, botones, notas de abajo— (`canvas_chrome.dart`), la ficha
 /// (`map_node_sheet.dart`), dónde va cada nodo (`canvas_placement.dart`), el
-/// caché del gesto (`canvas_gesture_cache.dart`) y lo que el árbol ya sabe de
-/// cada nodo (`knownCanvasTreeLinks`).
+/// caché del gesto (`canvas_gesture_cache.dart`), lo que el árbol ya sabe de
+/// cada nodo (`knownCanvasTreeLinks`) y las capas: lo que se dibuja con ellas
+/// (`canvas_layer_state.dart`), lo que leen (`canvas_layer_feeds.dart`), su
+/// hoja (`map_layers_sheet.dart`), cómo se ven (`map_layer_marks.dart`) y lo
+/// que dicen abajo (`canvas_layer_notes.dart`).
 class MapCanvasView extends ConsumerStatefulWidget {
   const MapCanvasView({
     required this.snapshot,
@@ -137,6 +153,8 @@ class MapCanvasView extends ConsumerStatefulWidget {
     required this.onOpenItem,
     required this.onAsk,
     required this.onStudy,
+    required this.onOpenTension,
+    required this.onDownloadModel,
     this.exportHandle,
     super.key,
   });
@@ -157,6 +175,12 @@ class MapCanvasView extends ConsumerStatefulWidget {
 
   /// «🎓 Estudiar» desde una ficha: Repasar con este recorte en el selector.
   final ValueChanged<CreationScope> onStudy;
+
+  /// El atajo de la capa «Contradicciones»: la pantalla Tensión.
+  final VoidCallback onOpenTension;
+
+  /// Lo que ofrece «Parecidos» sin el modelo de vínculos: bajarlo.
+  final VoidCallback onDownloadModel;
 
   /// Donde el lienzo ofrece su dibujo para exportarlo, si alguien lo quiere.
   final MapExportHandle? exportHandle;
@@ -208,6 +232,15 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   /// Lo que dice la ficha de cada nodo, para lo que se dibuja ahora.
   final _facts = MapNodeFactsMemo();
 
+  /// Las capas (F44, paso 5): cuáles están prendidas, lo que se acomodó y lo
+  /// que se dibuja de eso.
+  late final CanvasLayerState _layers;
+
+  /// Lo que el lienzo acaba de ir a buscar —lleva un pulso—, con el número de
+  /// vuelo para que vuelva a latir.
+  ({String key, int token})? _pulse;
+  int _flights = 0;
+
   // --- Lo que se leyó ---
 
   late CommunityOverview _overview;
@@ -219,7 +252,9 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   // --- La red ---
 
-  GraphScene _scene = const GraphScene.empty();
+  /// Lo que se dibuja: lo acomodado, con las capas prendidas.
+  GraphScene get _scene => _layers.scene;
+
   final _placement = CanvasNetworkPlacement();
   Map<String, Offset> get _positions => _placement.positions;
   Size get _canvas => _placement.canvas;
@@ -295,6 +330,21 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       ref.read(knowledgeMapRepositoryProvider);
   String get _topicKind => topicSelectKind(widget.dimension);
   bool get _isTree => _arrangement != MapArrangement.network;
+  UnthemedBubble get _unthemed => widget.snapshot.insights.unthemed;
+
+  /// Si se miran los documentos de la burbuja «Sin tema».
+  bool get _inUnthemed =>
+      !_links &&
+      _altitude == MapAltitude.documents &&
+      _topicId == kUnthemedBubbleId;
+
+  /// Si se miran los documentos de un tema.
+  bool get _inTopic =>
+      _altitude == MapAltitude.documents && _topicId != null && !_inUnthemed;
+
+  /// Cómo se llama la burbuja: «Sin tema», «Sin etiquetas».
+  String get _unthemedName =>
+      AppLocalizations.of(context)!.f44S5LayerUnthemed(_topicKind);
 
   @override
   void initState() {
@@ -306,6 +356,13 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       duration: kCanvasMotionDuration,
     )..addStatusListener(_onMotionStatus);
     _offerExport(widget.exportHandle);
+    _layers = CanvasLayerState(
+      ref,
+      onChanged: () {
+        if (mounted) setState(() {});
+      },
+    );
+    ref.listenManual(mapLayersProvider, (_, layers) => _onLayers(layers));
     // Un pedido que llega con el lienzo abierto se atiende en el acto; uno que
     // llegó con el lienzo cerrado —una fila del Resumen, que lo abre—, en
     // `didChangeDependencies`: atenderlo rotula lo que se mira con los textos
@@ -349,7 +406,9 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     _overview = aggregateCommunities(_graph, widget.snapshot.detection);
     final gone =
         _focus.any((id) => _graph.indexOf(id) == null) ||
-        (_topicId != null && _graph.indexOf(_topicId!) == null);
+        (_inUnthemed
+            ? _unthemed.isEmpty
+            : _topicId != null && _graph.indexOf(_topicId!) == null);
     if (gone) {
       _altitude = MapAltitude.communities;
       _focus = {};
@@ -371,6 +430,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   @override
   void dispose() {
+    _layers.dispose();
     _linksSubscription?.close();
     _withdrawExport(widget.exportHandle);
     _controller
@@ -422,6 +482,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
           // Sin un tema que abrir, los documentos que se pueden mirar
           // todos juntos son los vinculados.
           case MapAltitude.documents:
+            _layers.turnOn(MapLayer.links);
             _links = true;
             _linksFocusId = null;
             _listenLinks();
@@ -433,13 +494,16 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         node = MapTopicRef(valueId);
       case MapShowDocument(:final itemId):
         node = MapDocumentRef(itemId);
-        final place = widget.snapshot.insights.search
-            .document(itemId)
-            ?.topicValueId;
+        final entry = widget.snapshot.insights.search.document(itemId);
+        final place = entry?.topicValueId;
         final at = place == null ? null : _graph.indexOf(place);
-        if (at == null) {
-          // Sin tema, su lugar es la burbuja «Sin tema» (paso 5); hasta
-          // entonces, lo vinculado con él en foco.
+        if (entry != null && entry.isUnthemed && !_unthemed.isEmpty) {
+          // Sin tema, su lugar es la burbuja «Sin tema», con su capa.
+          _layers.turnOn(MapLayer.unthemed);
+          _openUnthemed();
+          _highlight = 'item:$itemId';
+        } else if (at == null) {
+          // Lo que el mapa no ubica —fuera del filtro—, entre lo vinculado.
           _showLinksFocused(itemId);
         } else {
           _stopLinks();
@@ -453,13 +517,17 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     }
     _selected = select ?? node;
     if (center) _centered = _selected;
+    // Lo que se fue a buscar late al llegar.
+    if (_highlight case final key?) _pulse = (key: key, token: ++_flights);
     _rootOverride = null;
     _needsFit = true;
     unawaited(_show());
   }
 
-  /// Lo vinculado, con [focusId] —si viene— resaltado.
+  /// Lo vinculado, con [focusId] —si viene— resaltado: la capa «Vínculos» al
+  /// nivel de los documentos, que se prende si estaba apagada.
   void _showLinksFocused(String? focusId) {
+    _layers.turnOn(MapLayer.links);
     _links = true;
     _linksFocusId = focusId;
     _highlight = focusId == null ? null : 'item:$focusId';
@@ -485,6 +553,19 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       _focusGroup = scene.group;
       return;
     }
+  }
+
+  /// Los documentos de la burbuja «Sin tema»: los trae el motor
+  /// (`insights.unthemed`), sin pedirlos a la base.
+  void _openUnthemed() {
+    _stopLinks();
+    _altitude = MapAltitude.documents;
+    _focus = {};
+    _focusLabel = null;
+    _focusGroup = null;
+    _topicId = kUnthemedBubbleId;
+    _topicLabel = _unthemedName;
+    _topicItems = null;
   }
 
   void _resetToCommunities() {
@@ -536,6 +617,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   }
 
   void _setLinks(bool on) {
+    if (on) _layers.turnOn(MapLayer.links);
     setState(() {
       _stopLinks();
       _highlight = null;
@@ -551,6 +633,70 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     } else {
       unawaited(_show());
     }
+  }
+
+  // --- Las capas ---
+
+  /// Cambiaron las capas en su hoja. Apagar «Vínculos» mirando lo vinculado
+  /// —o «Sin tema» mirando sus documentos— vuelve adonde se estaba: eso era
+  /// lo que la capa mostraba. Lo demás solo cambia lo que se dibuja, sin
+  /// acomodar nada.
+  void _onLayers(Set<MapLayer> layers) {
+    if (!_layers.update(layers)) return;
+    if (_links && !_layers.has(MapLayer.links)) {
+      _setLinks(false);
+    } else if (_inUnthemed && !_layers.has(MapLayer.unthemed)) {
+      _ascend(MapAltitude.communities);
+    } else {
+      setState(_applyLayers);
+      _syncLayers();
+    }
+  }
+
+  /// Lo que se dibuja de [laidOut] —o de lo último que se acomodó—, con las
+  /// capas de ahora. El foco va por las uniones que se dibujan.
+  void _applyLayers({GraphScene? laidOut}) {
+    _layers.apply(_positions, laidOut: laidOut);
+    _lit = _litNow();
+    if (_lit == null) _centered = null;
+    _rebuildTree();
+  }
+
+  /// Si se dibuja la Red: los parecidos son de ella.
+  bool get _drawsNetwork => !_isTree && !_asList;
+
+  void _syncLayers() => _layers.sync(network: _drawsNetwork);
+
+  /// La hoja de las capas, con lo que tiene que saber de lo que se mira.
+  void _openLayers() {
+    _layers.feeds.recheckModel();
+    unawaited(
+      showMapLayersSheet(
+        context,
+        input: (
+          topicKind: _topicKind,
+          unthemedCount: _unthemed.count,
+          inTree: _isTree || _asList,
+          inLinks: _links,
+          onSeeAllLinks: () => _setLinks(true),
+          onOpenTension: widget.onOpenTension,
+          onDownloadModel: widget.onDownloadModel,
+        ),
+      ),
+    );
+  }
+
+  /// El «≈» de un parecido: ofrece vincularlos, y nada más.
+  Future<void> _proposeSimilar(MapSimilarLine line) async {
+    final linked = await showMapSimilarProposal(
+      context,
+      ref,
+      pair: line.pair,
+      titleA: _scene.nodes[line.a].label,
+      titleB: _scene.nodes[line.b].label,
+    );
+    // Deja de proponerse en el acto, antes de que el mapa dibuje el vínculo.
+    if (linked && mounted) setState(() => _layers.markLinked(line.pair));
   }
 
   // --- La exportación ---
@@ -586,6 +732,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         colors: theme.colorScheme,
         brightness: theme.brightness,
         l10n: AppLocalizations.of(context)!,
+        studyOf: _layers.studyOf,
       );
     }
     return networkSvg(
@@ -597,6 +744,8 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       labelOf: _labelOf,
       highlighted: _highlighted,
       lit: _lit,
+      similar: _layers.drawnSimilar(network: true),
+      studyOf: _layers.studyOf,
     );
   }
 
@@ -611,6 +760,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     return switch (node.kind) {
       SceneKind.overflow => l10n.mapGraphOverflow,
       SceneKind.isolated => l10n.mapBoardIsolatedTitle(_topicKind),
+      SceneKind.unthemed => _unthemedName,
       SceneKind.community => switch (node.group) {
         final group? => _communityName(group) ?? node.label,
         null => node.label,
@@ -638,6 +788,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     final generation = ++_generation;
     if (mounted) setState(() => _busy = true);
 
+    // Lo que se acomoda: con todo lo que alguna capa puede mostrar.
     final GraphScene scene;
     if (_links) {
       final graph = _linkGraph;
@@ -648,17 +799,23 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       switch (_altitude) {
         case MapAltitude.communities:
           _selection = null;
-          scene = sceneOfOverview(_graph, _overview);
+          scene = sceneWithUnthemed(
+            sceneOfOverview(_graph, _overview),
+            _overview,
+            _unthemed,
+          );
         case MapAltitude.topics:
           final selection = _selection = _selectTopics();
           scene = sceneOfTopics(_graph, widget.snapshot.detection, selection);
         case MapAltitude.documents:
           final items =
               _topicItems ??
-              await _repository.readTopicItems(
-                _topicId!,
-                dimensionId: widget.snapshot.request.definitionId,
-              );
+              (_inUnthemed
+                  ? _unthemed.items
+                  : await _repository.readTopicItems(
+                      _topicId!,
+                      dimensionId: widget.snapshot.request.definitionId,
+                    ));
           if (!mounted || generation != _generation) return;
           _topicItems = items;
           scene = sceneOfItems(items);
@@ -682,14 +839,12 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
     setState(() {
       _motion = null;
-      _scene = scene;
       if (placed != null) _placement.place(scene, placed.xs, placed.ys);
       // Solo se centra lo que se dibuja.
-      _lit = _litNow();
-      if (_lit == null) _centered = null;
-      _rebuildTree();
+      _applyLayers(laidOut: scene);
       _busy = false;
     });
+    _syncLayers();
     _fitIfNeeded();
     _startArrival();
   }
@@ -744,6 +899,11 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         title: _focusLabel ?? l10n.f44S2CrumbAllTopics(_topicKind),
         group: _focusGroup,
       ),
+      MapAltitude.documents when _inUnthemed => (
+        ref: const CanvasTreeRef.unthemed(),
+        title: _topicLabel ?? '',
+        group: null,
+      ),
       MapAltitude.documents => (
         ref: CanvasTreeRef.topic(_topicId!),
         title: _topicLabel ?? _topicId!,
@@ -763,8 +923,16 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         focusTopics: _selection?.topics ?? const [],
         linked: _linkGraph?.items ?? const [],
         // Los documentos del tema que se mira son los mismos de la red.
-        shownTopic: _altitude == MapAltitude.documents && _topicId != null
+        shownTopic: _inTopic
             ? (valueId: _topicId!, items: _topicItems?.items ?? const [])
+            : null,
+        // La burbuja, de lejos con su capa y al mirar sus documentos.
+        unthemed: _layers.has(MapLayer.unthemed) || _inUnthemed
+            ? (
+                title: _unthemedName,
+                count: _unthemed.count,
+                items: _unthemed.items.items,
+              )
             : null,
       );
 
@@ -785,6 +953,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       root: root.ref,
       rootTitle: root.title,
       rootGroup: root.group,
+      rootCount: root.ref.kind == CanvasTreeKind.unthemed ? _unthemed.count : 0,
       graph: _graph,
       expanded: _expanded,
       links: links,
@@ -948,8 +1117,10 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   // --- El encuadre ---
 
+  /// Dónde está cada nodo que se dibuja: lo que una capa esconde no cuenta
+  /// para el encuadre ni para el minimapa.
   Map<String, Offset> get _drawnPositions =>
-      _isTree ? _treePositions : _positions;
+      _isTree ? _treePositions : _layers.shownPositions;
 
   void _fitIfNeeded() {
     if (!_needsFit || _viewport.isEmpty || _busy) return;
@@ -1054,8 +1225,9 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   /// Recoge lo que se mira hacia su centro, mientras llega lo de arriba.
   void _startCollapse() {
-    if (!_animate || _isTree || _positions.isEmpty) return;
-    setState(() => _motion = CanvasMotion.collapse(_positions));
+    final shown = _layers.shownPositions;
+    if (!_animate || _isTree || shown.isEmpty) return;
+    setState(() => _motion = CanvasMotion.collapse(shown));
     _motionController.duration = kCanvasCollapseDuration;
     final done = _motionController
         .forward(from: 0)
@@ -1131,6 +1303,13 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     _descend(from: from);
   }
 
+  /// La burbuja «Sin tema», tocada o con el zoom: sus documentos salen de
+  /// ella, como los de un tema.
+  void _enterUnthemed({SceneNode? from}) {
+    setState(_openUnthemed);
+    _descend(from: from);
+  }
+
   void _enterTopic(String valueId, String label, {SceneNode? from}) {
     setState(() {
       _stopLinks();
@@ -1148,10 +1327,11 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       case SceneKind.community || SceneKind.overflow || SceneKind.isolated:
         final index = int.tryParse(node.key.substring('overview:'.length));
         if (index != null) _enterCommunityAt(index, from: node);
+      case SceneKind.unthemed:
+        _enterUnthemed(from: node);
       case SceneKind.topic:
         _enterTopic(node.ref!, node.label, from: node);
-      // La burbuja «Sin tema» todavía no se dibuja.
-      case SceneKind.unthemed || SceneKind.note || SceneKind.source:
+      case SceneKind.note || SceneKind.source:
         return;
     }
   }
@@ -1162,16 +1342,22 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         return;
       case MapAltitude.topics:
         _ascend(MapAltitude.communities);
+      // La burbuja «Sin tema» cuelga de lejos, no de los temas.
       case MapAltitude.documents:
-        _ascend(MapAltitude.topics);
+        _ascend(_inUnthemed ? MapAltitude.communities : MapAltitude.topics);
     }
   }
 
   // --- La ficha y el foco ---
 
   /// Tocar un nodo de la red abre su ficha. Bajar una altura es tocarlo dos
-  /// veces, acercarse o «Entrar» en la ficha.
+  /// veces, acercarse o «Entrar» en la ficha. La burbuja «Sin tema» no tiene
+  /// ficha —su cuenta ya dice lo que es—: tocarla entra.
   void _select(SceneNode node) {
+    if (node.kind == SceneKind.unthemed) {
+      _enterUnthemed(from: node);
+      return;
+    }
     final ref = MapNodeRef.ofSceneKey(node.key);
     if (ref != null) _openSheet(ref);
   }
@@ -1416,8 +1602,9 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   // --- Los vínculos a mano y con IA ---
 
-  /// Los documentos a la vista y los vínculos entre ellos, tal cual están
-  /// dibujados: de ahí salen los candidatos de la IA.
+  /// Los documentos a la vista y los vínculos entre ellos —también los que
+  /// una capa apagada no dibuja—: de ahí salen los candidatos de la IA, sin
+  /// proponer lo que ya está vinculado.
   Future<void> _suggestRelations() => suggestLinksAmong(
     context,
     ref,
@@ -1426,9 +1613,10 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         if (node.ref case final id?) id,
     },
     links: [
-      for (final edge in _scene.edges)
-        if (_scene.nodes[edge.a].ref case final from?)
-          if (_scene.nodes[edge.b].ref case final to?) (from: from, to: to),
+      for (final edge in _layers.laidOut.edges)
+        if (_layers.laidOut.nodes[edge.a].ref case final from?)
+          if (_layers.laidOut.nodes[edge.b].ref case final to?)
+            (from: from, to: to),
     ],
   );
 
@@ -1457,6 +1645,8 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     ),
     if (_links)
       (label: l10n.f44S2CrumbLinks, id: 'links', onTap: null)
+    else if (_inUnthemed)
+      (label: _topicLabel ?? '', id: 'unthemed', onTap: null)
     else ...[
       if (_altitude != MapAltitude.communities)
         (
@@ -1485,13 +1675,24 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         isSelected: _asList,
         icon: const Icon(Icons.view_list_outlined),
         selectedIcon: const Icon(Icons.hub_outlined),
-        onPressed: () => setState(() {
-          _asList = !_asList;
-          _offerExport(widget.exportHandle);
-          _rebuildTree();
-        }),
+        onPressed: () {
+          setState(() {
+            _asList = !_asList;
+            _offerExport(widget.exportHandle);
+            _rebuildTree();
+          });
+          _syncLayers();
+        },
       ),
-      if (!_links && _altitude == MapAltitude.documents)
+      // Visto como lista, las capas se eligen arriba: abajo no hay dibujo.
+      if (_asList)
+        IconButton(
+          key: const ValueKey('map-layers-list'),
+          tooltip: l10n.f44S5LayersTooltip(_layers.layers.length),
+          icon: const Icon(Icons.layers_outlined),
+          onPressed: _openLayers,
+        ),
+      if (!_links && _altitude == MapAltitude.documents && !_inUnthemed)
         IconButton(
           key: const ValueKey('map-open-topic'),
           tooltip: l10n.atlasOpenMaterial,
@@ -1544,6 +1745,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         topicKind: _topicKind,
         onToggle: _toggle,
         sheetOf: _sheetOf,
+        studyOf: _layers.studyOf,
       );
     } else {
       body = _canvasArea(context, theme, l10n);
@@ -1684,18 +1886,31 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     ];
   }
 
-  /// Lo que no se dibujó, y por qué.
-  List<Widget> _footnotes(AppLocalizations l10n) => mapCanvasFootnotes(
-    l10n,
-    links: _links,
-    altitude: _altitude,
-    scene: _scene,
-    isTree: _isTree,
-    asList: _asList,
-    tree: _asList ? _listTree : _tree,
-    linkGraph: _linkGraph,
-    strength: _strength,
-  );
+  /// Lo que no se dibujó, y por qué; y lo que dicen las capas prendidas.
+  List<Widget> _footnotes(AppLocalizations l10n) {
+    final tree = _asList ? _listTree : _tree;
+    return [
+      ...mapCanvasFootnotes(
+        l10n,
+        links: _links,
+        altitude: _altitude,
+        scene: _scene,
+        isTree: _isTree,
+        asList: _asList,
+        tree: tree,
+        linkGraph: _linkGraph,
+        strength: _strength,
+      ),
+      ...mapLayerNotes(
+        l10n,
+        _layers,
+        tree: _drawsNetwork ? null : tree,
+        showsDocuments: _showsDocuments,
+        onOpenTension: widget.onOpenTension,
+        onDownloadModel: widget.onDownloadModel,
+      ),
+    ];
+  }
 
   Widget _canvasArea(
     BuildContext context,
@@ -1775,8 +1990,8 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
                 arrangement: _arrangement,
                 showLabels: constraints.maxWidth >= 560,
                 onArrangement: _setArrangement,
-                links: _links,
-                onLinks: _setLinks,
+                layersOn: _layers.layers.length,
+                onLayers: _openLayers,
                 minimap: ValueListenableBuilder<Matrix4>(
                   valueListenable: _controller,
                   builder: (context, transform, _) =>
@@ -1801,6 +2016,8 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       _fadeInNext = true;
       _offerExport(widget.exportHandle);
     });
+    // Los parecidos son de la Red: en Radial y Árbol se sueltan.
+    _syncLayers();
     unawaited(_show(warm: true));
   }
 
@@ -1857,6 +2074,10 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       lit: _lit,
       onSelect: _select,
       onEnter: _drill,
+      similar: _layers.drawnSimilar(network: true),
+      onSimilar: (line) => unawaited(_proposeSimilar(line)),
+      studyOf: _layers.studyOf,
+      pulse: _pulse?.key == _highlight ? _pulse : null,
     );
   }
 
@@ -1874,6 +2095,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       onToggle: _toggle,
       sheetOf: _sheetOf,
       isHighlighted: _isTreeHighlighted,
+      studyOf: _layers.studyOf,
     );
   }
 }
