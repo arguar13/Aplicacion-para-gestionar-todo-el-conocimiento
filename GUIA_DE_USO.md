@@ -2429,6 +2429,19 @@ Vínculos, Esquema y Grafo, que dibujaban lo mismo a distintas alturas sin
 hablarse). La primera vez abre el Resumen; después, la última que miraste,
 también si cerrás la app.
 
+### Buscar en el mapa
+
+La **lupa** de arriba (al lado de los filtros) busca entre **tus temas y tus
+documentos**: escribís y aparecen los que coinciden, sin importar acentos ni
+mayúsculas, lo que mejor coincide primero. Cada uno dice dónde está —un tema,
+en qué comunidad; un documento, en qué tema, o "Sin tema"—. Tocás uno y el
+**Mapa vuela hasta él**: pasa a la pestaña Mapa si estabas en el Resumen,
+cambia de altura si hace falta, lo encuadra, abre su ficha y lo marca con
+**un pulso** (con "sin animaciones", solo el anillo). Un documento sin tema te
+lleva a la burbuja "Sin tema", que se prende sola. Con el lector de pantalla,
+oís cuántos resultados hay mientras escribís. Busca en el mapa que estás
+viendo, sin consultar nada más: escribir no lo frena.
+
 ### La línea de arriba
 
 Debajo de las pestañas, **una sola línea** —en el celular baja de renglón si
@@ -2632,13 +2645,63 @@ muchos, se dibujan los primeros 120 y un aviso lo dice.
   al abrirse ("Ficha de Cristianismo") y cada acción y cada vecino es un botón
   con su nombre.
 
-#### Los vínculos entre documentos
+#### Las capas
 
-El botón de **cadena**, abajo junto a Red · Radial · Árbol, muestra **tus
-documentos y los vínculos entre ellos, tengan o no Tema o etiquetas** (lo que
-antes era la pestaña "Vínculos"; más adelante pasa a ser una "capa" del
-lienzo). Lo que vinculás aparece en el acto. Se dibuja solo lo que tiene
-algún vínculo; si son muchos, hasta 200 —primero lo que vinculaste hace
+El botón **Capas**, abajo junto a Red · Radial · Árbol (con un número: cuántas
+tenés prendidas), abre una hoja con lo que se puede **dibujar encima del
+mapa**. Podés prender **varias a la vez**, y la elección se recuerda, también
+si cerrás la app. Al principio solo está prendida **Vínculos**: un mapa limpio
+primero, y lo demás cuando lo pedís. Prender o apagar una capa no vuelve a
+acomodar el mapa: lo que estabas mirando se queda donde estaba. Visto como
+lista, el botón está arriba.
+
+- **Vínculos**: las uniones entre documentos, con su tipo y su flecha, donde
+  haya documentos dibujados (los de un tema, los sin tema, lo vinculado).
+  Apagada, ves los documentos sin sus líneas. Su atajo **"Ver todo lo
+  vinculado"** es lo que antes era la pestaña "Vínculos" (ver abajo).
+- **Sin tema** (o "Sin etiquetas", según lo que agrupes): una **burbuja gris**
+  entre las comunidades con los documentos que no tienen tema ni etiqueta,
+  para que también estén en el mapa, unida a las comunidades con las que se
+  vinculan. **Tocarla entra**: sus documentos salen de ella, como los de un
+  tema (los 200 más nuevos), y la miga dice "Todo › Sin tema". Alejarte o la
+  miga "Todo" te devuelven a las comunidades; apagar la capa adentro, también.
+  En Radial, Árbol y la lista aparece entre las comunidades y se despliega.
+- **Contradicciones**: las uniones **en tensión** —las que contradicen, o
+  entre temas, las que juntan alguna— en **rojo y con un rayo ⚡** en el
+  medio, para que se vean también sin el color. Apagada, se dibujan como las
+  demás. Abajo dice cuántas hay a la vista, con **"Abrir Tensión"**, que
+  también está en la hoja.
+- **Parecidos**: **líneas punteadas con un ≈** entre documentos que **hablan
+  de lo mismo y no están vinculados**. Usa el modelo de vínculos del teléfono
+  (el mismo de los cuadernos y "Organizar con IA"), **sin conexión**: compara
+  los documentos que ves, nunca más de 200, y propone a lo sumo 30, dos por
+  documento. **Nunca vincula sola**: tocar el ≈ dice cuánto se parecen y
+  ofrece **"Vincular"** (un "relacionado", con un toque), **"Elegir el
+  tipo"** o **"Ahora no"**. Lo que vinculás deja de proponerse en el acto. Se
+  ve en la Red, con documentos a la vista; de lejos te lo dice. Si no tenés
+  el modelo, la capa explica qué hace y ofrece **"Descargar el modelo"**.
+- **Estudio**: **tiñe cada documento** según sus tarjetas, con una insignia
+  que se lee también sin el color: **un anillo vacío** si no tiene tarjetas,
+  **el número** de las que tocan hoy, o **una ✓** si está al día. Abajo, una
+  leyenda. Se actualiza sola cuando repasás. Vale en la Red, en Radial y
+  Árbol y en la lista ("Fuente · 3 tarjetas para hoy").
+
+En **Radial y Árbol** cada vínculo ya dice su tipo (contradice, cita…), así
+que ahí se ven la burbuja y el estudio; las líneas de Contradicciones y
+Parecidos se dibujan en la Red.
+
+**Con el lector de pantalla**, cada capa es un interruptor con su nombre y
+dice si está prendida, y cada cambio se anuncia ("Contradicciones:
+prendida"). Un documento con Estudio dice cómo va ("Livio · 3 tarjetas para
+hoy"); el ≈ de un parecido dice los dos documentos y cuánto se parecen; la
+burbuja, cuántos documentos tiene.
+
+#### Lo vinculado
+
+**"Ver todo lo vinculado"** (en la capa Vínculos) muestra **tus documentos y
+los vínculos entre ellos, tengan o no Tema o etiquetas** (lo que antes era la
+pestaña "Vínculos"). Lo que vinculás aparece en el acto. Se dibuja solo lo que
+tiene algún vínculo; si son muchos, hasta 200 —primero lo que vinculaste hace
 poco, después lo más vinculado— y un aviso dice cuántos quedaron afuera (con
 los filtros ves otra parte). Abajo, otra línea cuenta los elementos que no
 tienen ningún vínculo. Cada grupo de elementos unidos entre sí se acomoda
@@ -2656,9 +2719,9 @@ sale**, y por **cuántas veces se vinculan los dos elementos**. Los empates
 los gana el más reciente. La elección se queda mientras seguís mirando los
 vínculos, aunque cambies los filtros o llegue uno nuevo.
 
-Para volver, tocá otra vez la cadena o **"Todo"** en las migas. Sin ningún
-Tema todavía, el Mapa te lo dice y te ofrece **"Ver los vínculos"**, que no
-los necesita.
+Para volver, tocá **"Todo"** en las migas (o apagá la capa Vínculos). Sin
+ningún Tema todavía, el Mapa te lo dice y te ofrece **"Ver los vínculos"**,
+que no los necesita.
 
 #### Vincular desde el Mapa
 
@@ -2669,8 +2732,9 @@ entre los que estás mirando.
 
 **Ver en el Mapa.** Cada vez que vinculás dos documentos procesados —desde el
 Mapa o desde un documento— un aviso **"Vinculado"** ofrece **"Ver en el
-Mapa"**: abre la pestaña Mapa con los vínculos a la vista y ese documento
-resaltado, encuadrado junto a sus vecinos y con su ficha abierta. Si vinculás dos cosas de la
+Mapa"**: abre la pestaña Mapa en lo vinculado —con la capa Vínculos
+prendida, si la habías apagado— y ese documento resaltado, encuadrado junto
+a sus vecinos y con su ficha abierta. Si vinculás dos cosas de la
 Biblioteca, el aviso dice "Vinculado" y nada más: eso no está en el Mapa.
 
 #### Guardar como imagen
@@ -2678,7 +2742,9 @@ Biblioteca, el aviso dice "Vinculado" y nada más: eso no está en el Mapa.
 El botón de compartir de arriba guarda **lo que ves en el Mapa** como imagen
 (PNG) o como dibujo (SVG), con la disposición en el nombre —por ejemplo
 `mapa-radial-etiquetas.svg`, o `mapa-red-vinculos.png` con los vínculos—.
-Con un foco, lo apagado sale apagado también en el archivo.
+Con un foco, lo apagado sale apagado también en el archivo, y **las capas
+prendidas salen como se ven**: la burbuja "Sin tema", el rayo de cada
+contradicción, los parecidos punteados y el tinte del estudio.
 En el Resumen está apagado, y visto como lista te pide volver al dibujo.
 
 Los filtros (tipo, Tema, etiquetas, búsqueda) rigen en las dos pestañas.
