@@ -118,6 +118,11 @@ void main() {
         'criterio que los otros tres orígenes (review_log, field_version, '
         'habit_event), que tampoco dejan de contar un día por algo que '
         'pasó más tarde—; no es una lista que se le muestre a nadie',
+    'lib/features/text_notes/data/repositories/text_note_repository_impl.dart':
+        'solo mira si el dueño de una nota que se borró —la fuente o el '
+        'documento procesado— sigue en la base, vivo o en la papelera, para '
+        'que «Deshacer» la devuelva (F45, mejora 19): la nota de un elemento '
+        'en la papelera se conserva para cuando se restaure; no lista nada',
     'lib/core/database/repairs/utf8_mojibake_repair.dart':
         'arregla las letras rotas de TODOS los títulos guardados (F43, M7), '
         'también los de la papelera: un elemento borrado puede volver, y '
