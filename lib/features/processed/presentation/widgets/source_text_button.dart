@@ -6,6 +6,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_more.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_text_refresh.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Si el texto de una fuente de [kind] puede tener algo que hacer desde su
@@ -32,8 +33,13 @@ bool offersSourceTextActions(SourceKind kind) => switch (kind) {
 ///
 /// Se mudó porque la Biblioteca muestra solo el original (decisión E): su
 /// texto se lee, se marca y se estudia acá. Lo que se hace sigue siendo sobre
-/// la fuente —es el texto que la búsqueda, el chat y los vínculos usan—, y la
-/// hoja lo dice: el texto nuevo llega a este documento con «Volver a triar».
+/// la fuente —es el texto que la búsqueda, el chat y los vínculos usan—, y
+/// además llega solo a **este** documento (F45, paso 4,
+/// `ProcessedTextRefresh`): lo vuelto a extraer, cuando la cola termina; sin
+/// las marcas de tiempo, en el acto. Lo que la persona editó se queda; lo que
+/// la IA solo ordenó se renueva y se vuelve a ordenar. Soltar el texto no lo
+/// toca: el documento conserva su copia (de la Biblioteca a Procesado nada se
+/// borra). La hoja lo dice.
 ///
 /// La fuente se lee entera recién al tocarlo, no al abrir el documento: el
 /// documento procesado nunca trae el texto entero de un libro a la pantalla, y
@@ -75,6 +81,7 @@ class _SourceTextButtonState extends ConsumerState<SourceTextButton> {
     if (item == null) return;
 
     final actions = sourceMoreActionsFor(item);
+    final refresh = ref.read(processedTextRefreshProvider);
     // Sin opciones, la hoja igual: con el motivo, en vez de un botón que no
     // hace nada al tocarlo.
     await showSourceMoreSheet(
@@ -84,10 +91,16 @@ class _SourceTextButtonState extends ConsumerState<SourceTextButton> {
       actions,
       title: l10n.f45S3SourceText,
       note: actions.isNotEmpty
-          ? l10n.f45S3SourceTextNote
+          ? l10n.f45S4SourceTextNote
           : item.isBeingProcessed
           ? l10n.f45S3SourceTextBusy
           : l10n.f45S3SourceTextNothing,
+      follow: (
+        before: (source) => refresh.request(source.id),
+        after: refresh.afterProcessed,
+        cancel: (source) => refresh.cancel(source.id),
+        reextractStarted: l10n.f45S4SourceTextReextractStarted,
+      ),
     );
   }
 

@@ -3,11 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_text_refresh.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/source_text_button.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -61,6 +65,33 @@ void main() {
     await tester.tap(button);
     await tester.pumpAndSettle();
     expect(sheet, findsOneWidget);
+  }
+
+  /// El texto del documento [documentId], página por página.
+  Future<List<String>> textOf(String documentId) async {
+    final parts = await harness.container
+        .read(processedRepositoryProvider)
+        .partsOf(documentId, sections: {ProcessedSection.text});
+    return [
+      for (final part in parts.getOrElse((f) => throw StateError('$f')))
+        part.content,
+    ];
+  }
+
+  /// Lo que deja la cola al volver a extraer [id]: su texto nuevo, en el
+  /// lugar del viejo.
+  Future<KnowledgeItem> withNewText(String id, String text) async {
+    final repository = harness.container.read(libraryRepositoryProvider);
+    final item = (await repository.findById(id)).getRight().toNullable()!;
+    final saved = await repository.save(
+      item.copyWith(
+        renditions: [
+          for (final r in item.renditions)
+            if (r is TextRendition) r.copyWith(content: text) else r,
+        ],
+      ),
+    );
+    return saved.getOrElse((f) => throw StateError('$f'));
   }
 
   Future<List<TextRendition>> sourceTexts(String id) async =>
@@ -159,7 +190,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text(es.sourcePanelMoreTitle), findsNothing);
-      expect(find.text(es.f45S3SourceTextNote), findsOneWidget);
+      expect(find.text(es.f45S4SourceTextNote), findsOneWidget);
       expect(option('reextract'), findsOneWidget);
       expect(find.text(es.sourcePanelReextractHint), findsOneWidget);
       expect(option('removeTimestamps'), findsOneWidget);
@@ -212,7 +243,7 @@ void main() {
       await openSheet(tester);
 
       expect(find.text(es.f45S3SourceTextBusy), findsOneWidget);
-      expect(find.text(es.f45S3SourceTextNote), findsNothing);
+      expect(find.text(es.f45S4SourceTextNote), findsNothing);
       expect(
         find.descendant(of: sheet, matching: find.byType(ListTile)),
         findsNothing,
@@ -250,6 +281,12 @@ void main() {
 
       expect((await sourceTexts('clase')).single.content, 'hola\nchau');
       expect(find.text(es.detailTimestampsRemoved), findsOneWidget);
+      // Y en este documento también, en el acto (F45, paso 4).
+      expect(await textOf(harness.documentOf('clase')), ['hola\nchau']);
+      expect(
+        harness.container.read(processedTextRefreshProvider).pending,
+        isEmpty,
+      );
 
       await openSheet(tester);
       expect(option('removeTimestamps'), findsNothing);
@@ -284,7 +321,84 @@ void main() {
         harness.database.processingCheckpoints,
       )..where((c) => c.itemId.equals('clase'))).get();
       expect(marks.map((m) => m.kind), [ProcessingCheckpointKind.reextract]);
-      expect(find.text(es.detailReextractStarted), findsOneWidget);
+      // Desde el documento, el texto nuevo va a ESTE documento (F45, paso 4).
+      expect(find.text(es.f45S4SourceTextReextractStarted), findsOneWidget);
+      expect(harness.container.read(processedTextRefreshProvider).pending, {
+        'clase',
+      });
+    });
+
+    testWidgets('cancelar el diálogo de volver a extraer no deja nada '
+        'pedido', (tester) async {
+      await open(
+        tester,
+        'clase',
+        kind: SourceKind.audio,
+        text: transcript,
+        originalName: 'clase.m4a',
+      );
+      await openSheet(tester);
+      await tester.tap(option('reextract'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+
+      expect(harness.queue.enqueued, isEmpty);
+      expect(
+        harness.container.read(processedTextRefreshProvider).pending,
+        isEmpty,
+      );
+    });
+
+    testWidgets('el texto vuelto a extraer de un audio llega solo a este '
+        'documento; a otro, no', (tester) async {
+      // Otro documento, de otra fuente: no se toca.
+      await harness.saveTextSource('otra', text: 'Otra fuente.');
+      final other = await harness.processTextAndNotes('otra');
+      await open(
+        tester,
+        'clase',
+        kind: SourceKind.audio,
+        text: transcript,
+        originalName: 'clase.m4a',
+      );
+      final documentId = harness.documentOf('clase');
+      await openSheet(tester);
+      await tester.tap(option('reextract'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.detailReextractConfirm));
+      await tester.pumpAndSettle();
+
+      // Lo que hace la cola al terminar: el texto nuevo en la fuente, y el
+      // aviso de que se procesó.
+      final reread = await withNewText('clase', '[0:00] hola de nuevo');
+      await harness.container
+          .read(processedTextRefreshProvider)
+          .afterProcessed(reread);
+      await tester.pumpAndSettle();
+
+      expect(await textOf(documentId), ['[0:00] hola de nuevo']);
+      expect(await textOf(other), ['Otra fuente.']);
+    });
+
+    testWidgets('lo que la cola procesa sin un pedido de acá no llega al '
+        'documento', (tester) async {
+      await open(
+        tester,
+        'clase',
+        kind: SourceKind.audio,
+        text: transcript,
+        originalName: 'clase.m4a',
+      );
+      final documentId = harness.documentOf('clase');
+
+      final reread = await withNewText('clase', '[0:00] hola de nuevo');
+      await harness.container
+          .read(processedTextRefreshProvider)
+          .afterProcessed(reread);
+      await tester.pumpAndSettle();
+
+      expect(await textOf(documentId), [transcript]);
     });
 
     testWidgets('«Borrar el texto, quedarme con el libro» manda el texto de '

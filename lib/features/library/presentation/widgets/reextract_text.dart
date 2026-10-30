@@ -63,13 +63,22 @@ const _languageNames = {
 /// se habla: es la única forma de que Whisper transcriba un audio en inglés
 /// sin traducirlo.
 ///
-/// Una función y no un botón: se ofrece desde la hoja "Más" del panel de la
-/// fuente (F26), que se cierra antes de abrir este diálogo.
+/// Una función y no un botón: se ofrece desde la hoja «El texto de la
+/// fuente» de un documento procesado, que se cierra antes de abrir este
+/// diálogo, y desde la tarjeta de la Bandeja. En la Biblioteca queda solo
+/// para traer el texto de lo que se dejó «solo el libro» (F30).
+///
+/// [beforeQueue] corre con el pedido ya confirmado y antes de que el texto
+/// cambie: desde Procesado, lo que anota que el texto nuevo va a ese documento
+/// (`ProcessedTextRefresh.request`, F45, paso 4). [startedMessage] reemplaza
+/// el aviso de siempre.
 Future<void> reextractText(
   BuildContext context,
   WidgetRef ref,
-  KnowledgeItem item,
-) async {
+  KnowledgeItem item, {
+  Future<void> Function()? beforeQueue,
+  String? startedMessage,
+}) async {
   final l10n = AppLocalizations.of(context)!;
   final asksLanguage = isTranscriptSource(item.source);
   final chosen = await showDialog<String>(
@@ -92,11 +101,14 @@ Future<void> reextractText(
       );
     }
   }
+  await beforeQueue?.call();
   await ref.read(processingQueueProvider.notifier).reextract(item.id);
   if (!context.mounted) return;
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(l10n.detailReextractStarted)));
+    ..showSnackBar(
+      SnackBar(content: Text(startedMessage ?? l10n.detailReextractStarted)),
+    );
 }
 
 /// Devuelve el idioma elegido —o `''` si no se pregunta—, o `null` si se

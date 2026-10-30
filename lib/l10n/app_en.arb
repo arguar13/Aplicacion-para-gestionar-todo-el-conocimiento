@@ -15015,8 +15015,6 @@
   "@f45S3SourceText": {"description": "En un documento procesado, el botón de la tarjeta de su fuente y el título de su hoja: volver a extraer el texto de la fuente, quitarle las marcas de tiempo o soltarlo (F45, paso 3)."},
   "f45S3SourceTextHint": "Extract it again, remove its timestamps or let it go",
   "@f45S3SourceTextHint": {"description": "Para qué es «El texto de la fuente», dicho entero para el lector de pantalla y al mantenerlo apretado (F45, paso 3)."},
-  "f45S3SourceTextNote": "This changes the source's text in the Library. To bring the new one into this document, tap “Triage again”.",
-  "@f45S3SourceTextNote": {"description": "Arriba de la hoja «El texto de la fuente», en Procesado (F45, paso 3)."},
   "f45S3SourceTextBusy": "The source is extracting its text. When it's done, you'll be able to extract it again or remove its timestamps.",
   "@f45S3SourceTextBusy": {"description": "La hoja «El texto de la fuente», mientras la fuente se procesa: no hay nada que ofrecer (F45, paso 3)."},
   "f45S3SourceTextNothing": "There's nothing to do with this source's text right now.",
@@ -15064,5 +15062,9 @@
   "f45S4ChipShowHint": "show the marks",
   "@f45S4ChipShowHint": {"description": "F45, paso 4: lo que dice el lector de pantalla que hace tocar una ficha de estudio oculta."},
   "f45S4ChipHideHint": "hide the marks",
-  "@f45S4ChipHideHint": {"description": "F45, paso 4: lo que dice el lector de pantalla que hace tocar una ficha de estudio a la vista."}
+  "@f45S4ChipHideHint": {"description": "F45, paso 4: lo que dice el lector de pantalla que hace tocar una ficha de estudio a la vista."},
+  "f45S4SourceTextNote": "Changes the source text: the one search, chat and links use. What you extract again or strip of timestamps reaches this document on its own: what you edited by hand stays, and what the AI had tidied is tidied again. Letting go of the text doesn't touch this document.",
+  "@f45S4SourceTextNote": {"description": "F45, paso 4: arriba de la hoja «El texto de la fuente», en Procesado: qué cambia y qué llega al documento."},
+  "f45S4SourceTextReextractStarted": "Extracting the source text again; it reaches this document on its own as soon as it's ready.",
+  "@f45S4SourceTextReextractStarted": {"description": "F45, paso 4: el aviso al volver a extraer desde «El texto de la fuente» de un documento procesado."}
 }

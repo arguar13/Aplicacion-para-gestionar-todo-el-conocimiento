@@ -132,6 +132,11 @@ bool _hasOwnText(KnowledgeItem item) =>
 /// [title] la nombra —sin él, «Más acciones»— y [note] cuenta algo arriba de
 /// las opciones, o en su lugar si no hay ninguna: desde Procesado, que lo que
 /// cambie es el texto de la fuente (F45, paso 3).
+///
+/// [follow] es quien lleva el texto nuevo de la fuente a otro lado (F45, paso
+/// 4): desde Procesado, a su documento. Se le avisa antes de que el texto
+/// cambie —al volver a extraerlo o al quitarle las marcas de tiempo— y, si
+/// cambia acá mismo, después.
 Future<void> showSourceMoreSheet(
   BuildContext context,
   WidgetRef ref,
@@ -139,6 +144,7 @@ Future<void> showSourceMoreSheet(
   List<SourceMoreAction> actions, {
   String? title,
   String? note,
+  SourceTextFollow? follow,
 }) async {
   final chosen = await _openSheet(context, actions, title: title, note: note);
   if (chosen == null || !context.mounted) return;
@@ -154,9 +160,15 @@ Future<void> showSourceMoreSheet(
         seeItemId: item.id,
       );
     case SourceMoreAction.reextract:
-      await reextractText(context, ref, item);
+      await reextractText(
+        context,
+        ref,
+        item,
+        beforeQueue: follow == null ? null : () => follow.before(item),
+        startedMessage: follow?.reextractStarted,
+      );
     case SourceMoreAction.removeTimestamps:
-      await _removeTimestamps(context, ref, item);
+      await _removeTimestamps(context, ref, item, follow: follow);
     case SourceMoreAction.deleteText:
       await trashExtractedText(context, ref, item);
   }
@@ -290,13 +302,32 @@ extension on SourceMoreAction {
   };
 }
 
+/// Quien lleva el texto nuevo de una fuente a otro lado (F45, paso 4): ver
+/// [showSourceMoreSheet].
+typedef SourceTextFollow = ({
+  /// Antes de que el texto de la fuente cambie.
+  Future<void> Function(KnowledgeItem source) before,
+
+  /// Con el texto ya cambiado, cuando cambia en el momento —quitar las marcas
+  /// de tiempo—; lo que se vuelve a extraer avisa al terminar la cola.
+  Future<void> Function(KnowledgeItem source) after,
+
+  /// Si no cambió: el cambio falló, y lo anotado antes ya no espera nada.
+  Future<void> Function(KnowledgeItem source) cancel,
+
+  /// El aviso de que se empezó a volver a extraer.
+  String reextractStarted,
+});
+
 /// Lo que el usuario pide es no ver los minutos, no que se toque lo dicho:
-/// ver `stripTimestamps`.
+/// ver `stripTimestamps`. Con [follow], el texto sin las marcas también va
+/// adonde lo lleva.
 Future<void> _removeTimestamps(
   BuildContext context,
   WidgetRef ref,
-  KnowledgeItem item,
-) async {
+  KnowledgeItem item, {
+  SourceTextFollow? follow,
+}) async {
   final l10n = AppLocalizations.of(context)!;
   final timestamped = {for (final r in _timestamped(item)) r.id};
 
@@ -310,7 +341,13 @@ Future<void> _removeTimestamps(
     ],
   );
 
+  await follow?.before(item);
   final result = await ref.read(libraryRepositoryProvider).save(updated);
+  if (result.getRight().toNullable() case final saved?) {
+    await follow?.after(saved);
+  } else {
+    await follow?.cancel(item);
+  }
   if (!context.mounted) return;
 
   result.match(

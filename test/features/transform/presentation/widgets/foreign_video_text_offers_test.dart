@@ -294,6 +294,14 @@ void main() {
         RoutePaths.processedDocument(documentId),
       );
       expect(tester.takeException(), isNull);
+      // Con la letra al doble, la tarjeta de la fuente ocupa la pantalla: el
+      // aviso está debajo, y la lista lo arma al llegar.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('foreign-video-text')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('foreign-video-text')), findsOneWidget);
     }
   });
