@@ -23,9 +23,14 @@ const _maximumLength = 2000;
 ///
 /// Reconoce el español, el inglés, el portugués, el francés, el italiano y el
 /// alemán: los que ofrece la app para transcribir.
-String? guessLanguage(String text) {
-  final cut = text.length > _maximumLength
-      ? text.substring(0, _maximumLength)
+///
+/// [maximumLength] es cuánto del comienzo se mira. Para el texto de un video
+/// —que se compara con el idioma que se habla antes de guardarlo (F45, paso
+/// 4)— se mira más: su comienzo puede ser una presentación con música o un
+/// saludo en otro idioma.
+String? guessLanguage(String text, {int maximumLength = _maximumLength}) {
+  final cut = text.length > maximumLength
+      ? text.substring(0, maximumLength)
       : text;
   final words = _wordPattern
       .allMatches(cut.replaceAll(_linkPattern, ' ').toLowerCase())
