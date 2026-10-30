@@ -77,6 +77,12 @@ abstract interface class NotebookRepository {
   /// Falla con un [StateError] si el cuaderno no existe.
   Future<ProcessedQuery> resolveQuery(String notebookId);
 
+  /// Lo de [resolveQuery] para todos los cuadernos de una vez, con su nombre:
+  /// lo que el selector de Repasar (F43, M11) cuenta de cada uno, en dos
+  /// lecturas y no dos por cuaderno.
+  Future<List<({String id, String name, ProcessedQuery query})>>
+  resolveAllQueries();
+
   /// Los ids de los documentos procesados de este cuaderno, en el orden de
   /// [resolveQuery], sin armar cada documento: lo que acota el chat, los
   /// repasos y «Llenar con IA». Falla si el cuaderno ya no existe.

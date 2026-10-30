@@ -90,6 +90,15 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
   /// parámetros de SQLite.
   static const _idsPerQuery = 400;
 
+  /// Cuántas consultas van juntas en una lectura de [matchingIdsOfMany]: por
+  /// debajo del tope de SQLite para un `UNION ALL` (500).
+  static const _queriesPerRead = 200;
+
+  /// Cuántos parámetros lleva, como mucho, una lectura de
+  /// [matchingIdsOfMany]: por debajo del tope de SQLite (32.766). Una sola
+  /// consulta que lo pase va sola, como iría en [matchingIds].
+  static const _variablesPerRead = 30000;
+
   List<TableInfo<dynamic, dynamic>> get _listTables => [
     _db.processedDocuments,
     _db.processedParts,
@@ -130,6 +139,46 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
   @override
   Future<Either<Failure, List<String>>> matchingIds(ProcessedQuery query) =>
       _guard('matchingIds', () async => right(await _matching(query)));
+
+  @override
+  Future<Either<Failure, Map<String, Set<String>>>> matchingIdsOfMany(
+    Map<String, ProcessedQuery> queries,
+  ) => _guard('matchingIdsOfMany', () async {
+    final matching = {for (final key in queries.keys) key: <String>{}};
+    final pending = queries.entries.toList();
+    // Varias consultas en una lectura, con su clave en cada fila: un
+    // `UNION ALL` de hasta [_queriesPerRead] —SQLite no junta más de 500— y
+    // sin pasar el tope de parámetros. Cada una es la de [matchingIds], tal
+    // cual: las dos no pueden discrepar.
+    var start = 0;
+    while (start < pending.length) {
+      final selects = <String>[];
+      final variables = <Variable<Object>>[];
+      var end = start;
+      while (end < pending.length && selects.length < _queriesPerRead) {
+        final (:sql, variables: own) = ProcessedQuerySql(
+          pending[end].value,
+        ).ids();
+        if (selects.isNotEmpty &&
+            variables.length + own.length + 1 > _variablesPerRead) {
+          break;
+        }
+        selects.add('SELECT ? AS query_key, id FROM ($sql)');
+        variables
+          ..add(Variable.withString(pending[end].key))
+          ..addAll(own);
+        end++;
+      }
+      final rows = await _db
+          .customSelect(selects.join(' UNION ALL '), variables: variables)
+          .get();
+      for (final row in rows) {
+        matching[row.read<String>('query_key')]!.add(row.read<String>('id'));
+      }
+      start = end;
+    }
+    return right(matching);
+  });
 
   Future<List<String>> _matching(ProcessedQuery query) async {
     final (:sql, :variables) = ProcessedQuerySql(query).ids();

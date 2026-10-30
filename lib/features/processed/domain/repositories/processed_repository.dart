@@ -135,6 +135,14 @@ abstract interface class ProcessedRepository {
   /// procesados un cuaderno o el chat (paso 5) sin armar cada documento.
   Future<Either<Failure, List<String>>> matchingIds(ProcessedQuery query);
 
+  /// Qué documentos cumplen cada una de [queries], por su clave, sin orden: lo
+  /// de [matchingIds] para muchas a la vez —los cuadernos y los temas del
+  /// selector de Repasar (F43, M11)— en pocas lecturas, nunca una por
+  /// consulta. Cada clave pedida está en la respuesta, aunque no traiga nada.
+  Future<Either<Failure, Map<String, Set<String>>>> matchingIdsOfMany(
+    Map<String, ProcessedQuery> queries,
+  );
+
   /// Las fuentes que ya tienen su documento procesado vivo, y cada cambio: el
   /// chip «Procesado» del selector de «Volver a triar».
   Stream<Set<String>> watchProcessedSourceIds();

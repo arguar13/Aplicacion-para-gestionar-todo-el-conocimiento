@@ -211,20 +211,41 @@ class NotebookRepositoryImpl implements NotebookRepository {
     return _queryOf(row);
   }
 
-  Future<ProcessedQuery> _queryOf(NotebookRow row) async {
-    final notebookId = row.id;
-    if (row.mode == NotebookMode.query) {
-      return processedQueryForView(
-        libraryQueryFromJson(
-          jsonDecode(row.queryJson!) as Map<String, Object?>,
-        ),
-      );
+  @override
+  Future<List<({String id, String name, ProcessedQuery query})>>
+  resolveAllQueries() async {
+    final rows = await _db.select(_db.notebooks).get();
+    final members = <String, Set<String>>{};
+    for (final item in await _db.select(_db.notebookItems).get()) {
+      (members[item.notebookId] ??= {}).add(item.itemId);
     }
+    return [
+      for (final row in rows)
+        (
+          id: row.id,
+          name: row.name,
+          query: _queryWith(row, members[row.id] ?? const {}),
+        ),
+    ];
+  }
+
+  Future<ProcessedQuery> _queryOf(NotebookRow row) async {
+    if (row.mode == NotebookMode.query) return _queryWith(row, const {});
     final items = await (_db.select(
       _db.notebookItems,
-    )..where((n) => n.notebookId.equals(notebookId))).get();
-    return processedQueryForMembers({for (final i in items) i.itemId});
+    )..where((n) => n.notebookId.equals(row.id))).get();
+    return _queryWith(row, {for (final i in items) i.itemId});
   }
+
+  /// La consulta de [row]: su vista guardada, o [members] si es a mano.
+  ProcessedQuery _queryWith(NotebookRow row, Set<String> members) =>
+      row.mode == NotebookMode.query
+      ? processedQueryForView(
+          libraryQueryFromJson(
+            jsonDecode(row.queryJson!) as Map<String, Object?>,
+          ),
+        )
+      : processedQueryForMembers(members);
 
   @override
   Future<Either<Failure, List<String>>> memberIds(String notebookId) async {
