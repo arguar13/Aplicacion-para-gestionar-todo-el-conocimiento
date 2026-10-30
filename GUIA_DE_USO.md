@@ -585,8 +585,8 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
   ningún tema.
 - **Vincular con otro elemento:** tocá el ícono de cadena en "Relacionado",
   buscá el otro elemento, y elegí qué tipo de vínculo tienen. Un aviso
-  **"Vinculado"** ofrece **"Ver en el Mapa"**: te lleva a la vista
-  "Vínculos" del [Mapa](#el-mapa) con este elemento resaltado.
+  **"Vinculado"** ofrece **"Ver en el Mapa"**: te lleva al
+  [Mapa](#el-mapa) con los vínculos a la vista y este elemento resaltado.
 - **Corregir un vínculo:** tocá el lápiz de un vínculo (o mantenelo
   apretado) para cambiarle el tipo, editar su frase, o borrarlo.
 
@@ -1084,9 +1084,9 @@ Contradice, Continúa, Cita, Resume, etc. Se crean desde la sección
 Con el lápiz de cada vínculo (o manteniéndolo apretado) podés cambiarle el
 tipo, editar su frase o borrarlo.
 
-Todos tus vínculos —tengan o no tema o etiquetas los elementos— se ven en la
-vista **"Vínculos"** del [Mapa](#el-mapa), y en el grafo local de cada
-elemento. Al vincular, el aviso **"Vinculado"** ofrece **"Ver en el Mapa"**.
+Todos tus vínculos —tengan o no tema o etiquetas los elementos— se ven en el
+[Mapa](#el-mapa), con el botón de **cadena** del lienzo, y en el grafo local
+de cada elemento. Al vincular, el aviso **"Vinculado"** ofrece **"Ver en el Mapa"**.
 
 Además, la IA los crea sola: cuando guardás algo nuevo, busca con qué se
 relaciona y lo vincula, con una frase que dice por qué. Esos vínculos llevan
@@ -2300,68 +2300,152 @@ Muestra **lo que procesaste** como una red: tus documentos de Procesado, sus
 temas y los vínculos entre ellos. Las fuentes y las notas de la Biblioteca no
 están; sus vínculos de antes siguen a la vista en el detalle de cada una.
 **Empieza de cero**: sin nada procesado, explica que se llena al triar y
-ofrece **"Ir a la Bandeja"**. Tiene cuatro formas de mirarlo:
-
-- **Tablero**: tarjetas con números — los temas con más material, los más
-  conectados entre sí, los aislados, contradicciones abiertas, cuánto creció
-  lo procesado mes a mes, y **cuánto lo trabajaste** (cuántos documentos solo
-  con el texto, con resumen o síntesis, con fragmentos y con notas propias).
-- **Vínculos**: tus documentos y los vínculos entre ellos, tengan o no Tema
-  o etiquetas. Lo que vinculás aparece acá en el acto. Se dibuja solo lo que
-  tiene algún vínculo; si son muchos, hasta 200 —primero lo que vinculaste
-  hace poco, después lo más vinculado— y un aviso dice cuántos quedaron
-  afuera (con los filtros ves otra parte). Abajo, otra línea cuenta los
-  elementos que no tienen ningún vínculo. Tocar uno abre su detalle; el
-  botón de cadena agrega un vínculo. Cada grupo de elementos unidos entre sí
-  se acomoda aparte, sin que ninguna caja pise a otra, y los grupos van en
-  filas, uno al lado del otro, del más grande al más chico: al abrir ves el
-  mapa entero, y con dos dedos acercás para leer los títulos.
-  Arriba, **«Vínculos: Más fuertes · Menos fuertes · Todos»** (arranca en
-  «Todos»): **«Más fuertes»** deja la mitad de los vínculos que más pesan y
-  **«Menos fuertes»** la mitad que menos pesan (con un número impar, el del
-  medio está en las dos), y un aviso dice «Se muestran 3 de 6 vínculos». Un
-  vínculo pesa por **su tipo** (una contradicción más que uno con algo que
-  decir, y ese más que un «relacionado» sin precisar), por **quién lo
-  respaldó** (lo tuyo, o lo que la IA hizo y vos revisaste, más que lo que la
-  IA dejó sola, según su confianza), por **si se sabe de qué fragmento
-  sale**, y por **cuántas veces se vinculan los dos elementos**. Los
-  empates los gana el más reciente. La elección se queda mientras seguís en
-  la vista, aunque cambies los filtros o llegue un vínculo nuevo.
-- **Esquema**: un árbol que se despliega desde un tema elegido.
-- **Grafo**: una red interactiva con tres niveles de zoom — comunidades
-  (círculos grandes) → temas → elementos individuales. Tocás un nodo para
-  entrar, o hacés pellizco para acercar/alejar. Ya dentro de una comunidad,
-  arriba está **"Grado"**: **0** muestra solo sus temas, **1** también los
-  que se unen directamente a ellos (lo que se ve al entrar), **2** suma los
-  unidos a esos, y **Todos**, todo lo que se alcanza desde ahí (hasta 300
-  temas, los más cercanos primero).
+ofrece **"Ir a la Bandeja"**.
 
 **Cómo llegar:** ítem **"Mapa"** en la navegación (en el celular, dentro
 de **"Estudiar"**, debajo de la Línea de tiempo).
 
-**Agrupar por.** El tablero, el esquema y el grafo agrupan por lo que elijas
-en la ficha de arriba: tus **Temas** (lo primero que se ve si tenés alguno),
-tus **Etiquetas** u otra categoría de texto. Los textos acompañan: con
-etiquetas dice "Etiquetas aisladas", con Temas "Temas aislados".
+Tiene **dos pestañas**, **Resumen** y **Mapa** (antes eran cuatro: Tablero,
+Vínculos, Esquema y Grafo, que dibujaban lo mismo a distintas alturas sin
+hablarse). La primera vez abre el Resumen; después, la última que miraste,
+también si cerrás la app.
 
-**Nada queda en blanco.** Si hay elementos sin Tema (o sin etiquetas, según
-lo que estés mirando), una franja arriba dice cuántos son y ofrece
-**"Organizar con IA"**, que le pide a la IA que los ubique (un aviso te dice
-si lo hace en un rato o qué está esperando). Sin ningún Tema todavía, el
-tablero se ve igual, y el esquema y el grafo te lo dicen y te llevan a
-"Vínculos", que no los necesita.
+### La línea de arriba
+
+Debajo de las pestañas, **una sola línea** —en el celular baja de renglón si
+no entra— con lo que vale para las dos:
+
+- **Agrupar por**: tus **Temas** (lo primero que se ve si tenés alguno), tus
+  **Etiquetas** u otra categoría de texto. Los textos acompañan: con
+  etiquetas dice "Etiquetas aisladas", con Temas "Temas aislados".
+- Los **filtros** puestos, si hay alguno, con su ✕ para sacarlos.
+- **Nada queda en blanco**: si hay elementos sin Tema (o sin etiquetas, según
+  lo que estés mirando), dice cuántos son y ofrece **"✨ Organizar con IA"**,
+  que le pide a la IA que los ubique (un aviso te dice si lo hace en un rato
+  o qué está esperando).
+
+### Resumen
+
+Tarjetas con números — los temas con más material, los más conectados entre
+sí, los aislados, contradicciones abiertas, cuánto creció lo procesado mes a
+mes, y **cuánto lo trabajaste** (cuántos documentos solo con el texto, con
+resumen o síntesis, con fragmentos y con notas propias). Sin ningún Tema
+todavía, se ve igual.
+
+### Mapa: un solo lienzo que se recorre con el zoom
+
+#### Tres alturas
+
+- **De lejos, las comunidades**: cada círculo junta temas muy unidos entre
+  sí, con su color y cuántos temas tiene. Los temas sin ninguna unión van
+  juntos en uno ("Temas aislados") y, si son muchas, las comunidades más
+  chicas en otro ("Otras comunidades").
+- **Tocás una comunidad, o te acercás con dos dedos**, y sus temas **salen de
+  la burbuja**: nacen donde estaba y se acomodan alrededor. Arriba aparece
+  **"Grado"**: **0** muestra solo sus temas, **1** también los que se unen
+  directamente a ellos (lo que se ve al entrar), **2** suma los unidos a
+  esos, y **Todos**, todo lo que se alcanza desde ahí (hasta 300 temas, los
+  más cercanos primero).
+- **Tocás un tema, o te acercás más**, y se despliegan **sus documentos**
+  alrededor, con los vínculos entre ellos (hasta 200, los más recientes).
+  Tocar un documento lo abre en Procesado; el botón de carpeta de arriba abre
+  el material del tema.
+- **Alejarte con dos dedos** los recoge de vuelta a la altura anterior.
+  Arrastrar el mapa no te saca de la altura en la que estás.
+
+Con **"sin animaciones"** en el sistema, el cambio de altura es directo. Las
+etiquetas crecen al alejarte para que se sigan leyendo, y las de los temas
+chicos se callan para no pisarse.
+
+#### Las migas
+
+Arriba del lienzo dicen dónde estás —**"Todo › Cristianismo › Tomás de
+Aquino"**— y cada una te lleva a esa altura.
+
+#### Red · Radial · Árbol
+
+Abajo a la izquierda elegís **cómo se acomoda** lo que estás mirando:
+
+- **Red**: la red de fuerzas de siempre.
+- **Radial**: lo que mirás en el centro y sus ramas alrededor. De lejos, en
+  el centro está "Todo" con las comunidades; dentro de una comunidad, sus
+  temas; en un tema, sus notas mapa y sus documentos.
+- **Árbol**: lo mismo, de izquierda a derecha, de lo general a lo particular.
+
+En Radial y Árbol cada tarjeta se despliega **nodo a nodo**: tocarla abre su
+rama (**›**) o la cierra (**‹**), y lo que tocaste se queda quieto mientras
+lo demás se acomoda. Un tema muestra sus subtemas, sus notas mapa y sus
+documentos; un documento, **sus vínculos, rotulados con su tipo** (cita,
+contradice…) y con una flecha hacia donde apuntan. El botón del borde de cada
+tarjeta abre el tema o el documento, y en una comunidad **entra** en ella.
+Con el botón de arriba (el nombre de donde parte) podés **partir de una nota
+mapa** o de cualquier tema; la ✕ vuelve a lo que estás mirando. Si son
+muchos, se dibujan los primeros 120 y un aviso lo dice.
+
+#### Moverte por el lienzo
+
+- **⊖ ⊕ ⛶**, abajo a la derecha: alejar, acercar y **encuadrar todo**. Son
+  para la computadora y el lector de pantalla, donde pellizcar no alcanza; no
+  cambian de altura.
+- **El minimapa** aparece encima cuando te acercás: todo en chiquito, con un
+  rectángulo que marca la parte que ves. Tocarlo o arrastrarlo te lleva ahí.
+  Con el lienzo entero a la vista se esconde.
+- **"Ver como lista"** (el botón de arriba): lo mismo que el lienzo, como una
+  lista que se despliega —comunidades › temas › documentos, con sus
+  vínculos—, con la letra del tamaño que tengas puesto. Es la forma cómoda de
+  recorrer el Mapa con el lector de pantalla. Cada fila se despliega con su
+  flecha y se abre con su botón; un vínculo se lee desde el documento de la
+  fila ("Citado por Livio"). El mismo botón vuelve al dibujo.
+
+#### Los vínculos entre documentos
+
+El botón de **cadena**, abajo junto a Red · Radial · Árbol, muestra **tus
+documentos y los vínculos entre ellos, tengan o no Tema o etiquetas** (lo que
+antes era la pestaña "Vínculos"; más adelante pasa a ser una "capa" del
+lienzo). Lo que vinculás aparece en el acto. Se dibuja solo lo que tiene
+algún vínculo; si son muchos, hasta 200 —primero lo que vinculaste hace
+poco, después lo más vinculado— y un aviso dice cuántos quedaron afuera (con
+los filtros ves otra parte). Abajo, otra línea cuenta los elementos que no
+tienen ningún vínculo. Cada grupo de elementos unidos entre sí se acomoda
+aparte, sin que ninguna caja pise a otra.
+
+Arriba, **«Vínculos: Más fuertes · Menos fuertes · Todos»** (arranca en
+«Todos»): **«Más fuertes»** deja la mitad de los vínculos que más pesan y
+**«Menos fuertes»** la mitad que menos pesan (con un número impar, el del
+medio está en las dos), y un aviso dice «Se muestran 3 de 6 vínculos». Un
+vínculo pesa por **su tipo** (una contradicción más que uno con algo que
+decir, y ese más que un «relacionado» sin precisar), por **quién lo
+respaldó** (lo tuyo, o lo que la IA hizo y vos revisaste, más que lo que la
+IA dejó sola, según su confianza), por **si se sabe de qué fragmento
+sale**, y por **cuántas veces se vinculan los dos elementos**. Los empates
+los gana el más reciente. La elección se queda mientras seguís mirando los
+vínculos, aunque cambies los filtros o llegue uno nuevo.
+
+Para volver, tocá otra vez la cadena o **"Todo"** en las migas. Sin ningún
+Tema todavía, el Mapa te lo dice y te ofrece **"Ver los vínculos"**, que no
+los necesita.
+
+#### Vincular desde el Mapa
+
+El botón **agregar vínculo** (arriba, siempre a mano) vincula dos documentos
+procesados cualquiera. Con documentos a la vista —los de un tema o los
+vinculados— aparece también **"✨ Sugerir vínculos con IA"**, que propone
+entre los que estás mirando.
 
 **Ver en el Mapa.** Cada vez que vinculás dos documentos procesados —desde el
 Mapa o desde un documento— un aviso **"Vinculado"** ofrece **"Ver en el
-Mapa"**: abre "Vínculos" con ese documento resaltado y encuadrado junto a sus
-vecinos. Si vinculás dos cosas de la Biblioteca, el aviso dice "Vinculado" y
-nada más: eso no está en el Mapa. Agregar un vínculo a mano desde el Mapa, o
-"✨ Sugerir vínculos con IA", eligen entre lo procesado.
+Mapa"**: abre la pestaña Mapa con los vínculos a la vista y ese documento
+resaltado y encuadrado junto a sus vecinos. Si vinculás dos cosas de la
+Biblioteca, el aviso dice "Vinculado" y nada más: eso no está en el Mapa.
 
-Los filtros (tipo, Tema, etiquetas, búsqueda) rigen en todas las vistas, y el
-esquema, el grafo y los vínculos se pueden guardar como imagen o como SVG.
-Desde el nivel de elementos del Grafo hay un botón "✨ Sugerir vínculos con
-IA" y otro para agregar un vínculo a mano.
+#### Guardar como imagen
+
+El botón de compartir de arriba guarda **lo que ves en el Mapa** como imagen
+(PNG) o como dibujo (SVG), con la disposición en el nombre —por ejemplo
+`mapa-radial-etiquetas.svg`, o `mapa-red-vinculos.png` con los vínculos—.
+En el Resumen está apagado, y visto como lista te pide volver al dibujo.
+
+Los filtros (tipo, Tema, etiquetas, búsqueda) rigen en las dos pestañas.
 
 ---
 
