@@ -11,7 +11,7 @@
 > - **clonar la voz de quien elijas, con su permiso**, y **crear una voz nueva describiéndola**;
 > - **cada idioma con sus voces nativas**, con su acento y su tono.
 >
-> Cambian las decisiones B, C y F, y se suma la L.
+> Cambian las decisiones B, C y F, y se suma la L. **Aprobado** por el dueño el 30/10 («aprobado»).
 
 Pedido del 30/10. La guía de diseño son las capturas 3 a 17 (la app Listen AI). Hay que conservar
 todo lo que la app ya hace.
