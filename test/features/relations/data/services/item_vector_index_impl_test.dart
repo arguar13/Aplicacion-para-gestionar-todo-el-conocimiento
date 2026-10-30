@@ -6,6 +6,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/services/embedding_similarity.dart';
 import 'package:sinapsis/features/relations/data/services/item_vector_index_impl.dart';
 import 'package:sinapsis/features/relations/domain/services/item_vector_index.dart';
+import 'package:sinapsis/features/relations/domain/services/similar_pairs.dart';
 
 import '../../../../support/item_rows.dart';
 
@@ -207,6 +208,66 @@ void main() {
 
     test('ids repetidos cuentan una vez', () async {
       expect(await index.representativeOrder(['a', 'a'], take: 1), ['a']);
+    });
+  });
+
+  group('similarPairs (F44, paso 5, «Parecidos» en el Mapa)', () {
+    test('los pares que se parecen entre los pedidos —fuentes y notas—, sin '
+        'los de «except» ni lo que está en la papelera', () async {
+      await source('a', [
+        [1, 0, 0],
+      ]);
+      await source('b', [
+        [0.9, 0.1, 0],
+      ]);
+      await note('n', [0.95, 0.05, 0]);
+      await source('lejos', [
+        [0, 0, 1],
+      ]);
+      await source('no-pedido', [
+        [1, 0, 0],
+      ]);
+      await source('borrado', [
+        [1, 0, 0],
+      ]);
+      await (db.update(db.knowledgeEntries)
+            ..where((e) => e.id.equals('borrado')))
+          .write(KnowledgeEntriesCompanion(deletedAt: Value(now)));
+
+      final pairs = await index.similarPairs(
+        ['a', 'b', 'n', 'lejos', 'borrado', 'sin-vectores'],
+        minSimilarity: 0.6,
+        perItem: 5,
+        limit: 10,
+        except: {similarPairKey('a', 'n')},
+      );
+
+      expect([for (final p in pairs) '${p.a}-${p.b}'], ['b-n', 'a-b']);
+    });
+
+    test('con menos de dos elementos con vectores, nada', () async {
+      await source('a', [
+        [1, 0, 0],
+      ]);
+
+      expect(
+        await index.similarPairs(
+          ['a', 'sin-vectores'],
+          minSimilarity: 0,
+          perItem: 2,
+          limit: 5,
+        ),
+        isEmpty,
+      );
+      expect(
+        await index.similarPairs(
+          ['a', 'a'],
+          minSimilarity: 0,
+          perItem: 2,
+          limit: 5,
+        ),
+        isEmpty,
+      );
     });
   });
 

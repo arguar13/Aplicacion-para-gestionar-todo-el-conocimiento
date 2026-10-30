@@ -7,6 +7,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/services/embedding_similarity.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/text_parts.dart';
 import 'package:sinapsis/features/relations/domain/services/item_vector_index.dart';
+import 'package:sinapsis/features/relations/domain/services/similar_pairs.dart';
 
 /// De a cuántos ids se pregunta por los vectores de un conjunto: lejos del
 /// tope de variables de SQLite.
@@ -77,6 +78,27 @@ class ItemVectorIndexImpl implements ItemVectorIndex {
         if (!chosen.contains(id)) id,
     ];
     return [...picked, ...spreadOrder(rest)];
+  }
+
+  @override
+  Future<List<SimilarPair>> similarPairs(
+    List<String> itemIds, {
+    required double minSimilarity,
+    required int perItem,
+    required int limit,
+    Set<String> except = const {},
+  }) async {
+    final ids = itemIds.toSet().toList();
+    if (ids.length < 2 || limit <= 0 || perItem <= 0) return const [];
+    final vectors = await _vectorsByItem(only: ids);
+    if (vectors.length < 2) return const [];
+    return compute(_similarPairs, (
+      vectors: vectors,
+      minSimilarity: minSimilarity,
+      perItem: perItem,
+      limit: limit,
+      except: except,
+    ));
   }
 
   /// Los vectores guardados de cada elemento vivo —fragmentos y tramos de
@@ -165,6 +187,28 @@ Map<String, double> _bestPerItem(
   }
   return scores;
 }
+
+/// Los pares más parecidos de `vectors` (F44, paso 5), decodificados acá, en
+/// el isolate: ver `mostSimilarPairs`.
+List<SimilarPair> _similarPairs(
+  ({
+    Map<String, List<Uint8List>> vectors,
+    double minSimilarity,
+    int perItem,
+    int limit,
+    Set<String> except,
+  })
+  input,
+) => mostSimilarPairs(
+  {
+    for (final MapEntry(key: id, value: blobs) in input.vectors.entries)
+      id: [for (final blob in blobs) decodeEmbeddingVector(blob)],
+  },
+  minSimilarity: input.minSimilarity,
+  perItem: input.perItem,
+  limit: input.limit,
+  except: input.except,
+);
 
 /// Los primeros `take` de `ids` por cobertura (F30): el más cercano al centro
 /// de todos, y después, uno por vez, el más lejano de los ya elegidos —el

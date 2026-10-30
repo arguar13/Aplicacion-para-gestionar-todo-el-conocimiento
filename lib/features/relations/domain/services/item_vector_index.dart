@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:sinapsis/features/relations/domain/services/similar_pairs.dart';
 
 /// Qué tan parecido es un elemento a lo buscado (F30): el coseno de su
 /// fragmento o tramo más parecido.
@@ -54,5 +55,19 @@ abstract interface class ItemVectorIndex {
   Future<List<String>> representativeOrder(
     List<String> itemIds, {
     required int take,
+  });
+
+  /// Los pares de [itemIds] que hablan de lo mismo (F44, paso 5, la capa
+  /// «Parecidos» del Mapa): ver `mostSimilarPairs`, con sus topes y sin los
+  /// pares de [except] (`similarPairKey`). Un elemento sin vectores no entra
+  /// en ninguno.
+  ///
+  /// Compara todos con todos: quien lo llama topea [itemIds].
+  Future<List<SimilarPair>> similarPairs(
+    List<String> itemIds, {
+    required double minSimilarity,
+    required int perItem,
+    required int limit,
+    Set<String> except = const {},
   });
 }
