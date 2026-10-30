@@ -120,25 +120,39 @@ void main() {
       const [];
 
   group('el original a la vista en el documento (M3)', () {
-    testWidgets('arriba los botones de estudio, el original en su marco como '
-        'en la Biblioteca, y debajo qué es, cuánto ocupa y cuándo se '
-        'copió', (tester) async {
+    testWidgets('el original en su marco como en la Biblioteca y, debajo, qué '
+        'tiene marcado y qué es, cuánto ocupa y cuándo se copió; las fichas '
+        'van adentro (F45, paso 7b, mejora 15)', (tester) async {
       final id = await processDocument(withMarks: true);
       await openDocument(tester, id);
 
-      final bar = find.byKey(const Key('original-study-bar'));
       final preview = find.byType(DocumentFirstPagePreview);
+      final marks = find.byKey(const Key('original-marks-line'));
       final details = find.byKey(const Key('processed-original-details'));
-      expect(bar, findsOneWidget);
+      expect(find.byKey(const Key('original-study-bar')), findsNothing);
       expect(preview, findsOneWidget);
+      expect(marks, findsOneWidget);
       expect(details, findsOneWidget);
       expect(
-        tester.getTopLeft(bar).dy,
-        lessThan(tester.getTopLeft(preview).dy),
+        tester.getTopLeft(preview).dy,
+        lessThan(tester.getTopLeft(marks).dy),
       );
       expect(
-        tester.getTopLeft(preview).dy,
+        tester.getTopLeft(marks).dy,
         lessThan(tester.getTopLeft(details).dy),
+      );
+      // El resumen y la palabra clave, con su punto de color.
+      expect(
+        find.byKey(const Key('original-marks-summary')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('original-marks-keyword')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('original-marks-synthesis')),
+        findsNothing,
       );
       final line = tester.widget<Text>(
         find.descendant(of: details, matching: find.byType(Text)),
@@ -503,7 +517,8 @@ void main() {
       await phone(tester);
       await pushAndSettle(tester, harness, RoutePaths.processedDocument(id));
       expect(tester.takeException(), isNull);
-      expect(find.byKey(const Key('original-study-bar')), findsOneWidget);
+      expect(find.byKey(const Key('original-study-bar')), findsNothing);
+      expect(find.byKey(const Key('original-marks-line')), findsOneWidget);
 
       harness.container.read(goRouterProvider).go(RoutePaths.processed);
       await tester.pumpAndSettle();

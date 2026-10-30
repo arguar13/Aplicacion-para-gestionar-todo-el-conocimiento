@@ -11,8 +11,8 @@ import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_original_view_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_marks_line.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
-import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_bar.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_view.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_first_page_preview.dart';
@@ -26,15 +26,17 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// paso 15, M3): como el detalle de la Biblioteca muestra el suyo
 /// (`EmbeddedFileViewer`), sin tener que tocar nada para verlo.
 ///
-/// - **Arriba, los botones de estudio** (M5, `OriginalStudyBar`): marcar el
-///   resumen, la síntesis y las palabras clave con la IA o a mano, prenderlos
-///   y apagarlos. Elegir a mano se hace en el original entero, donde se tocan
-///   las oraciones.
 /// - **El original**, en el mismo marco que en la Biblioteca y con lo mismo
 ///   adentro —la primera página quieta de un PDF o de un documento, la página
 ///   web archivada—, con lo marcado encima. El botón grande del centro y un
 ///   toque en la hoja abren el visor de siempre a pantalla completa
 ///   (`ProcessedOriginalScreen`).
+/// - **Las fichas de estudio van adentro** (F45, paso 7b, mejora 15): el
+///   resumen, la síntesis y las palabras clave se marcan, se prenden y se
+///   apagan en el original entero, donde se tocan las oraciones. Acá, debajo
+///   de la vista previa, un renglón dice qué tiene marcado
+///   ([OriginalMarksLine]); si la fuente cambió su texto, por qué no hay
+///   marcas.
 /// - **Debajo, una línea** con qué es la copia, cuánto ocupa y cuándo se
 ///   copió. Borrarla sigue en «Más» (decisión K).
 ///
@@ -64,21 +66,21 @@ class ProcessedOriginalSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _frame(context, l10n, original, view, expand),
+          const SizedBox(height: 8),
           if (text != null) ...[
-            OriginalStudyBar(
+            OriginalMarksLine(
               study: OriginalStudy(documentId: documentId, original: text),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
           ] else if (loaded != null && loaded.exists) ...[
             _Line(
               key: const Key('processed-original-unmarked'),
               icon: Icons.info_outline,
               text: l10n.processedOriginalUnmarked,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
           ],
-          _frame(context, l10n, original, view, expand),
-          const SizedBox(height: 8),
           _Details(original: original),
         ],
       ),

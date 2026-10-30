@@ -14187,5 +14187,15 @@
   "f45S5CompositionTopicMap": "Mapa de temas",
   "@f45S5CompositionTopicMap": {"description": "Composición de infografía: el tema arriba y sus subtemas colgados de una llave (F45, paso 5)."},
   "f45S5CompositionStatMosaic": "Estadísticas en mosaico",
-  "@f45S5CompositionStatMosaic": {"description": "Composición de infografía: las cifras en baldosas de dos tamaños, como un tablero (F45, paso 5)."}
+  "@f45S5CompositionStatMosaic": {"description": "Composición de infografía: las cifras en baldosas de dos tamaños, como un tablero (F45, paso 5)."},
+  "f45S7bMarksLead": "Marcado:",
+  "@f45S7bMarksLead": {"description": "F45, paso 7b (mejora 15): el comienzo del renglón debajo de la vista previa de un original, antes de las clases marcadas con su punto de color."},
+  "f45S7bMarksSaid": "Marcado: {kinds}",
+  "@f45S7bMarksSaid": {"description": "F45, paso 7b (mejora 15): lo que dice el lector de pantalla del renglón de lo marcado. kinds: las clases marcadas, separadas por comas.", "placeholders": {"kinds": {"type": "String"}}},
+  "f45S7bMarksHidden": "{name} (oculto)",
+  "@f45S7bMarksHidden": {"description": "F45, paso 7b (mejora 15): una clase marcada que se dejó oculta, en lo que dice el lector de pantalla.", "placeholders": {"name": {"type": "String"}}},
+  "f45S7bMarksNone": "Nada marcado todavía: el resumen, la síntesis y las palabras clave se marcan al abrir el original.",
+  "@f45S7bMarksNone": {"description": "F45, paso 7b (mejora 15): debajo de la vista previa de un original sin nada marcado; dice dónde se marca."},
+  "f45S7bMarksWorking": "La IA está marcando · {percent} %",
+  "@f45S7bMarksWorking": {"description": "F45, paso 7b (mejora 15): debajo de la vista previa de un original mientras la IA lo marca, con su avance.", "placeholders": {"percent": {"type": "int"}}}
 }

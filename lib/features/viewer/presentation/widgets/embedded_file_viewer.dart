@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_marks_line.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
+import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_first_page_preview.dart';
@@ -50,10 +53,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// acá abajo: es la parte de arriba del panel de la fuente (F26, decisión
 /// B), junto a las acciones. Acá queda solo el original.
 ///
-/// **El original es el mismo que en Procesado** (F45, paso 7b, mejora 16):
-/// una página web se ve como en el navegador del teléfono, también en la
-/// computadora (`MobilePageWidth`), y a pantalla completa abre la misma
-/// pantalla de original (`openDocumentViewer`).
+/// **El original es el mismo que en Procesado** (F45, paso 7b, mejoras 15 y
+/// 16): la vista previa muestra lo marcado sobre la fuente y, debajo, un
+/// renglón que dice qué tiene marcado (`OriginalMarksLine`); las fichas donde
+/// se marca van adentro, a pantalla completa. Una página web se ve como en el
+/// navegador del teléfono, también en la computadora (`MobilePageWidth`).
 class EmbeddedFileViewer extends ConsumerWidget {
   const EmbeddedFileViewer({required this.item, super.key});
 
@@ -111,15 +115,18 @@ class EmbeddedFileViewer extends ConsumerWidget {
     return switch (resolved) {
       NoResolvedViewer() => null,
       TextResolvedViewer(:final content, :final markdown, :final study) =>
-        EmbeddedViewerFrame(
-          tall: true,
-          onExpand: expand,
-          bigButtonLabel: l10n.detailReadAsBook,
-          child: DocumentFirstPagePreview(
-            content: content,
-            markdown: markdown,
-            study: study,
-            onTap: expand,
+        _withMarks(
+          study,
+          EmbeddedViewerFrame(
+            tall: true,
+            onExpand: expand,
+            bigButtonLabel: l10n.detailReadAsBook,
+            child: DocumentFirstPagePreview(
+              content: content,
+              markdown: markdown,
+              study: study,
+              onTap: expand,
+            ),
           ),
         ),
       ImageResolvedViewer(:final path) => EmbeddedViewerFrame(
@@ -135,13 +142,17 @@ class EmbeddedFileViewer extends ConsumerWidget {
         onExpand: expand,
         child: MediaPlayerView(path: path, isVideo: isVideo),
       ),
-      PdfResolvedViewer(:final path, :final text) => EmbeddedViewerFrame(
-        tall: true,
-        onExpand: expand,
-        bigButtonLabel: l10n.detailReadAsBook,
-        child: PdfFirstPagePreview(path: path, text: text, onTap: expand),
+      PdfResolvedViewer(:final path, :final text) => _withMarks(
+        text,
+        EmbeddedViewerFrame(
+          tall: true,
+          onExpand: expand,
+          bigButtonLabel: l10n.detailReadAsBook,
+          child: PdfFirstPagePreview(path: path, text: text, onTap: expand),
+        ),
       ),
-      WebPageResolvedViewer(:final path, :final url, :final text) =>
+      WebPageResolvedViewer(:final path, :final url, :final text) => _withMarks(
+        text,
         EmbeddedViewerFrame(
           tall: true,
           onExpand: expand,
@@ -155,6 +166,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
             ),
           ),
         ),
+      ),
       // Sin `onExpand`: tocar la vista previa ya hace lo único que tiene
       // sentido hacer con un video ajeno —abrirlo en YouTube—, así que no
       // hay una pantalla completa propia de la app a la que expandirla.
@@ -165,6 +177,20 @@ class EmbeddedFileViewer extends ConsumerWidget {
     };
   }
 }
+
+/// [frame] con, debajo, qué tiene marcado el original si tiene [text]
+/// (F45, paso 7b).
+Widget _withMarks(StudyText? text, Widget frame) => text == null
+    ? frame
+    : Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          frame,
+          const SizedBox(height: 8),
+          OriginalMarksLine(study: OriginalStudy.source(text)),
+        ],
+      );
 
 /// El marco acotado —esquinas redondeadas, borde tenue— que envuelve
 /// cualquier visor embebido, con el botón de expandir a pantalla completa

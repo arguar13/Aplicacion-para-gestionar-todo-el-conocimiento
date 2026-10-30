@@ -15164,5 +15164,15 @@
   "f45S5CompositionTopicMap": "Topic map",
   "@f45S5CompositionTopicMap": {"description": "Infographic composition: the topic on top and its subtopics hanging from a bracket (F45, step 5)."},
   "f45S5CompositionStatMosaic": "Stats mosaic",
-  "@f45S5CompositionStatMosaic": {"description": "Infographic composition: the figures in tiles of two sizes, like a dashboard (F45, step 5)."}
+  "@f45S5CompositionStatMosaic": {"description": "Infographic composition: the figures in tiles of two sizes, like a dashboard (F45, step 5)."},
+  "f45S7bMarksLead": "Marked:",
+  "@f45S7bMarksLead": {"description": "F45, paso 7b (mejora 15): el comienzo del renglón debajo de la vista previa de un original, antes de las clases marcadas con su punto de color."},
+  "f45S7bMarksSaid": "Marked: {kinds}",
+  "@f45S7bMarksSaid": {"description": "F45, paso 7b (mejora 15): lo que dice el lector de pantalla del renglón de lo marcado. kinds: las clases marcadas, separadas por comas.", "placeholders": {"kinds": {"type": "String"}}},
+  "f45S7bMarksHidden": "{name} (hidden)",
+  "@f45S7bMarksHidden": {"description": "F45, paso 7b (mejora 15): una clase marcada que se dejó oculta, en lo que dice el lector de pantalla.", "placeholders": {"name": {"type": "String"}}},
+  "f45S7bMarksNone": "Nothing marked yet: the summary, synthesis and keywords are marked when you open the original.",
+  "@f45S7bMarksNone": {"description": "F45, paso 7b (mejora 15): debajo de la vista previa de un original sin nada marcado; dice dónde se marca."},
+  "f45S7bMarksWorking": "The AI is marking · {percent}%",
+  "@f45S7bMarksWorking": {"description": "F45, paso 7b (mejora 15): debajo de la vista previa de un original mientras la IA lo marca, con su avance.", "placeholders": {"percent": {"type": "int"}}}
 }
