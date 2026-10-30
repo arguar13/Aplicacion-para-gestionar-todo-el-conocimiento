@@ -343,6 +343,12 @@ títulos. Si el resultado viene de un lugar específico (el minuto de un
 video, la página de un PDF, un fragmento de texto), lo vas a ver debajo del
 resultado; tocarlo te lleva directo a ese lugar exacto.
 
+También busca en **lo que escribiste sobre el texto de cada original**: las
+notas de tus resaltados (y, cuando estén, las notas en el texto). Son texto
+tuyo, como el título: lo que coincide ahí aparece antes que lo que solo lo
+menciona en el cuerpo de otra fuente. Lo que anotaste en **Procesado** no
+aparece acá —se busca en Procesado—, ni lo de la papelera.
+
 ### Filtrar
 
 El botón con forma de perilla, al lado del buscador, abre el panel
@@ -2053,7 +2059,9 @@ primera de **"Estudiar"**).
 Se ve y se maneja como la [Biblioteca](#la-biblioteca):
 
 - **Buscar**: escribí arriba y busca en el título y en el texto de cada
-  documento, aunque las palabras estén en partes distintas.
+  documento, aunque las palabras estén en partes distintas. También en las
+  notas que escribas sobre su original o sobre su texto; las del original de
+  la Biblioteca no cuentan acá: son de la fuente.
 - **Filtros** (el botón de la perilla, con el número de los que tenés
   puestos): por **tema**, por **de qué fuente salió** (un libro, una página,
   un video…) y por **qué partes tiene**, también **Original** (los que tienen la
@@ -2190,7 +2198,14 @@ lo marcado"**: baja **la copia en su mismo formato** con lo que marcaste en
 ella. Es el **"Descargar"** que antes estaba en la tarjeta de estudiar de la
 Biblioteca. En la hoja elegís qué lleva, y se combina: **con el resumen
 resaltado**, **con la síntesis resaltada** y **con las palabras clave
-resaltadas** (la copia no tiene resaltados tuyos: esa opción aparece apagada).
+resaltadas** (la copia no tiene resaltados tuyos: esa opción aparece apagada),
+y **con mis notas**: las notas que escribiste sobre el texto. En un **PDF** van
+como **notas del PDF**, las del ícono que se abre con un toque en cualquier
+lector, en el margen a la altura del renglón, con el pedazo subrayado del color
+de la nota; en el **Word**, el **texto suelto**, el **Markdown**, el **EPUB** y la
+**página web**, como **notas al pie**, numeradas en el orden del texto, con la
+llamada justo después del pedazo. Una nota que ya no encuentra su pedazo (el
+texto cambió) no tiene dónde ir y no se baja; sigue en la app.
 Lo que todavía no existe aparece apagado y dice por qué, y la hoja arranca con
 lo que estás viendo resaltado. Tocás **Guardar** y elegís dónde, con el
 selector del teléfono. Cada formato sale como siempre: el PDF con resaltados de verdad,
@@ -2980,6 +2995,10 @@ afuera, con "atrás" o deslizándolo hacia la izquierda.
   baja hasta ahí y lo marca un momento); una nota que no tiene pasajes abre
   su detalle. Si el modelo nombra un número que no existe, queda como lo
   escribió.
+- **Lo que anotaste sobre un texto también es una fuente**: la nota de un
+  resaltado (y, cuando estén, las notas en el texto, de la Biblioteca o de
+  Procesado) llega al modelo con el pedazo que cita entre comillas
+  —«así»—, para que sepa de qué habla. Su tarjeta abre el documento.
 - **Debajo de la respuesta, "N fuentes"** con una flechita: tocalo y se
   despliegan sus **tarjetas numeradas**, con el título y el pasaje; tocá una
   para abrirla en su lugar. Sin el modelo descargado, las fuentes son la
