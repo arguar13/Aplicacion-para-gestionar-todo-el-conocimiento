@@ -2,66 +2,80 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// El censo de los avisos de abajo (F43, M1): todo aviso con un botón, con
-/// un tiempo propio o que se queda es un `AppSnackBar`, que se sabe cerrar
-/// con su ✕. Un `SnackBar` común queda para las confirmaciones cortas
-/// —«Copiado», «Guardado»—, que se van solas a los cuatro segundos.
+/// El censo de los avisos de abajo (F45, paso 1): todos son el aviso común,
+/// `AppSnackBar`, y se muestran con `showAppSnackBar`. Así todos tienen su ✕,
+/// sus dos botones bien puestos y le avisan al lector flotante que se corra.
 ///
-/// Antes había veintinueve avisos con botón y ninguno se podía cerrar: con
-/// botón, un aviso se queda hasta que lo cierren, y la única forma era tocar
-/// el botón, que hace otra cosa. Esta prueba es lo que impide que vuelva a
-/// pasar con el aviso que se agregue mañana.
+/// Antes (F43, M1) solo se exigía el aviso común a los que tenían un botón o
+/// duraban más; los cortos eran un `SnackBar` de Material, sin ✕. Ahora la ✕
+/// va en todos (decisión A), y un aviso que no pasa por el común tapa al
+/// lector o queda tapado por él.
+///
+/// Fuera del aviso común no puede haber:
+/// - un `showSnackBar(`: `showAppSnackBar` solo acepta un `AppSnackBar`, así
+///   que un aviso armado a mano no compila por ahí;
+/// - un `SnackBar(` armado a mano, ni su `SnackBar.new`;
+/// - otro aviso que herede de `SnackBar`.
 ///
 /// Es una comprobación de texto, no de tipos, como el censo de escrituras: no
 /// ve un aviso armado a propósito para esconderse; sí el que se escribe sin
 /// pensar, que es el que ocurre.
 void main() {
-  test('el detector ve un botón, un tiempo propio y uno que se queda', () {
-    expect(
-      plainSnackBarsThatNeedClose('''
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.moved),
-            action: SnackBarAction(label: l10n.undo, onPressed: undo),
-          ),
-        );'''),
-      hasLength(1),
-    );
-    expect(
-      plainSnackBarsThatNeedClose(
-        'messenger.showSnackBar(const SnackBar(content: Text("x"), '
-        'duration: Duration(seconds: 10)));',
-      ),
-      hasLength(1),
-    );
-    expect(
-      plainSnackBarsThatNeedClose(
-        'showSnackBar(SnackBar(content: Text(f(a, b)), persist: true));',
-      ),
-      hasLength(1),
-    );
+  const common = 'lib/core/design/widgets/app_snack_bar.dart';
+
+  test('el detector ve un aviso mostrado a mano, armado a mano o heredado', () {
+    for (final source in [
+      'ScaffoldMessenger.of(context).showSnackBar(x);',
+      'messenger\n  ..hideCurrentSnackBar()\n  ..showSnackBar(x);',
+      'messenger?.showSnackBar(x);',
+      'final bar = SnackBar(content: Text(l10n.copied));',
+      'return const SnackBar(content: Text("x"));',
+      'material.SnackBar(content: child)',
+      'final make = SnackBar.new;',
+      'show(SnackBar (content: child));',
+      'class QuietBar extends SnackBar {',
+    ]) {
+      expect(
+        snackBarsOutsideTheCommonOne(source),
+        hasLength(1),
+        reason: source,
+      );
+    }
   });
 
-  test('y no confunde una confirmación corta, un AppSnackBar ni un '
-      'comentario', () {
+  test('y no confunde el aviso común, sus piezas ni un comentario', () {
     expect(
-      plainSnackBarsThatNeedClose('''
-        messenger.showSnackBar(SnackBar(content: Text(l10n.copied)));
-        messenger.showSnackBar(
-          SnackBar(content: Text(describe(x, action: y))),
-        );
-        messenger.showSnackBar(
-          AppSnackBar(content: Text(l10n.moved), action: undoAction),
-        );
-        // SnackBar(content: Text('x'), action: a)
+      snackBarsOutsideTheCommonOne('''
+        messenger.showAppSnackBar(AppSnackBar(content: Text(l10n.copied)));
+        messenger
+          ..hideCurrentSnackBar()
+          ..showAppSnackBar(
+            AppSnackBar(
+              content: Text(l10n.moved),
+              action: SnackBarAction(label: l10n.undo, onPressed: undo),
+            ),
+          );
+        final ScaffoldFeatureController<SnackBar, SnackBarClosedReason> c;
+        context.findAncestorWidgetOfExactType<SnackBar>();
+        final theme = SnackBarThemeData(behavior: SnackBarBehavior.floating);
+        // messenger.showSnackBar(SnackBar(content: Text('x')));
         /// Un `SnackBar(action: …)` se queda.
+        /* SnackBar(content: x) */
         '''),
       isEmpty,
     );
   });
 
-  test('ningún aviso de la app con botón, largo o que se queda está sin su '
-      '✕', () {
+  test('el detector da el renglón de cada uno', () {
+    expect(
+      snackBarsOutsideTheCommonOne(
+        'a();\n// SnackBar(\nmessenger.showSnackBar(\n  SnackBar(content: x),\n);',
+      ),
+      [3, 4],
+    );
+  });
+
+  test('ningún aviso de la app queda fuera del aviso común', () {
     final files = [
       for (final entity in Directory('lib').listSync(recursive: true))
         if (entity is File &&
@@ -74,61 +88,56 @@ void main() {
     // sin revisar nada.
     expect(files.length, greaterThan(200));
 
-    final offenders = <String>[
-      for (final file in files)
-        for (final line in plainSnackBarsThatNeedClose(file.readAsStringSync()))
-          '${file.path.replaceAll(r'\', '/')}:$line',
-    ];
+    final offenders = <String>[];
+    var shown = 0;
+    for (final file in files) {
+      final path = file.path.replaceAll(r'\', '/');
+      if (path.endsWith(common)) continue;
+      final source = file.readAsStringSync();
+      shown += RegExp(r'\bshowAppSnackBar\(').allMatches(source).length;
+      for (final line in snackBarsOutsideTheCommonOne(source)) {
+        offenders.add('$path:$line');
+      }
+    }
 
     expect(
       offenders,
       isEmpty,
       reason:
-          'Estos avisos tienen un botón, un tiempo propio o se quedan, y son '
-          'un SnackBar común: sin la ✕ no hay cómo cerrarlos. Usar '
-          'AppSnackBar (lib/core/design/widgets/app_snack_bar.dart).',
+          'Estos avisos no pasan por el aviso común: sin él no tienen su ✕, '
+          'sus botones quedan donde Material los ponga y el lector flotante '
+          'los tapa. Usar `showAppSnackBar(AppSnackBar(...))` '
+          '($common).',
     );
+    // Y los avisos están: la app tiene más de ciento ochenta.
+    expect(shown, greaterThan(150));
   });
 }
 
-/// Los renglones de [source] donde empieza un `SnackBar(` común —no un
-/// `AppSnackBar(`— que pasa un `action:`, un `duration:` o un `persist:`
-/// propios. Mira solo los argumentos de ESE constructor, no los de lo que
-/// lleva adentro, y no mira los comentarios.
-List<int> plainSnackBarsThatNeedClose(String source) {
+/// Los renglones de [source] con un aviso de abajo que no es el común: un
+/// `showSnackBar(`, un `SnackBar(` o `SnackBar.new` armado a mano —no un
+/// `AppSnackBar(`— o una clase que hereda de `SnackBar`. No mira los
+/// comentarios.
+List<int> snackBarsOutsideTheCommonOne(String source) {
   final code = _withoutComments(source);
-  final found = <int>[];
-  for (final match in RegExp(r'(?<![A-Za-z0-9_])SnackBar\(').allMatches(code)) {
-    final arguments = _topLevelArguments(code, match.end);
-    if (RegExp(r'^\s*(action|duration|persist)\s*:').hasMatch(arguments) ||
-        RegExp(r',\s*(action|duration|persist)\s*:').hasMatch(arguments)) {
+  final found = <int>{};
+  for (final pattern in [
+    RegExp(r'(?<![A-Za-z0-9_])showSnackBar\s*\('),
+    RegExp(r'(?<![A-Za-z0-9_])SnackBar\s*(\(|\.new\b)'),
+    RegExp(r'\bextends\s+SnackBar\b'),
+  ]) {
+    for (final match in pattern.allMatches(code)) {
       found.add('\n'.allMatches(code.substring(0, match.start)).length + 1);
     }
   }
-  return found;
+  return found.toList()..sort();
 }
 
-/// Lo que va entre los paréntesis del constructor que abre en [start], con
-/// lo que va dentro de otros paréntesis, corchetes o llaves borrado: así un
-/// `action:` de una función de adentro no cuenta como suyo.
-String _topLevelArguments(String code, int start) {
-  final out = StringBuffer();
-  var depth = 0;
-  for (var i = start; i < code.length; i++) {
-    final char = code[i];
-    if (char == '(' || char == '[' || char == '{') {
-      depth++;
-    } else if (char == ')' || char == ']' || char == '}') {
-      if (depth == 0) break;
-      depth--;
-    } else if (depth == 0) {
-      out.write(char);
-    }
-  }
-  return out.toString();
-}
-
-/// [source] sin sus comentarios de renglón, con los saltos de línea en su
-/// lugar para que los números de renglón sigan valiendo.
-String _withoutComments(String source) =>
-    source.replaceAll(RegExp(r'//[^\n]*'), '');
+/// [source] sin sus comentarios —de renglón y de bloque—, con los saltos de
+/// línea en su lugar para que los números de renglón sigan valiendo.
+String _withoutComments(String source) => source
+    .replaceAllMapped(
+      RegExp(r'/\*.*?\*/', dotAll: true),
+      (match) => '\n' * '\n'.allMatches(match[0]!).length,
+    )
+    .replaceAll(RegExp(r'//[^\n]*'), '');
