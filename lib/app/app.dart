@@ -18,6 +18,7 @@ import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_review_swi
 import 'package:sinapsis/features/chat/presentation/providers/model_memory_providers.dart';
 import 'package:sinapsis/features/keep_working/presentation/widgets/keep_working_offer_listener.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_tidy_notice_listener.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
@@ -133,8 +134,15 @@ class _AppState extends ConsumerState<App> {
               // que hizo el anterior (F33).
               child: AiReviewSwitchOfferListener(
                 navigatorKey: router.routerDelegate.navigatorKey,
-                child: GlobalErrorListener(
-                  child: child ?? const SizedBox.shrink(),
+                // Cómo terminó ordenar con la IA el texto de lo que se trió
+                // (F45, decisión B), con «Ver».
+                child: ProcessedTidyNoticeListener(
+                  onOpen: (documentId) => unawaited(
+                    router.push(RoutePaths.processedDocument(documentId)),
+                  ),
+                  child: GlobalErrorListener(
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
               ),
             ),

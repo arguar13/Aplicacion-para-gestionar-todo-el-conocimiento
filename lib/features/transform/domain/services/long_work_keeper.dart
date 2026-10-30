@@ -111,6 +111,11 @@ enum LongWorkOwner {
   /// con Gemma en el teléfono son muchos minutos.
   study,
 
+  /// Ordenar con la IA el texto de lo que se acaba de triar (F45, decisión
+  /// B): lo pidió la persona al elegir «Texto extraído», y un libro con Gemma
+  /// en el teléfono son muchos minutos.
+  tidying,
+
   /// Generar lo que se pidió en «Lo creado» de Repasar (F43): una
   /// presentación, un mapa mental, un informe… Lo pidió la persona con
   /// «Generar ahora» o «Generar más tarde», y con Gemma en el teléfono un

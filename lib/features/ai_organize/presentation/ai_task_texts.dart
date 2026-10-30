@@ -36,6 +36,7 @@ String aiTaskHeadline(AppLocalizations l10n, AiTask task) {
     AiTaskKind.flashcards => l10n.aiNowFlashcards(title),
     AiTaskKind.dates => l10n.aiNowDates(title),
     AiTaskKind.review => l10n.aiNowReview(title),
+    AiTaskKind.tidy => l10n.f45S2AiNowTidy(title),
   };
 }
 

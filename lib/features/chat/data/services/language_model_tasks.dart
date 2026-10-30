@@ -32,6 +32,7 @@ import 'package:sinapsis/features/notes/domain/services/derived_claim_anchor.dar
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_parts.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_response_parser.dart';
+import 'package:sinapsis/features/processed/domain/services/text_tidier.dart';
 import 'package:sinapsis/features/study/domain/services/study_marker.dart';
 import 'package:sinapsis/features/study/domain/services/study_reply.dart';
 import 'package:sinapsis/features/study/domain/services/study_sentences.dart';
@@ -300,6 +301,24 @@ const _mapIntroSystemInstruction =
     'elementos uno por uno. Texto corrido, sin viñetas, sin títulos, sin '
     'Markdown y sin corchetes.';
 
+/// Ordenar el texto extraído de una fuente al triarla (F45, decisión B):
+/// arreglar cómo quedó al extraerlo, nunca lo que dice. **No pide responder
+/// en español**, a diferencia de las demás: el texto queda en su idioma, y
+/// pedir otro invitaría a traducirlo. Lo que contesta se comprueba palabra
+/// por palabra contra lo que se le dio (`checkTidiedText`).
+const _tidySystemInstruction =
+    'Te doy un pedazo del texto extraído de un documento: un PDF, una foto '
+    'escaneada o una transcripción. Tu única tarea es ORDENARLO sin cambiar '
+    'ninguna palabra: uní en párrafos los renglones cortados, también los de '
+    'un texto en columnas; juntá las palabras partidas con un guion al final '
+    'del renglón; sacá los encabezados, los pies y los números de página que '
+    'se repiten; y dejá cada título solo en su renglón, con un renglón en '
+    'blanco antes y otro después. Nunca traduzcas, resumas, corrijas, '
+    'completes ni cambies el orden: el texto queda en su idioma, con todas '
+    'sus palabras, escritas igual y en el mismo orden. Respondé solo con el '
+    'texto ordenado, sin comentarios, sin Markdown y sin nada antes ni '
+    'después.';
+
 /// Mismo criterio que el resto de las instrucciones de sistema: nada de
 /// agregar datos que no estén en el contenido, y una redacción corrida —sin
 /// viñetas ni encabezados— porque lo que sigue casi siempre se escucha en
@@ -491,7 +510,8 @@ class LanguageModelTasks
         NotebookNamer,
         StudyMarker,
         DatedEventsExtractor,
-        StructuredWriter {
+        StructuredWriter,
+        TextTidier {
   /// Cada uso pasa por [gate] (F27): esta instancia es la de la persona —el
   /// chat, resumir, las tarjetas y el quiz a mano— y [background], la de la
   /// cola de la IA. [backend] es el motor que escribe, compartido con
@@ -880,6 +900,35 @@ class LanguageModelTasks
 
   @override
   int get contextTokens => _backend.contextTokens;
+
+  @override
+  int get tidyPartChars => tidyPartCharBudget(_backend.contextTokens);
+
+  /// Ordenar un pedazo (F45, decisión B): nunca más de lo que entra. Lo que
+  /// contesta mide lo mismo que lo que lee, así que no se puede achicar el
+  /// pedido como en `markPart` sin perder texto: si no entra, se avisa
+  /// ([TidyPartTooLong]) y quien llama lo parte.
+  @override
+  Future<String> tidyPart(String text) {
+    return _withTurn(() async {
+      final replyTokens = tidyReplyTokens(text.length);
+      final chat = await _backend.openExchange(
+        instruction: _tidySystemInstruction,
+        maxOutputTokens: replyTokens,
+      );
+      try {
+        final room =
+            _backend.contextTokens -
+            replyTokens -
+            await chat.countTokens(_tidySystemInstruction) -
+            kPromptMarginTokens;
+        if (await chat.countTokens(text) > room) throw const TidyPartTooLong();
+        return await _generate(chat, text);
+      } finally {
+        await chat.close();
+      }
+    });
+  }
 
   /// El pedido de JSON de «Lo creado» (F43): la orquestación —de una vez o
   /// por partes, la corrección, el avance— es de `runStructuredRequest`; acá

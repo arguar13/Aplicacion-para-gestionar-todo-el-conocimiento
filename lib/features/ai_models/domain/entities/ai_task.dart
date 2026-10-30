@@ -20,6 +20,10 @@ enum AiTaskKind {
 
   /// Revisar con otro modelo lo que hizo la IA (F33).
   review,
+
+  /// Ordenar el texto extraído de lo que se acaba de triar (F45, decisión
+  /// B), por partes. Lo pidió la persona al elegir «Texto extraído».
+  tidy,
 }
 
 /// Cada paso de «Cómo lo hace»: una tarea tiene los suyos, en orden.

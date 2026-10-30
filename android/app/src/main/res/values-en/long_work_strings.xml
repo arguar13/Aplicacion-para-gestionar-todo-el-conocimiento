@@ -38,4 +38,7 @@
     <!-- Generating something for «Lo creado» in Review: a presentation, a mind map, a report (F43). -->
     <string name="long_work_creating_title">Sinapsis is creating study material</string>
     <string name="long_work_creating_progress">%1$d %% done. You can keep using your phone.</string>
+    <!-- Ordenar con la IA el texto de lo que se trió (F45). -->
+    <string name="long_work_tidying_title">Sinapsis is tidying a text</string>
+    <string name="long_work_tidying_progress">%1$d of %2$d pages tidied. You can keep using your phone.</string>
 </resources>

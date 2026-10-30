@@ -192,6 +192,12 @@ class LongWorkService : Service() {
                 } else {
                     getString(R.string.long_work_starting)
                 }
+            KIND_TIDYING ->
+                if (total > 0) {
+                    getString(R.string.long_work_tidying_progress, done, total)
+                } else {
+                    getString(R.string.long_work_starting)
+                }
             KIND_CREATING ->
                 if (percent >= 0) {
                     getString(R.string.long_work_creating_progress, percent)
@@ -242,6 +248,7 @@ class LongWorkService : Service() {
                     }
                 KIND_REVIEWING -> R.string.long_work_reviewing_title
                 KIND_STUDYING -> R.string.long_work_studying_title
+                KIND_TIDYING -> R.string.long_work_tidying_title
                 KIND_CREATING -> R.string.long_work_creating_title
                 KIND_MODEL_DOWNLOAD -> R.string.long_work_model_title
                 KIND_AUDIO_DOWNLOAD -> R.string.long_work_audio_title
@@ -321,6 +328,9 @@ class LongWorkService : Service() {
 
         /** El trabajo es analizar un documento para estudiarlo (F36). */
         const val KIND_STUDYING = "studying"
+
+        /** El trabajo es ordenar con la IA el texto de lo que se trió (F45). */
+        const val KIND_TIDYING = "tidying"
 
         /** El trabajo es generar algo de «Lo creado» en Repasar (F43). */
         const val KIND_CREATING = "creating"

@@ -18,7 +18,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 AiTask? primaryAiTask(List<AiTask> tasks) {
   if (tasks.isEmpty) return null;
   int rank(AiTask task) => switch (task.kind) {
-    AiTaskKind.studyAnalysis => 0,
+    AiTaskKind.studyAnalysis || AiTaskKind.tidy => 0,
     AiTaskKind.review => 1,
     AiTaskKind.flashcards || AiTaskKind.dates => 2,
     AiTaskKind.organize => 3,

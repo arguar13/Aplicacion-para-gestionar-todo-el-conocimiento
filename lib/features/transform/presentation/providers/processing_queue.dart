@@ -8,6 +8,7 @@ import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_queue_providers.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_tidy_providers.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
@@ -490,6 +491,9 @@ final processingQueueProvider =
           // Lo que quedó en la cola de «Lo creado» (F43), o a medias porque la
           // app se cerró, sigue solo.
           unawaited(ref.read(creationQueueProvider).resume());
+          // Y lo que quedó por ordenar con la IA del texto de lo que se trió
+          // (F45, decisión B), desde la página en que iba.
+          unawaited(ref.read(processedTidyQueueProvider).resume());
         },
       );
     });
