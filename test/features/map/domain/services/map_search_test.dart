@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart';
 import 'package:sinapsis/features/map/domain/entities/map_search.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/services/map_search_builder.dart';
@@ -194,6 +195,27 @@ void main() {
       final hits = vault().search('mism');
 
       expect(idsOf(hits), ['tomismo']);
+    });
+
+    test('una palabra que empieza así va antes que lo que solo lo contiene, '
+        'aunque sea un documento contra un tema', () {
+      final index = indexOf(
+        const TopicGraphInput(
+          definitionId: 'tema',
+          definitionName: 'Tema',
+          values: [
+            AtlasValueRow(id: 'roma', label: 'Roma'),
+            AtlasValueRow(id: 'aroma', label: 'Aroma'),
+          ],
+          items: [
+            TopicItem(id: 'imperio', valueIds: ['roma'], title: 'El romano'),
+          ],
+          relations: [],
+        ),
+        {'roma': 1, 'aroma': 2},
+      );
+
+      expect(idsOf(index.search('roma')), ['roma', 'imperio', 'aroma']);
     });
 
     test('nada que buscar no da nada, y hay un tope', () {

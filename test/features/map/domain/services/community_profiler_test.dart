@@ -27,10 +27,10 @@ void main() {
     return [for (final t in profile.topics) graph.nodes[t].label];
   }
 
-  /// A: a1, a2 y a3 —a3 es un puente hacia B, con cinco documentos—; B: b1 y
+  /// A: a1, a2 y a3 —a3 es un puente hacia B, con diez documentos—; B: b1 y
   /// b2. Por dentro de A, a2 es el más unido (seis: tres documentos y un
   /// vínculo con a1, uno con a3), después a1 (cinco) y al final a3 (uno),
-  /// aunque a3 sea el más unido en total (ocho).
+  /// aunque en total a3 sea el más unido (trece) y a1 el menos (nueve).
   TopicGraphInput bridged() => inputOf(
     ['a1', 'a2', 'a3', 'b1', 'b2'],
     [
@@ -38,6 +38,8 @@ void main() {
       ['a2', 'a3'],
       ...repeat(5, ['a3', 'b1']),
       ['b1', 'b2'],
+      // i10 a i14: más de a3 hacia B, para que en total sea el más unido.
+      ...repeat(5, ['a3', 'b2']),
     ],
     labels: {
       'a1': 'Tomás de Aquino',
@@ -134,16 +136,17 @@ void main() {
 
     final a = profiles.of(1)!;
     final b = profiles.of(2)!;
-    // A: tres de a1·a2, uno de a2·a3 y cinco de a3·b1. B: esos cinco y b1·b2.
-    expect(a.documentCount, 9);
-    expect(b.documentCount, 6);
+    // A: tres de a1·a2, uno de a2·a3, cinco de a3·b1 y cinco de a3·b2. B: esos
+    // diez y b1·b2.
+    expect(a.documentCount, 14);
+    expect(b.documentCount, 11);
     // i0–i1 y i4–i5 en A; i4–i5 en B. El de i1 consigo mismo no cuenta.
     expect(a.linkCount, 2);
     expect(b.linkCount, 1);
     expect([for (final n in a.neighbors) n.communityId], [2]);
-    // Cinco documentos de a3·b1 (5), el vínculo i4–i5 entre a3 y b1 (2) y el
-    // de i0 con i9, entre a1 o a2 y b1 o b2 (cuatro pares de 2).
-    expect(a.neighbors.single.weight, 15);
+    // Diez documentos de a3 con b1 o b2 (10), el vínculo i4–i5 entre a3 y b1
+    // (2) y el de i0 con i9, entre a1 o a2 y b1 o b2 (cuatro pares de 2).
+    expect(a.neighbors.single.weight, 20);
     expect([for (final n in b.neighbors) n.communityId], [1]);
   });
 
