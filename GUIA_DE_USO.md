@@ -367,6 +367,17 @@ En Tipo, Bandeja y Etiquetas podés marcar varios a la vez. El número sobre el
 botón dice cuántos filtros hay puestos, y **"Limpiar filtros"** los saca
 todos, también el Tema.
 
+Cada filtro se aplica apenas lo tocás. Abajo del panel, fijo mientras
+recorrés los filtros, está el botón **"Ver 12 resultados"**: dice cuántos
+quedan con lo que elegiste —con lo que hayas buscado, también— y la cifra
+cambia con cada toque. Al tocarlo, el panel se cierra y ves la lista ya
+filtrada, desde el primero. Sin ningún filtro dice **"Ver todo (340)"**;
+mientras cuenta, **"Ver resultados"**, sin cifra. Si nada pasa lo que
+elegiste, dice **"Ningún resultado"** y queda apagado: sacá algún filtro o
+tocá **"Limpiar filtros"**, arriba. Cerrar el panel arrastrándolo hacia
+abajo, con "atrás" o tocando afuera también vale: lo elegido no se pierde. El
+lector de pantalla anuncia la cifra cada vez que cambia.
+
 ### Temas (tus "carpetas")
 
 Cada elemento puede estar en uno o varios Temas. Para ver solo los de un Tema, elegilo
@@ -1312,8 +1323,9 @@ apretado para renombrar o eliminar, y el botón **"Nuevo tema"** si todavía
 no tenés ninguno. Con un Tema elegido, su nombre se ve como un chip debajo
 del título: tocarlo abre los filtros y su "X" te saca del Tema. El número
 sobre el botón cuenta también el Tema, y **"Limpiar filtros"** lo suelta.
-Los resultados se ven con las mismas tarjetas que la Biblioteca; tocar una
-abre su detalle.
+Abajo del panel está el mismo botón que en la Biblioteca, **"Ver N
+resultados"** (ver [Filtrar](#filtrar)). Los resultados se ven con las mismas
+tarjetas que la Biblioteca; tocar una abre su detalle.
 
 Elegir un Tema acá no cambia el de la Biblioteca (cada pantalla tiene sus
 propios filtros); pero si eliminás un Tema desde cualquiera de las
@@ -1876,8 +1888,9 @@ resumen o sacar una parte. Está en cuatro lugares:
 - **Arriba en la Bandeja, siempre** (el botón de la flecha en círculo, o la
   tecla **R**), aunque la Bandeja esté vacía. Abre un **selector con todas las
   fuentes de la Biblioteca** —triadas, por revisar o descartadas; no tus notas
-  propias—, con su buscador y sus filtros (tema, tipo y "Bandeja"), de a cien
-  con **"Cargar más"**. Las que ya tienen su documento procesado llevan el chip
+  propias—, con su buscador y sus filtros (tema, tipo y "Bandeja", con el
+  mismo **"Ver N resultados"** abajo del panel que en la Biblioteca), de a
+  cien con **"Cargar más"**. Las que ya tienen su documento procesado llevan el chip
   **"Procesado"**. Tocá una para elegirla; Escape cierra sin elegir.
 - En el **documento procesado**, al lado de "Ver el original en la Biblioteca".
 - En el **vacío de Procesado**, si tenés fuentes triadas de antes.
@@ -2029,7 +2042,9 @@ Se ve y se maneja como la [Biblioteca](#la-biblioteca):
 - **Filtros** (el botón de la perilla, con el número de los que tenés
   puestos): por **tema**, por **de qué fuente salió** (un libro, una página,
   un video…) y por **qué partes tiene**, también **Original** (los que tienen la
-  copia del archivo). Con un filtro que no deja nada, ofrece
+  copia del archivo). Abajo del panel, **"Ver N resultados"** dice cuántos
+  documentos quedan y lo cierra con la lista a la vista (ver
+  [Filtrar](#filtrar)). Con un filtro que no deja nada, ofrece
   **"Limpiar filtros"**.
 - **Ordenar** (el botón de las rayitas): **lo último que trabajaste** (el de
   siempre), **cuándo lo procesaste** o **por título, de la A a la Z**.
@@ -2892,9 +2907,13 @@ En las pantallas que muestran texto aparece, abajo a la derecha, un **botón
 redondo con el ícono de una voz**. Está en el detalle de un elemento, el
 modo lectura, **dentro de cada documento abierto a pantalla completa** —el
 libro de un Word, un EPUB o un texto («Leer como libro»), el **PDF** y la
-**página web guardada** («Ver la página»)—, el editor de notas, el chat y el
-repaso de tarjetas. No aparece en la Biblioteca, la Bandeja, el Mapa,
-el Atlas, Ajustes ni la Papelera.
+**página web guardada** («Ver la página»)—, el editor de notas y el chat. No
+aparece en la Biblioteca, la Bandeja, el Mapa, el Atlas, el repaso de
+tarjetas, Ajustes ni la Papelera. En el repaso no está a propósito: una
+tarjeta se repasa leyéndola y pensando la respuesta, y una voz que la dijera
+te la soplaría. Si venías escuchando algo —un documento, por ejemplo—, sigue
+sonando al entrar a Repasar, con su reproductor, hasta que lo pares; como al
+cambiar de pestaña.
 
 En un audio o un video que tiene su propio audio (también un reel, un TikTok
 o un YouTube con el audio ya bajado) el texto ya se escucha con la voz
