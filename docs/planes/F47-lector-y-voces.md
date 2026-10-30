@@ -18,6 +18,8 @@ todo lo que la app ya hace.
   - Con cualquiera de ellas se escucha un documento.
 - **Un podcast a medida**, en Repasar y en cada documento, con una o dos voces.
 - **Lo que le falta a Ajustes**, sacado de las dos últimas capturas.
+- **Dos arreglos que van primero:** sin el lector en voz alta en las tarjetas de Repasar, y un
+  botón bien visible para ver lo filtrado (las mejoras 20 y 21, que estaban en F45).
 
 ## Lo que hay hoy (y no se pierde)
 
@@ -62,6 +64,46 @@ prueba que nombra cada una y comprueba que en el lector nuevo se llega a ella.
 - **El tema de lectura** (claro, oscuro, sepia), el tamaño de la letra y el lector de pantalla.
 
 ## Qué se construye
+
+### 0. Dos arreglos que van primero (mejoras 20 y 21, del 30/10)
+
+Las capturas son las del primer mensaje: el botón redondo en Repasar, y el panel «Filtros» de la
+Biblioteca sin un botón para ver lo filtrado.
+
+#### Mejora 20. Sin el lector en voz alta en las tarjetas de Repasar
+
+- **Hoy:** en Repasar, abajo a la derecha, aparece el botón redondo del lector en voz alta. Lee la
+  pregunta y, revelada, la respuesta. No tiene sentido: la tarjeta se repasa leyéndola y pensando
+  la respuesta.
+- **La causa:** la tarjeta de repaso se declara «texto para leer» desde F31 (`ReadableRegion` en
+  `review_session_card.dart`), y el lector aparece en toda pantalla que se declara así.
+- **Cambio:** la tarjeta deja de declararse. El botón no aparece en Repasar, ni en la pregunta ni
+  con la respuesta, ni en las tarjetas de opción múltiple o de completar.
+  - Si al entrar a Repasar algo se estaba leyendo (por ejemplo, un documento), el reproductor
+    sigue hasta que la persona lo pare, como al cambiar de pestaña.
+  - «Ver en la fuente» y «Explicar» quedan como están.
+  - La GUÍA saca «el repaso de tarjetas» de las pantallas con lector y lo suma a las que no lo
+    tienen.
+
+#### Mejora 21. Filtros: un botón bien visible para ver lo filtrado
+
+- **Hoy:** el panel «Filtros» de la Biblioteca aplica cada filtro al tocarlo, pero tapa la lista.
+  No dice cuántos documentos quedan ni tiene un botón para verlos: hay que adivinar que se cierra
+  arrastrándolo hacia abajo.
+- **Cambio, un pie fijo en el panel** (decisión K):
+  - un botón relleno a lo ancho, **«Ver 12 resultados»**, que se queda abajo mientras se
+    desplazan los filtros. La cifra se actualiza al tocar cada filtro, contada en la base y no
+    trayendo los documentos;
+  - al tocarlo, el panel se cierra y queda a la vista la lista ya filtrada, desde arriba;
+  - sin filtros dice **«Ver todo (340)»**. Mientras cuenta, «Ver resultados», sin cifra y sin
+    saltar de tamaño;
+  - si nada pasa el filtro, dice **«Ningún resultado»**, apagado, y arriba sigue «Limpiar filtros»;
+  - el pie es del marco común de los filtros, así que lo mismo pasa en **Procesado** y en la lista
+    de **«Volver a triar»**;
+  - en 360 dp con la letra al doble, en claro y en oscuro, con el lector de pantalla, que anuncia
+    la cifra cuando cambia;
+  - **el mismo pie en todo filtro de la app**: también en la biblioteca de voces (punto 3), con
+    «Ver N voces».
 
 ### 1. Un solo marco de lectura (capturas 3, 4, 5, 6 y 9)
 
@@ -175,7 +217,8 @@ que cambia es el cuerpo: la página del PDF, la página web o el texto de corrid
   - ♡ favorita;
   - ▶ una muestra corta;
   - de qué motor es: **Teléfono**, **Sin conexión**, **Nube** o **Clonada**.
-- **Filtrar**, con el pie «Borrar · Aplicar» (el mismo de la mejora 21 de F45):
+- **Filtrar**, con el mismo pie de todos los filtros (punto 0, mejora 21): «Limpiar» arriba y
+  «Ver N voces» abajo, aplicándose al tocar:
   - el idioma;
   - el acento (México, España, Argentina, Colombia, Chile, Perú…);
   - para qué es ideal: narrar, informar, aprender, conversar o relajarse;
@@ -196,6 +239,8 @@ que cambia es el cuerpo: la página del PDF, la página web o el texto de corrid
      - Claude no tiene voz.
      - Lo que se genera se guarda por oración: escuchar de nuevo no se paga.
   4. **Clonadas**: ver el punto 4.
+- **Varias voces en un mismo documento**, si querés: una para el texto y otra para lo que va
+  entre comillas, las citas y los diálogos. En un podcast, una por persona que habla (punto 5).
 - **Las caras:** sin fotos de personas reales. Cada voz tiene un retrato propio, abstracto, con su
   color, sus iniciales y su onda (decisión D).
 
@@ -312,6 +357,12 @@ Lo que no se suma, y por qué (para que quede dicho):
   - *Alternativa:* escribir la sesión de medios a mano en Kotlin (Media3), como el servicio de
     procesar. Es más código propio para lo mismo.
 
+- **K. Los filtros se siguen aplicando al tocarlos, y el botón de abajo cierra el panel con la
+  cifra de lo que se va a ver.** Así la cifra dice de antemano si un filtro deja algo, y no se
+  pierde un filtro por cerrar el panel sin confirmar. *Alternativa:* nada se aplica hasta tocar
+  «Aplicar», con «Cancelar» para volver atrás. No la recomiendo: cerrar el panel arrastrándolo o
+  con «atrás» perdería lo elegido, y sin la cifra no se sabe si va a quedar algo.
+
 ## Pasos (cada uno, su commit y su push)
 
 Cada paso lleva su GUÍA, sus pruebas (solo con dobles, a 360 dp con la letra al doble, en claro
@@ -319,6 +370,9 @@ y en oscuro, con el lector de pantalla) y sus mutaciones. Se integran en `main` 
 
 **Ola 1:**
 
+0. **Los dos arreglos** (mejoras 20 y 21, decisión K): fuera el lector en voz alta de las
+   tarjetas de Repasar y el pie «Ver N resultados» del panel de filtros, en la Biblioteca, en
+   Procesado y en «Volver a triar». Va primero porque es chico y se nota enseguida.
 1. **El marco de lectura:**
    - el censo de funciones;
    - la barra con sus cuatro botones, la fila de IA, el cuerpo, Apariencia y ⋮;

@@ -320,38 +320,8 @@ Hoy (F43): 16 plantillas y 12 diseños de diapositiva; 18 estilos y 10 composici
 
 ## Cuarta tanda del 30/10: las mejoras 20 y 21
 
-### 20. Sin el lector en voz alta en Repasar (1.ª y 2.ª capturas)
-
-- **Hoy:** en Repasar, abajo a la derecha, aparece el botón redondo del lector en voz alta. Lee la
-  pregunta y, revelada, la respuesta. No tiene sentido: la tarjeta se repasa leyéndola y pensando
-  la respuesta.
-- **La causa:** la tarjeta de repaso se declara «texto para leer» desde F31 (`ReadableRegion` en
-  `review_session_card.dart`), y el lector aparece en toda pantalla que se declara así.
-- **Cambio:** la tarjeta deja de declararse. El botón no aparece en Repasar, ni en la pregunta ni
-  con la respuesta, ni en las tarjetas de opción múltiple o de completar.
-  - Si al entrar a Repasar algo se estaba leyendo (por ejemplo, un documento), el reproductor
-    sigue hasta que la persona lo pare, como al cambiar de pestaña.
-  - «Ver en la fuente» y «Explicar» quedan como están.
-  - La GUÍA saca «el repaso de tarjetas» de las pantallas con lector y lo suma a las que no lo
-    tienen.
-
-### 21. Filtros: un botón bien visible para ver lo filtrado (3.ª, 4.ª y 5.ª)
-
-- **Hoy:** el panel «Filtros» de la Biblioteca aplica cada filtro al tocarlo, pero tapa la lista.
-  No dice cuántos documentos quedan ni tiene un botón para verlos: hay que adivinar que se cierra
-  arrastrándolo hacia abajo.
-- **Cambio, un pie fijo en el panel** (decisión J):
-  - un botón relleno a lo ancho, **«Ver 12 resultados»**, que se queda abajo mientras se
-    desplazan los filtros. La cifra se actualiza al tocar cada filtro, contada en la base y no
-    trayendo los documentos;
-  - al tocarlo, el panel se cierra y queda a la vista la lista ya filtrada, desde arriba;
-  - sin filtros dice **«Ver todo (340)»**. Mientras cuenta, «Ver resultados», sin cifra y sin
-    saltar de tamaño;
-  - si nada pasa el filtro, dice **«Ningún resultado»**, apagado, y arriba sigue «Limpiar filtros»;
-  - el pie es del marco común de los filtros, así que lo mismo pasa en **Procesado** y en la lista
-    de **«Volver a triar»**;
-  - en 360 dp con la letra al doble, en claro y en oscuro, con el lector de pantalla, que anuncia
-    la cifra cuando cambia.
+Se mudaron al plan F47 ([F47-lector-y-voces.md](F47-lector-y-voces.md), punto 0), con todo lo
+pedido el 30/10 sobre el lector y las voces.
 
 ## Decisiones (se pueden cambiar mientras no se llegue a su paso)
 
@@ -391,12 +361,6 @@ Hoy (F43): 16 plantillas y 12 diseños de diapositiva; 18 estilos y 10 composici
   recomiendo, porque los resaltados solo existen sobre los originales, no sobre el resumen ni la
   síntesis.
 
-- **J. Los filtros se siguen aplicando al tocarlos, y el botón de abajo cierra el panel con la
-  cifra de lo que se va a ver.** Así la cifra dice de antemano si un filtro deja algo, y no se
-  pierde un filtro por cerrar el panel sin confirmar. *Alternativa:* nada se aplica hasta tocar
-  «Aplicar», con «Cancelar» para volver atrás. No la recomiendo: cerrar el panel arrastrándolo o
-  con «atrás» perdería lo elegido, y sin la cifra no se sabe si va a quedar algo.
-
 ## Pasos (cada uno, su commit y su push)
 
 Una ola de cinco agentes en paralelo, cada uno en su rama, con su GUÍA, sus pruebas y sus
@@ -425,9 +389,6 @@ mutaciones; se integran en `main` de a uno, con su suite, su push y su verificac
 8. **Las notas en el texto** (19, decisión I), en la ola 3, sobre el lector único y el original ya
    unificados: la tabla con su migración, poner y ver una nota en el lector, en el PDF, en los
    libros y en la web, la lista «Notas (N)», la búsqueda y el chat, reubicarlas y descargarlas.
-9. **La cuarta tanda** (20 y 21, decisión J), en la ola 2: fuera el lector de Repasar y el pie
-   «Ver N resultados» del panel de filtros, con su cuenta en la Biblioteca, en Procesado y en
-   «Volver a triar».
 
 ## Lo que no entra (para que quede dicho)
 
