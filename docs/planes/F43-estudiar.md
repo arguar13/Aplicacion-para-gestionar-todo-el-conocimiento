@@ -1187,3 +1187,76 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
   PDFium real.
 - Queda mirarla en el teléfono —las ilustraciones con una clave real, «Exigente», la pantalla
   completa apaisada, compartir y cómo se ven las plantillas y los PDF— y la APK, si se pide.
+
+
+### Pasos 17 a 21 (hechos): las mejoras del 29/10 (M10 a M18)
+
+Cinco agentes en paralelo, integrados en `main` uno detrás del otro.
+
+- **Paso 17, Repasar (M10, M12 y M14):**
+  - **lo que el recorte ya tenía** va arriba de las creaciones: «Tarjetas de repaso · N tarjetas»
+    (las del recorte, aunque no salgan de una creación), y «Resumen» y «Síntesis» si algún
+    documento los tiene marcados. Las tarjetas abren la sesión acotada a ellas
+    (`openScopeCards`). El resumen y la síntesis abren la vista viva sin IA ni costo, solo con
+    los documentos que ya lo tienen marcado. La píldora cuenta esos documentos en una sola
+    lectura (`summaryDocuments` y `synthesisDocuments`);
+  - **cada fila de «Lo creado» dice de qué es**: arriba y en grande, el documento, el cuaderno o
+    el tema («Lazarillo y 2 más», con el «y 2 más» siempre a la vista; lo borrado, «Fuente
+    borrada»); abajo y en chico, el tipo con su ícono y cuándo. Lo resuelve `watchOrigin`, que
+    mira solo las tablas que cambian un nombre: repasar una tarjeta no relee cada fila. Vale
+    también para «En Repasar» de Procesado y de Cuadernos;
+  - **el orden nuevo**: el selector, las diez de crear, «Lo creado» y «Para hoy», con «Mis
+    tarjetas» adentro, al lado de «Empezar». La fila de abajo sale.
+- **Paso 18, el selector (M11):** el buscador y las pestañas Todo · Documentos · Cuadernos ·
+  Temas arriba; debajo, una sola lista: «Todo lo procesado», «Recientes» (hasta tres por pestaña)
+  y «Todos» de la A a la Z, sin repetir los recientes. Un tema lleva su rama («Roma › Imperio»).
+  Cada fila tiene la misma línea con íconos (tarjetas, creaciones, resumen, síntesis y
+  documentos). El catálogo llega en unas pocas lecturas, las mismas con 40 documentos que con
+  2.000 (`watchCatalog`, `matchingIdsOfMany` con `UNION ALL` de hasta doscientas consultas y
+  `resolveAllQueries`). Antes cada fila pedía lo suyo y los documentos se cortaban en 200.
+- **Paso 19, estudiar (M13 y M15):**
+  - **el mazo se estudia como en Anki**, con las piezas de la sesión (`ReviewFlipCard`,
+    `ReviewSwipeCard` y `ReviewGradeRow`): «Sumar a mi repaso» lleva cada calificación al
+    calendario de la tarjeta del documento; apagado, es de práctica y lo dice. «De nuevo» la
+    vuelve a poner al final (`DeckRound`). Al terminar, el reparto, la racha, «Repasar las de
+    "De nuevo"» y «Otra vuelta». Sale el visor para hojear (decisión M);
+  - **el cuestionario** sigue el diseño de las capturas de NotebookLM: «6 / 14» con ⋮, cada
+    opción en su tarjeta con «A.» y su veredicto, «Anterior» y «Siguiente» fijos abajo;
+  - **«Explicar»** es una pieza común (`ExplainInChatButton`), con su ícono propio (una chispa
+    sobre un globo, dibujada). Arma la pregunta en una función pura: antes de responder no dice
+    la correcta; después, explica por qué. Lleva el título y el pasaje de la fuente, que se lee
+    recién al tocar. Está en el mazo, en el cuestionario y en la sesión de Repasar.
+- **Paso 20, estadísticas e historial (M16 y M17):** una sola pantalla con dos pestañas, abiertas
+  desde 📊 y 📈 en la barra de Repasar, que sigue al selector con la píldora arriba. Tiene los
+  nueve gráficos de M17 con su título, su línea y su eje, sin librería, y tocar una barra dice su
+  número. El historial trae la retención por semana con la meta del 90 %, la **retención real**
+  como en Anki (jóvenes y maduras), el calendario con meses, días y leyenda, y **las difíciles de
+  verdad**: al menos un «De nuevo» y tres repasos, ordenadas por lapsos. Así sale de raíz la
+  tarjeta con 0 % que aparecía. «Repasar estas» practica solo esas, en su orden y sin tocar su
+  calendario (`/review/session?practice=1&cards=…`). El reparto por etapa usa la misma consulta
+  que los filtros de «Mis tarjetas» (`CardBrowserSql.statusCountsSql`).
+- **Paso 21, una sola puerta para las tarjetas con IA (M18):** sale el ✨ de la barra y la hoja
+  vieja (`ai_flashcards_sheet.dart`), con sus trece textos y el alcance de la Biblioteca que solo
+  ella usaba. Con varios documentos, la hoja de «Tarjetas didácticas» pregunta «Cómo»: «Un mazo»
+  o «Para cada documento». El segundo usa la cola de la IA sobre lo procesado, con «Entran N
+  documentos con texto · M ya tienen tarjetas», y no crea una fila en «Lo creado». El idioma, el
+  tema, el número y la dificultad van al pedido de cada documento (`FlashcardStyle`; con el de
+  siempre, el pedido es el de antes, letra por letra). Repasar vacío abre la hoja nueva.
+- **Al integrar:**
+  - los `.arb` chocaban en el bloque del final de cada paso; se resolvieron dejando los dos
+    lados, con el archivo en LF como lo guarda git;
+  - un commit del paso 20 no compilaba solo y se rehízo uniendo tres;
+  - el falso del selector del paso 17 sumó `watchOrigin`;
+  - **«Explicar» en la hoja de una tarjeta difícil**, al lado de «Ver en la fuente», con la hoja
+    cerrada antes de ir al chat para que no quede abierta en la rama de Estudiar (probado con las
+    dos ramas de la barra);
+  - salieron siete claves del visor viejo del mazo y del cuestionario.
+- **Cada commit, verificado solo (`tool/verify_commit.ps1`):**
+  - 18eab392 (paso 21) deja un comentario de 81 columnas y da 20 avisos; lo arregla el commit
+    siguiente (909453c1). Ya estaba subido y no se reescribió la historia de `main`;
+  - otros once dan los 19 avisos de la línea base (de 54005573 a b734a52d);
+  - faltan ocho, que se verifican al retomar: 1d4d9186, 30996b22, d76ce136, 14e6da43, 65abe26c,
+    ce1615fb, 5c1d3a46 y 624ef725.
+- **Queda abierto:** con Repasar vacío, la cuenta de «Para cada documento» toma toda la
+  Biblioteca procesada y el aviso de la cola dice «elementos» en vez de «documentos». Se mira
+  con el pulido.
