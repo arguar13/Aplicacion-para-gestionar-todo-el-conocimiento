@@ -56,7 +56,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   la fuente», plegadas.
 /// - **Arriba**, lo que la fuente ya no ofrece porque queda de consulta: la
 ///   nota derivada ✨, el quiz y, en «Más», «Organizar con IA», «Buscar fechas
-///   con IA» y «Borrar la copia del original» —todos sobre lo procesado—.
+///   con IA», «Descargar con lo marcado» y «Borrar la copia del original»
+///   —todos sobre lo procesado—.
 /// - **Escuchar**: el botón flotante lee el documento entero, como en el
 ///   detalle de un elemento, empezando por la página del texto que se mira.
 ///

@@ -11,6 +11,7 @@ import 'package:sinapsis/features/export/domain/services/document_marks_builder.
 import 'package:sinapsis/features/export/domain/usecases/download_marked_document_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/marked_download_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_keywords_fill_providers.dart';
@@ -79,7 +80,12 @@ class _StudyDownloadSheetState extends ConsumerState<StudyDownloadSheet> {
     );
     // Lo que se descarga con las palabras clave las lleva en todas las
     // oraciones, también si se analizó antes de que el análisis lo asegurara.
-    unawaited(ensureStudyKeywords(ref, widget.text));
+    // La copia del original de un documento procesado es de solo lectura: sus
+    // palabras clave salen del texto propio del documento, y las completan
+    // los botones de estudio del original al mostrarlas.
+    if (!isReadOnlyStudyKey(widget.text.renditionId)) {
+      unawaited(ensureStudyKeywords(ref, widget.text));
+    }
   }
 
   @override

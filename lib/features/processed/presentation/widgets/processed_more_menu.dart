@@ -5,8 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
+import 'package:sinapsis/features/export/presentation/providers/marked_download_providers.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_original_view_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
+import 'package:sinapsis/features/study/presentation/widgets/study_download_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// «Borrar la copia del original, quedarme con el texto» (F41, decisión K):
@@ -80,6 +84,50 @@ Future<void> _dropOriginalCopy(
   );
 }
 
+/// «Descargar con lo marcado» (F38; F45, paso 3): qué hacer al tocarlo, o
+/// `null` si no se ofrece.
+///
+/// Es el «Descargar» de la tarjeta «Estudiar el documento» de la Biblioteca,
+/// que salió (F45, paso 3): ahí se marcaba el original de la fuente, y ahora
+/// se marca la copia del original del documento procesado. Baja esa copia en
+/// su formato con el resumen, la síntesis y las palabras clave del procesado
+/// resaltados, con la misma hoja de siempre (`showStudyDownloadSheet`), que
+/// arranca con lo que se ve resaltado.
+///
+/// Se ofrece con la copia, con su texto en correspondencia —lo marcado se
+/// pinta sobre él— y en un formato que se sabe marcar.
+VoidCallback? downloadMarkedOriginalAction(
+  BuildContext context,
+  WidgetRef ref,
+  ProcessedDocument document,
+) {
+  final original = ref
+      .watch(processedOriginalProvider(document.id))
+      .valueOrNull;
+  if (original == null) return null;
+  final text = watchProcessedOriginalView(ref, document.id).valueOrNull?.text;
+  final item = ref.watch(libraryItemProvider(document.id)).valueOrNull;
+  if (text == null || item == null) return null;
+  final kind = document.summary.sourceKind;
+  final format = ref
+      .watch(
+        markedDownloadFormatProvider((kind: kind, path: original.relativePath)),
+      )
+      .valueOrNull;
+  if (format == null) return null;
+  // Lo que baja es la copia: su archivo, con el nombre del documento y el
+  // formato de la fuente de la que salió.
+  final copy = item.copyWith(
+    source: item.source.copyWith(
+      kind: kind,
+      originalFilePath: original.relativePath,
+    ),
+  );
+  return () => unawaited(
+    showStudyDownloadSheet(context, item: copy, text: text, format: format),
+  );
+}
+
 /// Lo que se le pide a la IA o se suelta de un documento procesado, a un
 /// toque más (F41, decisión K): lo que la fuente ya no ofrece porque queda de
 /// consulta, con la misma función, sobre lo procesado.
@@ -91,6 +139,9 @@ enum ProcessedMoreAction {
   /// Que la IA busque las fechas de su texto procesado, para la línea de
   /// tiempo.
   findDatesWithAi,
+
+  /// Ver [downloadMarkedOriginalAction].
+  downloadMarkedOriginal,
 
   /// Ver [deleteOriginalCopyAction].
   deleteOriginalCopy,
@@ -106,11 +157,13 @@ class ProcessedMoreMenu extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    final download = downloadMarkedOriginalAction(context, ref, document);
     final deleteCopy = deleteOriginalCopyAction(context, ref, document);
     final actions = [
       ProcessedMoreAction.organizeWithAi,
       // Sin texto no hay fechas que buscar.
       if (!document.summary.isEmpty) ProcessedMoreAction.findDatesWithAi,
+      if (download != null) ProcessedMoreAction.downloadMarkedOriginal,
       if (deleteCopy != null) ProcessedMoreAction.deleteOriginalCopy,
     ];
 
@@ -128,6 +181,9 @@ class ProcessedMoreMenu extends ConsumerWidget {
           ref,
           itemIds: [document.id],
           seeItemId: document.id,
+        ),
+        ProcessedMoreAction.downloadMarkedOriginal => Future.sync(
+          () => download!(),
         ),
         ProcessedMoreAction.deleteOriginalCopy => Future.sync(
           () => deleteCopy!(),
@@ -166,6 +222,11 @@ class _MenuRow extends StatelessWidget {
         Icons.timeline,
         l10n.sourcePanelFindDates,
         l10n.processedFindDatesHint,
+      ),
+      ProcessedMoreAction.downloadMarkedOriginal => (
+        Icons.download_outlined,
+        l10n.f45S3DownloadMarked,
+        l10n.f45S3DownloadMarkedHint,
       ),
       ProcessedMoreAction.deleteOriginalCopy => (
         Icons.delete_sweep_outlined,
