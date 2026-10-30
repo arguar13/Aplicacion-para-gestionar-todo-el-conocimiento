@@ -393,4 +393,53 @@ mutaciones; se integran en `main` de a uno, con su suite, su push y su verificac
 
 ## Avance
 
-(vacío: se llena con cada paso)
+### Paso 2 (hecho): triar
+
+Cinco commits, de `139637ff` a `97cb2181` (mejoras 2 y 10, decisión B).
+
+- **La comprobación palabra por palabra** (`domain/services/tidy_check.dart`), pura:
+  - `checkTidiedText` compara lo que devuelve la IA con la extracción, palabra por palabra;
+  - no pasa si inventa, resume, recorta, traduce o cambia el orden; las mayúsculas no cuentan;
+  - sí pasa unir renglones y columnas, juntar palabras cortadas con guion y sacar los encabezados
+    y pies repetidos;
+  - `TidyMargins` decide qué se puede sacar: lo que se repite en los márgenes al menos tres veces y
+    tiene hasta doce palabras. Un título numerado cuenta como encabezado.
+- **La cola que ordena** (`ProcessedTidyQueue`):
+  - ordena con la IA de turno, Gemma en el teléfono o una cuenta en la nube (`AiTaskKind.tidy`);
+  - va por partes: de a una página y en los pedazos que entran en la ventana del modelo; un pedazo
+    que no entra se parte en dos;
+  - cada pedazo se comprueba por su cuenta, y el que no pasa queda como se extrajo;
+  - se retoma desde la página en que iba (`PrefsProcessedTidyStore`), con el servicio en primer
+    plano (`LongWorkOwner.tidying`) y «Lo que hizo la IA»;
+  - el aviso de cómo terminó (`ProcessedTidyNoticeListener`, en `app.dart`) dice si ordenó todo,
+    cuántas partes, o por qué quedó como se extrajo;
+  - no toca una página que editó la persona, y si la edita mientras trabaja, gana lo suyo; lo
+    ordenado queda como página editada, así que «Actualizar» no lo pisa;
+  - va como se extrajo si se apaga la casilla, si la IA no está lista o si el texto ya viene
+    ordenado (una página web, un Word, un EPUB o un Markdown). La fuente de la Biblioteca no
+    cambia.
+- **La hoja «¿Qué va a Procesado?»**:
+  - el orden nuevo: el original, las imágenes y el texto extraído;
+  - las imágenes, plegadas en una fila («40 imágenes · 4,1 MB · 0 elegidas»). Se despliegan en la
+    grilla, y plegarlas no suelta lo elegido;
+  - «Ordenarlo con la IA», prendida de entrada, dice qué modelo lo hace y dónde;
+  - los números del teclado siguen el orden de la hoja.
+- **La tarjeta de triar y su barra**:
+  - abajo y a lo ancho, Descartar (con borde) y Triar (rellena), del mismo alto;
+  - «Pasar todo», «Extraer nota» y «Vincular» van en un renglón de botones con ícono. Lo que no
+    entra pasa a «⋯», donde lo apagado dice por qué;
+  - la referencia aparece como un aviso compacto con «Usar» y la ✕, y «Ver completo» como enlace;
+  - los atajos se ven solo en la computadora;
+  - arriba, «Deshacer» con el ícono del historial y «N pendientes» como ficha.
+- **Verificado:**
+  - analyze en 19, también sobre `main` con el lienzo;
+  - sobre `main`, 2.897 pruebas de la base, la Bandeja, Procesado, el Mapa, la navegación, el chat
+    y la actividad de la IA; antes, sobre la base vieja, las de `transform`, `ai_models` y
+    `study`;
+  - murieron las 14 mutaciones. Entre otras: no dejar sacar los encabezados de los márgenes, dejar
+    pasar un recorte o una traducción, mirar los márgenes en el pedazo en lugar de en todo el documento,
+    guardar sobre lo que editó la persona, quedarse con lo de la IA sin comprobarlo, pedir ordenar
+    con la casilla apagada, perder lo que no entra en el renglón y mostrar los atajos en el
+    teléfono.
+- **Queda para después:** la barra de la Bandeja desborda en 400 dp con la letra al doble, y no
+  hay deshacer para lo que ordenó la IA.
