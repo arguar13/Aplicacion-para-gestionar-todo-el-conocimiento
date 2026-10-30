@@ -647,20 +647,97 @@ String? spokenLanguageOf(
 /// pistas dobladas: `null` si no (F22).
 ///
 /// En un video con doblajes, cada pista dice cómo se llama (`es.4`,
-/// `ar.10`: el idioma, un punto y un número) y una sola está marcada como la
-/// de siempre. Es el único dato del paquete que dice en qué idioma se habla
-/// el video: un video sin doblajes no trae esa marca.
+/// `ar.10`: el idioma, un punto y un número). Es el único dato del paquete
+/// que dice en qué idioma se habla el video: un video sin doblajes no trae
+/// esa marca.
+///
+/// **La original, no «la de siempre»** (F45, paso 4): YouTube marca como la
+/// de siempre (`audioIsDefault`) la que le toca a quien la pide —con los
+/// doblajes hechos con IA, la del idioma de quien mira—, no la que se grabó.
+/// Lo que dice cuál es la original es su contenido ([audioContentOf]): se
+/// toma esa, y «la de siempre» solo si nada dice cuál es la original y no es
+/// un doblaje.
 String? defaultAudioLanguageOf(Iterable<yt_api.AudioOnlyStreamInfo> streams) {
-  for (final stream in streams) {
-    final track = stream.audioTrack;
-    if (track == null || !track.audioIsDefault) continue;
-    final language = primaryLanguage(track.id.split('.').first);
+  final dubbed = streams.where((s) => s.audioTrack != null).toList();
+  final original = dubbed
+      .where((s) => audioContentOf(s) == AudioContent.original)
+      .toList();
+  final candidates = original.isNotEmpty
+      ? original
+      : [
+          for (final stream in dubbed)
+            if (stream.audioTrack!.audioIsDefault &&
+                audioContentOf(stream) != AudioContent.dubbed)
+              stream,
+        ];
+  for (final stream in candidates) {
+    final language = primaryLanguage(
+      _xtags(stream)['lang'] ?? stream.audioTrack!.id.split('.').first,
+    );
     if (RegExp(r'^[a-z]{2,3}$').hasMatch(language) &&
         !_undeterminedLanguages.contains(language)) {
       return language;
     }
   }
   return null;
+}
+
+/// Qué es una pista de audio de un video con doblajes (F45, paso 4).
+enum AudioContent {
+  /// La que se grabó.
+  original,
+
+  /// Un doblaje —hecho por personas o con IA—, una descripción para quien no
+  /// ve, o una pista secundaria: no es lo que se dijo en el video.
+  dubbed,
+}
+
+/// Qué es [stream], si YouTube lo dice; `null` si no lo dice o si no es una
+/// pista de un video con doblajes.
+///
+/// YouTube lo dice en dos lugares, y se miran los dos:
+///
+/// - en la dirección de la pista, `xtags=acont=original:lang=es-419` —
+///   `original`, `dubbed`, `dubbed-auto` (con IA), `descriptive`,
+///   `secondary`—, lo mismo que mira yt-dlp;
+/// - en su nombre, que en inglés —la vía de visionOS pide en inglés— lleva
+///   «original» en la original: «Spanish (Latin America) original».
+AudioContent? audioContentOf(yt_api.AudioOnlyStreamInfo stream) {
+  final track = stream.audioTrack;
+  if (track == null) return null;
+  final content = _xtags(stream)['acont']?.toLowerCase();
+  if (content == 'original') return AudioContent.original;
+  if (content != null &&
+      (content.startsWith('dubbed') ||
+          content == 'descriptive' ||
+          content == 'secondary')) {
+    return AudioContent.dubbed;
+  }
+  final name = track.displayName.toLowerCase();
+  if (name.contains('original')) return AudioContent.original;
+  if (name.contains('dubbed') || name.contains('descriptive')) {
+    return AudioContent.dubbed;
+  }
+  return null;
+}
+
+/// Las marcas de la dirección de [stream] (`xtags=acont=original:lang=es`),
+/// como clave y valor; vacío si no las trae.
+Map<String, String> _xtags(yt_api.AudioOnlyStreamInfo stream) {
+  final String? raw;
+  try {
+    raw = stream.url.queryParameters['xtags'];
+    // Una dirección con un `%` suelto no se puede leer: no trae marcas.
+    // ignore: avoid_catches_without_on_clauses
+  } catch (_) {
+    return const {};
+  }
+  if (raw == null || raw.isEmpty) return const {};
+  return {
+    for (final pair in raw.split(':'))
+      if (pair.indexOf('=') case final at when at > 0)
+        pair.substring(0, at): pair.substring(at + 1),
+  };
 }
 
 /// Los códigos que YouTube y la norma ISO usan para "no se sabe", "sin
@@ -675,12 +752,18 @@ String primaryLanguage(String code) =>
 /// bitrate.
 ///
 /// YouTube dobla algunos videos a otros idiomas con IA y los ofrece como
-/// pistas aparte —con `audioTrack`, y una sola marcada como la de siempre
-/// (`audioIsDefault`)—. Elegir solo por bitrate podía bajar el audio en
-/// inglés, árabe o portugués de un video en español (visto en 6 de los 15
-/// videos de la biblioteca de ejemplo), y la transcripción salía en ese
-/// idioma. Una pista sin `audioTrack` es la de un video sin doblajes: la
-/// original. Si ninguna estuviera marcada, se elige entre todas, como antes.
+/// pistas aparte —con `audioTrack`—. Elegir solo por bitrate podía bajar el
+/// audio en inglés, árabe o portugués de un video en español (visto en 6 de
+/// los 15 videos de la biblioteca de ejemplo), y la transcripción salía en
+/// ese idioma. Una pista sin `audioTrack` es la de un video sin doblajes: la
+/// original.
+///
+/// En orden (F45, paso 4): la que YouTube dice que es la original
+/// ([audioContentOf]); si no lo dice de ninguna, la marcada como la de
+/// siempre (`audioIsDefault`) que no sea un doblaje —«la de siempre» es la
+/// del idioma de quien la pide, y con los doblajes hechos con IA puede ser
+/// uno—; si tampoco, cualquiera que no sea un doblaje, y si no, entre todas,
+/// como antes.
 yt_api.AudioOnlyStreamInfo originalAudioOf(
   Iterable<yt_api.AudioOnlyStreamInfo> streams,
 ) {
@@ -688,12 +771,30 @@ yt_api.AudioOnlyStreamInfo originalAudioOf(
   if (all.isEmpty) {
     throw StateError('El video no ofrece ninguna pista de audio');
   }
+  bool isDub(yt_api.AudioOnlyStreamInfo stream) =>
+      audioContentOf(stream) == AudioContent.dubbed;
   final original = [
     for (final stream in all)
-      if (stream.audioTrack == null || stream.audioTrack!.audioIsDefault)
+      if (stream.audioTrack == null ||
+          audioContentOf(stream) == AudioContent.original)
         stream,
   ];
-  final candidates = original.isEmpty ? all : original;
+  final defaults = [
+    for (final stream in all)
+      if ((stream.audioTrack?.audioIsDefault ?? false) && !isDub(stream))
+        stream,
+  ];
+  final undubbed = [
+    for (final stream in all)
+      if (!isDub(stream)) stream,
+  ];
+  final candidates = original.isNotEmpty
+      ? original
+      : defaults.isNotEmpty
+      ? defaults
+      : undubbed.isNotEmpty
+      ? undubbed
+      : all;
   return candidates.reduce(
     (best, next) =>
         next.bitrate.bitsPerSecond > best.bitrate.bitsPerSecond ? next : best,

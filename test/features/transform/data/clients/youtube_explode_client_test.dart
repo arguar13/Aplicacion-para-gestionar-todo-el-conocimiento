@@ -27,15 +27,24 @@ class _MockAudio extends Mock implements yt_api.AudioOnlyStreamInfo {}
 /// de tiempo y la traducción de los cortes de red (F21), no el paquete.
 /// Una pista de audio de verdad, armada como la arma el paquete —desde
 /// JSON—: la clase de la pista doblada (`AudioTrack`) no es pública.
+///
+/// [displayName] y [xtags] son lo que dice YouTube de qué es la pista —su
+/// nombre, «Spanish original», y la marca de su dirección,
+/// `acont=dubbed-auto:lang=en`— (F45, paso 4).
 yt_api.AudioOnlyStreamInfo _track(
   int bitsPerSecond, {
   String? language,
   bool isDefault = false,
   int totalBytes = 1000,
+  String? displayName,
+  String? xtags,
 }) => yt_api.AudioOnlyStreamInfo.fromJson({
   'videoId': {'value': 'dQw4w9WgXcQ'},
   'tag': 140,
-  'url': 'https://example.com/$language-$bitsPerSecond',
+  'url': xtags == null
+      ? 'https://example.com/$language-$bitsPerSecond'
+      : 'https://example.com/$language-$bitsPerSecond'
+            '?xtags=${Uri.encodeQueryComponent(xtags)}',
   'container': {'name': 'mp4'},
   'size': {'totalBytes': totalBytes},
   'bitrate': {'bitsPerSecond': bitsPerSecond},
@@ -46,7 +55,7 @@ yt_api.AudioOnlyStreamInfo _track(
   'audioTrack': language == null
       ? null
       : {
-          'displayName': language,
+          'displayName': displayName ?? language,
           'id': '$language.4',
           'audioIsDefault': isDefault,
         },
@@ -586,6 +595,49 @@ void main() {
       expect(defaultAudioLanguageOf([track('es')]), isNull);
       expect(defaultAudioLanguageOf([track('und', isDefault: true)]), isNull);
     });
+
+    test('la original gana a «la de siempre» cuando esa es un doblaje con IA '
+        '(F45, paso 4): YouTube marca la del idioma de quien pide', () {
+      final original = _track(
+        128000,
+        language: 'es',
+        displayName: 'Spanish (Spain) original',
+      );
+      final dubbed = _track(
+        128000,
+        language: 'ar',
+        isDefault: true,
+        xtags: 'acont=dubbed-auto:lang=ar',
+      );
+
+      expect(defaultAudioLanguageOf([dubbed, original]), 'es');
+    });
+
+    test('la marca de la dirección dice la original aunque el nombre no; '
+        'su idioma, con región, es el principal', () {
+      expect(
+        defaultAudioLanguageOf([
+          _track(128000, language: 'en', isDefault: true),
+          _track(128000, language: 'es', xtags: 'acont=original:lang=es-419'),
+        ]),
+        'es',
+      );
+    });
+
+    test('«la de siempre» marcada como doblaje no dice qué se habla', () {
+      expect(
+        defaultAudioLanguageOf([
+          _track(
+            128000,
+            language: 'ar',
+            isDefault: true,
+            xtags: 'acont=dubbed-auto:lang=ar',
+          ),
+          _track(128000, language: 'es'),
+        ]),
+        isNull,
+      );
+    });
   });
 
   group('la transcripción que se baja de YouTube (F22)', () {
@@ -750,6 +802,52 @@ void main() {
       final high = track(160000);
 
       expect(originalAudioOf([low, high]), same(high));
+    });
+
+    test('la original gana a «la de siempre» que es un doblaje con IA, '
+        'aunque traiga más calidad (F45, paso 4)', () {
+      final original = _track(
+        128000,
+        language: 'es',
+        xtags: 'acont=original:lang=es',
+      );
+      final dubbed = _track(
+        160000,
+        language: 'ar',
+        isDefault: true,
+        xtags: 'acont=dubbed-auto:lang=ar',
+      );
+
+      expect(originalAudioOf([dubbed, original]), same(original));
+    });
+
+    test('la original por su nombre, si la dirección no lo dice', () {
+      final original = _track(
+        64000,
+        language: 'es',
+        displayName: 'Spanish (Latin America) original',
+      );
+
+      expect(
+        originalAudioOf([
+          track(160000, language: 'en', isDefault: true),
+          original,
+        ]),
+        same(original),
+      );
+    });
+
+    test('sin original a la vista, «la de siempre» que es un doblaje no; '
+        'otra que no lo sea, sí', () {
+      final other = track(64000, language: 'es');
+      final dubbed = _track(
+        160000,
+        language: 'ar',
+        isDefault: true,
+        xtags: 'acont=dubbed-auto:lang=ar',
+      );
+
+      expect(originalAudioOf([dubbed, other]), same(other));
     });
 
     test('si ninguna está marcada como la de siempre, entre todas', () {
