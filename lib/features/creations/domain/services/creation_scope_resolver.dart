@@ -38,4 +38,12 @@ abstract interface class CreationScopeResolver implements ProcessedStudyItems {
   /// documentos que con diez mil —nunca una por fila—, y las cifras de cada
   /// uno iguales a las de [watchSummary].
   Stream<CreationScopeCatalog> watchCatalog(Set<CreationScope> topics);
+
+  /// De dónde sale una creación sobre [scope] que leyó [sourceIds] —lo que
+  /// dice su fila de «Lo creado» arriba (M12)—, y cada cambio: si se renombra
+  /// o se borra lo que la nombra.
+  Stream<CreationOrigin> watchOrigin(
+    CreationScope scope,
+    List<String> sourceIds,
+  );
 }

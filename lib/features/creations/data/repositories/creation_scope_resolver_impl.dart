@@ -203,6 +203,7 @@ class CreationScopeResolverImpl implements CreationScopeResolver {
           )
         : await _cardsOf({...documents, ...await _sourceItemIdsOf(documents)});
     final creations = creationsInScopeSql(scope);
+    final marked = await _markedOf(documents);
     return CreationScopeSummary(
       scope: scope,
       name: name,
@@ -212,6 +213,8 @@ class CreationScopeResolverImpl implements CreationScopeResolver {
         'SELECT COUNT(*) AS n FROM study_creations c WHERE ${creations.sql}',
         creations.variables,
       ),
+      summaryDocuments: marked.summary,
+      synthesisDocuments: marked.synthesis,
       exists: exists,
     );
   }
@@ -401,6 +404,91 @@ class CreationScopeResolverImpl implements CreationScopeResolver {
         ) when spaceNames[spaceId] != null)
           s: spaceNames[spaceId]!,
     };
+  }
+
+  /// Cuántos de [documentIds] tienen el resumen y cuántos la síntesis marcados
+  /// (F36: lo marcado vive en sus secciones). Una sola lectura para todos: un
+  /// `EXISTS` por documento sobre `idx_processed_parts_document`, que no
+  /// recorre las partes de nadie.
+  Future<({int summary, int synthesis})> _markedOf(
+    List<String> documentIds,
+  ) async {
+    if (documentIds.isEmpty) return (summary: 0, synthesis: 0);
+    String has(ProcessedSection section) =>
+        'EXISTS (SELECT 1 FROM processed_parts p '
+        'WHERE p.document_id = docs.value '
+        "AND p.section = '${section.name}')";
+    final row = await _db
+        .customSelect(
+          'SELECT COALESCE(SUM(${has(ProcessedSection.summary)}), 0) '
+          'AS summary, '
+          'COALESCE(SUM(${has(ProcessedSection.synthesis)}), 0) AS synthesis '
+          'FROM json_each(?) docs',
+          variables: [Variable.withString(jsonEncode(documentIds))],
+        )
+        .getSingle();
+    return (
+      summary: row.read<int>('summary'),
+      synthesis: row.read<int>('synthesis'),
+    );
+  }
+
+  @override
+  Stream<CreationOrigin> watchOrigin(
+    CreationScope scope,
+    List<String> sourceIds,
+  ) => watchQuery(
+    db: _db,
+    // Solo lo que cambia un nombre o lo borra: repasar una tarjeta no vuelve a
+    // leer cada fila de «Lo creado».
+    tables: {
+      _db.knowledgeEntries,
+      _db.processedDocuments,
+      _db.notebooks,
+      _db.propertyValues,
+      _db.spaces,
+    },
+    read: () => _originOf(scope, sourceIds),
+    telemetry: _telemetry,
+    hint: 'CreationScopeResolverImpl.watchOrigin',
+  );
+
+  /// Un cuaderno o un tema la nombran ellos; si no, su primer documento vivo,
+  /// en el orden en que se leyeron.
+  Future<CreationOrigin> _originOf(
+    CreationScope scope,
+    List<String> sourceIds,
+  ) async {
+    switch (scope) {
+      case NotebookScope() || TopicScope() || SpaceScope():
+        final name = await _nameOf(scope);
+        return name == null
+            ? const CreationOrigin(deleted: true)
+            : CreationOrigin(name: name);
+      case AllProcessed() || ProcessedDocumentScope():
+        if (sourceIds.isEmpty) {
+          if (scope.isAll) return const CreationOrigin();
+          final name = await _nameOf(scope);
+          return name == null
+              ? const CreationOrigin(deleted: true)
+              : CreationOrigin(name: name);
+        }
+        final row = await _db
+            .customSelect(
+              'SELECT item.title AS title FROM json_each(?) wanted '
+              'JOIN item ON item.id = wanted.value '
+              'JOIN processed_documents d ON d.item_id = item.id '
+              'WHERE ${activeItemSql('item')} '
+              'ORDER BY wanted.key LIMIT 1',
+              variables: [Variable.withString(jsonEncode(sourceIds))],
+            )
+            .getSingleOrNull();
+        final more = sourceIds.length - 1;
+        final title = row?.read<String>('title');
+        return title == null
+            ? CreationOrigin(more: more, deleted: true)
+            : CreationOrigin(name: title, more: more);
+    }
   }
 
   /// El nombre de lo que apunta [scope]; `null` en «Todo» y si ya no existe.

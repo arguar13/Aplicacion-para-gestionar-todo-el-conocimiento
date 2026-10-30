@@ -63,6 +63,12 @@ class _CountingScopes implements CreationScopeResolver {
     catalogs.add(topics);
     return _inner.watchCatalog(topics);
   }
+
+  @override
+  Stream<CreationOrigin> watchOrigin(
+    CreationScope scope,
+    List<String> sourceIds,
+  ) => _inner.watchOrigin(scope, sourceIds);
 }
 
 /// El selector de Repasar (F43, M11): arriba el buscador y las pestañas;

@@ -206,6 +206,33 @@ final creationSourcesProvider = FutureProvider.autoDispose
       return sources.getOrElse((_) => const []);
     });
 
+/// El recorte y las fuentes de una creación, como clave de un proveedor.
+@immutable
+class CreationOriginKey {
+  const CreationOriginKey(this.scope, this.sourceIds);
+
+  final CreationScope scope;
+  final CreationSourceIds sourceIds;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CreationOriginKey &&
+      other.scope == scope &&
+      other.sourceIds == sourceIds;
+
+  @override
+  int get hashCode => Object.hash(scope, sourceIds);
+}
+
+/// De dónde sale una creación —lo que su fila de «Lo creado» dice arriba y en
+/// grande (M12)—, al día: si se renombra o se borra, la fila lo dice sola.
+final creationOriginProvider = StreamProvider.autoDispose
+    .family<CreationOrigin, CreationOriginKey>(
+      (ref, key) => ref
+          .watch(creationScopeResolverProvider)
+          .watchOrigin(key.scope, key.sourceIds.ids),
+    );
+
 /// Lo que se le pregunta al armado del material para estimar una creación:
 /// sus fuentes y cuánto va a escribir la IA.
 @immutable

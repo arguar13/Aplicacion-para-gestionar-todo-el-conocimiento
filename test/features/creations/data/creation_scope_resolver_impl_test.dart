@@ -1,6 +1,10 @@
 import 'package:async/async.dart';
+import 'package:drift/drift.dart' show Value, Variable;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope_summary.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_limits.dart';
@@ -237,6 +241,163 @@ void main() {
         limits: limits,
       );
       expect(result.isLeft(), isTrue);
+    });
+  });
+
+  group('lo que el recorte ya tenía (M10)', () {
+    /// Marca [kind] en [documentId], como lo deja «Marcar» en el original.
+    Future<void> mark(String documentId, ProcessedSection kind) async {
+      final db = h.processed.db;
+      final at = DateTime(2026, 10, 29);
+      await db
+          .into(db.processedParts)
+          .insert(
+            ProcessedPartsCompanion.insert(
+              id: '$documentId-${kind.name}-marca',
+              documentId: documentId,
+              section: kind,
+              position: 0,
+              content: 'Moisés guía al pueblo.',
+              origin: ProcessedPartOrigin.copied,
+              sourceStart: const Value(0),
+              sourceEnd: const Value(22),
+              createdAt: at,
+              updatedAt: at,
+            ),
+          );
+    }
+
+    test('cuántos documentos tienen el resumen y la síntesis marcados, y '
+        'cada cambio', () async {
+      final summaries = StreamQueue(
+        h.scopes.watchSummary(const CreationScope.allProcessed()),
+      );
+      addTearDown(summaries.cancel);
+      final first = await summaries.next;
+      expect(first.documents, 3);
+      expect(first.summaryDocuments, 1, reason: 'solo el Éxodo');
+      expect(first.synthesisDocuments, 0);
+
+      await mark(genesis, ProcessedSection.synthesis);
+      final marked = await summaries.next;
+      expect(marked.summaryDocuments, 1);
+      expect(marked.synthesisDocuments, 1);
+    });
+
+    test('un documento y un cuaderno cuentan solo los suyos', () async {
+      await h.processed.vault.addNotebook('cuaderno');
+      await h.notebooks.addItems(
+        notebookId: 'cuaderno',
+        itemIds: [genesis, levitico],
+      );
+      await mark(levitico, ProcessedSection.summary);
+
+      final exodus = await h.scopes
+          .watchSummary(CreationScope.document(exodo))
+          .first;
+      expect(exodus.summaryDocuments, 1);
+      final notebook = await h.scopes
+          .watchSummary(const CreationScope.notebook('cuaderno'))
+          .first;
+      expect(notebook.documents, 2);
+      expect(notebook.summaryDocuments, 1, reason: 'el Levítico, no el Éxodo');
+      expect(notebook.synthesisDocuments, 0);
+      final none = await h.scopes
+          .watchSummary(CreationScope.document(genesis))
+          .first;
+      expect(none.summaryDocuments, 0);
+    });
+  });
+
+  group('de dónde sale una creación (M12)', () {
+    Future<CreationOrigin> originOf(
+      CreationScope scope,
+      List<String> sources,
+    ) => h.scopes.watchOrigin(scope, sources).first;
+
+    test('un documento por su título; con varios, el primero y cuántos '
+        'más', () async {
+      expect(
+        await originOf(CreationScope.document(exodo), [exodo]),
+        const CreationOrigin(name: 'Éxodo'),
+      );
+      expect(
+        await originOf(const CreationScope.allProcessed(), [
+          genesis,
+          exodo,
+          levitico,
+        ]),
+        const CreationOrigin(name: 'Génesis', more: 2),
+      );
+    });
+
+    test('las fuentes borradas: nombra la primera viva, y si no queda '
+        'ninguna lo dice', () async {
+      expect(
+        await originOf(const CreationScope.allProcessed(), ['no-está', exodo]),
+        const CreationOrigin(name: 'Éxodo', more: 1),
+      );
+      expect(
+        await originOf(const CreationScope.document('no-está'), ['no-está']),
+        const CreationOrigin(deleted: true),
+      );
+      expect(
+        await originOf(const CreationScope.allProcessed(), ['a', 'b']),
+        const CreationOrigin(more: 1, deleted: true),
+      );
+    });
+
+    test('un cuaderno y un tema, por su nombre aunque haya leído '
+        'documentos; uno que ya no existe lo dice', () async {
+      final vault = h.processed.vault;
+      await vault.addNotebook('cuaderno', name: 'Pentateuco');
+      await vault.addPropertyValue('biblia', await vault.temaId(), 'Biblia');
+
+      expect(
+        await originOf(const CreationScope.notebook('cuaderno'), [
+          exodo,
+          genesis,
+        ]),
+        const CreationOrigin(name: 'Pentateuco'),
+      );
+      expect(
+        await originOf(const CreationScope.topic('biblia'), [exodo]),
+        const CreationOrigin(name: 'Biblia'),
+      );
+      expect(
+        await originOf(const CreationScope.notebook('borrado'), [exodo]),
+        const CreationOrigin(deleted: true),
+      );
+    });
+
+    test('todo lo procesado sin fuentes no tiene nombre: lo nombra la '
+        'interfaz', () async {
+      expect(
+        await originOf(const CreationScope.allProcessed(), const []),
+        const CreationOrigin(),
+      );
+    });
+
+    test('al día: si el documento se renombra o se borra', () async {
+      final origins = StreamQueue(
+        h.scopes.watchOrigin(CreationScope.document(exodo), [exodo]),
+      );
+      addTearDown(origins.cancel);
+      expect((await origins.next).name, 'Éxodo');
+
+      final db = h.processed.db;
+      await db.customUpdate(
+        'UPDATE item SET title = ? WHERE id = ?',
+        variables: [
+          Variable.withString('Éxodo, 2.ª'),
+          Variable.withString(exodo),
+        ],
+        updates: {db.knowledgeEntries},
+      );
+      expect((await origins.next).name, 'Éxodo, 2.ª');
+
+      await h.processed.vault.library.deleteMany([exodo]);
+      expect(await origins.next, const CreationOrigin(deleted: true));
     });
   });
 }
