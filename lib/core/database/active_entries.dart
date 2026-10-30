@@ -71,6 +71,15 @@ const kProcessedPartOutsideTrashSql =
     'SELECT tp.row_key FROM processed_parts tp WHERE tp.document_id IN ( '
     'SELECT ti.id FROM item ti WHERE ti.deleted_at IS NOT NULL))';
 
+/// Lo mismo que [kChunkOutsideTrashSql] para el índice de las notas en el
+/// texto (`text_note_search`, F45, mejora 19): deja afuera las de una fuente
+/// o un documento procesado que está en la papelera ANTES de cortar en los
+/// mejores N. Una nota de una creación no tiene elemento (`item_id` vacío):
+/// quien busca decide si la quiere.
+const kTextNoteOutsideTrashSql =
+    'text_note_search.item_id NOT IN ( '
+    'SELECT ti.id FROM item ti WHERE ti.deleted_at IS NOT NULL)';
+
 extension ActiveEntries on $KnowledgeEntriesTable {
   /// El predicado de drift: el elemento no está en la papelera.
   Expression<bool> get isActive => deletedAt.isNull();

@@ -35,6 +35,7 @@ class ProcessedQuerySql {
         for (final term in terms) {
           _args
             ..add(Variable.withString(term.match))
+            ..add(Variable.withString(term.match))
             ..add(Variable.withString(term.match));
         }
       }

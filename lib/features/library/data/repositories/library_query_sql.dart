@@ -193,7 +193,10 @@ class LibraryQuerySql {
         termCount: terms.length,
         topChunks: top != null,
       );
+      // El título y las notas, lo que la persona escribió en el texto (F45,
+      // mejora 19), y los chunks.
       _fromArgs
+        ..add(Variable.withString(match))
         ..add(Variable.withString(match))
         ..add(Variable.withString(match));
       if (_windowed) {
@@ -225,6 +228,7 @@ class LibraryQuerySql {
       _where.add('item.id IN (${everyTerm.join(' INTERSECT ')})');
       for (final term in processedTerms) {
         _args
+          ..add(Variable.withString(term.match))
           ..add(Variable.withString(term.match))
           ..add(Variable.withString(term.match));
       }
@@ -317,6 +321,16 @@ class LibraryQuerySql {
   /// en fragmentos distintos.
   bool get hasEveryWordBranch => _termMatches.isNotEmpty;
 
+  /// Las fuentes cuyas notas en el texto tienen lo buscado (F45, mejora 19):
+  /// lo que la persona escribió sobre el original de la Biblioteca cuenta
+  /// como su propio texto (`t` = 1), igual que el título. Solo las del
+  /// original de la Biblioteca: las de Procesado son de lo procesado, que la
+  /// Biblioteca no muestra (decisión H). Un parámetro: lo buscado.
+  static const _noteHits =
+      'SELECT text_note_search.item_id AS item_id, 1 AS t, NULL AS s '
+      'FROM text_note_search WHERE text_note_search MATCH ? '
+      "AND text_note_search.target = 'source_original'";
+
   /// Lo que no es un documento procesado (F41): ver `notProcessedSql`.
   static final _notProcessed = notProcessedSql('item.id');
 
@@ -392,6 +406,7 @@ class LibraryQuerySql {
         'FROM ( '
         'SELECT item_search.item_id AS item_id, 1 AS t, NULL AS s '
         'FROM item_search WHERE item_search MATCH ? '
+        'UNION ALL $_noteHits '
         'UNION ALL $chunkHits$everyWord'
         ') hit GROUP BY hit.item_id) hits '
         'JOIN item ON item.id = hits.item_id '
@@ -469,6 +484,7 @@ class LibraryQuerySql {
         'SELECT cand.item_id AS item_id, MAX(cand.t) AS t FROM ( '
         'SELECT item_search.item_id AS item_id, 1 AS t FROM item_search '
         'WHERE item_search MATCH ? '
+        'UNION ALL SELECT item_id, t FROM ($_noteHits) '
         'UNION ALL SELECT best.item_id, 0 AS t FROM best$everyBranch '
         ') cand GROUP BY cand.item_id) cands '
         'LEFT JOIN best ON best.item_id = cands.item_id '
@@ -481,6 +497,7 @@ class LibraryQuerySql {
       variables: [
         Variable.withString(_match),
         Variable.withInt(top),
+        Variable.withString(_match),
         Variable.withString(_match),
         for (final term in terms) Variable.withString(term),
         Variable.withInt(query.limit!),

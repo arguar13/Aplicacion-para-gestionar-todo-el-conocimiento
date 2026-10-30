@@ -12,10 +12,11 @@ import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 const _chunksPerSource = 6;
 
 /// [VaultRetriever] que busca los PASAJES de la bóveda que hablan de lo
-/// preguntado (F30), con una sola consulta a los tres índices de texto: el de
-/// los fragmentos de las fuentes (`chunk_search`), el de los títulos y las
-/// notas (`item_search`) y el de las partes de los documentos procesados
-/// (`processed_part_search`, F41).
+/// preguntado (F30), con una sola consulta a los cuatro índices de texto: el
+/// de los fragmentos de las fuentes (`chunk_search`), el de los títulos y las
+/// notas (`item_search`), el de las partes de los documentos procesados
+/// (`processed_part_search`, F41) y el de las notas en el texto
+/// (`text_note_search`, F45, mejora 19).
 ///
 /// Reemplaza a `LibraryVaultRetriever`, que hacía una búsqueda por cada
 /// palabra de la pregunta —también «de» o «qué»—, en serie, armando cada
@@ -38,6 +39,12 @@ const _chunksPerSource = 6;
 ///   la fuente, con su página o su minuto, y repetirlo gastaría un lugar de
 ///   [kChatMaxSources]. Acotado —un cuaderno de procesados (paso 5)—, entran
 ///   todas, que es lo único que hay para leer.
+/// - **Las notas en el texto** (F45, mejora 19): lo que la persona escribió
+///   sobre un pedazo de un original o de un procesado —también la nota de un
+///   resaltado de antes—, con el pedazo citado después, para que se entienda
+///   de qué habla. Es de su fuente o de su documento procesado, y da su
+///   pasaje sin posición: la nota no es texto de la fuente. Lo creado no
+///   entra: no es de ningún elemento.
 /// - **Lo que entra**: como mucho [kChatMaxSources] fuentes de
 ///   [kChatPassageChars] caracteres.
 class ChunkPassageRetriever implements VaultRetriever {
@@ -73,6 +80,9 @@ class ChunkPassageRetriever implements VaultRetriever {
     final partsInScope = scopeList == null
         ? 'AND $_notACopyOfAVisibleSource '
         : 'AND fp.document_id IN ($scopeList) ';
+    final notesInScope = scopeList == null
+        ? ''
+        : 'AND text_note_search.item_id IN ($scopeList) ';
 
     final rows = await _db
         .customSelect(
@@ -126,7 +136,26 @@ class ChunkPassageRetriever implements VaultRetriever {
           '$partsInScope'
           'ORDER BY processed_part_search.rank LIMIT ?2) topp '
           'JOIN processed_parts pp ON pp.row_key = topp.rid '
-          'JOIN item i ON i.id = pp.document_id) '
+          'JOIN item i ON i.id = pp.document_id '
+          'UNION ALL '
+          // Las notas en el texto (F45, mejora 19): la nota y, debajo, el
+          // pedazo citado, sin posición en una forma.
+          'SELECT ns.item_id, i.title, '
+          "ns.note || char(10) || '«' || COALESCE(tn.excerpt, "
+          "hh.excerpt, '') || '»', NULL, topn.s, 0 FROM ( "
+          'SELECT text_note_search.rowid AS rid, '
+          'text_note_search.rank AS s FROM text_note_search '
+          'WHERE text_note_search MATCH ?1 '
+          "AND text_note_search.item_id <> '' "
+          'AND $kTextNoteOutsideTrashSql '
+          '$notesInScope'
+          'ORDER BY text_note_search.rank LIMIT ?3) topn '
+          'JOIN text_note_search ns ON ns.rowid = topn.rid '
+          'JOIN item i ON i.id = ns.item_id '
+          "LEFT JOIN text_notes tn ON ns.origin = 'note' "
+          'AND tn.id = ns.note_id '
+          "LEFT JOIN highlights hh ON ns.origin = 'highlight' "
+          'AND hh.id = ns.note_id) '
           'ORDER BY score',
           variables: [
             Variable.withString(match),
