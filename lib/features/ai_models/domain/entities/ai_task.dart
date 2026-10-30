@@ -11,7 +11,8 @@ enum AiTaskKind {
   /// referencia, Atlas (F27). La cola de fondo.
   organize,
 
-  /// Hacerle solo las tarjetas a un elemento (F30, el ✨ de Repasar).
+  /// Hacerle solo las tarjetas a un elemento (F30; desde F43, M18, «Para
+  /// cada documento» en «Tarjetas didácticas»).
   flashcards,
 
   /// Buscarle solo las fechas a un elemento para la línea de tiempo (F40).

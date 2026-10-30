@@ -57,11 +57,7 @@ class FillNotebookSheet extends ConsumerWidget {
     final modelStatus = ref.watch(languageModelStatusProvider).valueOrNull;
     final modelReady = modelStatus?.isReady;
     final coverage = ref
-        .watch(
-          aiFlashcardsCoverageProvider(
-            AiFlashcardsScope(AiFlashcardsScopeKind.notebook, notebook.id),
-          ),
-        )
+        .watch(notebookFlashcardCoverageProvider(notebook.id))
         .valueOrNull
         ?.getRight()
         .toNullable();

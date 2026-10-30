@@ -16,7 +16,6 @@ import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_an
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_banner.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_sheet.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_today_strip.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -24,8 +23,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Repasar (F43, punto 2 del plan), como el «Studio» de NotebookLM, sin
 /// perder nada de lo de antes (F31):
 ///
-/// - **arriba**, la racha, el historial, «Crear tarjetas con IA» y exportar a
-///   Anki, como siempre;
+/// - **arriba**, la racha, el historial y exportar a Anki, como siempre
+///   («Crear tarjetas con IA» está en la hoja de «Tarjetas didácticas», M18);
 /// - **el selector** de sobre qué se estudia —todo lo procesado, un
 ///   documento, un cuaderno o un tema, nunca la Biblioteca—, que manda en toda
 ///   la pantalla;
@@ -152,13 +151,6 @@ class _ReviewEntryScreenState extends ConsumerState<ReviewEntryScreen> {
             icon: const Icon(Icons.query_stats_outlined),
             tooltip: l10n.reviewHistoryTooltip,
             onPressed: () => context.push(RoutePaths.reviewHistory),
-          ),
-          // F30: que la IA haga las tarjetas, además de a mano.
-          IconButton(
-            key: const Key('review-ai-create'),
-            icon: const Icon(Icons.auto_awesome_outlined),
-            tooltip: l10n.reviewAiCreateTooltip,
-            onPressed: () => unawaited(showAiFlashcardsSheet(context)),
           ),
           IconButton(
             icon: _exporting

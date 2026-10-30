@@ -6351,51 +6351,7 @@
   },
   "reviewAiCreateTooltip": "Crear tarjetas con IA",
   "@reviewAiCreateTooltip": {
-    "description": "Repasar con IA (F30): el botón ✨ de la barra."
-  },
-  "reviewAiSheetTitle": "Crear tarjetas con IA",
-  "@reviewAiSheetTitle": {
-    "description": "Repasar con IA (F30): título de la hoja."
-  },
-  "reviewAiSheetIntro": "La IA lee cada elemento y le hace sus tarjetas de repaso, en segundo plano y sin esperar el cargador. Llevan ✨ y se pueden deshacer desde «Lo que hizo la IA».",
-  "@reviewAiSheetIntro": {
-    "description": "Repasar con IA (F30): qué hace, en la hoja."
-  },
-  "reviewAiScopeTitle": "¿De qué?",
-  "@reviewAiScopeTitle": {
-    "description": "Repasar con IA (F30): el título de los alcances."
-  },
-  "reviewAiScopeLibrary": "Toda la biblioteca",
-  "@reviewAiScopeLibrary": {
-    "description": "Repasar con IA (F30): alcance."
-  },
-  "reviewAiScopeSpace": "Un tema",
-  "@reviewAiScopeSpace": {
-    "description": "Repasar con IA (F30): alcance: un espacio de la biblioteca."
-  },
-  "reviewAiScopeTag": "Una etiqueta",
-  "@reviewAiScopeTag": {
-    "description": "Repasar con IA (F30): alcance."
-  },
-  "reviewAiScopeNotebook": "Un cuaderno",
-  "@reviewAiScopeNotebook": {
-    "description": "Repasar con IA (F30): alcance."
-  },
-  "reviewAiPickSpace": "Elegí un tema",
-  "@reviewAiPickSpace": {
-    "description": "Repasar con IA (F30): el selector de tema."
-  },
-  "reviewAiPickTag": "Elegí una etiqueta",
-  "@reviewAiPickTag": {
-    "description": "Repasar con IA (F30): el selector de etiqueta."
-  },
-  "reviewAiPickNotebook": "Elegí un cuaderno",
-  "@reviewAiPickNotebook": {
-    "description": "Repasar con IA (F30): el selector de cuaderno."
-  },
-  "reviewAiNothingToPick": "Todavía no hay ninguno.",
-  "@reviewAiNothingToPick": {
-    "description": "Repasar con IA (F30): no hay temas, etiquetas o cuadernos para elegir."
+    "description": "Repasar vacío (F30): el botón que abre la hoja de «Tarjetas didácticas», donde se elige un mazo o «Para cada documento» (F43, M18)."
   },
   "reviewAiCoverage": "{count, plural, =0{Ningún elemento de acá tiene texto todavía} =1{Entra 1 elemento con texto} other{Entran {count} elementos con texto}}",
   "@reviewAiCoverage": {
@@ -6415,10 +6371,6 @@
       }
     }
   },
-  "reviewAiCoverageFailed": "No se pudo contar qué elementos entran.",
-  "@reviewAiCoverageFailed": {
-    "description": "Repasar con IA (F30): falló la cuenta."
-  },
   "reviewAiAlsoWithCards": "También los que ya tienen tarjetas",
   "@reviewAiAlsoWithCards": {
     "description": "Repasar con IA (F30): el interruptor."
@@ -6426,15 +6378,6 @@
   "reviewAiAlsoWithCardsHint": "Les hace otra tanda, sin repetir preguntas.",
   "@reviewAiAlsoWithCardsHint": {
     "description": "Repasar con IA (F30): qué hace el interruptor."
-  },
-  "reviewAiStart": "{count, plural, =0{Nada para hacer} =1{Crear tarjetas de 1 elemento} other{Crear tarjetas de {count} elementos}}",
-  "@reviewAiStart": {
-    "description": "Repasar con IA (F30): el botón que empieza.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
   },
   "reviewAiStarted": "Creando tarjetas en segundo plano. Podés seguir usando la app.",
   "@reviewAiStarted": {

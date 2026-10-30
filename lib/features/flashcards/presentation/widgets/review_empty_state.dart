@@ -10,8 +10,10 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settin
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_queue_status.dart';
+import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
+import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/creation_customize_sheet.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/ai_flashcards_providers.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Repasar sin nada que repasar, diciendo **por qué** (F30).
@@ -21,15 +23,18 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// todavía no tienen ninguna, lo dice con el número, y el porqué de que la IA
 /// no las haya hecho sola —falta un modelo, está en pausa, la biblioteca que
 /// ya existía espera el cargador—, cada uno con lo que lo resuelve, y al lado
-/// el ✨ que las pide ya. Si la IA ya las está haciendo, que están en camino.
+/// «Crear tarjetas con IA», que abre la hoja de «Tarjetas didácticas» sobre lo
+/// elegido en Repasar (F43, M18). Si la IA ya las está haciendo, que están en
+/// camino.
 /// Si no hay nada que hacer, el mensaje de siempre.
 ///
 /// Con tarjetas que todavía no tocan, ofrece «Practicar igual»
 /// ([onPractice]): repasarlas sin esperar, sin tocar su calendario.
 ///
 /// [compact] es su forma para la franja «Para hoy» de Repasar (F43, decisión
-/// B): lo mismo —el porqué, el ✨ y «Practicar igual»—, en pocas líneas y sin
-/// ocupar la pantalla, dentro de una lista que se desplaza.
+/// B): lo mismo —el porqué, «Crear tarjetas con IA» y «Practicar igual»—, en
+/// pocas líneas y sin ocupar la pantalla, dentro de una lista que se
+/// desplaza.
 class ReviewEmptyState extends ConsumerWidget {
   const ReviewEmptyState({this.onPractice, this.compact = false, super.key});
 
@@ -145,7 +150,8 @@ class _CompactLine extends StatelessWidget {
   }
 }
 
-/// Hay [count] elementos sin tarjetas: por qué la IA no las hizo, y el ✨.
+/// Hay [count] elementos sin tarjetas: por qué la IA no las hizo, y «Crear
+/// tarjetas con IA».
 class _WithoutCards extends ConsumerWidget {
   const _WithoutCards({
     required this.count,
@@ -163,9 +169,17 @@ class _WithoutCards extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final reasons = _reasons(context, ref, l10n);
+    // La hoja de «Tarjetas didácticas» sobre lo elegido en Repasar (F43,
+    // M18): ahí se elige un mazo o «Para cada documento».
     final create = FilledButton.icon(
       key: const Key('review-empty-create'),
-      onPressed: () => unawaited(showAiFlashcardsSheet(context)),
+      onPressed: () => unawaited(
+        showCreationCustomizeSheet(
+          context,
+          kind: StudyCreationKind.flashcards,
+          scope: ref.read(repasarScopeProvider),
+        ),
+      ),
       icon: const Icon(Icons.auto_awesome),
       label: Text(l10n.reviewAiCreateTooltip),
     );

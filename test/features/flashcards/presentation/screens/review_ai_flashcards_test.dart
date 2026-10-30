@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
-import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/presentation/screens/language_model_screen.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
@@ -10,29 +9,18 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
-import 'package:sinapsis/features/flashcards/domain/services/flashcard_style.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
-import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
-import '../../../../support/processed_rows.dart';
 
 /// La cola de la IA de mentira: anota lo que la pantalla le pide. Cómo hace
 /// las tarjetas lo prueba `ai_organize_queue_test.dart`.
 class _RecordingQueue implements AiOrganizeQueue {
-  final requests = <({List<String> ids, bool anotherBatch})>[];
   final calls = <String>[];
-
-  @override
-  void makeFlashcards(
-    Iterable<String> itemIds, {
-    bool anotherBatch = false,
-    FlashcardStyle style = FlashcardStyle.plain,
-  }) => requests.add((ids: itemIds.toList(), anotherBatch: anotherBatch));
 
   @override
   void pauseFlashcards() => calls.add('pausar');
@@ -60,8 +48,10 @@ class _RecordingQueue implements AiOrganizeQueue {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// Repasar con IA (F30): el ✨ de la barra, la hoja que elige de qué y
-/// cuenta, y el aviso de cómo va el pedido.
+/// Repasar con IA (F30): el aviso de cómo va el pedido, Repasar vacío y
+/// «Practicar igual». La hoja que pide las tarjetas de cada documento es
+/// ahora la de «Tarjetas didácticas» (F43, M18): la prueban
+/// `deck_each_document_test.dart`.
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -102,114 +92,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> openSheet(WidgetTester tester) async {
-    await tester.tap(find.byKey(const Key('review-ai-create')));
-    await tester.pumpAndSettle();
-  }
-
-  group('la hoja', () {
-    testWidgets('de toda la biblioteca: cuántos entran y cuántos ya tienen; '
-        'pide solo los que no tienen', (tester) async {
+  group('la barra', () {
+    testWidgets('ya no tiene el ✨: crear tarjetas con IA está en la hoja de '
+        '«Tarjetas didácticas» (F43, M18)', (tester) async {
       await setUpWith();
-      final ids = await seed(withCards: 'Roma');
       await pumpReview(tester);
-      await openSheet(tester);
 
-      expect(find.text(es.reviewAiSheetTitle), findsWidgets);
-      expect(find.text(es.reviewAiCoverage(3)), findsOneWidget);
-      expect(find.text(es.reviewAiCoverageWithCards(1)), findsOneWidget);
-
-      await tester.tap(find.text(es.reviewAiStart(2)));
-      await tester.pumpAndSettle();
-
-      expect(queue.requests.single.anotherBatch, isFalse);
-      expect(queue.requests.single.ids.toSet(), {
-        ids['Cartago'],
-        ids['Grecia'],
-      });
-      expect(find.text(es.reviewAiStarted), findsOneWidget);
-      expect(find.text(es.reviewAiSheetIntro), findsNothing);
-    });
-
-    testWidgets('«también los que ya tienen» pide todos, con otra tanda', (
-      tester,
-    ) async {
-      await setUpWith();
-      await seed(withCards: 'Roma');
-      await pumpReview(tester);
-      await openSheet(tester);
-
-      await tester.tap(find.byKey(const Key('ai-cards-also-with-cards')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(es.reviewAiStart(3)));
-      await tester.pumpAndSettle();
-
-      expect(queue.requests.single.ids, hasLength(3));
-      expect(queue.requests.single.anotherBatch, isTrue);
-    });
-
-    testWidgets('de un cuaderno: hay que elegirlo, y cuenta solo lo suyo —sus '
-        'documentos procesados—', (tester) async {
-      await setUpWith();
-      final ids = await seed();
-      // Un cuaderno tiene solo documentos procesados (F41, paso 5): la
-      // fuente se queda afuera.
-      await insertProcessedRows(
-        harness.database,
-        id: 'p-roma',
-        title: 'Roma procesada',
-      );
-      final notebooks = harness.container.read(notebookRepositoryProvider);
-      final notebook = await notebooks.create(
-        name: 'Tesis',
-        mode: NotebookMode.manual,
-      );
-      await notebooks.addItems(
-        notebookId: notebook.id,
-        itemIds: ['p-roma', ids['Roma']!],
-      );
-      await pumpReview(tester);
-      await openSheet(tester);
-
-      await tester.tap(find.byKey(const Key('ai-cards-scope-notebook')));
-      await tester.pumpAndSettle();
-      // Sin elegir cuál, no hay nada que pedir.
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('ai-cards-start')))
-            .onPressed,
-        isNull,
-      );
-
-      await tester.tap(find.byKey(const Key('ai-cards-pick-notebook')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Tesis').last);
-      await tester.pumpAndSettle();
-
-      // La fuente que se quiso meter no cuenta; el procesado, sí: sus
-      // tarjetas salen de su texto procesado (decisión I).
-      expect(find.text(es.reviewAiCoverage(1)), findsOneWidget);
-      await tester.tap(find.text(es.reviewAiStart(1)));
-      await tester.pumpAndSettle();
-      expect(queue.requests.single.ids, ['p-roma']);
-    });
-
-    testWidgets('sin el modelo de lenguaje no se puede, y ofrece bajarlo', (
-      tester,
-    ) async {
-      await setUpWith(modelReady: false);
-      await seed();
-      await pumpReview(tester);
-      await openSheet(tester);
-
-      expect(find.text(es.flashcardsModelMissing), findsOneWidget);
-      expect(find.text(es.flashcardsDownloadModel), findsOneWidget);
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('ai-cards-start')))
-            .onPressed,
-        isNull,
-      );
+      expect(find.byKey(const Key('review-ai-create')), findsNothing);
+      expect(find.byTooltip(es.reviewAiCreateTooltip), findsNothing);
     });
   });
 
@@ -314,9 +204,8 @@ void main() {
       expect(find.text(es.reviewAllDone), findsOneWidget);
     });
 
-    testWidgets('con elementos sin tarjetas: cuántos, y el ✨ al lado', (
-      tester,
-    ) async {
+    testWidgets('con elementos sin tarjetas: cuántos, y al lado crear '
+        'las tarjetas con IA', (tester) async {
       await setUpWith();
       await seed();
       await pumpReview(tester);
@@ -324,7 +213,9 @@ void main() {
       expect(find.text(es.reviewEmptyWithoutCards(3)), findsOneWidget);
       await tester.tap(find.byKey(const Key('review-empty-create')));
       await tester.pumpAndSettle();
-      expect(find.text(es.reviewAiSheetIntro), findsOneWidget);
+      // La de «Tarjetas didácticas», sobre lo elegido en Repasar (F43, M18).
+      expect(find.byKey(const Key('creation-sheet')), findsOneWidget);
+      expect(find.text(es.f43StudioSheetFlashcards), findsOneWidget);
     });
 
     testWidgets('falta un modelo: cuál, con su descarga', (tester) async {

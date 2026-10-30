@@ -31,10 +31,10 @@ abstract interface class AiRunRepository {
   /// deshacer y no cuenta como organizar el elemento.
   ///
   /// Con [scope] en [AiRunScope.flashcards], es un pedido de solo tarjetas
-  /// (F30, el ✨ de Repasar): se deshace y se lista como cualquier pasada,
-  /// pero no cuenta como organizar el elemento —sigue pendiente para la
-  /// cola, con sus vínculos, temas y etiquetas por hacer— ni como su última
-  /// pasada a la hora de saber si se deshizo ([undoneItemsAmong]).
+  /// (F30; desde F43, M18, «Para cada documento»): se deshace y se lista
+  /// como cualquier pasada, pero no cuenta como organizar el elemento —sigue
+  /// pendiente para la cola, con sus vínculos, temas y etiquetas por hacer— ni
+  /// como su última pasada a la hora de saber si se deshizo ([undoneItemsAmong]).
   Future<Either<Failure, String>> startRun(
     String itemId, {
     String? model,

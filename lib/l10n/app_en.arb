@@ -7375,51 +7375,7 @@
   },
   "reviewAiCreateTooltip": "Create flashcards with AI",
   "@reviewAiCreateTooltip": {
-    "description": "Repasar con IA (F30): el botón ✨ de la barra."
-  },
-  "reviewAiSheetTitle": "Create flashcards with AI",
-  "@reviewAiSheetTitle": {
-    "description": "Repasar con IA (F30): título de la hoja."
-  },
-  "reviewAiSheetIntro": "The AI reads each item and makes its flashcards, in the background and without waiting for the charger. They carry ✨ and can be undone from “What the AI did”.",
-  "@reviewAiSheetIntro": {
-    "description": "Repasar con IA (F30): qué hace, en la hoja."
-  },
-  "reviewAiScopeTitle": "From what?",
-  "@reviewAiScopeTitle": {
-    "description": "Repasar con IA (F30): el título de los alcances."
-  },
-  "reviewAiScopeLibrary": "Whole library",
-  "@reviewAiScopeLibrary": {
-    "description": "Repasar con IA (F30): alcance."
-  },
-  "reviewAiScopeSpace": "A topic",
-  "@reviewAiScopeSpace": {
-    "description": "Repasar con IA (F30): alcance: un espacio de la biblioteca."
-  },
-  "reviewAiScopeTag": "A tag",
-  "@reviewAiScopeTag": {
-    "description": "Repasar con IA (F30): alcance."
-  },
-  "reviewAiScopeNotebook": "A notebook",
-  "@reviewAiScopeNotebook": {
-    "description": "Repasar con IA (F30): alcance."
-  },
-  "reviewAiPickSpace": "Choose a topic",
-  "@reviewAiPickSpace": {
-    "description": "Repasar con IA (F30): el selector de tema."
-  },
-  "reviewAiPickTag": "Choose a tag",
-  "@reviewAiPickTag": {
-    "description": "Repasar con IA (F30): el selector de etiqueta."
-  },
-  "reviewAiPickNotebook": "Choose a notebook",
-  "@reviewAiPickNotebook": {
-    "description": "Repasar con IA (F30): el selector de cuaderno."
-  },
-  "reviewAiNothingToPick": "There are none yet.",
-  "@reviewAiNothingToPick": {
-    "description": "Repasar con IA (F30): no hay temas, etiquetas o cuadernos para elegir."
+    "description": "Repasar vacío (F30): el botón que abre la hoja de «Tarjetas didácticas», donde se elige un mazo o «Para cada documento» (F43, M18)."
   },
   "reviewAiCoverage": "{count, plural, =0{No item here has text yet} =1{1 item with text} other{{count} items with text}}",
   "@reviewAiCoverage": {
@@ -7439,10 +7395,6 @@
       }
     }
   },
-  "reviewAiCoverageFailed": "Couldn't count which items are included.",
-  "@reviewAiCoverageFailed": {
-    "description": "Repasar con IA (F30): falló la cuenta."
-  },
   "reviewAiAlsoWithCards": "Also the ones that already have flashcards",
   "@reviewAiAlsoWithCards": {
     "description": "Repasar con IA (F30): el interruptor."
@@ -7450,15 +7402,6 @@
   "reviewAiAlsoWithCardsHint": "Makes another batch, without repeating questions.",
   "@reviewAiAlsoWithCardsHint": {
     "description": "Repasar con IA (F30): qué hace el interruptor."
-  },
-  "reviewAiStart": "{count, plural, =0{Nothing to do} =1{Create flashcards for 1 item} other{Create flashcards for {count} items}}",
-  "@reviewAiStart": {
-    "description": "Repasar con IA (F30): el botón que empieza.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
   },
   "reviewAiStarted": "Creating flashcards in the background. You can keep using the app.",
   "@reviewAiStarted": {

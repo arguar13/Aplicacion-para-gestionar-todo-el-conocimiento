@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
@@ -6,8 +5,6 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/flashcard_coverage_reader_impl.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_coverage_reader.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 
 /// Qué elementos pueden tener tarjetas y cuáles ya tienen (F30).
@@ -29,57 +26,18 @@ final hasFlashcardsProvider = StreamProvider.autoDispose<bool>(
   (ref) => ref.watch(flashcardCoverageReaderProvider).watchHasCards(),
 );
 
-/// De qué elementos se piden las tarjetas con IA (F30): toda la biblioteca,
-/// un tema, una etiqueta o un cuaderno.
-enum AiFlashcardsScopeKind { library, space, tag, notebook }
-
-/// El alcance elegido: el tipo y, salvo en toda la biblioteca, cuál.
-@immutable
-class AiFlashcardsScope {
-  const AiFlashcardsScope(this.kind, String this.id)
-    : assert(
-        kind != AiFlashcardsScopeKind.library,
-        'Toda la biblioteca no elige ninguno.',
-      );
-
-  const AiFlashcardsScope.library()
-    : kind = AiFlashcardsScopeKind.library,
-      id = null;
-
-  final AiFlashcardsScopeKind kind;
-  final String? id;
-
-  @override
-  bool operator ==(Object other) =>
-      other is AiFlashcardsScope && other.kind == kind && other.id == id;
-
-  @override
-  int get hashCode => Object.hash(kind, id);
-}
-
-/// Los elementos de un alcance que pueden tener tarjetas, y cuáles ya tienen; o
-/// el fallo, para decirlo. Un tema o una etiqueta, con los mismos filtros
-/// que la Biblioteca (`LibraryRepository.matchingIds`); un cuaderno, con lo
-/// que tiene hoy (`NotebookRepository.memberIds`, sus documentos procesados):
-/// uno por consulta trae lo que la consulta encuentra ahora.
-final aiFlashcardsCoverageProvider = FutureProvider.autoDispose
-    .family<Either<Failure, FlashcardCoverage>, AiFlashcardsScope>((
+/// Los documentos de un cuaderno que pueden tener tarjetas, y cuáles ya tienen
+/// (F30), para «Llenar con IA»; o el fallo, para decirlo. Lo que tiene hoy
+/// (`NotebookRepository.memberIds`, sus documentos procesados): uno por
+/// consulta trae lo que el cuaderno tiene ahora.
+final notebookFlashcardCoverageProvider = FutureProvider.autoDispose
+    .family<Either<Failure, FlashcardCoverage>, String>((
       ref,
-      scope,
+      notebookId,
     ) async {
       final reader = ref.watch(flashcardCoverageReaderProvider);
-      final library = ref.watch(libraryRepositoryProvider);
-      final ids = switch (scope.kind) {
-        AiFlashcardsScopeKind.library => null,
-        AiFlashcardsScopeKind.space => await library.matchingIds(
-          LibraryQuery(spaceId: scope.id),
-        ),
-        AiFlashcardsScopeKind.tag => await library.matchingIds(
-          LibraryQuery(tagIds: {scope.id!}),
-        ),
-        AiFlashcardsScopeKind.notebook =>
-          await ref.watch(notebookRepositoryProvider).memberIds(scope.id!),
-      };
-      if (ids == null) return reader.coverageOf(null);
+      final ids = await ref
+          .watch(notebookRepositoryProvider)
+          .memberIds(notebookId);
       return ids.match((failure) async => left(failure), reader.coverageOf);
     });
