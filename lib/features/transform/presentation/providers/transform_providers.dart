@@ -48,6 +48,7 @@ import 'package:sinapsis/features/transform/domain/repositories/processing_state
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 import 'package:sinapsis/features/transform/domain/services/image_text_extractor.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
+import 'package:sinapsis/features/transform/domain/services/video_text_notices.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/download_youtube_audio_usecase.dart';
@@ -135,6 +136,14 @@ final transcriptionModelDownloadProvider =
       ),
     );
 
+/// Por donde pasa el aviso de que los subtítulos de un video no estaban en
+/// el idioma que se habla (F45, paso 4): ver `VideoTextNoticeListener`.
+final videoTextNoticeBusProvider = Provider<VideoTextNoticeBus>((ref) {
+  final bus = VideoTextNoticeBus();
+  ref.onDispose(bus.dispose);
+  return bus;
+});
+
 final audioTranscriberProvider = Provider<AudioTranscriber>((ref) {
   return createAudioTranscriber(
     model: ref.watch(whisperModelManagerProvider),
@@ -160,6 +169,7 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
       temporaryDirectory: getTemporaryDirectory,
       checkpoints: ref.watch(processingStateRepositoryProvider),
       files: ref.watch(fileStoreProvider),
+      notify: ref.watch(videoTextNoticeBusProvider).notify,
     ),
     SocialPostTransformer(
       client: ref.watch(socialPostClientProvider),

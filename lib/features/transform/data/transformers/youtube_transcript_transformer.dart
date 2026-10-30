@@ -17,6 +17,8 @@ import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.
 import 'package:sinapsis/features/transform/domain/entities/timed_text.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_checkpoints.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
+import 'package:sinapsis/features/transform/domain/services/video_text_language.dart';
+import 'package:sinapsis/features/transform/domain/services/video_text_notices.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 
 /// Trae la transcripción de un video de YouTube, junto con su título y su
@@ -42,13 +44,15 @@ class YouTubeTranscriptTransformer implements Transformer {
     Future<Directory> Function()? temporaryDirectory,
     ProcessingCheckpoints? checkpoints,
     FileStore? files,
+    void Function(ForeignCaptionsNotice notice)? notify,
   }) : _client = client,
        _ids = ids,
        _clock = clock,
        _transcriber = transcriber,
        _temporaryDirectory = temporaryDirectory,
        _checkpoints = checkpoints,
-       _files = files;
+       _files = files,
+       _notify = notify;
 
   final YouTubeClient _client;
   final IdGenerator _ids;
@@ -64,6 +68,10 @@ class YouTubeTranscriptTransformer implements Transformer {
   /// Dónde se guarda el audio que se bajó para transcribir, como el audio
   /// del video (F24): así no se baja dos veces. Sin él, se borra.
   final FileStore? _files;
+
+  /// Con qué avisar que los subtítulos de un video no estaban en el idioma
+  /// que se habla (F45, paso 4): en la app, `VideoTextNoticeBus.notify`.
+  final void Function(ForeignCaptionsNotice notice)? _notify;
 
   /// Trabajo corto: los datos del video y sus subtítulos.
   @override
@@ -91,24 +99,34 @@ class YouTubeTranscriptTransformer implements Transformer {
     final videoId = YouTubeUrl.videoIdOf(Uri.parse(item.source.url!))!;
     // Si el usuario eligió un idioma para este video, ese manda; si no, el
     // que se habla en él (F22).
-    final data = await _client.fetchVideo(
+    final fetched = await _client.fetchVideo(
       videoId,
       preferredLanguages: [?item.source.language],
     );
     final now = _clock();
 
-    // Sin subtítulos en un idioma de fiar —ninguno, o solo traducciones a
-    // otro idioma que el que se habla—: lo dicho se saca del audio (F22).
+    // Lo que se habla, contrastado con el título (F45, paso 4): un idioma
+    // guardado por una versión anterior —el de una pista que no era— no se
+    // pide de nuevo como si lo hubiera elegido la persona.
+    final spokenLanguage = expectedVideoLanguage(
+      chosen: item.source.language,
+      detected: fetched.spokenLanguage,
+      title: fetched.title,
+      description: fetched.description ?? '',
+    );
+    final data = _verified(item, fetched, spokenLanguage);
+
+    // Sin subtítulos en un idioma de fiar —ninguno, solo traducciones a otro
+    // idioma que el que se habla, o unos que no estaban escritos en él—: lo
+    // dicho se saca del audio (F22).
     var renditions = _renditionsFor(item.id, data, now);
     var language = data.transcriptLanguage ?? item.source.language;
     String? audioPath;
     if (data.transcript.isEmpty) {
       // En el idioma que eligió el usuario; si no, en el que se sabe que se
-      // habla en el video; si no, en el de quien usa la app.
-      final audioLanguage =
-          item.source.language ??
-          data.spokenLanguage ??
-          defaultTranscriptionLanguage;
+      // habla en el video; si no, en el de quien usa la app. Siempre fijado:
+      // Whisper con otro idioma traduce lo que oye.
+      final audioLanguage = spokenLanguage ?? defaultTranscriptionLanguage;
       final transcribed = await _transcribeAudio(
         videoId,
         item,
@@ -150,6 +168,42 @@ class YouTubeTranscriptTransformer implements Transformer {
     );
   }
 
+  /// [data] con sus subtítulos solo si están en el idioma que se habla
+  /// ([spoken]): la red de seguridad del idioma (F45, paso 4, ver
+  /// `checkVideoText`). Si están en otro —un video en español con su
+  /// transcripción en árabe—, no se guardan: vuelve sin ellos, para que se
+  /// transcriba el audio, y el aviso de abajo dice qué pasó.
+  YouTubeVideoData _verified(
+    KnowledgeItem item,
+    YouTubeVideoData data,
+    String? spoken,
+  ) {
+    if (data.transcript.isEmpty) return data;
+    final verdict = checkVideoText(
+      formatTranscript(data.transcript),
+      spoken: spoken,
+      title: data.title,
+    );
+    if (verdict is! VideoTextForeign) return data;
+    _notify?.call(
+      ForeignCaptionsNotice(
+        itemId: item.id,
+        title: data.title,
+        foundLanguage: verdict.language,
+        audioLanguage: spoken ?? defaultTranscriptionLanguage,
+        transcribing: _canTranscribe,
+      ),
+    );
+    return data.copyWith(
+      transcript: const <TranscriptLine>[],
+      transcriptLanguage: null,
+    );
+  }
+
+  /// Si hay con qué transcribir un audio: no en la web, ni sin transcriptor.
+  bool get _canTranscribe =>
+      !kIsWeb && _transcriber != null && _temporaryDirectory != null;
+
   /// El audio del video [videoId], transcrito; `null` si no hay con qué
   /// transcribir (F22).
   ///
@@ -169,7 +223,7 @@ class YouTubeTranscriptTransformer implements Transformer {
   }) async {
     final transcriber = _transcriber;
     final temporaryDirectory = _temporaryDirectory;
-    if (kIsWeb || transcriber == null || temporaryDirectory == null) {
+    if (!_canTranscribe || transcriber == null || temporaryDirectory == null) {
       return null;
     }
     await context.enterLongLane();

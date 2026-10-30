@@ -10,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/features/transform/data/transformers/youtube_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
+import 'package:sinapsis/features/transform/domain/services/video_text_notices.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 
 import '../../../../support/fake_audio_transcriber.dart';
@@ -412,6 +413,158 @@ void main() {
       expect(result.renditions, isEmpty);
       expect(result.title, 'Un video mudo');
       expect(result.source.authorName, 'Alguien');
+    });
+  });
+
+  group('la red de seguridad del idioma (F45, paso 4)', () {
+    const title =
+        'Las reliquias de San Francisco de Asís que han fascinado al mundo';
+    const arabic = [
+      TranscriptLine(
+        offset: Duration.zero,
+        text: 'بقايا القديس فرنسيس الأسيزي التي أذهلت العالم',
+      ),
+      TranscriptLine(
+        offset: Duration(seconds: 7),
+        text: 'في هذا الفيديو نتحدث عن تاريخ هذه الآثار المقدسة',
+      ),
+    ];
+
+    Future<
+      ({
+        KnowledgeItem result,
+        FakeAudioTranscriber transcriber,
+        List<ForeignCaptionsNotice> notices,
+        FakeYouTubeClient client,
+      })
+    >
+    run(
+      YouTubeVideoData data, {
+      String? chosen,
+      bool transcribes = true,
+    }) async {
+      final temp = Directory.systemTemp.createTempSync('yt_audio');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final client = FakeYouTubeClient(data: data);
+      final transcriber = FakeAudioTranscriber(
+        text: '[0:00] Las reliquias del santo',
+      );
+      final notices = <ForeignCaptionsNotice>[];
+      final result = await YouTubeTranscriptTransformer(
+        client: client,
+        ids: ids,
+        clock: () => now,
+        transcriber: transcribes ? transcriber : null,
+        temporaryDirectory: transcribes ? () async => temp : null,
+        notify: notices.add,
+      ).transform(videoItem(language: chosen));
+      return (
+        result: result,
+        transcriber: transcriber,
+        notices: notices,
+        client: client,
+      );
+    }
+
+    test('subtítulos en árabe de un video en español: no se guardan, se '
+        'transcribe el audio en español y el aviso lo dice', () async {
+      final outcome = await run(
+        const YouTubeVideoData(
+          title: title,
+          transcript: arabic,
+          transcriptLanguage: 'es',
+          spokenLanguage: 'es',
+        ),
+      );
+
+      expect(
+        outcome.result.renditions.single.searchableText,
+        '[0:00] Las reliquias del santo',
+      );
+      expect(outcome.transcriber.languages, ['es']);
+      expect(outcome.result.source.language, 'es');
+      expect(outcome.notices, [
+        const ForeignCaptionsNotice(
+          itemId: 'item-1',
+          title: title,
+          foundLanguage: 'ar',
+          audioLanguage: 'es',
+        ),
+      ]);
+    });
+
+    test(
+      'un «ar» que guardó una versión anterior se pide, pero no manda: '
+      'el audio se transcribe en el idioma del título, no en árabe',
+      () async {
+        final outcome = await run(
+          const YouTubeVideoData(
+            title: title,
+            transcript: arabic,
+            transcriptLanguage: 'ar',
+            spokenLanguage: 'ar',
+            description:
+                'En este video les contamos la historia de las reliquias del '
+                'santo. Es una de las más visitadas del mundo, con miles de '
+                'peregrinos por año.',
+          ),
+          chosen: 'ar',
+        );
+
+        expect(outcome.client.languagesRequested.single, ['ar']);
+        expect(outcome.transcriber.languages, ['es']);
+        expect(outcome.result.source.language, 'es');
+        expect(outcome.notices.single.audioLanguage, 'es');
+      },
+    );
+
+    test(
+      'inglés con subtítulos en inglés: se guardan, sin aviso ni audio',
+      () async {
+        final outcome = await run(
+          const YouTubeVideoData(
+            title: 'The relics of Saint Francis of Assisi',
+            transcript: [
+              TranscriptLine(
+                offset: Duration.zero,
+                text:
+                    'In this video we talk about the history of the relics and '
+                    'how they have been kept for eight hundred years.',
+              ),
+            ],
+            transcriptLanguage: 'en',
+            spokenLanguage: 'en',
+          ),
+        );
+
+        expect(
+          outcome.result.renditions.single.searchableText,
+          startsWith('[0:00]'),
+        );
+        expect(outcome.transcriber.languages, isEmpty);
+        expect(outcome.client.audioRequested, isEmpty);
+        expect(outcome.notices, isEmpty);
+        expect(outcome.result.source.language, 'en');
+      },
+    );
+
+    test('sin con qué transcribir, tampoco se guarda el árabe: queda la '
+        'descripción, y el aviso no promete el audio', () async {
+      final outcome = await run(
+        const YouTubeVideoData(
+          title: title,
+          transcript: arabic,
+          spokenLanguage: 'es',
+          description: 'La historia de las reliquias del santo.',
+        ),
+        transcribes: false,
+      );
+
+      expect(
+        outcome.result.renditions.single.searchableText,
+        'La historia de las reliquias del santo.',
+      );
+      expect(outcome.notices.single.transcribing, isFalse);
     });
   });
 

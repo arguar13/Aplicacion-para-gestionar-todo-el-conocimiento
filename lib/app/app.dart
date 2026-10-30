@@ -20,6 +20,7 @@ import 'package:sinapsis/features/keep_working/presentation/widgets/keep_working
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_tidy_notice_listener.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
+import 'package:sinapsis/features/transform/presentation/widgets/video_text_notice_listener.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -140,8 +141,12 @@ class _AppState extends ConsumerState<App> {
                   onOpen: (documentId) => unawaited(
                     router.push(RoutePaths.processedDocument(documentId)),
                   ),
-                  child: GlobalErrorListener(
-                    child: child ?? const SizedBox.shrink(),
+                  // El texto de un video que no estaba en el idioma que se
+                  // habla (F45, paso 4): no se guardó, y sale del audio.
+                  child: VideoTextNoticeListener(
+                    child: GlobalErrorListener(
+                      child: child ?? const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               ),
