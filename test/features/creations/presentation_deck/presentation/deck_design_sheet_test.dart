@@ -153,6 +153,25 @@ void main() {
   testWidgets('el fondo (F45): de entrada el de la plantilla, y se elige '
       'liso, con su textura o en degradé', (tester) async {
     final (:changes, templateTaps: _) = await openSheet(tester);
+    // Cada opción con su nombre, y la de la plantilla marcada con ✓.
+    Finder labelOf(String key) => find.descendant(
+      of: find.byKey(ValueKey(key)),
+      matching: find.byType(Text),
+    );
+    Finder check(String key) => find.descendant(
+      of: find.byKey(ValueKey(key)),
+      matching: find.byIcon(Icons.check),
+    );
+    expect(tester.widget<Text>(labelOf('deck-background-plain')).data, 'Liso');
+    expect(
+      tester.widget<Text>(labelOf('deck-background-texture')).data,
+      'Textura',
+    );
+    expect(
+      tester.widget<Text>(labelOf('deck-background-gradient')).data,
+      'Degradé',
+    );
+    expect(check('deck-background-texture'), findsOneWidget);
     expect(
       tester.getSemantics(
         find.byKey(const ValueKey('deck-background-texture')),
@@ -161,6 +180,8 @@ void main() {
     );
     await tapKey(tester, 'deck-background-plain');
     expect(changes.last.background, DeckBackground.plain);
+    expect(check('deck-background-plain'), findsOneWidget);
+    expect(check('deck-background-texture'), findsNothing);
     expect(
       tester.getSemantics(find.byKey(const ValueKey('deck-background-plain'))),
       isSemantics(isSelected: true),

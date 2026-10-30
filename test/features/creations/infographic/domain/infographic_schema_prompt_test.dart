@@ -15,6 +15,14 @@ void main() {
     for (final chart in InfographicChartKind.values) {
       expect(infographicJsonSchemaPrompt, contains('"${chart.jsonName}"'));
     }
+    // Y el campo "chart" ofrece los ocho, los de F45 también.
+    expect(
+      infographicJsonSchemaPrompt,
+      contains(
+        '"chart": uno de '
+        '${InfographicChartKind.values.map((c) => '"${c.jsonName}"').join(', ')}',
+      ),
+    );
     for (final field in [
       'title',
       'subtitle',
