@@ -336,3 +336,61 @@ y `SchemaEntry`, con sus pruebas y siete claves sin uso).
 - **Queda para después:** `map_canvas_view.dart` tiene unas 1.950 líneas y se parte cuando entren
   la ficha y las capas (ola 2). El desborde del Resumen a 360 dp con la letra al doble es del paso
   3, que lo arregla.
+
+### Paso 3 (hecho): el Resumen
+
+Once commits, de `ab8d1b2b` a `6518618c`.
+
+- **Las cuatro cifras grandes**: documentos, temas (o etiquetas), comunidades y vínculos, en dos
+  columnas del mismo alto.
+  - Cada una lleva su cambio de 30 días, que sale del motor (`insights.recent.figures`). Puede
+    bajar: «−1 en 30 días» si un vínculo juntó dos comunidades. Si el motor no midió la hora, no
+    se muestra ningún cambio.
+  - Tocarla abre el Mapa a esa altura; la de vínculos, con los vínculos.
+- **Las nueve tarjetas**, con el diseño de las estadísticas de Repasar:
+  - Lo nuevo · esta semana, del motor (`insights.recent.week`);
+  - Para estudiar, con «🎓 Estudiar» hacia Repasar con el tema (y su espacio, en los temas de
+    F37). Se actualiza sola al repasar;
+  - Temas con más material;
+  - Puentes entre temas, de `insights.bridges`: «Une con Cristianismo · Tomás de Aquino, Egipto»,
+    con el nombre de cada comunidad, y «Única unión con …» si sin él quedarían sueltas
+    (`isSole`);
+  - Los más conectados entre sí;
+  - Sueltos y aislados, con «✨ Sugerir vínculos» y «Organizar con IA»;
+  - Contradicciones abiertas;
+  - Cómo creció, en barras por mes con sus meses (`StatsBarChart`, de M17);
+  - Cuánto lo trabajaste.
+- **Cada fila lleva al Mapa** por el canal del lienzo (`mapCanvasRequestProvider`), con la función
+  pura `canvasRequestFor`:
+  - un documento, a sus vínculos;
+  - un tema, a su comunidad, resaltado;
+  - una cifra, a su altura.
+
+  La pantalla pasa sola a la pestaña Mapa.
+- **Lo que lee aparte del grafo** (`board_facts_source_impl.dart` y `board_facts_sql.dart`): los
+  documentos con sus vínculos, con el mismo recorte y el mismo filtro que el Mapa, y las tarjetas
+  de cada uno. Lo pendiente de estudiar y lo suelto se calcula en `buildBoardInsights`; lo demás
+  sale del motor, y salió `board_bridges.dart`.
+- **Dos arreglos de raíz**:
+  - el lienzo atendía el pedido con el que se abre dentro de `initState`, donde todavía no puede
+    leer los textos del idioma. Ahora lo atiende en el primer `didChangeDependencies` (`df894aea`).
+    El Resumen es el primero que lo abre con un tema pendiente;
+  - el repositorio del Mapa medía «lo nuevo» y los 30 días con la hora del sistema y no con
+    `clockProvider`, el reloj de las tarjetas del Resumen (`11f7eff2`).
+- **El desborde a 360 dp con la letra al doble**, del tablero viejo, se arregló de raíz:
+  - «Estudiar» baja debajo del tema;
+  - la barra de «Temas con más material» va debajo del nombre;
+  - los títulos largos se cortan en dos renglones.
+
+  Se prueba recorriendo todas las tarjetas, en claro y en oscuro.
+- **Verificado**:
+  - analyze en 19, sobre `main` con el paso 2 de F45 y el 7c;
+  - 4.309 pruebas del Mapa, la navegación, la Biblioteca, el panel de estado, la base, las
+    creaciones y las tarjetas;
+  - el censo de lecturas suma `board_facts_source_impl.dart` con su motivo (`6518618c`);
+  - murieron las 10 mutaciones: el signo del delta, una baja dicha como subida, «Única unión» en
+    todas o en ninguna, «Une con» sin los nombres, un tema pedido como documento, los vínculos con
+    un foco que nadie pidió, el lienzo que no atiende el pedido con el que se abre, el panel que no
+    manda nada y el repositorio sin el reloj de la app.
+- **Queda para la ola 2** (la ficha y el foco): que un documento sin vínculos vuele a su tema; hoy
+  se abre en Procesado.
