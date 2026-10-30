@@ -11,6 +11,10 @@
 > - **ola 1**: F44 pasos 1 a 3 y F45 pasos 2 a 4;
 > - **ola 2**: F44 pasos 4 y 5 y F45 paso 5;
 > - **ola 3**: F45 paso 1, los avisos. Va solo al final porque toca los 179 avisos de toda la app.
+>
+> **Segunda tanda del 30/10 (mejoras 12 a 16), PARA APROBAR.** Pedido del dueño con siete
+> capturas: *"También quería agregar una mejora…"*. Entra como el paso 7, en la ola 2, después de
+> integrar los pasos 3 y 4: toca las mismas pantallas de Procesado y de la Biblioteca.
 
 ## Las once mejoras
 
@@ -160,6 +164,91 @@ Hoy (F43): 16 plantillas y 12 diseños de diapositiva; 18 estilos y 10 composici
   - el mismo «personalizar» de colores, letras y fondo.
 - Todo cabe en el teléfono, se exporta a PNG y PDF como hoy y respeta claro y oscuro.
 
+## Segunda tanda del 30/10: las mejoras 12 a 16 (para aprobar)
+
+### 12. Un solo lector para el texto, el resumen y la síntesis (1.ª, 2.ª y 3.ª capturas)
+
+- **Hoy:**
+  - en Procesado, la tarjeta «Texto · 6 páginas» se despliega ahí mismo, con su paginador, el texto
+    crudo (con los enlaces de Wikipedia a la vista: `[concilio ecuménico](https://…)`) y el botón
+    flotante del lector;
+  - el resumen y la síntesis de Repasar se abren en otro lector, el de «Lo creado»
+    (`ExtractViewer`): la barra con 🎧, el tamaño de letra y ⋮, «Ver 1 fuente», el título
+    grande, el texto como papel y su propio reproductor.
+- **Cambio:**
+  - tocar «Texto» en Procesado abre **exactamente ese mismo lector**, con lo mismo arriba y en el
+    mismo orden, rotulado «Texto · N páginas» en vez de «Resumen · N oraciones»;
+  - el texto se muestra **limpio**: los enlaces quedan como palabras, sin la dirección, y las
+    imágenes no se ven como `![](…)` (punto de partida, la mejora 2 del triaje);
+  - cada sección de un procesado se abre igual, sea «Texto», «Resumen» o «Síntesis»;
+  - **un solo dictado de voz**: el de 🎧 del lector, el mismo en los tres, y sin el botón
+    flotante en esas pantallas;
+  - **el original no cambia**: sigue con su lector flotante y sus marcas (mejora 16).
+- No crea nada en «Lo creado»: es una vista del texto procesado, que se puede editar y marcar como
+  hoy.
+
+### 13. El desplazamiento del lector, que baja de golpe (3.ª)
+
+- **Hoy:** en el resumen, un arrastre corto con impulso baja muchísimo de una vez.
+- **La causa probable:** ese lector usa `ReadingScrollPhysics`, que multiplica por 1,5 el impulso
+  al soltar. Se hizo para pasar hojas de un PDF o de un libro (F25), no para leer un texto de
+  corrido.
+- **Cambio:**
+  - se confirma la causa con una prueba que mide cuánto recorre un mismo gesto;
+  - el texto de corrido vuelve a la física de la plataforma;
+  - el impulso extra queda solo donde se pasan hojas;
+  - si además el texto salta porque la lista calcula mal el alto de un bloque largo, se arregla
+    también, sin parches.
+
+### 14. Lo que se crea, con IA o a mano, en un solo lugar (4.ª y 5.ª)
+
+- **Hoy hay cuatro lugares para crear algo del mismo documento:**
+  - arriba, ✨ (nota derivada) y el ícono del cuestionario, cada uno con su ruedita mientras
+    trabaja;
+  - en ⋮, «Organizar con IA» y «Buscar fechas con IA»;
+  - abajo, en «Tarjetas de repaso», la ruedita de la IA y el «+» a mano.
+- **Cambio, un botón «Crear» arriba (✨)** que abre una hoja con dos grupos:
+  - **Con IA**: Organizar (temas, vínculos y tarjetas), Tarjetas de repaso, Cuestionario, Nota
+    derivada y Buscar fechas;
+  - **A mano**: Tarjeta, Nota y Vínculo;
+  - cada fila dice qué hace y, si está trabajando, cómo va («Leyendo la parte 1 de 2…»), con
+    «Cancelar»;
+  - mientras algo trabaja, el ✨ de arriba lleva un anillo de progreso, en vez de dos ruedas
+    sueltas;
+  - ⋮ queda solo con lo que no crea nada («Borrar la copia del original»);
+  - la sección «Tarjetas de repaso» de abajo queda para ver y repasar: su «+» y su ruedita se
+    mudan a la hoja.
+- Igual en el documento de la Biblioteca, si conserva alguno de esos botones después de la mejora
+  8.
+
+### 15. Las marcas del original, adentro del original (6.ª)
+
+- **Hoy:** en la tarjeta del original de Procesado, arriba de la vista previa, están «Resumen ·
+  Sin hacer», «Síntesis · Sin hacer», «Palabras clave · Sin hacer» y la leyenda de colores.
+- **Cambio:**
+  - en el detalle queda solo la vista previa con «Ver la página» (o «Ver el documento»);
+  - la barra de las marcas va **adentro**, al abrirlo a pantalla completa, donde se marca;
+  - en la vista previa, un renglón chico dice qué tiene marcado («Resumen · Palabras clave»).
+
+### 16. El original, idéntico en Procesado y en la Biblioteca (7.ª)
+
+- **Hoy:**
+  - el original de Procesado abre con su barra (`OriginalStudyBar`) y el lector flotante con
+    «Leer: Todo · Resumen · Síntesis · Palabras clave»;
+  - el de la Biblioteca abre con otra barra (`StudyBar`) y otro arreglo.
+- **Cambio, una sola pantalla de original para los dos:**
+  - la misma barra de arriba, ya rehecha (la de la mejora 7: tres fichas compactas con su color y
+    su estado);
+  - el mismo lector flotante, con las mismas opciones;
+  - el mismo visor (PDF, página o lector).
+- **Cada uno marca lo suyo, como hoy:**
+  - el de la Biblioteca, sobre la fuente;
+  - el de Procesado, sobre su copia;
+  - nada de uno pinta al otro, y de la Biblioteca nada se borra.
+- En los dos se puede tener el resumen, la síntesis y las palabras clave del original. Lo que
+  sale de la Biblioteca con la mejora 8 es la tarjeta «Estudiar el documento» del **detalle**: sus
+  botones viven ahora adentro del original.
+
 ## Decisiones (se pueden cambiar mientras no se llegue a su paso)
 
 - **A. La ✕ en todos los avisos**, también en los cortos («Copiado»). Pedido literal: «para que se
@@ -183,6 +272,14 @@ Hoy (F43): 16 plantillas y 12 diseños de diapositiva; 18 estilos y 10 composici
 - **E. Nada se borra de la Biblioteca** (la regla de siempre): sale lo que se **muestra**, no los
   datos. El texto extraído de cada fuente sigue guardado.
 
+- **F. El texto de un procesado se abre en el lector de «Lo creado»**, como vista del texto (sin
+  crear una fila en «Lo creado»). *Alternativa:* rehacer la tarjeta desplegable con el aspecto
+  del lector; no la recomiendo, porque serían dos lectores que mantener iguales a mano.
+- **G. Un solo «Crear» arriba, con «Con IA» y «A mano»**. *Alternativa:* dejar los botones donde
+  están y solo alinearlos; no la recomiendo, porque seguirían siendo cuatro lugares.
+- **H. Una sola pantalla de original para Procesado y la Biblioteca**, con lo de cada uno por su
+  propia clave, como hoy. La barra es la de la mejora 7.
+
 ## Pasos (cada uno, su commit y su push)
 
 Una ola de cinco agentes en paralelo, cada uno en su rama, con su GUÍA, sus pruebas y sus
@@ -202,6 +299,10 @@ mutaciones; se integran en `main` de a uno, con su suite, su push y su verificac
    «Personalizar» en la Presentación y la Infografía.
 6. **El cierre**: la suite entera, la decisión 91 en arquitectura, la GUÍA y la APK al teléfono si
    la pedís.
+7. **La segunda tanda** (12 a 16, decisiones F a H), en la ola 2, cuando estén los pasos 3 y 4. Lo
+   hacen dos agentes:
+   - **7a**: el lector único del texto y el desplazamiento (12 y 13);
+   - **7b**: «Crear» en un solo lugar, las marcas adentro y el original idéntico (14, 15 y 16).
 
 ## Lo que no entra (para que quede dicho)
 
