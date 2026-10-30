@@ -1,28 +1,129 @@
-import 'package:flutter/material.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/image_viewer_view.dart';
+import 'dart:io';
 
-/// Una imagen a pantalla completa, con su propia barra de título.
+import 'package:flutter/material.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
+import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/image_viewer_view.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
+
+/// Una foto o un escaneo a pantalla completa, en **el marco de lectura** (F47,
+/// paso 1): la imagen —con su zoom y su tono en «Apariencia»— y, si se leyó
+/// texto en ella, **el texto que se leyó**, a un toque: «Imagen · Texto».
+/// El texto es el que se estudia, con sus marcas, lo resaltado a mano y
+/// «Escuchar».
 ///
-/// Envoltorio delgado sobre [ImageViewerView]: todo el visor de verdad vive
-/// ahí, para poder embeberlo también directo en el detalle de un elemento
-/// —ver `EmbeddedFileViewer`— sin pasar por esta pantalla ni por
-/// `Navigator`.
+/// Envoltorio delgado sobre [ImageViewerView] y [DocumentReaderView]: la
+/// imagen se embebe también en el detalle de un elemento —ver
+/// `EmbeddedFileViewer`—.
 class ImageViewerScreen extends StatelessWidget {
-  const ImageViewerScreen({required this.path, required this.title, super.key});
+  const ImageViewerScreen({
+    required this.path,
+    required this.title,
+    this.text,
+    super.key,
+  });
 
   final String path;
   final String title;
 
+  /// El texto que se leyó en la imagen, si se leyó alguno.
+  final StudyText? text;
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(title, overflow: TextOverflow.ellipsis),
+    final l10n = AppLocalizations.of(context)!;
+    final text = this.text;
+    return ReadingFrame(
+      info: ReadingDocumentInfo(
+        title: title,
+        kindLabel: l10n.f47P1KindImage,
+        kindIcon: Icons.image_outlined,
+        thumbnail: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Image.file(
+            File(path),
+            fit: BoxFit.cover,
+            cacheWidth: 168,
+            errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.image_outlined),
+          ),
+        ),
       ),
-      body: ImageViewerView(path: path),
+      bodyKind: text == null
+          ? ReadingBodyKind.page
+          : ReadingBodyKind.pageWithText,
+      body: text == null
+          ? ImageViewerView(path: path)
+          : _ImageWithText(path: path, title: title, text: text),
+    );
+  }
+}
+
+/// La imagen y el texto que se leyó en ella, uno u otro, con «Imagen ·
+/// Texto» arriba.
+class _ImageWithText extends StatefulWidget {
+  const _ImageWithText({
+    required this.path,
+    required this.title,
+    required this.text,
+  });
+
+  final String path;
+  final String title;
+  final StudyText text;
+
+  @override
+  State<_ImageWithText> createState() => _ImageWithTextState();
+}
+
+class _ImageWithTextState extends State<_ImageWithText> {
+  var _showText = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: SegmentedButton<bool>(
+            key: const Key('image-text-toggle'),
+            segments: [
+              ButtonSegment(
+                value: false,
+                icon: const Icon(Icons.image_outlined),
+                label: Text(l10n.f47P1ImageTab),
+              ),
+              ButtonSegment(
+                value: true,
+                icon: const Icon(Icons.notes_outlined),
+                label: Text(l10n.f47P1ImageTextTab),
+              ),
+            ],
+            selected: {_showText},
+            onSelectionChanged: (selected) =>
+                setState(() => _showText = selected.single),
+          ),
+        ),
+        Expanded(
+          child: _showText
+              ? DocumentReaderView(
+                  key: const Key('image-text'),
+                  title: widget.title,
+                  content: widget.text.content,
+                  markdown: widget.text.markdown,
+                  study: widget.text,
+                )
+              // La imagen sola lleva el tono de la página: la letra del
+              // texto va con el modo.
+              : ReadingPageTone(
+                  bodyKind: ReadingBodyKind.page,
+                  child: ImageViewerView(path: widget.path),
+                ),
+        ),
+      ],
     );
   }
 }

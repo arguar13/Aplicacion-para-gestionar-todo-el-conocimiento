@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// El reproductor de audio o video a pantalla completa, con su propia barra
-/// de título.
+/// Un audio o un video sin transcripción a pantalla completa, en **el marco
+/// de lectura** (F47, paso 1): el reproductor como cuerpo. Con transcripción
+/// se abre `TranscriptFollowScreen`, con la transcripción que se sigue.
 ///
 /// Envoltorio delgado sobre [MediaPlayerView]: todo el reproductor de
 /// verdad vive ahí, para poder embeberlo también directo en el detalle de
-/// un elemento —ver `EmbeddedFileViewer`— sin pasar por esta pantalla ni
-/// por `Navigator`.
+/// un elemento —ver `EmbeddedFileViewer`—.
 class MediaPlayerScreen extends StatelessWidget {
   const MediaPlayerScreen({
     required this.path,
@@ -22,16 +24,15 @@ class MediaPlayerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(title, overflow: TextOverflow.ellipsis),
+    final l10n = AppLocalizations.of(context)!;
+    return ReadingFrame(
+      info: ReadingDocumentInfo(
+        title: title,
+        kindLabel: isVideo ? l10n.f47P1KindVideo : l10n.f47P1KindAudio,
+        kindIcon: isVideo ? Icons.movie_outlined : Icons.graphic_eq,
       ),
-      body: SafeArea(
-        child: MediaPlayerView(path: path, isVideo: isVideo),
-      ),
+      bodyKind: ReadingBodyKind.asIs,
+      body: MediaPlayerView(path: path, isVideo: isVideo),
     );
   }
 }

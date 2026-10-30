@@ -1,12 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/util/external_url_launcher.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/playback_synced_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_text_provider.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_more_sheet.dart';
+import 'package:sinapsis/features/study/domain/services/study_readable.dart';
+import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -22,8 +35,13 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// reproductor que el del detalle —el mismo audio, ver
 /// `playbackSessionProvider`—, siempre a la vista, y abajo la transcripción.
 ///
-/// La pantalla no se mueve sola (F23, decisión B): «Ir a lo que suena», en la
-/// barra, lleva hasta la palabra que suena.
+/// Es **el marco de lectura** de un audio, un video o un YouTube (F47, paso
+/// 1): ←, Contenido, IA, Aa y ⋮ arriba; el reproductor y la transcripción
+/// como cuerpo, con la letra de «Apariencia»; en un YouTube, «Ver en
+/// YouTube» en ⋮.
+///
+/// La pantalla no se mueve sola (F23, decisión B): «Ir a lo que suena»,
+/// debajo del reproductor, lleva hasta la palabra que suena.
 class TranscriptFollowScreen extends ConsumerStatefulWidget {
   const TranscriptFollowScreen({required this.itemId, super.key});
 
@@ -39,10 +57,44 @@ class _TranscriptFollowScreenState
   final _link = PlaybackFollowLink();
   final _scroll = ScrollController();
 
+  /// Lo que se ofrece para escuchar con la voz: el mismo documento mientras
+  /// no cambie el texto partido ni lo estudiado.
+  (ReadableDocument, Map<ReadScope, List<ReadableSegment>>, ReadableDocument)?
+  _offered;
+
   @override
   void dispose() {
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// La transcripción para el lugar del reproductor del marco —«Escuchar» y
+  /// «Leer: Todo · Resumen · Síntesis · Palabras clave»—, con lo estudiado.
+  /// Ya suena en su propio audio: la voz **empieza por lo estudiado**, como
+  /// en el detalle (`ReadableDocument.withOwnAudio`).
+  ReadableDocument? _readable(KnowledgeItem item) {
+    final study = studyTextOf(item);
+    if (study == null) return null;
+    final whole = ref.watch(
+      readableTextProvider((
+        id: studyReadableId(study.renditionId),
+        title: item.title,
+        sourceKey: study.renditionId,
+        content: study.content,
+        markdown: study.markdown,
+      )),
+    );
+    final studied = ref.watch(studyReadScopesProvider(study));
+    if (whole == null) return null;
+    final cached = _offered;
+    if (cached != null &&
+        identical(cached.$1, whole) &&
+        identical(cached.$2, studied)) {
+      return cached.$3;
+    }
+    final document = whole.withScopes(studied).withOwnAudio();
+    _offered = (whole, studied, document);
+    return document;
   }
 
   @override
@@ -55,67 +107,95 @@ class _TranscriptFollowScreenState
         ? null
         : ref.watch(itemPlaybackPathProvider(item)).valueOrNull;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          item?.title ?? '',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          IconButton(
-            key: const Key('transcript-follow-now'),
-            icon: const Icon(Icons.my_location),
-            tooltip: l10n.f45S3TranscriptNow,
-            onPressed: () => _link.revealPlaying?.call(),
-          ),
-        ],
+    final url = item?.source.url;
+    return ReadingFrame(
+      key: const Key('transcript-follow'),
+      info: ReadingDocumentInfo(
+        title: item?.title ?? '',
+        kindLabel: item?.source.kind.label(l10n) ?? '',
+        kindIcon: item?.source.kind.icon ?? Icons.graphic_eq,
       ),
+      menu: [
+        if (item != null &&
+            item.source.kind == SourceKind.youtube &&
+            url != null)
+          ReadingMenuGroup([
+            ReadingMenuEntry(
+              key: const Key('transcript-follow-youtube'),
+              icon: Icons.smart_display_outlined,
+              label: l10n.f47P1MoreOpenYoutube,
+              onSelected: () => unawaited(launchExternalUrl(url)),
+            ),
+          ]),
+      ],
       body: item == null || transcript == null
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Material(
-                  color: scheme.surfaceContainerLow,
-                  child: path == null
-                      ? const SizedBox(height: 100)
-                      : Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 6,
-                            horizontal: sourcePanelInset - 8,
+          : ReadableRegion(
+              document: _readable(item),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Material(
+                    color: scheme.surfaceContainerLow,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (path != null)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 6,
+                              horizontal: sourcePanelInset - 8,
+                            ),
+                            child: MediaPlayerView(
+                              key: const Key('transcript-follow-player'),
+                              path: path,
+                              isVideo: false,
+                              audioOnly: true,
+                              compact: true,
+                            ),
                           ),
-                          child: MediaPlayerView(
-                            key: const Key('transcript-follow-player'),
-                            path: path,
-                            isVideo: false,
-                            audioOnly: true,
-                            compact: true,
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+                            child: TextButton.icon(
+                              key: const Key('transcript-follow-now'),
+                              icon: const Icon(Icons.my_location),
+                              label: Text(l10n.f45S3TranscriptNow),
+                              onPressed: () => _link.revealPlaying?.call(),
+                            ),
                           ),
                         ),
-                ),
-                Divider(height: 1, color: scheme.outlineVariant),
-                Expanded(
-                  child: Scrollbar(
-                    controller: _scroll,
-                    child: SingleChildScrollView(
+                      ],
+                    ),
+                  ),
+                  Divider(height: 1, color: scheme.outlineVariant),
+                  Expanded(
+                    child: Scrollbar(
                       controller: _scroll,
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 48),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 720),
-                          child: PlaybackSyncedText(
-                            item: item,
-                            rendition: transcript,
-                            markdown: extractedTextIsMarkdown(item.source),
-                            link: _link,
+                      child: SingleChildScrollView(
+                        controller: _scroll,
+                        padding: readingColumnPadding(
+                          context,
+                        ).copyWith(top: 16, bottom: 48),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: readingColumnWidth,
+                            ),
+                            child: PlaybackSyncedText(
+                              item: item,
+                              rendition: transcript,
+                              markdown: extractedTextIsMarkdown(item.source),
+                              link: _link,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
     );
   }
