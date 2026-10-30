@@ -13,6 +13,22 @@ void main() {
     expect((request as MapShowLinks).focusId, 'd1');
   });
 
+  test('un documento sin ningún vínculo: su lugar, entre los de su tema '
+      '(F44, paso 4)', () {
+    final request = canvasRequestFor(
+      const MapBoardItem('d1'),
+      unlinked: const {'d1', 'd2'},
+    );
+
+    expect(request, isA<MapShowDocument>());
+    expect((request as MapShowDocument).itemId, 'd1');
+    // Otro documento suelto no cambia adónde va uno vinculado.
+    expect(
+      canvasRequestFor(const MapBoardItem('d3'), unlinked: const {'d1'}),
+      isA<MapShowLinks>(),
+    );
+  });
+
   test('un tema: los de su comunidad, con él resaltado', () {
     final request = canvasRequestFor(const MapBoardTopic('roma'));
 

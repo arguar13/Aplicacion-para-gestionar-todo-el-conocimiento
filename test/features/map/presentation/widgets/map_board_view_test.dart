@@ -225,7 +225,6 @@ void main() {
               dashboard: dash,
               insights: withInsights ? insights ?? insightsOf(map) : null,
               onShowInMap: calls.add,
-              onOpenItem: (id) => calls.add('item:$id'),
               onOpenTension: () => calls.add('tension'),
               onStudyTopic: (id) => calls.add('study:$id'),
               onSuggestLinks: (ids) => calls.add('suggest:${ids.join(',')}'),
@@ -632,8 +631,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('map-loose-organize')));
 
       expect(calls, [
-        // Un suelto no tiene vínculos que ver en el Mapa: se abre.
-        'item:c',
+        // Un suelto también lleva al Mapa: el panel lo manda a su tema.
+        const MapBoardItem('c'),
         // Lo último que llegó, primero.
         'suggest:d,c',
         // Lo suelto y lo que no tiene tema, sin repetir.

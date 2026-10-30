@@ -39,7 +39,6 @@ class MapBoardView extends StatefulWidget {
     required this.dashboard,
     required this.insights,
     required this.onShowInMap,
-    required this.onOpenItem,
     required this.onOpenTension,
     required this.onStudyTopic,
     required this.onSuggestLinks,
@@ -57,9 +56,6 @@ class MapBoardView extends StatefulWidget {
   /// Lleva al Mapa: a una altura, o con un tema o un documento en foco.
   final void Function(MapBoardTarget target) onShowInMap;
 
-  /// Abre un documento: lo que se toca en los sueltos, que no tienen ningún
-  /// vínculo que mostrar en el Mapa y sí, en su página, con qué vincularlos.
-  final void Function(String itemId) onOpenItem;
   final VoidCallback onOpenTension;
 
   /// Abre Repasar con ese tema en el selector.
@@ -167,7 +163,6 @@ class _MapBoardViewState extends State<MapBoardView> {
                     insights: insights,
                     unassigned: widget.snapshot.unassignedItemIds,
                     onShowInMap: widget.onShowInMap,
-                    onOpenItem: widget.onOpenItem,
                     onSuggestLinks: widget.onSuggestLinks,
                     onOrganize: widget.onOrganize,
                   ),
@@ -1024,7 +1019,6 @@ class _LooseCard extends StatelessWidget {
     required this.insights,
     required this.unassigned,
     required this.onShowInMap,
-    required this.onOpenItem,
     required this.onSuggestLinks,
     required this.onOrganize,
   });
@@ -1035,8 +1029,10 @@ class _LooseCard extends StatelessWidget {
 
   /// Los documentos sin ningún valor de lo que se mira.
   final List<String> unassigned;
+
+  /// Lleva al Mapa un tema aislado o un documento suelto: sin vínculos, el
+  /// documento vuela a su tema (F44, paso 4), con su ficha para vincularlo.
   final void Function(MapBoardTarget target) onShowInMap;
-  final void Function(String itemId) onOpenItem;
   final void Function(List<String> itemIds) onSuggestLinks;
   final void Function(List<String> itemIds) onOrganize;
 
@@ -1104,7 +1100,7 @@ class _LooseCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          onPressed: () => onOpenItem(item.id),
+                          onPressed: () => onShowInMap(MapBoardItem(item.id)),
                         ),
                       _More(looseIds.length - looseItems.length),
                     ],

@@ -30,7 +30,6 @@ class MapBoardPane extends ConsumerStatefulWidget {
     required this.snapshot,
     required this.dimension,
     required this.dashboard,
-    required this.onOpenItem,
     required this.onOpenTension,
     super.key,
   });
@@ -38,7 +37,6 @@ class MapBoardPane extends ConsumerStatefulWidget {
   final KnowledgeMapSnapshot snapshot;
   final TopicDimension dimension;
   final MapDashboard? dashboard;
-  final void Function(String itemId) onOpenItem;
   final VoidCallback onOpenTension;
 
   @override
@@ -67,10 +65,12 @@ class _MapBoardPaneState extends ConsumerState<MapBoardPane> {
     );
   }
 
-  /// Lleva al lienzo lo que se tocó en el Resumen.
+  /// Lleva al lienzo lo que se tocó en el Resumen. Lo suelto que cuenta el
+  /// Resumen dice qué documentos no tienen vínculos: esos vuelan a su tema.
   void _showInMap(MapBoardTarget target) =>
       ref.read(mapCanvasRequestProvider.notifier).state = canvasRequestFor(
         target,
+        unlinked: {...?_insights?.looseItemIds},
       );
 
   /// Abre Repasar con [valueId] en el selector: un tema de F37 es un espacio;
@@ -103,7 +103,6 @@ class _MapBoardPaneState extends ConsumerState<MapBoardPane> {
       dashboard: widget.dashboard,
       insights: _insightsFor(facts, cards),
       onShowInMap: _showInMap,
-      onOpenItem: widget.onOpenItem,
       onOpenTension: widget.onOpenTension,
       onStudyTopic: _study,
       onSuggestLinks: (ids) => unawaited(_suggestLinks(ids)),
@@ -116,13 +115,21 @@ class _MapBoardPaneState extends ConsumerState<MapBoardPane> {
 /// El pedido al lienzo de lo que se tocó en el Resumen:
 ///
 /// - un documento: lo vinculado, con él en foco —lo mismo que «Ver en el
-///   Mapa»—;
+///   Mapa»—; si está entre los que no tienen ningún vínculo ([unlinked]), que
+///   entre lo vinculado no estaría, su lugar: los documentos de su tema
+///   (F44, paso 4);
 /// - un tema: los temas de su comunidad, con él resaltado;
 /// - las comunidades y los temas: esa altura entera;
 /// - los documentos: su altura —sin un tema que abrir, lo vinculado—;
 /// - los vínculos: lo vinculado, sin foco.
-MapCanvasRequest canvasRequestFor(MapBoardTarget target) => switch (target) {
-  MapBoardItem(:final itemId) => MapShowLinks(focusId: itemId),
+MapCanvasRequest canvasRequestFor(
+  MapBoardTarget target, {
+  Set<String> unlinked = const {},
+}) => switch (target) {
+  MapBoardItem(:final itemId) =>
+    unlinked.contains(itemId)
+        ? MapShowDocument(itemId)
+        : MapShowLinks(focusId: itemId),
   MapBoardTopic(:final valueId) => MapShowTopic(valueId),
   MapBoardLevel(figure: MapBoardFigure.communities) => const MapShowAltitude(
     MapAltitude.communities,

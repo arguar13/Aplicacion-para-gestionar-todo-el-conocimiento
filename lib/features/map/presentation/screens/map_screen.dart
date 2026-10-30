@@ -305,7 +305,6 @@ class _MapBody extends ConsumerWidget {
           snapshot: snapshot,
           dimension: dimension,
           dashboard: ref.watch(mapDashboardProvider(request)).valueOrNull,
-          onOpenItem: onOpenItem,
           onOpenTension: onOpenTension,
         ),
         MapTab.map => MapCanvasView(
