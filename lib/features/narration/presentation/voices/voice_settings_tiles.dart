@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
 import 'package:sinapsis/features/narration/presentation/voices/downloaded_voices_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_library_sheet.dart';
+import 'package:sinapsis/features/narration/presentation/voices/voices_by_language_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Lo de «Voz y lectura» en Ajustes (F47, paso 3): la biblioteca de voces y,
+/// Lo de «Voz y lectura» en Ajustes (F47, paso 3): la biblioteca de voces, la
+/// voz elegida para cada idioma y,
 /// donde se ofrecen las voces sin conexión, las descargadas para borrarlas.
 /// El paso 7 suma el resto de la sección (la velocidad, Lectura enfocada…).
 List<Widget> voiceSettingsTiles(BuildContext context, WidgetRef ref) {
@@ -22,6 +24,14 @@ List<Widget> voiceSettingsTiles(BuildContext context, WidgetRef ref) {
       subtitle: Text(l10n.f47P3SettingsLibrarySubtitle),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => unawaited(showVoiceLibrary(context)),
+    ),
+    ListTile(
+      key: const Key('settings-voices-by-language'),
+      leading: const Icon(Icons.translate_outlined),
+      title: Text(l10n.f47P3SettingsByLanguage),
+      subtitle: Text(l10n.f47P3SettingsByLanguageSubtitle),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => unawaited(showVoicesByLanguage(context)),
     ),
     if (offline)
       ListTile(

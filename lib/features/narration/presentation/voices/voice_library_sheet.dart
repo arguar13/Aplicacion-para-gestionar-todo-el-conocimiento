@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/library/presentation/widgets/list_controls.dart';
-import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_filter.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_traits.dart';
+import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/providers/voice_library_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_card.dart';
@@ -171,9 +171,7 @@ class _VoiceList extends ConsumerWidget {
     final favorites = ref.watch(voiceFavoritesProvider);
     final installed = ref.watch(installedVoiceIdsProvider);
     final reading = ref.watch(readingLanguageProvider);
-    final current = ref.watch(
-      readAloudControllerProvider.select((s) => s.voice),
-    );
+    final chosen = ref.watch(narrationSettingsNotifierProvider);
     final appLanguage = Localizations.localeOf(context).languageCode;
 
     return library.when(
@@ -203,14 +201,38 @@ class _VoiceList extends ConsumerWidget {
                   installed.contains(voice.id),
             );
 
-        void select(NarrationVoice? voice) => unawaited(
-          ref.read(readAloudControllerProvider.notifier).setVoice(voice),
-        );
+        // Una voz queda elegida para su idioma (decisión L): si no es el de
+        // lo que se lee, lo dice —no traduce nada, lee cuando el texto esté
+        // en su idioma—.
+        void select(VoiceProfile? voice) {
+          unawaited(
+            ref
+                .read(readAloudControllerProvider.notifier)
+                .setVoice(voice?.voice),
+          );
+          if (voice == null || reading == null || voice.language == reading) {
+            return;
+          }
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  l10n.f47P3ChosenForLanguage(
+                    voiceName(voice, l10n),
+                    languageNameIn(voice.language, l10n),
+                  ),
+                ),
+              ),
+            );
+        }
 
+        // Elegida: la de su idioma. Sin idioma que se lea, «La voz del
+        // sistema» es la elegida si no se eligió ninguna.
         Widget card(VoiceProfile voice) => VoiceCard(
           voice: voice,
-          selected: current == voice.voice,
-          onSelect: () => select(voice.voice),
+          selected: chosen.voicesByLanguage[voice.language] == voice.voice,
+          onSelect: () => select(voice),
         );
 
         if (shown.isEmpty && tab == VoiceLibraryTab.mine && filter.isEmpty) {
@@ -258,7 +280,9 @@ class _VoiceList extends ConsumerWidget {
             ],
             if (tab == VoiceLibraryTab.all && filter.isEmpty)
               _SystemVoiceTile(
-                selected: current == null,
+                selected: reading == null
+                    ? chosen.voice == null
+                    : !chosen.voicesByLanguage.containsKey(reading),
                 onTap: () => select(null),
               ),
             if (shown.isEmpty)

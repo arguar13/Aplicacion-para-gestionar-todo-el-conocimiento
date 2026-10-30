@@ -5,8 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/services/text_to_speech_service.dart';
+import 'package:sinapsis/features/narration/domain/voices/offline_voice_catalog.dart';
+import 'package:sinapsis/features/narration/domain/voices/passage_languages.dart';
+import 'package:sinapsis/features/narration/domain/voices/voice_locale.dart';
+import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
+import 'package:sinapsis/features/narration/domain/voices/voice_traits.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
+import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
 
 /// Cómo se ve el lector flotante (F25).
 enum ReadAloudPanel {
@@ -58,7 +64,8 @@ class ReadAloudState {
   /// De 0,5 a 2.
   final double speed;
 
-  /// `null`: la voz del sistema.
+  /// La voz que lee el pedazo de ahora —la del idioma del texto (F47, paso
+  /// 3)—; sin nada que leer, la última elegida. `null`: la voz del sistema.
   final NarrationVoice? voice;
 
   /// El motor de voz falló; se ve en el reproductor.
@@ -137,6 +144,13 @@ List<int> _countSpokenBefore(List<ReadableSegment> segments) {
 /// Uno para toda la app: sigue leyendo aunque se cambie de pantalla, hasta
 /// que se cierre.
 ///
+/// **La voz sigue al idioma del texto** (F47, paso 3, decisión L): cada
+/// pedazo se lee con la voz elegida para su idioma —ver `PassageLanguages`—,
+/// y un texto con partes en dos idiomas se lee con las dos. Sin una elegida
+/// para ese idioma, la mejor bajada de ese idioma, o una del teléfono en ese
+/// idioma, o la del sistema; nunca una de otro idioma. Lo que no se sabe en
+/// qué idioma está, con la última elegida.
+///
 /// Trabaja solo cuando el motor avisa algo —una palabra, un pedazo
 /// terminado— o cuando se toca un control: sin temporizadores ni consultas
 /// periódicas. El estado cambia a lo sumo una vez por palabra dicha, y el
@@ -173,6 +187,18 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   /// volver a leer se le vuelven a poner (F47, paso 3).
   bool _engineReady = true;
 
+  /// Las voces del teléfono, para leer un idioma sin voz elegida con una de
+  /// ese idioma; vacía hasta que el motor las dice.
+  List<NarrationVoice> _deviceVoices = const [];
+
+  /// Los paquetes de voces sin conexión que están en el teléfono: una voz
+  /// elegida que se borró no lee (F47, paso 3).
+  Set<String> _installedPackages = const {};
+
+  /// El último cambio de voz por un cambio de elección, para que
+  /// [setVoice] lo espere.
+  Future<void>? _following;
+
   /// La última palabra avisada de la lectura de ahora, y cuándo: de una
   /// palabra a la siguiente se mide el ritmo de la voz.
   int? _lastWordChar;
@@ -195,12 +221,27 @@ class ReadAloudController extends Notifier<ReadAloudState> {
       // acá iguales a las del estado, y no hacen nada.
       ..listen(narrationSettingsNotifierProvider, (_, next) {
         if (next.speed != state.speed) unawaited(_changeSpeed(next.speed));
-        if (next.voice != state.voice) unawaited(_changeVoice(next.voice));
-      });
+        unawaited(_following = _followChoice());
+      })
+      // Una voz sin conexión que se baja o se borra cambia con qué se lee.
+      ..listen(installedVoicePackagesProvider, (previous, next) {
+        _installedPackages = next.valueOrNull ?? const {};
+        // La primera vez es al nacer, antes de que haya estado.
+        if (previous != null) unawaited(_following = _followChoice());
+      }, fireImmediately: true);
+    unawaited(
+      _tts.getVoices().then(
+        (voices) => _deviceVoices = voices,
+        onError: (Object _) => const <NarrationVoice>[],
+      ),
+    );
 
     final settings = ref.read(narrationSettingsNotifierProvider);
     _rate.reset(_SpeechRate.defaultFor(settings.speed));
-    return ReadAloudState(speed: settings.speed, voice: settings.voice);
+    return ReadAloudState(
+      speed: settings.speed,
+      voice: _usable(settings.voice),
+    );
   }
 
   /// Abre el reproductor sobre [document] y empieza a leer desde el pedazo
@@ -289,10 +330,10 @@ class ReadAloudController extends Notifier<ReadAloudState> {
       failed: false,
     );
     if (wasPlaying) await _tts.stop();
-    // Cada documento nuevo vuelve a fijar la voz y la velocidad: el motor
-    // es uno solo para toda la app, y otro pudo haberlo usado entretanto.
-    await _tts.setVoice(state.voice);
-    await _tts.setSpeed(state.speed);
+    // Cada documento nuevo vuelve a fijar la voz y la velocidad —al decir su
+    // primer pedazo, con la voz de su idioma—: el motor es uno solo para
+    // toda la app, y otro pudo haberlo usado entretanto.
+    _engineReady = false;
     if (generation != _generation) return;
     await _speak();
   }
@@ -390,12 +431,22 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     await ref.read(narrationSettingsNotifierProvider.notifier).setSpeed(value);
   }
 
+  /// Elige [voice] para su idioma (F47, paso 3): lee ya si es la del idioma
+  /// de lo que se lee —o si no se sabe cuál es—, y si no, queda para cuando
+  /// el texto pase a su idioma. `null`, la del sistema, deja sin elegida al
+  /// idioma que se lee.
   Future<void> setVoice(NarrationVoice? voice) async {
-    if (voice == state.voice) return;
-    await _changeVoice(voice);
     await ref
         .read(narrationSettingsNotifierProvider.notifier)
-        .selectVoice(voice);
+        .selectVoice(voice, language: _language);
+    await _following;
+  }
+
+  /// El idioma del pedazo que se lee, o `null` si no se sabe o no hay nada.
+  String? get _language {
+    final segments = state.segments;
+    if (segments.isEmpty) return null;
+    return PassageLanguages.of(segments).at(state.segmentIndex);
   }
 
   /// Alguien más va a usar el motor de voz —una muestra de la biblioteca de
@@ -463,9 +514,17 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     final text = segment.spoken.substring(from);
     if (text.trim().isEmpty) return _next();
 
-    if (!_engineReady) {
+    // La voz del idioma de este pedazo; si cambió —el texto pasó a otro
+    // idioma— o el motor se prestó, se le vuelven a poner voz y velocidad.
+    final voice = _voiceAt(state.segmentIndex);
+    if (!_engineReady || voice != state.voice) {
       _engineReady = true;
-      await _tts.setVoice(state.voice);
+      if (voice != state.voice) {
+        // Otra voz es otro ritmo: lo medido no sirve ni escalado.
+        _rate.reset(_SpeechRate.defaultFor(state.speed));
+        state = state.copyWith(voice: voice, clearVoice: voice == null);
+      }
+      await _tts.setVoice(voice);
       await _tts.setSpeed(state.speed);
       if (generation != _generation || !state.playing) return;
     }
@@ -479,7 +538,15 @@ class ReadAloudController extends Notifier<ReadAloudState> {
       if (generation == _generation) _fail();
       return;
     }
-    if (generation == _generation) _live = true;
+    if (generation != _generation) return;
+    _live = true;
+    // El que sigue, listo mientras suena este —una voz sin conexión lo
+    // genera—, si lo lee la misma voz.
+    final next = state.segmentIndex + 1;
+    final segments = state.segments;
+    if (next < segments.length && _voiceAt(next) == voice) {
+      unawaited(_tts.prepare(segments[next].spoken));
+    }
   }
 
   /// El pedazo actual terminó: sigue con el próximo, o queda terminado al
@@ -561,6 +628,61 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     // Que se oiga ya: el motor no cambia de velocidad a mitad de un pedido,
     // así que se vuelve a pedir desde la palabra en que iba.
     if (state.playing) await _speak(restart: true);
+  }
+
+  /// Lo elegido cambió —otra voz para un idioma, una voz bajada o borrada—:
+  /// si cambia la voz del pedazo de ahora, se oye ya.
+  Future<void> _followChoice() async {
+    final voice = _voiceAt(state.segmentIndex);
+    if (voice != state.voice) await _changeVoice(voice);
+  }
+
+  /// La voz con que se lee el pedazo [index]: la de su idioma.
+  NarrationVoice? _voiceAt(int index) {
+    final segments = state.segments;
+    final language = segments.isEmpty
+        ? null
+        : PassageLanguages.of(segments).at(index);
+    return _voiceFor(language);
+  }
+
+  /// La voz para [language]: la elegida; sin elegida, la mejor sin conexión
+  /// bajada de ese idioma, una del teléfono de ese idioma —primero las que
+  /// andan sin conexión— o la del sistema. Sin idioma, la última elegida.
+  NarrationVoice? _voiceFor(String? language) {
+    final settings = ref.read(narrationSettingsNotifierProvider);
+    if (language == null) return _usable(settings.voice);
+    final chosen = _usable(settings.voicesByLanguage[language]);
+    if (chosen != null) return chosen;
+    for (final quality in [...VoiceQuality.values, null]) {
+      for (final voice in OfflineVoiceCatalog.voices) {
+        if (voice.language == language &&
+            voice.quality == quality &&
+            _installedPackages.contains(voice.package.id)) {
+          return narrationVoiceOf(voice);
+        }
+      }
+    }
+    final device = [
+      for (final voice in _deviceVoices)
+        if (accentLanguage(voice.locale) == language) voice,
+    ];
+    if (device.isEmpty) return null;
+    return device.firstWhere(
+      (voice) => voice.name.toLowerCase().contains('local'),
+      orElse: () => device.firstWhere(
+        (voice) => !voice.name.toLowerCase().contains('network'),
+        orElse: () => device.first,
+      ),
+    );
+  }
+
+  /// [voice], si puede leer: una sin conexión cuyo paquete se borró, no.
+  NarrationVoice? _usable(NarrationVoice? voice) {
+    if (voice == null || voice.engine != NarrationEngine.offline) return voice;
+    final offline = OfflineVoiceCatalog.byId(voice.name);
+    if (offline == null) return null;
+    return _installedPackages.contains(offline.package.id) ? voice : null;
   }
 
   Future<void> _changeVoice(NarrationVoice? voice) async {

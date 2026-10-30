@@ -15,9 +15,11 @@ import 'package:sinapsis/features/narration/domain/voices/offline_voice_catalog.
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_traits.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
+import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/voice_library_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
+import 'package:sinapsis/features/narration/presentation/voices/voice_card.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_library_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -428,6 +430,65 @@ void main() {
       expect(find.byKey(const Key('voice-card-$_daniela')), findsNothing);
       expect(find.text(es.f47P3Recommended), findsNothing);
       expect(card(deviceVoiceId(_argentina)), findsOneWidget);
+    });
+  });
+
+  group('una voz por idioma (F47, paso 3, decisión L)', () {
+    testWidgets('elegir una de otro idioma la deja para el suyo, lo avisa y '
+        'no cambia la de lo que se lee', (tester) async {
+      await open(tester, reading: 'es');
+      final english = card(deviceVoiceId(_unitedStates));
+      await scrollTo(tester, english);
+      await tapVisible(
+        tester,
+        find.descendant(of: english, matching: find.textContaining('Voz 1')),
+      );
+      await tester.pumpAndSettle();
+
+      final settings = container.read(narrationSettingsNotifierProvider);
+      expect(settings.voicesByLanguage['en'], _unitedStates);
+      expect(
+        find.text(es.f47P3ChosenForLanguage('Voz 1', 'inglés')),
+        findsOneWidget,
+      );
+      // Marcada como la elegida de su idioma.
+      expect(
+        tester
+            .widget<VoiceCard>(
+              find
+                  .ancestor(of: english, matching: find.byType(VoiceCard))
+                  .first,
+            )
+            .selected,
+        isTrue,
+      );
+    });
+
+    testWidgets('la del idioma que se lee, marcada; y sin elegida, la del '
+        'sistema', (tester) async {
+      await open(tester, reading: 'es');
+      final system = find.byKey(const Key('read-aloud-system-voice'));
+      await scrollTo(tester, system);
+      expect(tester.widget<ListTile>(system).selected, isTrue);
+
+      final argentina = card(deviceVoiceId(_argentina));
+      await scrollTo(tester, argentina);
+      await tapVisible(
+        tester,
+        find.descendant(of: argentina, matching: find.textContaining('Voz 1')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(es.f47P3ChosenForLanguage('Voz 1', 'español')),
+        findsNothing,
+      );
+      await tester.scrollUntilVisible(
+        system,
+        -300,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(tester.widget<ListTile>(system).selected, isFalse);
     });
   });
 

@@ -866,4 +866,184 @@ void main() {
       expect(highlight('m2'), isNull);
     });
   });
+
+  group('la voz sigue al idioma del texto (F47, paso 3)', () {
+    /// Dos oraciones en español y, en el medio, dos en inglés.
+    final bilingual = ReadableDocument(
+      id: 'dos-idiomas',
+      title: 'Dos idiomas',
+      segments: buildReadableSegments(
+        'La historia de la ciudad es larga y los que la cuentan son muchos.\n'
+        'As the old saying goes, the river is the road of the people.\n'
+        'And the people of the river were the first to build it.\n'
+        'Después vinieron los demás, con lo que tenían en las manos.',
+        sourceKey: 'dos-idiomas',
+      ),
+    );
+    const english = NarrationVoice(name: 'en-us-x-sfg-local', locale: 'en-US');
+    const daniela = NarrationVoice(
+      name: 'vits-piper-es_AR-daniela-high#0',
+      locale: 'es-AR',
+      engine: NarrationEngine.offline,
+    );
+
+    test('cada parte se lee con la voz elegida para su idioma', () async {
+      await start(
+        stored: {
+          'narration_voice': 'es-ar-x-local\u0000es-AR',
+          'narration_voices_by_language':
+              r'{"en": "en-us-x-sfg-local\u0000en-US"}',
+        },
+      );
+
+      await controller().open(bilingual);
+      expect(tts.lastVoice, _voice);
+      for (var i = 0; i < 3; i++) {
+        tts.completeCurrent();
+        await pumpEventQueue();
+        expect(tts.lastVoice, i < 2 ? english : _voice, reason: 'pedazo $i');
+        expect(state().voice, tts.lastVoice);
+      }
+      expect(tts.spoken, hasLength(4));
+    });
+
+    test(
+      'sin una elegida para el idioma, la del teléfono en ese idioma',
+      () async {
+        await start(stored: {'narration_voice': 'es-ar-x-local\u0000es-AR'});
+        tts = FakeTextToSpeechService(voices: const [_voice, english]);
+        container = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            textToSpeechServiceProvider.overrideWithValue(tts),
+            narrationClockProvider.overrideWithValue(() => now),
+          ],
+        );
+        addTearDown(container.dispose);
+        controller();
+        await pumpEventQueue();
+
+        await controller().open(bilingual, fromSegment: 1);
+
+        expect(tts.lastVoice, english);
+      },
+    );
+
+    test('sin ninguna en ese idioma, la del sistema: nunca una de otro '
+        'idioma', () async {
+      await start(stored: {'narration_voice': 'es-ar-x-local\u0000es-AR'});
+
+      await controller().open(bilingual, fromSegment: 1);
+
+      expect(tts.lastVoice, isNull);
+      expect(tts.voiceSetCount, 1);
+    });
+
+    test(
+      'lo que no se sabe en qué idioma está, con la última elegida',
+      () async {
+        await start(stored: {'narration_voice': 'es-ar-x-local\u0000es-AR'});
+
+        await controller().open(_words);
+
+        expect(tts.lastVoice, _voice);
+      },
+    );
+
+    test(
+      'una voz sin conexión que ya no está en el teléfono no se usa',
+      () async {
+        await start(
+          stored: {
+            'narration_voices_by_language':
+                r'{"es": "vits-piper-es_AR-daniela-high#0\u0000es-AR'
+                r'\u0000offline"}',
+          },
+        );
+        expect(
+          container
+              .read(narrationSettingsNotifierProvider)
+              .voicesByLanguage['es'],
+          daniela,
+        );
+
+        await controller().open(bilingual);
+
+        expect(tts.lastVoice, isNull);
+      },
+    );
+
+    test('elegir una voz de otro idioma la deja para ese idioma, sin cortar '
+        'lo que se lee', () async {
+      await start(stored: {'narration_voice': 'es-ar-x-local\u0000es-AR'});
+      await controller().open(bilingual);
+
+      await controller().setVoice(english);
+
+      expect(state().voice, _voice);
+      expect(tts.spoken, hasLength(1));
+      expect(
+        container
+            .read(narrationSettingsNotifierProvider)
+            .voicesByLanguage['en'],
+        english,
+      );
+      tts.completeCurrent();
+      await pumpEventQueue();
+      expect(tts.lastVoice, english);
+    });
+
+    test(
+      'elegir la del sistema deja sin elegida al idioma que se lee',
+      () async {
+        await start(stored: {'narration_voice': 'es-ar-x-local\u0000es-AR'});
+        await controller().open(bilingual);
+
+        await controller().setVoice(null);
+
+        final settings = container.read(narrationSettingsNotifierProvider);
+        expect(settings.voicesByLanguage.containsKey('es'), isFalse);
+        expect(state().voice, isNull);
+        expect(tts.lastVoice, isNull);
+      },
+    );
+
+    test('mientras dice un pedazo, deja listo el que sigue si es de la misma '
+        'voz', () async {
+      await start(
+        stored: {
+          'narration_voices_by_language':
+              r'{"en": "en-us-x-sfg-local\u0000en-US"}',
+        },
+      );
+      await controller().open(bilingual, fromSegment: 1);
+
+      // El segundo, en inglés como el primero: listo. El tercero, en
+      // español, es otra voz: no.
+      expect(tts.prepared, [bilingual.segments[2].spoken]);
+      tts.completeCurrent();
+      await pumpEventQueue();
+      expect(tts.prepared, hasLength(1));
+    });
+
+    test('después de prestar el motor a una muestra, le vuelve a poner su '
+        'voz y su velocidad', () async {
+      await start(
+        stored: {
+          'narration_voice': 'es-ar-x-local\u0000es-AR',
+          'narration_speed': 1.25,
+        },
+      );
+      await controller().open(_document);
+      await controller().pause();
+      controller().lendEngine();
+      await tts.setVoice(english);
+      await tts.setSpeed(1);
+
+      await controller().play();
+
+      expect(tts.lastVoice, _voice);
+      expect(tts.lastSpeed, 1.25);
+    });
+  });
 }
