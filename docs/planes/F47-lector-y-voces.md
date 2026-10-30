@@ -2,6 +2,16 @@
 
 > **Estado: APROBADO** (2026-10-30, «Aprobado todo» en el chat), con las decisiones A a K como
 > están. Va después de F45 y antes de F46 (decisión I); el paso 0 se adelanta, porque es chico.
+>
+> **Cambios del dueño, el 30/10, después de aprobar:**
+> - **todo en el teléfono y sin gastos, por defecto**. Ninguna voz lee desde la nube, y el podcast
+>   también se oye con voces del teléfono;
+> - **la nube, solo si la elegís y solo para clonar y crear voces** (ElevenLabs), con el costo a
+>   la vista antes;
+> - **clonar la voz de quien elijas, con su permiso**, y **crear una voz nueva describiéndola**;
+> - **cada idioma con sus voces nativas**, con su acento y su tono.
+>
+> Cambian las decisiones B, C y F, y se suma la L.
 
 Pedido del 30/10. La guía de diseño son las capturas 3 a 17 (la app Listen AI). Hay que conservar
 todo lo que la app ya hace.
@@ -13,12 +23,13 @@ todo lo que la app ya hace.
   voz a la vista.
 - **Escuchar en segundo plano:** con la app minimizada o la pantalla apagada, con su tarjeta en
   la barra de notificaciones y en la pantalla de bloqueo.
-- **Una biblioteca rica de voces:**
+- **Una biblioteca rica de voces, en cada idioma con su acento y su tono:**
   - las del teléfono;
-  - voces neuronales sin conexión;
-  - las de la nube, con las cuentas que ya están;
-  - **tu propia voz clonada**.
-  - Con cualquiera de ellas se escucha un documento.
+  - voces neuronales sin conexión, gratis;
+  - **voces clonadas**, la tuya o la de quien te dé permiso;
+  - **voces creadas a tu gusto**, describiéndolas.
+  - Con cualquiera de ellas se escucha un documento. Todo anda en el teléfono y sin gastos; la
+    nube es opcional y solo para clonar y crear.
 - **Un podcast a medida**, en Repasar y en cada documento, con una o dos voces.
 - **Lo que le falta a Ajustes**, sacado de las dos últimas capturas.
 - **Dos arreglos que van primero:** sin el lector en voz alta en las tarjetas de Repasar, y un
@@ -211,15 +222,16 @@ que cambia es el cuerpo: la página del PDF, la página web o el texto de corrid
 
 ### 3. La biblioteca de voces (capturas 10, 11, 12 y 13)
 
-- **Una sola lista**, con las pestañas **Todas · Favoritas · Clonadas** y «Te puede interesar»
-  arriba: voces de tu idioma con buena calidad.
+- **Una sola lista**, con las pestañas **Todas · Favoritas · Mías** (las clonadas y las creadas) y
+  «Te puede interesar» arriba: voces del idioma del documento, con buena calidad.
 - **Cada voz es una tarjeta:**
   - su cara;
   - el nombre, con la bandera del acento;
   - «ES · Cálido · Expresivo», con el ícono de para qué es ideal;
   - ♡ favorita;
   - ▶ una muestra corta;
-  - de qué motor es: **Teléfono**, **Sin conexión**, **Nube** o **Clonada**.
+  - de dónde es: **Teléfono**, **Sin conexión**, **Clonada** o **Creada**, y si es de la nube,
+    con su costo.
 - **Filtrar**, con el mismo pie de todos los filtros (punto 0, mejora 21): «Limpiar» arriba y
   «Ver N voces» abajo, aplicándose al tocar:
   - el idioma;
@@ -229,19 +241,24 @@ que cambia es el cuerpo: la página del PDF, la página web o el texto de corrid
   - el estilo;
   - el género;
   - la edad.
-- **Los cuatro motores** (decisión B):
-  1. **Las voces del teléfono**: las de hoy, gratis y sin conexión.
+- **De dónde salen las voces** (decisión B), por defecto todas en el teléfono y gratis:
+  1. **Las voces del teléfono**: las de hoy, sin conexión.
   2. **Voces neuronales sin conexión**, que suenan casi humanas. Son las de Piper y Kokoro,
-     sobre `sherpa_onnx`, que la app ya usa para Whisper. Para español hay de Argentina, España
-     y México.
+     sobre `sherpa_onnx`, que la app ya usa para Whisper.
      - Cada voz se baja **solo si la pedís**, como Gemma, con su tamaño a la vista.
      - Se borra desde Ajustes.
-  3. **Voces de la nube**, con las cuentas que ya están (F32):
-     - Gemini, con unas 30 voces y estilo por instrucción;
-     - OpenAI, con 11 a 13 voces.
-     - Claude no tiene voz.
-     - Lo que se genera se guarda por oración: escuchar de nuevo no se paga.
-  4. **Clonadas**: ver el punto 4.
+  3. **Clonadas** y **creadas**: ver los puntos 4 y 4b. En el teléfono si se puede, o en la
+     nube si la elegís.
+- **Cada idioma con sus voces nativas, su acento y su tono** (decisión L):
+  - Piper tiene voces en más de 30 idiomas, y en español hay de Argentina, España y México.
+    Kokoro suma inglés, español, francés, italiano, portugués, japonés, hindi y chino;
+  - **la voz sigue al idioma del texto**: un documento en inglés se lee con una voz inglesa y uno
+    en francés con una francesa. Elegís una voz por idioma, y la app la recuerda;
+  - si en un idioma no bajaste ninguna voz, lo dice y te ofrece la mejor de ese idioma, o la del
+    teléfono mientras tanto;
+  - **el tono**: cada voz trae el suyo (cálido, sereno, enérgico…). En las de Kokoro, además, se
+    ajustan el ritmo y la expresividad;
+  - en un texto con partes en dos idiomas, cada parte se lee con la voz de su idioma.
 - **Varias voces en un mismo documento**, si querés: una para el texto y otra para lo que va
   entre comillas, las citas y los diálogos. En un podcast, una por persona que habla (punto 5).
 - **Las caras:** sin fotos de personas reales. Cada voz tiene un retrato propio, abstracto, con su
@@ -249,16 +266,44 @@ que cambia es el cuerpo: la página del PDF, la página web o el texto de corrid
 
 ### 4. Clonar una voz (captura 14)
 
-- **«Clonación de voz»**, en Ajustes y en la pestaña Clonadas.
+- **«Clonación de voz»**, en Ajustes y en la pestaña Mías.
   - Una presentación: qué es, cómo se usa y que se puede borrar cuando quieras.
-  - Antes de grabar, el **consentimiento**: solo tu voz, o la de alguien que te dio permiso.
+- **La voz de quien elijas, con su permiso:** la tuya, la de un amigo, alguien de tu familia o un
+  profesor.
+  - Antes de grabar, la app pide confirmar que es tu voz o que esa persona te dio permiso, y
+    guarda ese consentimiento junto a la voz, con su nombre y la fecha.
+  - La voz de una persona famosa o de alguien que no lo autorizó no se clona: es suplantarla.
+    Para algo parecido está crear una voz (punto 4b).
 - **Grabar 1 o 2 minutos**, leyendo un texto que propone la app, o **subir un audio**.
   - La app mide el ruido y avisa si conviene repetir.
-- **Con ElevenLabs** (decisión C), con tu propia cuenta y tu clave, que se suma como las de F32.
-  - La clonación instantánea está desde el plan Starter, de unos USD 6 por mes.
-  - Gemini y OpenAI no clonan para cualquiera: OpenAI lo reserva a clientes habilitados.
-- **La grabación queda en tu bóveda.** Borrar la voz la borra acá y en ElevenLabs.
+- **Dónde se clona** (decisión C):
+  - **en el teléfono, gratis y por defecto**, con ZipVoice sobre `sherpa_onnx`. Se mide primero si
+    anda bien en español; si no da la calidad, la opción no se ofrece hasta que la dé;
+  - **en la nube, solo si la elegís**: ElevenLabs, con tu propia cuenta y tu clave. Antes dice lo
+    que cuesta (la clonación instantánea está desde unos USD 6 por mes) y que el audio de la
+    muestra se sube a ElevenLabs. **Leer con esa voz también pasa por ElevenLabs**, y gasta su
+    cuota: el reproductor lo marca, y lo largo avisa su costo antes.
+- **La grabación queda en tu bóveda.** Borrar la voz la borra acá, y en ElevenLabs si estaba allá.
 - Lo que lee una voz clonada se rotula «Voz clonada» en el reproductor.
+
+### 4b. Crear una voz nueva, describiéndola
+
+- **«Crear una voz»**, junto a «Clonar», en la pestaña Mías.
+- **La describís**: «hombre joven, rioplatense, cálido y entusiasta, como un relator de fútbol»,
+  o la armás con controles:
+  - el idioma y el acento;
+  - el género y la edad;
+  - el timbre (grave, claro, aterciopelado…);
+  - el estilo (sereno, expresivo, con autoridad…);
+  - el ritmo.
+- **Escuchás una muestra**, la ajustás y le ponés nombre y cara.
+- **Dónde se crea** (decisión C):
+  - **en el teléfono, gratis y por defecto**: Kokoro deja mezclar voces y ajustar su carácter, y
+    con eso se arma una voz nueva que no es la de nadie;
+  - **en la nube, solo si la elegís**: el diseño de voces de ElevenLabs, que parte de la
+    descripción en palabras. Tiene el mismo costo avisado, y leer con ella pasa por ElevenLabs.
+- Una voz creada no imita a una persona real. Si la descripción nombra a alguien, la app lo dice
+  y propone describir el estilo en lugar del nombre.
 
 ### 5. El podcast a medida (captura 16)
 
@@ -275,7 +320,8 @@ que cambia es el cuerpo: la página del PDF, la página web o el texto de corrid
   - tres propuestas sacadas del material;
   - un cuadro para pedir un enfoque propio;
   - «+» para sumar otro documento.
-- **«Elegí las voces»**: una, o dos en Conversación, de la biblioteca, incluida la tuya clonada.
+- **«Elegí las voces»**: una, o dos en Conversación, de la biblioteca, incluidas las clonadas y
+  las creadas. Son voces nativas del idioma del podcast, con su acento.
 - **Cómo se hace:**
   - la IA de turno escribe el guion **solo con lo del material**, con la cita de cada dato;
   - se genera la voz de cada tramo;
@@ -284,14 +330,16 @@ que cambia es el cuerpo: la página del PDF, la página web o el texto de corrid
 - **Al escucharlo:** el mismo reproductor, con la transcripción que se sigue y cada cita
   tocable, que lleva al pasaje.
 - Se rotula «Hecho con IA».
-- **Sin la nube:** Gemma escribe el guion y lo lee una voz sin conexión. Tarda más, pero no cuesta
-  nada.
+- **La voz, en el teléfono:** el audio lo generan las voces sin conexión, gratis. Si elegís una voz
+  clonada o creada en la nube, antes se avisa el costo.
+- **El guion** lo escribe la IA de turno, la que elegiste en Ajustes, como toda creación de «Lo
+  creado». Con Gemma, todo queda en el teléfono.
 
-### 6. Escuchar sin conexión y lo que cuesta
+### 6. Escuchar sin conexión y exportar
 
-- **Descargar audio** de un documento o de un podcast, con la voz elegida.
-  - Con una voz de la nube, **antes se dice cuánto cuesta**, estimado, con lo gastado hoy (F32).
-  - Se pide confirmación.
+- **Descargar audio** de un documento o de un podcast, con la voz elegida: se genera en el
+  teléfono y se guarda en la bóveda, nunca en la nube.
+  - Con una voz de ElevenLabs, si la elegiste, antes se dice cuánto cuesta y se pide confirmación.
 - **Exportar audio** a un archivo para compartir: el de un podcast, o el de un documento ya
   descargado.
 
@@ -301,7 +349,10 @@ Lo que se suma:
 
 - **Voz y lectura**, una sección nueva:
   - Biblioteca de voces (con la voz de ahora);
-  - Clonación de voz;
+  - Clonación de voz y Crear una voz;
+  - **Voces por idioma**: la elegida para cada idioma;
+  - **La nube para voces**: apagada de entrada. Al prenderla, se carga tu clave de ElevenLabs y
+    se ve lo gastado;
   - la velocidad por defecto;
   - **Lectura enfocada** (el reproductor se oculta al desplazarte);
   - la tipografía y el resaltado de lectura;
@@ -330,22 +381,24 @@ Lo que no se suma, y por qué (para que quede dicho):
     como paso 1, para no construir dos veces.
   - El 7b de F45 (crear en un solo lugar, las marcas adentro y el original idéntico) va antes,
     porque el marco se apoya en él.
-- **B. Cuatro motores de voz en una sola biblioteca:** teléfono, sin conexión, nube y clonadas.
-  - Ninguna voz ni modelo se baja sin que lo pidas.
-  - Lo que se manda a la nube es el texto que se va a leer, como hoy con la IA, y lo dice la
-    primera vez.
-- **C. Clonar con ElevenLabs, con tu propia cuenta.**
-  - *Alternativa:* clonar en el teléfono (ZipVoice, sobre `sherpa_onnx`). Todavía no está
-    confirmado que ande bien en español ni que la versión para Flutter lo traiga. Se mide en el
-    paso 4 y, si anda, se suma como quinta opción.
+- **B. Todo en el teléfono, por defecto y sin gastos.** Las voces del teléfono y las neuronales
+  sin conexión (Piper y Kokoro) leen documentos y podcasts. Ninguna voz se baja sin que la pidas.
+  Las voces de Gemini y OpenAI no entran: leer en la nube cuesta, y no hace falta.
+- **C. Clonar y crear, primero en el teléfono; la nube, solo si la elegís y solo para eso.**
+  - En el teléfono, clonar con ZipVoice y crear mezclando voces de Kokoro. Se mide la calidad en
+    español antes de ofrecerlo.
+  - En la nube, ElevenLabs con tu cuenta, con el costo dicho antes de clonar, de crear y de leer
+    algo largo con esa voz.
+  - Siempre con el consentimiento de la persona; nunca la voz de alguien sin su permiso.
 - **D. Caras propias, abstractas, sin fotos de personas reales.** Una foto de alguien real dice
   que esa voz es de esa persona, y no lo es.
 - **E. El podcast es una creación más de «Lo creado» (F43):** con su fila, su retome, su cita a
   las fuentes y su lugar en la cola.
-  - Con dos voces, Gemini las hace juntas en un pedido, que suena más natural.
-  - Con otros motores, tramo por tramo.
-- **F. El audio generado se guarda.** Escuchar de nuevo no cuesta, y lo largo de la nube avisa su
-  costo antes.
+  - Las voces se generan tramo por tramo en el teléfono, con pausas y respiros naturales entre
+    las personas que hablan.
+- **F. Nada se sube a la nube por defecto.** El audio generado se guarda solo en tu bóveda, en el
+  teléfono. Lo único que puede salir es la muestra de una voz que elijas clonar o crear en
+  ElevenLabs, y el texto que lea esa voz, siempre con el costo avisado antes.
 - **G. Los widgets, con `home_widget`, solo en Android.** Es una dependencia nueva del código, no
   software que se instale en la PC ni en el teléfono.
   - *Alternativa:* dejarlos para después.
@@ -365,6 +418,8 @@ Lo que no se suma, y por qué (para que quede dicho):
   pierde un filtro por cerrar el panel sin confirmar. *Alternativa:* nada se aplica hasta tocar
   «Aplicar», con «Cancelar» para volver atrás. No la recomiendo: cerrar el panel arrastrándolo o
   con «atrás» perdería lo elegido, y sin la cifra no se sabe si va a quedar algo.
+- **L. Cada idioma con sus voces nativas.** La voz sigue al idioma del texto, con una elegida por
+  idioma; un texto con partes en dos idiomas se lee con las dos.
 
 ## Pasos (cada uno, su commit y su push)
 
@@ -392,15 +447,16 @@ y en oscuro, con el lector de pantalla) y sus mutaciones. Se integran en `main` 
 3. **La biblioteca de voces:**
    - la lista, las tarjetas, Filtrar, Favoritas y las muestras;
    - las caras;
-   - las voces sin conexión, a pedido.
+   - las voces sin conexión, a pedido, en cada idioma con su acento, y la voz que sigue al
+     idioma del texto.
 
 **Ola 2:**
 
-4. **Las voces de la nube y clonar:**
-   - Gemini y OpenAI, con el caché por oración;
-   - ElevenLabs con su cuenta, la grabación y el consentimiento;
-   - la medición de ZipVoice.
-5. **Descargar y exportar audio**, con el costo antes.
+4. **Clonar y crear voces:**
+   - la grabación y el consentimiento;
+   - en el teléfono: la medición de ZipVoice en español y Kokoro para crear;
+   - en la nube, opcional: ElevenLabs con tu cuenta, clonar y diseñar, con el costo a la vista.
+5. **Descargar y exportar audio**, generado en el teléfono.
 6. **El podcast:**
    - la tarjeta en Repasar y la ficha en el lector;
    - el guion con citas y las voces;
@@ -413,11 +469,13 @@ y en oscuro, con el lector de pantalla) y sus mutaciones. Se integran en `main` 
 8. **El cierre:**
    - la suite entera;
    - la decisión 93 en la arquitectura y la GUÍA;
-   - la prueba con tus voces y tus cuentas en el teléfono, si la pedís.
+   - la prueba con tus voces en el teléfono, si la pedís.
 
 ## Lo que no entra (para que quede dicho)
 
-- **Voces de personas reales sin su permiso**: la app no las clona ni las imita.
+- **Voces de personas reales sin su permiso**, también las de famosos: la app no las clona ni las
+  imita. Crear una voz describiendo un estilo sí se puede (punto 4b).
+- **Leer con voces de la nube de Gemini u OpenAI**: no hacen falta, y cuestan (decisión B).
 - **Las cuentas de Google** (Drive y Gmail) y **las tiendas** (calificar y compartir): ver el
   punto 7.
 - **Traducir al leer**: la voz lee el texto en su idioma. Elegir una voz de otro idioma no lo
