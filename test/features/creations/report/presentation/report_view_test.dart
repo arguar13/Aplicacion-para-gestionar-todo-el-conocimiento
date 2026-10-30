@@ -41,6 +41,14 @@ void main() {
     );
   }
 
+  /// El índice, desde «Contenido» del marco de lectura (F47, paso 1).
+  Future<void> openIndex(WidgetTester tester) async {
+    await tester.tap(find.byKey(const Key('reading-frame-contents')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('report-action-index')));
+    await tester.pumpAndSettle();
+  }
+
   Finder body(int section) =>
       find.byKey(ValueKey('report-section-body-$section'));
   Finder toggle(int section) =>
@@ -134,8 +142,7 @@ void main() {
     tester,
   ) async {
     await open(tester, sampleReport(), size: const Size(420, 700));
-    await tester.tap(find.byKey(const Key('report-action-index')));
-    await tester.pumpAndSettle();
+    await openIndex(tester);
     expect(find.byKey(const Key('report-index')), findsOneWidget);
     expect(find.byKey(const ValueKey('report-index-2')), findsOneWidget);
 
@@ -152,8 +159,7 @@ void main() {
     expect(body(0), findsNothing);
     expect(tester.getTopLeft(toggle(2)).dy, inInclusiveRange(0, 700));
 
-    await tester.tap(find.byKey(const Key('report-action-index')));
-    await tester.pumpAndSettle();
+    await openIndex(tester);
     await tester.tap(find.byKey(const Key('report-unfold-all')));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Cerrar').last);
@@ -168,8 +174,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(toggle(0)).dy, lessThan(0));
-    await tester.tap(find.byKey(const Key('report-action-index')));
-    await tester.pumpAndSettle();
+    await openIndex(tester);
     await tester.tap(find.byKey(const ValueKey('report-index-0')));
     await tester.pumpAndSettle();
     final top = tester.getTopLeft(toggle(0)).dy;
@@ -292,7 +297,9 @@ void main() {
 
   testWidgets('descargar: elige Markdown y guarda el archivo', (tester) async {
     await open(tester, sampleReport());
-    await tester.tap(find.byKey(const Key('report-action-download')));
+    await tester.tap(find.byKey(const Key('reading-frame-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('reading-more-download')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('report-export-sheet')), findsOneWidget);
     await tester.tap(find.byKey(const Key('report-export-markdown')));
@@ -308,7 +315,9 @@ void main() {
 
   testWidgets('descargar sin elegir no guarda nada', (tester) async {
     await open(tester, sampleReport());
-    await tester.tap(find.byKey(const Key('report-action-download')));
+    await tester.tap(find.byKey(const Key('reading-frame-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('reading-more-download')));
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
@@ -335,8 +344,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      await tester.tap(find.byKey(const Key('report-action-index')));
-      await tester.pumpAndSettle();
+      await openIndex(tester);
       expect(tester.takeException(), isNull);
     });
 

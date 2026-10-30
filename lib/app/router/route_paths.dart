@@ -1,6 +1,10 @@
 /// Paths y nombres de ruta centralizados. Cada feature nuevo añade sus
 /// constantes aquí (o expone su propio archivo `xxx_route_paths.dart` que
 /// este archivo re-exporta) para que las URLs web queden en un solo lugar.
+library;
+
+import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
+
 /// La ruta de «Importar de Anki» (F31, decisión 73).
 const kRouteAnkiImport = '/settings/anki-import';
 
@@ -195,6 +199,18 @@ abstract final class RoutePaths {
 
   static String creation(String id) => '/creations/$id';
 
+  /// «Texto», «Resumen» o «Síntesis» de uno o varios documentos procesados
+  /// (F45, mejora 12; F47, paso 1), en el marco de lectura y sin crear nada
+  /// en «Lo creado». Pantalla completa, encima de la barra, como [creation].
+  /// Se arma con [extractReading]: el tipo en la dirección y los documentos,
+  /// en orden, en la consulta.
+  static const extractReadingPattern = '/read/:kind';
+
+  static String extractReading(StudyCreationKind kind, List<String> ids) => Uri(
+    path: '/read/${kind.storageKey}',
+    queryParameters: {'docs': ids.join(',')},
+  ).toString();
+
   /// El historial de repasos de F17, D8: curva de retención, calendario de
   /// constancia y tarjetas difíciles. Ruta plana bajo `/review`, mismo
   /// criterio que [graphTension]: es una lente sobre el hábito de repasar,
@@ -309,6 +325,7 @@ abstract final class RouteNames {
   static const reviewSession = 'review-session';
   static const reviewHistory = 'review-history';
   static const creation = 'creation';
+  static const extractReading = 'extract-reading';
   static const settings = 'settings';
   static const ankiImport = 'anki-import';
   static const userGuide = 'user-guide';

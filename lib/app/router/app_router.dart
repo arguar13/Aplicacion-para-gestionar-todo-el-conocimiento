@@ -17,6 +17,7 @@ import 'package:sinapsis/features/capture/presentation/screens/capture_screen.da
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/presentation/screens/creation_viewer_screen.dart';
 import 'package:sinapsis/features/duplicates/presentation/screens/possible_duplicates_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
@@ -46,6 +47,7 @@ import 'package:sinapsis/features/processed/presentation/processed_routes.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_original_screen.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_reader_screen.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_screen.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_backfill_screen.dart';
@@ -304,6 +306,24 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.creation,
         builder: (context, state) =>
             CreationViewerScreen(creationId: state.pathParameters['id']!),
+      ),
+      // «Texto», «Resumen» o «Síntesis» de documentos procesados en el marco
+      // de lectura (F45, mejora 12; F47, paso 1), encima de la barra como lo
+      // creado.
+      GoRoute(
+        path: RoutePaths.extractReadingPattern,
+        name: RouteNames.extractReading,
+        builder: (context, state) => ProcessedReaderScreen(
+          kind:
+              StudyCreationKind.fromStorageKey(state.pathParameters['kind']!) ??
+              StudyCreationKind.fullText,
+          documentIds: [
+            for (final id in (state.uri.queryParameters['docs'] ?? '').split(
+              ',',
+            ))
+              if (id.isNotEmpty) id,
+          ],
+        ),
       ),
       GoRoute(
         path: kRouteCards,

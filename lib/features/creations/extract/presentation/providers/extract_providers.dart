@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/extract/domain/extract_text.dart';
-import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_text_provider.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_study_text.dart';
@@ -224,9 +224,57 @@ String extractReadableId(String creationId) => 'extract:$creationId';
 /// con varios documentos, cada apartado empieza diciendo de cuál es.
 String extractTitleKey(String documentId) => 'extract-title:$documentId';
 
+/// Qué se lee en un visor de extraer (F43, paso 7; F47, paso 1): el tipo
+/// —el texto completo, el resumen o la síntesis—, de qué documentos
+/// procesados, en ese orden, y con qué id lo conoce el lector en voz alta.
+///
+/// Es lo mismo para una creación de «Lo creado» ([ExtractRead.ofCreation]) y
+/// para «Texto», «Resumen» o «Síntesis» de un documento procesado (F45,
+/// mejora 12), que se abren en el mismo lector sin crear nada.
+@immutable
+class ExtractRead {
+  const ExtractRead({
+    required this.kind,
+    required this.documentIds,
+    required this.readableId,
+  });
+
+  /// Lo que lee la extracción [creation].
+  ExtractRead.ofCreation(StudyCreation creation)
+    : this(
+        kind: creation.kind,
+        documentIds: creation.sourceIds,
+        readableId: extractReadableId(creation.id),
+      );
+
+  /// «Texto», «Resumen» o «Síntesis» del documento procesado [documentId],
+  /// según [kind].
+  ExtractRead.ofProcessed(String documentId, StudyCreationKind kind)
+    : this(
+        kind: kind,
+        documentIds: [documentId],
+        readableId: 'procesado-lectura:${kind.storageKey}:$documentId',
+      );
+
+  final StudyCreationKind kind;
+  final List<String> documentIds;
+  final String readableId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ExtractRead &&
+      other.kind == kind &&
+      other.readableId == readableId &&
+      listEquals(other.documentIds, documentIds);
+
+  @override
+  int get hashCode =>
+      Object.hash(kind, readableId, Object.hashAll(documentIds));
+}
+
 /// Lo que se escucha de una extracción (F43, paso 7, M8): lo mismo que se ve,
 /// en el mismo orden, con las posiciones del texto propio de cada documento
-/// —el amarillo cae en su lugar—. El texto completo, entero; el resumen y la
+/// —el resaltado cae en su lugar—. El texto completo, entero; el resumen y la
 /// síntesis, sus oraciones (`studyReadScopesProvider`, la misma cuenta que
 /// la tarjeta de estudiar). Con varios documentos, antes de cada uno se dice
 /// su título.
@@ -234,25 +282,23 @@ String extractTitleKey(String documentId) => 'extract-title:$documentId';
 /// `null` mientras falta algo por leer —un libro se parte en otro hilo—;
 /// vacía si no hay nada que escuchar.
 final extractSegmentsProvider = Provider.autoDispose
-    .family<List<ReadableSegment>?, String>((ref, creationId) {
-      final creation = ref.watch(studyCreationProvider(creationId)).valueOrNull;
-      if (creation == null || !creation.kind.isLiveView) return null;
-      final several = creation.sourceIds.length > 1;
+    .family<List<ReadableSegment>?, ExtractRead>((ref, read) {
+      final several = read.documentIds.length > 1;
       final segments = <ReadableSegment>[];
-      for (final id in creation.sourceIds) {
+      for (final id in read.documentIds) {
         final section = ref.watch(
-          extractSectionProvider((kind: creation.kind, documentId: id)),
+          extractSectionProvider((kind: read.kind, documentId: id)),
         );
         if (section.status == ExtractSectionStatus.loading) return null;
         final own = section.own;
         if (section.status != ExtractSectionStatus.ready || own == null) {
           continue;
         }
-        final List<ReadableSegment> read;
-        if (creation.kind == StudyCreationKind.fullText) {
+        final List<ReadableSegment> spoken;
+        if (read.kind == StudyCreationKind.fullText) {
           final whole = ref.watch(
             readableTextProvider((
-              id: extractReadableId(creation.id),
+              id: read.readableId,
               title: section.title,
               sourceKey: own.key,
               content: own.content,
@@ -260,16 +306,16 @@ final extractSegmentsProvider = Provider.autoDispose
             )),
           );
           if (whole == null) return null;
-          read = whole.segments;
+          spoken = whole.segments;
         } else {
           final scopes = ref.watch(studyReadScopesProvider(own.asStudyText));
-          read =
-              scopes[creation.kind == StudyCreationKind.summary
+          spoken =
+              scopes[read.kind == StudyCreationKind.summary
                   ? ReadScope.summary
                   : ReadScope.synthesis] ??
               const [];
         }
-        if (read.isEmpty) continue;
+        if (spoken.isEmpty) continue;
         if (several && section.title.trim().isNotEmpty) {
           segments.add(
             ReadableSegment(
@@ -280,7 +326,7 @@ final extractSegmentsProvider = Provider.autoDispose
             ),
           );
         }
-        segments.addAll(read);
+        segments.addAll(spoken);
       }
       return List.unmodifiable(segments);
     });

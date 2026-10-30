@@ -8,6 +8,7 @@ import 'package:sinapsis/features/creations/domain/entities/creation_scope_summa
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/presentation/creation_presentation.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_contents_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Un texto de la interfaz que se dice en el idioma de la app.
@@ -348,6 +349,49 @@ typedef CreationViewerBuilder =
 typedef CreationViewerActionsBuilder =
     List<Widget> Function(BuildContext context, StudyCreation creation);
 
+/// Cómo se lee una creación que es texto para leer —el texto completo, el
+/// resumen, la síntesis y el informe— en **el marco de lectura** (F47, paso
+/// 1, decisión A), el mismo que el original: ←, Contenido, IA, Aa y ⋮ arriba,
+/// el visor del tipo como cuerpo y el lugar del reproductor abajo. Lo común
+/// —las fuentes en «Contenido», compartir, descargar, los detalles y la
+/// papelera en ⋮, ✎ para el nombre— lo pone el visor de siempre; esto suma
+/// lo propio del tipo.
+@immutable
+class CreationReaderSpec {
+  const CreationReaderSpec({
+    this.bodyShowsTitle = false,
+    this.aiRow,
+    this.contents,
+    this.ownPlayer,
+    this.ownReadableId,
+  });
+
+  /// Si el visor trae su título grande adentro —y lo desplaza con el resto—:
+  /// el marco no lo repite.
+  final bool bodyShowsTitle;
+
+  /// Las fichas de la fila de IA, con lo que el marco suma al final
+  /// (Preguntar a la IA y Podcast).
+  final Widget Function(
+    BuildContext context,
+    StudyCreation creation,
+    List<Widget> trailing,
+  )?
+  aiRow;
+
+  /// Lo propio en «Contenido»: el índice de un informe.
+  final List<ReadingContentsSection> Function(
+    BuildContext context,
+    StudyCreation creation,
+  )?
+  contents;
+
+  /// Su reproductor, mientras suena lo de [ownReadableId].
+  final Widget Function(BuildContext context, StudyCreation creation)?
+  ownPlayer;
+  final String Function(StudyCreation creation)? ownReadableId;
+}
+
 /// El archivo de una creación, para «Compartir» y «Descargar»: un PDF, un
 /// PNG, un Markdown, un CSV… lo arma el tipo, con su diseño.
 @immutable
@@ -440,6 +484,7 @@ class CreationKindSpec {
     this.exporter,
     this.eachDocument,
     this.topic,
+    this.reader,
   });
 
   final StudyCreationKind kind;
@@ -504,6 +549,10 @@ class CreationKindSpec {
 
   /// Cómo dice la pieza del tema ([CreationField.topic]); sin esto, «Tema».
   final CreationTopicField? topic;
+
+  /// Si se lee en el marco de lectura, y con qué (F47, paso 1). Sin esto, su
+  /// visor va debajo de la barra común de lo creado.
+  final CreationReaderSpec? reader;
 
   /// Lo que la IA escribe por defecto, si el tipo no dice otra cosa.
   static const defaultOutputTokens = 2000;
@@ -577,6 +626,7 @@ class CreationKindSpec {
     CreationExporter? exporter,
     CreationEachDocument? eachDocument,
     CreationTopicField? topic,
+    CreationReaderSpec? reader,
   }) => CreationKindSpec(
     kind: kind,
     accent: accent ?? this.accent,
@@ -596,5 +646,6 @@ class CreationKindSpec {
     exporter: exporter ?? this.exporter,
     eachDocument: eachDocument ?? this.eachDocument,
     topic: topic ?? this.topic,
+    reader: reader ?? this.reader,
   );
 }

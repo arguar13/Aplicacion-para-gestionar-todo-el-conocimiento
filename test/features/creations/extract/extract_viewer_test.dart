@@ -263,30 +263,35 @@ void main() {
     });
   });
 
-  group('«Resaltar las palabras clave» (M8): la misma preferencia del '
-      'original', () {
-    Future<void> openSheet(WidgetTester tester) async {
-      await tester.tap(find.byKey(const Key('extract-reading')));
+  group('«Palabras clave» en la fila de IA (F47, paso 1): la misma '
+      'preferencia del original (M8)', () {
+    Future<void> tapKeywords(WidgetTester tester) async {
+      // La fila de IA se desplaza de costado: se la lleva a la vista.
+      await tester.ensureVisible(
+        find.byKey(const Key('extract-study-keyword')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('extract-study-keyword')));
       await tester.pumpAndSettle();
     }
 
-    bool switchOn(WidgetTester tester) => tester
-        .widget<SwitchListTile>(
-          find.byKey(const Key('extract-keywords-toggle')),
+    String state(WidgetTester tester) => tester
+        .widget<Text>(
+          find.descendant(
+            of: find.byKey(const Key('extract-study-keyword')),
+            matching: find.byKey(const Key('original-study-state-keyword')),
+          ),
         )
-        .value;
+        .data!;
 
-    testWidgets('prendida por defecto; apagarla acá la apaga en el '
-        'documento, y prenderla allá la prende acá', (tester) async {
+    testWidgets('a la vista por defecto; tocarla la oculta en el documento, '
+        'y mostrarla allá la muestra acá', (tester) async {
       final id = await romaWithSummary();
       final creation = await h.creation(StudyCreationKind.summary, [id]);
       await h.open(tester, creation);
-      await openSheet(tester);
-      expect(switchOn(tester), isTrue);
-      expect(find.text(es.f43TextKeywordsToggleOne), findsOneWidget);
+      expect(state(tester), es.f43OrigStateDone('keyword'));
 
-      await tester.tap(find.byKey(const Key('extract-keywords-toggle')));
-      await tester.pumpAndSettle();
+      await tapKeywords(tester);
       expect(h.container.read(processedKeywordsShownProvider(id)), isFalse);
       expect(
         h.container
@@ -294,7 +299,7 @@ void main() {
             .getStringList(OriginalLayers.processedKeyOf(id)),
         [StudyMarkKind.keyword.name],
       );
-      expect(switchOn(tester), isFalse);
+      expect(state(tester), es.f43OrigStateHidden('keyword'));
       expect(paintedWith(tester, pink), isEmpty);
 
       // Desde el original (M5): el mismo lugar.
@@ -302,7 +307,7 @@ void main() {
           .read(processedOriginalHiddenProvider(id).notifier)
           .setHidden(StudyMarkKind.keyword, hidden: false);
       await tester.pumpAndSettle();
-      expect(switchOn(tester), isTrue);
+      expect(state(tester), es.f43OrigStateDone('keyword'));
       expect(paintedWith(tester, pink), ['César']);
     });
 
@@ -316,11 +321,8 @@ void main() {
       await h.mark(b, 'Esparta prefería la guerra.');
       final creation = await h.creation(StudyCreationKind.summary, [a, b]);
       await h.open(tester, creation);
-      await openSheet(tester);
-      expect(find.text(es.f43TextKeywordsToggleMany(2)), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('extract-keywords-toggle')));
-      await tester.pumpAndSettle();
+      await tapKeywords(tester);
       expect(h.container.read(processedKeywordsShownProvider(a)), isFalse);
       expect(h.container.read(processedKeywordsShownProvider(b)), isFalse);
     });
@@ -335,7 +337,7 @@ void main() {
       await h.open(tester, creation);
       expect(find.byKey(const Key('extract-player')), findsNothing);
 
-      await tester.tap(find.byKey(const Key('extract-listen')));
+      await tester.tap(find.byKey(const Key('reading-listen')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('extract-player')), findsOneWidget);
@@ -344,11 +346,8 @@ void main() {
       expect(paintedWith(tester, yellow).join(), ' cruzó el Rubicón.');
       expect(paintedWith(tester, pink), ['César']);
       expect(find.text('${es.readAloudReading} · 1 de 2'), findsOneWidget);
-      // El lector flotante no repite el reproductor.
-      expect(
-        h.container.read(readAloudDockProvider),
-        contains(extractReadableId(creation.id)),
-      );
+      // El lector flotante no repite el reproductor: el marco trae el suyo.
+      expect(h.container.read(readAloudDockProvider), isNotEmpty);
 
       h.tts.completeCurrent();
       await tester.pumpAndSettle();
@@ -387,7 +386,7 @@ void main() {
       final creation = await h.creation(StudyCreationKind.summary, [b, a]);
       await h.open(tester, creation);
 
-      await tester.tap(find.byKey(const Key('extract-listen')));
+      await tester.tap(find.byKey(const Key('reading-listen')));
       await tester.pumpAndSettle();
       expect(h.tts.spoken, ['Grecia']);
       expect(
@@ -417,7 +416,7 @@ void main() {
       final creation = await h.creation(StudyCreationKind.fullText, [id]);
       await h.open(tester, creation, size: const Size(400, 800));
 
-      await tester.tap(find.byKey(const Key('extract-listen')));
+      await tester.tap(find.byKey(const Key('reading-listen')));
       await tester.pumpAndSettle();
       final controller = h.container.read(readAloudControllerProvider.notifier);
       await controller.seekToSegment(55);
@@ -431,6 +430,19 @@ void main() {
     });
   });
 
+  testWidgets('el texto se desplaza con la física de la plataforma: un '
+      'arrastre corto ya no baja de golpe (F45, mejora 13)', (tester) async {
+    final id = await romaWithSummary();
+    final creation = await h.creation(StudyCreationKind.fullText, [id]);
+    await h.open(tester, creation);
+    expect(
+      tester
+          .widget<ListView>(find.byKey(const Key('extract-viewer-list')))
+          .physics,
+      isNull,
+    );
+  });
+
   group('el archivo', () {
     testWidgets('«Descargar» guarda un Markdown con el título, el documento y '
         'las palabras clave en negrita', (tester) async {
@@ -438,9 +450,9 @@ void main() {
       final creation = await h.creation(StudyCreationKind.summary, [id]);
       await h.open(tester, creation);
 
-      await tester.tap(find.byKey(ValueKey('creation-menu-${creation.id}')));
+      await tester.tap(find.byKey(const Key('reading-frame-more')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('creation-action-download')));
+      await tester.tap(find.byKey(const Key('reading-more-download')));
       await tester.pumpAndSettle();
       // El archivo se arma leyendo la base, fuera de los cuadros: se le da
       // tiempo de verdad.
@@ -484,14 +496,17 @@ void main() {
         );
         expect(tester.takeException(), isNull);
 
-        await tester.tap(find.byKey(const Key('extract-listen')));
+        await tester.tap(find.byKey(const Key('reading-listen')));
         await tester.pumpAndSettle();
         expect(find.byKey(const Key('extract-player')), findsOneWidget);
         expect(tester.takeException(), isNull);
 
-        await tester.tap(find.byKey(const Key('extract-reading')));
+        await tester.tap(find.byKey(const Key('reading-frame-appearance')));
         await tester.pumpAndSettle();
-        expect(find.byKey(const Key('extract-reading-sheet')), findsOneWidget);
+        expect(
+          find.byKey(const Key('reading-appearance-sheet')),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       });
     }

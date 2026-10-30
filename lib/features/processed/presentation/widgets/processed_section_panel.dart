@@ -3,44 +3,45 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
-import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_reader_screen.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/images/processed_image_gallery.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_keywords_view.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_part_tile.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_section_presentation.dart';
-import 'package:sinapsis/features/processed/presentation/widgets/processed_text_pages.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Una sección de un documento procesado, plegable (F41): su nombre, cuánto
-/// tiene y, desplegada, sus acciones y sus partes.
+/// Una sección de un documento procesado (F41): su nombre, cuánto tiene y lo
+/// que tiene.
 ///
-/// Es la misma para todas: lo que cambia por sección —cómo se ve el cuerpo,
-/// qué se lee al escucharla, si se copia— se decide en un `switch` exhaustivo
-/// sobre `ProcessedSection`. Sumar una sección es sumar sus casos, no otra
+/// **El texto, el resumen y la síntesis se leen en el marco de lectura**
+/// (F45, mejora 12; F47, paso 1): la sección es un renglón que lo abre —el
+/// mismo lector que el de «Lo creado», con el texto limpio, la letra de
+/// «Apariencia» y un solo «Escuchar»—, y editar se hace desde su ⋮. Las demás
+/// —las palabras clave, las notas, los fragmentos, las imágenes— se despliegan
+/// acá, con sus partes.
+///
+/// Lo que cambia por sección se decide en un `switch` exhaustivo sobre
+/// `ProcessedSection`: sumar una sección es sumar sus casos, no otra
 /// pantalla.
 ///
-/// Plegada no pide nada a la base —`ExpansionTile` no arma lo plegado—: un
-/// documento con un libro entero en «Texto» no lo lee mientras esa sección
-/// está cerrada.
+/// Plegada no pide nada a la base —`ExpansionTile` no arma lo plegado—, y el
+/// texto entero no se trae a esta pantalla: lo trae el lector, de a bloques.
 /// Respeta «sin animaciones»: se abre y se cierra de una.
 class ProcessedSectionPanel extends StatelessWidget {
   const ProcessedSectionPanel({
     required this.document,
     required this.section,
-    required this.readable,
     super.key,
   });
 
   final ProcessedDocument document;
   final ProcessedSection section;
-
-  /// Lo que lee el lector en voz alta, o `null` mientras se arma.
-  final ReadableDocument? readable;
 
   @override
   Widget build(BuildContext context) {
@@ -57,13 +58,47 @@ class ProcessedSectionPanel extends StatelessWidget {
       section.countLabel(l10n, count),
       if (edited > 0) l10n.processedEditedCount(edited),
     ].join(' · ');
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.6)),
+    );
+    final leading = Icon(section.icon, color: colors.primary);
+    final title = Text(section.label(l10n), style: theme.textTheme.titleMedium);
+    final detail = Text(
+      subtitle,
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: colors.onSurfaceVariant,
+      ),
+    );
+
+    if (extractKindOfSection(section) case final kind?) {
+      return Material(
+        color: colors.surfaceContainerLow,
+        shape: shape,
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          key: Key('processed-read-${section.name}'),
+          contentPadding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+          leading: leading,
+          title: title,
+          subtitle: detail,
+          trailing: Icon(
+            Icons.chrome_reader_mode_outlined,
+            color: colors.onSurfaceVariant,
+            semanticLabel: l10n.f47P1SectionRead,
+          ),
+          onTap: count == 0
+              ? null
+              : () => unawaited(
+                  context.push(RoutePaths.extractReading(kind, [document.id])),
+                ),
+        ),
+      );
+    }
 
     return Material(
       color: colors.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.6)),
-      ),
+      shape: shape,
       clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
         initiallyExpanded: section.startsExpanded(
@@ -77,35 +112,28 @@ class ProcessedSectionPanel extends StatelessWidget {
         tilePadding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 8, 12),
         expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-        leading: Icon(section.icon, color: colors.primary),
-        title: Text(section.label(l10n), style: theme.textTheme.titleMedium),
-        subtitle: Text(
-          subtitle,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: colors.onSurfaceVariant,
-          ),
-        ),
+        leading: leading,
+        title: title,
+        subtitle: detail,
         children: [
-          _SectionActions(
-            document: document,
-            section: section,
-            readable: readable,
-          ),
-          switch (section) {
-            ProcessedSection.text => ProcessedTextPages(
-              documentId: document.id,
-              pageCount: count,
-              sourceItemId: sourceItemId,
+          if (_copiesWhole(section))
+            Align(
+              alignment: Alignment.centerRight,
+              child: _CopyButton(documentId: document.id, section: section),
             ),
+          switch (section) {
             ProcessedSection.keywords => ProcessedKeywordsView(
               documentId: document.id,
               count: count,
               sourceItemId: sourceItemId,
             ),
-            ProcessedSection.summary ||
-            ProcessedSection.synthesis ||
             ProcessedSection.notes ||
-            ProcessedSection.fragments => _PartsList(
+            ProcessedSection.fragments ||
+            // El texto, el resumen y la síntesis se leen en el marco (arriba):
+            // acá no llegan.
+            ProcessedSection.text ||
+            ProcessedSection.summary ||
+            ProcessedSection.synthesis => ProcessedPartsList(
               documentId: document.id,
               section: section,
               count: count,
@@ -122,25 +150,6 @@ class ProcessedSectionPanel extends StatelessWidget {
   }
 }
 
-/// Qué se lee al tocar «Escuchar» en [section], o `null` si no tiene una
-/// lectura propia —el texto, las palabras clave, las notas y los fragmentos se
-/// escuchan con el botón flotante, que lee todo; las imágenes no se leen—. Las
-/// palabras clave no van con `ReadScope.keywords`: esa capa lee las palabras
-/// sueltas, y acá cada parte es la oración entera que las lleva.
-///
-/// El texto no lleva el suyo (F45, paso 4): leía lo mismo que el lector
-/// flotante de abajo —el documento entero, desde la página que se mira—, y
-/// eran dos botones para una sola función.
-ReadScope? _listenScopeOf(ProcessedSection section) => switch (section) {
-  ProcessedSection.summary => ReadScope.summary,
-  ProcessedSection.synthesis => ReadScope.synthesis,
-  ProcessedSection.text ||
-  ProcessedSection.keywords ||
-  ProcessedSection.notes ||
-  ProcessedSection.fragments ||
-  ProcessedSection.images => null,
-};
-
 /// Si «Copiar» copia la sección entera: el texto de un libro no —se copia
 /// de a una página, seleccionándola—; lo elegido sí. Las imágenes no son
 /// texto que copiar.
@@ -153,84 +162,26 @@ bool _copiesWhole(ProcessedSection section) => switch (section) {
   ProcessedSection.fragments => true,
 };
 
-/// Las acciones de una sección, arriba de sus partes: «Escuchar» y «Copiar»,
-/// las que tengan sentido para ella.
-///
-/// Es también el lugar de las acciones que le suma el paso 1b (decisión I):
-/// «Resumir», «Sintetizar» y «Palabras clave» sobre el texto del propio
-/// procesado viven en la tarjeta de estudiar (`ProcessedStudySlot`), y cada
-/// sección puede ofrecer acá su atajo.
-class _SectionActions extends StatelessWidget {
-  const _SectionActions({
-    required this.document,
-    required this.section,
-    required this.readable,
-  });
-
-  final ProcessedDocument document;
-  final ProcessedSection section;
-  final ReadableDocument? readable;
-
-  @override
-  Widget build(BuildContext context) {
-    final scope = _listenScopeOf(section);
-    final copies = _copiesWhole(section);
-    if (scope == null && !copies) return const SizedBox.shrink();
-
-    return Wrap(
-      alignment: WrapAlignment.end,
-      spacing: 4,
-      children: [
-        if (scope != null) _ListenButton(readable: readable, scope: scope),
-        if (copies) _CopyButton(documentId: document.id, section: section),
-      ],
-    );
-  }
-}
-
-/// «Escuchar» una sección con el lector flotante, resaltando en su lugar lo
-/// que suena. El texto empieza en la página que se está mirando.
-class _ListenButton extends ConsumerWidget {
-  const _ListenButton({required this.readable, required this.scope});
-
-  final ReadableDocument? readable;
-  final ReadScope scope;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final document = readable;
-    final run = document == null
-        ? ReadAloudRun.none
-        : ref.watch(
-            readAloudRunProvider((documentId: document.id, scope: scope)),
-          );
-    final playing = run == ReadAloudRun.playing;
-
-    return TextButton.icon(
-      key: Key('processed-listen-${scope.name}'),
-      icon: document == null
-          ? const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Icon(
-              playing ? Icons.pause_outlined : Icons.volume_up_outlined,
-              size: 18,
-            ),
-      label: Text(playing ? l10n.mediaPlayerPause : l10n.studyListen),
-      onPressed: document == null || !document.offers(scope)
-          ? null
-          : () {
-              final controller = ref.read(readAloudControllerProvider.notifier);
-              unawaited(switch (run) {
-                ReadAloudRun.playing => controller.pause(),
-                ReadAloudRun.paused => controller.play(),
-                ReadAloudRun.none => controller.open(document, scope: scope),
-              });
-            },
-    );
-  }
+/// Copia [section] entera de [documentId], una parte por párrafo, y lo dice.
+Future<void> copyProcessedSection(
+  BuildContext context,
+  WidgetRef ref,
+  String documentId,
+  ProcessedSection section,
+) async {
+  final l10n = AppLocalizations.of(context)!;
+  final messenger = ScaffoldMessenger.of(context);
+  final parts = await ref
+      .read(processedRepositoryProvider)
+      .partsOf(documentId, sections: {section});
+  final list = parts.getRight().toNullable();
+  if (list == null || list.isEmpty) return;
+  await Clipboard.setData(
+    ClipboardData(text: [for (final p in list) p.content].join('\n\n')),
+  );
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(l10n.studyCopied)));
 }
 
 /// «Copiar» la sección entera, una parte por párrafo.
@@ -248,33 +199,23 @@ class _CopyButton extends ConsumerWidget {
       key: Key('processed-copy-${section.name}'),
       icon: const Icon(Icons.copy_outlined, size: 18),
       label: Text(l10n.studyCopy),
-      onPressed: () async {
-        final messenger = ScaffoldMessenger.of(context);
-        final parts = await ref
-            .read(processedRepositoryProvider)
-            .partsOf(documentId, sections: {section});
-        final list = parts.getRight().toNullable();
-        if (list == null || list.isEmpty) return;
-        await Clipboard.setData(
-          ClipboardData(text: [for (final p in list) p.content].join('\n\n')),
-        );
-        messenger
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(l10n.studyCopied)));
-      },
+      onPressed: () =>
+          unawaited(copyProcessedSection(context, ref, documentId, section)),
     );
   }
 }
 
 /// Las partes de una sección que no es el texto, de a tandas: el resumen de
 /// un libro puede tener cientos de oraciones, y se arman las que se ven más
-/// «Mostrar más».
-class _PartsList extends ConsumerStatefulWidget {
-  const _PartsList({
+/// «Mostrar más». La sección desplegada del documento y la edición de las
+/// oraciones del resumen o la síntesis desde el lector (F47, paso 1).
+class ProcessedPartsList extends ConsumerStatefulWidget {
+  const ProcessedPartsList({
     required this.documentId,
     required this.section,
     required this.count,
     required this.sourceItemId,
+    super.key,
   });
 
   final String documentId;
@@ -286,11 +227,11 @@ class _PartsList extends ConsumerStatefulWidget {
   static const pageSize = 50;
 
   @override
-  ConsumerState<_PartsList> createState() => _PartsListState();
+  ConsumerState<ProcessedPartsList> createState() => _PartsListState();
 }
 
-class _PartsListState extends ConsumerState<_PartsList> {
-  var _limit = _PartsList.pageSize;
+class _PartsListState extends ConsumerState<ProcessedPartsList> {
+  var _limit = ProcessedPartsList.pageSize;
   List<ProcessedPart>? _shown;
 
   @override
@@ -330,7 +271,8 @@ class _PartsListState extends ConsumerState<_PartsList> {
         if (remaining > 0 && list.length >= _limit)
           Align(
             child: TextButton(
-              onPressed: () => setState(() => _limit += _PartsList.pageSize),
+              onPressed: () =>
+                  setState(() => _limit += ProcessedPartsList.pageSize),
               child: Text(l10n.libraryLoadMore),
             ),
           ),
