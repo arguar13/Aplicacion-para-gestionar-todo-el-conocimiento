@@ -52,7 +52,9 @@ List<TableInfo<dynamic, dynamic>> mapTables(AppDatabase db) => [
 const mapValueIdSeparator = '\u001f';
 
 /// Los documentos procesados vivos con los valores que tienen de la categoría:
-/// UNA fila por documento. Variable: `?1` la categoría.
+/// UNA fila por documento, con su título, su tipo y cuándo se procesó —lo que
+/// el motor necesita para buscarlo, para la burbuja «Sin tema» y para lo nuevo
+/// (F44)—. Variable: `?1` la categoría.
 ///
 /// La misma forma que la del Atlas y por la misma razón: lo que cuesta es
 /// fabricar cada fila del lado de Dart, no leerla en SQLite, así que los
@@ -65,6 +67,9 @@ const mapValueIdSeparator = '\u001f';
 final mapItemsSql =
     '''
 SELECT item.id AS id,
+       item.title AS title,
+       item.kind AS kind,
+       item.created_at AS created_at,
        (SELECT group_concat(ipv.property_value_id, char(31))
           FROM item_property_values ipv
           JOIN property_values pv ON pv.id = ipv.property_value_id
@@ -80,6 +85,9 @@ WHERE ${mapItemSql('item')}
 final mapSpaceItemsSql =
     '''
 SELECT item.id AS id,
+       item.title AS title,
+       item.kind AS kind,
+       item.created_at AS created_at,
        (SELECT group_concat(s.space_id, char(31))
           FROM item_spaces s
          WHERE s.item_id = item.id) AS value_ids
@@ -87,8 +95,8 @@ FROM item
 WHERE ${mapItemSql('item')}
 ''';
 
-/// Las relaciones, con lo justo para pesarlas: los extremos, el tipo y si
-/// alguien las revisó.
+/// Las relaciones, con lo justo para pesarlas: los extremos, el tipo, si
+/// alguien las revisó y cuándo se hicieron (lo nuevo, F44).
 ///
 /// No dice nada de la papelera a propósito: una relación con un extremo en la
 /// papelera se descarta del lado de Dart, porque su extremo no está entre los
@@ -97,7 +105,8 @@ const mapRelationsSql = '''
 SELECT from_item_id AS from_id,
        to_item_id AS to_id,
        kind AS kind,
-       reviewed_at IS NOT NULL AS reviewed
+       reviewed_at IS NOT NULL AS reviewed,
+       created_at AS created_at
 FROM relations
 ''';
 

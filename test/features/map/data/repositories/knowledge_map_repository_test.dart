@@ -38,6 +38,8 @@ void main() {
   late KnowledgeMapRepositoryImpl repository;
   late String tema;
   final now = DateTime(2026, 9, 21, 10);
+  // El reloj del repositorio: el «ahora» contra el que se mide lo nuevo (F44).
+  final readAt = DateTime(2026, 10, 30, 9);
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
@@ -48,6 +50,7 @@ void main() {
         telemetry: MockTelemetryService(),
         files: InMemoryFileStore(),
       ),
+      clock: () => readAt,
     );
     tema = await _definitionId(db, kTemaCategoryName);
   });
@@ -60,6 +63,7 @@ void main() {
     int depth = 0,
     String? definitionId,
     String? label,
+    DateTime? at,
   }) => db
       .into(db.propertyValues)
       .insert(
@@ -67,7 +71,7 @@ void main() {
           id: id,
           definitionId: definitionId ?? tema,
           value: label ?? 'Valor $id',
-          createdAt: now,
+          createdAt: at ?? now,
           parentId: Value(parent),
           depth: Value(depth),
         ),
@@ -87,12 +91,14 @@ void main() {
     String id,
     List<String> values, {
     SourceKind kind = SourceKind.webPage,
+    DateTime? at,
   }) async {
     await insertProcessedDocument(
       db,
       id: id,
       title: 'Fuente $id',
       sourceKind: kind,
+      createdAt: at,
     );
     for (final valueId in values) {
       await assign(id, valueId);
@@ -141,6 +147,7 @@ void main() {
     ContentOrigin origin = ContentOrigin.user,
     double? confidence,
     int? sourceCharStart,
+    DateTime? at,
   }) => db
       .into(db.relations)
       .insert(
@@ -149,7 +156,7 @@ void main() {
           fromItemId: from,
           toItemId: to,
           kind: kind,
-          createdAt: now,
+          createdAt: at ?? now,
           reviewedAt: Value(reviewedAt),
           origin: Value(origin),
           confidence: Value(confidence),
@@ -742,6 +749,94 @@ void main() {
     expect(pages.unassignedItemIds, ['sin']);
   });
 
+  group('lo que el motor sabe además del grafo (F44)', () {
+    test('cada documento llega con su título, su rol y cuándo se procesó, '
+        'con tema o sin él; cada tema y cada vínculo, con su fecha; y la '
+        'lectura, con el reloj', () async {
+      final processedAt = DateTime(2026, 10, 25, 8, 30);
+      final linkedAt = DateTime(2026, 10, 26, 12);
+      final createdAt = DateTime(2026, 10, 20);
+      await value('roma', label: 'Roma', at: createdAt);
+      await value('grecia', label: 'Grecia');
+      await source('con', ['roma'], at: processedAt);
+      await source('sin', const [], at: processedAt);
+      // Un procesado cuyo elemento es una fuente —el rol sale de su tipo, como
+      // en el nivel de los documentos (`readTopicItems`)—.
+      await insertItemRows(db, id: 'fuente', title: 'Una fuente');
+      await db
+          .into(db.processedDocuments)
+          .insert(
+            ProcessedDocumentsCompanion.insert(
+              itemId: 'fuente',
+              sourceKind: SourceKind.webPage,
+              createdAt: processedAt,
+            ),
+          );
+      await assign('fuente', 'grecia');
+      await relate('con', 'fuente', at: linkedAt);
+
+      final input = await repository.readTopicInput(tema);
+
+      final byId = {
+        for (final item in [...input.items, ...input.unassigned]) item.id: item,
+      };
+      expect(byId['con']!.title, 'Fuente con');
+      expect(byId['con']!.createdAt, processedAt);
+      expect(byId['con']!.isNote, isTrue);
+      expect(byId['fuente']!.isNote, isFalse);
+      expect(byId['sin']!.title, 'Fuente sin');
+      expect(byId['sin']!.createdAt, processedAt);
+      expect(byId['sin']!.valueIds, isEmpty);
+      expect(input.relations.single.createdAt, linkedAt);
+      expect(input.valueCreatedAt, {'roma': createdAt, 'grecia': now});
+      expect(input.readAt, readAt);
+    });
+
+    test('los vínculos de un documento sin tema también llegan, y el grafo '
+        'de temas no los cuenta', () async {
+      await seedTopics();
+      await source('a', ['roma']);
+      await source('b', ['grecia']);
+      await source('suelto', const []);
+      await source('otro', const []);
+      await relate('a', 'b');
+      await relate('a', 'suelto');
+      await relate('suelto', 'otro');
+
+      final input = await repository.readTopicInput(tema);
+      final g = buildTopicGraph(input);
+
+      expect(
+        {for (final r in input.relations) '${r.fromItemId}>${r.toItemId}'},
+        {'a>b', 'a>suelto', 'suelto>otro'},
+      );
+      expect(g.edges, hasLength(1));
+      expect(edgeBetween(g, 'roma', 'grecia')!.relations, 1);
+    });
+
+    test('un vínculo con un documento en la papelera o fuera del filtro no '
+        'llega, tampoco si es de uno sin tema', () async {
+      await source('suelto', const []);
+      await source('borrado', const []);
+      await source('documento', const [], kind: SourceKind.document);
+      await source('pagina', const []);
+      await relate('suelto', 'borrado');
+      await relate('suelto', 'documento');
+      await relate('suelto', 'pagina');
+      await trashItemRows(db, 'borrado');
+
+      final pages = await repository.readTopicInput(
+        tema,
+        filter: const LibraryQuery(sourceKinds: {SourceKind.webPage}),
+      );
+
+      expect(
+        {for (final r in pages.relations) '${r.fromItemId}>${r.toItemId}'},
+        {'suelto>pagina'},
+      );
+    });
+  });
+
   group('los vínculos (F28)', () {
     test('trae los elementos vinculados aunque no tengan ningún tema, con '
         'sus vínculos, y cuenta los que no tienen ninguno', () async {
@@ -978,6 +1073,12 @@ void main() {
       expect(g.nodes[g.indexOf('historia')!].itemCount, 1);
       expect(edgeBetween(g, 'historia', 'arte')!.relations, 1);
       expect(input.unassignedItemIds, ['suelto']);
+      // Lo que el motor sabe además (F44): cuándo se creó cada tema, el título
+      // de lo que no está en ninguno y la hora de la lectura.
+      expect(input.valueCreatedAt.keys.toSet(), {'historia', 'arte', 'vacio'});
+      expect(input.valueCreatedAt['historia'], now);
+      expect(input.unassigned.single.title, 'Fuente suelto');
+      expect(input.readAt, readAt);
     });
 
     test('el filtro de la biblioteca también rige', () async {

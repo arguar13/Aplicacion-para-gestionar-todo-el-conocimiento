@@ -131,11 +131,31 @@ class TopicGraph {
 
 /// Un elemento con los valores de la categoría que tiene: lo que hace falta
 /// para contar qué temas aparecen juntos.
+///
+/// Con su título, su rol y cuándo se procesó, el motor sabe además buscarlo,
+/// dibujarlo en la burbuja «Sin tema» y decir si es de lo nuevo (F44).
 class TopicItem {
-  const TopicItem({required this.id, required this.valueIds});
+  const TopicItem({
+    required this.id,
+    required this.valueIds,
+    this.title = '',
+    this.isNote = false,
+    this.createdAt,
+  });
 
   final String id;
+
+  /// Los valores que tiene; vacío en uno sin ninguno (los «sin tema»).
   final List<String> valueIds;
+
+  final String title;
+
+  /// Si es una nota; si no, es una fuente.
+  final bool isNote;
+
+  /// Cuándo se procesó, o `null` si no se sabe: entonces cuenta como de
+  /// siempre, nunca como nuevo.
+  final DateTime? createdAt;
 }
 
 /// Una relación entre dos elementos, con lo justo para pesarla.
@@ -145,6 +165,7 @@ class TopicRelation {
     required this.toItemId,
     required this.kind,
     this.reviewed = false,
+    this.createdAt,
   });
 
   final String fromItemId;
@@ -153,6 +174,10 @@ class TopicRelation {
 
   /// Si alguien la revisó: solo importa para las contradicciones.
   final bool reviewed;
+
+  /// Cuándo se vinculó, o `null` si no se sabe: entonces cuenta como de
+  /// siempre (F44).
+  final DateTime? createdAt;
 }
 
 /// Lo que hace falta para armar un [TopicGraph]: lo que la base entrega, sin
@@ -167,15 +192,21 @@ class TopicGraphInput {
     required this.values,
     required this.items,
     required this.relations,
-    this.unassignedItemIds = const [],
+    this.unassigned = const [],
+    this.valueCreatedAt = const {},
+    this.readAt,
   });
 
   /// La entrada de una categoría que no existe o que no tiene valores.
-  const TopicGraphInput.empty(this.definitionId, {this.definitionName = ''})
-    : values = const [],
-      items = const [],
-      relations = const [],
-      unassignedItemIds = const [];
+  const TopicGraphInput.empty(
+    this.definitionId, {
+    this.definitionName = '',
+    this.readAt,
+  }) : values = const [],
+       items = const [],
+       relations = const [],
+       unassigned = const [],
+       valueCreatedAt = const {};
 
   final String definitionId;
   final String definitionName;
@@ -186,11 +217,26 @@ class TopicGraphInput {
   /// Los elementos vivos que pasan el filtro y tienen algún valor.
   final List<TopicItem> items;
 
-  /// Las relaciones cuyos DOS extremos son elementos de [items].
+  /// Las relaciones cuyos DOS extremos son elementos de [items] o de
+  /// [unassigned]: el grafo de temas solo cuenta las primeras, y lo nuevo y la
+  /// burbuja «Sin tema» (F44) también las otras.
   final List<TopicRelation> relations;
 
-  /// Los elementos vivos que pasan el filtro y NO tienen ningún valor: no
-  /// entran en el grafo, y el Mapa dice cuántos son en vez de callarlos
-  /// (F28).
-  final List<String> unassignedItemIds;
+  /// Los elementos vivos que pasan el filtro y NO tienen ningún valor, con su
+  /// `valueIds` vacío: no entran en el grafo, y el Mapa los cuenta (F28) y los
+  /// dibuja en su propia burbuja (F44) en vez de callarlos.
+  final List<TopicItem> unassigned;
+
+  /// Cuándo se creó cada valor, por su identificador; uno que no está cuenta
+  /// como de siempre. Es lo que dice cuántos temas había hace un mes (F44).
+  final Map<String, DateTime> valueCreatedAt;
+
+  /// Cuándo se leyó de la base: el «ahora» contra el que se mide lo nuevo
+  /// (F44). Sin él, nada cuenta como nuevo.
+  final DateTime? readAt;
+
+  /// Los identificadores de [unassigned].
+  List<String> get unassignedItemIds => [
+    for (final item in unassigned) item.id,
+  ];
 }

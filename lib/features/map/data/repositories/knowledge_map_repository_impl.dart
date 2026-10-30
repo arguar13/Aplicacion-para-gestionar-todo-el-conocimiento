@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart'
     show AtlasValueRow;
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -26,11 +27,16 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
   const KnowledgeMapRepositoryImpl({
     required AppDatabase database,
     required LibraryRepository library,
+    Clock clock = DateTime.now,
   }) : _db = database,
-       _library = library;
+       _library = library,
+       _clock = clock;
 
   final AppDatabase _db;
   final LibraryRepository _library;
+
+  /// El «ahora» de cada lectura: contra él se mide lo nuevo (F44).
+  final Clock _clock;
 
   @override
   Future<TopicGraphInput> readTopicInput(
@@ -45,15 +51,21 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
     )..where((d) => d.id.equals(definitionId))).getSingleOrNull();
     if (definition == null) return TopicGraphInput.empty(definitionId);
 
+    final readAt = _clock();
     final allowed = await _allowedItemIds(filter);
-    final (items, unassigned) = await _readItems(definitionId, allowed);
+    final (items, unassigned) = await _readItems(mapItemsSql, [
+      Variable.withString(definitionId),
+    ], allowed);
+    final (values, createdAt) = await _readValues(definitionId);
     return TopicGraphInput(
       definitionId: definitionId,
       definitionName: definition.name,
-      values: await _readValues(definitionId),
+      values: values,
       items: items,
-      relations: await _readRelations({for (final item in items) item.id}),
-      unassignedItemIds: unassigned,
+      relations: await _readRelations(items, unassigned),
+      unassigned: unassigned,
+      valueCreatedAt: createdAt,
+      readAt: readAt,
     );
   }
 
@@ -61,25 +73,14 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
   /// padre, y un elemento puede estar en varios (F37). El nombre lo pone quien
   /// lo muestra: «Temas» no es una fila de la base.
   Future<TopicGraphInput> _readSpacesInput(LibraryQuery filter) async {
+    final readAt = _clock();
     final allowed = await _allowedItemIds(filter);
     final spaces = await _db.select(_db.spaces).get();
-    final rows = await _db
-        .customSelect(mapSpaceItemsSql, readsFrom: mapTables(_db).toSet())
-        .get();
-    final items = <TopicItem>[];
-    final unassigned = <String>[];
-    for (final row in rows) {
-      final id = row.data['id'] as String;
-      if (allowed != null && !allowed.contains(id)) continue;
-      final valueIds = row.data['value_ids'] as String?;
-      if (valueIds == null) {
-        unassigned.add(id);
-      } else {
-        items.add(
-          TopicItem(id: id, valueIds: valueIds.split(mapValueIdSeparator)),
-        );
-      }
-    }
+    final (items, unassigned) = await _readItems(
+      mapSpaceItemsSql,
+      const [],
+      allowed,
+    );
     return TopicGraphInput(
       definitionId: kSpacesDimensionId,
       definitionName: '',
@@ -88,8 +89,10 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
           AtlasValueRow(id: space.id, label: space.name),
       ],
       items: items,
-      relations: await _readRelations({for (final item in items) item.id}),
-      unassignedItemIds: unassigned,
+      relations: await _readRelations(items, unassigned),
+      unassigned: unassigned,
+      valueCreatedAt: {for (final space in spaces) space.id: space.createdAt},
+      readAt: readAt,
     );
   }
 
@@ -404,62 +407,94 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
     return row.data['total'] as int;
   }
 
-  Future<List<AtlasValueRow>> _readValues(String definitionId) async {
+  /// Los valores de la categoría y, aparte, cuándo se creó cada uno.
+  Future<(List<AtlasValueRow>, Map<String, DateTime>)> _readValues(
+    String definitionId,
+  ) async {
     final values = _db.propertyValues;
     final rows =
         await (_db.selectOnly(values)
-              ..addColumns([values.id, values.value, values.parentId])
+              ..addColumns([
+                values.id,
+                values.value,
+                values.parentId,
+                values.createdAt,
+              ])
               ..where(values.definitionId.equals(definitionId)))
             .get();
-    return [
-      for (final row in rows)
-        AtlasValueRow(
-          id: row.read(values.id)!,
-          label: row.read(values.value)!,
-          parentId: row.read(values.parentId),
-        ),
-    ];
+    return (
+      [
+        for (final row in rows)
+          AtlasValueRow(
+            id: row.read(values.id)!,
+            label: row.read(values.value)!,
+            parentId: row.read(values.parentId),
+          ),
+      ],
+      {
+        for (final row in rows)
+          row.read(values.id)!: row.read(values.createdAt)!,
+      },
+    );
   }
 
-  /// Los elementos vivos que pasan el filtro y tienen algún valor de la
-  /// categoría, y aparte los que no tienen ninguno.
-  Future<(List<TopicItem>, List<String>)> _readItems(
-    String definitionId,
+  /// Los elementos vivos que pasan el filtro y tienen algún valor de lo que
+  /// se mira, y aparte los que no tienen ninguno, con `valueIds` vacío. [sql]
+  /// es [mapItemsSql] o [mapSpaceItemsSql], con sus [variables].
+  Future<(List<TopicItem>, List<TopicItem>)> _readItems(
+    String sql,
+    List<Variable> variables,
     Set<String>? allowed,
   ) async {
     final rows = await _db
         .customSelect(
-          mapItemsSql,
-          variables: [Variable.withString(definitionId)],
+          sql,
+          variables: variables,
           readsFrom: mapTables(_db).toSet(),
         )
         .get();
     // Las columnas se toman de `data` y no con `read`: con miles de filas, la
-    // conversión tipada de cada columna era una parte grande del tiempo.
+    // conversión tipada de cada columna era una parte grande del tiempo. La
+    // fecha sí pasa por la conversión de drift, sin `read`: cómo se guarda un
+    // instante lo sabe la base, no esta consulta.
+    final types = _db.typeMapping;
+    final noteKind = ItemKind.note.name;
     final items = <TopicItem>[];
-    final unassigned = <String>[];
+    final unassigned = <TopicItem>[];
     for (final row in rows) {
       final data = row.data;
       final id = data['id'] as String;
       if (allowed != null && !allowed.contains(id)) continue;
       final valueIds = data['value_ids'] as String?;
-      if (valueIds == null) {
-        unassigned.add(id);
-        continue;
-      }
-      items.add(
-        TopicItem(id: id, valueIds: valueIds.split(mapValueIdSeparator)),
+      final item = TopicItem(
+        id: id,
+        valueIds: valueIds == null
+            ? const []
+            : valueIds.split(mapValueIdSeparator),
+        title: data['title'] as String,
+        isNote: data['kind'] == noteKind,
+        createdAt: types.read(DriftSqlType.dateTime, data['created_at']),
       );
+      (valueIds == null ? unassigned : items).add(item);
     }
     return (items, unassigned);
   }
 
-  /// Las relaciones entre dos elementos de [itemIds]: las que tienen un extremo
-  /// en la papelera, o que el filtro dejó afuera, se descartan acá.
-  Future<List<TopicRelation>> _readRelations(Set<String> itemIds) async {
+  /// Las relaciones entre dos elementos de [items] o de [unassigned]: las que
+  /// tienen un extremo en la papelera, o que el filtro dejó afuera, se
+  /// descartan acá.
+  Future<List<TopicRelation>> _readRelations(
+    List<TopicItem> items,
+    List<TopicItem> unassigned,
+  ) async {
+    final itemIds = {
+      for (final item in items) item.id,
+      for (final item in unassigned) item.id,
+    };
     final rows = await _db
         .customSelect(mapRelationsSql, readsFrom: mapTables(_db).toSet())
         .get();
+    final types = _db.typeMapping;
     final relations = <TopicRelation>[];
     for (final row in rows) {
       final data = row.data;
@@ -472,6 +507,7 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
           toItemId: to,
           kind: RelationKind.values.byName(data['kind'] as String),
           reviewed: data['reviewed'] == 1,
+          createdAt: types.read(DriftSqlType.dateTime, data['created_at']),
         ),
       );
     }
