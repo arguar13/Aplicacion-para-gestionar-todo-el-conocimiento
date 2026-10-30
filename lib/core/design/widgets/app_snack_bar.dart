@@ -116,6 +116,7 @@ class _NoticeBodyState extends State<_NoticeBody> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    CurvedAnimation? retired;
     // La del `SnackBar` que lo muestra: `ScaffoldMessenger` arma uno nuevo
     // con su animación (`withAnimation`), y ese es el que está arriba.
     final shown =
@@ -128,7 +129,7 @@ class _NoticeBodyState extends State<_NoticeBody> {
         MediaQuery.accessibleNavigationOf(context);
     if (!identical(shown, _shown) || still != _still) {
       _shown.removeStatusListener(_onStatus);
-      _presence?.dispose();
+      retired = _presence;
       _shown = shown..addStatusListener(_onStatus);
       _still = still;
       _presence = CurvedAnimation(
@@ -156,6 +157,9 @@ class _NoticeBodyState extends State<_NoticeBody> {
     _visible = TickerMode.valuesOf(context).enabled;
     _viewHeight = MediaQuery.sizeOf(context).height;
     _publish();
+    // La huella publicada sigue con la animación de antes hasta que se
+    // publique la nueva, al final del cuadro: recién después se suelta.
+    if (retired != null) _afterFrame(retired.dispose);
   }
 
   void _onStatus(AnimationStatus status) {

@@ -171,6 +171,25 @@ void main() {
     });
   }
 
+  testWidgets('si se apagan las animaciones con el aviso a la vista, sigue '
+      'arriba y vuelve igual', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('abrir'));
+    await tester.pumpAndSettle();
+    final up = floatingBottom(tester);
+
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await tester.pumpAndSettle();
+    expect(floatingBottom(tester), up);
+
+    await tester.tap(close);
+    await tester.pumpAndSettle();
+    expect(floatingBottom(tester), phone.height - 16);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('lo que ya está por encima del aviso no se mueve', (
     tester,
   ) async {
