@@ -2,8 +2,8 @@
 
 > **Estado: APROBADO** (2026-10-28, «aprobado» en el chat, con las ilustraciones con IA de la
 > decisión H y su aviso detallado —ver «H en detalle»—). **Construida** el 2026-10-29: los dieciséis
-> pasos y el cierre, con la decisión 89. **Mejoras M10 a M17 (29/10): propuestas, esperan
-> «aprobado».**
+> pasos y el cierre, con la decisión 89. **Mejoras M10 a M18: APROBADAS el 29/10**
+> («Aprobado» en el chat), en construcción.
 >
 > Pedido del dueño, con catorce capturas de NotebookLM (la pestaña «Studio», sus hojas de
 > personalizar y cinco resultados abiertos) y una de Repasar de hoy: *"vamos a cambiar eso para
@@ -686,6 +686,29 @@ actualizada"*.
 - **Sin cambios en la base**: el registro de repasos ya guarda la etapa, el intervalo y la
   facilidad de cada respuesta. El **tiempo** de cada respuesta no se guarda (decisión N).
 
+### M18. «Crear tarjetas con IA» se une a «Tarjetas didácticas»
+
+Pedido del 29/10, con dos capturas: *"Lo de la primera imagen (ubicado en la barra superior)
+integrarlo al botón que ya tenemos de crear tarjetas … así unificamos eso"*. Llegó junto con el
+«aprobado» del resto y entra con él.
+
+- **Hoy hay dos caminos para lo mismo:**
+  - el ✨ de la barra de Repasar (F30): elige de la Biblioteca (toda, un tema, una etiqueta o un
+    cuaderno) y le hace tarjetas a cada elemento en segundo plano;
+  - la tarjeta «Tarjetas didácticas» (F43): un mazo sobre lo elegido en el selector.
+- **Cambio:** el ✨ sale de la barra y su forma de trabajar pasa a la hoja de «Tarjetas
+  didácticas», con las fuentes del selector de Repasar, es decir, lo procesado (decisión D). La
+  etiqueta no está, porque es de la Biblioteca.
+- **Con varios documentos, la hoja pregunta «Cómo»:**
+  - **«Un mazo»**: lo de hoy, una creación en «Lo creado» con su visor (M13);
+  - **«Para cada documento»**: lo del ✨, cada documento recibe sus tarjetas en segundo plano, con
+    la cola de la IA, su aviso y «Lo que hizo la IA» para deshacer.
+- **Lo que se mantiene de F30:** la cuenta «Entran 60 documentos con texto · 52 ya tienen
+  tarjetas» y «También los que ya tienen tarjetas», que les hace otra tanda sin repetir preguntas.
+- Con un solo documento no hay pregunta: es un mazo, y sus tarjetas suman al repaso como siempre
+  (decisión F).
+- El aviso de cómo va el pedido (`AiFlashcardsBanner`) sigue arriba de Repasar.
+
 ## Decisiones (se pueden cambiar mientras no se llegue a su paso)
 
 - **A. Atlas se queda en Organizar**, junto a la Bandeja. El pedido no lo nombra entre los que
@@ -720,6 +743,8 @@ actualizada"*.
   registro no guarda cuánto tarda cada respuesta. Sumarlo es una columna nueva (esquema v49) en el
   registro y en sus tres censos, y solo daría cifras desde ese día. Se hace si el dueño lo pide;
   M17 no lo necesita.
+- **O. Una sola puerta para crear tarjetas con IA** (M18): la hoja de «Tarjetas didácticas».
+  «Para cada documento» es lo que hacía el ✨ de F30, sobre lo procesado.
 
 ## Pasos (cada uno, su commit y su push)
 
@@ -790,7 +815,7 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
     - la GUÍA, CONTEXTO y la suite entera;
     - la APK en el teléfono, si se pide.
 
-**Mejoras del 29/10 (M10 a M17), cuatro agentes en paralelo:**
+**Mejoras del 29/10 (M10 a M18, aprobadas el 29/10), cinco agentes en paralelo:**
 
 17. **Repasar** (M10, M12 y M14): el orden nuevo, las filas de lo que el recorte ya tenía y la
     fila de «Lo creado» con su fuente arriba.
@@ -801,6 +826,8 @@ Se construye en tres olas de agentes en paralelo, cada uno en su rama. Cada paso
 20. **Estadísticas e historial** (M16 y M17): una sola pantalla que sigue al selector, los
     gráficos nuevos con sus ejes, la retención real, el calendario legible y las difíciles de
     verdad (con el arreglo de la consulta).
+21. **Una sola puerta para las tarjetas con IA** (M18): «Cómo» en la hoja de «Tarjetas
+    didácticas», con lo de F30 sobre lo procesado, y fuera el ✨ de la barra.
 
 ## Lo que no entra (para que quede dicho)
 
