@@ -15863,5 +15863,7 @@
   "f47P1PodcastOnlyProcessed": "Processed only",
   "@f47P1PodcastOnlyProcessed": {"description": "F47, paso 1: el detalle de la ficha «Podcast», apagada, en un lector que no es de un documento procesado ni de lo creado (una nota, una fuente de la Biblioteca)."},
   "f47P1PodcastOnlyProcessedHint": "A podcast is made from a processed document: open it from Processed",
-  "@f47P1PodcastOnlyProcessedHint": {"description": "F47, paso 1: lo que dice el lector de pantalla de la ficha «Podcast», apagada."}
+  "@f47P1PodcastOnlyProcessedHint": {"description": "F47, paso 1: lo que dice el lector de pantalla de la ficha «Podcast», apagada."},
+  "f45S1CloseNotice": "Close notice",
+  "@f45S1CloseNotice": {"description": "F45, paso 1: lo que dice el lector de pantalla de la ✕ de un aviso de abajo, que lo cierra en el acto."}
 }

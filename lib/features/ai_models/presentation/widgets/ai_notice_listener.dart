@@ -207,10 +207,6 @@ class _AiNoticeListenerState extends ConsumerState<AiNoticeListener> {
             // que dice cada uno, también el que tiene el botón de las
             // cuentas: con botón, un aviso se quedaría para siempre.
             persist: rate,
-            // Todos con su ✕ (F43, M1), también los cortos: un aviso de la
-            // IA puede tapar lo que la persona está mirando, y no tiene por
-            // qué esperar a que se vaya.
-            showCloseIcon: true,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
             ),

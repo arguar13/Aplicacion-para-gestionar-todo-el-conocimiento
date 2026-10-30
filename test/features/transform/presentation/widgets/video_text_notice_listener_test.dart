@@ -50,15 +50,13 @@ void main() {
       find.text(es.f45S4ForeignCaptionsAudio(title, 'árabe', 'español')),
       findsOneWidget,
     );
-    // El aviso común (`AppSnackBar`): con la ✕, porque dura más que uno
-    // corto.
+    // El aviso común (`AppSnackBar`), con su ✕ como todos.
     final snack = tester.widget<SnackBar>(
       find.byKey(const Key('foreign-captions-notice')),
     );
-    expect(snack.showCloseIcon, isTrue);
     expect(snack.duration, kForeignCaptionsNoticeDuration);
 
-    await tester.tap(find.byIcon(Icons.close));
+    await tester.tap(find.byTooltip('Cerrar aviso'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('foreign-captions-notice')), findsNothing);
   });

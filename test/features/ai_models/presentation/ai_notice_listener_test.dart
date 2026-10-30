@@ -81,7 +81,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
-  Finder close() => find.byTooltip('Cerrar');
+  Finder close() => find.byTooltip('Cerrar aviso');
 
   RateLimitWaitNotice rateWait(int seconds, {AiAccount? of}) =>
       RateLimitWaitNotice(
