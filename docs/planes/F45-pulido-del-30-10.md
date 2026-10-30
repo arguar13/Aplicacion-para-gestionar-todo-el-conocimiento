@@ -12,11 +12,11 @@
 > - **ola 2**: F44 pasos 4 y 5 y F45 paso 5;
 > - **ola 3**: F45 paso 1, los avisos. Va solo al final porque toca los 179 avisos de toda la app.
 >
-> **Segunda tanda del 30/10 (mejoras 12 a 16), PARA APROBAR.** Pedido del dueño con siete
+> **Segunda tanda del 30/10 (mejoras 12 a 16): APROBADA** (2026-10-30, «Aprobado» en el chat, con las decisiones F a H como están). Pedido del dueño con siete
 > capturas: *"También quería agregar una mejora…"*. Entra como el paso 7, en la ola 2, después de
 > integrar los pasos 3 y 4: toca las mismas pantallas de Procesado y de la Biblioteca.
 >
-> **Tercera tanda del 30/10 (mejoras 17 a 19), PARA APROBAR.** Pedido del dueño con dos capturas
+> **Tercera tanda del 30/10 (mejoras 17 a 19): APROBADA** (2026-10-30, con la decisión I como está). Pedido del dueño con dos capturas
 > más y las notas en el texto. Entra como los pasos 7c (en la ola 2) y 8 (en la ola 3, sobre el
 > lector y el original ya unificados).
 
@@ -168,7 +168,7 @@ Hoy (F43): 16 plantillas y 12 diseños de diapositiva; 18 estilos y 10 composici
   - el mismo «personalizar» de colores, letras y fondo.
 - Todo cabe en el teléfono, se exporta a PNG y PDF como hoy y respeta claro y oscuro.
 
-## Segunda tanda del 30/10: las mejoras 12 a 16 (para aprobar)
+## Segunda tanda del 30/10: las mejoras 12 a 16
 
 ### 12. Un solo lector para el texto, el resumen y la síntesis (1.ª, 2.ª y 3.ª capturas)
 
@@ -253,7 +253,7 @@ Hoy (F43): 16 plantillas y 12 diseños de diapositiva; 18 estilos y 10 composici
   sale de la Biblioteca con la mejora 8 es la tarjeta «Estudiar el documento» del **detalle**: sus
   botones viven ahora adentro del original.
 
-## Tercera tanda del 30/10: las mejoras 17 a 19 (para aprobar)
+## Tercera tanda del 30/10: las mejoras 17 a 19
 
 ### 17. «49 elementos sin tema», en su lugar (1.ª captura)
 
