@@ -40,6 +40,7 @@ import 'package:sinapsis/features/reference/presentation/widgets/metadata_sugges
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/review_suggestions_action.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/suggestion_review_dialog.dart';
+import 'package:sinapsis/features/transform/presentation/widgets/foreign_video_text_offers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La Bandeja de entrada como un mazo de tarjetas: todo lo nuevo de la
@@ -530,7 +531,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     _current = item;
     _currentActions = actions;
 
-    return AnimatedSwitcher(
+    final card = AnimatedSwitcher(
       duration: const Duration(milliseconds: 180),
       child: _PendingItemCard(
         // Una tarjeta por fuente: el estado de la anterior —lo arrastrado, los
@@ -547,6 +548,14 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         onReviewSuggestions: (suggestions) =>
             _reviewSuggestions(item, suggestions),
       ),
+    );
+    // Los videos con el texto en otro idioma (F45, paso 4), para volver a
+    // extraerlos todos de una vez; el de la tarjeta lo ofrece ella.
+    return Column(
+      children: [
+        ForeignVideoTextsBanner.inbox(exceptSourceId: item.id),
+        Expanded(child: card),
+      ],
     );
   }
 
@@ -751,9 +760,12 @@ class _PendingItemCard extends ConsumerWidget {
                     // El texto como se lee, no su Markdown ni un
                     // reproductor; mientras no llega, qué le falta
                     // (F41).
-                    if (text.isReady)
-                      PendingExcerpt(item: item)
-                    else
+                    if (text.isReady) ...[
+                      PendingExcerpt(item: item),
+                      // Un video con el texto en otro idioma (F45,
+                      // paso 4).
+                      ForeignVideoTextNotice.inbox(sourceId: item.id),
+                    ] else
                       PendingTextStatus(item: item, text: text),
                     // «Ver completo», al pie del texto, como un enlace
                     // (F45).

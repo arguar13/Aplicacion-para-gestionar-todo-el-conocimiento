@@ -4,10 +4,12 @@ import 'dart:collection';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_queue_providers.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_text_refresh.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_tidy_providers.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
@@ -485,6 +487,14 @@ final processingQueueProvider =
           // La IA no lo organiza (F41, paso 6): una fuente de la Biblioteca
           // queda como consulta, y la IA organiza lo que la persona elija de
           // ella al triarla, en su documento procesado.
+          //
+          // Un video que se volvió a extraer desde Procesado (F45, paso 4):
+          // su texto nuevo va al documento.
+          if (item.source.kind == SourceKind.youtube) {
+            unawaited(
+              ref.read(processedTextRefreshProvider).afterProcessed(item),
+            );
+          }
         },
         onResume: () {
           unawaited(ref.read(aiOrganizeQueueProvider).start());

@@ -24,6 +24,7 @@ import 'package:sinapsis/features/processed/presentation/providers/processed_que
 import 'package:sinapsis/features/processed/presentation/retriage.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_document_card.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_section_presentation.dart';
+import 'package:sinapsis/features/transform/presentation/widgets/foreign_video_text_offers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// «Procesado» (F41): la información que se sacó de cada fuente al triarla,
@@ -150,6 +151,9 @@ class _ProcessedScreenState extends ConsumerState<ProcessedScreen> {
 
     return Column(
       children: [
+        // Los videos con el texto en otro idioma (F45, paso 4): volver a
+        // extraerlos todos de una vez.
+        if (!_selectionModeActive) const ForeignVideoTextsBanner.processed(),
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),

@@ -24,6 +24,7 @@ import 'package:sinapsis/features/processed/presentation/widgets/processed_secti
 import 'package:sinapsis/features/processed/presentation/widgets/processed_study_tools.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_text_pages.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/source_text_button.dart';
+import 'package:sinapsis/features/transform/presentation/widgets/foreign_video_text_offers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Un documento procesado abierto (F41): lo que se sacó de una fuente.
@@ -181,6 +182,8 @@ class _DocumentBodyState extends ConsumerState<_DocumentBody> {
           ],
           _SourceCard(document: document),
           const SizedBox(height: 12),
+          // Un video con el texto en otro idioma (F45, paso 4).
+          ForeignVideoTextNotice.processed(documentId: document.id),
           ProcessedOriginalSection(documentId: document.id),
           ProcessedAiLine(document: document),
           if (document.summary.isEmpty)
