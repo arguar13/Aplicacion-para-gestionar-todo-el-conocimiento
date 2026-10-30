@@ -4,6 +4,7 @@ import 'package:sinapsis/features/library/presentation/widgets/entity_presentati
 import 'package:sinapsis/features/map/domain/services/canvas_tree_builder.dart';
 import 'package:sinapsis/features/map/domain/services/schema_layout.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_tree.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_layers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Cuántas filas tiene la lista, como mucho: más que el dibujo, porque una
@@ -21,7 +22,7 @@ class MapCanvasList extends StatelessWidget {
     required this.tree,
     required this.topicKind,
     required this.onToggle,
-    required this.openOf,
+    required this.sheetOf,
     super.key,
   });
 
@@ -31,10 +32,9 @@ class MapCanvasList extends StatelessWidget {
   final String topicKind;
   final ValueChanged<CanvasTreeEntry> onToggle;
 
-  /// Cómo se abre —o en qué se entra— desde una fila, y con qué nombre;
-  /// `null` si no hay adónde.
-  final ({VoidCallback onOpen, String tooltip})? Function(CanvasTreeEntry)
-  openOf;
+  /// Cómo se abre la ficha de una fila (F44, paso 4), con las mismas acciones
+  /// que en el dibujo; `null` si no tiene.
+  final CanvasTreeSheet? Function(CanvasTreeEntry entry) sheetOf;
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +57,7 @@ class MapCanvasList extends StatelessWidget {
         parentTitle: tree.entries[rows[index].parentKey]?.title,
         topicKind: topicKind,
         onToggle: () => onToggle(rows[index]),
-        open: openOf(rows[index]),
+        sheet: sheetOf(rows[index]),
       ),
     );
   }
@@ -69,14 +69,14 @@ class _Row extends StatelessWidget {
     required this.parentTitle,
     required this.topicKind,
     required this.onToggle,
-    required this.open,
+    required this.sheet,
   });
 
   final CanvasTreeEntry entry;
   final String? parentTitle;
   final String topicKind;
   final VoidCallback onToggle;
-  final ({VoidCallback onOpen, String tooltip})? open;
+  final CanvasTreeSheet? sheet;
 
   @override
   Widget build(BuildContext context) {
@@ -91,20 +91,16 @@ class _Row extends StatelessWidget {
       leading: Icon(treeIconOf(entry), color: accent),
       title: Text(entry.title),
       subtitle: Text(_subtitle(l10n)),
-      onTap: entry.canExpand ? onToggle : open?.onOpen,
+      onTap: entry.canExpand ? onToggle : sheet?.onOpen,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (open case final open?)
+          if (sheet case final sheet?)
             IconButton(
-              key: ValueKey('map-list-open-${entry.key}'),
-              tooltip: open.tooltip,
-              icon: Icon(
-                entry.ref.kind == CanvasTreeKind.community
-                    ? Icons.zoom_in
-                    : Icons.open_in_new,
-              ),
-              onPressed: open.onOpen,
+              key: ValueKey('map-list-sheet-${entry.key}'),
+              tooltip: sheet.tooltip,
+              icon: const Icon(Icons.info_outline),
+              onPressed: sheet.onOpen,
             ),
           // Un solo nodo para el lector: el botón, con su nombre y si la fila
           // está desplegada.

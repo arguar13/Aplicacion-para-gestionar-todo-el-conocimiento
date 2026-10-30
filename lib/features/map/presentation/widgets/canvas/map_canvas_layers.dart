@@ -7,9 +7,9 @@ import 'package:sinapsis/features/map/presentation/widgets/map_edges_painter.dar
 import 'package:sinapsis/features/map/presentation/widgets/map_node_size.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Cómo se abre —o en qué se entra— desde un nodo del árbol o una fila de la
-/// lista, y con qué nombre; `null` si no hay adónde.
-typedef CanvasTreeOpen = ({VoidCallback onOpen, String tooltip});
+/// Cómo se abre la ficha de un nodo del árbol o de una fila de la lista (F44,
+/// paso 4), y con qué nombre; `null` si no tiene —todo, lo vinculado—.
+typedef CanvasTreeSheet = ({VoidCallback onOpen, String tooltip});
 
 /// La red del lienzo (F44, paso 2): las uniones en una capa compleja y estable
 /// y cada nodo en su lugar, con su nombre y lo que oye el lector de pantalla.
@@ -17,6 +17,10 @@ typedef CanvasTreeOpen = ({VoidCallback onOpen, String tooltip});
 /// No sabe de alturas ni de movimientos: [positions] es dónde está cada nodo
 /// ahora —su lugar o, durante un cambio de altura, el de ese instante— y
 /// [opacity], cuánto se ve todo junto mientras aparece o se recoge.
+///
+/// Tocar un nodo abre su ficha ([onSelect]); tocarlo dos veces baja una altura
+/// ([onEnter]), si la tiene. Con un foco (F44, paso 4), lo que queda fuera de
+/// su vecindario [lit] se dibuja apagado, en una sola capa.
 class MapNetworkLayer extends StatelessWidget {
   const MapNetworkLayer({
     required this.scene,
@@ -25,7 +29,9 @@ class MapNetworkLayer extends StatelessWidget {
     required this.topicKind,
     required this.labelScale,
     required this.onSelect,
-    this.highlight,
+    this.onEnter,
+    this.highlighted = const {},
+    this.lit,
     this.opacity,
     super.key,
   });
@@ -45,8 +51,16 @@ class MapNetworkLayer extends StatelessWidget {
   /// Tocar un nodo.
   final ValueChanged<SceneNode> onSelect;
 
-  /// La clave del nodo que se pidió mirar: lleva un anillo.
-  final String? highlight;
+  /// Tocar dos veces un nodo que junta algo —una comunidad, un tema—.
+  final ValueChanged<SceneNode>? onEnter;
+
+  /// Las claves de lo que se pidió mirar, lo que tiene la ficha abierta y lo
+  /// que está en el centro del foco: llevan un anillo.
+  final Set<String> highlighted;
+
+  /// Las posiciones en `scene.nodes` que quedan encendidas con el foco;
+  /// `null`, sin foco.
+  final Set<int>? lit;
 
   /// Cuánto se ve, de 0 a 1, en medio de un movimiento; `null` fuera de uno.
   final double? opacity;
@@ -64,18 +78,42 @@ class MapNetworkLayer extends StatelessWidget {
               scene: scene,
               positions: positions,
               colors: Theme.of(context).colorScheme,
+              lit: lit,
             ),
           ),
         ),
-        for (final node in scene.nodes)
-          if (positions[node.key] case final at?)
-            _placed(context, node, at, highlighted: node.key == highlight),
+        // Lo apagado, todo junto en una capa: una sola mezcla, no una por nodo.
+        if (lit != null)
+          Positioned.fill(
+            child: Opacity(
+              opacity: kMapDimmedOpacity,
+              child: Stack(children: _nodes(context, lit: false)),
+            ),
+          ),
+        ..._nodes(context, lit: true),
       ],
     );
     return switch (opacity) {
       final opacity? => Opacity(opacity: opacity, child: layer),
       null => layer,
     };
+  }
+
+  /// Los nodos encendidos —todos, sin foco— o, con [lit] en `false`, los
+  /// apagados.
+  List<Widget> _nodes(BuildContext context, {required bool lit}) {
+    final shown = this.lit;
+    return [
+      for (var i = 0; i < scene.nodes.length; i++)
+        if (shown == null ? lit : shown.contains(i) == lit)
+          if (positions[scene.nodes[i].key] case final at?)
+            _placed(
+              context,
+              scene.nodes[i],
+              at,
+              highlighted: highlighted.contains(scene.nodes[i].key),
+            ),
+    ];
   }
 
   Widget _placed(
@@ -113,6 +151,11 @@ class MapNetworkLayer extends StatelessWidget {
           key: ValueKey('map-node-${node.key}'),
           behavior: HitTestBehavior.opaque,
           onTap: () => onSelect(node),
+          // Un documento no tiene adónde bajar: sin doble toque, su ficha se
+          // abre en el acto.
+          onDoubleTap: onEnter == null || !_canEnter(node)
+              ? null
+              : () => onEnter!(node),
           child: MapNetworkNode(
             node: node,
             label: label,
@@ -126,9 +169,18 @@ class MapNetworkLayer extends StatelessWidget {
   }
 }
 
+/// Si [node] tiene una altura más cerca a la que bajar.
+bool _canEnter(SceneNode node) => switch (node.kind) {
+  SceneKind.community ||
+  SceneKind.overflow ||
+  SceneKind.isolated ||
+  SceneKind.topic => true,
+  SceneKind.note || SceneKind.source => false,
+};
+
 /// Radial y Árbol en el lienzo (F44, paso 2): las uniones de cada nodo con su
 /// padre —con el tipo de vínculo y su flecha— y la tarjeta de cada nodo, que
-/// se despliega con [onToggle] y se abre con [openOf].
+/// se despliega con [onToggle] y abre su ficha con [sheetOf].
 ///
 /// Como [MapNetworkLayer], recibe ya puesto lo que se mueve: [positions] y
 /// [opacity].
@@ -138,8 +190,8 @@ class MapTreeLayer extends StatelessWidget {
     required this.positions,
     required this.topicKind,
     required this.onToggle,
-    required this.openOf,
-    this.highlight,
+    required this.sheetOf,
+    required this.isHighlighted,
     this.opacity,
     super.key,
   });
@@ -150,10 +202,11 @@ class MapTreeLayer extends StatelessWidget {
   /// Qué es un tema acá: ver `topicSelectKind`.
   final String topicKind;
   final ValueChanged<CanvasTreeEntry> onToggle;
-  final CanvasTreeOpen? Function(CanvasTreeEntry entry) openOf;
+  final CanvasTreeSheet? Function(CanvasTreeEntry entry) sheetOf;
 
-  /// La clave, en la escena, del documento que se pidió mirar.
-  final String? highlight;
+  /// Si la tarjeta lleva el borde de lo que se pidió mirar o tiene la ficha
+  /// abierta.
+  final bool Function(CanvasTreeEntry entry) isHighlighted;
 
   /// Cuánto se ve, de 0 a 1, en medio de un movimiento; `null` fuera de uno.
   final double? opacity;
@@ -184,16 +237,14 @@ class MapTreeLayer extends StatelessWidget {
               height: kTreeNodeSize.height,
               child: Builder(
                 builder: (context) {
-                  final open = openOf(entry);
+                  final sheet = sheetOf(entry);
                   return MapTreeNodeCard(
                     entry: entry,
                     topicKind: topicKind,
                     onToggle: () => onToggle(entry),
-                    onOpen: open?.onOpen,
-                    openTooltip: open?.tooltip,
-                    highlighted:
-                        entry.ref.kind == CanvasTreeKind.item &&
-                        highlight == 'item:${entry.ref.id}',
+                    onSheet: sheet?.onOpen,
+                    sheetTooltip: sheet?.tooltip,
+                    highlighted: isHighlighted(entry),
                   );
                 },
               ),

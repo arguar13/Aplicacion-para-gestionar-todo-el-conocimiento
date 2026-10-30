@@ -35,14 +35,15 @@ enum MapArrangement {
 
 /// Un pedido de mirar algo en el lienzo del Mapa (F44, paso 2): lo deja quien
 /// quiere llevar ahí —«Ver en el Mapa» al vincular, una fila o una cifra del
-/// Resumen, y en la ola 2 la búsqueda— y lo toma el lienzo, que lo vuelve a
+/// Resumen y, en el paso 5, la búsqueda— y lo toma el lienzo, que lo vuelve a
 /// `null` al atenderlo. La pantalla, además, pasa a la pestaña Mapa.
 sealed class MapCanvasRequest {
   const MapCanvasRequest();
 }
 
-/// Los documentos vinculados entre sí, con [focusId] —si viene— resaltado y
-/// encuadrado junto a sus vecinos: lo que era la vista «Vínculos» (F28).
+/// Los documentos vinculados entre sí, con [focusId] —si viene— resaltado,
+/// encuadrado junto a sus vecinos y con su ficha abierta (F44, paso 4): lo
+/// que era la vista «Vínculos» (F28).
 final class MapShowLinks extends MapCanvasRequest {
   const MapShowLinks({this.focusId});
 
@@ -57,12 +58,23 @@ final class MapShowAltitude extends MapCanvasRequest {
   final MapAltitude altitude;
 }
 
-/// Un tema entre los suyos: los temas de su comunidad, con él resaltado y
-/// encuadrado junto a sus vecinos.
+/// Un tema entre los suyos: los temas de su comunidad, con él resaltado,
+/// encuadrado junto a sus vecinos y con su ficha abierta.
 final class MapShowTopic extends MapCanvasRequest {
   const MapShowTopic(this.valueId);
 
   final String valueId;
+}
+
+/// Un documento en su lugar (F44, paso 4): los documentos de su tema —el del
+/// índice del motor (`insights.search`)—, con él resaltado y su ficha
+/// abierta. Es como vuela al Mapa un documento sin vínculos, que entre lo
+/// vinculado no estaría. Sin tema, lo vinculado con él en foco: su lugar es la
+/// burbuja «Sin tema», que es una capa del paso 5.
+final class MapShowDocument extends MapCanvasRequest {
+  const MapShowDocument(this.itemId);
+
+  final String itemId;
 }
 
 /// El pedido pendiente para el lienzo del Mapa, si hay uno.

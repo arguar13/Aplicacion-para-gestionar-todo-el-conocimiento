@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,7 @@ import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
@@ -38,6 +40,13 @@ class _FakeRepository implements KnowledgeMapRepository {
   final links = <String, List<SchemaLink>>{};
   final mapNotes = <SchemaLink>[];
 
+  /// Lo que trae cada tema: Livio y la nota que lo cita, salvo que una prueba
+  /// diga otra cosa.
+  List<TopicItemNode> items = const [
+    TopicItemNode(id: 'i1', title: 'Livio', isNote: false),
+    TopicItemNode(id: 'i2', title: 'Mi nota', isNote: true),
+  ];
+
   @override
   Future<TopicItemsGraph> readTopicItems(
     String valueId, {
@@ -48,10 +57,7 @@ class _FakeRepository implements KnowledgeMapRepository {
     requested.add(valueId);
     return TopicItemsGraph(
       valueId: valueId,
-      items: const [
-        TopicItemNode(id: 'i1', title: 'Livio', isNote: false),
-        TopicItemNode(id: 'i2', title: 'Mi nota', isNote: true),
-      ],
+      items: items,
       edges: const [TopicItemEdge(a: 1, b: 0, kind: RelationKind.cites)],
       truncated: false,
     );
@@ -102,7 +108,13 @@ void main() {
   final es = AppLocalizationsEs();
   late _FakeRepository repository;
   final opened = <String>[];
+  final asked = <String>[];
+  final studied = <CreationScope>[];
   final linkRequests = <MapLinksRequest>[];
+
+  /// Cuántas veces se acomodó una escena: abrir una ficha o centrar no
+  /// acomoda nada.
+  var layouts = 0;
   late ProviderContainer container;
 
   /// Dos comunidades de temas muy unidos entre sí —Alfa, de [alfaSize], y
@@ -224,6 +236,8 @@ void main() {
           exportHandle: handle,
           onOpenTopic: (id) => opened.add('topic:$id'),
           onOpenItem: (id) => opened.add('item:$id'),
+          onAsk: asked.add,
+          onStudy: studied.add,
         ),
       ),
     ),
@@ -260,6 +274,29 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Dos toques seguidos: bajar una altura en una comunidad o un tema (F44,
+  /// paso 4). Un toque solo abre la ficha.
+  Future<void> doubleTap(WidgetTester tester, Finder finder) async {
+    await tester.tap(finder);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(finder);
+  }
+
+  Future<void> enter(WidgetTester tester, Finder finder) async {
+    await doubleTap(tester, finder);
+    await tester.pumpAndSettle();
+  }
+
+  /// Un toque, y lo que tarda en saberse que no era el primero de dos.
+  Future<void> select(WidgetTester tester, Finder finder) async {
+    await tester.tap(finder);
+    await tester.pump(kDoubleTapTimeout);
+    await tester.pumpAndSettle();
+  }
+
+  final sheet = find.byKey(const ValueKey('map-sheet'));
+  Finder action(String id) => find.byKey(ValueKey('map-sheet-$id'));
+
   Future<void> arrange(WidgetTester tester, IconData icon) => tapAndSettle(
     tester,
     find.descendant(
@@ -271,14 +308,18 @@ void main() {
   setUp(() {
     repository = _FakeRepository();
     opened.clear();
+    asked.clear();
+    studied.clear();
+    layouts = 0;
     linkRequests.clear();
     handle = null;
     container = ProviderContainer(
       overrides: [
         knowledgeMapRepositoryProvider.overrideWithValue(repository),
-        mapLayoutRunnerProvider.overrideWithValue(
-          (job) async => runLayout(job),
-        ),
+        mapLayoutRunnerProvider.overrideWithValue((job) async {
+          layouts++;
+          return runLayout(job);
+        }),
         mapLinksProvider.overrideWith((ref, request) {
           linkRequests.add(request);
           return Stream.value(linkGraph(request));
@@ -306,7 +347,7 @@ void main() {
       expect(node('overview:0'), findsOneWidget);
       expect(node('overview:1'), findsOneWidget);
       expect(node('overview:2'), findsOneWidget);
-      expect(find.text(es.mapGraphHint), findsOneWidget);
+      expect(find.text(es.f44S4CanvasHint), findsOneWidget);
       expect(crumb('overview'), findsOneWidget);
       expect(find.text(es.f44S2CrumbAll), findsOneWidget);
       expect(crumb('topics'), findsNothing);
@@ -323,7 +364,7 @@ void main() {
         find.descendant(of: node('overview:0'), matching: find.text(alfa)),
         findsOneWidget,
       );
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
       expect(
         find.descendant(of: crumb('topics'), matching: find.text(alfa)),
         findsOneWidget,
@@ -337,12 +378,11 @@ void main() {
       );
     });
 
-    testWidgets('tocar una comunidad muestra sus temas, y la miga vuelve', (
-      tester,
-    ) async {
+    testWidgets('tocar dos veces una comunidad muestra sus temas, y la miga '
+        'vuelve', (tester) async {
       await pump(tester);
 
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
 
       for (final id in ['a1', 'a2', 'a3', 'a4']) {
         expect(node('topic:$id'), findsOneWidget);
@@ -371,7 +411,7 @@ void main() {
 
       expect(degree, findsNothing);
 
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
       expect(tester.widget<ChoiceChip>(chip('1')).selected, isTrue);
 
       await tapAndSettle(tester, chip('0'));
@@ -385,12 +425,12 @@ void main() {
       expect(node('topic:b3'), findsOneWidget);
     });
 
-    testWidgets('tocar un tema despliega sus documentos alrededor, y tocar un '
-        'documento lo abre', (tester) async {
+    testWidgets('tocar dos veces un tema despliega sus documentos alrededor, y '
+        'un documento se abre desde su ficha', (tester) async {
       await pump(tester);
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
 
-      await tapAndSettle(tester, node('topic:a1'));
+      await enter(tester, node('topic:a1'));
 
       expect(repository.requested, ['a1']);
       expect(node('item:i1'), findsOneWidget);
@@ -400,16 +440,19 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(node('item:i1'));
+      // Un documento no baja a ninguna parte: un toque abre su ficha.
+      await tapAndSettle(tester, node('item:i1'));
+      expect(opened, isEmpty);
+      await tapAndSettle(tester, action('open'));
       expect(opened, ['item:i1']);
     });
 
     testWidgets('con los documentos de un tema, «Ver el material» abre el '
         'tema, y la miga vuelve a los temas', (tester) async {
       await pump(tester);
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
       expect(find.byKey(const ValueKey('map-open-topic')), findsNothing);
-      await tapAndSettle(tester, node('topic:a2'));
+      await enter(tester, node('topic:a2'));
 
       await tapAndSettle(tester, find.byKey(const ValueKey('map-open-topic')));
       expect(opened, ['topic:a2']);
@@ -429,8 +472,8 @@ void main() {
       expect(suggest, findsNothing);
       expect(add, findsOneWidget);
 
-      await tapAndSettle(tester, node('overview:0'));
-      await tapAndSettle(tester, node('topic:a1'));
+      await enter(tester, node('overview:0'));
+      await enter(tester, node('topic:a1'));
 
       expect(suggest, findsOneWidget);
       expect(add, findsOneWidget);
@@ -477,7 +520,7 @@ void main() {
 
     testWidgets('alejarse mucho vuelve a la altura anterior', (tester) async {
       await pump(tester);
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
       expect(node('topic:a1'), findsOneWidget);
 
       zoom(tester, kZoomOutThreshold - 0.1);
@@ -642,7 +685,7 @@ void main() {
       await pump(tester);
       final bubble = tester.getCenter(node('overview:0'));
 
-      await tester.tap(node('overview:0'));
+      await doubleTap(tester, node('overview:0'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 30));
       final early = tester.getCenter(node('topic:a1'));
@@ -667,7 +710,7 @@ void main() {
     testWidgets('al subir, lo que se miraba se recoge antes de que aparezcan '
         'las comunidades', (tester) async {
       await pump(tester);
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
 
       await tester.tap(crumb('overview'));
       await tester.pump();
@@ -699,7 +742,7 @@ void main() {
       );
       await pump(tester);
 
-      await tester.tap(node('overview:0'));
+      await doubleTap(tester, node('overview:0'));
       await tester.pump();
       await tester.pump();
       final first = tester.getCenter(node('topic:a1'));
@@ -802,8 +845,8 @@ void main() {
   testWidgets('una fuente y una nota se dibujan distinto, con la forma y el '
       'color de su rol', (tester) async {
     await pump(tester);
-    await tapAndSettle(tester, node('overview:0'));
-    await tapAndSettle(tester, node('topic:a1'));
+    await enter(tester, node('overview:0'));
+    await enter(tester, node('topic:a1'));
     final scheme = Theme.of(tester.element(find.text('Livio'))).colorScheme;
 
     BoxDecoration decorationOf(String title) =>
@@ -858,7 +901,7 @@ void main() {
       tester,
     ) async {
       await pump(tester);
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
       final normal = fontOf(tester, 'topic:a1', 'Alfa 1');
 
       zoom(tester, 0.4);
@@ -874,7 +917,7 @@ void main() {
       tester,
     ) async {
       await pump(tester, snapshot(isolatedTopics: 3));
-      await tapAndSettle(tester, node('overview:2'));
+      await enter(tester, node('overview:2'));
       expect(find.text('Solo 000'), findsOneWidget);
 
       zoom(tester, 0.25);
@@ -888,7 +931,7 @@ void main() {
     testWidgets('se queda a la misma altura, con los mismos nodos casi donde '
         'estaban', (tester) async {
       await pump(tester);
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
       final before = tester.getCenter(node('topic:a1'));
 
       await tester.pumpWidget(app(snapshot(sequence: 2)));
@@ -906,7 +949,7 @@ void main() {
       tester,
     ) async {
       await pump(tester);
-      await tapAndSettle(tester, node('overview:1'));
+      await enter(tester, node('overview:1'));
       expect(node('topic:b1'), findsOneWidget);
 
       await tester.pumpWidget(app(snapshot(sequence: 2, withBeta: false)));
@@ -924,7 +967,7 @@ void main() {
       // 320 temas sin ninguna unión: las comunidades los juntan en un nodo, y
       // al abrirlo caben 300.
       await pump(tester, snapshot(isolatedTopics: 320));
-      await tapAndSettle(tester, node('overview:2'));
+      await enter(tester, node('overview:2'));
 
       expect(find.byKey(const ValueKey('map-cut')), findsOneWidget);
       expect(find.text(es.mapGraphTopicsCut(300, 320)), findsOneWidget);
@@ -932,7 +975,7 @@ void main() {
 
     testWidgets('con pocos temas no hay aviso', (tester) async {
       await pump(tester);
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
 
       expect(find.byKey(const ValueKey('map-cut')), findsNothing);
       expect(find.byKey(const ValueKey('map-edges-cut')), findsNothing);
@@ -941,7 +984,7 @@ void main() {
     testWidgets('más uniones que las que se dibujan: se quedan las más '
         'fuertes de cada tema y avisa', (tester) async {
       await pump(tester, snapshot(alfaSize: 12));
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
 
       expect(find.byKey(const ValueKey('map-edges-cut')), findsOneWidget);
       for (var i = 1; i <= 12; i++) {
@@ -988,15 +1031,20 @@ void main() {
       );
     });
 
-    testWidgets('el botón de una comunidad entra en ella, con sus temas '
-        'alrededor de la comunidad', (tester) async {
+    testWidgets('el botón de una comunidad abre su ficha, y «Entrar» entra en '
+        'ella, con sus temas alrededor de la comunidad', (tester) async {
       await pump(tester);
       await arrange(tester, Icons.radar);
 
       await tapAndSettle(
         tester,
-        find.byKey(const ValueKey('map-tree-open-community:0')),
+        find.byKey(const ValueKey('map-tree-sheet-community:0')),
       );
+      expect(
+        find.descendant(of: sheet, matching: find.text(alfa)),
+        findsOneWidget,
+      );
+      await tapAndSettle(tester, action('enter'));
 
       expect(crumb('topics'), findsOneWidget);
       expect(card('community:focus'), findsOneWidget);
@@ -1026,8 +1074,8 @@ void main() {
           ),
         ];
       await pump(tester);
-      await tapAndSettle(tester, node('overview:0'));
-      await tapAndSettle(tester, node('topic:a1'));
+      await enter(tester, node('overview:0'));
+      await enter(tester, node('topic:a1'));
 
       await arrange(tester, Icons.radar);
 
@@ -1058,22 +1106,32 @@ void main() {
       expect(painter.labelOf(note), es.mapSchemaEdgeMapNote);
     });
 
-    testWidgets('un nodo sin nada que desplegar se abre al tocarlo, y el botón '
-        'de cada uno abre el tema o el documento', (tester) async {
+    testWidgets('un nodo sin nada que desplegar abre su ficha al tocarlo, y el '
+        'botón de cada uno, también', (tester) async {
       await pump(tester);
-      await tapAndSettle(tester, node('overview:0'));
-      await tapAndSettle(tester, node('topic:a1'));
+      await enter(tester, node('overview:0'));
+      await enter(tester, node('topic:a1'));
       await arrange(tester, Icons.radar);
       // i1 no tiene vínculos que traer: al pedirlos, viene vacío.
       await tapAndSettle(tester, card('item:i1'));
 
       await tapAndSettle(tester, card('item:i1'));
+      expect(
+        find.descendant(of: sheet, matching: find.text('Livio')),
+        findsOneWidget,
+      );
+      await tapAndSettle(tester, action('open'));
       expect(opened, ['item:i1']);
 
       await tapAndSettle(
         tester,
-        find.byKey(const ValueKey('map-tree-open-topic:a1')),
+        find.byKey(const ValueKey('map-tree-sheet-topic:a1')),
       );
+      expect(
+        find.descendant(of: sheet, matching: find.text('Alfa 1')),
+        findsOneWidget,
+      );
+      await tapAndSettle(tester, action('open'));
       expect(opened.last, 'topic:a1');
     });
 
@@ -1173,10 +1231,12 @@ void main() {
       expect(repository.requested, ['a1']);
       expect(row('item:i1'), findsOneWidget);
 
+      // Las mismas acciones de la ficha.
       await tapAndSettle(
         tester,
-        find.byKey(const ValueKey('map-list-open-item:i1')),
+        find.byKey(const ValueKey('map-list-sheet-item:i1')),
       );
+      await tapAndSettle(tester, action('open'));
       expect(opened, ['item:i1']);
     });
 
@@ -1192,8 +1252,8 @@ void main() {
         ),
       ];
       await pump(tester);
-      await tapAndSettle(tester, node('overview:0'));
-      await tapAndSettle(tester, node('topic:a1'));
+      await enter(tester, node('overview:0'));
+      await enter(tester, node('topic:a1'));
       await tapAndSettle(tester, find.byKey(const ValueKey('map-as-list')));
 
       await tapAndSettle(tester, toggle('item:i2'));
@@ -1216,8 +1276,9 @@ void main() {
 
       await tapAndSettle(
         tester,
-        find.byKey(const ValueKey('map-list-open-community:1')),
+        find.byKey(const ValueKey('map-list-sheet-community:1')),
       );
+      await tapAndSettle(tester, action('enter'));
 
       expect(crumb('topics'), findsOneWidget);
       expect(row('community:focus'), findsOneWidget);
@@ -1302,7 +1363,7 @@ void main() {
     testWidgets('«Todo» en las migas apaga los vínculos y vuelve a las '
         'comunidades', (tester) async {
       await pump(tester);
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
       await tapAndSettle(tester, toggle);
 
       await tapAndSettle(tester, crumb('overview'));
@@ -1394,6 +1455,481 @@ void main() {
     });
   });
 
+  group('la ficha y el foco (F44, paso 4)', () {
+    String sheetTitle(WidgetTester tester) => tester
+        .widget<Text>(find.byKey(const ValueKey('map-sheet-title')))
+        .data!;
+
+    bool ringed(WidgetTester tester, String key) => tester
+        .widget<MapNetworkNode>(
+          find.descendant(of: node(key), matching: find.byType(MapNetworkNode)),
+        )
+        .highlighted;
+
+    /// Lo que el foco apaga: los nodos en la capa de lo de afuera.
+    final dimmedLayer = find.byWidgetPredicate(
+      (w) => w is Opacity && w.opacity == kMapDimmedOpacity,
+    );
+    Finder dimmed(String key) =>
+        find.descendant(of: dimmedLayer, matching: node(key));
+
+    testWidgets('tocar una comunidad abre su ficha abajo, sin bajar de altura '
+        'ni acomodar ni leer nada', (tester) async {
+      await pump(tester);
+      final before = layouts;
+
+      await select(tester, node('overview:0'));
+
+      expect(sheet, findsOneWidget);
+      expect(sheetTitle(tester), alfa);
+      // Veinticuatro documentos, de a dos temas; el único vínculo sale de
+      // ella hacia Beta.
+      expect(
+        find.text(
+          '${es.f44S4Documents(24)} · ${es.mapTopicCount('spaces', 4)} · '
+          '${es.f44S4Links(0)}',
+        ),
+        findsOneWidget,
+      );
+      final topics = tester
+          .widget<Text>(find.byKey(const ValueKey('map-sheet-topics')))
+          .data!;
+      for (final name in ['Alfa 1', 'Alfa 2', 'Alfa 3', 'Alfa 4']) {
+        expect(topics, contains(name));
+      }
+      expect(
+        find.byKey(const ValueKey('map-sheet-neighbor-overview:1')),
+        findsOneWidget,
+      );
+      // Sigue de lejos, con el anillo en la que se tocó.
+      expect(crumb('topics'), findsNothing);
+      expect(node('overview:1'), findsOneWidget);
+      expect(ringed(tester, 'overview:0'), isTrue);
+      expect(ringed(tester, 'overview:1'), isFalse);
+      // Abrirla no recalcula nada: ni el layout, ni la base, ni los vínculos.
+      expect(layouts, before);
+      expect(repository.requested, isEmpty);
+      expect(repository.schemaRequested, isEmpty);
+      expect(linkRequests, isEmpty);
+      // En una comunidad se entra; no se abre ni se estudia.
+      expect(action('enter'), findsOneWidget);
+      expect(action('center'), findsOneWidget);
+      expect(action('ask'), findsOneWidget);
+      expect(action('open'), findsNothing);
+      expect(action('study'), findsNothing);
+      expect(action('link'), findsNothing);
+
+      await tapAndSettle(tester, find.byKey(const ValueKey('map-sheet-close')));
+      expect(sheet, findsNothing);
+      expect(ringed(tester, 'overview:0'), isFalse);
+    });
+
+    testWidgets('«Entrar» baja una altura, como tocar dos veces, y la ficha se '
+        'cierra', (tester) async {
+      await pump(tester);
+      await select(tester, node('overview:0'));
+
+      await tapAndSettle(tester, action('enter'));
+
+      expect(crumb('topics'), findsOneWidget);
+      expect(node('topic:a1'), findsOneWidget);
+      expect(sheet, findsNothing);
+
+      await select(tester, node('topic:a1'));
+      expect(sheetTitle(tester), 'Alfa 1');
+      await tapAndSettle(tester, action('enter'));
+
+      expect(node('item:i1'), findsOneWidget);
+      expect(repository.requested, ['a1']);
+      expect(sheet, findsNothing);
+    });
+
+    testWidgets('un tema: sus documentos, con cuántos se une, Abrir, Estudiar '
+        'con él en el selector y Preguntar al chat con la pregunta hecha', (
+      tester,
+    ) async {
+      await pump(tester);
+      await enter(tester, node('overview:0'));
+      await select(tester, node('topic:a1'));
+
+      // Doce documentos con los otros tres de Alfa; Beta 1 y Beta 2, por el
+      // vínculo de uno de ellos.
+      expect(
+        find.text(
+          '${es.f44S4Documents(12)} · ${es.f44S4JoinedTopics('spaces', 5)}',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(es.f44S4Within(alfa)), findsOneWidget);
+      for (final id in ['a2', 'a3', 'a4']) {
+        expect(
+          find.byKey(ValueKey('map-sheet-neighbor-topic:$id')),
+          findsOneWidget,
+        );
+      }
+
+      await tapAndSettle(tester, action('open'));
+      await tapAndSettle(tester, action('study'));
+      await tapAndSettle(tester, action('ask'));
+
+      expect(opened, ['topic:a1']);
+      // Los temas de este mapa son espacios (F37).
+      expect(studied, [const CreationScope.space('a1')]);
+      expect(asked, [
+        es.f44S4AskAboutWith(
+          1,
+          'Alfa 1',
+          es.f44S4ListAnd('Alfa 2, Alfa 3', 'Alfa 4'),
+        ),
+      ]);
+    });
+
+    testWidgets('un documento: su ficha se abre en el acto, con qué se lo ve '
+        'vinculado, Abrir, Estudiar, Preguntar, Vincular y Ver sus vínculos', (
+      tester,
+    ) async {
+      await pump(tester);
+      await enter(tester, node('overview:0'));
+      await enter(tester, node('topic:a1'));
+      final before = layouts;
+
+      // No tiene adónde bajar: no hay doble toque que esperar.
+      await tester.tap(node('item:i1'));
+      await tester.pump();
+
+      expect(sheetTitle(tester), 'Livio');
+      expect(
+        find.text('${es.mapSchemaNodeSource} · ${es.f44S4LinksShown(1)}'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('map-sheet-neighbor-item:i2')),
+        findsOneWidget,
+      );
+      expect(action('enter'), findsNothing);
+      expect(action('link'), findsOneWidget);
+      expect(layouts, before);
+
+      await tapAndSettle(tester, action('open'));
+      await tapAndSettle(tester, action('study'));
+      await tapAndSettle(tester, action('ask'));
+      expect(opened, ['item:i1']);
+      expect(studied, [const CreationScope.document('i1')]);
+      expect(asked, [es.f44S4AskDocumentWith('Livio', 'Mi nota')]);
+
+      await tapAndSettle(tester, action('see-links'));
+      expect(linkRequests.last.focusId, 'i1');
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const ValueKey('map-links-toggle')))
+            .isSelected,
+        isTrue,
+      );
+    });
+
+    testWidgets('un vecino dibujado: su ficha, ahí mismo', (tester) async {
+      await pump(tester);
+      await select(tester, node('overview:0'));
+
+      await tapAndSettle(
+        tester,
+        find.byKey(const ValueKey('map-sheet-neighbor-overview:1')),
+      );
+
+      expect(sheetTitle(tester), startsWith('Beta'));
+      expect(ringed(tester, 'overview:1'), isTrue);
+      expect(crumb('topics'), findsNothing);
+    });
+
+    testWidgets('el tema de un documento, en su ficha, lleva a él entre los de '
+        'su comunidad', (tester) async {
+      repository.items = const [
+        TopicItemNode(id: 'x-a1-a2-0', title: 'Primero', isNote: false),
+        TopicItemNode(id: 'i2', title: 'Mi nota', isNote: true),
+      ];
+      final map = snapshot();
+      final place = map.insights.search.document('x-a1-a2-0')!.topicValueId!;
+      await pump(tester, map);
+      await enter(tester, node('overview:0'));
+      await enter(tester, node('topic:a1'));
+      await tapAndSettle(tester, node('item:x-a1-a2-0'));
+
+      await tapAndSettle(tester, find.byKey(const ValueKey('map-sheet-place')));
+
+      expect(crumb('documents'), findsNothing);
+      expect(crumb('topics'), findsOneWidget);
+      expect(ringed(tester, 'topic:$place'), isTrue);
+      expect(sheetTitle(tester), 'Alfa ${place.substring(1)}');
+    });
+
+    testWidgets('«Centrar aquí»: el nodo en el medio, su vecindario según el '
+        '«Grado» y el resto apagado, sin acomodar nada', (tester) async {
+      await pump(tester);
+      await enter(tester, node('overview:0'));
+      await select(tester, node('topic:a3'));
+      final before = layouts;
+
+      await tapAndSettle(tester, action('center'));
+
+      // Alfa 3 se une con los de su comunidad; con los de Beta, no.
+      expect(dimmed('topic:a3'), findsNothing);
+      expect(dimmed('topic:a1'), findsNothing);
+      expect(dimmed('topic:b1'), findsOneWidget);
+      expect(layouts, before);
+      expect(
+        (tester.getCenter(node('topic:a3')) - tester.getCenter(canvas))
+            .distance,
+        lessThan(1),
+      );
+      expect(
+        find.descendant(of: crumb('focus'), matching: find.text('Alfa 3')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('map-focus')), findsOneWidget);
+      expect(action('exit-focus'), findsOneWidget);
+      expect(action('center'), findsNothing);
+
+      // Grado 0: solo él.
+      await tapAndSettle(
+        tester,
+        find.descendant(
+          of: find.byKey(const ValueKey('map-degree')),
+          matching: find.widgetWithText(ChoiceChip, '0'),
+        ),
+      );
+      expect(dimmed('topic:a1'), findsOneWidget);
+      expect(dimmed('topic:a3'), findsNothing);
+
+      // La miga de la altura sale del foco: todo encendido otra vez.
+      await tapAndSettle(tester, crumb('topics'));
+      expect(dimmedLayer, findsNothing);
+      expect(crumb('focus'), findsNothing);
+      expect(find.byKey(const ValueKey('map-focus')), findsNothing);
+      expect(node('topic:a1'), findsOneWidget);
+    });
+
+    testWidgets('de lejos, centrar una comunidad apaga las que no se unen con '
+        'ella, y la ✕ del foco lo deja', (tester) async {
+      await pump(tester);
+      await select(tester, node('overview:1'));
+
+      await tapAndSettle(tester, action('center'));
+
+      expect(dimmed('overview:0'), findsNothing);
+      expect(dimmed('overview:2'), findsOneWidget);
+      // Con un foco, el «Grado» también está de lejos.
+      expect(find.byKey(const ValueKey('map-degree')), findsOneWidget);
+
+      await tapAndSettle(tester, find.byTooltip(es.f44S4ExitFocus));
+      expect(dimmedLayer, findsNothing);
+      expect(find.byKey(const ValueKey('map-degree')), findsNothing);
+    });
+
+    testWidgets('en radial, el nodo centrado es la raíz; «Salir del foco» '
+        'vuelve a lo que se mira', (tester) async {
+      await pump(tester);
+      await arrange(tester, Icons.radar);
+      await tapAndSettle(
+        tester,
+        find.byKey(const ValueKey('map-tree-sheet-community:1')),
+      );
+
+      await tapAndSettle(tester, action('center'));
+
+      expect(card('all:'), findsNothing);
+      expect(card('community:1'), findsOneWidget);
+      expect(card('topic:b1'), findsOneWidget);
+      // Centrar no cambia de altura, y en radial se despliega nodo a nodo:
+      // no hay «Grado».
+      expect(crumb('topics'), findsNothing);
+      expect(find.byKey(const ValueKey('map-degree')), findsNothing);
+
+      await tapAndSettle(tester, action('exit-focus'));
+      expect(card('all:'), findsOneWidget);
+      expect(card('community:1'), findsOneWidget);
+    });
+
+    testWidgets('«Centrar aquí» sobre lo que no se dibuja lo trae primero', (
+      tester,
+    ) async {
+      await pump(tester);
+      await arrange(tester, Icons.radar);
+      await tapAndSettle(tester, card('community:0'));
+      await tapAndSettle(
+        tester,
+        find.byKey(const ValueKey('map-tree-sheet-topic:a2')),
+      );
+
+      await tapAndSettle(tester, action('center'));
+
+      // Los temas de su comunidad, con él como raíz.
+      expect(crumb('topics'), findsOneWidget);
+      expect(card('topic:a2'), findsOneWidget);
+      expect(card('community:focus'), findsNothing);
+      expect(action('exit-focus'), findsOneWidget);
+    });
+
+    testWidgets('exportar con un foco: lo apagado sale apagado', (
+      tester,
+    ) async {
+      handle = MapExportHandle();
+      await pump(tester);
+      await enter(tester, node('overview:0'));
+      final plain = handle!.svg!();
+      await select(tester, node('topic:a3'));
+
+      await tapAndSettle(tester, action('center'));
+
+      expect(plain, isNot(contains('fill-opacity="0.18"')));
+      expect(handle!.svg!(), contains('fill-opacity="0.18"'));
+    });
+
+    testWidgets('abrir la ficha vuelve a encuadrar si nadie movió el mapa, y '
+        'todo sigue a la vista arriba de ella; si se lo movió, se respeta', (
+      tester,
+    ) async {
+      await pump(tester);
+      Matrix4 transform() =>
+          viewer(tester).transformationController!.value.clone();
+      final before = transform();
+
+      await select(tester, node('overview:0'));
+
+      expect(transform(), isNot(before));
+      final area = tester.getRect(canvas);
+      for (final key in ['overview:0', 'overview:1', 'overview:2']) {
+        expect(area.contains(tester.getCenter(node(key))), isTrue, reason: key);
+      }
+
+      // ⛶ es de la persona: desde ahí, abrir la ficha no mueve nada.
+      await tapAndSettle(tester, find.byKey(const ValueKey('map-sheet-close')));
+      await tapAndSettle(tester, find.byKey(const ValueKey('map-fit')));
+      final chosen = transform();
+      await select(tester, node('overview:0'));
+
+      expect(sheet, findsOneWidget);
+      expect(transform(), chosen);
+    });
+
+    testWidgets('«Ver en el Mapa» abre la ficha del documento', (tester) async {
+      container.read(mapCanvasRequestProvider.notifier).state =
+          const MapShowLinks(focusId: 'b');
+      await pump(tester);
+
+      expect(sheetTitle(tester), 'Documento b');
+      expect(
+        find.text('${es.mapSchemaNodeNote} · ${es.f44S4LinksShown(2)}'),
+        findsOneWidget,
+      );
+      // Ya está en sus vínculos.
+      expect(action('see-links'), findsNothing);
+    });
+
+    testWidgets('un documento sin vínculos vuela a su tema, resaltado y con su '
+        'ficha; sin tema, a lo vinculado', (tester) async {
+      repository.items = const [
+        TopicItemNode(id: 'x-a1-a2-0', title: 'Primero', isNote: false),
+        TopicItemNode(id: 'i2', title: 'Mi nota', isNote: true),
+      ];
+      final map = snapshot();
+      final place = map.insights.search.document('x-a1-a2-0')!.topicValueId!;
+      await pump(tester, map);
+
+      container.read(mapCanvasRequestProvider.notifier).state =
+          const MapShowDocument('x-a1-a2-0');
+      await tester.pumpAndSettle();
+
+      expect(repository.requested, [place]);
+      expect(
+        find.descendant(
+          of: crumb('documents'),
+          matching: find.text('Alfa ${place.substring(1)}'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: crumb('topics'), matching: find.text(alfa)),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<MapItemBox>(
+              find.descendant(
+                of: node('item:x-a1-a2-0'),
+                matching: find.byType(MapItemBox),
+              ),
+            )
+            .highlighted,
+        isTrue,
+      );
+      expect(sheetTitle(tester), 'Primero');
+      expect(container.read(mapCanvasRequestProvider), isNull);
+
+      container.read(mapCanvasRequestProvider.notifier).state =
+          const MapShowDocument('suelto');
+      await tester.pumpAndSettle();
+      expect(linkRequests.last.focusId, 'suelto');
+    });
+
+    testWidgets('con el lector de pantalla: tocar el nodo abre la ficha, que '
+        'se anuncia, y cada acción y cada vecino es un botón con su nombre', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await pump(tester);
+
+      tester.semantics.tap(
+        find.semantics.byLabel(
+          es.mapGraphCommunitySemantics(alfa, es.mapTopicCount('spaces', 4)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel(es.f44S4SheetLabel(alfa)), findsOneWidget);
+      expect(
+        tester.getSemantics(find.byKey(const ValueKey('map-sheet-title'))),
+        isSemantics(label: alfa, isHeader: true, isLiveRegion: true),
+      );
+      for (final (id, label) in [
+        ('enter', es.f44S4Enter),
+        ('center', es.f44S4Center),
+        ('ask', es.f44S4Ask),
+      ]) {
+        expect(
+          tester.getSemantics(action(id)),
+          isSemantics(label: label, isButton: true, hasTapAction: true),
+        );
+      }
+      expect(find.byTooltip(es.f44S4SheetClose), findsOneWidget);
+      final beta = tester.widget<ActionChip>(
+        find.byKey(const ValueKey('map-sheet-neighbor-overview:1')),
+      );
+      final name = (beta.label as Text).data!;
+      expect(name, startsWith('Beta'));
+      expect(beta.tooltip, es.f44S4ShowInMap(name));
+
+      // Y desde la lista, la misma ficha.
+      await tapAndSettle(tester, find.byKey(const ValueKey('map-as-list')));
+      expect(find.byTooltip(es.f44S4SheetShow(alfa)), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('si el mapa se recalcula y lo de la ficha sigue, la ficha '
+        'sigue; si lo que se miraba desaparece, se cierra', (tester) async {
+      await pump(tester);
+      await enter(tester, node('overview:0'));
+      await select(tester, node('topic:a2'));
+
+      await tester.pumpWidget(app(snapshot(sequence: 2)));
+      await tester.pumpAndSettle();
+      expect(sheetTitle(tester), 'Alfa 2');
+
+      await tester.pumpWidget(app(snapshot(sequence: 3, alfaSize: 1)));
+      await tester.pumpAndSettle();
+      expect(sheet, findsNothing);
+    });
+  });
+
   group('la exportación', () {
     testWidgets('el SVG de las comunidades: un círculo por comunidad, con su '
         'cuenta y su nombre, y dice qué es', (tester) async {
@@ -1413,8 +1949,8 @@ void main() {
         'punta', (tester) async {
       handle = MapExportHandle();
       await pump(tester);
-      await tapAndSettle(tester, node('overview:0'));
-      await tapAndSettle(tester, node('topic:a1'));
+      await enter(tester, node('overview:0'));
+      await enter(tester, node('topic:a1'));
 
       final svg = handle!.svg!();
 
@@ -1481,7 +2017,7 @@ void main() {
       expect(find.byTooltip(es.f44S2ZoomIn), findsOneWidget);
       expect(find.byTooltip(es.f44S2Fit), findsOneWidget);
 
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
       expect(
         tester.getSemantics(node('topic:a1')).label,
         contains(es.mapItemCount(12)),
@@ -1495,8 +2031,8 @@ void main() {
       ('claro', AppTheme.lightTheme),
       ('oscuro', AppTheme.darkTheme),
     ]) {
-      testWidgets('en $name, sin desbordes en la red, los temas, el radial, '
-          'los vínculos y la lista', (tester) async {
+      testWidgets('en $name, sin desbordes en la red, los temas, la ficha, el '
+          'foco, el radial, los vínculos y la lista', (tester) async {
         tester.view.physicalSize = const Size(360 * 3, 720 * 3);
         tester.view.devicePixelRatio = 3;
         addTearDown(tester.view.reset);
@@ -1504,9 +2040,30 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
 
-        await tapAndSettle(tester, node('overview:0'));
+        // La ficha más cargada: una comunidad, con sus temas y sus vecinas.
+        await select(tester, node('overview:0'));
+        expect(sheet, findsOneWidget);
         expect(tester.takeException(), isNull);
-        await tapAndSettle(tester, node('topic:a1'));
+        await tapAndSettle(
+          tester,
+          find.byKey(const ValueKey('map-sheet-close')),
+        );
+
+        await enter(tester, node('overview:0'));
+        expect(tester.takeException(), isNull);
+        await enter(tester, node('topic:a1'));
+        expect(tester.takeException(), isNull);
+
+        // La ficha de un documento y el foco, sin tapar el lienzo.
+        await tapAndSettle(tester, node('item:i1'));
+        expect(sheet, findsOneWidget);
+        expect(canvas, findsOneWidget);
+        expect(tester.takeException(), isNull);
+        // Con la letra al doble, la ficha se desplaza en su lugar.
+        await tester.ensureVisible(action('center'));
+        await tester.pumpAndSettle();
+        await tapAndSettle(tester, action('center'));
+        expect(find.byKey(const ValueKey('map-focus')), findsOneWidget);
         expect(tester.takeException(), isNull);
 
         await arrange(tester, Icons.radar);

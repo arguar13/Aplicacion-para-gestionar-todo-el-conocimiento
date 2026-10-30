@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -10,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
@@ -150,6 +152,15 @@ void main() {
 
   Finder node(String key) => find.byKey(ValueKey('map-node-$key'));
 
+  /// Dos toques seguidos: bajar una altura en una comunidad o un tema (F44,
+  /// paso 4). Un toque solo abre su ficha.
+  Future<void> enter(WidgetTester tester, Finder finder) async {
+    await tester.tap(finder);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(finder);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> arrange(WidgetTester tester, IconData icon) async {
     await tester.tap(
       find.descendant(
@@ -282,8 +293,21 @@ void main() {
         expect(find.byType(MapCanvasView), findsOneWidget);
         expect(tester.takeException(), isNull);
         expect(node('overview:0'), findsOneWidget);
+        // La ficha, abajo, sin desbordes ni tapar el lienzo.
         await tester.tap(node('overview:0'));
+        await tester.pump(kDoubleTapTimeout);
         await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('map-sheet')), findsOneWidget);
+        expect(find.byKey(const ValueKey('map-canvas')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        // «Entrar», desde la ficha: con la letra al doble, se desplaza en su
+        // lugar.
+        final enterButton = find.byKey(const ValueKey('map-sheet-enter'));
+        await tester.ensureVisible(enterButton);
+        await tester.pumpAndSettle();
+        await tester.tap(enterButton);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('map-sheet')), findsNothing);
         expect(tester.takeException(), isNull);
       });
     }
@@ -475,20 +499,66 @@ void main() {
     );
   });
 
-  testWidgets('en el Mapa, tocar un documento abre su detalle', (tester) async {
+  testWidgets('en el Mapa, un documento se abre desde su ficha', (
+    tester,
+  ) async {
     await seed();
     await pump(tester);
     await openMap(tester);
-    await tester.tap(node('overview:0'));
-    await tester.pumpAndSettle();
-    await tester.tap(node('topic:roma'));
-    await tester.pumpAndSettle();
+    await enter(tester, node('overview:0'));
+    await enter(tester, node('topic:roma'));
 
     await tester.tap(node('item:s3'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('map-sheet-open')));
     await tester.pumpAndSettle();
 
     // Un documento procesado se abre en su pantalla (F41).
     expect(find.byType(ProcessedDocumentScreen), findsOneWidget);
+  });
+
+  group('la ficha de un tema (F44, paso 4)', () {
+    Future<void> openRoma(WidgetTester tester) async {
+      await seed();
+      await pump(tester);
+      await openMap(tester);
+      await enter(tester, node('overview:0'));
+      await tester.tap(node('topic:roma'));
+      await tester.pump(kDoubleTapTimeout);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('«Estudiar» abre Repasar con el tema en el selector', (
+      tester,
+    ) async {
+      await openRoma(tester);
+
+      await tester.tap(find.byKey(const ValueKey('map-sheet-study')));
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.container.read(repasarScopeProvider),
+        const CreationScope.topic('roma'),
+      );
+      expect(find.byType(MapScreen), findsNothing);
+    });
+
+    testWidgets('«Preguntar al chat» lleva la pregunta hecha a una '
+        'conversación nueva sobre lo procesado, y se manda sola', (
+      tester,
+    ) async {
+      await openRoma(tester);
+
+      await tester.tap(find.byKey(const ValueKey('map-sheet-ask')));
+
+      // Antes de que el chat la tome, la pregunta espera, sin cuaderno.
+      expect(
+        harness.container.read(chatHandoffProvider),
+        ChatHandoff(question: es.f44S4AskAboutWith(1, 'Roma', 'Grecia')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(MapScreen), findsNothing);
+    });
   });
 
   testWidgets('se actualiza solo: guardar algo nuevo cambia el tablero', (
@@ -529,10 +599,8 @@ void main() {
         );
     await pump(tester);
     await openMap(tester);
-    await tester.tap(node('overview:0'));
-    await tester.pumpAndSettle();
-    await tester.tap(node('topic:roma'));
-    await tester.pumpAndSettle();
+    await enter(tester, node('overview:0'));
+    await enter(tester, node('topic:roma'));
 
     await arrange(tester, Icons.radar);
 
@@ -720,7 +788,7 @@ void main() {
       );
     });
 
-    testWidgets('tocar un elemento abre su detalle', (tester) async {
+    testWidgets('un elemento se abre desde su ficha', (tester) async {
       await item('a', const []);
       await item('b', const []);
       await relate('a', 'b');
@@ -728,6 +796,8 @@ void main() {
       await openLinks(tester);
 
       await tester.tap(node('item:a'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('map-sheet-open')));
       await tester.pumpAndSettle();
 
       expect(find.byType(ProcessedDocumentScreen), findsOneWidget);

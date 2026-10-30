@@ -7,18 +7,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_view_fit.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/degree_selector.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
+import 'package:sinapsis/features/map/domain/entities/map_node_facts.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
+import 'package:sinapsis/features/map/domain/services/canvas_focus.dart';
 import 'package:sinapsis/features/map/domain/services/canvas_tree_builder.dart';
 import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
 import 'package:sinapsis/features/map/domain/services/level_of_detail.dart';
 import 'package:sinapsis/features/map/domain/services/link_strength.dart';
+import 'package:sinapsis/features/map/domain/services/map_node_facts_builder.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_canvas_request.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
@@ -33,11 +37,13 @@ import 'package:sinapsis/features/map/presentation/widgets/canvas/canvas_viewpor
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_layers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_canvas_list.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_minimap.dart';
+import 'package:sinapsis/features/map/presentation/widgets/canvas/map_node_sheet.dart';
 import 'package:sinapsis/features/map/presentation/widgets/canvas/map_root_picker.dart';
 import 'package:sinapsis/features/map/presentation/widgets/link_strength_selector.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/map/presentation/widgets/suggest_links.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/add_relation_flow.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/relations_section.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Con más zoom que esto, se pasa a la altura de más detalle del nodo del
@@ -71,6 +77,12 @@ const _kCanvasMaxTextScale = 1.5;
 const _kMaxChromeShare = 0.4;
 const _kMaxFootnotesShare = 0.2;
 
+/// Lo más que ocupa la ficha de un nodo, del alto del lienzo: abajo y sin
+/// taparlo. Con ella abierta, las notas de abajo se callan y lo de arriba
+/// cede lugar, para que siempre quede dibujo a la vista.
+const _kMaxSheetShare = 0.4;
+const _kMaxChromeShareWithSheet = 0.3;
+
 /// La comunidad —o el conjunto de temas— que se mira a la altura de los
 /// temas, como raíz de Radial y Árbol.
 const _kFocusId = 'focus';
@@ -78,10 +90,18 @@ const _kFocusId = 'focus';
 /// El lienzo único del Mapa (F44, paso 2): lo que eran el Grafo, el Esquema y
 /// la vista «Vínculos», en un solo dibujo que se recorre con el zoom.
 ///
-/// - **Tres alturas**: de lejos, las comunidades; al tocar una o acercarse,
-///   sus temas **salen de la burbuja**; otro toque o más zoom en un tema
-///   despliega sus documentos. Alejarse los recoge de vuelta. Con «sin
-///   animaciones», el cambio es directo.
+/// - **Tres alturas**: de lejos, las comunidades; al entrar en una —tocarla
+///   dos veces, «Entrar» en su ficha o acercarse—, sus temas **salen de la
+///   burbuja**; lo mismo en un tema despliega sus documentos. Alejarse los
+///   recoge de vuelta. Con «sin animaciones», el cambio es directo.
+/// - **La ficha** (F44, paso 4): tocar cualquier nodo —en la red, en Radial y
+///   Árbol o en la lista— abre abajo lo que es, con qué se une y lo que se
+///   puede hacer con él: Entrar, Centrar aquí, Abrir, Preguntar al chat,
+///   Estudiar y, en un documento, Vincular y Ver sus vínculos. Sale de lo que
+///   el lienzo ya tiene (`mapNodeFacts`): abrirla no recalcula nada.
+/// - **El foco** («Centrar aquí»): el nodo al centro, su vecindario según el
+///   «Grado» y el resto apagado; en Radial y Árbol, el nodo es la raíz. «Salir
+///   del foco» o la miga lo devuelven.
 /// - **Las migas** dicen dónde se está y llevan a cualquier altura anterior.
 /// - **Red · Radial · Árbol**: la red de fuerzas de siempre, o el despliegue
 ///   nodo a nodo del Esquema sobre lo que se mira —con las notas mapa como
@@ -98,16 +118,16 @@ const _kFocusId = 'focus';
 /// en caliente cuando el mapa se recalcula, y durante un gesto pinta una
 /// captura del dibujo en vez de recorrerlo (F18).
 ///
-/// Los ganchos de la ola 2: tocar un nodo pasa por `_select` —donde va la
-/// ficha—, el resaltado de `_highlight` es el lugar del foco, y la búsqueda y
-/// el Resumen llegan por `mapCanvasRequestProvider`.
+/// Lo que piden de afuera —el Resumen, «Ver en el Mapa» y, en el paso 5, la
+/// búsqueda— llega por `mapCanvasRequestProvider`, y va por el mismo camino
+/// que lo que se toca en la ficha (`_goTo`).
 ///
 /// Acá vive lo que se mira y cómo se pasa de una cosa a otra; lo demás tiene
 /// su pieza: el dibujo de la red y del árbol (`map_canvas_layers.dart`), lo de
-/// alrededor —migas, botones, notas de abajo— (`canvas_chrome.dart`), dónde va
-/// cada nodo (`canvas_placement.dart`), el caché del gesto
-/// (`canvas_gesture_cache.dart`) y lo que el árbol ya sabe de cada nodo
-/// (`knownCanvasTreeLinks`).
+/// alrededor —migas, botones, notas de abajo— (`canvas_chrome.dart`), la ficha
+/// (`map_node_sheet.dart`), dónde va cada nodo (`canvas_placement.dart`), el
+/// caché del gesto (`canvas_gesture_cache.dart`) y lo que el árbol ya sabe de
+/// cada nodo (`knownCanvasTreeLinks`).
 class MapCanvasView extends ConsumerStatefulWidget {
   const MapCanvasView({
     required this.snapshot,
@@ -115,6 +135,8 @@ class MapCanvasView extends ConsumerStatefulWidget {
     required this.filter,
     required this.onOpenTopic,
     required this.onOpenItem,
+    required this.onAsk,
+    required this.onStudy,
     this.exportHandle,
     super.key,
   });
@@ -128,6 +150,13 @@ class MapCanvasView extends ConsumerStatefulWidget {
   final LibraryQuery filter;
   final void Function(String valueId) onOpenTopic;
   final void Function(String itemId) onOpenItem;
+
+  /// «✨ Preguntar al chat» desde una ficha: la pregunta, ya escrita, para
+  /// mandarla en una conversación nueva sobre lo procesado.
+  final ValueChanged<String> onAsk;
+
+  /// «🎓 Estudiar» desde una ficha: Repasar con este recorte en el selector.
+  final ValueChanged<CreationScope> onStudy;
 
   /// Donde el lienzo ofrece su dibujo para exportarlo, si alguien lo quiere.
   final MapExportHandle? exportHandle;
@@ -165,8 +194,19 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   LinkStrengthFilter _strength = LinkStrengthFilter.all;
 
   /// El nodo que se pidió mirar —por clave de la escena—: se resalta y se
-  /// encuadra con sus vecinos. Es el lugar del foco de la ola 2.
+  /// encuadra con sus vecinos.
   String? _highlight;
+
+  /// El nodo cuya ficha está abierta.
+  MapNodeRef? _selected;
+
+  /// El nodo de «Centrar aquí» y su vecindario según el «Grado»: las
+  /// posiciones en `_scene.nodes` que quedan encendidas. Sin foco, `null`.
+  MapNodeRef? _centered;
+  Set<int>? _lit;
+
+  /// Lo que dice la ficha de cada nodo, para lo que se dibuja ahora.
+  final _facts = MapNodeFactsMemo();
 
   // --- Lo que se leyó ---
 
@@ -209,6 +249,12 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   final _boundaryKey = GlobalKey();
   Size _viewport = Size.zero;
   bool _needsFit = true;
+
+  /// El tamaño del visor con el que se encuadró solo, mientras la persona no
+  /// movió el mapa desde entonces. Si el visor cambia —se abre o se cierra la
+  /// ficha, aparece una fila arriba—, se vuelve a encuadrar con el nuevo: lo
+  /// que se pidió mirar sigue entero y en el medio, sin taparse.
+  Size? _autoFitViewport;
 
   /// El zoom con el que quedó encuadrada la altura de ahora.
   double _fitScale = 1;
@@ -309,6 +355,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       _focus = {};
       _topicId = null;
       _highlight = null;
+      _leaveNode();
       _needsFit = true;
     }
     final override = _rootOverride?.ref;
@@ -339,13 +386,27 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   /// Atiende [request] y lo da por atendido. Un proveedor no se modifica
   /// mientras se arma el árbol: se vuelve a `null` apenas termina.
   void _apply(MapCanvasRequest request) {
+    _goTo(request);
+    scheduleMicrotask(() {
+      if (!mounted) return;
+      ref.read(mapCanvasRequestProvider.notifier).state = null;
+    });
+  }
+
+  /// Lleva el lienzo adonde dice [request] —lo que piden de afuera y lo que se
+  /// toca en una ficha— y abre la ficha de lo que se pidió: un documento, un
+  /// tema o [select]. Con [center], además, lo centra.
+  void _goTo(
+    MapCanvasRequest request, {
+    MapNodeRef? select,
+    bool center = false,
+  }) {
+    _leaveNode();
+    MapNodeRef? node;
     switch (request) {
       case MapShowLinks(:final focusId):
-        _links = true;
-        _linksFocusId = focusId;
-        _highlight = focusId == null ? null : 'item:$focusId';
-        _rootOverride = null;
-        _listenLinks();
+        _showLinksFocused(focusId);
+        node = focusId == null ? null : MapDocumentRef(focusId);
       case MapShowAltitude(:final altitude):
         _highlight = null;
         switch (altitude) {
@@ -369,14 +430,40 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         _stopLinks();
         _openCommunityOf(valueId);
         _highlight = 'topic:$valueId';
+        node = MapTopicRef(valueId);
+      case MapShowDocument(:final itemId):
+        node = MapDocumentRef(itemId);
+        final place = widget.snapshot.insights.search
+            .document(itemId)
+            ?.topicValueId;
+        final at = place == null ? null : _graph.indexOf(place);
+        if (at == null) {
+          // Sin tema, su lugar es la burbuja «Sin tema» (paso 5); hasta
+          // entonces, lo vinculado con él en foco.
+          _showLinksFocused(itemId);
+        } else {
+          _stopLinks();
+          _openCommunityOf(place!);
+          _altitude = MapAltitude.documents;
+          _topicId = place;
+          _topicLabel = _graph.nodes[at].label;
+          _topicItems = null;
+          _highlight = 'item:$itemId';
+        }
     }
+    _selected = select ?? node;
+    if (center) _centered = _selected;
     _rootOverride = null;
     _needsFit = true;
     unawaited(_show());
-    scheduleMicrotask(() {
-      if (!mounted) return;
-      ref.read(mapCanvasRequestProvider.notifier).state = null;
-    });
+  }
+
+  /// Lo vinculado, con [focusId] —si viene— resaltado.
+  void _showLinksFocused(String? focusId) {
+    _links = true;
+    _linksFocusId = focusId;
+    _highlight = focusId == null ? null : 'item:$focusId';
+    _listenLinks();
   }
 
   /// Los temas de la comunidad donde está [valueId]; todos, si no está en
@@ -452,6 +539,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     setState(() {
       _stopLinks();
       _highlight = null;
+      _leaveNode();
       _rootOverride = null;
       _needsFit = true;
       _fadeInNext = true;
@@ -507,7 +595,8 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       colors: theme.colorScheme,
       brightness: theme.brightness,
       labelOf: _labelOf,
-      highlighted: {?_highlight},
+      highlighted: _highlighted,
+      lit: _lit,
     );
   }
 
@@ -595,6 +684,9 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       _motion = null;
       _scene = scene;
       if (placed != null) _placement.place(scene, placed.xs, placed.ys);
+      // Solo se centra lo que se dibuja.
+      _lit = _litNow();
+      if (_lit == null) _centered = null;
       _rebuildTree();
       _busy = false;
     });
@@ -604,13 +696,27 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   // --- Radial, Árbol y la lista ---
 
-  /// La raíz del árbol de lo que se mira: lo que eligió la persona, o lo que
-  /// se mira —todo, la comunidad, el tema, lo vinculado o el documento en
-  /// foco—.
+  /// La raíz del árbol de lo que se mira: lo que eligió la persona, lo que
+  /// se centró o lo que se mira —todo, la comunidad, el tema, lo vinculado o
+  /// el documento en foco—.
   ({CanvasTreeRef ref, String title, int? group}) _treeRoot() {
     final l10n = AppLocalizations.of(context)!;
     if (_rootOverride case final override?) {
       return (ref: override.ref, title: override.title, group: null);
+    }
+    if (_centered case final node?) {
+      final facts = _factsOf(node);
+      if (facts != null) {
+        return (
+          ref: switch (node) {
+            MapCommunityRef(:final index) => CanvasTreeRef.community('$index'),
+            MapTopicRef(:final valueId) => CanvasTreeRef.topic(valueId),
+            MapDocumentRef(:final itemId) => CanvasTreeRef.item(itemId),
+          },
+          title: _titleOf(facts),
+          group: node is MapCommunityRef ? facts.group : null,
+        );
+      }
     }
     if (_links) {
       final focus = _linkGraph?.focusId;
@@ -795,29 +901,46 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     _fitIfNeeded();
   }
 
-  /// Cómo se abre —o en qué se entra— desde un nodo del árbol o una fila de la
-  /// lista.
-  ({VoidCallback onOpen, String tooltip})? _openOf(CanvasTreeEntry entry) {
-    final l10n = AppLocalizations.of(context)!;
+  /// Lo que es [entry] en el lienzo, para su ficha: todo y lo vinculado no
+  /// tienen; la comunidad que se mira es la del panorama que tiene sus temas.
+  MapNodeRef? _refOfEntry(CanvasTreeEntry entry) {
     final id = entry.ref.id;
     return switch (entry.ref.kind) {
       CanvasTreeKind.all || CanvasTreeKind.links => null,
-      CanvasTreeKind.community =>
-        id == _kFocusId
-            ? null
-            : (
-                onOpen: () => _enterCommunityAt(int.parse(id)),
-                tooltip: l10n.f44S2EnterCommunity(entry.title),
-              ),
-      CanvasTreeKind.topic => (
-        onOpen: () => widget.onOpenTopic(id),
-        tooltip: l10n.atlasOpenMaterial,
-      ),
-      CanvasTreeKind.item => (
-        onOpen: () => widget.onOpenItem(id),
-        tooltip: l10n.mapSchemaOpen,
-      ),
+      CanvasTreeKind.community => switch (id == _kFocusId
+          ? _overview.nodes.indexWhere(
+              (node) =>
+                  node.members.isNotEmpty &&
+                  _focus.contains(_graph.nodes[node.members.first].valueId),
+            )
+          : int.parse(id)) {
+        -1 => null,
+        final index => MapCommunityRef(index),
+      },
+      CanvasTreeKind.topic => MapTopicRef(id),
+      CanvasTreeKind.item => MapDocumentRef(id),
     };
+  }
+
+  /// Cómo se abre la ficha de un nodo del árbol o de una fila de la lista.
+  CanvasTreeSheet? _sheetOf(CanvasTreeEntry entry) {
+    final node = _refOfEntry(entry);
+    if (node == null) return null;
+    return (
+      onOpen: () => _openSheet(node),
+      tooltip: AppLocalizations.of(context)!.f44S4SheetShow(entry.title),
+    );
+  }
+
+  /// Si la tarjeta de [entry] lleva el borde: el documento que se pidió
+  /// mirar, o lo que tiene la ficha abierta.
+  bool _isTreeHighlighted(CanvasTreeEntry entry) {
+    if (entry.ref.kind == CanvasTreeKind.item &&
+        _highlight == 'item:${entry.ref.id}') {
+      return true;
+    }
+    final selected = _selected;
+    return selected != null && _refOfEntry(entry) == selected;
   }
 
   // --- El encuadre ---
@@ -831,6 +954,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     if (positions.isEmpty) return;
     _needsFit = false;
     _fitTo(positions);
+    _autoFitViewport = _viewport;
   }
 
   void _fitTo(Map<String, Offset> positions) {
@@ -844,12 +968,23 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     _fitScale = _gestureStartScale = _controller.value.getMaxScaleOnAxis();
   }
 
-  /// Lo dibujado entero o, con algo resaltado, eso y sus vecinos directos: lo
-  /// que se pidió mirar queda en el centro y legible.
+  /// Lo dibujado entero; con un foco, su vecindario con el nodo en el medio;
+  /// con algo resaltado, eso y sus vecinos directos: lo que se pidió mirar
+  /// queda en el centro y legible.
   Map<String, Offset> _framed() {
     final positions = _drawnPositions;
+    if (_isTree) return positions;
+    final lit = _lit;
+    final center = _centered == null ? null : positions[_centered!.sceneKey];
+    if (lit != null && center != null) {
+      return mirroredAround(center, {
+        for (final i in lit)
+          if (positions[_scene.nodes[i].key] case final at?)
+            _scene.nodes[i].key: at,
+      });
+    }
     final highlight = _highlight;
-    if (_isTree || highlight == null) return positions;
+    if (highlight == null) return positions;
     final index = _scene.indexOf(highlight);
     if (index == null) return positions;
     final keys = {highlight};
@@ -865,6 +1000,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   void _zoomBy(double factor) {
     if (_viewport.isEmpty) return;
+    _autoFitViewport = null;
     _controller.value = zoomAround(
       _controller.value,
       factor,
@@ -877,6 +1013,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   void _fitAll() {
     final positions = _drawnPositions;
     if (positions.isEmpty || _viewport.isEmpty) return;
+    _autoFitViewport = null;
     _fitTo(positions);
   }
 
@@ -946,6 +1083,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   void _descend({SceneNode? from}) {
     _rootOverride = null;
     _highlight = null;
+    _leaveNode();
     _needsFit = true;
     final at = from == null ? null : _positions[from.key];
     if (at != null && !_isTree) {
@@ -969,6 +1107,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     }
     _rootOverride = null;
     _highlight = null;
+    _leaveNode();
     _needsFit = true;
     _fadeInNext = true;
     unawaited(_show());
@@ -1024,19 +1163,191 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     }
   }
 
-  /// Tocar un nodo de la red. Es el lugar de la ficha de la ola 2: por ahora,
-  /// una comunidad o un tema se abren —bajan una altura— y un documento se
-  /// abre en Procesado.
+  // --- La ficha y el foco ---
+
+  /// Tocar un nodo de la red abre su ficha. Bajar una altura es tocarlo dos
+  /// veces, acercarse o «Entrar» en la ficha.
   void _select(SceneNode node) {
-    switch (node.kind) {
-      case SceneKind.note || SceneKind.source:
-        widget.onOpenItem(node.ref!);
-      case SceneKind.community ||
-          SceneKind.overflow ||
-          SceneKind.isolated ||
-          SceneKind.topic:
-        _drill(node);
+    final ref = MapNodeRef.ofSceneKey(node.key);
+    if (ref != null) _openSheet(ref);
+  }
+
+  /// Abre la ficha de [node]: solo eso. No se recalcula el grafo ni se
+  /// acomoda nada; lo que dice sale de lo que ya se tiene.
+  void _openSheet(MapNodeRef node) => setState(() => _selected = node);
+
+  void _closeSheet() => setState(() => _selected = null);
+
+  /// Lo de un nodo —su ficha, el foco— no sigue cuando cambia lo que se mira.
+  void _leaveNode() {
+    _selected = null;
+    _centered = null;
+    _lit = null;
+  }
+
+  /// Lo que dice la ficha de [node], o `null` si ya no está en el mapa.
+  MapNodeFacts? _factsOf(MapNodeRef node) => _facts.of(
+    node,
+    graph: _graph,
+    detection: widget.snapshot.detection,
+    overview: _overview,
+    insights: widget.snapshot.insights,
+    scene: _scene,
+    tree: _listTree ?? (_isTree ? _tree : null),
+  );
+
+  /// El nombre de una ficha: el de un grupo es su clase.
+  String _titleOf(MapNodeFacts facts) {
+    final l10n = AppLocalizations.of(context)!;
+    if (facts.kind != MapNodeKind.group) return facts.title;
+    final index = (facts.ref as MapCommunityRef).index;
+    return _overview.nodes[index].kind == OverviewKind.isolated
+        ? l10n.mapBoardIsolatedTitle(_topicKind)
+        : l10n.mapGraphOverflow;
+  }
+
+  /// Lo que lleva un anillo: lo que se pidió mirar, la ficha abierta y el
+  /// centro del foco.
+  Set<String> get _highlighted => {
+    ?_highlight,
+    ?_selected?.sceneKey,
+    ?_centered?.sceneKey,
+  };
+
+  /// «Entrar» en la ficha: la cierra y, ya con el lienzo entero, baja una
+  /// altura en [node]. Así lo que sale de la burbuja se acomoda en el visor
+  /// que va a quedar, y no en el que tenía la ficha abierta.
+  void _enterFromSheet(MapNodeRef node) {
+    setState(() => _selected = null);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _enter(node);
+    });
+  }
+
+  /// Baja una altura en [node].
+  void _enter(MapNodeRef node) {
+    final at = _scene.indexOf(node.sceneKey);
+    final drawn = at == null ? null : _scene.nodes[at];
+    switch (node) {
+      case MapCommunityRef(:final index):
+        _enterCommunityAt(index, from: drawn);
+      case MapTopicRef(:final valueId):
+        final topic = _graph.indexOf(valueId);
+        if (topic != null) {
+          _enterTopic(valueId, _graph.nodes[topic].label, from: drawn);
+        }
+      case MapDocumentRef():
+        return;
     }
+  }
+
+  /// El vecindario del foco en lo que se dibuja ahora, según el «Grado».
+  Set<int>? _litNow() {
+    final node = _centered;
+    if (node == null) return null;
+    final at = _scene.indexOf(node.sceneKey);
+    return at == null ? null : focusNeighborhood(_scene, at, degree: _degree);
+  }
+
+  /// «Centrar aquí»: [node] al centro, su vecindario alrededor y el resto
+  /// apagado. Lo que no se dibuja ahora —un tema desde el árbol, lo más
+  /// reciente de una comunidad— se trae primero.
+  void _centerOn(MapNodeRef node) {
+    if (_scene.indexOf(node.sceneKey) == null) {
+      _bring(node, center: true);
+      return;
+    }
+    setState(() {
+      _centered = node;
+      _selected = node;
+      _rootOverride = null;
+      _lit = _litNow();
+      // Se encuadra al terminar de dibujar (`_canvasArea`): la fila del foco
+      // y la ficha cambian el alto del lienzo, y el nodo tiene que quedar en
+      // el medio del que queda.
+      _needsFit = true;
+      _rebuildTree();
+    });
+  }
+
+  /// «Salir del foco» o la miga: vuelve a lo que se miraba, entero.
+  void _exitFocus() {
+    setState(() {
+      _centered = null;
+      _lit = null;
+      _needsFit = true;
+      _rebuildTree();
+    });
+  }
+
+  /// El «Grado»: en los temas de una comunidad, cuánto de alrededor se trae;
+  /// con un foco, cuánto de su vecindario queda encendido.
+  void _setDegree(int? degree) {
+    if (degree == _degree) return;
+    final reselect =
+        !_links && _altitude == MapAltitude.topics && _focus.isNotEmpty;
+    setState(() {
+      _degree = degree;
+      if (_centered != null) {
+        _needsFit = true;
+        if (!reselect) _lit = _litNow();
+      }
+    });
+    if (reselect) unawaited(_show(warm: true));
+  }
+
+  /// Un vecino, lo más reciente o el tema de un documento, tocado en la
+  /// ficha: si se dibuja, se abre su ficha y se encuadra ahí mismo; si no, el
+  /// lienzo vuela hasta él.
+  void _visit(MapNodeRef node) {
+    if (_scene.indexOf(node.sceneKey) == null) {
+      _bring(node);
+      return;
+    }
+    setState(() {
+      _selected = node;
+      _highlight = node.sceneKey;
+      _needsFit = true;
+    });
+  }
+
+  /// Va adonde está [node] y abre su ficha: una comunidad, de lejos; un tema,
+  /// entre los de su comunidad; un documento, en su tema.
+  void _bring(MapNodeRef node, {bool center = false}) => _goTo(
+    switch (node) {
+      MapCommunityRef() => const MapShowAltitude(MapAltitude.communities),
+      MapTopicRef(:final valueId) => MapShowTopic(valueId),
+      MapDocumentRef(:final itemId) => MapShowDocument(itemId),
+    },
+    select: node,
+    center: center,
+  );
+
+  /// Lo que se puede hacer con el nodo de [facts], con lo que cada acción hace
+  /// acá.
+  List<MapNodeAction> _actionsOf(MapNodeFacts facts, AppLocalizations l10n) {
+    final node = facts.ref;
+    return mapNodeActions(
+      l10n,
+      facts,
+      title: _titleOf(facts),
+      centered: _centered == node,
+      showingItsLinks:
+          node is MapDocumentRef && _links && _linksFocusId == node.itemId,
+      spaces: widget.dimension.isSpaces,
+      on: (
+        enter: _enterFromSheet,
+        center: _centerOn,
+        exitFocus: _exitFocus,
+        openTopic: widget.onOpenTopic,
+        openItem: widget.onOpenItem,
+        ask: widget.onAsk,
+        study: widget.onStudy,
+        link: (itemId) =>
+            unawaited(addRelationFlow(context, ref, fromItemId: itemId)),
+        seeLinks: (itemId) => _goTo(MapShowLinks(focusId: itemId)),
+      ),
+    );
   }
 
   // --- Los gestos ---
@@ -1049,6 +1360,8 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   void _onInteractionStart(ScaleStartDetails details) {
     _gestureStartScale = _controller.value.getMaxScaleOnAxis();
+    // La persona mueve el mapa: desde acá, el encuadre es suyo.
+    _autoFitViewport = null;
     _gestureCache.start(
       pixelRatio: MediaQuery.devicePixelRatioOf(context),
       scale: _controller.value.getMaxScaleOnAxis,
@@ -1117,7 +1430,22 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   // --- Dibujo ---
 
-  List<MapCrumb> _crumbs(AppLocalizations l10n) => [
+  /// Dónde se está; con un foco, la miga de la altura sale de él y la última
+  /// es el nodo del centro.
+  List<MapCrumb> _crumbs(AppLocalizations l10n) {
+    final crumbs = _altitudeCrumbs(l10n);
+    final centered = _centered;
+    final facts = centered == null ? null : _factsOf(centered);
+    if (facts == null) return crumbs;
+    final here = crumbs.removeLast();
+    return [
+      ...crumbs,
+      (label: here.label, id: here.id, onTap: _exitFocus),
+      (label: _titleOf(facts), id: 'focus', onTap: null),
+    ];
+  }
+
+  List<MapCrumb> _altitudeCrumbs(AppLocalizations l10n) => [
     (
       label: l10n.f44S2CrumbAll,
       id: 'overview',
@@ -1211,13 +1539,15 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         tree: _listTree!,
         topicKind: _topicKind,
         onToggle: _toggle,
-        openOf: _openOf,
+        sheetOf: _sheetOf,
       );
     } else {
       body = _canvasArea(context, theme, l10n);
     }
 
-    final footnotes = _footnotes(l10n);
+    final selected = _selected;
+    final facts = selected == null || noTopics ? null : _factsOf(selected);
+    final footnotes = facts == null ? _footnotes(l10n) : const <Widget>[];
     // Lo de arriba y lo de abajo nunca le quitan al lienzo más de lo justo:
     // con la letra al doble en un celular, se desplazan en su lugar.
     return LayoutBuilder(
@@ -1225,7 +1555,11 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         children: [
           ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: constraints.maxHeight * _kMaxChromeShare,
+              maxHeight:
+                  constraints.maxHeight *
+                  (facts == null
+                      ? _kMaxChromeShare
+                      : _kMaxChromeShareWithSheet),
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -1241,6 +1575,21 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
                 : null,
           ),
           Expanded(child: body),
+          if (facts != null)
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: constraints.maxHeight * _kMaxSheetShare,
+              ),
+              child: MapNodeSheet(
+                key: ValueKey('map-sheet-${facts.ref.sceneKey}'),
+                facts: facts,
+                title: _titleOf(facts),
+                topicKind: _topicKind,
+                actions: _actionsOf(facts, l10n),
+                onGoTo: _visit,
+                onClose: _closeSheet,
+              ),
+            ),
           if (footnotes.isNotEmpty)
             ConstrainedBox(
               constraints: BoxConstraints(
@@ -1267,20 +1616,38 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       if (!_links && _altitude == MapAltitude.communities && !_isTree)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-          child: Text(l10n.mapGraphHint, style: theme.textTheme.bodySmall),
+          child: Text(l10n.f44S4CanvasHint, style: theme.textTheme.bodySmall),
         ),
-      // Con un foco, cuánto de alrededor se ve. En todos los temas no hay
-      // desde dónde contar saltos.
-      if (!_links && _altitude == MapAltitude.topics && _focus.isNotEmpty)
+      // En una comunidad, cuánto de alrededor se ve; con un foco en la red,
+      // cuánto de su vecindario queda encendido. En todos los temas, sin
+      // foco, no hay desde dónde contar saltos.
+      if ((!_links && _altitude == MapAltitude.topics && _focus.isNotEmpty) ||
+          (_centered != null && !_isTree))
         DegreeSelector(
           key: const ValueKey('map-degree'),
           degree: _degree,
-          onChanged: (degree) {
-            if (degree == _degree) return;
-            setState(() => _degree = degree);
-            unawaited(_show(warm: true));
-          },
+          onChanged: _setDegree,
         ),
+      if (_centered case final centered?)
+        if (_factsOf(centered) case final facts?)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: InputChip(
+                key: const ValueKey('map-focus'),
+                avatar: const Icon(Icons.center_focus_strong, size: 18),
+                label: Text(
+                  l10n.f44S4Centered(_titleOf(facts)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onPressed: () => _openSheet(centered),
+                onDeleted: _exitFocus,
+                deleteButtonTooltipMessage: l10n.f44S4ExitFocus,
+              ),
+            ),
+          ),
       if (_links && graph != null && graph.items.isNotEmpty) ...[
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
@@ -1334,6 +1701,8 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
     return LayoutBuilder(
       builder: (context, constraints) {
         _viewport = constraints.biggest;
+        final fitted = _autoFitViewport;
+        if (fitted != null && fitted != _viewport) _needsFit = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _fitIfNeeded();
         });
@@ -1461,8 +1830,10 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         content: content,
         visible: visible,
         dots: dots,
-        onGoTo: (point) =>
-            _controller.value = centerOn(_controller.value, point, _viewport),
+        onGoTo: (point) {
+          _autoFitViewport = null;
+          _controller.value = centerOn(_controller.value, point, _viewport);
+        },
       ),
     );
   }
@@ -1478,8 +1849,10 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       labelOf: _labelOf,
       topicKind: _topicKind,
       labelScale: _labelScale,
-      highlight: _highlight,
+      highlighted: _highlighted,
+      lit: _lit,
       onSelect: _select,
+      onEnter: _drill,
     );
   }
 
@@ -1495,8 +1868,8 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
       opacity: motion?.opacityAt(t),
       topicKind: _topicKind,
       onToggle: _toggle,
-      openOf: _openOf,
-      highlight: _highlight,
+      sheetOf: _sheetOf,
+      isHighlighted: _isTreeHighlighted,
     );
   }
 }

@@ -4007,10 +4007,6 @@
   "@mapSchemaRootTooltip": {
     "description": "Tooltip del botón que cambia el tema desde el que parte el esquema."
   },
-  "mapSchemaOpen": "Open",
-  "@mapSchemaOpen": {
-    "description": "Tooltip del botón de cada nodo del esquema que abre el tema o el elemento."
-  },
   "mapSchemaExpand": "Expand {title}",
   "@mapSchemaExpand": {
     "description": "Descripción accesible de un nodo del esquema que se puede desplegar.",
@@ -4184,10 +4180,6 @@
         "type": "int"
       }
     }
-  },
-  "mapGraphHint": "Tap a community or zoom in to see what it holds.",
-  "@mapGraphHint": {
-    "description": "Ayuda de una línea bajo el camino del grafo, en el panorama de comunidades."
   },
   "mapFiltersTooltip": "Filters",
   "@mapFiltersTooltip": {
@@ -14861,8 +14853,6 @@
   "@f44S2LinksOn": {"description": "El lienzo único del Mapa (F44, paso 2)."},
   "f44S2LinksOff": "Stop seeing the links",
   "@f44S2LinksOff": {"description": "El lienzo único del Mapa (F44, paso 2)."},
-  "f44S2EnterCommunity": "Go into {name}",
-  "@f44S2EnterCommunity": {"description": "El lienzo único del Mapa (F44, paso 2).", "placeholders": {"name": {"type": "String"}}},
   "f44S2RootReset": "Start from what you are looking at",
   "@f44S2RootReset": {"description": "El lienzo único del Mapa (F44, paso 2)."},
   "f44S2ListRoot": "What you are looking at",
@@ -15066,5 +15056,59 @@
   "f47P0FiltersCounting": "Show results",
   "@f47P0FiltersCounting": {"description": "El pie del panel de filtros (F47, paso 0) mientras cuenta lo que queda con lo elegido: sin cifra."},
   "f47P0FiltersNoResults": "No results",
-  "@f47P0FiltersNoResults": {"description": "El pie del panel de filtros (F47, paso 0) cuando nada pasa lo elegido: el botón, apagado."}
+  "@f47P0FiltersNoResults": {"description": "El pie del panel de filtros (F47, paso 0) cuando nada pasa lo elegido: el botón, apagado."},
+  "f44S4CanvasHint": "Tap a community to see its card; double-tap it or zoom in to see what it holds.",
+  "@f44S4CanvasHint": {"description": "Lienzo del Mapa (F44, paso 4): la ayuda de una línea de lejos, en las comunidades."},
+  "f44S4SheetLabel": "Card for {title}",
+  "@f44S4SheetLabel": {"description": "Lienzo del Mapa (F44, paso 4): lo que oye el lector de pantalla al llegar a la ficha de un nodo.", "placeholders": {"title": {"type": "String"}}},
+  "f44S4SheetShow": "Show the card for {title}",
+  "@f44S4SheetShow": {"description": "Lienzo del Mapa (F44, paso 4): el botón del borde de una tarjeta de Radial y Árbol, y de una fila de «Ver como lista», que abre la ficha.", "placeholders": {"title": {"type": "String"}}},
+  "f44S4SheetClose": "Close the card",
+  "@f44S4SheetClose": {"description": "Lienzo del Mapa (F44, paso 4): el botón que cierra la ficha de un nodo."},
+  "f44S4Enter": "Go in",
+  "@f44S4Enter": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha, bajar una altura: los temas de una comunidad, los documentos de un tema."},
+  "f44S4Center": "Center here",
+  "@f44S4Center": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha, el modo foco: el nodo al centro, su vecindario según el «Grado» y el resto apagado."},
+  "f44S4ExitFocus": "Leave focus",
+  "@f44S4ExitFocus": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha y arriba del lienzo, volver de «Centrar aquí» a lo que se miraba."},
+  "f44S4Centered": "Centered on {name}",
+  "@f44S4Centered": {"description": "Lienzo del Mapa (F44, paso 4): arriba del lienzo, en el modo foco: en qué nodo está centrado.", "placeholders": {"name": {"type": "String"}}},
+  "f44S4Open": "Open",
+  "@f44S4Open": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha, abrir el tema en el Explorador o el documento en Procesado."},
+  "f44S4Ask": "Ask the chat",
+  "@f44S4Ask": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha, abrir el chat con la pregunta sobre el nodo ya hecha; se manda al tocar."},
+  "f44S4Study": "Study",
+  "@f44S4Study": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha, abrir Repasar con el tema o el documento en el selector."},
+  "f44S4Link": "Link",
+  "@f44S4Link": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha de un documento, el flujo de siempre para vincularlo con otro."},
+  "f44S4SeeLinks": "See its links",
+  "@f44S4SeeLinks": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha de un documento, los documentos vinculados con él en foco."},
+  "f44S4JoinsWith": "Connects with",
+  "@f44S4JoinsWith": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha, delante de los vecinos más fuertes, que se tocan para ir a ellos."},
+  "f44S4Latest": "Most recent",
+  "@f44S4Latest": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha de una comunidad, delante de su documento procesado más recientemente."},
+  "f44S4Topics": "{kind, select, spaces{Its topics} tags{Its tags} other{Its values}}",
+  "@f44S4Topics": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha de una comunidad, delante de sus temas, según lo que se agrupa.", "placeholders": {"kind": {"type": "String"}}},
+  "f44S4Documents": "{count, plural, =1{1 document} other{{count} documents}}",
+  "@f44S4Documents": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha, cuántos documentos tiene una comunidad o un tema.", "placeholders": {"count": {"type": "int"}}},
+  "f44S4Links": "{count, plural, =0{no links} =1{1 link} other{{count} links}}",
+  "@f44S4Links": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha de una comunidad, cuántos vínculos unen dos de sus documentos.", "placeholders": {"count": {"type": "int"}}},
+  "f44S4LinksShown": "{count, plural, =0{no links in view} =1{1 link in view} other{{count} links in view}}",
+  "@f44S4LinksShown": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha de un documento dibujado, cuántos de sus vínculos se ven.", "placeholders": {"count": {"type": "int"}}},
+  "f44S4JoinedTopics": "{kind, select, spaces{{count, plural, =0{no connected topics} =1{connected to 1 topic} other{connected to {count} topics}}} tags{{count, plural, =0{no connected tags} =1{connected to 1 tag} other{connected to {count} tags}}} other{{count, plural, =0{no connected values} =1{connected to 1 value} other{connected to {count} values}}}}",
+  "@f44S4JoinedTopics": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha de un tema, con cuántos otros se une.", "placeholders": {"kind": {"type": "String"}, "count": {"type": "int"}}},
+  "f44S4Within": "In {name}",
+  "@f44S4Within": {"description": "Lienzo del Mapa (F44, paso 4): en la ficha de un tema, la comunidad donde está.", "placeholders": {"name": {"type": "String"}}},
+  "f44S4ShowInMap": "Show {name} in the Map",
+  "@f44S4ShowInMap": {"description": "Lienzo del Mapa (F44, paso 4): lo que dice un vecino de la ficha al mantenerlo apretado o con el lector: tocarlo lleva ahí.", "placeholders": {"name": {"type": "String"}}},
+  "f44S4AskAbout": "What do my documents say about {subject}?",
+  "@f44S4AskAbout": {"description": "Lienzo del Mapa (F44, paso 4): la pregunta de «Preguntar al chat» sobre una comunidad o un tema sin vecinos.", "placeholders": {"subject": {"type": "String"}}},
+  "f44S4AskAboutWith": "{count, plural, =1{What do my documents say about {subject}, and how does it relate to {others}?} other{What do my documents say about {subject}, and how do they relate to {others}?}}",
+  "@f44S4AskAboutWith": {"description": "Lienzo del Mapa (F44, paso 4): la pregunta de «Preguntar al chat» sobre una comunidad o un tema, con sus vecinos más fuertes; count dice cuántos temas nombra subject.", "placeholders": {"count": {"type": "int"}, "subject": {"type": "String"}, "others": {"type": "String"}}},
+  "f44S4AskDocument": "What is “{title}” about?",
+  "@f44S4AskDocument": {"description": "Lienzo del Mapa (F44, paso 4): la pregunta de «Preguntar al chat» sobre un documento sin vínculos a la vista.", "placeholders": {"title": {"type": "String"}}},
+  "f44S4AskDocumentWith": "What is “{title}” about, and how does it relate to {others}?",
+  "@f44S4AskDocumentWith": {"description": "Lienzo del Mapa (F44, paso 4): la pregunta de «Preguntar al chat» sobre un documento, con los documentos vinculados que se ven.", "placeholders": {"title": {"type": "String"}, "others": {"type": "String"}}},
+  "f44S4ListAnd": "{head} and {last}",
+  "@f44S4ListAnd": {"description": "Lienzo del Mapa (F44, paso 4): cómo se juntan los últimos de una lista en una frase: «Roma, Grecia y Egipto».", "placeholders": {"head": {"type": "String"}, "last": {"type": "String"}}}
 }

@@ -354,7 +354,8 @@ List<int> rootTopicsAmong(TopicGraph graph, Iterable<int> members) {
 ///
 /// - De todo ([CanvasTreeKind.all]): las comunidades de [overview], rotuladas
 ///   con [labelOf], y los temas de cada una.
-/// - De la comunidad que se mira: [focusTopics].
+/// - De la comunidad que se mira: [focusTopics]; de una del panorama —por su
+///   posición, como raíz—, sus temas.
 /// - De lo vinculado: [linked].
 /// - Del tema cuyos documentos se miran ([shownTopic]): esos documentos, los
 ///   mismos de la red, sin pedirlos otra vez.
@@ -403,7 +404,13 @@ Map<String, List<CanvasTreeLink>> knownCanvasTreeLinks({
         links['community:$i'] = topicsOf(overview.nodes[i].members);
       }
     case CanvasTreeKind.community:
-      links[root.key] = topicsOf(focusTopics);
+      // Una del panorama —la que se centró (F44, paso 4)— o la que se mira.
+      final index = int.tryParse(root.id);
+      links[root.key] = topicsOf(
+        index != null && index >= 0 && index < overview.nodes.length
+            ? overview.nodes[index].members
+            : focusTopics,
+      );
     case CanvasTreeKind.links:
       links[root.key] = [for (final item in linked) itemLink(item)];
     case CanvasTreeKind.topic:

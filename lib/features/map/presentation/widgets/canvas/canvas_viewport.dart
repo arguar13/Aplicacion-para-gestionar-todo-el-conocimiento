@@ -67,6 +67,20 @@ Rect contentBounds(Iterable<Offset> positions, {double margin = 0}) {
   return Rect.fromLTRB(left, top, right, bottom).inflate(margin);
 }
 
+/// [positions] y el reflejo de cada uno alrededor de [center]: encuadrar eso
+/// deja [center] en el medio del visor con todo [positions] a la vista. Es
+/// como se encuadra el modo foco (F44, paso 4): el nodo al centro y su
+/// vecindario alrededor.
+Map<String, Offset> mirroredAround(
+  Offset center,
+  Map<String, Offset> positions,
+) => {
+  for (final MapEntry(:key, :value) in positions.entries) ...{
+    key: value,
+    '$key·reflejo': center * 2 - value,
+  },
+};
+
 /// Si con [visible] a la vista se ve todo [content]: entonces el minimapa no
 /// tiene nada que decir y se esconde.
 bool showsWhole(Rect visible, Rect content) {

@@ -2,7 +2,9 @@ import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/map_bridges.dart';
 import 'package:sinapsis/features/map/domain/entities/map_insights.dart';
 import 'package:sinapsis/features/map/domain/entities/map_node_facts.dart';
+import 'package:sinapsis/features/map/domain/entities/map_search.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
+import 'package:sinapsis/features/map/domain/services/canvas_tree_builder.dart';
 import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
 import 'package:sinapsis/features/map/domain/services/level_of_detail.dart';
 
@@ -14,9 +16,10 @@ const kMapNodeTopicNames = 8;
 
 /// Lo que dice la ficha de [ref] (F44, paso 4), con lo que el lienzo ya tiene:
 /// el grafo de temas y sus comunidades —[overview], lo que se ve de lejos—, lo
-/// que el motor sabe ([insights]) y lo que se dibuja ([scene]). `null` si [ref]
-/// no está en ninguno: un tema que ya no existe, un documento que no se ve ni
-/// está en el mapa.
+/// que el motor sabe ([insights]) y lo que se dibuja: la red ([scene]) y, en
+/// Radial, Árbol o la lista, el árbol ([tree]). `null` si [ref] no está en
+/// ninguno: un tema que ya no existe, un documento que no se ve ni está en el
+/// mapa.
 ///
 /// - **Una comunidad**: su nombre, sus temas, sus documentos y vínculos, con
 ///   qué comunidades se une más y lo más reciente, de `insights.communities`.
@@ -25,8 +28,9 @@ const kMapNodeTopicNames = 8;
 /// - **Un grupo** (el desborde, los aislados): cuántos temas junta.
 /// - **Un tema**: cuántos documentos tiene, con cuántos temas se une y los más
 ///   unidos, y en qué comunidad está.
-/// - **Un documento**: con qué documentos se lo ve vinculado en [scene] y por
-///   qué tema se llega a él (`insights.search`).
+/// - **Un documento**: con qué documentos se lo ve vinculado —en [scene], o en
+///   [tree] si solo está ahí: lo que el árbol trajo de la base al
+///   desplegarlo— y por qué tema se llega a él (`insights.search`).
 ///
 /// Es puro y barato: un tema recorre las uniones del grafo una vez; lo demás
 /// mira lo ya calculado. No consulta la base ni rehace el grafo.
@@ -37,6 +41,7 @@ MapNodeFacts? mapNodeFacts(
   required CommunityOverview overview,
   required MapInsights insights,
   required GraphScene scene,
+  CanvasTree? tree,
   TopicGraphWeights weights = const TopicGraphWeights(),
 }) => switch (ref) {
   MapCommunityRef(:final index) => _communityFacts(
@@ -60,8 +65,51 @@ MapNodeFacts? mapNodeFacts(
     graph,
     insights,
     scene,
+    tree,
   ),
 };
+
+/// Lo que dice la ficha de cada nodo, recordado mientras no cambie lo que la
+/// arma —el mapa, lo que se dibuja, el árbol—: abrir otra vez la misma ficha,
+/// o volver a dibujarla, no vuelve a mirar nada. Si cambia cualquiera, se
+/// olvida todo.
+class MapNodeFactsMemo {
+  final _facts = <MapNodeRef, MapNodeFacts?>{};
+  List<Object?> _inputs = const [];
+
+  /// Lo que dice la ficha de [ref]: ver [mapNodeFacts].
+  MapNodeFacts? of(
+    MapNodeRef ref, {
+    required TopicGraph graph,
+    required CommunityDetection detection,
+    required CommunityOverview overview,
+    required MapInsights insights,
+    required GraphScene scene,
+    CanvasTree? tree,
+  }) {
+    final inputs = [graph, detection, overview, insights, scene, tree];
+    var same = inputs.length == _inputs.length;
+    for (var i = 0; same && i < inputs.length; i++) {
+      same = identical(inputs[i], _inputs[i]);
+    }
+    if (!same) {
+      _facts.clear();
+      _inputs = inputs;
+    }
+    return _facts.putIfAbsent(
+      ref,
+      () => mapNodeFacts(
+        ref,
+        graph: graph,
+        detection: detection,
+        overview: overview,
+        insights: insights,
+        scene: scene,
+        tree: tree,
+      ),
+    );
+  }
+}
 
 MapNodeFacts? _communityFacts(
   MapCommunityRef ref,
@@ -196,13 +244,22 @@ MapNodeFacts? _documentFacts(
   TopicGraph graph,
   MapInsights insights,
   GraphScene scene,
+  CanvasTree? tree,
 ) {
   final entry = insights.search.document(itemId);
   final at = scene.indexOf(ref.sceneKey);
   final drawn = at == null ? null : scene.nodes[at];
-  final title = drawn?.label ?? entry?.label;
+  final branch = drawn == null ? tree?.entries[ref.sceneKey] : null;
+  final title = drawn?.label ?? entry?.label ?? branch?.title;
   if (title == null) return null;
-  final isNote = drawn == null ? entry!.isNote : drawn.kind == SceneKind.note;
+  final isNote = switch ((drawn, entry)) {
+    (final drawn?, _) => drawn.kind == SceneKind.note,
+    (null, final entry?) => entry.isNote,
+    (null, null) => branch!.isNote,
+  };
+  if (branch != null) {
+    return _branchFacts(ref, branch, tree!, title, isNote, graph, entry);
+  }
 
   // Con qué se lo ve vinculado: lo que une a los dos, sumado si son varios.
   final weightTo = <int, double>{};
@@ -225,9 +282,6 @@ MapNodeFacts? _documentFacts(
       return byWeight != 0 ? byWeight : x.compareTo(y);
     });
 
-  final placeId = entry?.topicValueId;
-  final placeAt = placeId == null ? null : graph.indexOf(placeId);
-
   return MapNodeFacts(
     ref: ref,
     kind: isNote ? MapNodeKind.note : MapNodeKind.source,
@@ -241,11 +295,54 @@ MapNodeFacts? _documentFacts(
             label: scene.nodes[other].label,
           ),
     ],
-    place: placeId == null || placeAt == null
-        ? null
-        : MapNodeNeighbor(
-            ref: MapTopicRef(placeId),
-            label: graph.nodes[placeAt].label,
-          ),
+    place: _placeOf(graph, entry?.topicValueId),
   );
+}
+
+/// La ficha de un documento que solo está en el árbol: lo vinculado con él
+/// es lo que cuelga de él por un vínculo y, si él cuelga de otro documento
+/// por uno, ese.
+MapNodeFacts _branchFacts(
+  MapDocumentRef ref,
+  CanvasTreeEntry branch,
+  CanvasTree tree,
+  String title,
+  bool isNote,
+  TopicGraph graph,
+  MapSearchEntry? entry,
+) {
+  final linked = <CanvasTreeEntry>[
+    if (branch.edge == CanvasTreeEdge.relation)
+      if (tree.entries[branch.parentKey] case final parent?) parent,
+    for (final child in tree.entries.values)
+      if (child.parentKey == branch.key &&
+          child.edge == CanvasTreeEdge.relation)
+        child,
+  ];
+  return MapNodeFacts(
+    ref: ref,
+    kind: isNote ? MapNodeKind.note : MapNodeKind.source,
+    title: title,
+    linkCount: linked.length,
+    neighbors: [
+      for (final other in linked.take(kMapNodeNeighbors))
+        if (other.ref.kind == CanvasTreeKind.item)
+          MapNodeNeighbor(
+            ref: MapDocumentRef(other.ref.id),
+            label: other.title,
+          ),
+    ],
+    place: _placeOf(graph, entry?.topicValueId),
+  );
+}
+
+/// El tema [valueId] como lugar de un documento, si está en el mapa.
+MapNodeNeighbor? _placeOf(TopicGraph graph, String? valueId) {
+  final at = valueId == null ? null : graph.indexOf(valueId);
+  return at == null
+      ? null
+      : MapNodeNeighbor(
+          ref: MapTopicRef(valueId!),
+          label: graph.nodes[at].label,
+        );
 }

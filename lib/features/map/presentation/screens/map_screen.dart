@@ -11,6 +11,9 @@ import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/presentation/repasar_navigation.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/usecases/export_map_usecase.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_canvas_request.dart';
@@ -76,6 +79,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   void _openItem(String itemId) => openOrganizedItem(context, itemId);
 
   void _openTension() => context.push(RoutePaths.graphTension);
+
+  /// «✨ Preguntar al chat» desde la ficha de un nodo: una conversación nueva
+  /// sobre lo procesado, con la pregunta hecha y a la vista; se manda sola al
+  /// tocar el botón, como «Explicar» (F43, decisión L).
+  void _ask(String question) =>
+      askInChat(context, ChatHandoff(question: question));
+
+  /// «🎓 Estudiar» desde la ficha: Repasar con [scope] en el selector, y el
+  /// Mapa y Estudiar quedan conectados en los dos sentidos.
+  void _study(CreationScope scope) => openRepasarWith(context, scope);
 
   /// Guarda el dibujo del lienzo como [format] —`png` o `svg`—, donde el
   /// usuario elija.
@@ -223,6 +236,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               onOpenTopic: (valueId) => _openTopic(selected, valueId),
               onOpenItem: _openItem,
               onOpenTension: _openTension,
+              onAsk: _ask,
+              onStudy: _study,
             ),
     );
   }
@@ -245,6 +260,8 @@ class _MapBody extends ConsumerWidget {
     required this.onOpenTopic,
     required this.onOpenItem,
     required this.onOpenTension,
+    required this.onAsk,
+    required this.onStudy,
   });
 
   final MapRequest request;
@@ -259,6 +276,8 @@ class _MapBody extends ConsumerWidget {
   final void Function(String valueId) onOpenTopic;
   final void Function(String itemId) onOpenItem;
   final VoidCallback onOpenTension;
+  final ValueChanged<String> onAsk;
+  final ValueChanged<CreationScope> onStudy;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -297,6 +316,8 @@ class _MapBody extends ConsumerWidget {
           exportHandle: exportHandle,
           onOpenTopic: onOpenTopic,
           onOpenItem: onOpenItem,
+          onAsk: onAsk,
+          onStudy: onStudy,
         ),
       };
     }

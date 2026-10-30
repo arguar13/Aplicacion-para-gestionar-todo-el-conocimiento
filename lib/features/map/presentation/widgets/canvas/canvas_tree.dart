@@ -104,14 +104,15 @@ String _itemKindName(AppLocalizations l10n, CanvasTreeEntry entry) {
 
 /// La tarjeta de un nodo de Radial y Árbol: su ícono, su título y, si tiene
 /// hijos, cómo desplegarlo («›» abre la rama, «‹» la cierra); el botón del
-/// borde lo abre —o entra, en una comunidad—.
+/// borde abre su ficha (F44, paso 4), con todo lo que se puede hacer con él.
+/// Lo que no se despliega abre la ficha al tocarlo.
 class MapTreeNodeCard extends StatelessWidget {
   const MapTreeNodeCard({
     required this.entry,
     required this.topicKind,
     required this.onToggle,
-    this.onOpen,
-    this.openTooltip,
+    this.onSheet,
+    this.sheetTooltip,
     this.highlighted = false,
     super.key,
   });
@@ -122,9 +123,9 @@ class MapTreeNodeCard extends StatelessWidget {
   final String topicKind;
   final VoidCallback onToggle;
 
-  /// Abrir o entrar; `null` si no hay adónde (todo, lo vinculado).
-  final VoidCallback? onOpen;
-  final String? openTooltip;
+  /// Abrir su ficha; `null` si no tiene (todo, lo vinculado).
+  final VoidCallback? onSheet;
+  final String? sheetTooltip;
   final bool highlighted;
 
   @override
@@ -148,7 +149,7 @@ class MapTreeNodeCard extends StatelessWidget {
       button: true,
       expanded: entry.canExpand ? entry.expanded : null,
       excludeSemantics: true,
-      onTap: entry.canExpand ? onToggle : onOpen,
+      onTap: entry.canExpand ? onToggle : onSheet,
       child: Material(
         key: ValueKey('map-tree-node-${entry.key}'),
         color: isItem ? role.surface(colors) : colors.surfaceContainerHigh,
@@ -161,7 +162,7 @@ class MapTreeNodeCard extends StatelessWidget {
         ),
         child: InkWell(
           customBorder: const StadiumBorder(),
-          onTap: entry.canExpand ? onToggle : onOpen,
+          onTap: entry.canExpand ? onToggle : onSheet,
           child: Padding(
             padding: const EdgeInsets.only(left: 10),
             child: Row(
@@ -184,18 +185,14 @@ class MapTreeNodeCard extends StatelessWidget {
                     size: 18,
                     color: colors.onSurfaceVariant,
                   ),
-                if (onOpen != null)
+                if (onSheet != null)
                   IconButton(
-                    key: ValueKey('map-tree-open-${entry.key}'),
-                    tooltip: openTooltip ?? l10n.mapSchemaOpen,
+                    key: ValueKey('map-tree-sheet-${entry.key}'),
+                    tooltip: sheetTooltip ?? l10n.f44S4SheetShow(entry.title),
                     visualDensity: VisualDensity.compact,
                     iconSize: 16,
-                    onPressed: onOpen,
-                    icon: Icon(
-                      entry.ref.kind == CanvasTreeKind.community
-                          ? Icons.zoom_in
-                          : Icons.open_in_new,
-                    ),
+                    onPressed: onSheet,
+                    icon: const Icon(Icons.info_outline),
                   )
                 else
                   const SizedBox(width: 10),

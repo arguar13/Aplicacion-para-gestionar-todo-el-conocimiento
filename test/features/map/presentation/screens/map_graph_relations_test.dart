@@ -106,6 +106,16 @@ void main() {
   }
 
   Finder node(String key) => find.byKey(ValueKey('map-node-$key'));
+
+  /// Dos toques seguidos: bajar una altura en una comunidad o un tema (F44,
+  /// paso 4). Un toque solo abre su ficha.
+  Future<void> enter(WidgetTester tester, Finder finder) async {
+    await tester.tap(finder);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(finder);
+    await tester.pumpAndSettle();
+  }
+
   final addRelation = find.byKey(const ValueKey('map-add-link'));
   final aiSuggest = find.byKey(const ValueKey('map-ai-suggest'));
 
@@ -120,8 +130,8 @@ void main() {
 
   /// De las comunidades a los documentos de Roma.
   Future<void> openRomaItems(WidgetTester tester) async {
-    await tapAndSettle(tester, node('overview:0'));
-    await tapAndSettle(tester, node('topic:roma'));
+    await enter(tester, node('overview:0'));
+    await enter(tester, node('topic:roma'));
   }
 
   Future<List<RelationRow>> relations() => db.select(db.relations).get();
@@ -224,10 +234,10 @@ void main() {
       expect(aiSuggest, findsNothing);
 
       // En los temas de una comunidad, todavía no.
-      await tapAndSettle(tester, node('overview:0'));
+      await enter(tester, node('overview:0'));
       expect(aiSuggest, findsNothing);
 
-      await tapAndSettle(tester, node('topic:roma'));
+      await enter(tester, node('topic:roma'));
       expect(aiSuggest, findsOneWidget);
     });
 
@@ -238,8 +248,8 @@ void main() {
       await pump(tester);
 
       // Egipto solo tiene la fuente s4.
-      await tapAndSettle(tester, node('overview:1'));
-      await tapAndSettle(tester, node('topic:egipto'));
+      await enter(tester, node('overview:1'));
+      await enter(tester, node('topic:egipto'));
 
       expect(node('item:s4'), findsOneWidget);
       expect(aiSuggest, findsNothing);

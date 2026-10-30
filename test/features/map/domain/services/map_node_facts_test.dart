@@ -5,6 +5,7 @@ import 'package:sinapsis/features/map/domain/entities/map_insights.dart';
 import 'package:sinapsis/features/map/domain/entities/map_node_facts.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
+import 'package:sinapsis/features/map/domain/services/canvas_tree_builder.dart';
 import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
 import 'package:sinapsis/features/map/domain/services/level_of_detail.dart';
@@ -58,6 +59,7 @@ void main() {
   MapNodeFacts? factsOf(
     MapNodeRef ref, {
     GraphScene scene = const GraphScene.empty(),
+    CanvasTree? tree,
     MapInsights? withInsights,
   }) => mapNodeFacts(
     ref,
@@ -66,6 +68,7 @@ void main() {
     overview: overview,
     insights: withInsights ?? insights,
     scene: scene,
+    tree: tree,
   );
 
   group('una comunidad', () {
@@ -235,11 +238,85 @@ void main() {
       expect(facts.place?.ref, const MapTopicRef('roma'));
     });
 
+    test('solo en el árbol: con qué se lo ve vinculado ahí, por vínculo y no '
+        'por nota mapa', () {
+      // x0 cita a x1, que se vincula con x2; m1 es una nota mapa de x0. Ninguno
+      // está en el índice: solo los trajo el árbol.
+      final tree = buildCanvasTree(
+        root: const CanvasTreeRef.item('x0'),
+        rootTitle: 'Livio',
+        graph: graph,
+        expanded: const {'item:x0', 'item:x1'},
+        links: const {
+          'item:x0': [
+            CanvasTreeLink(
+              target: CanvasTreeRef.item('x1'),
+              title: 'Heródoto',
+              edge: CanvasTreeEdge.relation,
+              relation: RelationKind.cites,
+            ),
+            CanvasTreeLink(
+              target: CanvasTreeRef.item('m1'),
+              title: 'Mapa de Roma',
+              edge: CanvasTreeEdge.mapNote,
+              isNote: true,
+            ),
+          ],
+          'item:x1': [
+            CanvasTreeLink(
+              target: CanvasTreeRef.item('x2'),
+              title: 'Tucídides',
+              edge: CanvasTreeEdge.relation,
+              relation: RelationKind.relatedTo,
+            ),
+          ],
+        },
+      );
+
+      final middle = factsOf(const MapDocumentRef('x1'), tree: tree)!;
+      expect(middle.title, 'Heródoto');
+      expect(middle.kind, MapNodeKind.source);
+      expect(middle.linkCount, 2);
+      expect(middle.neighbors, const [
+        MapNodeNeighbor(ref: MapDocumentRef('x0'), label: 'Livio'),
+        MapNodeNeighbor(ref: MapDocumentRef('x2'), label: 'Tucídides'),
+      ]);
+      expect(middle.place, isNull);
+
+      final root = factsOf(const MapDocumentRef('x0'), tree: tree)!;
+      expect(root.linkCount, 1);
+      expect(root.neighbors.single.ref, const MapDocumentRef('x1'));
+
+      final note = factsOf(const MapDocumentRef('m1'), tree: tree)!;
+      expect(note.kind, MapNodeKind.note);
+      expect(note.linkCount, 0);
+    });
+
     test('sin tema no tiene adónde volar; sin estar en ninguna parte, no '
         'tiene ficha', () {
       expect(factsOf(const MapDocumentRef('i17'))!.place, isNull);
       expect(factsOf(const MapDocumentRef('nada')), isNull);
     });
+  });
+
+  test('lo recordado: la misma ficha con lo mismo no se vuelve a armar; con '
+      'otra escena, sí', () {
+    final memo = MapNodeFactsMemo();
+    MapNodeFacts? recall(GraphScene scene) => memo.of(
+      const MapTopicRef('roma'),
+      graph: graph,
+      detection: detection,
+      overview: overview,
+      insights: insights,
+      scene: scene,
+    );
+    const scene = GraphScene.empty();
+    final first = recall(scene);
+
+    expect(identical(recall(scene), first), isTrue);
+    final other = recall(sceneOfItems(const TopicItemsGraph.empty('roma')));
+    expect(identical(other, first), isFalse);
+    expect(other!.title, first!.title);
   });
 
   group('lo que es cada nodo de la escena', () {
