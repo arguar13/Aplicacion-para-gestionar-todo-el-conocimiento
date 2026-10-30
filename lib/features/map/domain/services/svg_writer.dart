@@ -19,17 +19,22 @@ class SvgWriter {
   final double height;
   final _body = StringBuffer();
 
-  /// Una línea de [from] a [to].
+  /// Una línea de [from] a [to]; con [dash], cortada en tramos —trazo, hueco,
+  /// trazo…—, como la de un parecido del Mapa (F44, paso 5).
   void line(
     Offset from,
     Offset to, {
     required Color color,
     double strokeWidth = 1,
+    List<double> dash = const [],
   }) {
+    final dashes = dash.isEmpty
+        ? ''
+        : ' stroke-dasharray="${dash.map(_n).join(' ')}"';
     _body.writeln(
       '<line x1="${_n(from.dx)}" y1="${_n(from.dy)}" x2="${_n(to.dx)}" '
       'y2="${_n(to.dy)}" stroke="${_hex(color)}"${_opacity('stroke', color)} '
-      'stroke-width="${_n(strokeWidth)}"/>',
+      'stroke-width="${_n(strokeWidth)}"$dashes/>',
     );
   }
 
@@ -69,6 +74,18 @@ class SvgWriter {
     _body.writeln(
       '<polygon points="${_n(a.dx)},${_n(a.dy)} ${_n(b.dx)},${_n(b.dy)} '
       '${_n(c.dx)},${_n(c.dy)}" fill="${_hex(fill)}"${_opacity('fill', fill)}/>',
+    );
+  }
+
+  /// Un polígono relleno con los vértices [points], en orden: el rayo de una
+  /// contradicción del Mapa (F44, paso 5).
+  void polygon(List<Offset> points, {required Color fill}) {
+    final vertices = [
+      for (final point in points) '${_n(point.dx)},${_n(point.dy)}',
+    ].join(' ');
+    _body.writeln(
+      '<polygon points="$vertices" fill="${_hex(fill)}"'
+      '${_opacity('fill', fill)}/>',
     );
   }
 

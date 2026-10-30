@@ -18,6 +18,10 @@ enum SceneKind {
   /// Los temas sin ninguna unión, juntos.
   isolated,
 
+  /// La burbuja «Sin tema» (F44, paso 5): los documentos sin ningún valor de
+  /// lo que se mira, de lejos, como un nodo más.
+  unthemed,
+
   /// Un tema.
   topic,
 
@@ -40,7 +44,8 @@ class SceneNode {
     this.ref,
   });
 
-  /// Único en la escena: `overview:3`, `topic:roma`, `item:i1`.
+  /// Único en la escena: `overview:3`, `topic:roma`, `item:i1` o, la burbuja
+  /// «Sin tema», `unthemed` (`kUnthemedSceneKey`).
   final String key;
   final SceneKind kind;
 

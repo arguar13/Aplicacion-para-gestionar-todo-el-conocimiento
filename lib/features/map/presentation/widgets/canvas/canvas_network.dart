@@ -36,7 +36,8 @@ Color mapCommunityColor(int? group, ColorScheme colors, Brightness brightness) {
 }
 
 /// El color de un nodo de la red: el de su comunidad; un documento, el de su
-/// rol (fuente o nota).
+/// rol (fuente o nota). Lo que junta sin ser una comunidad —el desborde, los
+/// aislados, la burbuja «Sin tema»—, gris.
 Color mapSceneNodeColor(
   SceneNode node,
   ColorScheme colors,
@@ -44,16 +45,20 @@ Color mapSceneNodeColor(
 ) => switch (node.kind) {
   SceneKind.note => EntityRole.note.accent(colors),
   SceneKind.source => EntityRole.source.accent(colors),
-  SceneKind.overflow || SceneKind.isolated => colors.outline,
+  SceneKind.overflow ||
+  SceneKind.isolated ||
+  SceneKind.unthemed => colors.outline,
   SceneKind.community ||
   SceneKind.topic => mapCommunityColor(node.group, colors, brightness),
 };
 
-/// Si el nodo junta temas: una comunidad, el desborde o los aislados.
+/// Si el nodo se dibuja como lo que junta: una comunidad, el desborde, los
+/// aislados o la burbuja «Sin tema» —un círculo con su cuenta adentro—.
 bool isCommunityLike(SceneNode node) =>
     node.kind == SceneKind.community ||
     node.kind == SceneKind.overflow ||
-    node.kind == SceneKind.isolated;
+    node.kind == SceneKind.isolated ||
+    node.kind == SceneKind.unthemed;
 
 /// Un nodo de la red: un círculo con su nombre debajo —con la cuenta adentro
 /// si junta temas— o, si es un documento, su caja.

@@ -150,6 +150,7 @@ class _Row extends StatelessWidget {
             ? l10n.mapSchemaNodeNote
             : l10n.mapSchemaNodeSource,
       CanvasTreeKind.all || CanvasTreeKind.links => l10n.f44S2ListRoot,
+      CanvasTreeKind.unthemed => l10n.mapItemCount(entry.count),
     };
   }
 }

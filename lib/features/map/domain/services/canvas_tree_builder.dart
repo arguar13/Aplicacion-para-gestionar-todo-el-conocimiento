@@ -24,6 +24,10 @@ enum CanvasTreeKind {
   /// Los documentos vinculados entre sí, tengan o no tema.
   links,
 
+  /// La burbuja «Sin tema» (F44, paso 5): los documentos sin ningún valor de
+  /// lo que se mira.
+  unthemed,
+
   /// Un valor de la categoría que se mira.
   topic,
 
@@ -34,11 +38,12 @@ enum CanvasTreeKind {
 /// A qué se refiere un nodo del árbol del lienzo.
 ///
 /// Los temas y los documentos son los mismos del Esquema ([schemaRef]); los
-/// otros tres no están en la base: los arma el lienzo con lo que ya sabe.
+/// demás no están en la base: los arma el lienzo con lo que ya sabe.
 @immutable
 class CanvasTreeRef {
   const CanvasTreeRef.all() : kind = CanvasTreeKind.all, id = '';
   const CanvasTreeRef.links() : kind = CanvasTreeKind.links, id = '';
+  const CanvasTreeRef.unthemed() : kind = CanvasTreeKind.unthemed, id = '';
   const CanvasTreeRef.community(this.id) : kind = CanvasTreeKind.community;
   const CanvasTreeRef.topic(this.id) : kind = CanvasTreeKind.topic;
   const CanvasTreeRef.item(this.id) : kind = CanvasTreeKind.item;
@@ -359,6 +364,9 @@ List<int> rootTopicsAmong(TopicGraph graph, Iterable<int> members) {
 /// - De lo vinculado: [linked].
 /// - Del tema cuyos documentos se miran ([shownTopic]): esos documentos, los
 ///   mismos de la red, sin pedirlos otra vez.
+/// - De la burbuja «Sin tema» ([unthemed], con su capa prendida, F44, paso
+///   5): sus documentos, que ya trae el motor; de lejos, además, la burbuja
+///   entre las comunidades.
 ///
 /// Es puro.
 Map<String, List<CanvasTreeLink>> knownCanvasTreeLinks({
@@ -370,6 +378,7 @@ Map<String, List<CanvasTreeLink>> knownCanvasTreeLinks({
   List<int> focusTopics = const [],
   List<TopicItemNode> linked = const [],
   ({String valueId, List<TopicItemNode> items})? shownTopic,
+  ({String title, int count, List<TopicItemNode> items})? unthemed,
 }) {
   final links = <String, List<CanvasTreeLink>>{...fetched};
   List<CanvasTreeLink> topicsOf(Iterable<int> members) => [
@@ -403,6 +412,18 @@ Map<String, List<CanvasTreeLink>> knownCanvasTreeLinks({
       for (var i = 0; i < overview.nodes.length; i++) {
         links['community:$i'] = topicsOf(overview.nodes[i].members);
       }
+      if (unthemed != null && unthemed.items.isNotEmpty) {
+        const bubble = CanvasTreeRef.unthemed();
+        links[root.key]!.add(
+          CanvasTreeLink(
+            target: bubble,
+            title: unthemed.title,
+            edge: CanvasTreeEdge.member,
+            count: unthemed.count,
+          ),
+        );
+        links[bubble.key] = [for (final item in unthemed.items) itemLink(item)];
+      }
     case CanvasTreeKind.community:
       // Una del panorama —la que se centró (F44, paso 4)— o la que se mira.
       final index = int.tryParse(root.id);
@@ -413,6 +434,11 @@ Map<String, List<CanvasTreeLink>> knownCanvasTreeLinks({
       );
     case CanvasTreeKind.links:
       links[root.key] = [for (final item in linked) itemLink(item)];
+    case CanvasTreeKind.unthemed:
+      links[root.key] = [
+        for (final item in unthemed?.items ?? const <TopicItemNode>[])
+          itemLink(item),
+      ];
     case CanvasTreeKind.topic:
       if (shownTopic != null && root.id == shownTopic.valueId) {
         links[root.key] = [

@@ -906,7 +906,10 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   MapNodeRef? _refOfEntry(CanvasTreeEntry entry) {
     final id = entry.ref.id;
     return switch (entry.ref.kind) {
-      CanvasTreeKind.all || CanvasTreeKind.links => null,
+      // Lo que junta el lienzo sin ser un nodo del mapa no tiene ficha.
+      CanvasTreeKind.all ||
+      CanvasTreeKind.links ||
+      CanvasTreeKind.unthemed => null,
       CanvasTreeKind.community => switch (id == _kFocusId
           ? _overview.nodes.indexWhere(
               (node) =>
@@ -1147,7 +1150,8 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
         if (index != null) _enterCommunityAt(index, from: node);
       case SceneKind.topic:
         _enterTopic(node.ref!, node.label, from: node);
-      case SceneKind.note || SceneKind.source:
+      // La burbuja «Sin tema» todavía no se dibuja.
+      case SceneKind.unthemed || SceneKind.note || SceneKind.source:
         return;
     }
   }

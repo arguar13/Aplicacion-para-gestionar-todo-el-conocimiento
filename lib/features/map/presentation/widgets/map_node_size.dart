@@ -6,7 +6,10 @@ import 'package:sinapsis/features/map/presentation/widgets/map_item_box.dart';
 
 /// El tamaño de la caja de un nodo, con su etiqueta.
 Size mapNodeSize(SceneNode node) => switch (node.kind) {
-  SceneKind.community || SceneKind.overflow || SceneKind.isolated => Size(
+  SceneKind.community ||
+  SceneKind.overflow ||
+  SceneKind.isolated ||
+  SceneKind.unthemed => Size(
     math.max(mapNodeDisc(node), 120),
     mapNodeDisc(node) + 22,
   ),
@@ -21,7 +24,8 @@ Size mapNodeSize(SceneNode node) => switch (node.kind) {
 double mapNodeDisc(SceneNode node) => switch (node.kind) {
   SceneKind.community ||
   SceneKind.overflow ||
-  SceneKind.isolated => (30 + 7 * math.sqrt(node.size)).clamp(30, 110),
+  SceneKind.isolated ||
+  SceneKind.unthemed => (30 + 7 * math.sqrt(node.size)).clamp(30, 110),
   SceneKind.topic => (16 + 5 * math.sqrt(node.size)).clamp(16, 60),
   _ => 0,
 };

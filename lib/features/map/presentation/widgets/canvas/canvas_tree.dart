@@ -52,7 +52,7 @@ TreePlacement placeCanvasTree(CanvasTree tree, MapArrangement arrangement) {
 }
 
 /// El color de acento de un nodo del árbol: el de su comunidad para lo que
-/// tiene una; el de su rol para un documento.
+/// tiene una; el de su rol para un documento; gris, la burbuja «Sin tema».
 Color treeAccentOf(
   CanvasTreeEntry entry,
   ColorScheme colors,
@@ -61,6 +61,7 @@ Color treeAccentOf(
   CanvasTreeKind.item =>
     (entry.isNote ? EntityRole.note : EntityRole.source).accent(colors),
   CanvasTreeKind.all || CanvasTreeKind.links => colors.primary,
+  CanvasTreeKind.unthemed => colors.outline,
   CanvasTreeKind.community || CanvasTreeKind.topic =>
     entry.group == null
         ? colors.primary
@@ -71,6 +72,8 @@ Color treeAccentOf(
 IconData treeIconOf(CanvasTreeEntry entry) => switch (entry.ref.kind) {
   CanvasTreeKind.all => Icons.hub_outlined,
   CanvasTreeKind.links => Icons.link,
+  // El mismo de «N sin tema» en la línea de arriba del Mapa.
+  CanvasTreeKind.unthemed => Icons.label_off_outlined,
   CanvasTreeKind.community => Icons.bubble_chart_outlined,
   CanvasTreeKind.topic => Icons.label_outline,
   CanvasTreeKind.item =>
@@ -88,6 +91,10 @@ String treeKindLabel(
   String topicKind,
 ) => switch (entry.ref.kind) {
   CanvasTreeKind.all || CanvasTreeKind.links => entry.title,
+  CanvasTreeKind.unthemed => l10n.f44S5UnthemedSemantics(
+    entry.title,
+    entry.count,
+  ),
   CanvasTreeKind.community => l10n.mapGraphCommunitySemantics(
     entry.title,
     l10n.mapTopicCount(topicKind, entry.count),

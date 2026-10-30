@@ -132,6 +132,7 @@ class MapNetworkLayer extends StatelessWidget {
         l10n.mapTopicCount(topicKind, node.count),
       ),
       SceneKind.overflow || SceneKind.isolated => '$label: ${node.count}',
+      SceneKind.unthemed => l10n.f44S5UnthemedSemantics(label, node.count),
       SceneKind.topic => '$label: ${l10n.mapItemCount(node.size)}',
       SceneKind.note || SceneKind.source => label,
     };
@@ -169,13 +170,14 @@ class MapNetworkLayer extends StatelessWidget {
   }
 }
 
-/// Si [node] tiene una altura más cerca a la que bajar.
+/// Si [node] baja una altura al tocarlo dos veces. Un documento no tiene
+/// adónde, y la burbuja «Sin tema» no tiene ficha: se entra con un toque.
 bool _canEnter(SceneNode node) => switch (node.kind) {
   SceneKind.community ||
   SceneKind.overflow ||
   SceneKind.isolated ||
   SceneKind.topic => true,
-  SceneKind.note || SceneKind.source => false,
+  SceneKind.unthemed || SceneKind.note || SceneKind.source => false,
 };
 
 /// Radial y Árbol en el lienzo (F44, paso 2): las uniones de cada nodo con su
