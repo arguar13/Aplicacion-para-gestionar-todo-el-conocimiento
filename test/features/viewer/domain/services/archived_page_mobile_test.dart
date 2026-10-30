@@ -54,11 +54,9 @@ void main() {
       '.vector-column-start',
       '.vector-column-end',
     ]) {
-      final rule = RegExp(r'([^{}]*)\{display:none!important;\}')
-          .firstMatch(css)!
-          .group(1)!
-          .split(',')
-          .map((s) => s.trim());
+      final rule = RegExp(
+        r'([^{}]*)\{display:none!important;\}',
+      ).firstMatch(css)!.group(1)!.split(',').map((s) => s.trim());
       expect(rule, contains(hidden), reason: hidden);
     }
     expect(css, contains('.infobox'));
@@ -87,6 +85,27 @@ void main() {
     final mobileRanges = mobile.alignment!.pageRangesOf(start, start + 7);
     expect(mobileRanges, desktopRanges);
     expect(mobileRanges, isNotEmpty);
+  });
+
+  test('pedida al mostrar la página, con texto para estudiar o sin él, la '
+      'copia lleva el ancho del teléfono y la hoja de la vista móvil', () {
+    for (final shown in [
+      showArchivedPage(wikipedia, mobile: true).html,
+      showArchivedPage(
+        wikipedia,
+        study: (content: content, colors: colors),
+        mobile: true,
+      ).html,
+    ]) {
+      final document = html_parser.parse(shown);
+      expect(
+        document
+            .querySelectorAll('meta[name="viewport"]')
+            .map((meta) => meta.attributes['content']),
+        [kMobileViewport],
+      );
+      expect(document.querySelector('#$kMobilePageStyleId'), isNotNull);
+    }
   });
 
   test('sin pedirlo, la página se ve como era', () {
