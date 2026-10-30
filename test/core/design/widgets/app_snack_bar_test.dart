@@ -10,8 +10,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// el texto no entra en un renglón, los botones bajan juntos a la derecha y la
 /// ✕ queda arriba a la derecha, como una tarjeta: nunca un hueco en el medio.
 ///
-/// Todo en un teléfono de 360 de ancho con la letra al doble, salvo donde se
-/// dice: es donde el aviso de Material dejaba el hueco.
+/// Las pruebas van en un teléfono de 360 de ancho con la letra al doble,
+/// salvo donde se dice: es donde el aviso de Material dejaba el hueco.
 void main() {
   const phone = Size(360, 760);
   final close = find.byTooltip('Cerrar aviso');
@@ -121,7 +121,7 @@ void main() {
 
       expect(
         tester.getSemantics(close),
-        containsSemantics(
+        isSemantics(
           tooltip: 'Cerrar aviso',
           isButton: true,
           hasTapAction: true,
