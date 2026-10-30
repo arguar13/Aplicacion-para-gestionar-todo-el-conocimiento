@@ -335,9 +335,10 @@ class _DetailBodyState extends State<_DetailBody> {
                     ),
                   ),
                 ],
-                // Qué se decidió en la Bandeja y cuándo (F28). En una nota no
+                // Qué se decidió en la Bandeja y cuándo (F28), y el único
+                // lugar del detalle para triar (F45, paso 7c). En una nota no
                 // dibuja nada: no pasa por la Bandeja.
-                InboxStandingLine(itemId: item.id, itemTitle: item.title),
+                InboxStandingLine(item: item),
                 if (item.source.kind == SourceKind.manualNote) ...[
                   const SizedBox(height: 8),
                   Wrap(

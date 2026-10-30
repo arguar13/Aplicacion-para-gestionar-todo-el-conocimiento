@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/inbox_status.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/inbox/domain/entities/inbox_actions.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
+import 'package:sinapsis/features/inbox/domain/entities/pending_text.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/inbox_status_presentation.dart';
+import 'package:sinapsis/features/inbox/presentation/widgets/pending_text_status.dart';
 import 'package:sinapsis/features/processed/presentation/retriage.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// En el detalle de una fuente, la tarjeta «Bandeja» (F45, mejora 18): qué se
 /// decidió en la Bandeja y cuándo (F28), y lo que se puede hacer desde ahí.
+/// Es el único lugar del detalle que ofrece triar (F45, paso 7c): antes la
+/// línea de «dónde se estudia» ofrecía también el suyo, y en una fuente sin
+/// documento procesado «Volver a triar» salía dos veces.
 ///
 /// - Arriba, el estado con su ícono: «✓ Triado el 3 oct», «Descartado el…» o
 ///   «En la Bandeja».
@@ -23,6 +28,16 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   que se confunde con «volver»—. Si no entran a lo ancho —360 dp con la
 ///   letra al doble—, uno debajo del otro, a todo lo ancho.
 /// - Lo que todavía espera en la Bandeja, un solo botón: «Triar ahora».
+///
+/// Los dos botones de triar hacen lo mismo, ahí mismo y sin ir a la Bandeja:
+/// abren la hoja «¿Qué va a Procesado?» por el camino de «Volver a triar»
+/// (`retriageAction`), que tría también lo que todavía espera, y con «Listo»
+/// el aviso trae «Ver» y «Deshacer», que deja la fuente y su documento como
+/// estaban. Siguen la regla de la Bandeja ([InboxActions]): sin texto
+/// todavía, esperan apagados, con el motivo que da la Bandeja —que llega,
+/// que sacarlo falló, que no tenía—, y se prenden solos cuando el texto
+/// llega. Una referencia bibliográfica sin texto no tiene qué triar ni texto
+/// que esperar (decisión E): no los ofrece.
 ///
 /// Antes eran un chip y dos enlaces sueltos debajo del título, en dos
 /// renglones desparejos, y se perdían. Conserva el nombre de «línea» para que
@@ -34,23 +49,19 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// espacio de arriba— en lo que no pasa por la Bandeja: una nota. Una fuente
 /// que todavía se procesa ya está «En la Bandeja» (F41).
 class InboxStandingLine extends ConsumerWidget {
-  const InboxStandingLine({
-    required this.itemId,
-    required this.itemTitle,
-    super.key,
-  });
+  const InboxStandingLine({required this.item, super.key});
 
-  final String itemId;
-
-  /// Para el aviso de «Volver a la Bandeja».
-  final String itemTitle;
+  /// La fuente: su id, su nombre para el aviso de «Volver a la Bandeja», y lo
+  /// que [InboxActions] mira para saber si ya se puede triar —sus imágenes,
+  /// que se trían aun sin texto (decisión L)—.
+  final KnowledgeItem item;
 
   /// El ícono de la Bandeja: el de su destino en la barra.
   static const _inboxIcon = Icons.move_to_inbox_outlined;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final standing = ref.watch(inboxStandingProvider(itemId)).valueOrNull;
+    final standing = ref.watch(inboxStandingProvider(item.id)).valueOrNull;
     if (standing == null) return const SizedBox.shrink();
 
     final l10n = AppLocalizations.of(context)!;
@@ -58,46 +69,66 @@ class InboxStandingLine extends ConsumerWidget {
     final colors = theme.colorScheme;
     final color = standing.status.color(colors);
 
+    final pending = standing.status == InboxStatus.pending;
+    // Triar, con lo que la Bandeja permite según el texto. Mientras se
+    // averigua, apagado: un botón prendido que enseguida se apaga invita a
+    // tocar lo que no se puede.
+    final text =
+        ref.watch(inboxPendingTextProvider(item.id)).valueOrNull ??
+        PendingText.arriving;
+    final canTriage = InboxActions.of(item, text).triage;
+    // Apagado se ofrece solo lo que puede prenderse: el texto de una fuente
+    // llega, o se vuelve a extraer; una referencia no trae texto que procesar
+    // (decisión E), y sin él no tiene qué triar.
+    final offersTriage = canTriage || standing.canReturn;
+    final onTriage = canTriage
+        ? retriageAction(context, ref, sourceItemId: item.id)
+        : null;
+    // El motivo, dicho como lo dice la Bandeja según en qué está el texto:
+    // que llega solo no es lo mismo que sacarlo falló.
+    final waitingReason = canTriage ? null : text.neededReason(l10n);
+
     final buttons = <_LabeledButton>[
-      if (standing.status == InboxStatus.pending)
+      // Tría ahí mismo, como «Volver a triar»: antes llevaba a la Bandeja, y
+      // el detalle tenía otro botón que triaba sin irse.
+      if (offersTriage && pending)
         _LabeledButton(
           l10n.inboxTriageNow,
+          disabledReason: waitingReason,
           (label) => FilledButton.icon(
             key: const Key('detail-triage-now'),
-            onPressed: () {
-              ref.read(inboxFocusedIdProvider.notifier).state = itemId;
-              context.go(RoutePaths.inbox);
-            },
+            onPressed: onTriage,
             icon: const Icon(_inboxIcon),
             label: label,
           ),
-        )
-      else ...[
-        // Lo que ya se decidió se puede volver a triar desde acá (F41, paso
-        // 4): la hoja de siempre, con lo que su documento procesado ya tiene.
-        // Con el ícono de «Volver a triar» en todos lados.
+        ),
+      // Lo que ya se decidió se puede volver a triar desde acá (F41, paso 4):
+      // la hoja de siempre, con lo que su documento procesado ya tiene. Con
+      // el ícono de «Volver a triar» en todos lados.
+      if (offersTriage && !pending)
         _LabeledButton(
           l10n.processedRetriage,
+          disabledReason: waitingReason,
           (label) => FilledButton.icon(
             key: const Key('detail-retriage'),
-            onPressed: retriageAction(context, ref, sourceItemId: itemId),
+            onPressed: onTriage,
             icon: const Icon(Icons.replay_outlined),
             label: label,
           ),
         ),
-        // Vuelve todo lo que entraría al guardarse, tenga texto o no (F41);
-        // una referencia sin texto, no (decisión E).
-        if (standing.canReturn)
-          _LabeledButton(
-            l10n.inboxBackToInbox,
-            (label) => OutlinedButton.icon(
-              key: const Key('detail-back-to-inbox'),
-              onPressed: () => _backToInbox(context, ref),
-              icon: const Icon(_inboxIcon),
-              label: label,
-            ),
+      // Vuelve todo lo que entraría al guardarse, tenga texto o no (F41): en
+      // la Bandeja espera su texto como lo recién guardado, así que no lleva
+      // la guarda de triar. Una referencia sin texto, no (decisión E).
+      if (!pending && standing.canReturn)
+        _LabeledButton(
+          l10n.inboxBackToInbox,
+          (label) => OutlinedButton.icon(
+            key: const Key('detail-back-to-inbox'),
+            onPressed: () => _backToInbox(context, ref),
+            icon: const Icon(_inboxIcon),
+            label: label,
           ),
-      ],
+        ),
     ];
 
     // La tarjeta «Bandeja» también para el lector de pantalla: su nombre, y
@@ -144,8 +175,12 @@ class InboxStandingLine extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                _ButtonPair(buttons: buttons),
+                // Sin nada que hacer —una referencia sin texto—, solo el
+                // estado.
+                if (buttons.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _ButtonPair(buttons: buttons),
+                ],
               ],
             ),
           ),
@@ -188,7 +223,7 @@ class InboxStandingLine extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
     final result = await ref
         .read(inboxRepositoryProvider)
-        .returnToInbox(itemId);
+        .returnToInbox(item.id);
 
     messenger.hideCurrentSnackBar();
     result.match(
@@ -196,7 +231,7 @@ class InboxStandingLine extends ConsumerWidget {
         SnackBar(content: Text(failure.localizedMessage(l10n))),
       ),
       (_) => messenger.showSnackBar(
-        SnackBar(content: Text(l10n.inboxBackToInboxSnack(itemTitle))),
+        SnackBar(content: Text(l10n.inboxBackToInboxSnack(item.title))),
       ),
     );
   }
@@ -204,12 +239,16 @@ class InboxStandingLine extends ConsumerWidget {
 
 /// Un botón con su nombre aparte, para medirlo antes de decidir dónde va.
 class _LabeledButton {
-  const _LabeledButton(this.label, this.build);
+  const _LabeledButton(this.label, this.build, {this.disabledReason});
 
   final String label;
 
   /// El botón, con el nombre ya armado como [Text].
   final Widget Function(Widget label) build;
+
+  /// Por qué espera apagado, o `null` si se puede tocar: un botón apagado sin
+  /// explicación no dice si falta algo o si no se puede.
+  final String? disabledReason;
 }
 
 /// Uno o dos botones del mismo alto: uno al lado del otro, partiéndose el
@@ -240,8 +279,19 @@ class _ButtonPair extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget built(_LabeledButton button) =>
-        button.build(Text(button.label, textAlign: TextAlign.center));
+    Widget built(_LabeledButton button) {
+      final widget = button.build(
+        Text(button.label, textAlign: TextAlign.center),
+      );
+      final reason = button.disabledReason;
+      if (reason == null) return widget;
+      // El motivo, también para el lector de pantalla, y en el mismo nodo que
+      // el botón: si no, el botón es un nodo propio y la ayuda queda en el de
+      // la tarjeta, lejos de lo que explica.
+      return MergeSemantics(
+        child: Tooltip(message: reason, child: widget),
+      );
+    }
 
     if (buttons.length == 1) return built(buttons.single);
 

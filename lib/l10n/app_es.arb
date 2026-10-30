@@ -5741,7 +5741,7 @@
   },
   "inboxTriageNow": "Triar ahora",
   "@inboxTriageNow": {
-    "description": "Detalle de una fuente que espera en la Bandeja: abre la Bandeja con esa fuente arriba."
+    "description": "Detalle de una fuente que espera en la Bandeja, en su tarjeta «Bandeja»: abre ahí mismo la hoja «¿Qué va a Procesado?» (F45, paso 7c)."
   },
   "libraryFilterInboxLabel": "Bandeja",
   "@libraryFilterInboxLabel": {
