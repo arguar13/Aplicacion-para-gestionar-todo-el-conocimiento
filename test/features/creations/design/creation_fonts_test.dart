@@ -4,6 +4,8 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/creations/design/creation_fonts.dart';
 
+import '../presentation_deck/support/slide_test_support.dart';
+
 /// Las letras de lo creado (F43): cada familia que usa un par está
 /// empaquetada en pubspec.yaml, con todos los pesos que se le piden, y cada
 /// archivo tiene su licencia OFL al lado.
@@ -179,6 +181,38 @@ void main() {
           .fontFamily,
       'JetBrains Mono',
     );
+  });
+
+  testWidgets('la monoespaciada (F45) lleva en un renglón casi lo mismo que '
+      'las proporcionales: su texto se achica', (tester) async {
+    await tester.runAsync(loadCreationFonts);
+    double width(CreationFontPair pair) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: 'Una generación entera camina por el desierto',
+          style: pair.bodyStyle(size: 40, color: const Color(0xFF000000)),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final w = painter.width;
+      painter.dispose();
+      return w;
+    }
+
+    expect(
+      CreationFontPair.mono
+          .bodyStyle(size: 100, color: const Color(0xFF000000))
+          .fontSize,
+      closeTo(86, 1e-9),
+    );
+    expect(
+      CreationFontPair.mono
+          .displayStyle(size: 100, color: const Color(0xFF000000))
+          .fontSize,
+      closeTo(90, 1e-9),
+    );
+    final swiss = width(CreationFontPair.swiss);
+    expect(width(CreationFontPair.mono), lessThan(swiss * 1.06));
   });
 
   test('fromName', () {

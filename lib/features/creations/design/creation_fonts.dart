@@ -116,6 +116,11 @@ enum CreationFontPair {
     displayWeight: 700,
     displayHeight: 1.08,
     displayTracking: -0.04,
+    // Cada letra ocupa lo de la más ancha: a igual tamaño, un renglón lleva un
+    // sexto menos que en las proporcionales. Se achica lo justo para que
+    // lleve lo mismo; los títulos, un poco menos, que en negrita pesan más.
+    displaySizeFactor: 0.9,
+    bodySizeFactor: 0.86,
   ),
 
   /// Títulos manuscritos sobre un texto de libro: una carta, un cuaderno de
@@ -139,6 +144,7 @@ enum CreationFontPair {
     required this.displayTracking,
     this.displayItalic = false,
     this.displaySizeFactor = 1,
+    this.bodySizeFactor = 1,
   });
 
   final String display;
@@ -162,6 +168,10 @@ enum CreationFontPair {
   /// Cuánto se agranda la fuente de títulos para pesar lo mismo que las
   /// demás a igual tamaño nominal.
   final double displaySizeFactor;
+
+  /// Cuánto se achica (o agranda) la fuente del texto para que un renglón
+  /// lleve lo mismo que en las demás a igual tamaño nominal.
+  final double bodySizeFactor;
 
   static const _inter = 'Inter Creation';
 
@@ -220,7 +230,7 @@ enum CreationFontPair {
     double tracking = 0,
   }) => styleFor(
     family: body,
-    size: size,
+    size: size * bodySizeFactor,
     color: color,
     weight: weight,
     italic: italic,
