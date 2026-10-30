@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
+import 'package:sinapsis/features/creations/presentation/explain_in_chat_question.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/explain_in_chat_button.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/domain/services/cloze.dart';
 import 'package:sinapsis/features/flashcards/domain/services/typed_answer.dart';
@@ -40,6 +42,9 @@ typedef ReviewPractice = ({
 /// - «escribí la respuesta»: se escribe, se compara y se muestra la diferencia.
 ///
 /// La calificación es siempre la misma: cuánto costó recordar.
+///
+/// Con la respuesta a la vista, junto a «Ver en la fuente» va «Explicar»
+/// (F43, M15): lleva la pregunta y la respuesta de la tarjeta al chat.
 class ReviewSessionCard extends ConsumerStatefulWidget {
   const ReviewSessionCard({
     required this.card,
@@ -48,11 +53,15 @@ class ReviewSessionCard extends ConsumerStatefulWidget {
     required this.onReveal,
     required this.onGrade,
     this.practice,
+    this.explainNotebookId,
     super.key,
   });
 
   /// En «Practicar igual»: sin calificar.
   final ReviewPractice? practice;
+
+  /// El cuaderno al que «Explicar» acota la conversación, si se repasa uno.
+  final String? explainNotebookId;
 
   final Flashcard card;
   final bool revealed;
@@ -69,6 +78,10 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
 
   /// Lo que dio comparar lo escrito, ya comprobado.
   TypedAnswerResult? _result;
+
+  /// La opción que se tocó, en una de opción múltiple: «Explicar» dice cuál
+  /// se eligió.
+  String? _chosenOptionId;
 
   Flashcard get _card => widget.card;
 
@@ -94,6 +107,39 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
       );
     });
     widget.onReveal();
+  }
+
+  /// Lo que «Explicar» le lleva al chat: la pregunta como se ve y la
+  /// respuesta; de opción múltiple, sus opciones y la que se tocó; si se
+  /// escribió, lo escrito y si coincidió.
+  ExplainSubject _explainSubject({
+    required String question,
+    required String answer,
+  }) {
+    final card = _card;
+    final result = _result;
+    final options = card.kind == FlashcardKind.multipleChoice
+        ? ref.read(flashcardOptionsProvider(card.id)).valueOrNull ?? const []
+        : const <FlashcardOption>[];
+    return ExplainSubject(
+      question: question,
+      options: [
+        for (final option in options)
+          ExplainOption(
+            text: option.content,
+            correct: option.isCorrect,
+            chosen: option.id == _chosenOptionId,
+          ),
+      ],
+      answer: options.isEmpty ? answer : null,
+      typed: result == null ? null : _typed.text,
+      typedCorrect: switch (result?.verdict) {
+        TypedAnswerVerdict.match => true,
+        TypedAnswerVerdict.mismatch => false,
+        _ => null,
+      },
+      answered: widget.revealed,
+    );
   }
 
   /// Con la respuesta a la vista: calificarla, o —practicando— seguir.
@@ -250,6 +296,34 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
       );
     }
 
+    // «Ver en la fuente» —si la tarjeta sabe de dónde salió; de opción
+    // múltiple `card.hasSourceRange` es siempre falso, cada opción trae la
+    // suya— y «Explicar», juntos y centrados.
+    Widget actions() => Wrap(
+      key: const Key('review-card-actions'),
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (card.hasSourceRange)
+          TextButton.icon(
+            icon: const Icon(Icons.menu_book_outlined, size: 18),
+            label: Text(l10n.flashcardsViewSource),
+            onPressed: () => openFlashcardSource(context, card),
+          ),
+        ExplainInChatButton(
+          key: const Key('review-explain'),
+          subject: () =>
+              _explainSubject(question: spokenFront, answer: spokenBack),
+          sourceItemId: card.itemId,
+          passageStart: card.sourceCharStart,
+          passageEnd: card.sourceCharEnd,
+          notebookId: widget.explainNotebookId,
+        ),
+      ],
+    );
+
     return ReadableRegion(
       document: readable,
       child: Padding(
@@ -308,15 +382,10 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
               ],
               const SizedBox(height: 24),
               // Con la respuesta a la vista, se puede ir a ver de dónde salió
-              // —de opción múltiple, cada opción ya trae la suya propia más
-              // abajo, `card.hasSourceRange` es siempre falso para esta
-              // forma—.
-              if (revealed && card.hasSourceRange) ...[
-                TextButton.icon(
-                  icon: const Icon(Icons.menu_book_outlined, size: 18),
-                  label: Text(l10n.flashcardsViewSource),
-                  onPressed: () => openFlashcardSource(context, card),
-                ),
+              // y pedir que la explique el chat. De opción múltiple esto va
+              // debajo de las opciones, que ya traen cada una su fuente.
+              if (revealed && !isMultipleChoice) ...[
+                actions(),
                 const SizedBox(height: 8),
               ],
               if (isMultipleChoice) ...[
@@ -331,9 +400,17 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
                   // fuente), y sin ella perderían lo que se tocó.
                   key: ValueKey('options:${card.id}'),
                   flashcardId: card.id,
-                  onAnswered: (_) => widget.onReveal(),
+                  onAnswered: (option) {
+                    setState(() => _chosenOptionId = option.id);
+                    widget.onReveal();
+                  },
                 ),
-                if (revealed) ...[const SizedBox(height: 16), _answered()],
+                if (revealed) ...[
+                  const SizedBox(height: 8),
+                  actions(),
+                  const SizedBox(height: 16),
+                  _answered(),
+                ],
               ] else if (revealed)
                 _answered()
               else if (isTyped)

@@ -9,8 +9,10 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
 import 'package:sinapsis/features/citations/presentation/fragment_citation.dart';
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
+import 'package:sinapsis/features/creations/presentation/explain_in_chat_question.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
@@ -23,6 +25,7 @@ import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.
 import 'package:sinapsis/features/habit/presentation/screens/review_history_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -643,6 +646,80 @@ void main() {
       expect(reading.itemId, id);
       expect(reading.jump, (start: 4, end: 12));
     });
+
+    testWidgets(
+      '«Explicar» (F43, M15): con la respuesta a la vista, junto a «Ver en '
+      'la fuente», lleva al chat la pregunta, la respuesta, el título de la '
+      'fuente y su pasaje',
+      (tester) async {
+        final id = await seedCard(range: (start: 4, end: 12));
+        final item =
+            (await harness.container
+                    .read(libraryRepositoryProvider)
+                    .findById(id))
+                .getRight()
+                .toNullable()!;
+        final passage = explainPassage(
+          extractableRendition(item)!.content,
+          4,
+          12,
+        );
+        final handoffs = <ChatHandoff>[];
+        harness.container.listen(chatHandoffProvider, (_, next) {
+          if (next != null) handoffs.add(next);
+        });
+        await pumpRouted(tester);
+
+        // Antes de dar vuelta la tarjeta, no está: primero se recuerda.
+        expect(find.byKey(const Key('review-explain')), findsNothing);
+        await tester.tap(find.text(es.reviewShowAnswer));
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('review-card-actions')),
+            matching: find.text(es.flashcardsViewSource),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const Key('review-explain')));
+        await tester.pumpAndSettle();
+
+        expect(passage, isNotEmpty);
+        expect(handoffs, [
+          ChatHandoff(
+            question: explainInChatQuestion(
+              es,
+              ExplainSubject(
+                question: '¿Qué señala?',
+                answer: 'El texto.',
+                answered: true,
+                sourceTitle: item.title,
+                passage: passage,
+              ),
+            ),
+          ),
+        ]);
+      },
+    );
+
+    testWidgets('una tarjeta sin fuente igual ofrece «Explicar»', (
+      tester,
+    ) async {
+      await seedCard();
+      await pumpRouted(tester);
+      await tester.tap(find.text(es.reviewShowAnswer));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('review-explain')), findsOneWidget);
+      // Deslizar sigue calificando, con «Explicar» debajo.
+      await tester.drag(
+        find.byKey(const Key('review-card')),
+        const Offset(300, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('review-summary')), findsOneWidget);
+    });
   });
 
   group('una tarjeta de opción múltiple (F20)', () {
@@ -775,5 +852,28 @@ void main() {
         expect(reading.itemId, isNot(card.itemId));
       },
     );
+
+    testWidgets('«Explicar» (F43, M15) dice qué opción se tocó y cuál era la '
+        'correcta', (tester) async {
+      await seedMultipleChoiceCard();
+      final handoffs = <ChatHandoff>[];
+      harness.container.listen(chatHandoffProvider, (_, next) {
+        if (next != null) handoffs.add(next);
+      });
+      await pumpRouted(tester);
+
+      await tester.tap(find.text('Otro texto.'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('review-explain')));
+      await tester.tap(find.byKey(const Key('review-explain')));
+      await tester.pumpAndSettle();
+
+      final question = handoffs.single.question;
+      expect(
+        question.split('\n').first,
+        es.f43S19AskChoiceWrong('«B. Otro texto.»', '«A. El texto.»'),
+      );
+      expect(question, contains('Opciones:\nA. El texto.\nB. Otro texto.'));
+    });
   });
 }

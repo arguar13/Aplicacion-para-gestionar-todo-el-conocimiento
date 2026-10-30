@@ -9,6 +9,7 @@ import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_next.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
@@ -60,6 +61,20 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   StudySessionController get _session =>
       ref.read(studySessionProvider(widget.scope).notifier);
+
+  /// El cuaderno que se repasa, si es uno: «Explicar» acota a él la
+  /// conversación (F43, M15).
+  String? get _notebookId {
+    final scope = widget.scope;
+    return switch (scope.kind) {
+      StudyScopeKind.notebook => scope.id,
+      StudyScopeKind.processed => switch (CreationScope.parse(scope.id!)) {
+        NotebookScope(:final notebookId) => notebookId,
+        _ => null,
+      },
+      _ => null,
+    };
+  }
 
   @override
   void dispose() {
@@ -219,6 +234,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         ),
         onReveal: _revealPractice,
         onGrade: (_) {},
+        explainNotebookId: _notebookId,
       );
     }
 
@@ -247,6 +263,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           grading: session.busy,
           onReveal: _session.reveal,
           onGrade: (grade) => unawaited(_grade(grade)),
+          explainNotebookId: _notebookId,
         );
       case StudyNextWait(:final until, :final learningLeft):
         if (session.answered > 0) return _summary(session);
