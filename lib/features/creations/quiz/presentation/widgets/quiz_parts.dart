@@ -1,7 +1,8 @@
-/// Las piezas del visor del cuestionario (F43, paso 8), cada una con su
-/// forma: la cabecera con «6 / 14», la pregunta, las opciones A–D con su
-/// explicación, el veredicto, lo escrito, la espera de la IA, la navegación
-/// y el puntaje.
+/// Las piezas del visor del cuestionario (F43, paso 8; con el diseño de las
+/// capturas de NotebookLM, M15), cada una con su forma: la cabecera con
+/// «6 / 14» y ⋮, la pregunta en negrita, las opciones «A.» en sus tarjetas
+/// con su veredicto y su explicación, lo escrito, la espera de la IA, la
+/// navegación y el puntaje.
 library;
 
 import 'package:flutter/material.dart';
@@ -29,8 +30,8 @@ String quizTypeLabel(AppLocalizations l10n, QuizQuestionType type) =>
 /// La letra de la opción [index]: A, B, C…
 String quizLetter(int index) => String.fromCharCode(65 + index);
 
-/// «6 / 14», el tipo de la pregunta y la barra de avance; en una vuelta de
-/// las falladas, lo dice.
+/// «6 / 14», el tipo de la pregunta, ⋮ ([menu]) y la barra de avance; en
+/// una vuelta de las falladas, lo dice.
 class QuizHeader extends StatelessWidget {
   const QuizHeader({
     required this.index,
@@ -38,6 +39,7 @@ class QuizHeader extends StatelessWidget {
     required this.type,
     required this.accent,
     required this.retry,
+    this.menu,
     super.key,
   });
 
@@ -47,51 +49,60 @@ class QuizHeader extends StatelessWidget {
   final Color accent;
   final bool retry;
 
+  /// El ⋮ de arriba a la derecha.
+  final Widget? menu;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      padding: EdgeInsets.fromLTRB(20, menu == null ? 12 : 4, 8, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            alignment: WrapAlignment.spaceBetween,
+          Row(
             children: [
-              Semantics(
-                liveRegion: true,
-                label: l10n.f43QuizProgressSemantics(index + 1, total),
-                excludeSemantics: true,
-                child: Text(
-                  l10n.f43QuizProgress(index + 1, total),
-                  key: const Key('quiz-progress'),
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+              Expanded(
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Semantics(
+                      liveRegion: true,
+                      label: l10n.f43QuizProgressSemantics(index + 1, total),
+                      excludeSemantics: true,
+                      child: Text(
+                        l10n.f43QuizProgress(index + 1, total),
+                        key: const Key('quiz-progress'),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        quizTypeLabel(l10n, type),
+                        key: const Key('quiz-type'),
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  quizTypeLabel(l10n, type),
-                  key: const Key('quiz-type'),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: scheme.onSurface,
-                  ),
-                ),
-              ),
+              ?menu,
             ],
           ),
           if (retry) ...[
@@ -105,13 +116,16 @@ class QuizHeader extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: (index + 1) / total,
-              minHeight: 4,
-              color: accent,
-              backgroundColor: scheme.surfaceContainerHighest,
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: (index + 1) / total,
+                minHeight: 4,
+                color: accent,
+                backgroundColor: scheme.surfaceContainerHighest,
+              ),
             ),
           ),
         ],
@@ -120,7 +134,8 @@ class QuizHeader extends StatelessWidget {
   }
 }
 
-/// La pregunta; en una de completar, con el espacio a la vista.
+/// La pregunta, en negrita y grande; en una de completar, con el espacio a
+/// la vista.
 class QuizPrompt extends StatelessWidget {
   const QuizPrompt({required this.question, required this.accent, super.key});
 
@@ -130,7 +145,10 @@ class QuizPrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = theme.textTheme.titleLarge?.copyWith(height: 1.3);
+    final style = theme.textTheme.titleLarge?.copyWith(
+      fontWeight: FontWeight.w700,
+      height: 1.3,
+    );
     if (question.type != QuizQuestionType.fillBlank) {
       return Text(question.prompt, key: const Key('quiz-prompt'), style: style);
     }
@@ -178,8 +196,11 @@ class QuizInstruction extends StatelessWidget {
   }
 }
 
-/// Una opción con su letra. Respondida, la correcta en verde, la elegida que
-/// no era en rojo, y debajo de cada una su explicación.
+/// Una opción en su tarjeta redondeada, con «A.» al costado, como en las
+/// capturas de NotebookLM (M15). Respondida, la correcta queda con borde
+/// verde y «✓ ¡Exacto!» —o «La correcta», si no fue la elegida—, la elegida
+/// que no era con borde rojo y «No es esa», y **cada una** muestra debajo su
+/// explicación, en gris.
 class QuizOptionTile extends StatelessWidget {
   const QuizOptionTile({
     required this.index,
@@ -213,10 +234,10 @@ class QuizOptionTile extends StatelessWidget {
     final Color fill;
     if (correct) {
       border = verdict.good;
-      fill = verdict.good.withValues(alpha: 0.12);
+      fill = verdict.good.withValues(alpha: 0.10);
     } else if (wrong) {
       border = verdict.bad;
-      fill = verdict.bad.withValues(alpha: 0.10);
+      fill = verdict.bad.withValues(alpha: 0.08);
     } else if (selected) {
       border = accent;
       fill = accent.withValues(alpha: 0.10);
@@ -226,30 +247,30 @@ class QuizOptionTile extends StatelessWidget {
     }
     final dimmed = answered && !correct && !wrong;
 
-    final mark = correct
-        ? Icons.check_circle
+    // El veredicto de la tarjeta, debajo de su texto.
+    final badge = correct
+        ? (
+            icon: Icons.check_circle,
+            text: selected ? l10n.f43QuizExact : l10n.f43S19QuizTheRightOne,
+            color: verdict.good,
+          )
         : wrong
-        ? Icons.cancel
-        : multiple && !answered
+        ? (icon: Icons.cancel, text: l10n.f43S19QuizNotThis, color: verdict.bad)
+        : null;
+    final box = multiple && !answered
         ? (selected ? Icons.check_box : Icons.check_box_outline_blank)
         : null;
-    final markColor = correct
-        ? verdict.good
-        : wrong
-        ? verdict.bad
-        : selected
-        ? accent
-        : scheme.onSurfaceVariant;
 
     final state = [
-      if (correct) l10n.f43QuizCorrectOption,
-      if (wrong) l10n.f43QuizWrongOption,
+      if (badge != null) badge.text,
       if (selected) l10n.f43QuizYourChoice,
     ].join(', ');
 
     return Semantics(
       button: onTap != null,
       selected: selected,
+      // La elegida dice su veredicto apenas se responde.
+      liveRegion: answered && selected,
       label: [
         l10n.f43QuizOptionSemantics(quizLetter(index), option.text),
         if (state.isNotEmpty) state,
@@ -260,7 +281,7 @@ class QuizOptionTile extends StatelessWidget {
       child: Material(
         color: fill,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           side: BorderSide(
             color: border,
             width: correct || wrong || selected ? 2 : 1,
@@ -270,50 +291,60 @@ class QuizOptionTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+            padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                Text(
+                  '${quizLetter(index)}.',
+                  key: Key('quiz-option-letter-$index'),
+                  style: theme.textTheme.bodyLarge?.copyWith(
                     color: correct
                         ? verdict.good
                         : wrong
                         ? verdict.bad
-                        : scheme.surfaceContainerHighest,
-                  ),
-                  child: Text(
-                    quizLetter(index),
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: correct
-                          ? verdict.onGood
-                          : wrong
-                          ? verdict.onBad
-                          : scheme.onSurface,
-                      fontWeight: FontWeight.w700,
-                    ),
+                        : dimmed
+                        ? scheme.onSurfaceVariant
+                        : scheme.onSurface,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          option.text,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: dimmed
-                                ? scheme.onSurfaceVariant
-                                : scheme.onSurface,
-                          ),
+                      Text(
+                        option.text,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: dimmed
+                              ? scheme.onSurfaceVariant
+                              : scheme.onSurface,
                         ),
                       ),
+                      if (badge != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          key: Key(
+                            correct
+                                ? 'quiz-option-right-$index'
+                                : 'quiz-option-wrong-$index',
+                          ),
+                          children: [
+                            Icon(badge.icon, size: 18, color: badge.color),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                badge.text,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: badge.color,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (answered && option.explanation.isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Text(
@@ -327,11 +358,12 @@ class QuizOptionTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (mark != null) ...[
+                if (box != null) ...[
                   const SizedBox(width: 8),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 3),
-                    child: Icon(mark, size: 22, color: markColor),
+                  Icon(
+                    box,
+                    size: 22,
+                    color: selected ? accent : scheme.onSurfaceVariant,
                   ),
                 ],
               ],

@@ -5,11 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
+import 'package:sinapsis/features/creations/presentation/explain_in_chat_question.dart';
 import 'package:sinapsis/features/creations/quiz/domain/quiz.dart';
 import 'package:sinapsis/features/creations/quiz/domain/quiz_answer_grader.dart';
 import 'package:sinapsis/features/creations/quiz/presentation/quiz_kind.dart';
+import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
+import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../flashcards/support/study_fakes.dart';
 import '../flashcards/support/study_viewer_harness.dart';
@@ -64,6 +68,7 @@ String _quiz(List<QuizQuestion> questions) =>
     QuizJson.encodeString(Quiz(title: 'Éxodo', questions: questions));
 
 void main() {
+  final es = AppLocalizationsEs();
   late StudyViewerHarness h;
   late FakeModelWriter writer;
   late LanguageModelStatus status;
@@ -102,21 +107,48 @@ void main() {
   }
 
   group('opción única', () {
-    testWidgets('«6 / 14» y A–D; la correcta: verde con «¡Exacto!» y la '
-        'explicación de cada opción', (tester) async {
+    testWidgets('el diseño de NotebookLM: «6 / 14» con ⋮, la pregunta en '
+        'negrita, cada opción en su tarjeta con «A.»; la correcta: borde '
+        'verde con «¡Exacto!» y la explicación de cada opción', (tester) async {
       await h.open(tester, await quiz(const [_single, _blank]));
 
       expect(progress(tester), '1 / 2');
       expect(find.text('Opción única'), findsOneWidget);
-      for (final letter in ['A', 'B', 'C', 'D']) {
+      expect(find.byKey(const Key('quiz-menu')), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('quiz-prompt')))
+            .style
+            ?.fontWeight,
+        FontWeight.w700,
+      );
+      for (final letter in ['A.', 'B.', 'C.', 'D.']) {
         expect(find.text(letter), findsOneWidget);
       }
       expect(find.text('Es el que guía.'), findsNothing);
+      // Sin 👍 ni 👎 (decisión I).
+      expect(find.byIcon(Icons.thumb_up_outlined), findsNothing);
+      expect(find.byIcon(Icons.thumb_down_outlined), findsNothing);
 
       await tapKey(tester, 'quiz-option-1');
 
-      expect(find.byKey(const Key('quiz-verdict-right')), findsOneWidget);
+      expect(find.byKey(const Key('quiz-option-right-1')), findsOneWidget);
+      expect(find.byKey(const Key('quiz-option-wrong-0')), findsNothing);
       expect(find.text('¡Exacto!'), findsOneWidget);
+      // El borde verde de la correcta.
+      final shape =
+          tester
+                  .widget<Material>(
+                    find
+                        .descendant(
+                          of: find.byKey(const Key('quiz-option-1')),
+                          matching: find.byType(Material),
+                        )
+                        .first,
+                  )
+                  .shape!
+              as RoundedRectangleBorder;
+      expect(shape.side.width, 2);
       for (final why in [
         'Lo ayuda.',
         'Es el que guía.',
@@ -128,19 +160,22 @@ void main() {
       expect(find.text('Moisés guía la salida de Egipto.'), findsOneWidget);
     });
 
-    testWidgets('la equivocada: la elegida en rojo, la correcta en verde, y '
-        'no se puede cambiar', (tester) async {
+    testWidgets('la equivocada: la elegida con «No es esa» en rojo, la '
+        'correcta en verde, y no se puede cambiar', (tester) async {
       await h.open(tester, await quiz(const [_single]));
 
       await tapKey(tester, 'quiz-option-0');
 
-      expect(find.byKey(const Key('quiz-verdict-wrong')), findsOneWidget);
-      expect(find.text('No es así'), findsOneWidget);
-      expect(find.byIcon(Icons.cancel), findsWidgets);
+      expect(find.byKey(const Key('quiz-option-wrong-0')), findsOneWidget);
+      expect(find.text('No es esa'), findsOneWidget);
+      expect(find.byKey(const Key('quiz-option-right-1')), findsOneWidget);
+      expect(find.text('La correcta'), findsOneWidget);
+      expect(find.byIcon(Icons.cancel), findsOneWidget);
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
       // Tocar otra después no cambia nada.
       await tapKey(tester, 'quiz-option-1');
-      expect(find.byKey(const Key('quiz-verdict-wrong')), findsOneWidget);
+      expect(find.byKey(const Key('quiz-option-wrong-0')), findsOneWidget);
+      expect(find.text('¡Exacto!'), findsNothing);
     });
   });
 
@@ -159,10 +194,123 @@ void main() {
     // Tildar y destildar.
     await tapKey(tester, 'quiz-option-1');
     await tapKey(tester, 'quiz-option-1');
-    expect(find.byKey(const Key('quiz-verdict-right')), findsNothing);
+    expect(find.text('¡Exacto!'), findsNothing);
 
     await tapKey(tester, 'quiz-check');
-    expect(find.byKey(const Key('quiz-verdict-right')), findsOneWidget);
+    expect(find.byKey(const Key('quiz-option-right-0')), findsOneWidget);
+    expect(find.byKey(const Key('quiz-option-right-2')), findsOneWidget);
+    expect(find.text('¡Exacto!'), findsNWidgets(2));
+  });
+
+  group('«Explicar»', () {
+    late List<ChatHandoff> handoffs;
+
+    setUp(() {
+      handoffs = [];
+      h.container.listen(chatHandoffProvider, (_, next) {
+        if (next != null) handoffs.add(next);
+      });
+    });
+
+    /// Toca «Explicar» y espera a que lea la fuente en la base.
+    Future<void> explain(WidgetTester tester) async {
+      await tester.ensureVisible(find.byKey(const Key('quiz-explain')));
+      await tester.tap(find.byKey(const Key('quiz-explain')));
+      for (var i = 0; i < 20 && handoffs.isEmpty; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 5)),
+        );
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+    }
+
+    const options = [
+      ExplainOption(text: 'Aarón'),
+      ExplainOption(text: 'Moisés', correct: true),
+      ExplainOption(text: 'Faraón'),
+      ExplainOption(text: 'Josué'),
+    ];
+
+    testWidgets('antes de responder pide explicar la pregunta sin decir '
+        'cuál es la correcta, con el título de la fuente', (tester) async {
+      await h.processed('doc', 'Éxodo');
+      await h.open(tester, await quiz(const [_single]));
+
+      await explain(tester);
+
+      expect(handoffs, [
+        ChatHandoff(
+          question: explainInChatQuestion(
+            es,
+            const ExplainSubject(
+              question: '¿Quién guía al pueblo?',
+              options: options,
+              sourceTitle: 'Éxodo',
+            ),
+          ),
+        ),
+      ]);
+      expect(handoffs.single.question, startsWith(es.f43S19AskBefore));
+    });
+
+    testWidgets('después, por qué la correcta es esa y por qué la elegida '
+        'no', (tester) async {
+      await h.processed('doc', 'Éxodo');
+      await h.open(tester, await quiz(const [_single]));
+      await tapKey(tester, 'quiz-option-2');
+
+      await explain(tester);
+
+      expect(
+        handoffs.single.question.split('\n').first,
+        es.f43S19AskChoiceWrong('«C. Faraón»', '«B. Moisés»'),
+      );
+    });
+
+    testWidgets('en una escrita, lo escrito y la respuesta', (tester) async {
+      await h.open(tester, await quiz(const [_blank]));
+      await tester.enterText(
+        find.byKey(const Key('quiz-typed-field')),
+        'Horeb',
+      );
+      await tapKey(tester, 'quiz-check');
+
+      await explain(tester);
+
+      final question = handoffs.single.question;
+      expect(question.split('\n').first, es.f43S19AskTypedWrong('«Horeb»'));
+      expect(question, contains('Respuesta: Sinaí'));
+    });
+  });
+
+  group('el ⋮ de arriba', () {
+    testWidgets('«Empezar de nuevo» vuelve a la primera, sin lo respondido', (
+      tester,
+    ) async {
+      await h.open(tester, await quiz(const [_single, _blank]));
+      await tapKey(tester, 'quiz-option-1');
+      await tapKey(tester, 'quiz-next');
+      expect(progress(tester), '2 / 2');
+
+      await tapKey(tester, 'quiz-menu');
+      await tapKey(tester, 'quiz-menu-restart');
+
+      expect(progress(tester), '1 / 2');
+      expect(find.text('¡Exacto!'), findsNothing);
+    });
+
+    testWidgets('«Ver en la fuente» abre el documento de la pregunta', (
+      tester,
+    ) async {
+      await h.processed('doc', 'Éxodo');
+      await h.open(tester, await quiz(const [_single]));
+
+      await tapKey(tester, 'quiz-menu');
+      await tapKey(tester, 'quiz-menu-source');
+
+      expect(find.byType(ProcessedDocumentScreen), findsOneWidget);
+    });
   });
 
   group('completar espacios', () {

@@ -4,10 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/features/creations/design/creation_art.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/services/structured_writer.dart';
 import 'package:sinapsis/features/creations/flashcards/presentation/widgets/study_viewer_parts.dart';
+import 'package:sinapsis/features/creations/presentation/explain_in_chat_question.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_kinds.dart';
+import 'package:sinapsis/features/creations/presentation/repasar_navigation.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/creation_source_chips.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/explain_in_chat_button.dart';
 import 'package:sinapsis/features/creations/quiz/domain/quiz.dart';
 import 'package:sinapsis/features/creations/quiz/domain/quiz_session.dart';
 import 'package:sinapsis/features/creations/quiz/presentation/quiz_kind.dart';
@@ -17,11 +22,15 @@ import 'package:sinapsis/features/habit/presentation/providers/habit_providers.d
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// El visor del «Cuestionario» (F43, paso 8), como la captura de NotebookLM:
-/// «6 / 14», la pregunta y sus opciones A, B, C y D; al responder, la
-/// correcta en verde con «¡Exacto!» o la elegida en rojo, y la explicación de
-/// cada opción debajo; Anterior y Siguiente; al final, el puntaje y «Repetir
-/// solo las que fallé».
+/// El visor del «Cuestionario» (F43, paso 8), con el diseño de las capturas
+/// de NotebookLM (M15): arriba, «6 / 14» con ⋮ («Ver en la fuente» y
+/// «Empezar de nuevo»); la pregunta en negrita y grande; cada opción en su
+/// tarjeta, con «A.»; al responder, la correcta con borde verde y
+/// «✓ ¡Exacto!» o la elegida con borde rojo y «No es esa», y **cada opción**
+/// con su explicación debajo; «Explicar» debajo de las opciones, que lleva la
+/// pregunta al chat (decisión L); abajo, fijos, Anterior y Siguiente; al
+/// final, el puntaje y «Repetir solo las que fallé». Sin 👍 ni 👎 (decisión
+/// I).
 ///
 /// Los cuatro tipos:
 ///
@@ -276,6 +285,65 @@ class _QuizViewerState extends ConsumerState<QuizViewer> {
     );
   }
 
+  // --- Fuente y «Explicar» --------------------------------------------------
+
+  /// El documento del que sale [question]: el que dijo la IA o, si el
+  /// cuestionario se hizo de uno solo, ese.
+  String? _documentOf(QuizQuestion question) {
+    final sources = widget.creation.sourceIds;
+    return question.documentId ?? (sources.length == 1 ? sources.single : null);
+  }
+
+  /// «Ver en la fuente»: el documento procesado de la pregunta; si no se
+  /// sabe cuál, las fuentes del cuestionario.
+  void _openSource(QuizQuestion question) {
+    final documentId = _documentOf(question);
+    if (documentId != null) {
+      openProcessedSource(context, documentId);
+    } else {
+      unawaited(showCreationSources(context, widget.creation));
+    }
+  }
+
+  /// Lo que «Explicar» le lleva al chat sobre [question], tal como está
+  /// ahora: antes de responder, la pregunta y sus opciones; después, también
+  /// lo elegido o lo escrito y cuál es la respuesta.
+  ExplainSubject _explainSubject(QuizQuestion question) {
+    final answer = _run.answers[question.id];
+    final chosen = switch (answer) {
+      QuizChoiceAnswer(:final chosen) => chosen,
+      _ => const <int>{},
+    };
+    return ExplainSubject(
+      question: question.prompt,
+      options: [
+        if (question.type.hasOptions)
+          for (final (i, option) in question.options.indexed)
+            ExplainOption(
+              text: option.text,
+              correct: option.correct,
+              chosen: chosen.contains(i),
+            ),
+      ],
+      answer: question.type.isTyped ? question.answer : null,
+      typed: answer is QuizTypedAnswer ? answer.typed : null,
+      typedCorrect: answer is QuizTypedAnswer ? answer.isCorrect : null,
+      answered: answer != null,
+    );
+  }
+
+  Widget _explain(QuizQuestion question) {
+    final scope = widget.creation.scope;
+    return Center(
+      child: ExplainInChatButton(
+        key: const Key('quiz-explain'),
+        subject: () => _explainSubject(question),
+        sourceItemId: _documentOf(question),
+        notebookId: scope is NotebookScope ? scope.notebookId : null,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -327,6 +395,10 @@ class _QuizViewerState extends ConsumerState<QuizViewer> {
           type: question.type,
           accent: accent,
           retry: _run.retry,
+          menu: _QuizMenu(
+            onViewSource: () => _openSource(question),
+            onRestart: () => _restart(_quiz),
+          ),
         ),
         Expanded(
           child: SingleChildScrollView(
@@ -413,19 +485,15 @@ class _QuizViewerState extends ConsumerState<QuizViewer> {
               onPressed: chosen.isEmpty ? null : () => _checkChoices(question),
               child: Text(l10n.f43QuizCheck),
             ),
+            const SizedBox(height: 10),
           ],
-          if (answer != null) ...[
-            const SizedBox(height: 6),
-            QuizVerdictBanner(
-              correct: answer.isCorrect,
-              title: answer.isCorrect
-                  ? l10n.f43QuizExact
-                  : l10n.f43QuizNotQuite,
-            ),
-            if (question.explanation.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              QuizExplanation(text: question.explanation),
-            ],
+          // El veredicto va en las tarjetas de las opciones; debajo de ellas,
+          // «Explicar» y, ya respondida, el porqué de la pregunta.
+          const SizedBox(height: 4),
+          _explain(question),
+          if (answer != null && question.explanation.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            QuizExplanation(text: question.explanation),
           ],
         ];
       case QuizQuestionType.fillBlank:
@@ -487,6 +555,8 @@ class _QuizViewerState extends ConsumerState<QuizViewer> {
               QuizExplanation(text: question.explanation),
             ],
           ],
+          const SizedBox(height: 16),
+          _explain(question),
         ];
       case QuizQuestionType.shortAnswer:
         final grading = _gradingId == question.id;
@@ -557,8 +627,48 @@ class _QuizViewerState extends ConsumerState<QuizViewer> {
               QuizExplanation(text: question.explanation),
             ],
           ],
+          if (!grading) ...[const SizedBox(height: 16), _explain(question)],
         ];
     }
+  }
+}
+
+/// El ⋮ de arriba: «Ver en la fuente» y «Empezar de nuevo».
+class _QuizMenu extends StatelessWidget {
+  const _QuizMenu({required this.onViewSource, required this.onRestart});
+
+  final VoidCallback onViewSource;
+  final VoidCallback onRestart;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return PopupMenuButton<VoidCallback>(
+      key: const Key('quiz-menu'),
+      tooltip: l10n.f43S19QuizMenu,
+      icon: const Icon(Icons.more_vert),
+      onSelected: (action) => action(),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          key: const Key('quiz-menu-source'),
+          value: onViewSource,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.menu_book_outlined),
+            title: Text(l10n.flashcardsViewSource),
+          ),
+        ),
+        PopupMenuItem(
+          key: const Key('quiz-menu-restart'),
+          value: onRestart,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.restart_alt),
+            title: Text(l10n.f43QuizRestart),
+          ),
+        ),
+      ],
+    );
   }
 }
 
