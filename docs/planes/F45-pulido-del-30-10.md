@@ -382,7 +382,8 @@ mutaciones; se integran en `main` de a uno, con su suite, su push y su verificac
    la pedís.
 7. **La segunda tanda** (12 a 16, decisiones F a H), en la ola 2, cuando estén los pasos 3 y 4. Lo
    hacen dos agentes:
-   - **7a**: el lector único del texto y el desplazamiento (12 y 13);
+   - **7a**: el lector único del texto y el desplazamiento (12 y 13). **Se hace en F47, paso 1**
+     (decisión A de F47, aprobada el 30/10), para no construir dos veces el lector;
    - **7b**: «Crear» en un solo lugar, las marcas adentro y el original idéntico (14, 15 y 16);
    - **7c**: «Sin tema» en el panel de estado y en Organizar, y la tarjeta «Bandeja» de una fuente
      (17 y 18).

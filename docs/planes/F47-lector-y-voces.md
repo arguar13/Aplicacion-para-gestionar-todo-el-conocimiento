@@ -1,5 +1,8 @@
 # F47 — Un solo lector para todo, la biblioteca de voces y el podcast
 
+> **Estado: APROBADO** (2026-10-30, «Aprobado todo» en el chat), con las decisiones A a K como
+> están. Va después de F45 y antes de F46 (decisión I); el paso 0 se adelanta, porque es chico.
+
 Pedido del 30/10. La guía de diseño son las capturas 3 a 17 (la app Listen AI). Hay que conservar
 todo lo que la app ya hace.
 
