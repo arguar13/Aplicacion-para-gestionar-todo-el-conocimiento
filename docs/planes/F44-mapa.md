@@ -290,3 +290,49 @@ el mismo isolate que las comunidades y sin datos nuevos en la base (decisión E)
   antes. Diez mutaciones, todas muertas: dos sobrevivían y se reforzaron sus pruebas.
 - Las carpetas del mapa, las creaciones, las tarjetas y Organizar: 3.168 pruebas pasan.
 - Queda medirlo en el emulador contra la medición de F18, en el cierre (paso 6).
+
+### Paso 2 (hecho): el lienzo único
+
+Siete commits, de `7628016f` a `b3678ce2`. Sale lo visible de antes: las pestañas Tablero,
+Vínculos, Esquema y Grafo (`MapGraphView`, `MapSchemaView`, `MapLinksView`, `schema_tree_builder`
+y `SchemaEntry`, con sus pruebas y siete claves sin uso).
+
+- **Dos pestañas, Resumen · Mapa** (`map_tab_provider.dart`): la primera vez abre en el Resumen;
+  después, en la última que se miró, también entre reinicios.
+- **Una sola línea arriba**: «Agrupar por», los filtros puestos y «N sin … · ✨ Organizar con
+  IA». En angosto baja de renglón.
+- **El lienzo** (`presentation/widgets/canvas/`), sobre dos piezas puras del dominio:
+  - el árbol de lo que se mira (`canvas_tree_builder.dart`): todo, una comunidad, un tema o lo
+    vinculado, desplegable nodo a nodo como el Esquema;
+  - las cuentas (`canvas_viewport.dart` y `canvas_motion.dart`): qué parte se ve, ⊕ ⊖ alrededor
+    del centro, el minimapa y el movimiento entre alturas.
+- **Lo que hace el lienzo:**
+  - tres alturas: los temas salen de la burbuja de su comunidad y lo de abajo se recoge al
+    subir; con «sin animaciones», el cambio es directo;
+  - las migas «Todo › comunidad › tema» llevan a cualquier altura;
+  - Red · Radial · Árbol sobre lo que se mira. Lo tocado queda quieto al desplegar, una nota mapa
+    puede ser la raíz, y los vínculos llevan su tipo y su flecha;
+  - el minimapa, ⊖ ⊕ ⛶, «Ver como lista» y exportar en PNG o SVG con la disposición en el nombre
+    (`mapa-radial-etiquetas.svg`).
+- **Cada comunidad se llama por sus dos temas** (`insights.communities.of(id).name`) en la
+  burbuja, las migas, Radial, Árbol, la lista y lo que oye el lector. Sin `insights`, queda el
+  tema más unido.
+- **Se conserva lo de F18**: los topes 60/300/200, el layout en otro isolate y en caliente, y el
+  caché de rasterizado durante el gesto. `integration_test/map_benchmark_test.dart` usa las
+  claves nuevas.
+- **Decisiones del paso:**
+  - los vínculos quedan, hasta la capa «Vínculos» de la ola 2, en un botón de cadena junto a Red
+    · Radial · Árbol, con todo lo de antes: los sueltos, el filtro de fuerza, el foco de «Ver en
+    el Mapa», agregar uno y «✨ Sugerir vínculos con IA»;
+  - tocar un tema baja a sus documentos; su material se abre con el botón de carpeta;
+  - ⊕ ⊖ solo acercan y alejan, sin cambiar de altura;
+  - un solo canal de pedidos, `mapCanvasRequestProvider` (`MapShowLinks`, `MapShowAltitude` y
+    `MapShowTopic`), en lugar de `mapLinksFocusRequestProvider`: lo usan las filas del Resumen y
+    lo va a usar la búsqueda.
+- **Verificado:** analyze en 19; `test/features/map` y la navegación, 519 pruebas; las creaciones
+  y las tarjetas, 2.365. Murieron las 13 mutaciones; entre otras, los temas que nacen en su
+  lugar, ignorar «sin animaciones», volver a pedir lo ya traído, exportar visto como lista, abrir
+  la primera vez en el Mapa y el nombre de una comunidad.
+- **Queda para después:** `map_canvas_view.dart` tiene unas 1.950 líneas y se parte cuando entren
+  la ficha y las capas (ola 2). El desborde del Resumen a 360 dp con la letra al doble es del paso
+  3, que lo arregla.
