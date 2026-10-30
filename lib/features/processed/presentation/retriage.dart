@@ -130,43 +130,25 @@ void _announce(
     final undone = await triage.undoRetriage(outcome);
     messenger.hideCurrentSnackBar();
     if (undone.getLeft().toNullable() case final failure?) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(failure.localizedMessage(l10n))),
+      messenger.showAppSnackBar(
+        AppSnackBar(content: Text(failure.localizedMessage(l10n))),
       );
     }
   }
 
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(
+    ..showAppSnackBar(
       AppSnackBar(
         key: const Key('retriage-snack'),
-        // Como el aviso de la Bandeja: «Ver» al lado del texto, porque el
-        // aviso admite una sola acción y esa es «Deshacer».
-        content: Builder(
-          builder: (context) {
-            final theme = Theme.of(context);
-            return Row(
-              children: [
-                Expanded(child: Text(message)),
-                if (!looking)
-                  TextButton(
-                    key: const Key('retriage-view'),
-                    style: TextButton.styleFrom(
-                      foregroundColor:
-                          theme.snackBarTheme.actionTextColor ??
-                          theme.colorScheme.inversePrimary,
-                    ),
-                    onPressed: () {
-                      messenger.hideCurrentSnackBar();
-                      unawaited(router.push(document));
-                    },
-                    child: Text(l10n.inboxView),
-                  ),
-              ],
-            );
-          },
-        ),
+        content: Text(message),
+        secondaryAction: looking
+            ? null
+            : SnackBarAction(
+                key: const Key('retriage-view'),
+                label: l10n.inboxView,
+                onPressed: () => unawaited(router.push(document)),
+              ),
         // Pedir lo que ya estaba no cambió nada: no hay qué deshacer.
         action: unchanged
             ? null

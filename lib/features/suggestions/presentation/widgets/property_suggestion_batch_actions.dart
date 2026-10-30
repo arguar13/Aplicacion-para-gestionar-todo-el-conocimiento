@@ -42,20 +42,20 @@ Future<int?> applyPropertySuggestionBatch({
     if (onFailure != null) {
       onFailure(message);
     } else {
-      messenger.showSnackBar(SnackBar(content: Text(message)));
+      messenger.showAppSnackBar(AppSnackBar(content: Text(message)));
     }
     return null;
   }
 
   final count = result.getRight().toNullable() ?? 0;
   if (!accept) {
-    messenger.showSnackBar(
-      SnackBar(content: Text(l10n.suggestionReviewRejected(count))),
+    messenger.showAppSnackBar(
+      AppSnackBar(content: Text(l10n.suggestionReviewRejected(count))),
     );
     return count;
   }
 
-  messenger.showSnackBar(
+  messenger.showAppSnackBar(
     AppSnackBar(
       content: Text(l10n.suggestionReviewAccepted(count)),
       // Más que un aviso común: deshacer un lote es una decisión, no un
@@ -80,8 +80,8 @@ Future<void> _undoAccepted(
   messenger.hideCurrentSnackBar();
 
   final failure = result.getLeft().toNullable();
-  messenger.showSnackBar(
-    SnackBar(
+  messenger.showAppSnackBar(
+    AppSnackBar(
       content: Text(
         failure != null
             ? failure.localizedMessage(l10n)

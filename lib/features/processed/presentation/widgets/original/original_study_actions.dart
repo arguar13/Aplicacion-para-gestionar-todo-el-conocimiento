@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
@@ -245,7 +246,7 @@ Future<void> markOriginalWithAi(
   if (own == null) {
     messenger
       ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.f43OrigNoOwnText)));
+      ..showAppSnackBar(AppSnackBar(content: Text(l10n.f43OrigNoOwnText)));
     return;
   }
   final ready = await ensureStudyModelReady(context, ref);
@@ -339,6 +340,8 @@ Future<void> clearOriginalMarks(
   result.mapLeft(
     (failure) => messenger
       ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+      ),
   );
 }

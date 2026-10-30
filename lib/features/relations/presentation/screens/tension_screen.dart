@@ -52,14 +52,14 @@ class _TensionScreenState extends ConsumerState<TensionScreen> {
     messenger.hideCurrentSnackBar();
     final failure = result.getLeft().toNullable();
     if (failure != null) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(failure.localizedMessage(l10n))),
+      messenger.showAppSnackBar(
+        AppSnackBar(content: Text(failure.localizedMessage(l10n))),
       );
       return;
     }
     if (!reviewed) return;
 
-    messenger.showSnackBar(
+    messenger.showAppSnackBar(
       AppSnackBar(
         content: Text(l10n.tensionMarkedReviewed),
         action: SnackBarAction(

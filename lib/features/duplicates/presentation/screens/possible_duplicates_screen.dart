@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -149,7 +150,9 @@ class _DuplicateCard extends ConsumerWidget {
     if (failure != null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+        );
     }
   }
 
@@ -164,10 +167,12 @@ class _DuplicateCard extends ConsumerWidget {
     result.match(
       (failure) => ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+        ),
       (_) => ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.duplicatesDiscarded))),
+        ..showAppSnackBar(AppSnackBar(content: Text(l10n.duplicatesDiscarded))),
     );
   }
 }

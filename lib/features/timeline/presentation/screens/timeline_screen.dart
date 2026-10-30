@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/organize/presentation/open_organized_item.dart';
 import 'package:sinapsis/features/timeline/domain/entities/dated_event_seed.dart';
@@ -144,8 +145,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     if (!saved || !mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
+      ..showAppSnackBar(
+        AppSnackBar(
           content: Text(AppLocalizations.of(context)!.timelineFactAdded),
         ),
       );

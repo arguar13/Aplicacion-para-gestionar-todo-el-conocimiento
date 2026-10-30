@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
@@ -132,7 +133,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final export = ref.read(exportMapUseCaseProvider);
     void say(String text) => messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+      ..showAppSnackBar(AppSnackBar(content: Text(text)));
 
     // Visto como lista, no hay un dibujo que guardar.
     if (!_exportHandle.available) {

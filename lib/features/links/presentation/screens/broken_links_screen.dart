@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/links/domain/entities/broken_link.dart';
@@ -47,16 +48,16 @@ class _BrokenLinksScreenState extends ConsumerState<BrokenLinksScreen> {
     final failure = result.getLeft().toNullable();
     messenger.hideCurrentSnackBar();
     if (failure != null) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(failure.localizedMessage(l10n))),
+      messenger.showAppSnackBar(
+        AppSnackBar(content: Text(failure.localizedMessage(l10n))),
       );
       return;
     }
 
     setState(_selected.clear);
     final created = result.getRight().toNullable() ?? 0;
-    messenger.showSnackBar(
-      SnackBar(content: Text(l10n.brokenLinksCreated(created))),
+    messenger.showAppSnackBar(
+      AppSnackBar(content: Text(l10n.brokenLinksCreated(created))),
     );
   }
 

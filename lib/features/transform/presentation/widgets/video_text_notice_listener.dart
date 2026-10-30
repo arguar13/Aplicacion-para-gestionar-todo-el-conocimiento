@@ -50,7 +50,7 @@ class _VideoTextNoticeListenerState
     final messenger = ScaffoldMessenger.maybeOf(context);
     final l10n = AppLocalizations.of(context);
     if (messenger == null || l10n == null) return;
-    messenger.showSnackBar(
+    messenger.showAppSnackBar(
       AppSnackBar(
         key: const Key('foreign-captions-notice'),
         duration: kForeignCaptionsNoticeDuration,

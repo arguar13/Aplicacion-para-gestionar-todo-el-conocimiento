@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/transform/domain/entities/stored_video_text.dart';
 import 'package:sinapsis/features/transform/presentation/providers/foreign_video_texts.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -149,8 +150,8 @@ Future<void> _reextract(
   if (asked == 0) return;
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
+    ..showAppSnackBar(
+      AppSnackBar(
         content: Text(switch (place) {
           ForeignVideoPlace.inbox => l10n.f45S4ReextractStarted(asked),
           ForeignVideoPlace.processed => l10n.f45S4ReextractStartedProcessed(

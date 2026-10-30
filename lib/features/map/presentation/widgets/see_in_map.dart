@@ -36,7 +36,7 @@ void showLinkedNotice(
     final inMap = status == ProcessedDocumentStatus.active;
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(
+      ..showAppSnackBar(
         AppSnackBar(
           content: Text(l10n.relationLinked),
           action: router == null || !inMap

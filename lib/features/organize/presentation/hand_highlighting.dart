@@ -210,43 +210,31 @@ void _announceProcessedNote(
   ExtractedToProcessed saved,
 ) {
   final l10n = AppLocalizations.of(context)!;
-  final theme = Theme.of(context);
   final messenger = ScaffoldMessenger.of(context);
   final router = GoRouter.maybeOf(context);
   final extract = ref.read(extractNoteToProcessedProvider);
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(
+    ..showAppSnackBar(
       AppSnackBar(
-        content: Row(
-          children: [
-            Expanded(child: Text(l10n.processedNoteSaved)),
-            if (router != null)
-              TextButton(
+        content: Text(l10n.processedNoteSaved),
+        secondaryAction: router == null
+            ? null
+            : SnackBarAction(
                 key: const Key('processed-note-view'),
-                style: TextButton.styleFrom(
-                  foregroundColor:
-                      theme.snackBarTheme.actionTextColor ??
-                      theme.colorScheme.inversePrimary,
+                label: l10n.detailExtractedNoteView,
+                onPressed: () => unawaited(
+                  router.push(RoutePaths.processedDocument(saved.documentId)),
                 ),
-                onPressed: () {
-                  messenger.hideCurrentSnackBar();
-                  unawaited(
-                    router.push(RoutePaths.processedDocument(saved.documentId)),
-                  );
-                },
-                child: Text(l10n.detailExtractedNoteView),
               ),
-          ],
-        ),
         action: SnackBarAction(
           label: l10n.inboxUndo,
           onPressed: () => unawaited(() async {
             final undone = await extract.undo(saved.undo);
             messenger
               ..hideCurrentSnackBar()
-              ..showSnackBar(
-                SnackBar(
+              ..showAppSnackBar(
+                AppSnackBar(
                   content: Text(
                     undone.match(
                       (failure) => failure.localizedMessage(l10n),
@@ -269,7 +257,7 @@ void _offerRestore(BuildContext context, WidgetRef ref, String sourceItemId) {
   final library = ref.read(libraryRepositoryProvider);
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(
+    ..showAppSnackBar(
       AppSnackBar(
         content: Text(l10n.processedNoteSourceInTrash),
         action: SnackBarAction(
@@ -278,8 +266,8 @@ void _offerRestore(BuildContext context, WidgetRef ref, String sourceItemId) {
             final restored = await library.restore(sourceItemId);
             messenger
               ..hideCurrentSnackBar()
-              ..showSnackBar(
-                SnackBar(
+              ..showAppSnackBar(
+                AppSnackBar(
                   content: Text(
                     restored.match(
                       (failure) => failure.localizedMessage(l10n),
@@ -337,7 +325,7 @@ Future<void> _extractAsLooseNote(
 
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(
+    ..showAppSnackBar(
       AppSnackBar(
         content: Text(l10n.detailExtractedNoteCreated(newItem.title)),
         action: SnackBarAction(
@@ -456,7 +444,7 @@ Future<void> addRangeToTimeline(
   if (documentId == null) {
     messenger
       ?..hideCurrentSnackBar()
-      ..showSnackBar(
+      ..showAppSnackBar(
         AppSnackBar(
           content: Text(l10n.timelineFactSourceNotProcessed),
           action: router == null
@@ -482,7 +470,7 @@ Future<void> addRangeToTimeline(
   if (!context.mounted) return;
   messenger
     ?..hideCurrentSnackBar()
-    ..showSnackBar(
+    ..showAppSnackBar(
       AppSnackBar(
         content: Text(l10n.timelineFactAdded),
         action: SnackBarAction(
@@ -697,4 +685,4 @@ Widget buildHighlightMenu(
 
 void _say(BuildContext context, String message) => ScaffoldMessenger.of(context)
   ..hideCurrentSnackBar()
-  ..showSnackBar(SnackBar(content: Text(message)));
+  ..showAppSnackBar(AppSnackBar(content: Text(message)));

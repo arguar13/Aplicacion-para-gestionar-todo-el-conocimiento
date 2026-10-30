@@ -233,10 +233,10 @@ void _reportWithUndo(
 }) {
   messenger.hideCurrentSnackBar();
   result.match(
-    (failure) => messenger.showSnackBar(
-      SnackBar(content: Text(failure.localizedMessage(l10n))),
+    (failure) => messenger.showAppSnackBar(
+      AppSnackBar(content: Text(failure.localizedMessage(l10n))),
     ),
-    (before) => messenger.showSnackBar(
+    (before) => messenger.showAppSnackBar(
       AppSnackBar(
         content: Text(done),
         action: SnackBarAction(
@@ -247,8 +247,8 @@ void _reportWithUndo(
             if (failure != null) {
               messenger
                 ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  SnackBar(content: Text(failure.localizedMessage(l10n))),
+                ..showAppSnackBar(
+                  AppSnackBar(content: Text(failure.localizedMessage(l10n))),
                 );
             }
           },

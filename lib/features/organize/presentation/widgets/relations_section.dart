@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -107,7 +108,9 @@ Future<void> addRelationFlow(
   result.match((failure) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+      );
   }, (_) => showLinkedNotice(context, ref, itemId: fromItemId));
 }
 

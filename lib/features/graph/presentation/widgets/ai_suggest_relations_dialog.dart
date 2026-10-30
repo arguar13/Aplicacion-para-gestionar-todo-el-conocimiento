@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_atlas_providers.dart';
@@ -107,12 +108,10 @@ Future<void> showAiSuggestRelationsDialog(
   ].take(_maxCandidates).toList();
   // El comienzo de cada uno, de la base: un documento procesado no trae su
   // texto en el elemento —son sus partes— (F41, paso 6).
-  final excerpts = (await ref
-      .read(aiAtlasRepositoryProvider)
-      .excerptsOf([
-        seedId,
-        for (final item in pool) item.id,
-      ], chars: _excerptChars)).getOrElse((_) => const {});
+  final excerpts = (await ref.read(aiAtlasRepositoryProvider).excerptsOf([
+    seedId,
+    for (final item in pool) item.id,
+  ], chars: _excerptChars)).getOrElse((_) => const {});
   String excerptOf(KnowledgeItem item) =>
       excerpts[item.id] ?? item.subtitle ?? '';
   final candidates = [
@@ -223,8 +222,8 @@ class _AiSuggestionsDialogState extends ConsumerState<_AiSuggestionsDialog> {
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(l10n.graphRelationsAdded(created))),
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(l10n.graphRelationsAdded(created))),
       );
   }
 

@@ -200,13 +200,15 @@ Future<bool> removeProcessedImage(
     (failure) {
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+        );
       return false;
     },
     (removal) {
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(
+        ..showAppSnackBar(
           AppSnackBar(
             content: Text(l10n.processedImageRemoved),
             action: SnackBarAction(
@@ -215,8 +217,8 @@ Future<bool> removeProcessedImage(
                 final restored = await repository.restoreImage(removal);
                 final failure = restored.getLeft().toNullable();
                 if (failure != null) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text(failure.localizedMessage(l10n))),
+                  messenger.showAppSnackBar(
+                    AppSnackBar(content: Text(failure.localizedMessage(l10n))),
                   );
                 }
               },

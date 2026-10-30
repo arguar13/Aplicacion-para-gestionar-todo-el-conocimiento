@@ -51,13 +51,13 @@ Future<void> _dropOriginalCopy(
   final result = await container.read(dropOriginalCopyProvider)(sourceItemId);
   messenger.hideCurrentSnackBar();
   result.match(
-    (failure) => messenger.showSnackBar(
-      SnackBar(content: Text(failure.localizedMessage(l10n))),
+    (failure) => messenger.showAppSnackBar(
+      AppSnackBar(content: Text(failure.localizedMessage(l10n))),
     ),
     (dropped) {
       // El texto con que se estudia cambia de la copia a las páginas.
       container.invalidate(processedStudyTextProvider);
-      messenger.showSnackBar(
+      messenger.showAppSnackBar(
         AppSnackBar(
           content: Text(
             dropped.keptText
@@ -70,8 +70,8 @@ Future<void> _dropOriginalCopy(
               final undone = await process.undo(dropped.outcome.undo);
               container.invalidate(processedStudyTextProvider);
               undone.match(
-                (failure) => messenger.showSnackBar(
-                  SnackBar(content: Text(failure.localizedMessage(l10n))),
+                (failure) => messenger.showAppSnackBar(
+                  AppSnackBar(content: Text(failure.localizedMessage(l10n))),
                 ),
                 (_) {},
               );

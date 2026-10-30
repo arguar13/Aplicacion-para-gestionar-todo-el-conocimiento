@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -57,8 +58,8 @@ class PropertyEditor extends ConsumerWidget {
     if (failure == null || !context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
+      ..showAppSnackBar(
+        AppSnackBar(
           content: Text(
             failure.localizedMessage(AppLocalizations.of(context)!),
           ),

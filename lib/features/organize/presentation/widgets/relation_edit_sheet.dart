@@ -147,7 +147,7 @@ class _RelationEditSheetState extends ConsumerState<RelationEditSheet> {
   }) {
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(AppSnackBar(content: Text(message), action: action));
+      ..showAppSnackBar(AppSnackBar(content: Text(message), action: action));
   }
 
   @override

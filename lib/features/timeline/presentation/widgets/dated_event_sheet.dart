@@ -194,7 +194,9 @@ class DatedEventSheet extends ConsumerWidget {
     if (failure != null) {
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+        );
       return;
     }
     final removal = result.getRight().toNullable()!;
@@ -203,7 +205,7 @@ class DatedEventSheet extends ConsumerWidget {
     if (context.mounted) navigator.pop();
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(
+      ..showAppSnackBar(
         AppSnackBar(
           content: Text(l10n.timelineFactRemoved(event.title)),
           action: SnackBarAction(

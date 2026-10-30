@@ -81,7 +81,7 @@ class _ProcessedTidyNoticeListenerState
     final message = tidyOutcomeMessage(l10n, outcome);
     if (message == null) return;
     final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
+    messenger.showAppSnackBar(
       AppSnackBar(
         key: const Key('tidy-snack'),
         content: Text(message),

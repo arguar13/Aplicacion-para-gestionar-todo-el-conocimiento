@@ -114,7 +114,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showAppSnackBar(AppSnackBar(content: Text(message)));
   }
 
   /// Pasa la fuente a [to], anota el paso en el historial y lo avisa con «Ver»
@@ -194,28 +194,16 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     // así «Ver» anda aunque la Bandeja ya no esté montada.
     final router = ref.read(goRouterProvider);
     final undo = _undoer();
-    final theme = Theme.of(context);
 
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(
+      ..showAppSnackBar(
         AppSnackBar(
-          content: Row(
-            children: [
-              Expanded(child: Text(message)),
-              TextButton(
-                style: TextButton.styleFrom(
-                  foregroundColor:
-                      theme.snackBarTheme.actionTextColor ??
-                      theme.colorScheme.inversePrimary,
-                ),
-                onPressed: () {
-                  messenger.hideCurrentSnackBar();
-                  unawaited(router.push(RoutePaths.itemDetail(step.itemId)));
-                },
-                child: Text(l10n.inboxView),
-              ),
-            ],
+          content: Text(message),
+          secondaryAction: SnackBarAction(
+            label: l10n.inboxView,
+            onPressed: () =>
+                unawaited(router.push(RoutePaths.itemDetail(step.itemId))),
           ),
           action: SnackBarAction(
             label: l10n.inboxUndo,
@@ -595,15 +583,15 @@ class _InboxUndo {
 
     messenger.hideCurrentSnackBar();
     outcome.match(
-      (failure) => messenger.showSnackBar(
-        SnackBar(content: Text(failure.localizedMessage(l10n))),
+      (failure) => messenger.showAppSnackBar(
+        AppSnackBar(content: Text(failure.localizedMessage(l10n))),
       ),
       (step) {
         // Lo que vuelve, arriba del mazo: se ve qué se deshizo.
         focus.state = step.itemId;
         if (step.linkedNote case LinkedNote(created: true, :final title)) {
-          messenger.showSnackBar(
-            SnackBar(content: Text(l10n.inboxUndoneNoteTrashed(title))),
+          messenger.showAppSnackBar(
+            AppSnackBar(content: Text(l10n.inboxUndoneNoteTrashed(title))),
           );
         }
       },

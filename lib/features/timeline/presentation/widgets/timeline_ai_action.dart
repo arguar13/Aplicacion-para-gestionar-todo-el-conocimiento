@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
@@ -52,7 +53,9 @@ class TimelineAiAction extends ConsumerWidget {
     if (failure != null) {
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+        );
       return;
     }
     final itemIds = found.getRight().toNullable() ?? const <String>[];
@@ -60,7 +63,7 @@ class TimelineAiAction extends ConsumerWidget {
     if (itemIds.isEmpty) {
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.timelineAiNothing)));
+        ..showAppSnackBar(AppSnackBar(content: Text(l10n.timelineAiNothing)));
       return;
     }
     await findDatesNowWithAi(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -63,8 +64,8 @@ class _SuggestedPropertyChipsState
     if (failure != null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
+        ..showAppSnackBar(
+          AppSnackBar(
             content: Text(
               failure.localizedMessage(AppLocalizations.of(context)!),
             ),
