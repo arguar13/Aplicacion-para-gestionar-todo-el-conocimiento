@@ -659,8 +659,12 @@ Pedido del 29/10, con su captura: *"Esta sección hazla más completa y actualiz
 Pedido del 29/10, con su captura: *"Está parte también de estadísticas hazla más profesional y
 actualizada"*.
 
-- **Una sola pantalla**, «Estadísticas», con el historial adentro: el 📈 de arriba y el botón de
-  abajo llevan al mismo lugar. Hoy son dos pantallas que repiten partes.
+- **Una sola pantalla con dos pestañas**, «Estadísticas» e «Historial». Hoy son dos pantallas
+  que repiten partes.
+- **En la barra de arriba de Repasar, dos íconos juntos** (pedido del 29/10: *"el botón de
+  estadísticas súmale a la parte superior … al lado del de historial"*): 📊 Estadísticas y 📈
+  Historial, cada uno abre su pestaña. Van en el lugar que deja el ✨ (M18). El botón
+  «Estadísticas» de abajo abre lo mismo.
 - **Sigue al selector de Repasar** (todo, documento, cuaderno o tema), con la píldora arriba para
   cambiarlo: las estadísticas de un libro son las de sus tarjetas.
 - **El orden**, de lo de hoy a lo de siempre:
