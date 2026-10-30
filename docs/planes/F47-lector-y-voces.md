@@ -483,4 +483,43 @@ y en oscuro, con el lector de pantalla) y sus mutaciones. Se integran en `main` 
 
 ## Avance
 
-(vacío: se llena con cada paso)
+### Paso 0 (hecho): Repasar sin el lector y el pie de los filtros
+
+Cinco commits, de `b1d1c045` a `b4f2ddf3` (mejoras 20 y 21, decisión K).
+
+- **Repasar, sin el lector en voz alta** (mejora 20, `review_session_card.dart`):
+  - la tarjeta ya no ofrece leerse, en ninguna de sus tres formas, y nada resalta sus caras;
+  - «Ver en la fuente» y «Explicar» quedan iguales;
+  - lo que venía sonando sigue al entrar a Repasar, con el reproductor abierto o minimizado, y
+    revelar la tarjeta no lo corta;
+  - la decisión 58 de la arquitectura y los comentarios que decían que las tarjetas se leen,
+    corregidos.
+- **El pie «Ver N resultados»** (mejora 21), en el marco común de los filtros
+  (`ListFiltersSheet`), así que llega a la Biblioteca, a Procesado, a «Volver a triar» y al
+  material de un tema en el Explorador (que tenía su propia copia del marco y pasó al común):
+  - los filtros se aplican al tocar (decisión K); el pie dice cuántos quedan, contados en la base
+    sin traer documentos: «Ver N resultados», «Ver todo (N)» si nada acota (lo buscado también
+    acota) y «Ver resultados» mientras cuenta, sin mostrar nunca la cifra vieja ni saltar de
+    tamaño;
+  - con cero, «Ningún resultado», apagado, con «Limpiar filtros» arriba;
+  - cerrar con el pie vuelve la lista arriba; cerrado de otra forma, los filtros valen igual y la
+    lista queda donde estaba;
+  - para el lector de pantalla, un solo nodo con la frase y la región viva, que anuncia cada
+    cambio;
+  - de paso: el panel respeta la zona segura, y el título y «Limpiar filtros» ya no desbordan a
+    360 dp con la letra al doble.
+- **El Mapa y la Línea de tiempo no llevan el pie:** filtran un dibujo, no una lista, y la Línea
+  de tiempo cuenta fechas. Si se quiere, con qué frase es una decisión del dueño. La biblioteca de
+  voces lo lleva en su paso, con «Ver N voces».
+- **Verificado:**
+  - analyze en 19;
+  - 3.265 pruebas del Explorador, las tarjetas, la Biblioteca, la narración, Organizar, Procesado,
+    la app y la base;
+  - murieron las 16 mutaciones. Entre ellas: la tarjeta que vuelve a ofrecer leerse, la cifra
+    vieja mientras cuenta, el pie que salta de tamaño (sobrevivía hasta probarlo con una cifra
+    de dos líneas), el cero prendido, la lista que no vuelve arriba y la región viva sin la frase.
+- **Queda para después:**
+  - en la Biblioteca, el tablero y el calendario no tienen un «arriba» que recuperar;
+  - en «Volver a triar», a 360 dp con la letra al doble, la explicación de arriba ocupa toda la
+    pantalla (viene de antes);
+  - no se miró en el emulador ni en el teléfono.
