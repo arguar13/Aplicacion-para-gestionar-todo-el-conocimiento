@@ -15052,5 +15052,17 @@
   "f44S3DepthSubtitle": "How far each document got, from copied text to your own notes.",
   "@f44S3DepthSubtitle": {"description": "Resumen del Mapa (F44, paso 3): línea de qué muestra «Cuánto lo trabajaste»."},
   "f44S3GrowthRow": "+{count} · {total} in total",
-  "@f44S3GrowthRow": {"description": "Resumen del Mapa (F44, paso 3): un renglón de «Ver los números» de «Cómo creció»: lo procesado ese mes y el total al terminarlo.", "placeholders": {"count": {"type": "int"}, "total": {"type": "int"}}}
+  "@f44S3GrowthRow": {"description": "Resumen del Mapa (F44, paso 3): un renglón de «Ver los números» de «Cómo creció»: lo procesado ese mes y el total al terminarlo.", "placeholders": {"count": {"type": "int"}, "total": {"type": "int"}}},
+  "f45S3Enlarge": "Enlarge",
+  "@f45S3Enlarge": {"description": "La píldora del centro de la vista previa de una foto: la abre a pantalla completa (F45, paso 3)."},
+  "f45S3SourceText": "Source text",
+  "@f45S3SourceText": {"description": "En un documento procesado, el botón de la tarjeta de su fuente y el título de su hoja: volver a extraer el texto de la fuente, quitarle las marcas de tiempo o soltarlo (F45, paso 3)."},
+  "f45S3SourceTextHint": "Extract it again, remove its timestamps or let it go",
+  "@f45S3SourceTextHint": {"description": "Para qué es «El texto de la fuente», dicho entero para el lector de pantalla y al mantenerlo apretado (F45, paso 3)."},
+  "f45S3SourceTextNote": "This changes the source's text in the Library. To bring the new one into this document, tap “Triage again”.",
+  "@f45S3SourceTextNote": {"description": "Arriba de la hoja «El texto de la fuente», en Procesado (F45, paso 3)."},
+  "f45S3SourceTextBusy": "The source is extracting its text. When it's done, you'll be able to extract it again or remove its timestamps.",
+  "@f45S3SourceTextBusy": {"description": "La hoja «El texto de la fuente», mientras la fuente se procesa: no hay nada que ofrecer (F45, paso 3)."},
+  "f45S3SourceTextNothing": "There's nothing to do with this source's text right now.",
+  "@f45S3SourceTextNothing": {"description": "La hoja «El texto de la fuente», cuando ninguna opción aplica (F45, paso 3)."}
 }

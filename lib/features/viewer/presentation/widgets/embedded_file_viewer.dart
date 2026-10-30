@@ -40,9 +40,10 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// En un documento para leer —un PDF, un DOCX o un EPUB, un texto— ese
 /// botón va grande, semitransparente y en el centro, con «Leer como libro»
 /// (F35): es lo primero que se ve, y dice qué hacer para leerlo entero. En
-/// una página web, igual, con «Ver la página» (pedido del usuario). En una
-/// foto o un video queda chico en la esquina: en el centro taparía lo que se
-/// mira, o el botón de reproducir.
+/// una página web, igual, con «Ver la página» (pedido del usuario), y en una
+/// foto, con «Ampliar» (F45, paso 3): la misma píldora, que deja ver la foto
+/// debajo. En un video queda chico en la esquina: en el centro taparía el
+/// botón de reproducir.
 ///
 /// El audio de un video —el reproductor solo con su audio de F24— ya no va
 /// acá abajo: es la parte de arriba del panel de la fuente (F26, decisión
@@ -125,6 +126,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
         ),
       ImageResolvedViewer(:final path) => EmbeddedViewerFrame(
         onExpand: expand,
+        bigButtonLabel: l10n.f45S3Enlarge,
         child: ImageViewerView(path: path),
       ),
       // Un audio o un video —uno del teléfono, un TikTok, un reel—. El
@@ -180,8 +182,9 @@ class EmbeddedViewerFrame extends StatelessWidget {
   final VoidCallback? onExpand;
 
   /// Con esto, el botón va grande y en el centro, con este texto: «Leer como
-  /// libro» en un documento (F35), «Ver la página» en una página web. Fuera
-  /// del botón, lo de abajo se sigue desplazando y tocando como siempre.
+  /// libro» en un documento (F35), «Ver la página» en una página web,
+  /// «Ampliar» en una foto (F45). Fuera del botón, lo de abajo se sigue
+  /// desplazando, tocando y, en una foto, pellizcando como siempre.
   final String? bigButtonLabel;
 
   /// Un PDF o el modo de lectura se leen mejor con más alto que una foto o
@@ -213,7 +216,7 @@ class EmbeddedViewerFrame extends StatelessWidget {
               if (onExpand != null && bigButtonLabel != null)
                 Positioned.fill(
                   child: Center(
-                    child: _ReadAsBookButton(
+                    child: _CenterButton(
                       label: bigButtonLabel!,
                       tooltip: l10n.detailExpandViewer,
                       onPressed: onExpand!,
@@ -237,11 +240,15 @@ class EmbeddedViewerFrame extends StatelessWidget {
   }
 }
 
-/// El botón grande del centro de un documento (F35): las flechas de
-/// expandir y «Leer como libro», sobre un fondo oscuro semitransparente que
-/// deja ver el documento debajo.
-class _ReadAsBookButton extends StatelessWidget {
-  const _ReadAsBookButton({
+/// El botón grande del centro (F35): las flechas de expandir y su nombre
+/// —«Leer como libro», «Ver la página», «Ampliar»—, sobre un fondo oscuro
+/// semitransparente que deja ver el original debajo. Uno solo para todo lo
+/// que lo lleva, así se ve y se toca igual en un libro que en una foto.
+///
+/// La llave conserva el nombre con que nació, «Leer como libro»: la buscan
+/// las pruebas del detalle y de Procesado.
+class _CenterButton extends StatelessWidget {
+  const _CenterButton({
     required this.label,
     required this.tooltip,
     required this.onPressed,
@@ -254,31 +261,36 @@ class _ReadAsBookButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textStyle = Theme.of(context).textTheme.titleMedium;
+    // El lector de pantalla lo anuncia como lo que es: un botón con su
+    // nombre, no un texto suelto que se puede tocar.
     return Tooltip(
       message: tooltip,
-      child: Material(
-        key: const Key('embedded-viewer-read-as-book'),
-        color: Colors.black.withValues(alpha: 0.4),
-        shape: const StadiumBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.open_in_full, size: 32, color: Colors.white),
-                const SizedBox(width: 12),
-                // Con la letra al doble en un teléfono angosto, el nombre se
-                // parte en dos renglones en vez de salirse del botón.
-                Flexible(
-                  child: Text(
-                    label,
-                    style: textStyle?.copyWith(color: Colors.white),
+      child: Semantics(
+        button: true,
+        child: Material(
+          key: const Key('embedded-viewer-read-as-book'),
+          color: Colors.black.withValues(alpha: 0.4),
+          shape: const StadiumBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.open_in_full, size: 32, color: Colors.white),
+                  const SizedBox(width: 12),
+                  // Con la letra al doble en un teléfono angosto, el nombre se
+                  // parte en dos renglones en vez de salirse del botón.
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: textStyle?.copyWith(color: Colors.white),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
