@@ -584,5 +584,19 @@ Tres commits, de `73ed09e1` a `1962e5ba` (mejoras 17 y 18).
   - murieron las 6 mutaciones: la píldora en cero, la tarea en «Estudiar», «Volver a la Bandeja»
     con la flecha de deshacer, al lado solo si entran en un renglón, siempre al lado y «Volver a
     triar» con borde.
-- **Queda para después:** en una fuente triada sin documento procesado, «Volver a triar» sale dos
-  veces en el detalle, en esta tarjeta y en `SourceStudyLine`. Se ve al integrar los pasos 3 y 4.
+- **Lo que había quedado, resuelto** (tres commits más, `db2f1407` a `6db2948a`): en una fuente triada sin
+  documento procesado, «Volver a triar» salía dos veces en el detalle.
+  - La causa: `SourceStudyLine` ofrecía triar cuando no había documento. Ahora queda solo con el
+    documento procesado («Estudiarlo en Procesado»); sin él no dibuja nada, ni su espacio.
+  - **Triar se ofrece una sola vez, en la tarjeta «Bandeja»**, y «Triar ahora» tría ahí mismo,
+    sin irse a la Bandeja: la hoja, «Listo» y el aviso con «Ver» y «Deshacer».
+  - Mientras el texto no llegó, los dos botones de triar esperan apagados con el motivo de la
+    Bandeja (`PendingText.neededReason`): «Se habilita cuando llegue el texto», «Necesita el
+    texto: reintentá sacarlo» o «No hay texto con que trabajarla». El motivo va en el mismo nodo
+    de semántica que el botón.
+  - «Volver a la Bandeja» no se apaga: vuelve todo lo que entraría al guardarse, tenga texto o no.
+  - Una referencia sin texto ni imágenes muestra solo su estado, sin botones.
+  - Verificado: analyze en 19; 2.067 pruebas de la Bandeja, Procesado, la Biblioteca, la app y la
+    base; murieron las 15 mutaciones (entre otras, la guarda al revés, la línea que vuelve a
+    ofrecer triar, el motivo fuera del nodo del botón y «Triar ahora» que vuelve a navegar).
+  - No se miró en el emulador ni en el teléfono.
