@@ -24,6 +24,7 @@ import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_presentati
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/screens/transcript_follow_screen.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_more.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
@@ -31,6 +32,7 @@ import 'package:sinapsis/features/reading/presentation/screens/reading_screen.da
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
+import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -230,9 +232,6 @@ void main() {
     for (final (kind, file) in [
       (SourceKind.webPage, null),
       (SourceKind.document, 'originales/f26/libro.pdf'),
-      // La vista previa de un audio ya es su reproductor: el panel no lo
-      // repite.
-      (SourceKind.audio, 'originales/f26/clase.m4a'),
     ]) {
       testWidgets('${kind.name} lista, con su texto: sin Leer · Copiar · Más '
           'ni nada que contar, el panel no se dibuja (F45, paso 3)', (
@@ -341,7 +340,9 @@ void main() {
     });
 
     testWidgets('un video: el audio con su encabezado y los controles '
-        'compactos, solo, sin mosaicos', (tester) async {
+        'compactos, y la transcripción que lo sigue; sin mosaicos', (
+      tester,
+    ) async {
       const path = '/boveda/archivos/reel.mp4';
       await pumpPanel(
         tester,
@@ -374,8 +375,16 @@ void main() {
       }
       expect(find.byType(SourcePanelTile), findsNothing);
       expect(
+        tester.getBottomLeft(find.byType(SourcePanelAudio)).dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('source-panel-transcript')))
+              .dy,
+        ),
+      );
+      expect(
         find.descendant(of: panel, matching: find.byType(Divider)),
-        findsNothing,
+        findsOneWidget,
       );
 
       await tester.pumpWidget(const SizedBox());
@@ -1124,4 +1133,86 @@ void main() {
       }
     });
   }
+
+  group('la transcripción que sigue al audio (F23; F45, paso 3)', () {
+    final line = find.byKey(const Key('source-panel-transcript'));
+    final playback = itemPlaybackPathProvider.overrideWith(
+      (ref, item) async => '/boveda/archivos/clase.m4a',
+    );
+
+    testWidgets('con su audio y su transcripción, la franja la ofrece y '
+        '«Ver la transcripción» la abre en su pantalla', (tester) async {
+      await pumpPanel(
+        tester,
+        _source(
+          SourceKind.audio,
+          file: 'originales/f26/clase.m4a',
+          texts: ['[0:00] hola a todos'],
+        ),
+        extraOverrides: [playback],
+      );
+
+      expect(line, findsOneWidget);
+      expect(find.text(es.f45S3TranscriptLine), findsOneWidget);
+      expect(find.byType(SourcePanelTile), findsNothing);
+
+      await tester.tap(find.text(es.f45S3TranscriptOpen));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TranscriptFollowScreen), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('sin un audio que suene, no', (tester) async {
+      await pumpPanel(
+        tester,
+        _source(
+          SourceKind.audio,
+          file: 'originales/f26/clase.m4a',
+          texts: ['[0:00] hola a todos'],
+        ),
+        extraOverrides: [
+          itemPlaybackPathProvider.overrideWith((ref, item) async => null),
+        ],
+      );
+
+      expect(line, findsNothing);
+    });
+
+    testWidgets(
+      'mientras se vuelve a extraer, tampoco: el texto va a cambiar',
+      (tester) async {
+        await pumpPanel(
+          tester,
+          _source(
+            SourceKind.audio,
+            file: 'originales/f26/clase.m4a',
+            state: ProcessingState.pending,
+            texts: ['[0:00] el texto de antes'],
+          ),
+          extraOverrides: [playback],
+        );
+
+        expect(line, findsNothing);
+        expect(find.byKey(const Key('reextracting-text')), findsOneWidget);
+      },
+    );
+
+    testWidgets('en un documento, nunca: no tiene audio que seguir', (
+      tester,
+    ) async {
+      await pumpPanel(
+        tester,
+        _source(
+          SourceKind.document,
+          file: 'originales/f26/libro.pdf',
+          texts: ['Un libro.'],
+        ),
+        extraOverrides: [playback],
+      );
+
+      expect(line, findsNothing);
+    });
+  });
 }

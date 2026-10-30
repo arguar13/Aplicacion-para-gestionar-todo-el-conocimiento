@@ -14,6 +14,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
+import 'package:sinapsis/features/library/presentation/screens/transcript_follow_screen.dart';
 import 'package:sinapsis/features/library/presentation/widgets/reextract_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_more.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
@@ -25,6 +26,7 @@ import 'package:sinapsis/features/transform/presentation/providers/transform_pro
 import 'package:sinapsis/features/transform/presentation/widgets/processing_status.dart';
 import 'package:sinapsis/features/transform/presentation/widgets/youtube_audio_download_section.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
+import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -43,14 +45,19 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// 2. **Lo que está pasando**: bajando el audio, extrayendo o volviendo a
 ///    extraer el texto, un fallo con su único "Reintentar", el modelo que
 ///    falta. Ver [SourcePanelStatus].
-/// 3. **Los mosaicos** iguales (decisión A), solo en una nota propia: Leer,
+/// 3. **La transcripción que sigue al audio** (F23), con su audio y su
+///    transcripción listos: «Ver la transcripción» la abre en su pantalla,
+///    junto al audio (F45, paso 3: `TranscriptFollowScreen`). Es la forma de
+///    escuchar el original, no de estudiar su texto, y en Procesado no hay
+///    audio que seguir.
+/// 4. **Los mosaicos** iguales (decisión A), solo en una nota propia: Leer,
 ///    Resumir, Copiar y Más, y en una nota de bloques Editar en vez de Más.
 ///    Ver [SourcePanelTile]. Una fuente no los lleva (F45, paso 3): de ella la
 ///    Biblioteca muestra el original —ver `isConsultationSource`—; su texto se
 ///    lee, se marca y se estudia en su documento procesado, y lo que había en
 ///    su «Más» —volver a extraer el texto, quitarle las marcas de tiempo,
 ///    soltarlo— está ahí, en «El texto de la fuente».
-/// 4. Lo que se le sume después, en [extraSections].
+/// 5. Lo que se le sume después, en [extraSections].
 ///
 /// Sin nada que mostrar —una fuente lista, sin audio—, no dibuja nada, ni el
 /// aire de arriba. Las partes que aparecen o se van —una descarga que
@@ -90,6 +97,7 @@ class SourcePanel extends ConsumerWidget {
           playerKey: const Key('video-audio-player'),
         ),
       if (_hasStatus(item)) _ProcessingStatus(item: item),
+      if (_followsAudio(ref)) _TranscriptLine(item: item),
       if (!isConsultationSource(item)) _ActionTiles(item: item),
       ...extraSections,
     ];
@@ -140,6 +148,13 @@ class SourcePanel extends ConsumerWidget {
             ),
     );
   }
+
+  /// Si la transcripción de [item] sigue a su audio y se puede abrir: con
+  /// el texto listo —no mientras se vuelve a extraer— y un audio que suene.
+  bool _followsAudio(WidgetRef ref) =>
+      !item.isBeingProcessed &&
+      followedTranscriptOf(item) != null &&
+      ref.watch(itemPlaybackPathProvider(item)).valueOrNull != null;
 
   /// El archivo de un video del teléfono o un TikTok con video, para
   /// escuchar su audio en el panel; `null` si no es un video. En la web no
@@ -284,6 +299,34 @@ class _ProcessingStatus extends ConsumerWidget {
       child: KeyedSubtree(
         key: ValueKey((failed, hasText, item.processingState)),
         child: status,
+      ),
+    );
+  }
+}
+
+/// «La transcripción sigue al audio» (F23; F45, paso 3): la franja de
+/// siempre, con su único botón, que abre la transcripción en su pantalla,
+/// junto al audio.
+class _TranscriptLine extends StatelessWidget {
+  const _TranscriptLine({required this.item});
+
+  final KnowledgeItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return SourcePanelStatus(
+      key: const Key('source-panel-transcript'),
+      icon: Icons.subtitles_outlined,
+      message: l10n.f45S3TranscriptLine,
+      action: SourcePanelStatusButton(
+        icon: Icons.open_in_full,
+        label: l10n.f45S3TranscriptOpen,
+        onPressed: () => Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (_) => TranscriptFollowScreen(itemId: item.id),
+          ),
+        ),
       ),
     );
   }

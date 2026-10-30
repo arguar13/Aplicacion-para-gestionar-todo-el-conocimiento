@@ -15022,5 +15022,15 @@
   "f45S3SourceTextBusy": "The source is extracting its text. When it's done, you'll be able to extract it again or remove its timestamps.",
   "@f45S3SourceTextBusy": {"description": "La hoja «El texto de la fuente», mientras la fuente se procesa: no hay nada que ofrecer (F45, paso 3)."},
   "f45S3SourceTextNothing": "There's nothing to do with this source's text right now.",
-  "@f45S3SourceTextNothing": {"description": "La hoja «El texto de la fuente», cuando ninguna opción aplica (F45, paso 3)."}
+  "@f45S3SourceTextNothing": {"description": "La hoja «El texto de la fuente», cuando ninguna opción aplica (F45, paso 3)."},
+  "f45S3TranscriptLine": "The transcript follows the audio: the word being spoken shows in yellow.",
+  "@f45S3TranscriptLine": {"description": "Franja del panel de un audio o un video de la Biblioteca, con su transcripción y su audio (F45, paso 3)."},
+  "f45S3TranscriptOpen": "View the transcript",
+  "@f45S3TranscriptOpen": {"description": "El botón de esa franja: abre la transcripción que sigue al audio en su pantalla (F45, paso 3)."},
+  "f45S3TranscriptNow": "Go to what's playing",
+  "@f45S3TranscriptNow": {"description": "En la pantalla de la transcripción, el botón de la barra que lleva hasta la palabra que suena (F45, paso 3)."},
+  "f45S3DownloadMarked": "Download with the marks",
+  "@f45S3DownloadMarked": {"description": "En el «Más» de un documento procesado con la copia del original: bajarla con lo marcado (F45, paso 3)."},
+  "f45S3DownloadMarkedHint": "The original, in its format, with the summary, synthesis and keywords highlighted",
+  "@f45S3DownloadMarkedHint": {"description": "Para qué es «Descargar con lo marcado», debajo de su nombre (F45, paso 3)."}
 }
