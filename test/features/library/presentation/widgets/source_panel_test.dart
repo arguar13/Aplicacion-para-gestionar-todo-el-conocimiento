@@ -386,36 +386,39 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('un documento: "Más" ofrece volver a extraer, verlo a '
-        'pantalla completa y soltar el texto (F30); nada de marcas de tiempo '
-        'ni de soltar el archivo (F41, decisión K)', (tester) async {
-      await pumpPanel(
-        tester,
-        _source(
-          SourceKind.document,
-          file: 'originales/f26/libro.pdf',
-          texts: ['[12:30] Horario de atención'],
-        ),
-      );
+    testWidgets(
+      'un documento: "Más" ofrece volver a extraer y soltar el '
+      'texto (F30); nada de marcas de tiempo, de soltar el archivo (F41, '
+      'decisión K) ni de pantalla completa: la hace «Leer como libro» (F45)',
+      (tester) async {
+        await pumpPanel(
+          tester,
+          _source(
+            SourceKind.document,
+            file: 'originales/f26/libro.pdf',
+            texts: ['[12:30] Horario de atención'],
+          ),
+        );
 
-      // A la vista aunque el texto quede plegado debajo.
-      expect(enabled(tester, 'source-panel-read'), isTrue);
+        // A la vista aunque el texto quede plegado debajo.
+        expect(enabled(tester, 'source-panel-read'), isTrue);
 
-      await openMore(tester);
+        await openMore(tester);
 
-      expect(find.byKey(const Key('source-more-reextract')), findsOneWidget);
-      expect(find.byKey(const Key('source-more-fullScreen')), findsOneWidget);
-      expect(
-        find.byKey(const Key('source-more-removeTimestamps')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const Key('source-more-deleteOriginalFile')),
-        findsNothing,
-      );
-      expect(find.byKey(const Key('source-more-deleteText')), findsOneWidget);
-      expect(find.text(es.sourcePanelDeleteTextHint), findsOneWidget);
-    });
+        expect(find.byKey(const Key('source-more-reextract')), findsOneWidget);
+        expect(find.byKey(const Key('source-more-fullScreen')), findsNothing);
+        expect(
+          find.byKey(const Key('source-more-removeTimestamps')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('source-more-deleteOriginalFile')),
+          findsNothing,
+        );
+        expect(find.byKey(const Key('source-more-deleteText')), findsOneWidget);
+        expect(find.text(es.sourcePanelDeleteTextHint), findsOneWidget);
+      },
+    );
 
     testWidgets('un video: arriba, el audio con su encabezado y los controles '
         'compactos, separados de los mosaicos', (tester) async {

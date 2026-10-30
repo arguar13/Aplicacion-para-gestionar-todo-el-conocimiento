@@ -16,12 +16,16 @@ import 'package:sinapsis/features/library/presentation/widgets/reextract_text.da
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
 import 'package:sinapsis/features/processed/domain/services/consultation_source.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Lo que se usa de vez en cuando con una fuente, en la hoja "Más" del
-/// panel de la fuente (F26, decisión A): a la vista solo lo de todos los
-/// días —leer, resumir, copiar—, y esto a un toque más.
+/// Lo que se usa de vez en cuando con un elemento, en la hoja "Más" (F26,
+/// decisión A): a la vista solo lo de todos los días —leer, resumir, copiar—,
+/// y esto a un toque más.
+///
+/// La hoja de una nota propia se abre desde el panel de la fuente. La de una
+/// fuente, desde su documento procesado, en «El texto de la fuente» (F45, paso
+/// 3): la Biblioteca muestra solo su original, y lo que trabaja su texto queda
+/// en Procesado, sin perder nada.
 enum SourceMoreAction {
   /// Que la IA lo organice ahora, antes que lo demás (F27): lo de la
   /// biblioteca existente sin esperar al cargador, o lo que se deshizo y la
@@ -42,9 +46,6 @@ enum SourceMoreAction {
   /// texto va a la papelera de la app por 30 días y no se vuelve a extraer
   /// solo (F30, decisión 68).
   deleteText,
-
-  /// El documento original a pantalla completa.
-  fullScreen,
 }
 
 /// Las opciones de "Más" que aplican a [item], en el orden de la hoja: solo
@@ -56,8 +57,9 @@ enum SourceMoreAction {
 /// organizarla o buscarle fechas con la IA se hace en su documento procesado,
 /// sobre lo procesado, y su archivo no se suelta para quedarse con el texto —de
 /// la Biblioteca nada se borra—. Le queda lo que trabaja su original: volver a
-/// extraer el texto, quitar las marcas de tiempo, soltar el texto de un libro
-/// y verlo a pantalla completa.
+/// extraer el texto, quitar las marcas de tiempo y soltar el texto de un libro.
+/// Verlo a pantalla completa ya no está acá (F45, paso 3): es el botón del
+/// centro de su vista previa —«Leer como libro», «Ver la página», «Ampliar»—.
 List<SourceMoreAction> sourceMoreActionsFor(KnowledgeItem item) {
   final hasText = item.renditions.whereType<TextRendition>().isNotEmpty;
   final note = !isConsultationSource(item);
@@ -83,9 +85,6 @@ List<SourceMoreAction> sourceMoreActionsFor(KnowledgeItem item) {
       SourceMoreAction.removeTimestamps,
     if (!item.isBeingProcessed && canKeepOnlyFile(item))
       SourceMoreAction.deleteText,
-    if (item.source.kind == SourceKind.document &&
-        item.source.originalFilePath != null)
-      SourceMoreAction.fullScreen,
   ];
 }
 
@@ -129,17 +128,19 @@ bool _hasOwnText(KnowledgeItem item) =>
 ///
 /// La hoja se cierra antes de hacerla: volver a extraer y borrar el archivo
 /// abren su propio diálogo, que no tiene que quedar encima de la hoja.
+///
+/// [title] la nombra —sin él, «Más acciones»— y [note] cuenta algo arriba de
+/// las opciones, o en su lugar si no hay ninguna: desde Procesado, que lo que
+/// cambie es el texto de la fuente (F45, paso 3).
 Future<void> showSourceMoreSheet(
   BuildContext context,
   WidgetRef ref,
   KnowledgeItem item,
-  List<SourceMoreAction> actions,
-) async {
-  final chosen = await showModalBottomSheet<SourceMoreAction>(
-    context: context,
-    showDragHandle: true,
-    builder: (context) => _SourceMoreSheet(actions: actions),
-  );
+  List<SourceMoreAction> actions, {
+  String? title,
+  String? note,
+}) async {
+  final chosen = await _openSheet(context, actions, title: title, note: note);
   if (chosen == null || !context.mounted) return;
 
   switch (chosen) {
@@ -158,15 +159,35 @@ Future<void> showSourceMoreSheet(
       await _removeTimestamps(context, ref, item);
     case SourceMoreAction.deleteText:
       await trashExtractedText(context, ref, item);
-    case SourceMoreAction.fullScreen:
-      await openDocumentViewer(context, ref, item);
   }
 }
 
+/// La misma hoja, sin opciones: solo [note], con [title]. Para decir por qué
+/// no hay nada que hacer cuando el elemento no se pudo leer.
+Future<void> showSourceMoreNotice(
+  BuildContext context, {
+  required String title,
+  required String note,
+}) => _openSheet(context, const [], title: title, note: note);
+
+Future<SourceMoreAction?> _openSheet(
+  BuildContext context,
+  List<SourceMoreAction> actions, {
+  String? title,
+  String? note,
+}) => showModalBottomSheet<SourceMoreAction>(
+  context: context,
+  showDragHandle: true,
+  builder: (context) =>
+      _SourceMoreSheet(actions: actions, title: title, note: note),
+);
+
 class _SourceMoreSheet extends StatelessWidget {
-  const _SourceMoreSheet({required this.actions});
+  const _SourceMoreSheet({required this.actions, this.title, this.note});
 
   final List<SourceMoreAction> actions;
+  final String? title;
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -181,18 +202,30 @@ class _SourceMoreSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              l10n.sourcePanelMoreTitle,
+              title ?? l10n.sourcePanelMoreTitle,
               style: theme.textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             // Con la IA, volver a extraer y soltar el archivo y el texto son
             // seis filas: en una pantalla baja la hoja no entra entera, y se
-            // desplaza en vez de cortarse.
+            // desplaza en vez de cortarse. La nota va adentro: con la letra
+            // al doble son varios renglones.
             Flexible(
               child: ListView(
                 shrinkWrap: true,
                 children: [
+                  if (note case final note?)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                      child: Text(
+                        note,
+                        key: const Key('source-more-note'),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
                   for (final action in actions)
                     ListTile(
                       key: Key('source-more-${action.name}'),
@@ -238,7 +271,6 @@ extension on SourceMoreAction {
     SourceMoreAction.reextract => Icons.refresh,
     SourceMoreAction.removeTimestamps => Icons.timer_off_outlined,
     SourceMoreAction.deleteText => Icons.notes_outlined,
-    SourceMoreAction.fullScreen => Icons.open_in_full,
   };
 
   String title(AppLocalizations l10n) => switch (this) {
@@ -247,7 +279,6 @@ extension on SourceMoreAction {
     SourceMoreAction.reextract => l10n.detailReextract,
     SourceMoreAction.removeTimestamps => l10n.detailRemoveTimestamps,
     SourceMoreAction.deleteText => l10n.detailDeleteText,
-    SourceMoreAction.fullScreen => l10n.detailExpandViewer,
   };
 
   String hint(AppLocalizations l10n) => switch (this) {
@@ -256,7 +287,6 @@ extension on SourceMoreAction {
     SourceMoreAction.reextract => l10n.sourcePanelReextractHint,
     SourceMoreAction.removeTimestamps => l10n.sourcePanelRemoveTimestampsHint,
     SourceMoreAction.deleteText => l10n.sourcePanelDeleteTextHint,
-    SourceMoreAction.fullScreen => l10n.sourcePanelFullScreenHint,
   };
 }
 

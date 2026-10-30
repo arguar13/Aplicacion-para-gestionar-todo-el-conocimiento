@@ -23,12 +23,15 @@ import 'package:sinapsis/features/processed/presentation/widgets/processed_more_
 import 'package:sinapsis/features/processed/presentation/widgets/processed_section_panel.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_study_tools.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/processed_text_pages.dart';
+import 'package:sinapsis/features/processed/presentation/widgets/source_text_button.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Un documento procesado abierto (F41): lo que se sacó de una fuente.
 ///
 /// - **Arriba, su fuente**: «Ver el original en la Biblioteca», y si la fuente
-///   está en la papelera o se borró, lo dice. Al lado, «Volver a triar».
+///   está en la papelera o se borró, lo dice. Al lado, «Volver a triar» y, si
+///   su texto tiene algo que hacer, «El texto de la fuente» (F45, paso 3): lo
+///   que estaba en el «Más» de la fuente, ver `SourceTextButton`.
 /// - **El original a la vista**, si tiene su copia (decisión H; F43, paso 15,
 ///   M3): incrustado como en el detalle de la Biblioteca, con lo marcado
 ///   encima y los botones de estudio arriba —donde se marca el resumen, la
@@ -207,7 +210,7 @@ class _DocumentBodyState extends ConsumerState<_DocumentBody> {
 }
 
 /// La fuente de la que salió: el enlace a ella, con lo que haga falta saber si
-/// ya no está a la vista, y «Volver a triar».
+/// ya no está a la vista, «Volver a triar» y «El texto de la fuente».
 class _SourceCard extends StatelessWidget {
   const _SourceCard({required this.document});
 
@@ -301,6 +304,10 @@ class _SourceCard extends StatelessWidget {
                         ? l10n.processedRetriageSourceInTrash
                         : null,
                   ),
+                  // Con la fuente en la papelera, primero se restaura: como
+                  // volver a triarla.
+                  if (!source.inTrash && offersSourceTextActions(kind))
+                    SourceTextButton(sourceItemId: source.itemId),
                 ],
               ),
             ],
