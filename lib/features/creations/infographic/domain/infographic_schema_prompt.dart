@@ -1,4 +1,5 @@
 import 'package:sinapsis/features/creations/design/creation_icon_names.dart';
+import 'package:sinapsis/features/creations/infographic/domain/infographic.dart';
 import 'package:sinapsis/features/creations/infographic/domain/infographic_design.dart';
 import 'package:sinapsis/features/creations/infographic/domain/infographic_json.dart';
 
@@ -57,14 +58,23 @@ Los ocho tipos ("type") y sus campos:
 - "quote" (una frase textual del material): "quote" (sin comillas), "author"
   opcional, "source" opcional.
 - "chart" (un gráfico, solo con números que da el material): "title",
-  "chart": "bars", "ring", "progress" o "pictogram", "data": lista de 1 a
+  "chart": uno de ${_charts()}, "data": lista de 1 a
   ${InfographicLimits.data} objetos {"label": texto corto, "value": número,
   "display": opcional, cómo se escribe el número}, "unit" opcional ("%",
   "años"), "total" opcional (el total contra el que se mide: 100 en un
-  porcentaje, 10 en "7 de cada 10"), "detail" opcional, "icon" opcional (el
-  que se repite en el pictograma).
-  - "bars" compara cantidades; "ring", un porcentaje o las partes de un todo;
-    "progress", cuánto de un total; "pictogram", "N de cada M" con M hasta 20.
+  porcentaje, 10 en "7 de cada 10", el máximo de una escala), "min" opcional
+  (dónde empieza una escala, si no es en 0), "min_label" y "max_label"
+  opcionales (cómo se llaman las dos puntas de una escala: "Ácido",
+  "Básico"), "detail" opcional, "icon" opcional (el que se repite en el
+  pictograma).
+  - "bars" compara cantidades; "columns", también, en barras paradas (mejor
+    para una serie en el tiempo); "ring", un porcentaje o las partes de un
+    todo; "rings", hasta 4 porcentajes que se miden contra el mismo total;
+    "waffle", un porcentaje o las partes de un todo contadas sobre cien;
+    "progress", cuánto de un total; "pictogram", "N de cada M" con M hasta
+    20; "scale", dónde cae una cifra (hasta 3) entre un mínimo y un máximo,
+    como el pH entre 0 y 14: lleva "total" (el máximo) y, si no empieza en
+    0, "min".
 
 Reglas:
 - Usá solo lo que dice el material: no inventes datos, cifras, fechas ni
@@ -96,6 +106,10 @@ String infographicDetailPrompt(InfographicDetail detail) => switch (detail) {
 String _styles() => [
   for (final style in InfographicStyleId.values)
     if (style != InfographicStyleId.auto) '"${style.id}"',
+].join(', ');
+
+String _charts() => [
+  for (final chart in InfographicChartKind.values) '"${chart.jsonName}"',
 ].join(', ');
 
 String _compositions() => [

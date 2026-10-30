@@ -6,12 +6,12 @@ import 'package:sinapsis/features/creations/infographic/presentation/styles/info
 import 'package:sinapsis/features/creations/presentation_deck/domain/deck_design.dart';
 import 'package:sinapsis/features/creations/presentation_deck/presentation/templates/deck_templates.dart';
 
-/// Los dieciocho estilos (F43): cada uno el suyo, con seis paletas que se
-/// leen bien; los ilustrados, con su pedido para la IA de imágenes y su
-/// versión dibujada.
+/// Los treinta estilos (los dieciocho de F43 y los doce de F45): cada uno el
+/// suyo, con seis paletas que se leen bien; los ilustrados, con su pedido
+/// para la IA de imágenes y su versión dibujada.
 void main() {
   test('una receta por estilo de verdad; «Automático» usa la de Bento', () {
-    expect(InfographicStyles.all, hasLength(17));
+    expect(InfographicStyles.all, hasLength(29));
     for (final id in InfographicStyleId.values) {
       if (id == InfographicStyleId.auto) continue;
       expect(InfographicStyles.of(id).id, id);
@@ -41,6 +41,19 @@ void main() {
       InfographicStyleId.parchment: DeckTemplateId.parchment,
       InfographicStyleId.data: DeckTemplateId.data,
       InfographicStyleId.watercolor: DeckTemplateId.watercolor,
+      // Los doce de F45, todos.
+      InfographicStyleId.newspaper: DeckTemplateId.newspaper,
+      InfographicStyleId.ink: DeckTemplateId.ink,
+      InfographicStyleId.magazine: DeckTemplateId.magazine,
+      InfographicStyleId.bauhaus: DeckTemplateId.bauhaus,
+      InfographicStyleId.brutalist: DeckTemplateId.brutalist,
+      InfographicStyleId.darkMinimal: DeckTemplateId.darkMinimal,
+      InfographicStyleId.terminal: DeckTemplateId.terminal,
+      InfographicStyleId.artDeco: DeckTemplateId.artDeco,
+      InfographicStyleId.retro: DeckTemplateId.retro,
+      InfographicStyleId.manuscript: DeckTemplateId.manuscript,
+      InfographicStyleId.whiteboard: DeckTemplateId.whiteboard,
+      InfographicStyleId.blueprint: DeckTemplateId.blueprint,
     };
     for (final MapEntry(key: style, value: template) in pairs.entries) {
       expect(
@@ -59,9 +72,12 @@ void main() {
           hasLength(InfographicDesign.paletteCount),
         );
         final darks = spec.palettes.where((p) => p.isDark).length;
-        if (spec.id != InfographicStyleId.neon &&
-            spec.id != InfographicStyleId.chalkboard) {
-          // Los claros traen al menos una de noche.
+        // Los que comparten nombre con una plantilla oscura son todos de
+        // noche; los claros traen al menos una.
+        final template = DeckTemplateId.fromId(spec.id.id);
+        if (template?.family == DeckTemplateFamily.dark) {
+          expect(darks, InfographicDesign.paletteCount, reason: spec.id.id);
+        } else {
           expect(darks, inInclusiveRange(1, 5), reason: spec.id.id);
         }
         for (final (i, palette) in spec.palettes.indexed) {
@@ -119,6 +135,27 @@ void main() {
         }
       }
     });
+  });
+
+  test('la nota adhesiva deja leer el texto encima, y se ve de color', () {
+    final notes = InfographicStyles.all.where(
+      (s) => s.panel == InfoPanelLook.note,
+    );
+    expect(notes, isNotEmpty);
+    for (final spec in notes) {
+      for (final palette in spec.palettes) {
+        final paper = palette.noteColor;
+        expect(paper, isNot(palette.surfaceOnBackground), reason: spec.id.id);
+        expect(
+          CreationContrast.ratio(palette.text, paper),
+          greaterThanOrEqualTo(7),
+        );
+        expect(
+          CreationContrast.ratio(palette.muted, paper),
+          greaterThanOrEqualTo(4.5),
+        );
+      }
+    }
   });
 
   test('ningún estilo es igual a otro, y entre todos usan cada caja, cada '

@@ -185,6 +185,9 @@ abstract final class InfographicJson {
         :final data,
         :final unit,
         :final total,
+        :final minimum,
+        :final minLabel,
+        :final maxLabel,
         :final detail,
         :final icon,
       ):
@@ -206,6 +209,13 @@ abstract final class InfographicJson {
               ? total.toInt()
               : total;
         }
+        if (minimum != null) {
+          json['min'] = minimum == minimum.roundToDouble()
+              ? minimum.toInt()
+              : minimum;
+        }
+        put('min_label', minLabel);
+        put('max_label', maxLabel);
         put('detail', detail);
         put('icon', icon);
     }
@@ -349,12 +359,19 @@ abstract final class InfographicJson {
     final data = _data(j['data'], j['labels'], j['values']);
     if (data.isEmpty) return null;
     final total = InfographicNumbers.parse(j['total']);
+    final minimum = InfographicNumbers.parse(j['minimum']);
     return InfographicBlock.chart(
       title: _text(j['title'], InfographicLimits.label),
       chartKind: _chartKind(j['chart']),
       data: data,
       unit: _text(j['unit'], InfographicLimits.unit),
       total: total != null && total > 0 ? total : null,
+      // Un mínimo que no queda por debajo del máximo no hace una escala.
+      minimum: minimum != null && (total == null || minimum < total)
+          ? minimum
+          : null,
+      minLabel: _text(j['minlabel'], InfographicLimits.label),
+      maxLabel: _text(j['maxlabel'], InfographicLimits.label),
       detail: _text(j['detail'], InfographicLimits.detail),
       icon: c.icon,
       level: c.level,
@@ -523,6 +540,13 @@ abstract final class InfographicJson {
     'tipodegrafico': 'chart',
     'max': 'total',
     'maximo': 'total',
+    'min': 'minimum',
+    'minimo': 'minimum',
+    'desde': 'minimum',
+    'etiquetaminima': 'minlabel',
+    'etiquetamaxima': 'maxlabel',
+    'lowlabel': 'minlabel',
+    'highlabel': 'maxlabel',
     'of': 'total',
     'de': 'total',
     'idea': 'takeaway',
@@ -605,7 +629,28 @@ abstract final class InfographicJson {
       if (_fold(kind.jsonName) == folded) return kind;
     }
     return switch (folded) {
-      'bar' || 'barras' || 'columns' || 'columnas' => InfographicChartKind.bars,
+      'bar' ||
+      'barras' ||
+      'barrashorizontales' ||
+      'horizontalbars' => InfographicChartKind.bars,
+      'column' ||
+      'columnas' ||
+      'barrasverticales' ||
+      'verticalbars' => InfographicChartKind.columns,
+      'anillos' ||
+      'anillosconcentricos' ||
+      'concentric' ||
+      'radialbars' => InfographicChartKind.rings,
+      'cuadricula' ||
+      'grilla' ||
+      'gofre' ||
+      'waffle' ||
+      'grid' => InfographicChartKind.waffle,
+      'escala' ||
+      'regla' ||
+      'rango' ||
+      'range' ||
+      'termometro' => InfographicChartKind.scale,
       'donut' ||
       'doughnut' ||
       'anillo' ||

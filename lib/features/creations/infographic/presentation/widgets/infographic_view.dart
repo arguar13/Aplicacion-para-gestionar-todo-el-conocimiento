@@ -6,6 +6,7 @@ import 'package:sinapsis/features/creations/infographic/domain/infographic_desig
 import 'package:sinapsis/features/creations/infographic/presentation/styles/infographic_style.dart';
 import 'package:sinapsis/features/creations/infographic/presentation/widgets/infographic_flows.dart';
 import 'package:sinapsis/features/creations/infographic/presentation/widgets/infographic_grids.dart';
+import 'package:sinapsis/features/creations/infographic/presentation/widgets/infographic_more.dart';
 import 'package:sinapsis/features/creations/infographic/presentation/widgets/infographic_parts.dart';
 
 export 'package:sinapsis/features/creations/infographic/presentation/widgets/infographic_parts.dart'
@@ -98,6 +99,16 @@ class InfographicView extends StatelessWidget {
       InfographicComposition.pyramid => PyramidComposition(c: c),
       InfographicComposition.statPanel => StatPanelComposition(c: c),
       InfographicComposition.conceptMap => ConceptMapComposition(c: c),
+      InfographicComposition.verticalTimeline => VerticalTimelineComposition(
+        c: c,
+      ),
+      InfographicComposition.comparisonTable => ComparisonTableComposition(
+        c: c,
+      ),
+      InfographicComposition.funnel => FunnelComposition(c: c),
+      InfographicComposition.cycle => CycleComposition(c: c),
+      InfographicComposition.topicMap => TopicMapComposition(c: c),
+      InfographicComposition.statMosaic => StatMosaicComposition(c: c),
     };
   }
 }

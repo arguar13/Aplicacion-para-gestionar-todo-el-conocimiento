@@ -12,8 +12,10 @@ enum InfographicStyleFamily {
   illustrated,
 }
 
-/// Los dieciocho estilos, en el orden en que se muestran. [id] es lo que se
-/// guarda (y lo que la IA escribe en `style_hint`).
+/// Los treinta estilos —los dieciocho de F43 y los doce de F45, que se
+/// llaman y se ven como las plantillas de presentación nuevas—, en el orden en
+/// que se muestran: primero los dibujados y después los ilustrados. [id] es
+/// lo que se guarda (y lo que la IA escribe en `style_hint`).
 enum InfographicStyleId {
   auto('auto', InfographicStyleFamily.drawn),
   editorial('editorial', InfographicStyleFamily.drawn),
@@ -27,6 +29,18 @@ enum InfographicStyleId {
   pastel('pastel', InfographicStyleFamily.drawn),
   kids('kids', InfographicStyleFamily.drawn),
   data('data', InfographicStyleFamily.drawn),
+  newspaper('newspaper', InfographicStyleFamily.drawn),
+  ink('ink', InfographicStyleFamily.drawn),
+  magazine('magazine', InfographicStyleFamily.drawn),
+  bauhaus('bauhaus', InfographicStyleFamily.drawn),
+  brutalist('brutalist', InfographicStyleFamily.drawn),
+  darkMinimal('dark_minimal', InfographicStyleFamily.drawn),
+  terminal('terminal', InfographicStyleFamily.drawn),
+  artDeco('art_deco', InfographicStyleFamily.drawn),
+  retro('retro', InfographicStyleFamily.drawn),
+  manuscript('manuscript', InfographicStyleFamily.drawn),
+  whiteboard('whiteboard', InfographicStyleFamily.drawn),
+  blueprint('blueprint', InfographicStyleFamily.drawn),
   clay('clay', InfographicStyleFamily.illustrated),
   kawaii('kawaii', InfographicStyleFamily.illustrated),
   watercolor('watercolor', InfographicStyleFamily.illustrated),
@@ -49,7 +63,8 @@ enum InfographicStyleId {
   }
 }
 
-/// Las diez composiciones y «Automática», que elige según el contenido (ver
+/// Las dieciséis composiciones —las diez de F43 y las seis de F45— y
+/// «Automática», que elige según el contenido (ver
 /// `InfographicAuto.composition`). [jsonName] es lo que se guarda y lo que
 /// la IA escribe en `composition_hint`.
 enum InfographicComposition {
@@ -63,13 +78,21 @@ enum InfographicComposition {
   comparison('comparison'),
   pyramid('pyramid'),
   statPanel('stat_panel'),
-  conceptMap('concept_map');
+  conceptMap('concept_map'),
+
+  // F45.
+  verticalTimeline('vertical_timeline'),
+  comparisonTable('comparison_table'),
+  funnel('funnel'),
+  cycle('cycle'),
+  topicMap('topic_map'),
+  statMosaic('stat_mosaic');
 
   const InfographicComposition(this.jsonName);
 
   final String jsonName;
 
-  /// Las diez de verdad, sin «Automática».
+  /// Las de verdad, sin «Automática».
   static List<InfographicComposition> get concrete =>
       values.where((c) => c != auto).toList();
 

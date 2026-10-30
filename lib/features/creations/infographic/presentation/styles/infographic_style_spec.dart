@@ -47,6 +47,14 @@ enum InfoPanelLook {
 
   /// Un relleno tenue del color de cada bloque, muy redondeado (Kawaii).
   tinted,
+
+  /// Un borde grueso del color del texto y una sombra dura, sin desenfoque
+  /// (Brutalista, F45).
+  block,
+
+  /// Una nota adhesiva teñida del acento, con su cinta arriba (Manuscrito,
+  /// F45).
+  note,
 }
 
 /// Cómo se arma la cabecera: el antetítulo, el título y la bajada.
@@ -67,6 +75,10 @@ enum InfoHeaderLook {
   /// El título junto a una ilustración grande (los estilos con ilustraciones
   /// con IA): arriba en vertical, al costado en horizontal.
   hero,
+
+  /// La cabecera de un diario: un filete grueso arriba, el rótulo, el título
+  /// y un filete doble debajo (Periódico, F45).
+  masthead,
 }
 
 /// La textura del fondo «con textura».
@@ -109,6 +121,44 @@ enum InfoTexture {
 
   /// Burbujas suaves de plastilina.
   bubbles,
+
+  // Las de F45, cada una la del estilo del mismo nombre.
+
+  /// Papel de diario: el grano y la trama de una foto en una esquina.
+  newsprint,
+
+  /// Aguadas de tinta china y el sello rojo.
+  inkWash,
+
+  /// Un bloque de color a sangre en un borde, como una revista.
+  colorBlock,
+
+  /// El círculo, el medio círculo y el triángulo de la Bauhaus.
+  bauhaus,
+
+  /// El marco grueso y una etiqueta de color ácido.
+  brutal,
+
+  /// Una luz muy tenue arriba, sobre casi negro.
+  spotlight,
+
+  /// Las líneas de barrido y el resplandor de una pantalla vieja.
+  scanlines,
+
+  /// Los escalonados de oro en las esquinas y un abanico de rayos.
+  deco,
+
+  /// Un sol de franjas que asoma de una esquina.
+  sunset,
+
+  /// Los renglones y el margen rojo de un cuaderno.
+  ruled,
+
+  /// Lo que quedó de lo borrado y el marco de aluminio de una pizarra.
+  marker,
+
+  /// La grilla blanca y las marcas de registro de un plano.
+  blueprint,
 }
 
 /// Cómo se dibujan las líneas que unen (la cronología, el proceso, los
@@ -120,8 +170,9 @@ enum InfoConnectorLook { solid, dashed, hand, glow }
 ///
 /// No dibuja nada solo: es la receta que leen `InfographicView` y sus
 /// composiciones. Las paletas de los estilos que se llaman igual que una
-/// plantilla de presentación (Editorial, Pizarra, Pergamino…) son las de esa
-/// plantilla, así una lámina y un mazo del mismo nombre combinan.
+/// plantilla de presentación (Editorial, Pizarra, Pergamino, y los doce de
+/// F45) son las de esa plantilla, así una lámina y un mazo del mismo nombre
+/// combinan.
 @immutable
 class InfographicStyleSpec {
   const InfographicStyleSpec({

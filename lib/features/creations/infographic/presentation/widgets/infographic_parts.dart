@@ -99,6 +99,8 @@ class InfoPanel extends StatelessWidget {
       InfoPanelLook.chalk ||
       InfoPanelLook.tinted => inner,
       InfoPanelLook.clay => inner + const EdgeInsets.only(top: 2),
+      InfoPanelLook.block => inner + const EdgeInsets.fromLTRB(4, 4, 12, 12),
+      InfoPanelLook.note => inner + EdgeInsets.only(top: style.gap * 0.3),
     };
   }
 
@@ -115,6 +117,7 @@ class InfoPanel extends StatelessWidget {
         style.tint(index).withValues(alpha: 0.14),
         p.surfaceOnBackground,
       ),
+      InfoPanelLook.note => p.noteColor,
       _ => p.surfaceOnBackground,
     };
   }
@@ -296,6 +299,62 @@ class InfoPanel extends StatelessWidget {
             borderRadius: radius,
           ),
           child: child,
+        );
+      case InfoPanelLook.block:
+        // La sombra dura va adentro del lugar del bloque (el margen de abajo
+        // a la derecha), así no pisa al vecino.
+        return Container(
+          margin: const EdgeInsets.only(right: 8, bottom: 8),
+          padding: inner,
+          decoration: BoxDecoration(
+            color: fill ?? p.surface,
+            border: Border.all(color: p.text, width: 4),
+            boxShadow: [BoxShadow(color: p.text, offset: const Offset(8, 8))],
+          ),
+          child: child,
+        );
+      case InfoPanelLook.note:
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: fill ?? p.noteColor,
+                  borderRadius: radius,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: p.isDark ? 0.3 : 0.1,
+                      ),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // La cinta que la sostiene, arriba al medio.
+            Positioned(
+              top: -style.gap * 0.25,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Transform.rotate(
+                  angle: (index.isEven ? 1 : -1) * 0.04,
+                  child: Container(
+                    width: 96,
+                    height: style.gap * 0.6,
+                    color: p.text.withValues(alpha: 0.09),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: inner + EdgeInsets.only(top: style.gap * 0.3),
+              child: child,
+            ),
+          ],
         );
     }
   }
@@ -785,6 +844,17 @@ class _Header extends StatelessWidget {
         ),
     ];
     final ornament = switch (look) {
+      // El filete doble de abajo de la cabecera de un diario.
+      InfoHeaderLook.masthead => Container(
+        margin: EdgeInsets.only(top: style.gap * 0.7),
+        height: 9,
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: p.text, width: 4),
+            bottom: BorderSide(color: p.text, width: 1.5),
+          ),
+        ),
+      ),
       InfoHeaderLook.editorial => Container(
         margin: EdgeInsets.only(top: style.gap * 0.8),
         height: 3,
@@ -805,7 +875,9 @@ class _Header extends StatelessWidget {
     };
     // Lo que queda para el texto, sin el adorno de abajo.
     final textHeight =
-        maxHeight - (ornament == null ? 0 : style.gap * 0.8 + 28);
+        maxHeight -
+        (ornament == null ? 0 : style.gap * 0.8 + 28) -
+        (look == InfoHeaderLook.masthead ? 6 + style.gap * 0.45 : 0);
     Widget text = ConstrainedBox(
       constraints: BoxConstraints(maxHeight: textHeight),
       child: FitTextGroup(
@@ -827,7 +899,15 @@ class _Header extends StatelessWidget {
       crossAxisAlignment: centered
           ? CrossAxisAlignment.center
           : CrossAxisAlignment.stretch,
-      children: [text, ?ornament],
+      children: [
+        // Y el grueso de arriba, sobre el rótulo.
+        if (look == InfoHeaderLook.masthead) ...[
+          Container(height: 6, color: p.text),
+          SizedBox(height: style.gap * 0.45),
+        ],
+        text,
+        ?ornament,
+      ],
     );
     switch (look) {
       case InfoHeaderLook.banner:
@@ -866,7 +946,8 @@ class _Header extends StatelessWidget {
         );
       case InfoHeaderLook.editorial ||
           InfoHeaderLook.poster ||
-          InfoHeaderLook.centered:
+          InfoHeaderLook.centered ||
+          InfoHeaderLook.masthead:
         return column;
     }
   }

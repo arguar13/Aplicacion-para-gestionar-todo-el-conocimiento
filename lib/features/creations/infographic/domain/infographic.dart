@@ -23,8 +23,8 @@ enum InfographicBlockKind {
   final String jsonName;
 }
 
-/// Los cuatro gráficos que dibuja la app (F43: «Gráficos dibujados por la
-/// app cuando el contenido trae números»).
+/// Los gráficos que dibuja la app: los cuatro de F43 («Gráficos dibujados
+/// por la app cuando el contenido trae números») y los cuatro de F45.
 enum InfographicChartKind {
   /// Barras horizontales, una por dato, con su rótulo y su cifra.
   bars('bars'),
@@ -36,7 +36,22 @@ enum InfographicChartKind {
   progress('progress'),
 
   /// Íconos que se pintan: «7 de cada 10».
-  pictogram('pictogram');
+  pictogram('pictogram'),
+
+  /// Columnas: barras paradas, una por dato, con la cifra arriba (F45).
+  columns('columns'),
+
+  /// Anillos concéntricos: cada dato su vuelta contra el mismo total, como
+  /// los anillos de actividad (F45).
+  rings('rings'),
+
+  /// Una cuadrícula de cien cuadraditos: un porcentaje o las partes de un
+  /// total, contadas de a una (F45).
+  waffle('waffle'),
+
+  /// Una escala: dónde cae cada dato entre un mínimo y un máximo, como el pH
+  /// entre 0 y 14 (F45).
+  scale('scale');
 
   const InfographicChartKind(this.jsonName);
 
@@ -183,8 +198,16 @@ sealed class InfographicBlock with _$InfographicBlock {
     @Default('') String unit,
 
     /// El total contra el que se mide (el 100 de un avance, las 10 de «7 de
-    /// cada 10»); null si no hay uno.
+    /// cada 10», el máximo de una escala); null si no hay uno.
     double? total,
+
+    /// Dónde empieza la escala (F45); null, en cero.
+    double? minimum,
+
+    /// Cómo se llaman las dos puntas de la escala («Ácido», «Básico»); vacías,
+    /// se escriben los números.
+    @Default('') String minLabel,
+    @Default('') String maxLabel,
     @Default('') String detail,
 
     /// El ícono que se repite en el pictograma; null, una persona.

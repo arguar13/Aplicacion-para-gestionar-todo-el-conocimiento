@@ -8,8 +8,9 @@ import 'package:sinapsis/features/creations/infographic/domain/infographic.dart'
 import 'package:sinapsis/features/creations/infographic/domain/infographic_chart_data.dart';
 import 'package:sinapsis/features/creations/infographic/presentation/styles/infographic_style.dart';
 
-/// Un gráfico dibujado por la app (F43: barras, anillo, avance o
-/// pictograma), con los números de [chart] y los colores del estilo.
+/// Un gráfico dibujado por la app —barras, anillo, avance o pictograma
+/// (F43); columnas, anillos concéntricos, cuadrícula de cien o escala
+/// (F45)—, con los números de [chart] y los colores del estilo.
 ///
 /// Ocupa el lugar que le den y nunca desborda: los rótulos y las cifras son
 /// textos que se ajustan (los lee el lector de pantalla, con
@@ -86,6 +87,37 @@ class InfoChart extends StatelessWidget {
         text: text,
         muted: muted,
         track: track,
+      ),
+      InfographicChartKind.columns => _Columns(
+        style: style,
+        points: points,
+        surface: surface,
+        text: text,
+        muted: muted,
+        track: track,
+      ),
+      InfographicChartKind.rings => _Rings(
+        style: style,
+        points: points,
+        surface: surface,
+        text: text,
+        track: track,
+      ),
+      InfographicChartKind.waffle => _Waffle(
+        style: style,
+        points: points,
+        surface: surface,
+        text: text,
+        muted: muted,
+        track: track,
+      ),
+      InfographicChartKind.scale => _Scale(
+        style: style,
+        chart: chart,
+        points: points,
+        surface: surface,
+        text: text,
+        muted: muted,
       ),
     };
     return Semantics(
@@ -813,4 +845,600 @@ class InfoPictogramPainter extends CustomPainter {
       oldDelegate.filled != filled ||
       oldDelegate.color != color ||
       oldDelegate.track != track;
+}
+
+// ---------------------------------------------------------------------
+// Los cuatro de F45.
+
+/// Columnas: una barra parada por dato contra el mayor, con su cifra arriba y
+/// su rótulo abajo; la mayor, del primario.
+class _Columns extends StatelessWidget {
+  const _Columns({
+    required this.style,
+    required this.points,
+    required this.surface,
+    required this.text,
+    required this.muted,
+    required this.track,
+  });
+
+  final InfographicStyle style;
+  final List<InfographicChartPoint> points;
+  final Color surface;
+  final Color text;
+  final Color muted;
+  final Color track;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final n = points.length;
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        final slot = w / n;
+        final valueHeight = math.min(style.smallSize * 1.7, h * 0.18);
+        final labelHeight = math.min(style.smallSize * 2.7, h * 0.26);
+        final double barArea = math.max(0, h - valueHeight - labelHeight);
+        final largest = points.indexed.fold<int>(
+          0,
+          (best, e) => e.$2.value > points[best].value ? e.$1 : best,
+        );
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < n; i++)
+              SizedBox(
+                width: slot,
+                child: Column(
+                  children: [
+                    // La cifra, pegada arriba de su columna.
+                    SizedBox(
+                      height: barArea * (1 - points[i].fraction) + valueHeight,
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: SizedBox(
+                          height: valueHeight,
+                          width: slot * 0.94,
+                          child: Center(
+                            child: FitText(
+                              points[i].text,
+                              style: style.figure(
+                                size: style.smallSize * 1.15,
+                                color: text,
+                                weight: 700,
+                              ),
+                              maxLines: 1,
+                              minScale: 0.3,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Container(
+                          width: slot * 0.56,
+                          decoration: BoxDecoration(
+                            color: InfoChart.colorOf(
+                              style,
+                              i == largest ? 0 : 1,
+                              surface,
+                            ),
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(slot * 0.12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Container(height: 3, color: track),
+                    SizedBox(
+                      height: labelHeight - 3,
+                      width: slot * 0.96,
+                      child: Center(
+                        child: FitText(
+                          points[i].label,
+                          style: style.body(
+                            size: style.smallSize,
+                            color: muted,
+                          ),
+                          maxLines: 2,
+                          minScale: 0.4,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Los anillos concéntricos: una vuelta por dato, de afuera hacia adentro,
+/// cada una con lo suyo de su total; la leyenda al costado (o debajo).
+class _Rings extends StatelessWidget {
+  const _Rings({
+    required this.style,
+    required this.points,
+    required this.surface,
+    required this.text,
+    required this.track,
+  });
+
+  final InfographicStyle style;
+  final List<InfographicChartPoint> points;
+  final Color surface;
+  final Color text;
+  final Color track;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      for (var i = 0; i < points.length; i++)
+        InfoChart.colorOf(style, i, surface),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        final beside = w > h * 1.3;
+        final side = beside ? math.min(h, w * 0.46) : math.min(w, h * 0.58);
+        final legendSize = beside
+            ? Size(w - side - style.gap, h)
+            : Size(w, math.max(0, h - side - style.gap * 0.6));
+        final rings = SizedBox.square(
+          dimension: side,
+          child: CustomPaint(
+            painter: InfoRingsPainter(
+              fractions: [for (final p in points) p.fraction],
+              colors: colors,
+              track: track,
+            ),
+          ),
+        );
+        final legend = _Legend(
+          style: style,
+          points: points,
+          colors: colors,
+          text: text,
+          size: legendSize,
+        );
+        return beside
+            ? Row(
+                children: [
+                  rings,
+                  SizedBox(width: style.gap),
+                  legend,
+                ],
+              )
+            : Column(
+                children: [
+                  rings,
+                  SizedBox(height: style.gap * 0.6),
+                  legend,
+                ],
+              );
+      },
+    );
+  }
+}
+
+/// Los anillos concéntricos: el riel de cada vuelta y, encima, su arco desde
+/// arriba, con las puntas redondas.
+class InfoRingsPainter extends CustomPainter {
+  const InfoRingsPainter({
+    required this.fractions,
+    required this.colors,
+    required this.track,
+  });
+
+  final List<double> fractions;
+  final List<Color> colors;
+  final Color track;
+
+  /// El radio de la vuelta [index] de [count], en un lugar de lado [side], y
+  /// el grueso de todas: de afuera hacia adentro, con un respiro entre ellas.
+  static ({double radius, double stroke}) ring(
+    int index,
+    int count,
+    double side,
+  ) {
+    final stroke = side / 2 / (count * 1.45 + 0.8);
+    return (
+      radius: side / 2 - stroke / 2 - index * stroke * 1.45,
+      stroke: stroke,
+    );
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    for (var i = 0; i < fractions.length; i++) {
+      final (:radius, :stroke) = ring(i, fractions.length, size.shortestSide);
+      final rect = Rect.fromCircle(center: center, radius: radius);
+      canvas.drawArc(
+        rect,
+        0,
+        math.pi * 2,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke
+          ..color = track,
+      );
+      final sweep = math.pi * 2 * fractions[i].clamp(0, 1);
+      if (sweep <= 0) continue;
+      canvas.drawArc(
+        rect,
+        -math.pi / 2,
+        sweep,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke
+          ..strokeCap = StrokeCap.round
+          ..color = colors[i % colors.length],
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(InfoRingsPainter oldDelegate) =>
+      oldDelegate.fractions != fractions ||
+      oldDelegate.colors != colors ||
+      oldDelegate.track != track;
+}
+
+/// La cuadrícula de cien: diez por diez cuadraditos, pintados en orden con
+/// cada parte; con una sola, su cifra y su rótulo al lado.
+class _Waffle extends StatelessWidget {
+  const _Waffle({
+    required this.style,
+    required this.points,
+    required this.surface,
+    required this.text,
+    required this.muted,
+    required this.track,
+  });
+
+  final InfographicStyle style;
+  final List<InfographicChartPoint> points;
+  final Color surface;
+  final Color text;
+  final Color muted;
+  final Color track;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      for (var i = 0; i < points.length; i++)
+        InfoChart.colorOf(style, i, surface),
+    ];
+    final cells = InfoWafflePainter.cellsOf([
+      for (final p in points) p.fraction,
+    ]);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        final beside = w > h * 1.25;
+        final side = beside ? math.min(h, w * 0.5) : math.min(w, h * 0.62);
+        final grid = SizedBox.square(
+          dimension: side,
+          child: CustomPaint(
+            painter: InfoWafflePainter(
+              cells: cells,
+              colors: colors,
+              track: track,
+            ),
+          ),
+        );
+        final restSize = beside
+            ? Size(w - side - style.gap, h)
+            : Size(w, math.max(0, h - side - style.gap * 0.6));
+        final Widget rest;
+        if (points.length == 1) {
+          final point = points.first;
+          rest = SizedBox.fromSize(
+            size: restSize,
+            child: FitTextGroup(
+              crossAxisAlignment: beside
+                  ? CrossAxisAlignment.start
+                  : CrossAxisAlignment.center,
+              items: [
+                FitTextItem(
+                  text: point.text,
+                  style: style.figure(size: style.figureSize, color: text),
+                  maxLines: 1,
+                  textAlign: beside ? TextAlign.start : TextAlign.center,
+                ),
+                if (point.label.isNotEmpty)
+                  FitTextItem(
+                    text: point.label,
+                    style: style.small(color: muted, weight: 600),
+                    gapBefore: style.gap * 0.3,
+                    maxLines: 3,
+                    textAlign: beside ? TextAlign.start : TextAlign.center,
+                  ),
+              ],
+            ),
+          );
+        } else {
+          rest = _Legend(
+            style: style,
+            points: points,
+            colors: colors,
+            text: text,
+            size: restSize,
+          );
+        }
+        return beside
+            ? Row(
+                children: [
+                  grid,
+                  SizedBox(width: style.gap),
+                  Align(alignment: Alignment.centerLeft, child: rest),
+                ],
+              )
+            : Column(
+                children: [
+                  grid,
+                  SizedBox(height: style.gap * 0.6),
+                  rest,
+                ],
+              );
+      },
+    );
+  }
+}
+
+/// Los cien cuadraditos: de a filas, de arriba a la izquierda, los de cada
+/// parte de su color y los que sobran en el tono tenue.
+class InfoWafflePainter extends CustomPainter {
+  const InfoWafflePainter({
+    required this.cells,
+    required this.colors,
+    required this.track,
+  });
+
+  /// La parte de cada uno de los cien cuadraditos, o -1 si no es de ninguna.
+  final List<int> cells;
+  final List<Color> colors;
+  final Color track;
+
+  /// Cuántos cuadraditos toca a cada parte: redondeados de modo que la suma
+  /// sea la de las fracciones (el método del mayor resto), así «33 %, 33 %,
+  /// 34 %» pinta los cien y no noventa y nueve.
+  static List<int> cellsOf(List<double> fractions) {
+    final exact = [for (final f in fractions) f.clamp(0, 1) * 100];
+    final whole = [for (final e in exact) e.floor()];
+    final target = math.min(
+      100,
+      exact.fold<double>(0, (a, e) => a + e).round(),
+    );
+    var missing = target - whole.fold<int>(0, (a, e) => a + e);
+    final byRest = List<int>.generate(exact.length, (i) => i)
+      ..sort((a, b) => (exact[b] - whole[b]).compareTo(exact[a] - whole[a]));
+    for (final i in byRest) {
+      if (missing <= 0) break;
+      whole[i]++;
+      missing--;
+    }
+    return [
+      for (var part = 0; part < whole.length; part++)
+        for (var k = 0; k < whole[part]; k++) part,
+      for (var k = whole.fold<int>(0, (a, e) => a + e); k < 100; k++) -1,
+    ];
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cell = size.shortestSide / 10;
+    final gap = cell * 0.14;
+    final left = (size.width - cell * 10) / 2;
+    final top = (size.height - cell * 10) / 2;
+    for (var i = 0; i < 100; i++) {
+      final part = i < cells.length ? cells[i] : -1;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            left + (i % 10) * cell + gap / 2,
+            top + (i ~/ 10) * cell + gap / 2,
+            cell - gap,
+            cell - gap,
+          ),
+          Radius.circular(cell * 0.18),
+        ),
+        Paint()..color = part < 0 ? track : colors[part % colors.length],
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(InfoWafflePainter oldDelegate) =>
+      oldDelegate.cells.length != cells.length ||
+      oldDelegate.colors != colors ||
+      oldDelegate.track != track ||
+      !Iterable<int>.generate(
+        cells.length,
+      ).every((i) => oldDelegate.cells[i] == cells[i]);
+}
+
+/// La escala: una regla del mínimo al máximo, con un degradé de su color,
+/// las dos puntas nombradas abajo y una marca por dato, con su rótulo y su
+/// cifra arriba, cada una en su renglón para que no se pisen.
+class _Scale extends StatelessWidget {
+  const _Scale({
+    required this.style,
+    required this.chart,
+    required this.points,
+    required this.surface,
+    required this.text,
+    required this.muted,
+  });
+
+  final InfographicStyle style;
+  final ChartBlock chart;
+  final List<InfographicChartPoint> points;
+  final Color surface;
+  final Color text;
+  final Color muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final (low, high) = InfographicChartData.scaleRange(chart) ?? (0.0, 100.0);
+    final ends = InfographicChartData.scaleEnds(chart, low, high);
+    final from = CreationContrast.ensure(style.tint(1), surface, minimum: 3);
+    final to = CreationContrast.ensure(style.tint(0), surface, minimum: 3);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        final n = points.length;
+        final barHeight = math.min(style.gap * 1.1, h * 0.14);
+        final endsHeight = math.min(style.smallSize * 2.4, h * 0.24);
+        final double markRows = math.max(0, h - barHeight - endsHeight);
+        final rowHeight = math.min(style.bodySize * 2.4, markRows / n);
+        final labelWidth = math.min(w * 0.6, math.max(w / n, w * 0.38));
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < n; i++)
+              SizedBox(
+                height: rowHeight,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      // La etiqueta, centrada en su marca sin salirse.
+                      left: (w * points[i].fraction - labelWidth / 2).clamp(
+                        0.0,
+                        math.max<double>(0, w - labelWidth),
+                      ),
+                      width: labelWidth,
+                      top: 0,
+                      bottom: rowHeight * 0.18,
+                      child: Center(
+                        child: FitText(
+                          points[i].label.isEmpty
+                              ? points[i].text
+                              : '${points[i].label} · ${points[i].text}',
+                          style: style.body(
+                            size: style.smallSize * 1.05,
+                            color: text,
+                            weight: 700,
+                          ),
+                          maxLines: 1,
+                          minScale: 0.35,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                    // El palito que baja a la regla.
+                    Positioned(
+                      left: (w * points[i].fraction - 2).clamp(0.0, w - 4),
+                      width: 4,
+                      bottom: 0,
+                      height: rowHeight * 0.2,
+                      child: ColoredBox(color: text.withValues(alpha: 0.5)),
+                    ),
+                  ],
+                ),
+              ),
+            SizedBox(
+              height: barHeight,
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: InfoScalePainter(
+                  marks: [for (final p in points) p.fraction],
+                  from: from,
+                  to: to,
+                  marker: text,
+                  surface: surface,
+                ),
+              ),
+            ),
+            SizedBox(
+              height: endsHeight,
+              child: Row(
+                children: [
+                  for (final (k, end) in [ends.$1, ends.$2].indexed)
+                    Expanded(
+                      child: Align(
+                        alignment: k == 0
+                            ? Alignment.centerLeft
+                            : Alignment.centerRight,
+                        child: FitText(
+                          end,
+                          style: style.small(color: muted, weight: 600),
+                          maxLines: 1,
+                          minScale: 0.4,
+                          textAlign: k == 0 ? TextAlign.start : TextAlign.end,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// La regla de la escala: la barra redondeada con el degradé de una punta a
+/// la otra y, encima, una marca circular por dato, del color del texto con
+/// un borde de la superficie.
+class InfoScalePainter extends CustomPainter {
+  const InfoScalePainter({
+    required this.marks,
+    required this.from,
+    required this.to,
+    required this.marker,
+    required this.surface,
+  });
+
+  final List<double> marks;
+  final Color from;
+  final Color to;
+  final Color marker;
+  final Color surface;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bar = Rect.fromLTWH(
+      0,
+      size.height * 0.25,
+      size.width,
+      size.height * 0.5,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bar, Radius.circular(bar.height / 2)),
+      Paint()..shader = LinearGradient(colors: [from, to]).createShader(bar),
+    );
+    final radius = size.height * 0.42;
+    for (final mark in marks) {
+      final center = Offset(
+        (size.width * mark.clamp(0, 1)).clamp(radius, size.width - radius),
+        size.height / 2,
+      );
+      canvas
+        ..drawCircle(center, radius, Paint()..color = surface)
+        ..drawCircle(center, radius * 0.7, Paint()..color = marker);
+    }
+  }
+
+  @override
+  bool shouldRepaint(InfoScalePainter oldDelegate) =>
+      oldDelegate.marks != marks ||
+      oldDelegate.from != from ||
+      oldDelegate.to != to ||
+      oldDelegate.marker != marker ||
+      oldDelegate.surface != surface;
 }

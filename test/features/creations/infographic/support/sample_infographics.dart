@@ -268,3 +268,46 @@ Infographic minimalInfographic() => const Infographic(
   title: 'Éxodo',
   blocks: [InfographicBlock.fact(title: 'Un pueblo sale de Egipto')],
 );
+
+/// Los cuatro gráficos de F45: columnas, anillos concéntricos, la cuadrícula
+/// de cien y una escala con sus puntas nombradas.
+Infographic chartsInfographic() => const Infographic(
+  title: 'El Éxodo, medido',
+  blocks: [
+    InfographicBlock.chart(
+      title: 'Capítulos por parte',
+      chartKind: InfographicChartKind.columns,
+      data: [
+        InfographicDatum(label: 'Egipto', value: 15),
+        InfographicDatum(label: 'Desierto', value: 3),
+        InfographicDatum(label: 'Sinaí', value: 22),
+      ],
+    ),
+    InfographicBlock.chart(
+      title: 'Lo que ocupa cada tema',
+      chartKind: InfographicChartKind.rings,
+      data: [
+        InfographicDatum(label: 'Relato', value: 55),
+        InfographicDatum(label: 'Leyes', value: 30),
+        InfographicDatum(label: 'Cantos', value: 15),
+      ],
+      unit: '%',
+    ),
+    InfographicBlock.chart(
+      title: 'El libro en el Sinaí',
+      chartKind: InfographicChartKind.waffle,
+      data: [InfographicDatum(label: 'de los capítulos', value: 40)],
+      unit: '%',
+    ),
+    InfographicBlock.chart(
+      title: 'La sal del mar Rojo',
+      chartKind: InfographicChartKind.scale,
+      data: [InfographicDatum(label: 'Salinidad', value: 40)],
+      minimum: 0,
+      total: 50,
+      unit: 'g/l',
+      minLabel: 'Agua dulce',
+      maxLabel: 'Mar Muerto',
+    ),
+  ],
+);

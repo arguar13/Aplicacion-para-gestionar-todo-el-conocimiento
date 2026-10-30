@@ -6,23 +6,30 @@ import 'package:sinapsis/features/creations/infographic/domain/infographic_desig
 /// El diseño de una infografía (decisión G): se guarda aparte, vuelve igual y
 /// se lee con tolerancia —nunca falla, lo raro toma el valor de fábrica—.
 void main() {
-  test('dieciocho estilos en dos familias y diez composiciones más la '
+  test('treinta estilos en dos familias y dieciséis composiciones más la '
       'automática', () {
-    expect(InfographicStyleId.values, hasLength(18));
+    expect(InfographicStyleId.values, hasLength(30));
     expect(
       InfographicStyleId.values.where((s) => s.isIllustrated).map((s) => s.id),
       ['clay', 'kawaii', 'watercolor', 'isometric', 'comic', 'photo'],
     );
-    expect(InfographicComposition.concrete, hasLength(10));
+    expect(InfographicComposition.concrete, hasLength(16));
     expect(
       InfographicComposition.concrete,
       isNot(contains(InfographicComposition.auto)),
     );
     // Los nombres que se guardan no se repiten.
-    expect(InfographicStyleId.values.map((s) => s.id).toSet(), hasLength(18));
+    expect(InfographicStyleId.values.map((s) => s.id).toSet(), hasLength(30));
+    // Los dibujados van primero y los ilustrados al final, como en la
+    // galería.
+    final families = [for (final s in InfographicStyleId.values) s.family];
+    expect(
+      families.skipWhile((f) => f == InfographicStyleFamily.drawn),
+      everyElement(InfographicStyleFamily.illustrated),
+    );
     expect(
       InfographicComposition.values.map((c) => c.jsonName).toSet(),
-      hasLength(11),
+      hasLength(17),
     );
   });
 

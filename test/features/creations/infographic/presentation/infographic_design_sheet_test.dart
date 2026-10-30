@@ -185,6 +185,59 @@ void main() {
     expect(check('infographic-background-texture'), findsNothing);
   });
 
+  testWidgets('las composiciones y los estilos de F45 se eligen igual, y se '
+      'anuncian por su nombre (a 360, letra al doble, en oscuro)', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    final (:changes, styleTaps: _) = await openSheet(
+      tester,
+      width: 360,
+      textScale: 2,
+      dark: true,
+      withGallery: false,
+    );
+    for (final composition in [
+      InfographicComposition.verticalTimeline,
+      InfographicComposition.comparisonTable,
+      InfographicComposition.funnel,
+      InfographicComposition.cycle,
+      InfographicComposition.topicMap,
+      InfographicComposition.statMosaic,
+    ]) {
+      // La tira se desliza de costado y arma sus tarjetas a medida: se
+      // corre hasta que aparece la que se busca.
+      final strip = find
+          .ancestor(
+            of: find
+                .byWidgetPredicate(
+                  (w) =>
+                      w.key is ValueKey<String> &&
+                      (w.key! as ValueKey<String>).value.startsWith(
+                        'infographic-composition-',
+                      ),
+                )
+                .first,
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final tile = find.byKey(
+        ValueKey('infographic-composition-${composition.jsonName}'),
+      );
+      await tester.scrollUntilVisible(tile, 200, scrollable: strip);
+      await tapKey(tester, 'infographic-composition-${composition.jsonName}');
+      expect(changes.last.composition, composition);
+      expect(tester.takeException(), isNull);
+    }
+    expect(
+      tester.getSemantics(
+        find.byKey(const ValueKey('infographic-composition-stat_mosaic')),
+      ),
+      isSemantics(label: 'Estadísticas en mosaico, elegido', isSelected: true),
+    );
+    handle.dispose();
+  });
+
   for (final (width, scale, dark) in [
     (360.0, 1.0, false),
     (360.0, 2.0, true),

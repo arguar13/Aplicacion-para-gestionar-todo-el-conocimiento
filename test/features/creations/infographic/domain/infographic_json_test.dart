@@ -251,6 +251,90 @@ void main() {
       expect(chart('progreso').chartKind, InfographicChartKind.progress);
       expect(chart('Pictograma').chartKind, InfographicChartKind.pictogram);
       expect(chart('radar').chartKind, isNull);
+      // Los de F45, por su nombre y en castellano. «Columnas» ya no son las
+      // barras acostadas: tienen su gráfico.
+      expect(chart('columns').chartKind, InfographicChartKind.columns);
+      expect(chart('Columnas').chartKind, InfographicChartKind.columns);
+      expect(
+        chart('barras verticales').chartKind,
+        InfographicChartKind.columns,
+      );
+      expect(chart('Anillos').chartKind, InfographicChartKind.rings);
+      expect(chart('waffle').chartKind, InfographicChartKind.waffle);
+      expect(chart('Cuadrícula').chartKind, InfographicChartKind.waffle);
+      expect(chart('Escala').chartKind, InfographicChartKind.scale);
+      expect(chart('termómetro').chartKind, InfographicChartKind.scale);
+    });
+
+    test('la escala (F45): su mínimo y el nombre de sus puntas, con '
+        'tolerancia', () {
+      final scale =
+          only({
+                'tipo': 'gráfico',
+                'gráfico': 'escala',
+                'datos': [
+                  {'etiqueta': 'pH', 'valor': '7'},
+                ],
+                'mínimo': '-2',
+                'máximo': 14,
+                'min_label': 'Ácido',
+                'etiqueta_máxima': 'Básico',
+              })
+              as ChartBlock;
+      expect(scale.chartKind, InfographicChartKind.scale);
+      expect(scale.minimum, -2);
+      expect(scale.total, 14);
+      expect(scale.minLabel, 'Ácido');
+      expect(scale.maxLabel, 'Básico');
+      // Un mínimo que no queda debajo del máximo no hace una escala; un
+      // mínimo que no es un número, tampoco.
+      ChartBlock withMin(Object? min) =>
+          only({
+                'type': 'chart',
+                'data': [1],
+                'total': 10,
+                'min': min,
+              })
+              as ChartBlock;
+      expect(withMin(12).minimum, isNull);
+      expect(withMin(10).minimum, isNull);
+      expect(withMin('nada').minimum, isNull);
+      expect(withMin(['3']).minimum, isNull);
+      expect(withMin('0').minimum, 0);
+    });
+
+    test('los gráficos de F45 vuelven idénticos, y uno guardado por F43 se '
+        'lee igual', () {
+      final sheet = chartsInfographic();
+      expect(
+        InfographicJson.decode(InfographicJson.encodeString(sheet)),
+        sheet,
+      );
+      // Tal como lo escribía F43: sin las claves de la escala.
+      final saved = jsonEncode({
+        'title': 'Cifras',
+        'blocks': [
+          {
+            'type': 'chart',
+            'title': 'Partes',
+            'chart': 'bars',
+            'data': [
+              {'label': 'a', 'value': 3},
+            ],
+            'total': 10,
+            'level': 1,
+          },
+        ],
+      });
+      final chart = InfographicJson.decode(saved).blocks.single as ChartBlock;
+      expect(chart.chartKind, InfographicChartKind.bars);
+      expect(chart.minimum, isNull);
+      expect(chart.minLabel, isEmpty);
+      expect(chart.maxLabel, isEmpty);
+      expect(
+        InfographicJson.encode(InfographicJson.decode(saved))['blocks'],
+        (jsonDecode(saved) as Map<String, Object?>)['blocks'],
+      );
     });
 
     test('el total en texto, y uno negativo o cero no cuenta', () {

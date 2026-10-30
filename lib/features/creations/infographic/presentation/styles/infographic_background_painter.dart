@@ -281,6 +281,256 @@ class InfographicBackgroundPainter extends CustomPainter {
               Paint()..color = const Color(0x1FFFFFFF),
             );
         }
+      // Las de F45: tenues y en los bordes, como las de F43; el texto de
+      // los bloques pasa por encima y se tiene que seguir leyendo.
+      case InfoTexture.newsprint:
+        CreationTextures.grain(
+          canvas,
+          size,
+          color: _a(p.text, 0.07),
+          seed: 101 + seed,
+          density: 0.0022,
+        );
+        final dot = Paint()..color = _a(p.text, 0.08);
+        const step = 22.0;
+        final from = Offset(size.width * 0.7, size.height * 0.84);
+        for (var y = from.dy; y < size.height; y += step) {
+          for (var x = from.dx; x < size.width; x += step) {
+            final t =
+                ((x - from.dx) / (size.width - from.dx) +
+                    (y - from.dy) / (size.height - from.dy)) /
+                2;
+            final radius = step * 0.42 * t;
+            if (radius > 0.8) canvas.drawCircle(Offset(x, y), radius, dot);
+          }
+        }
+      case InfoTexture.inkWash:
+        CreationTextures.grain(
+          canvas,
+          size,
+          color: _a(p.text, 0.045),
+          seed: 111 + seed,
+        );
+        CreationTextures.watercolor(
+          canvas,
+          Offset(size.width * 0.02, size.height * 0.99),
+          s * 0.34,
+          _a(p.text, 0.42),
+          seed: 3 + seed,
+        );
+        CreationTextures.watercolor(
+          canvas,
+          Offset(size.width * 1.01, size.height * 0.01),
+          s * 0.2,
+          _a(p.accent, 0.55),
+          seed: 9 + seed,
+        );
+        final seal = Rect.fromLTWH(
+          size.width - style.marginX * 0.78,
+          style.marginY * 0.35,
+          38,
+          38,
+        );
+        canvas
+          ..drawRect(seal, Paint()..color = p.secondary)
+          ..drawRect(
+            seal.deflate(6),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.2
+              ..color = _a(p.onSecondary, 0.85),
+          );
+      case InfoTexture.colorBlock:
+        // Una franja de color a sangre en el borde de arriba y una pestaña
+        // del acento, como la cabecera de una sección de revista.
+        canvas
+          ..drawRect(
+            Rect.fromLTWH(0, 0, size.width, style.marginY * 0.42),
+            Paint()..color = p.primary,
+          )
+          ..drawRect(
+            Rect.fromLTWH(style.marginX, style.marginY * 0.42, 160, 12),
+            Paint()..color = p.accent,
+          );
+      case InfoTexture.bauhaus:
+        canvas
+          ..drawCircle(
+            Offset(size.width * 1.02, size.height * -0.01),
+            s * 0.22,
+            Paint()..color = _a(p.primary, 0.28),
+          )
+          ..drawArc(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.06, size.height * 1.01),
+              radius: s * 0.2,
+            ),
+            math.pi,
+            math.pi,
+            true,
+            Paint()..color = _a(p.secondary, 0.26),
+          )
+          ..drawPath(
+            Path()
+              ..moveTo(size.width - s * 0.2, size.height)
+              ..lineTo(size.width - s * 0.1, size.height - s * 0.16)
+              ..lineTo(size.width, size.height)
+              ..close(),
+            Paint()..color = _a(p.accent, 0.5),
+          );
+      case InfoTexture.brutal:
+        canvas
+          ..drawRect(
+            rect.deflate(16),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 10
+              ..color = p.text,
+          )
+          ..drawRect(
+            Rect.fromLTWH(size.width - 86, 21, 65, 65),
+            Paint()..color = p.accent,
+          );
+      case InfoTexture.spotlight:
+        CreationTextures.glow(
+          canvas,
+          Offset(size.width * 0.3, -size.height * 0.08),
+          s * 0.9,
+          _a(p.primary, 0.08),
+        );
+      case InfoTexture.scanlines:
+        canvas.drawRect(
+          rect,
+          Paint()
+            ..shader = ui.Gradient.radial(rect.center, size.longestSide * 0.6, [
+              _a(p.primary, 0.06),
+              _a(p.primary, 0),
+            ]),
+        );
+        final scan = Paint()..color = _a(p.text, 0.03);
+        for (var y = 0.0; y < size.height; y += 5) {
+          canvas.drawRect(Rect.fromLTWH(0, y, size.width, 2), scan);
+        }
+      case InfoTexture.deco:
+        final gold = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.4
+          ..color = _a(p.primary, 0.75);
+        const inset = 24.0;
+        const step = 18.0;
+        for (final (x, y, dx, dy) in [
+          (inset, inset, 1.0, 1.0),
+          (size.width - inset, inset, -1.0, 1.0),
+          (inset, size.height - inset, 1.0, -1.0),
+          (size.width - inset, size.height - inset, -1.0, -1.0),
+        ]) {
+          canvas.drawPath(
+            Path()
+              ..moveTo(x + dx * 120, y)
+              ..lineTo(x + dx * step * 2, y)
+              ..lineTo(x + dx * step * 2, y + dy * step)
+              ..lineTo(x + dx * step, y + dy * step)
+              ..lineTo(x + dx * step, y + dy * step * 2)
+              ..lineTo(x, y + dy * step * 2)
+              ..lineTo(x, y + dy * 120),
+            gold,
+          );
+        }
+        // El abanico, tenue, abajo al centro.
+        final center = Offset(size.width / 2, size.height + 20);
+        for (var i = 0; i < 13; i++) {
+          final angle = math.pi + math.pi * (i + 0.5) / 13;
+          canvas.drawLine(
+            center,
+            center + Offset(math.cos(angle), math.sin(angle)) * s * 0.22,
+            Paint()
+              ..strokeWidth = 2
+              ..color = _a(p.primary, i.isEven ? 0.22 : 0.1),
+          );
+        }
+      case InfoTexture.sunset:
+        final colors = [p.primary, p.accent, p.secondary, p.primary];
+        final corner = Offset(size.width, size.height);
+        for (var i = 0; i < colors.length; i++) {
+          canvas.drawCircle(
+            corner,
+            s * (0.3 - i * 0.06),
+            Paint()..color = _a(colors[i], 0.28),
+          );
+        }
+        CreationTextures.grain(
+          canvas,
+          size,
+          color: _a(p.text, 0.035),
+          seed: 121 + seed,
+        );
+      case InfoTexture.ruled:
+        final line = Paint()
+          ..color = _a(p.primary, 0.14)
+          ..strokeWidth = 2;
+        for (var y = style.marginY * 1.6; y < size.height - 10; y += 56) {
+          canvas.drawLine(Offset(0, y), Offset(size.width, y), line);
+        }
+        final margin = style.marginX * 0.6;
+        canvas.drawLine(
+          Offset(margin, 0),
+          Offset(margin, size.height),
+          Paint()
+            ..color = _a(p.secondary, 0.45)
+            ..strokeWidth = 3,
+        );
+      case InfoTexture.marker:
+        final random = math.Random(131 + seed);
+        for (var i = 0; i < 5; i++) {
+          CreationTextures.glow(
+            canvas,
+            Offset(
+              random.nextDouble() * size.width,
+              random.nextDouble() * size.height,
+            ),
+            s * (0.15 + random.nextDouble() * 0.15),
+            _a(p.text, 0.035),
+          );
+        }
+        canvas.drawRect(
+          rect.deflate(7),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 14
+            ..shader = ui.Gradient.linear(rect.topLeft, rect.bottomRight, [
+              Color.lerp(p.background, p.text, 0.18)!,
+              Color.lerp(p.background, p.text, 0.32)!,
+            ]),
+        );
+      case InfoTexture.blueprint:
+        CreationTextures.lineGrid(
+          canvas,
+          rect,
+          color: _a(p.text, 0.07),
+          majorColor: _a(p.text, 0.13),
+        );
+        final ink = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = _a(p.text, 0.5);
+        for (final corner in [
+          const Offset(32, 32),
+          Offset(size.width - 32, 32),
+          Offset(32, size.height - 32),
+          Offset(size.width - 32, size.height - 32),
+        ]) {
+          canvas
+            ..drawLine(
+              corner - const Offset(14, 0),
+              corner + const Offset(14, 0),
+              ink,
+            )
+            ..drawLine(
+              corner - const Offset(0, 14),
+              corner + const Offset(0, 14),
+              ink,
+            )
+            ..drawCircle(corner, 7, ink);
+        }
     }
   }
 

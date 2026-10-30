@@ -23,10 +23,15 @@ void main() {
   /// El contenido que mejor muestra cada composición.
   Infographic contentFor(InfographicComposition composition) =>
       switch (composition) {
-        InfographicComposition.timeline => timelineInfographic(),
-        InfographicComposition.process => processInfographic(),
-        InfographicComposition.statPanel => dataInfographic(),
+        InfographicComposition.timeline ||
+        InfographicComposition.verticalTimeline => timelineInfographic(),
+        InfographicComposition.process ||
+        InfographicComposition.cycle ||
+        InfographicComposition.funnel => processInfographic(),
+        InfographicComposition.statPanel ||
+        InfographicComposition.statMosaic => dataInfographic(),
         InfographicComposition.conceptMap ||
+        InfographicComposition.topicMap ||
         InfographicComposition.radial => conceptsInfographic(),
         InfographicComposition.zigzag => conceptsInfographic().copyWith(
           blocks: [
@@ -53,7 +58,8 @@ void main() {
             ),
         ];
 
-        testWidgets('las diez composiciones en ${orientation.id}, sin «…», en '
+        testWidgets('las dieciséis composiciones en ${orientation.id}, sin '
+            '«…», en '
             'el teléfono y en la computadora', (tester) async {
           final problems = [
             ...await renderSheets(
@@ -86,6 +92,33 @@ void main() {
           expect(problems, isEmpty, reason: problems.join('\n'));
         });
       }
+
+      testWidgets('los cuatro gráficos de F45, en las tres orientaciones, '
+          'sin «…»', (tester) async {
+        final problems = await renderSheets(
+          tester,
+          [
+            for (final orientation in InfographicOrientation.values)
+              for (final composition in [
+                InfographicComposition.bento,
+                InfographicComposition.statMosaic,
+              ])
+                (
+                  name: '${orientation.id}-${composition.jsonName}',
+                  sheet: chartsInfographic(),
+                  design: InfographicDesign(
+                    style: style,
+                    composition: composition,
+                    orientation: orientation,
+                  ),
+                ),
+          ],
+          width: 360,
+          allowEllipsis: false,
+          name: '${style.id}-graficos-f45',
+        );
+        expect(problems, isEmpty, reason: problems.join('\n'));
+      });
 
       testWidgets('sus seis paletas, un color propio y lo mínimo', (
         tester,

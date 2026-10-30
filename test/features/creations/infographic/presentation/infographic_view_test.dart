@@ -4,6 +4,7 @@ import 'package:sinapsis/features/creations/infographic/domain/infographic.dart'
 import 'package:sinapsis/features/creations/infographic/domain/infographic_design.dart';
 import 'package:sinapsis/features/creations/infographic/presentation/widgets/infographic_flows.dart';
 import 'package:sinapsis/features/creations/infographic/presentation/widgets/infographic_grids.dart';
+import 'package:sinapsis/features/creations/infographic/presentation/widgets/infographic_more.dart';
 import 'package:sinapsis/features/creations/infographic/presentation/widgets/infographic_view.dart';
 
 import '../support/infographic_muestrario.dart';
@@ -183,6 +184,12 @@ void main() {
       InfographicComposition.pyramid: PyramidComposition,
       InfographicComposition.statPanel: StatPanelComposition,
       InfographicComposition.conceptMap: ConceptMapComposition,
+      InfographicComposition.verticalTimeline: VerticalTimelineComposition,
+      InfographicComposition.comparisonTable: ComparisonTableComposition,
+      InfographicComposition.funnel: FunnelComposition,
+      InfographicComposition.cycle: CycleComposition,
+      InfographicComposition.topicMap: TopicMapComposition,
+      InfographicComposition.statMosaic: StatMosaicComposition,
     };
     expect(expected.keys.toSet(), InfographicComposition.concrete.toSet());
     for (final MapEntry(key: composition, value: type) in expected.entries) {

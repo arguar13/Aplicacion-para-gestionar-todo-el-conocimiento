@@ -10,8 +10,9 @@ import '../../presentation_deck/support/deck_widget_harness.dart';
 import '../support/infographic_muestrario.dart';
 import '../support/sample_infographics.dart';
 
-/// La galería de estilos (F43): los dieciocho en sus dos familias, cada uno
-/// con la lámina de la persona en vivo; elegir uno no vuelve a la IA.
+/// La galería de estilos (F43, y los doce de F45): los treinta en sus dos
+/// familias, cada uno con la lámina de la persona en vivo; elegir uno no
+/// vuelve a la IA.
 void main() {
   setUpAll(loadInfographicFonts);
 
@@ -23,7 +24,7 @@ void main() {
     detail: InfographicDetail.detailed,
   );
 
-  testWidgets('los dieciocho, en dos familias, con una muestra viva cada uno', (
+  testWidgets('los treinta, en dos familias, con una muestra viva cada uno', (
     tester,
   ) async {
     final changes = <InfographicDesign>[];

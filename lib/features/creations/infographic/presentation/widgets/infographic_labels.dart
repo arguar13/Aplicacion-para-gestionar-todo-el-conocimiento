@@ -18,6 +18,19 @@ extension InfographicLabels on AppLocalizations {
     InfographicStyleId.pastel => f43InfoStylePastel,
     InfographicStyleId.kids => f43InfoStyleKids,
     InfographicStyleId.data => f43InfoStyleData,
+    // Los de F45 se llaman como su plantilla de presentación.
+    InfographicStyleId.newspaper => f45S5TemplateNewspaper,
+    InfographicStyleId.ink => f45S5TemplateInk,
+    InfographicStyleId.magazine => f45S5TemplateMagazine,
+    InfographicStyleId.bauhaus => f45S5TemplateBauhaus,
+    InfographicStyleId.brutalist => f45S5TemplateBrutalist,
+    InfographicStyleId.darkMinimal => f45S5TemplateDarkMinimal,
+    InfographicStyleId.terminal => f45S5TemplateTerminal,
+    InfographicStyleId.artDeco => f45S5TemplateArtDeco,
+    InfographicStyleId.retro => f45S5TemplateRetro,
+    InfographicStyleId.manuscript => f45S5TemplateManuscript,
+    InfographicStyleId.whiteboard => f45S5TemplateWhiteboard,
+    InfographicStyleId.blueprint => f45S5TemplateBlueprint,
     InfographicStyleId.clay => f43InfoStyleClay,
     InfographicStyleId.kawaii => f43InfoStyleKawaii,
     InfographicStyleId.watercolor => f43InfoStyleWatercolor,
@@ -43,6 +56,12 @@ extension InfographicLabels on AppLocalizations {
     InfographicComposition.pyramid => f43InfoCompositionPyramid,
     InfographicComposition.statPanel => f43InfoCompositionStatPanel,
     InfographicComposition.conceptMap => f43InfoCompositionConceptMap,
+    InfographicComposition.verticalTimeline => f45S5CompositionVerticalTimeline,
+    InfographicComposition.comparisonTable => f45S5CompositionComparisonTable,
+    InfographicComposition.funnel => f45S5CompositionFunnel,
+    InfographicComposition.cycle => f45S5CompositionCycle,
+    InfographicComposition.topicMap => f45S5CompositionTopicMap,
+    InfographicComposition.statMosaic => f45S5CompositionStatMosaic,
   };
 
   String infographicOrientation(InfographicOrientation o) => switch (o) {

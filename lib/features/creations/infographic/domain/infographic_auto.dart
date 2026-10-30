@@ -118,6 +118,17 @@ abstract final class InfographicAuto {
       InfographicComposition.pyramid => 5,
       InfographicComposition.statPanel => 8,
       InfographicComposition.conceptMap => 8,
+      InfographicComposition.verticalTimeline =>
+        portrait
+            ? 7
+            : square
+            ? 6
+            : 8,
+      InfographicComposition.comparisonTable => 5,
+      InfographicComposition.funnel => portrait ? 6 : 5,
+      InfographicComposition.cycle => portrait || square ? 6 : 7,
+      InfographicComposition.topicMap => portrait ? 7 : 9,
+      InfographicComposition.statMosaic => 9,
     };
   }
 
@@ -173,6 +184,12 @@ abstract final class InfographicAuto {
       InfographicComposition.zigzag => c.total >= 3 && c.total <= 7,
       InfographicComposition.radial => c.total >= 3 && c.total <= 8,
       InfographicComposition.pyramid => c.total >= 3 && c.total <= 6,
+      InfographicComposition.verticalTimeline => c.events + c.steps >= 3,
+      InfographicComposition.comparisonTable => c.comparisons >= 1,
+      InfographicComposition.funnel => c.total >= 3 && c.total <= 6,
+      InfographicComposition.cycle => c.steps >= 3 && c.total <= 7,
+      InfographicComposition.topicMap => c.total >= 3 && c.total <= 9,
+      InfographicComposition.statMosaic => c.numeric >= 3,
     };
   }
 
@@ -223,6 +240,22 @@ abstract final class InfographicAuto {
     'mapadeconceptos': InfographicComposition.conceptMap,
     'mapaconceptual': InfographicComposition.conceptMap,
     'mindmap': InfographicComposition.conceptMap,
+    // Las de F45.
+    'lineadetiempovertical': InfographicComposition.verticalTimeline,
+    'cronologiavertical': InfographicComposition.verticalTimeline,
+    'verticaltimeline': InfographicComposition.verticalTimeline,
+    'tablacomparativa': InfographicComposition.comparisonTable,
+    'tabla': InfographicComposition.comparisonTable,
+    'table': InfographicComposition.comparisonTable,
+    'embudo': InfographicComposition.funnel,
+    'ciclo': InfographicComposition.cycle,
+    'circular': InfographicComposition.cycle,
+    'mapadetemas': InfographicComposition.topicMap,
+    'arbol': InfographicComposition.topicMap,
+    'tree': InfographicComposition.topicMap,
+    'mosaico': InfographicComposition.statMosaic,
+    'estadisticasenmosaico': InfographicComposition.statMosaic,
+    'mosaic': InfographicComposition.statMosaic,
   };
 
   static InfographicStyleId? _styleHint(String? hint) {
@@ -246,6 +279,21 @@ abstract final class InfographicAuto {
     'acuarela': InfographicStyleId.watercolor,
     'isometrico': InfographicStyleId.isometric,
     'fotografico': InfographicStyleId.photo,
+    // Los de F45.
+    'periodico': InfographicStyleId.newspaper,
+    'diario': InfographicStyleId.newspaper,
+    'tinta': InfographicStyleId.ink,
+    'sumie': InfographicStyleId.ink,
+    'revista': InfographicStyleId.magazine,
+    'brutalista': InfographicStyleId.brutalist,
+    'minimaloscuro': InfographicStyleId.darkMinimal,
+    'darkminimal': InfographicStyleId.darkMinimal,
+    'artdeco': InfographicStyleId.artDeco,
+    'deco': InfographicStyleId.artDeco,
+    'manuscrito': InfographicStyleId.manuscript,
+    'cuaderno': InfographicStyleId.manuscript,
+    'pizarrablanca': InfographicStyleId.whiteboard,
+    'plano': InfographicStyleId.blueprint,
   };
 }
 

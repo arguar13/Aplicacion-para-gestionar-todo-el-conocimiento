@@ -2,19 +2,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/creations/infographic/domain/infographic.dart';
 import 'package:sinapsis/features/creations/infographic/domain/infographic_chart_data.dart';
 
-/// Las cuentas de los gráficos (F43): qué gráfico va, cuánto mide cada dato
-/// y cómo se escribe.
+/// Las cuentas de los gráficos (F43, y los cuatro de F45): qué gráfico va,
+/// cuánto mide cada dato y cómo se escribe.
 void main() {
   ChartBlock chart(
     List<(String, double)> data, {
     InfographicChartKind? kind,
     String unit = '',
     double? total,
+    double? minimum,
+    String minLabel = '',
+    String maxLabel = '',
   }) =>
       InfographicBlock.chart(
             chartKind: kind,
             unit: unit,
             total: total,
+            minimum: minimum,
+            minLabel: minLabel,
+            maxLabel: maxLabel,
             data: [
               for (final (label, value) in data)
                 InfographicDatum(label: label, value: value),
@@ -162,5 +168,151 @@ void main() {
       InfographicChartData.describe(block),
       'Capítulos. Egipto: 15; Sinaí: 22',
     );
+  });
+
+  group('los de F45', () {
+    InfographicChartKind kind(ChartBlock c) => InfographicChartData.kindOf(c);
+
+    test('van si los pide la IA y los datos los sostienen', () {
+      expect(
+        kind(chart([('a', 1), ('b', 2)], kind: InfographicChartKind.columns)),
+        InfographicChartKind.columns,
+      );
+      expect(
+        kind(chart([('a', 40)], unit: '%', kind: InfographicChartKind.rings)),
+        InfographicChartKind.rings,
+      );
+      expect(
+        kind(chart([('a', 40)], unit: '%', kind: InfographicChartKind.waffle)),
+        InfographicChartKind.waffle,
+      );
+      expect(
+        kind(chart([('a', 7)], total: 14, kind: InfographicChartKind.scale)),
+        InfographicChartKind.scale,
+      );
+    });
+
+    test('si no los sostienen, el de F43 que corresponde', () {
+      // Una columna sola no compara nada.
+      expect(
+        kind(chart([('a', 1)], kind: InfographicChartKind.columns)),
+        InfographicChartKind.progress,
+      );
+      // Cinco vueltas no se distinguen.
+      expect(
+        kind(
+          chart([
+            for (var i = 0; i < 5; i++) ('d$i', 10.0 * i),
+          ], kind: InfographicChartKind.rings),
+        ),
+        InfographicChartKind.bars,
+      );
+      // Una cuadrícula de cien sin un todo, o con partes que lo pasan.
+      expect(
+        kind(chart([('a', 40)], kind: InfographicChartKind.waffle)),
+        InfographicChartKind.progress,
+      );
+      expect(
+        kind(
+          chart(
+            [('a', 70), ('b', 60)],
+            unit: '%',
+            kind: InfographicChartKind.waffle,
+          ),
+        ),
+        InfographicChartKind.bars,
+      );
+      // Una escala sin máximo, o con más marcas de las que entran.
+      expect(
+        kind(chart([('a', 7)], kind: InfographicChartKind.scale)),
+        InfographicChartKind.progress,
+      );
+      expect(
+        kind(
+          chart(
+            [for (var i = 0; i < 4; i++) ('d$i', 1.0 * i)],
+            total: 10,
+            kind: InfographicChartKind.scale,
+          ),
+        ),
+        InfographicChartKind.bars,
+      );
+    });
+
+    test('la escala va sola si trae su mínimo', () {
+      expect(
+        kind(chart([('pH', 7)], total: 14, minimum: 0)),
+        InfographicChartKind.scale,
+      );
+      // Sin mínimo, lo de siempre: «7 de 14» se cuenta en un pictograma.
+      expect(
+        kind(chart([('pH', 7)], total: 14)),
+        InfographicChartKind.pictogram,
+      );
+    });
+
+    test('cuánto mide cada dato', () {
+      List<double> fractions(ChartBlock c) => [
+        for (final p in InfographicChartData.points(c)) p.fraction,
+      ];
+      // Columnas: contra la mayor.
+      expect(
+        fractions(
+          chart([('a', 10), ('b', 40)], kind: InfographicChartKind.columns),
+        ),
+        [0.25, 1],
+      );
+      // Anillos: contra el total, o 100 en porcentajes.
+      expect(
+        fractions(
+          chart(
+            [('a', 80), ('b', 20)],
+            unit: '%',
+            kind: InfographicChartKind.rings,
+          ),
+        ),
+        [0.8, 0.2],
+      );
+      // La cuadrícula: partes de un todo que suman la suya.
+      expect(
+        fractions(
+          chart([('a', 3), ('b', 1)], kind: InfographicChartKind.waffle),
+        ),
+        [0.75, 0.25],
+      );
+      // La escala: dónde cae entre sus puntas, también con negativos.
+      expect(
+        fractions(
+          chart(
+            [('frío', -10), ('tibio', 15), ('calor', 60)],
+            minimum: -10,
+            total: 40,
+            kind: InfographicChartKind.scale,
+          ),
+        ),
+        [0, 0.5, 1],
+      );
+    });
+
+    test('la escala se lee con sus puntas: sus nombres, o sus números', () {
+      expect(
+        InfographicChartData.describe(
+          chart(
+            [('pH', 7)],
+            total: 14,
+            minimum: 0,
+            minLabel: 'Ácido',
+            maxLabel: 'Básico',
+          ),
+        ),
+        'pH: 7 (Ácido – Básico)',
+      );
+      expect(
+        InfographicChartData.describe(
+          chart([('Hoy', 18)], total: 40, minimum: -10, unit: '°C'),
+        ),
+        'Hoy: 18 °C (-10 °C – 40 °C)',
+      );
+    });
   });
 }
