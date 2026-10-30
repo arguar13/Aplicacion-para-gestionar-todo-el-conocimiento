@@ -451,4 +451,160 @@ void main() {
       expect(pairs, [(0, 1), (0, 2), (1, 2)]);
     });
   });
+
+  group('el grafo de hace un mes, en la misma pasada (F44)', () {
+    final asOf = DateTime(2026, 10);
+    final old = DateTime(2026, 9);
+    final recent = DateTime(2026, 10, 20);
+
+    TopicGraphHistory history({
+      required List<AtlasValueRow> values,
+      List<TopicItem> items = const [],
+      List<TopicRelation> relations = const [],
+      Map<String, DateTime> valueCreatedAt = const {},
+    }) => buildTopicGraphHistory(
+      TopicGraphInput(
+        definitionId: 'tema',
+        definitionName: 'Tema',
+        values: values,
+        items: items,
+        relations: relations,
+        valueCreatedAt: valueCreatedAt,
+      ),
+      asOf: asOf,
+    );
+
+    TopicItem dated(String id, List<String> valueIds, DateTime at) =>
+        TopicItem(id: id, valueIds: valueIds, createdAt: at);
+
+    TopicRelation link(
+      String from,
+      String to,
+      DateTime? at, {
+      RelationKind? kind,
+    }) => TopicRelation(
+      fromItemId: from,
+      toItemId: to,
+      kind: kind ?? RelationKind.relatedTo,
+      createdAt: at,
+    );
+
+    test('el de hoy es el mismo que arma buildTopicGraph', () {
+      final values = [value('a'), value('b'), value('c')];
+      final items = [
+        dated('i1', ['a', 'b'], old),
+        dated('i2', ['b', 'c'], recent),
+      ];
+      final relations = [link('i1', 'i2', recent)];
+
+      final both = history(values: values, items: items, relations: relations);
+      final plain = build(values: values, items: items, relations: relations);
+
+      String signature(TopicGraph g) => [
+        for (final n in g.nodes) '${n.valueId}:${n.itemCount}',
+        for (final e in g.edges)
+          '${e.a}-${e.b}:${e.cooccurrence}/${e.relations}/${e.contradictions}',
+      ].join(' ');
+      expect(signature(both.current), signature(plain));
+    });
+
+    test('lo procesado después no estaba: ni su coincidencia ni sus '
+        'documentos cuentan', () {
+      final result = history(
+        values: [value('a'), value('b'), value('c')],
+        items: [
+          dated('i1', ['a', 'b'], old),
+          dated('i2', ['a', 'b'], recent),
+          dated('i3', ['b', 'c'], recent),
+        ],
+      );
+
+      expect(result.changedSince, isTrue);
+      final past = result.past;
+      expect(edgeBetween(past, 'a', 'b')!.cooccurrence, 1);
+      expect(edgeBetween(result.current, 'a', 'b')!.cooccurrence, 2);
+      expect(edgeBetween(past, 'b', 'c'), isNull);
+      expect(past.nodes[past.indexOf('b')!].itemCount, 1);
+      expect(past.nodes[past.indexOf('c')!].itemCount, 0);
+    });
+
+    test('un vínculo cuenta si se hizo antes y sus dos documentos ya '
+        'estaban', () {
+      final result = history(
+        values: [value('a'), value('b'), value('c'), value('d')],
+        items: [
+          dated('i1', ['a'], old),
+          dated('i2', ['b'], old),
+          dated('i3', ['c'], recent),
+          dated('i4', ['d'], old),
+        ],
+        relations: [
+          // Viejo y entre dos viejos: estaba.
+          link('i1', 'i2', old, kind: RelationKind.contradicts),
+          // Viejo, pero con un documento nuevo —una importación—: no.
+          link('i1', 'i3', old),
+          // Nuevo, entre dos viejos: no.
+          link('i2', 'i4', recent),
+          // Sin fecha: de siempre.
+          link('i1', 'i4', null),
+        ],
+      );
+
+      final past = result.past;
+      final ab = edgeBetween(past, 'a', 'b')!;
+      expect(ab.contradictions, 1);
+      expect(ab.openContradictions, 1);
+      expect(edgeBetween(past, 'a', 'c'), isNull);
+      expect(edgeBetween(past, 'b', 'd'), isNull);
+      expect(edgeBetween(past, 'a', 'd')!.relations, 1);
+      expect(edgeBetween(result.current, 'b', 'd')!.relations, 1);
+    });
+
+    test('un tema creado después no estaba, ni sus uniones', () {
+      final result = history(
+        values: [
+          value('a'),
+          value('b'),
+          value('nuevo', parent: 'a'),
+        ],
+        items: [
+          dated('i1', ['a', 'b'], old),
+          dated('i2', ['a', 'nuevo'], old),
+        ],
+        valueCreatedAt: {'a': old, 'b': old, 'nuevo': recent},
+      );
+
+      final past = result.past;
+      expect([for (final n in past.nodes) n.valueId], ['a', 'b']);
+      expect(past.edges, hasLength(1));
+      expect(past.edges.single.cooccurrence, 1);
+    });
+
+    test('si nada es de después, el de entonces es el mismo de hoy', () {
+      final result = history(
+        values: [value('a'), value('b')],
+        items: [
+          dated('i1', ['a', 'b'], old),
+          const TopicItem(id: 'sin-fecha', valueIds: ['a']),
+        ],
+        relations: [link('i1', 'sin-fecha', old)],
+        valueCreatedAt: {'a': old},
+      );
+
+      expect(result.changedSince, isFalse);
+      expect(identical(result.past, result.current), isTrue);
+    });
+
+    test('la fecha de corte ya es «después»', () {
+      final result = history(
+        values: [value('a'), value('b')],
+        items: [
+          dated('i1', ['a', 'b'], asOf),
+        ],
+      );
+
+      expect(result.changedSince, isTrue);
+      expect(result.past.edges, isEmpty);
+    });
+  });
 }
