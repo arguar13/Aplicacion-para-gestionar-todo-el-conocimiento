@@ -93,6 +93,12 @@ void main() {
         'qué lee cada consulta (F31); lo que se lee de `item` —dejar afuera '
         'la papelera con `deleted_at`— está en `study_queue_sql.dart`, que '
         'arma todas las consultas de la cola y SÍ decide',
+    'lib/features/flashcards/data/repositories/review_scope_reader.dart':
+        'nombra la tabla solo para suscribirse a sus cambios y declarar de '
+        'qué lee cada consulta (F43, M16 y M17, las estadísticas y el '
+        'historial); lo que se lee de `item` —dejar afuera la papelera con '
+        '`deleted_at`— está en `review_scope_sql.dart`, que arma todas las '
+        'consultas del recorte y SÍ decide',
     'lib/features/flashcards/data/repositories/card_browser_repository_impl.dart':
         'nombra la tabla solo para suscribirse a sus cambios y declarar de '
         'qué lee cada consulta (F31, «Mis tarjetas»); lo que se lee de `item` '
