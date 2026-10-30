@@ -12,8 +12,9 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
 
-/// Lo que quedó sin tema (F37, paso 5): la tarjeta de la Biblioteca que lo
-/// cuenta, la lista para ordenarlo de a varios y la columna del tablero.
+/// Lo que quedó sin tema (F37, paso 5): la píldora del panel de estado que
+/// lo cuenta (F45, mejora 17), la lista para ordenarlo de a varios y la
+/// columna del tablero.
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -46,11 +47,12 @@ void main() {
         .setSpaces(itemIds: [(await byTitle(title)).id], spaceIds: spaceIds);
   }
 
-  Finder card() => find.byKey(const ValueKey('unsorted-items'));
+  /// La píldora «N sin tema» del panel de estado (F45, mejora 17).
+  Finder pill() => find.byKey(const ValueKey('health-unsorted-pill'));
 
-  group('la tarjeta de la Biblioteca', () {
-    testWidgets('cuenta lo que no tiene tema y lleva a la lista para '
-        'ordenarlo', (tester) async {
+  group('en el panel de estado de la Biblioteca (F45, mejora 17)', () {
+    testWidgets('una píldora cuenta lo que no tiene tema y lleva a la lista '
+        'para ordenarlo', (tester) async {
       await harness.capture('Uno');
       await harness.capture('Dos');
       await putIn('Dos', {await createSpace('Roma')});
@@ -59,18 +61,31 @@ void main() {
 
       expect(
         find.descendant(
-          of: card(),
-          matching: find.text(es.libraryUnsortedTitle(1)),
+          of: pill(),
+          matching: find.text(es.f45S7cUnthemedChip(1)),
         ),
         findsOneWidget,
       );
 
-      await tester.tap(find.text(es.libraryUnsortedAction));
+      await tester.tap(pill());
       await tester.pumpAndSettle();
 
       expect(find.byType(UnsortedItemsScreen), findsOneWidget);
       expect(find.widgetWithText(CheckboxListTile, 'Uno'), findsOneWidget);
       expect(find.widgetWithText(CheckboxListTile, 'Dos'), findsNothing);
+    });
+
+    testWidgets('ya no hay una tarjeta arriba de la lista que la empuje: '
+        'plegado, el panel solo la cuenta', (tester) async {
+      await harness.capture('Uno');
+      await tester.pumpWidget(harness.wrap(const LibraryScreen()));
+      await tester.pumpAndSettle();
+
+      expect(pill(), findsOneWidget);
+      expect(find.byKey(const ValueKey('unsorted-items')), findsNothing);
+      // La explicación y «Ordenarlos» son de desplegarlo.
+      expect(find.byKey(const ValueKey('unsorted-task')), findsNothing);
+      expect(find.text(es.libraryUnsortedBody), findsNothing);
     });
 
     testWidgets('desaparece sola cuando no queda nada sin tema', (
@@ -79,30 +94,35 @@ void main() {
       await harness.capture('Uno');
       await tester.pumpWidget(harness.wrap(const LibraryScreen()));
       await tester.pumpAndSettle();
-      expect(card(), findsOneWidget);
+      expect(pill(), findsOneWidget);
 
       await putIn('Uno', {await createSpace('Roma')});
       await tester.pumpAndSettle();
 
-      expect(card(), findsNothing);
+      expect(pill(), findsNothing);
     });
 
-    testWidgets('con un filtro puesto no aparece: el número no sería de lo '
-        'que se está mirando', (tester) async {
+    testWidgets('con un filtro puesto sigue: como todos los números del '
+        'panel, es de toda la bóveda', (tester) async {
       await harness.capture('Uno');
       await harness.capture('Dos');
       final roma = await createSpace('Roma');
       await putIn('Dos', {roma});
       await tester.pumpWidget(harness.wrap(const LibraryScreen()));
       await tester.pumpAndSettle();
-      expect(card(), findsOneWidget);
 
       harness.container
           .read(libraryQueryNotifierProvider.notifier)
           .selectSpace(roma);
       await tester.pumpAndSettle();
 
-      expect(card(), findsNothing);
+      expect(
+        find.descendant(
+          of: pill(),
+          matching: find.text(es.f45S7cUnthemedChip(1)),
+        ),
+        findsOneWidget,
+      );
     });
   });
 

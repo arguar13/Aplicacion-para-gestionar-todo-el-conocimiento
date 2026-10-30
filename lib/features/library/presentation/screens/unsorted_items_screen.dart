@@ -13,8 +13,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// con la misma hoja de siempre.
 ///
 /// Lo que recibe un tema sale solo de la lista —la consulta es «sin tema»—,
-/// así que lo que queda es siempre lo que falta. Se llega desde la tarjeta de
-/// la Biblioteca (`UnsortedItemsCard`).
+/// así que lo que queda es siempre lo que falta. Se llega desde «Ordenarlos»
+/// (`UnsortedTask`, F45): la píldora «49 sin tema» del panel de estado de la
+/// Biblioteca, el panel desplegado y la lista de «Organizar».
 class UnsortedItemsScreen extends ConsumerStatefulWidget {
   const UnsortedItemsScreen({super.key});
 

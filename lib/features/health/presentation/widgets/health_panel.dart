@@ -9,7 +9,9 @@ import 'package:sinapsis/features/health/domain/entities/health_thresholds.dart'
 import 'package:sinapsis/features/health/domain/entities/note_composition.dart';
 import 'package:sinapsis/features/health/presentation/providers/health_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/library/presentation/widgets/unsorted_task.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -24,8 +26,15 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Vocabulario y las contradicciones a Tensión. Las notas por madurez llevan a
 /// las notas que crecieron esta semana, que es donde se consolidan.
 ///
-/// Plegado por defecto, pero con los cuatro números a la vista: una sola fila
-/// de píldoras tocables. La barra de la Biblioteca ya ocupa mucho alto y una
+/// Lo que quedó sin tema (F45, mejora 17) es una píldora más —«49 sin tema»—
+/// que lleva a la lista para ordenarlo, y desplegado, una tarea con para qué y
+/// «Ordenarlos» ([UnsortedTask]). Sin nada sin tema no se muestra: no es un
+/// indicador de la bóveda sino algo pendiente, y en cero no pide nada. Como
+/// los demás números, es de toda la bóveda, también con un filtro puesto en
+/// la Biblioteca.
+///
+/// Plegado por defecto, pero con los números a la vista: una sola fila de
+/// píldoras tocables. La barra de la Biblioteca ya ocupa mucho alto y una
 /// lista sin lugar es peor que un panel que se despliega; desplegado agrega las
 /// etiquetas, el desglose por madurez, los avisos y los accesos, con una altura
 /// acotada.
@@ -66,6 +75,8 @@ class _HealthPanelState extends ConsumerState<HealthPanel> {
         .watch(pendingPropertySuggestionGroupsProvider)
         .valueOrNull
         ?.fold<int>(0, (total, group) => total + group.suggestions.length);
+    // Mientras se cuenta, como en cero: no aparece para irse enseguida.
+    final unsorted = ref.watch(unsortedCountProvider).valueOrNull ?? 0;
 
     String show(int? value) => value == null ? '…' : '$value';
 
@@ -78,6 +89,7 @@ class _HealthPanelState extends ConsumerState<HealthPanel> {
     void openNotes() => context.push(RoutePaths.grownNotes);
     void openVocabulary() => context.push(RoutePaths.vocabulary);
     void openTension() => context.push(RoutePaths.graphTension);
+    void openUnsorted() => context.push(RoutePaths.unsorted);
     // El mismo ícono que usa la pantalla de Tensión.
     final contradictionIcon = RelationKind.contradicts.icon;
 
@@ -108,6 +120,14 @@ class _HealthPanelState extends ConsumerState<HealthPanel> {
         tooltip: l10n.healthContradictionsLabel,
         onTap: openTension,
       ),
+      if (unsorted > 0)
+        _HealthPill(
+          key: const ValueKey('health-unsorted-pill'),
+          icon: Icons.folder_off_outlined,
+          text: l10n.f45S7cUnthemedChip(unsorted),
+          tooltip: l10n.unsortedTitle,
+          onTap: openUnsorted,
+        ),
     ];
 
     final tiles = [
@@ -174,8 +194,8 @@ class _HealthPanelState extends ConsumerState<HealthPanel> {
                             l10n.healthPanelTitle,
                             style: theme.textTheme.titleSmall,
                           )
-                        // Plegado, los cuatro números a la vista. Si no
-                        // caben —una pantalla muy angosta— se desplazan.
+                        // Plegado, los números a la vista. Si no caben —una
+                        // pantalla muy angosta— se desplazan.
                         : SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
@@ -232,6 +252,10 @@ class _HealthPanelState extends ConsumerState<HealthPanel> {
                         );
                       },
                     ),
+                    if (unsorted > 0) ...[
+                      const SizedBox(height: 8),
+                      UnsortedTask(count: unsorted, onOpen: openUnsorted),
+                    ],
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -278,6 +302,7 @@ class _HealthPill extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     this.alert = false,
+    super.key,
   });
 
   final IconData icon;
@@ -292,28 +317,35 @@ class _HealthPill extends StatelessWidget {
     final scheme = theme.colorScheme;
     final foreground = alert ? scheme.onErrorContainer : scheme.onSurface;
 
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: alert ? scheme.errorContainer : scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
+    // El lector de pantalla la anuncia como un botón propio, no fundido con
+    // las demás de la fila: su número, y su nombre en el tooltip, que por eso
+    // va adentro del nodo.
+    return Semantics(
+      container: true,
+      button: true,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: alert ? scheme.errorContainer : scheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 16, color: foreground),
-                const SizedBox(width: 4),
-                Text(
-                  text,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: foreground,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 16, color: foreground),
+                  const SizedBox(width: 4),
+                  Text(
+                    text,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: foreground,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

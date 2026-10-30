@@ -8973,11 +8973,11 @@
   "captureFirstSpaceCreate": "Crear tema",
   "@captureFirstSpaceCreate": {"description": "Temas (F37): botón de la tarjeta del primer tema."},
   "libraryUnsortedTitle": "{count, plural, =1{1 elemento sin tema} other{{count} elementos sin tema}}",
-  "@libraryUnsortedTitle": {"description": "Temas (F37): tarjeta de la Biblioteca que cuenta lo que no está en ningún tema.", "placeholders": {"count": {"type": "int"}}},
+  "@libraryUnsortedTitle": {"description": "Temas (F37, F45): la tarea que cuenta lo que no está en ningún tema, en el panel de estado desplegado y en la lista de «Organizar».", "placeholders": {"count": {"type": "int"}}},
   "libraryUnsortedBody": "Elegiles uno o varios temas: así se encuentran, y aparecen en el Mapa y el Atlas.",
-  "@libraryUnsortedBody": {"description": "Temas (F37): texto de la tarjeta de lo que no tiene tema."},
+  "@libraryUnsortedBody": {"description": "Temas (F37, F45): para qué ordenar lo que no tiene tema, en una línea, debajo de la cuenta."},
   "libraryUnsortedAction": "Ordenarlos",
-  "@libraryUnsortedAction": {"description": "Temas (F37): botón de la tarjeta de lo que no tiene tema."},
+  "@libraryUnsortedAction": {"description": "Temas (F37, F45): botón de la tarea de lo que no tiene tema; abre la lista para ordenarlo."},
   "unsortedTitle": "Lo que no tiene tema",
   "@unsortedTitle": {"description": "Temas (F37): título de la lista para ordenar lo que no tiene tema."},
   "unsortedHint": "Marcá los que van juntos y elegí sus temas.",
@@ -14012,5 +14012,7 @@
   "f45S2ProblemNoReply": "no contestó",
   "@f45S2ProblemNoReply": {"description": "Aviso de ordenar: el motivo, después de «la IA» (Triar (F45, paso 2))."},
   "f45S2MoreActions": "Más acciones",
-  "@f45S2MoreActions": {"description": "Bandeja: el «⋯» de la tarjeta, con lo que no entra en el renglón (Triar (F45, paso 2))."}
+  "@f45S2MoreActions": {"description": "Bandeja: el «⋯» de la tarjeta, con lo que no entra en el renglón (Triar (F45, paso 2))."},
+  "f45S7cUnthemedChip": "{count} sin tema",
+  "@f45S7cUnthemedChip": {"description": "Píldora del panel de estado de la Biblioteca, con el ícono de la carpeta tachada: cuántos elementos no tienen tema; la toca y abre la lista para ordenarlos (F45, paso 7c, mejora 17).", "placeholders": {"count": {"type": "int"}}}
 }

@@ -34,7 +34,6 @@ import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dar
 import 'package:sinapsis/features/library/presentation/widgets/saved_views_sheet.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_filter_section.dart';
 import 'package:sinapsis/features/library/presentation/widgets/spaces_picker_sheet.dart';
-import 'package:sinapsis/features/library/presentation/widgets/unsorted_items_card.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/reference/presentation/export_references_action.dart';
 import 'package:sinapsis/features/reference/presentation/import_references_action.dart';
@@ -295,12 +294,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         // El estado de la bóveda de un vistazo, al tope de la pantalla de
         // inicio. Solo con elementos: en una bóveda vacía no hay nada que
         // mantener, y con una búsqueda sin resultados el panel sería ruido.
+        // Lo que quedó sin tema es una píldora más del panel (F45, mejora
+        // 17), no una tarjeta que empuje la lista.
         const HealthPanel(),
-        // Lo que quedó sin tema, para ordenarlo (F37). Solo en la Biblioteca
-        // sin filtros: con un filtro puesto, el número no sería de lo que se
-        // está mirando.
-        if (!query.isFiltered && !_selectionModeActive)
-          const UnsortedItemsCard(),
         Expanded(
           child: switch (_viewMode) {
             LibraryViewMode.list => _ItemList(

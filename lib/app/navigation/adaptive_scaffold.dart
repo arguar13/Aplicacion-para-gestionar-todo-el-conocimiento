@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/navigation/nav_destinations.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/study_day_watcher.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/widgets/unsorted_task.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Bajo este ancho, `NavigationBar` abajo; en o por encima, `NavigationRail`
@@ -149,6 +152,10 @@ class AdaptiveScaffold extends ConsumerWidget {
 
   /// La lista de un paso: sus destinos de arriba abajo en orden de uso, cada
   /// uno con para qué sirve, y el que está abierto marcado.
+  ///
+  /// La de «Organizar» suma, debajo, lo que quedó sin tema como una tarea más
+  /// (F45, mejora 17): es donde se ordena. «Ordenarlos» cierra la lista y
+  /// abre la de lo que no tiene tema, encima de la pantalla en que se está.
   Future<void> _showStep(
     BuildContext context,
     NavStepGroup group,
@@ -192,11 +199,37 @@ class AdaptiveScaffold extends ConsumerWidget {
                       goToBranch(d.branchIndex);
                     },
                   ),
+                if (group.step == NavStep.organize)
+                  _UnsortedStepTask(
+                    onOpen: () {
+                      Navigator.of(sheetContext).pop();
+                      unawaited(context.push(RoutePaths.unsorted));
+                    },
+                  ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+}
+
+/// En la lista de «Organizar», lo que quedó sin tema (F45, mejora 17), con la
+/// misma cuenta que el panel de estado de la Biblioteca y actualizándose sola.
+/// Sin nada sin tema no ocupa nada.
+class _UnsortedStepTask extends ConsumerWidget {
+  const _UnsortedStepTask({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(unsortedCountProvider).valueOrNull ?? 0;
+    if (count == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: UnsortedTask(count: count, onOpen: onOpen),
     );
   }
 }

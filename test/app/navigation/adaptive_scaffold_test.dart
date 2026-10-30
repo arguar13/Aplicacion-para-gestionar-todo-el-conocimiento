@@ -10,6 +10,7 @@ import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -18,7 +19,9 @@ import 'package:sinapsis/features/flashcards/presentation/providers/study_provid
 import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/library/presentation/screens/unsorted_items_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
 import 'package:sinapsis/features/notebooks/presentation/screens/notebooks_screen.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_screen.dart';
@@ -54,11 +57,12 @@ void main() {
     prefs = await SharedPreferences.getInstance();
   });
 
-  Widget buildRoutedApp(ProviderContainer container) {
+  Widget buildRoutedApp(ProviderContainer container, {ThemeData? theme}) {
     return UncontrolledProviderScope(
       container: container,
       child: Consumer(
         builder: (context, ref, _) => MaterialApp.router(
+          theme: theme,
           locale: const Locale('es'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
@@ -592,6 +596,146 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(NavigationRail), findsOneWidget);
+    });
+  });
+
+  group('«Organizar», con lo que quedó sin tema (F45, mejora 17)', () {
+    final task = find.byKey(const ValueKey('unsorted-task'));
+
+    /// La app en un teléfono, con [unsorted] elementos sin tema, y la lista
+    /// de [step] abierta.
+    Future<void> openStep(
+      WidgetTester tester, {
+      required int unsorted,
+      String step = 'organize',
+      double width = 400,
+      ThemeData? theme,
+    }) async {
+      setLogicalWidth(tester, width);
+      await tester.pumpWidget(
+        buildRoutedApp(
+          buildUnlockedContainer(
+            overrides: [
+              unsortedCountProvider.overrideWith(
+                (ref) => Stream.value(unsorted),
+              ),
+            ],
+          ),
+          theme: theme,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('nav-step-$step')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('la cuenta es una tarea más, debajo de la Bandeja y el Atlas, '
+        'y «Ordenarlos» cierra la lista y abre la de lo que no tiene tema', (
+      tester,
+    ) async {
+      await openStep(tester, unsorted: 49);
+
+      final sheet = find.byType(BottomSheet);
+      expect(find.descendant(of: sheet, matching: task), findsOneWidget);
+      expect(
+        find.descendant(
+          of: task,
+          matching: find.text(es.libraryUnsortedTitle(49)),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: task, matching: find.text(es.libraryUnsortedBody)),
+        findsOneWidget,
+      );
+      // Las pantallas del paso siguen siendo dos, y la tarea va después.
+      expect(sheetItemKeys(tester), [
+        'nav-step-item-$inbox',
+        'nav-step-item-$atlas',
+      ]);
+      expect(
+        tester.getTopLeft(task).dy,
+        greaterThan(
+          tester.getBottomLeft(find.byKey(ValueKey('nav-step-item-$atlas'))).dy,
+        ),
+      );
+
+      await tester.tap(find.text(es.libraryUnsortedAction));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(UnsortedItemsScreen), findsOneWidget);
+    });
+
+    testWidgets('sin nada sin tema, la lista es solo la Bandeja y el Atlas', (
+      tester,
+    ) async {
+      await openStep(tester, unsorted: 0);
+
+      expect(task, findsNothing);
+      expect(find.text(es.libraryUnsortedAction), findsNothing);
+    });
+
+    testWidgets('«Estudiar» no la muestra: no es donde se ordena', (
+      tester,
+    ) async {
+      await openStep(tester, unsorted: 49, step: 'study');
+
+      expect(task, findsNothing);
+    });
+
+    for (final (name, theme) in [
+      ('claro', AppTheme.lightTheme),
+      ('oscuro', AppTheme.darkTheme),
+    ]) {
+      testWidgets('a 360 dp con la letra al doble, tema $name: la tarea entra '
+          'entera en la lista, sin desbordar', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await openStep(tester, unsorted: 49, width: 360, theme: theme);
+        expect(tester.takeException(), isNull);
+
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('unsorted-task-open')),
+          100,
+          scrollable: find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(Scrollable),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final card = tester.getRect(task);
+        final action = tester.getRect(
+          find.byKey(const Key('unsorted-task-open')),
+        );
+        expect(card.left, greaterThanOrEqualTo(0));
+        expect(card.right, lessThanOrEqualTo(360));
+        expect(action.right, lessThanOrEqualTo(card.right));
+        expect(action.bottom, lessThanOrEqualTo(800));
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('el lector de pantalla la lee junta —la cuenta y para qué— y '
+        '«Ordenarlos» como un botón', (tester) async {
+      final handle = tester.ensureSemantics();
+      await openStep(tester, unsorted: 49);
+
+      expect(
+        tester.getSemantics(task),
+        isSemantics(
+          label: '${es.libraryUnsortedTitle(49)}\n${es.libraryUnsortedBody}',
+        ),
+      );
+      expect(
+        tester.getSemantics(find.byKey(const Key('unsorted-task-open'))),
+        isSemantics(
+          label: es.libraryUnsortedAction,
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+      handle.dispose();
     });
   });
 }

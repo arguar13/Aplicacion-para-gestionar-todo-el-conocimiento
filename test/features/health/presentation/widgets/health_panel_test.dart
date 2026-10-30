@@ -1,10 +1,12 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
@@ -159,8 +161,10 @@ void main() {
     WidgetTester tester, {
     int vocabularyGroups = 0,
     bool expanded = true,
+    Size size = const Size(900, 2000),
+    ThemeData? theme,
   }) async {
-    tester.view.physicalSize = const Size(900, 2000);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -185,6 +189,7 @@ void main() {
           RoutePaths.graphTension,
           RoutePaths.brokenLinks,
           RoutePaths.suggestionReview,
+          RoutePaths.unsorted,
         ])
           route(path),
       ],
@@ -202,6 +207,7 @@ void main() {
             ),
           ],
           child: MaterialApp.router(
+            theme: theme,
             locale: const Locale('es'),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
@@ -576,5 +582,198 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(inTile(es.healthInboxLabel, find.text('1')), findsOneWidget);
+  });
+
+  group('lo que no tiene tema, una píldora más (F45, mejora 17)', () {
+    final pill = find.byKey(const ValueKey('health-unsorted-pill'));
+    final task = find.byKey(const ValueKey('unsorted-task'));
+
+    Future<String> createSpace(String name) async =>
+        (await harness.container
+                .read(organizeRepositoryProvider)
+                .createSpace(name))
+            .getRight()
+            .toNullable()!
+            .id;
+
+    Future<void> putInSpace(String itemId) async {
+      final space = await createSpace('Roma');
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .setSpaces(itemIds: [itemId], spaceIds: {space});
+    }
+
+    testWidgets('sin nada sin tema no se muestra, ni plegado ni desplegado', (
+      tester,
+    ) async {
+      await pumpPanel(tester, expanded: false);
+      expect(pill, findsNothing);
+
+      await tester.tap(find.byTooltip(es.healthPanelShow));
+      await tester.pumpAndSettle();
+      expect(task, findsNothing);
+      expect(find.text(es.libraryUnsortedAction), findsNothing);
+    });
+
+    testWidgets('plegado, «2 sin tema» con la carpeta tachada, y un toque '
+        'abre la lista para ordenarlos', (tester) async {
+      await seedPendingSource();
+      await seedPendingSource();
+      await pumpPanel(tester, expanded: false);
+
+      expect(
+        find.descendant(
+          of: pill,
+          matching: find.text(es.f45S7cUnthemedChip(2)),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: pill,
+          matching: find.byIcon(Icons.folder_off_outlined),
+        ),
+        findsOneWidget,
+      );
+      // Una más de la fila, al final: después de las contradicciones.
+      expect(
+        tester.getTopLeft(pill).dx,
+        greaterThan(
+          tester.getTopRight(find.byTooltip(es.healthContradictionsLabel)).dx,
+        ),
+      );
+
+      await tester.tap(pill);
+      await tester.pumpAndSettle();
+
+      expect(find.text('destino ${RoutePaths.unsorted}'), findsOneWidget);
+    });
+
+    testWidgets('desplegado, la explica en una línea con «Ordenarlos», debajo '
+        'de los indicadores', (tester) async {
+      await seedPendingSource();
+      await pumpPanel(tester);
+
+      expect(
+        find.descendant(
+          of: task,
+          matching: find.text(es.libraryUnsortedTitle(1)),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: task, matching: find.text(es.libraryUnsortedBody)),
+        findsOneWidget,
+      );
+      expect(
+        tester.getTopLeft(task).dy,
+        greaterThan(tester.getBottomLeft(tile(es.healthInboxLabel)).dy),
+      );
+      // Desplegado, la píldora ya no está: la fila de números se pliega.
+      expect(pill, findsNothing);
+
+      await tester.tap(find.text(es.libraryUnsortedAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text('destino ${RoutePaths.unsorted}'), findsOneWidget);
+    });
+
+    testWidgets('se va sola al ordenar lo último', (tester) async {
+      await seedPendingSource();
+      await pumpPanel(tester, expanded: false);
+      expect(pill, findsOneWidget);
+
+      await putInSpace('fuente-0');
+      await tester.pumpAndSettle();
+
+      expect(pill, findsNothing);
+    });
+
+    for (final (name, theme) in [
+      ('claro', AppTheme.lightTheme),
+      ('oscuro', AppTheme.darkTheme),
+    ]) {
+      testWidgets('a 360 dp con la letra al doble, tema $name: la píldora y la '
+          'tarea entran sin desbordar, con «Ordenarlos» entero', (
+        tester,
+      ) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        for (var i = 0; i < 49; i++) {
+          await seedPendingSource();
+        }
+
+        await pumpPanel(
+          tester,
+          expanded: false,
+          size: const Size(360, 800),
+          theme: theme,
+        );
+        expect(tester.takeException(), isNull);
+        // La fila se desplaza en vez de desbordar: la píldora, la última, se
+        // alcanza deslizándola. (Con la letra de las pruebas, más ancha que
+        // la del teléfono, puede no entrar entera en la fila.)
+        await tester.ensureVisible(pill);
+        await tester.pumpAndSettle();
+        final row = tester.getRect(
+          find.descendant(
+            of: find.byType(HealthPanel),
+            matching: find.byType(Scrollable),
+          ),
+        );
+        final pillRect = tester.getRect(pill);
+        expect(pillRect.left, greaterThanOrEqualTo(row.left - 0.01));
+        expect(pillRect.left, lessThan(row.right));
+        expect(row.right, lessThanOrEqualTo(360));
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(find.byTooltip(es.healthPanelShow));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        await tester.scrollUntilVisible(
+          find.text(es.libraryUnsortedAction),
+          100,
+          scrollable: find
+              .descendant(
+                of: find.byType(HealthPanel),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        final action = tester.getRect(
+          find.byKey(const Key('unsorted-task-open')),
+        );
+        expect(action.left, greaterThanOrEqualTo(0));
+        expect(action.right, lessThanOrEqualTo(360));
+        expect(
+          tester
+              .renderObject<RenderParagraph>(
+                find.text(es.libraryUnsortedAction),
+              )
+              .didExceedMaxLines,
+          isFalse,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('el lector de pantalla anuncia la píldora como un botón, con '
+        'su nombre y su cuenta', (tester) async {
+      final handle = tester.ensureSemantics();
+      await seedPendingSource();
+      await pumpPanel(tester, expanded: false);
+
+      // Un nodo propio: el de su número, con su nombre en el tooltip.
+      expect(
+        tester.getSemantics(find.text(es.f45S7cUnthemedChip(1))),
+        isSemantics(
+          label: es.f45S7cUnthemedChip(1),
+          tooltip: es.unsortedTitle,
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+      handle.dispose();
+    });
   });
 }
