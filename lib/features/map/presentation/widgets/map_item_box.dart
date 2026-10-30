@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/map/domain/services/svg_writer.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_edges_painter.dart';
 
 /// El tamaño de la caja de un elemento en el Mapa: la misma en el nivel de
 /// elementos del grafo y en la vista «Vínculos» (F28).
@@ -62,7 +63,8 @@ class MapItemBox extends StatelessWidget {
 }
 
 /// Escribe en [svg] la caja de un elemento centrada en [at], como la dibuja
-/// [MapItemBox]: lo que exportan el grafo y la vista «Vínculos».
+/// [MapItemBox]: lo que exportan el grafo y la vista «Vínculos». Con
+/// [dimmed], apagada, como queda fuera del foco (F44, paso 4).
 void writeMapItemBoxSvg(
   SvgWriter svg, {
   required bool isNote,
@@ -70,8 +72,10 @@ void writeMapItemBoxSvg(
   required Offset at,
   required ColorScheme colors,
   bool highlighted = false,
+  bool dimmed = false,
 }) {
   final role = isNote ? EntityRole.note : EntityRole.source;
+  Color shown(Color color) => dimmed ? mapDimmed(color) : color;
   svg
     ..rect(
       Rect.fromCenter(
@@ -79,14 +83,14 @@ void writeMapItemBoxSvg(
         width: kMapItemBoxSize.width,
         height: kMapItemBoxSize.height,
       ),
-      fill: role.surface(colors),
-      stroke: highlighted ? role.accent(colors) : role.outline(colors),
+      fill: shown(role.surface(colors)),
+      stroke: shown(highlighted ? role.accent(colors) : role.outline(colors)),
       radius: role.radius,
     )
     ..text(
       SvgWriter.ellipsize(label, 22),
       Offset(at.dx - kMapItemBoxSize.width / 2 + 10, at.dy + 4),
-      color: colors.onSurface,
+      color: shown(colors.onSurface),
       size: 11,
       anchor: 'start',
     );

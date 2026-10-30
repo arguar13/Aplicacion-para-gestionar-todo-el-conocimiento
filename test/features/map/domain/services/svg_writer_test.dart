@@ -95,6 +95,18 @@ void main() {
     expect(svg, isNot(contains('<c>')));
   });
 
+  test('un texto translúcido lleva su opacidad; uno opaco, no (F44, paso '
+      '4)', () {
+    final svg =
+        (SvgWriter(width: 100, height: 100)
+              ..text('apagado', Offset.zero, color: const Color(0x2E000000))
+              ..text('encendido', Offset.zero, color: const Color(0xFF000000)))
+            .build();
+
+    expect(svg, contains('fill="#000000" fill-opacity="0.18">apagado</text>'));
+    expect(svg, contains('fill="#000000">encendido</text>'));
+  });
+
   test('los números no arrastran ceros ni puntos de más', () {
     final svg = (SvgWriter(
       width: 10,

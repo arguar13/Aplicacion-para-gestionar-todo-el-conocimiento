@@ -47,6 +47,31 @@ void main() {
     expect(tension.points, [0, 0, 100, 100]);
   });
 
+  test('con un foco (F44, paso 4), una unión con un extremo afuera de su '
+      'vecindario va apagada; adentro, como siempre', () {
+    final scene = GraphScene(
+      nodes: nodes,
+      edges: const [
+        SceneEdge(a: 0, b: 1, weight: 1),
+        SceneEdge(a: 1, b: 2, weight: 1),
+        SceneEdge(a: 2, b: 3, weight: 1),
+      ],
+    );
+    final color = scheme.outline.withValues(alpha: 0.4);
+
+    final batches = batchEdges(scene, positions, scheme, lit: const {0, 1});
+
+    expect(batches, hasLength(2));
+    final shown = batches.singleWhere((b) => b.color == color);
+    expect(shown.points, [0, 0, 100, 0]);
+    final dimmed = batches.singleWhere((b) => b.color != color);
+    expect(dimmed.color, mapDimmed(color));
+    expect(dimmed.color.a, closeTo(0.4 * kMapDimmedOpacity, 1e-6));
+    expect(dimmed.count, 2);
+    // Sin foco, nada apagado.
+    expect(batchEdges(scene, positions, scheme), hasLength(1));
+  });
+
   test('el grosor crece con el peso, de medio en medio píxel, entre 1 y 5', () {
     final scene = GraphScene(
       nodes: nodes,

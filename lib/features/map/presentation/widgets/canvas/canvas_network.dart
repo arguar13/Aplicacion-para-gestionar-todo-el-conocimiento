@@ -154,7 +154,8 @@ class MapNetworkNode extends StatelessWidget {
 }
 
 /// La red de ahora como un documento SVG: los mismos nodos, colores y uniones
-/// que en pantalla, con todas las etiquetas y a su tamaño natural.
+/// que en pantalla, con todas las etiquetas y a su tamaño natural. Con un foco,
+/// lo que queda fuera de su vecindario [lit] va apagado, como se ve.
 String networkSvg({
   required GraphScene scene,
   required Map<String, Offset> positions,
@@ -163,6 +164,7 @@ String networkSvg({
   required Brightness brightness,
   required String Function(SceneNode node) labelOf,
   Set<String> highlighted = const {},
+  Set<int>? lit,
 }) {
   final svg = SvgWriter(
     width: math.max(canvas.width, 1),
@@ -174,7 +176,8 @@ String networkSvg({
     final a = positions[scene.nodes[edge.a].key];
     final b = positions[scene.nodes[edge.b].key];
     if (a == null || b == null) continue;
-    final color = mapEdgeColor(edge, colors);
+    final base = mapEdgeColor(edge, colors);
+    final color = mapEdgeLit(lit, edge.a, edge.b) ? base : mapDimmed(base);
     svg.line(a, b, color: color, strokeWidth: mapEdgeWidth(edge.weight));
     if (edge.relation != null && (b - a).distance > 40) {
       final head = arrowHead(a, b, back: 22, length: 8, half: 4);
@@ -184,10 +187,13 @@ String networkSvg({
     }
   }
 
-  for (final node in scene.nodes) {
+  for (var i = 0; i < scene.nodes.length; i++) {
+    final node = scene.nodes[i];
     final at = positions[node.key];
     if (at == null) continue;
     final label = labelOf(node);
+    final dimmed = lit != null && !lit.contains(i);
+    Color shown(Color color) => dimmed ? mapDimmed(color) : color;
     if (node.kind == SceneKind.note || node.kind == SceneKind.source) {
       writeMapItemBoxSvg(
         svg,
@@ -196,6 +202,7 @@ String networkSvg({
         at: at,
         colors: colors,
         highlighted: highlighted.contains(node.key),
+        dimmed: dimmed,
       );
       continue;
     }
@@ -205,17 +212,21 @@ String networkSvg({
     svg.circle(
       at,
       disc / 2,
-      fill: color.withValues(alpha: isCommunity ? 0.85 : 0.9),
-      stroke: highlighted.contains(node.key) ? colors.primary : colors.surface,
+      fill: shown(color.withValues(alpha: isCommunity ? 0.85 : 0.9)),
+      stroke: shown(
+        highlighted.contains(node.key) ? colors.primary : colors.surface,
+      ),
       strokeWidth: highlighted.contains(node.key) ? 4 : 2,
     );
     if (isCommunity) {
       svg.text(
         '${node.count}',
         at + const Offset(0, 5),
-        color: ThemeData.estimateBrightnessForColor(color) == Brightness.dark
-            ? const Color(0xFFFFFFFF)
-            : const Color(0xDD000000),
+        color: shown(
+          ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+              ? const Color(0xFFFFFFFF)
+              : const Color(0xDD000000),
+        ),
         size: 14,
         bold: true,
       );
@@ -223,7 +234,7 @@ String networkSvg({
     svg.text(
       SvgWriter.ellipsize(label, 26),
       at + Offset(0, disc / 2 + 14),
-      color: colors.onSurface,
+      color: shown(colors.onSurface),
       size: 11,
     );
   }

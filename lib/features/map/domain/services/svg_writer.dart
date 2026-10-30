@@ -74,6 +74,8 @@ class SvgWriter {
 
   /// Un texto de una línea. [at] es el punto de anclaje: con `middle`, el
   /// centro del texto; con `start`, su comienzo; su altura es la línea de base.
+  /// Un [color] translúcido lleva su opacidad, como las líneas y las formas:
+  /// así sale apagado lo que el foco apaga (F44, paso 4).
   void text(
     String content,
     Offset at, {
@@ -85,6 +87,7 @@ class SvgWriter {
     _body.writeln(
       '<text x="${_n(at.dx)}" y="${_n(at.dy)}" font-size="${_n(size)}" '
       'font-family="sans-serif" text-anchor="$anchor" fill="${_hex(color)}"'
+      '${_opacity('fill', color)}'
       '${bold ? ' font-weight="bold"' : ''}>${escape(content)}</text>',
     );
   }

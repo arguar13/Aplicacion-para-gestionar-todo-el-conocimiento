@@ -7,6 +7,20 @@ import 'package:sinapsis/features/library/presentation/widgets/entity_presentati
 import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
 import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
 
+/// Cuánto se ve lo que queda fuera del vecindario en el modo foco del lienzo
+/// (F44, paso 4, «Centrar aquí»): apagado, no borrado.
+const kMapDimmedOpacity = 0.18;
+
+/// [color] apagado como lo que queda fuera del foco.
+Color mapDimmed(Color color) =>
+    color.withValues(alpha: color.a * kMapDimmedOpacity);
+
+/// Si la unión de [a] con [b] queda encendida con el vecindario [lit] —las
+/// posiciones en la escena que se ven—: con los dos extremos adentro. Sin
+/// foco ([lit] `null`), todas.
+bool mapEdgeLit(Set<int>? lit, int a, int b) =>
+    lit == null || (lit.contains(a) && lit.contains(b));
+
 /// El grosor de una unión según su peso: crece despacio, entre 1 y 5.
 double mapEdgeWidth(double weight) =>
     (1 + 0.7 * math.log(1 + weight)).clamp(1.0, 5.0);
@@ -39,7 +53,8 @@ class MapEdgeBatch {
   int get count => points.length ~/ 4;
 }
 
-/// Agrupa las uniones de [scene] por cómo se dibujan.
+/// Agrupa las uniones de [scene] por cómo se dibujan; con un foco, las que
+/// salen de su vecindario [lit] van apagadas.
 ///
 /// Con miles de uniones, dibujar cada una con su propia llamada hace que el
 /// dibujo de cada cuadro cueste decenas de milisegundos aunque nada cambie:
@@ -49,20 +64,18 @@ class MapEdgeBatch {
 List<MapEdgeBatch> batchEdges(
   GraphScene scene,
   Map<String, Offset> positions,
-  ColorScheme colors,
-) {
+  ColorScheme colors, {
+  Set<int>? lit,
+}) {
   final grouped = <(Color, double), List<double>>{};
   for (final edge in scene.edges) {
     final a = positions[scene.nodes[edge.a].key];
     final b = positions[scene.nodes[edge.b].key];
     if (a == null || b == null) continue;
     final width = (mapEdgeWidth(edge.weight) * 2).round() / 2;
-    (grouped[(mapEdgeColor(edge, colors), width)] ??= []).addAll([
-      a.dx,
-      a.dy,
-      b.dx,
-      b.dy,
-    ]);
+    final color = mapEdgeColor(edge, colors);
+    final shown = mapEdgeLit(lit, edge.a, edge.b) ? color : mapDimmed(color);
+    (grouped[(shown, width)] ??= []).addAll([a.dx, a.dy, b.dx, b.dy]);
   }
   return [
     for (final entry in grouped.entries)
@@ -86,15 +99,20 @@ class MapEdgesPainter extends CustomPainter {
     required this.scene,
     required this.positions,
     required this.colors,
+    this.lit,
   });
 
   final GraphScene scene;
   final Map<String, Offset> positions;
   final ColorScheme colors;
 
+  /// El vecindario del modo foco: lo que queda afuera va apagado. `null`, sin
+  /// foco.
+  final Set<int>? lit;
+
   @override
   void paint(Canvas canvas, Size size) {
-    for (final batch in batchEdges(scene, positions, colors)) {
+    for (final batch in batchEdges(scene, positions, colors, lit: lit)) {
       canvas.drawRawPoints(
         PointMode.lines,
         batch.points,
@@ -116,10 +134,9 @@ class MapEdgesPainter extends CustomPainter {
       if (a == null || b == null || (b - a).distance <= 40) continue;
       final head = arrowHead(a, b, back: 22, length: 8, half: 4);
       if (head == null) continue;
-      (heads[mapEdgeColor(edge, colors)] ??= Path()).addPath(
-        arrowPath(head),
-        Offset.zero,
-      );
+      final color = mapEdgeColor(edge, colors);
+      final shown = mapEdgeLit(lit, edge.a, edge.b) ? color : mapDimmed(color);
+      (heads[shown] ??= Path()).addPath(arrowPath(head), Offset.zero);
     }
     for (final MapEntry(:key, :value) in heads.entries) {
       canvas.drawPath(value, Paint()..color = key);
@@ -128,5 +145,8 @@ class MapEdgesPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(MapEdgesPainter old) =>
-      old.scene != scene || old.positions != positions || old.colors != colors;
+      old.scene != scene ||
+      old.positions != positions ||
+      old.colors != colors ||
+      old.lit != lit;
 }
