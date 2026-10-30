@@ -2910,8 +2910,10 @@ para crear** cosas sobre eso y, al final, **lo que ya creaste**. Todo va en una
 sola lista que se desplaza: con la letra grande o en un teléfono chico no se
 corta nada.
 
-- **Arriba**, como siempre: la racha, el historial y el botón de **exportar a
-  Anki**. Crear tarjetas con IA para muchos documentos a la vez está ahora en
+- **Arriba**, como siempre: la racha, dos íconos juntos —**📊 Estadísticas** y
+  **📈 Historial**, que abren cada uno su pestaña de la misma pantalla (ver
+  [Estadísticas de repaso](#estadísticas-de-repaso))— y el botón de **exportar
+  a Anki**. Crear tarjetas con IA para muchos documentos a la vez está ahora en
   **Tarjetas didácticas** (ver [Crear tarjetas con IA, para muchos documentos
   a la vez](#crear-tarjetas-con-ia-para-muchos-documentos-a-la-vez)).
 - **El selector** (la píldora ancha de arriba) dice qué está elegido —por
@@ -3724,26 +3726,73 @@ pocas y no las carga todas.
 
 ### Estadísticas de repaso
 
-**Cómo llegar:** pantalla "Repasar" → botón **"Estadísticas"**, abajo de todo.
+**Cómo llegar:** en la barra de arriba de "Repasar", **📊** abre la pestaña
+**Estadísticas** y **📈** la pestaña **Historial**: es una sola pantalla con las
+dos pestañas, y se pasa de una a otra tocándolas.
 
-- **Racha:** tu racha de hoy (ver [tu hábito de repaso](#tu-hábito-de-repaso)).
-- **Lo que viene:** cuántas tarjetas vencen **cada uno de los próximos 30
-  días**, en columnas. "Hoy" incluye lo atrasado (y te dice cuántas son) y lo
-  que se está aprendiendo. Un día arranca a las 4:00 de la mañana, como el día
-  de estudio de Repasar. Pasá el dedo (o el mouse) por una columna para ver la
-  fecha y la cuenta, o abrí **"Ver los números"** para la lista de los 30 días.
-- **Cómo están tus tarjetas:** el reparto entre **nuevas, aprendiendo, jóvenes
-  (menos de 21 días), maduras (21 o más) y pausadas**, con la cuenta y el
-  porcentaje de cada una.
-- **Cómo respondés:** qué botón apretaste (De nuevo, Difícil, Bien, Fácil) en
-  cada etapa, y el **porcentaje de acierto** —lo que no fue "De nuevo"—. Se
-  puede mirar de los últimos 30 días, 90 días o todo el historial. Una etapa
-  sin respuestas dice "Sin respuestas", no "0 %".
-- Debajo está lo de siempre: la **constancia**, la **curva de retención** y las
-  **tarjetas más difíciles**.
+**Siguen al selector de Repasar.** Arriba de cada pestaña está la misma
+píldora: con un documento elegido, los números son los de sus tarjetas; con
+un cuaderno o un tema, los de los suyos; con "Todo lo procesado", los de todas.
+Cambiarla acá también la cambia en Repasar.
+
+Cada gráfico tiene su título y una línea que dice qué muestra. **Tocá una
+barra** (o pasá el dedo) y arriba del gráfico aparece su número exacto; abajo
+queda **"Ver los números"** con la tabla. El lector de pantalla lee los
+valores. Los días van de las 4:00 a las 4:00, como el día de estudio.
+
+#### La pestaña Estadísticas
+
+De lo de hoy a lo de siempre:
+
+1. **Hoy**, en cuatro cifras grandes: cuántas tarjetas **repasaste**, tu
+   **acierto** (lo que no fue "De nuevo"), las **nuevas** que viste por
+   primera vez y tu **racha**.
+2. **Lo que viene**: cuántas vencen cada día, en columnas con su número y su
+   eje. Elegís **7 días, 30 días o 3 meses**. Arriba dice *"Hoy vencen 10 · 10
+   atrasadas"* y el **promedio por día** del tramo.
+3. **Repasos por día**: cuántas respuestas diste cada día, apiladas en
+   **nuevas, aprendiendo, repaso y reaprender**, con su leyenda. En **30 días,
+   90 días o todo**; con más de 90 días, cada columna junta una semana.
+4. **Cómo están tus tarjetas**: un anillo con las cinco etapas (nuevas,
+   aprendiendo, jóvenes, maduras y pausadas) y el total en el centro, con la
+   cuenta y el porcentaje de cada una.
+5. **Cómo respondés**: los cuatro botones en cada etapa, como una barra
+   apilada, con el porcentaje de cada botón y el **acierto** de la etapa. En
+   30 días, 90 días o todo. Una etapa sin respuestas dice "Sin respuestas", no
+   "0 %".
+6. **Intervalos**: cuántas tarjetas en repaso vuelven en **1 día, de 2 a 7, de
+   8 a 21, de 22 a 90 o en más de 90**.
+7. **Facilidad**: el reparto del factor de SM-2, en por ciento, con el
+   promedio. Más bajo, más te cuesta esa tarjeta.
+8. **Las horas**: tu acierto según la hora del día, con *"Tu mejor hora: 9 a
+   10"*. Una hora necesita 10 respuestas para competir; las que tienen menos
+   van en un tono más tenue.
+9. **Agregadas**: cuántas tarjetas nuevas sumaste cada día.
 
 No hay "tiempo estudiado": Sinapsis no guarda cuánto tardás en cada respuesta,
 y prefiere no mostrarte un número inventado.
+
+#### La pestaña Historial
+
+- **Curva de retención**: una columna por semana con su porcentaje encima, el
+  eje de 0 a 100 %, la fecha de cada semana y una línea punteada en el **90 %**,
+  la meta de SM-2. Cuenta tus repasos en días: lo que no fue "De nuevo" es lo
+  que recordaste.
+- **Retención real**, como en Anki: **Hoy, Ayer, Última semana, Último mes y
+  Último año**, separada en **jóvenes** (menos de 21 días de intervalo) y
+  **maduras**, con cuántos repasos entran en cada una.
+- **Constancia**: un calendario con los meses arriba, los días de la semana
+  al costado y la leyenda **"Menos · Más"**. Elegís **30 días, 3 meses o 1
+  año** (el año se desliza de costado y empieza por hoy). Tocá un día y te dice
+  *"12 repasos · 85 % de acierto"*. Arriba: la **racha actual** (días seguidos
+  con algún repaso; si hoy todavía no repasaste, cuenta hasta ayer), **la más
+  larga**, los **días estudiados** (*"21 de 30 días · 70 %"*) y el **promedio**
+  por día estudiado.
+- **Tarjetas difíciles**: solo las que de verdad te cuestan —al menos un "De
+  nuevo" y tres repasos—, de la que más veces olvidaste a la que menos, con
+  *"3 de 9 «De nuevo» · 2 lapsos"* (un lapso es olvidarla cuando ya estaba en
+  repaso). Tocá una para ver la respuesta y **"Ver en la fuente"**.
+  **"Repasar estas"** las practica solo a ellas, sin tocar su calendario.
 
 ### Sesión de quiz suelta
 
@@ -3776,9 +3825,10 @@ para repasarla.
 - **Racha:** un número junto a un ícono de llama en la pantalla de Repasar,
   que cuenta los días seguidos en que hiciste algo (repasar, capturar,
   etc.).
-- **Historial de repasos:** muestra tu curva de retención (qué porcentaje
-  recordás bien semana a semana), un calendario de constancia, y cuáles son
-  tus tarjetas más difíciles.
+- **Historial de repasos:** la pestaña **Historial** de las estadísticas
+  (📈 en Repasar): tu curva de retención semana a semana, la retención real,
+  el calendario de constancia y tus tarjetas más difíciles (ver [Estadísticas
+  de repaso](#estadísticas-de-repaso)).
 
 Las dos se ven siempre en Repasar: no hay un interruptor en
 [Ajustes](#ajustes) para apagarlas.
