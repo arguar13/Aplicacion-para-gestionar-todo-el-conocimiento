@@ -30,8 +30,10 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         try {
             super.onNewIntent(intent)
-            // El toque a la notificación del aviso de repaso (F31).
+            // El toque a la notificación del aviso de repaso (F31), o a la
+            // tarjeta de lo que suena (F47, paso 2b).
             StudyReminderChannel.onIntent(intent)
+            MediaSessionChannel.onIntent(intent)
         } catch (e: SecurityException) {
             Log.w(TAG, "Intent de compartir descartado: sin permiso para leer el URI", e)
         } catch (e: IllegalArgumentException) {
@@ -46,6 +48,9 @@ class MainActivity : FlutterActivity() {
         // notificación, queda pedido mostrar Repasar.
         StudyReminder.rearm(applicationContext)
         StudyReminderChannel.onIntent(intent)
+        // La tarjeta de lo que suena, tocada con la actividad cerrada: el
+        // motor seguía sonando (F47, paso 2b).
+        MediaSessionChannel.onIntent(intent)
     }
 
     // La respuesta del diálogo de un permiso: el de notificaciones del aviso

@@ -159,6 +159,13 @@ object SinapsisEngine {
         MethodChannel(messenger, BackgroundSettingsChannel.CHANNEL)
             .setMethodCallHandler(BackgroundSettingsChannel(context))
 
+        // La tarjeta de lo que suena (F47, paso 2b): Dart dice qué mostrar,
+        // Android le cuenta lo que se toca y lo que pasa en el teléfono. Ver
+        // `MediaPlaybackService`.
+        val media = MethodChannel(messenger, MediaSessionChannel.CHANNEL)
+        media.setMethodCallHandler(MediaSessionChannel(context))
+        MediaSessionChannel.install(media)
+
         // Dictar en el chat (F42): el reconocedor de voz del sistema. Uno solo
         // atiende los dos canales: el de las preguntas y el de lo que se oye.
         val dictation = DictationChannel(context)

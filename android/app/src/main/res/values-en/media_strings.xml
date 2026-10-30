@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The now-playing card (F47, step 2b): see MediaPlaybackService. -->
+<resources>
+    <!-- The notification channel name, as shown in the system settings. -->
+    <string name="media_channel">Now playing</string>
+    <string name="media_play">Play</string>
+    <string name="media_pause">Pause</string>
+    <string name="media_rewind">Back 10 seconds</string>
+    <string name="media_forward">Forward 10 seconds</string>
+    <string name="media_next">Next in queue</string>
+</resources>

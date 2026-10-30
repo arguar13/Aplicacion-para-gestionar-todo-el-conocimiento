@@ -48,6 +48,8 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
   }
 
   void _follow(PlaybackSession? session) {
+    // La tarjeta de la notificación dice de qué elemento es (F47, paso 2b).
+    session?.title = widget.item.title;
     if (identical(session, _session)) return;
     _session?.controller.removeListener(_update);
     _session = session;

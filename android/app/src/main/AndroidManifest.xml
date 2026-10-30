@@ -21,6 +21,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Lo que suena con la app minimizada o la pantalla apagada (F47, paso
+         2b): el servicio en primer plano «de reproducción de medios», con su
+         tarjeta, y despierto mientras suena —la voz del teléfono se pide
+         oración por oración—. Ver `MediaPlaybackService`. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <!-- El aviso diario para repasar (F31): al reiniciar el teléfono el sistema
          borra las alarmas, y esto deja volver a programar la de la persona.
          Es un permiso normal: no se le pregunta nada. Ver `StudyReminder`. -->
@@ -76,6 +82,14 @@
             android:name=".LongWorkService"
             android:exported="false"
             android:foregroundServiceType="dataSync|mediaProcessing"/>
+        <!-- La tarjeta de lo que suena (F47, paso 2b): aparte del trabajo
+             largo, con su propio tipo. No está exportado: la tarjeta, los
+             auriculares y el reloj le hablan por su sesión de medios, y los
+             botones de la tarjeta con intents de la propia app. -->
+        <service
+            android:name=".MediaPlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback"/>
         <!-- El aviso diario para repasar (F31): recibe la alarma de la propia
              app (el intent explícito no necesita filtro) y los avisos del
              sistema de que arrancó el teléfono, se actualizó la app o cambió

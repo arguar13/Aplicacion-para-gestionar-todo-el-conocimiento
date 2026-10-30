@@ -8,12 +8,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/navigation/adaptive_scaffold.dart'
     show kNavRailBreakpoint;
+import 'package:sinapsis/core/audio/media_session_hub.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_anchored_player.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_audio_focus.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_dock.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_media_session.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player_extent.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_queue_sheet.dart';
@@ -50,6 +52,10 @@ const _snackBarInset = EdgeInsets.fromLTRB(15, 5, 15, 10);
 ///
 /// Con la **Lectura enfocada** (Ajustes), el reproductor abierto se achica
 /// solo mientras se desplaza cualquier pantalla, y vuelve al soltar.
+///
+/// Y mantiene viva **la tarjeta de lo que suena** (F47, paso 2b) —ver
+/// `mediaSessionHubProvider`—, con el lector en ella: con la app minimizada o
+/// la pantalla apagada, sigue sonando y se maneja desde la notificación.
 class ReadAloudOverlay extends ConsumerStatefulWidget {
   const ReadAloudOverlay({
     required this.router,
@@ -170,39 +176,44 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
   @override
   Widget build(BuildContext context) {
     // Uno a la vez con el audio: ver `readAloudAudioFocusProvider`.
-    ref.watch(readAloudAudioFocusProvider);
+    ref
+      ..watch(readAloudAudioFocusProvider)
+      // La tarjeta de lo que suena, en la notificación (F47, paso 2b).
+      ..watch(mediaSessionHubProvider);
     final theme = Theme.of(context);
     final inset = theme.snackBarTheme.insetPadding ?? _snackBarInset;
     final lift = _snackBarLift(MediaQuery.of(context));
 
-    return Stack(
-      children: [
-        // Siempre con el mismo `Theme` encima, aunque no haya que subir nada:
-        // ponerlo y sacarlo volvería a armar todas las pantallas.
-        Theme(
-          data: theme.copyWith(
-            snackBarTheme: theme.snackBarTheme.copyWith(
-              insetPadding: inset.copyWith(bottom: inset.bottom + lift),
+    return ReadAloudMediaSession(
+      child: Stack(
+        children: [
+          // Siempre con el mismo `Theme` encima, aunque no haya que subir nada:
+          // ponerlo y sacarlo volvería a armar todas las pantallas.
+          Theme(
+            data: theme.copyWith(
+              snackBarTheme: theme.snackBarTheme.copyWith(
+                insetPadding: inset.copyWith(bottom: inset.bottom + lift),
+              ),
+            ),
+            child: NotificationListener<UserScrollNotification>(
+              onNotification: _onUserScroll,
+              child: widget.child,
             ),
           ),
-          child: NotificationListener<UserScrollNotification>(
-            onNotification: _onUserScroll,
-            child: widget.child,
-          ),
-        ),
-        // Un `Overlay` propio: por encima del `Navigator` no hay ninguno, y
-        // los tooltips de los botones lo necesitan.
-        Positioned.fill(
-          child: Overlay.wrap(
-            child: _ReadAloudLayer(
-              navigatorKey: widget.router.routerDelegate.navigatorKey,
-              onShell: _onShell,
-              popupOnTop: _popupOnTop,
-              scrolling: _scrolling,
+          // Un `Overlay` propio: por encima del `Navigator` no hay ninguno, y
+          // los tooltips de los botones lo necesitan.
+          Positioned.fill(
+            child: Overlay.wrap(
+              child: _ReadAloudLayer(
+                navigatorKey: widget.router.routerDelegate.navigatorKey,
+                onShell: _onShell,
+                popupOnTop: _popupOnTop,
+                scrolling: _scrolling,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

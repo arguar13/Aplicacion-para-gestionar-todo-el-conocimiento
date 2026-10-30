@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- La tarjeta de lo que suena (F47, paso 2b): ver MediaPlaybackService. -->
+<resources>
+    <!-- El nombre del canal de notificaciones, como se ve en los ajustes del sistema. -->
+    <string name="media_channel">Lo que suena</string>
+    <string name="media_play">Reproducir</string>
+    <string name="media_pause">Pausar</string>
+    <string name="media_rewind">Retroceder 10 segundos</string>
+    <string name="media_forward">Avanzar 10 segundos</string>
+    <string name="media_next">Siguiente en la cola</string>
+</resources>
