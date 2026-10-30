@@ -122,4 +122,32 @@ void main() {
       }
     });
   });
+
+  group('los títulos de un libro, para «Contenido» (F47, paso 1)', () {
+    test('los de los tres primeros niveles, en orden, sin el formato de '
+        'adentro', () {
+      const content =
+          '# Primera parte\n\nTexto.\n\n## Un **capítulo** con '
+          '[enlace](https://x.org)\n\nMás.\n\n#### Muy adentro\n\n'
+          '### Al final ##\n#sin espacio';
+      final headings = readerHeadings(content);
+      expect(
+        [for (final h in headings) h.text],
+        ['Primera parte', 'Un capítulo con enlace', 'Al final'],
+      );
+      expect([for (final h in headings) h.level], [1, 2, 3]);
+      expect(content.substring(headings[1].offset), startsWith('## Un'));
+    });
+
+    test('hasta un tope, y lo mismo en otro hilo', () async {
+      final content = [
+        for (var i = 0; i < kReaderMaxHeadings + 50; i++) '## Título $i',
+      ].join('\n\n');
+      expect(readerHeadings(content), hasLength(kReaderMaxHeadings));
+      final long = '${'x' * kReaderInlineChars}\n\n# Lejos';
+      final off = await readerHeadingsOff(long);
+      expect(off.single.text, 'Lejos');
+      expect(off.single.offset, long.indexOf('# Lejos'));
+    });
+  });
 }

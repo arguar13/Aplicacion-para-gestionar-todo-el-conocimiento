@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sinapsis/core/design/reading_scroll_physics.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
@@ -18,12 +17,13 @@ import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
 import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/viewer/domain/services/reader_pagination.dart';
-import 'package:sinapsis/features/viewer/presentation/providers/reader_font_scale_notifier.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El contenido ya extraído de un documento —un DOCX, un EPUB, un `.txt`—,
@@ -47,15 +47,15 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// que abrir un libro de mil páginas cuesta lo mismo que abrir uno de diez.
 /// Ver el comentario de esa función para por qué hace falta.
 ///
-/// **Tamaño de letra e ir a página, no solo pasar de a una.** Ver la
-/// decisión 24 en docs/arquitectura.md.
+/// **Ir a página, no solo pasar de a una.** Ver la decisión 24 en
+/// docs/arquitectura.md. La letra —cuál y de qué tamaño— es la de
+/// «Apariencia» del marco de lectura (F47, paso 1), la misma en todos los
+/// lectores; los capítulos van en «Contenido».
 ///
-/// Sin `Scaffold` propio a propósito: `DocumentReaderScreen` lo envuelve
-/// para mostrarlo a pantalla completa —ahí con [showFontControls] en
-/// `true`, porque hay lugar de sobra—, y `EmbeddedFileViewer` lo embebe tal
-/// cual dentro de un marco acotado en el detalle del elemento, sin esos
-/// controles: ajustar la letra es algo que se hace leyendo de corrido, no
-/// mirando de pasada un fragmento embebido.
+/// Sin `Scaffold` propio a propósito: el marco de lectura lo pone como cuerpo
+/// a pantalla completa (`DocumentReaderScreen`, `OriginalView`), y
+/// `EmbeddedFileViewer` lo embebe tal cual dentro de un marco acotado en el
+/// detalle del elemento.
 ///
 /// **Se lee en voz alta, entero (F25).** Ofrece al lector flotante el libro de
 /// punta a punta —partido fuera del hilo de la pantalla si es largo, ver
@@ -92,7 +92,6 @@ class DocumentReaderView extends ConsumerStatefulWidget {
     required this.title,
     required this.content,
     this.markdown = true,
-    this.showFontControls = false,
     this.controlsAtBottom = false,
     this.study,
     super.key,
@@ -106,7 +105,6 @@ class DocumentReaderView extends ConsumerStatefulWidget {
   /// Si [content] es Markdown y se muestra con formato, o texto tal cual
   /// (F22): ver `TextResolvedViewer.markdown`.
   final bool markdown;
-  final bool showFontControls;
 
   /// Si los controles de abajo —resumir, pasar de página— quedan contra el
   /// borde de abajo de la pantalla, como a pantalla completa: el lector
@@ -181,6 +179,51 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
   /// Si el lector sigue la lectura o la persona se fue a otro lado.
   final _follow = ReadAloudFollow();
 
+  /// El marco de lectura de arriba, si lo hay: a su «Contenido» van los
+  /// capítulos del libro, una vez.
+  ReadingFrameController? _frame;
+  var _outlined = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _frame = ReadingFrameController.maybeOf(context);
+    _outlineSoon();
+  }
+
+  /// Los títulos del libro, cada uno con su página, para «Contenido» del
+  /// marco: se buscan en otro hilo si el libro es largo, y se mandan cuando
+  /// ya se sabe en qué página cae cada uno.
+  void _outlineSoon() {
+    final frame = _frame;
+    if (_outlined || frame == null || !widget.markdown || _ranges == null) {
+      return;
+    }
+    _outlined = true;
+    unawaited(() async {
+      final headings = await readerHeadingsOff(widget.content);
+      if (!mounted || headings.isEmpty) return;
+      final l10n = AppLocalizations.of(context)!;
+      frame.outline = [
+        for (final (index, heading) in headings.indexed)
+          ReadingOutlineEntry(
+            key: Key('reader-outline-$index'),
+            label: heading.text,
+            depth: heading.level - 1,
+            detail: l10n.documentReaderPageOf(
+              _pageAt(heading.offset) + 1,
+              _pageCount,
+            ),
+            onSelected: () {
+              if (_controller.hasClients) {
+                _controller.jumpToPage(_pageAt(heading.offset));
+              }
+            },
+          ),
+      ];
+    }());
+  }
+
   @override
   void initState() {
     super.initState();
@@ -203,6 +246,7 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
     final ranges = await readerPageRangesOff(widget.content);
     if (!mounted) return;
     setState(() => _ranges = ranges);
+    _outlineSoon();
     // Lo que suena, ahora que se sabe en qué página cae.
     _followReading(ref.read(readAloudHighlightProvider(_sourceKey)));
   }
@@ -327,7 +371,7 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final fontScale = ref.watch(readerFontScaleNotifierProvider);
+    final appearance = ref.watch(readingAppearanceProvider);
     _follow.resumeOnNewReadings(ref);
 
     if (_ranges == null) {
@@ -342,48 +386,21 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
 
     return ReadableRegion(
       document: _offer(ref.watch(readableTextProvider(_readableText)), studied),
-      child: _buildReader(l10n, fontScale),
+      child: _buildReader(l10n, appearance),
     );
   }
 
-  Widget _buildReader(AppLocalizations l10n, double fontScale) {
+  Widget _buildReader(AppLocalizations l10n, ReadingAppearance appearance) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (_pageCount > 1)
           LinearProgressIndicator(value: (_pageIndex + 1) / _pageCount),
-        if (widget.showFontControls)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.text_decrease),
-                  tooltip: l10n.documentReaderSmallerText,
-                  onPressed: fontScale <= ReaderFontScaleNotifier.min
-                      ? null
-                      : () => ref
-                            .read(readerFontScaleNotifierProvider.notifier)
-                            .decrease(),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.text_increase),
-                  tooltip: l10n.documentReaderLargerText,
-                  onPressed: fontScale >= ReaderFontScaleNotifier.max
-                      ? null
-                      : () => ref
-                            .read(readerFontScaleNotifierProvider.notifier)
-                            .increase(),
-                ),
-              ],
-            ),
-          ),
         Expanded(
           child: Stack(
             children: [
-              Positioned.fill(child: _buildPages(fontScale)),
-              // Arriba de la página, sin tapar los controles de la letra.
+              Positioned.fill(child: _buildPages(appearance)),
+              // Arriba de la página.
               Positioned(
                 top: 20,
                 left: 0,
@@ -431,7 +448,7 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
     );
   }
 
-  Widget _buildPages(double fontScale) {
+  Widget _buildPages(ReadingAppearance appearance) {
     return PageView.builder(
       controller: _controller,
       itemCount: _pageCount,
@@ -439,7 +456,7 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
       itemBuilder: (context, index) => _ReaderPage(
         content: _pageText(index),
         start: _pages[index].start,
-        fontScale: fontScale,
+        appearance: appearance,
         markdown: widget.markdown,
         sourceKey: _sourceKey,
         follow: _follow,
@@ -470,7 +487,7 @@ class _ReaderPage extends ConsumerStatefulWidget {
   const _ReaderPage({
     required this.content,
     required this.start,
-    required this.fontScale,
+    required this.appearance,
     required this.markdown,
     required this.sourceKey,
     required this.follow,
@@ -484,7 +501,8 @@ class _ReaderPage extends ConsumerStatefulWidget {
   /// lo resaltado a mano guardan posiciones del texto entero.
   final int start;
 
-  final double fontScale;
+  /// La letra, su tamaño y el color de lo que suena: los de «Apariencia».
+  final ReadingAppearance appearance;
   final bool markdown;
 
   /// Con qué nombre conoce el lector flotante al texto entero.
@@ -621,7 +639,7 @@ class _ReaderPageState extends ConsumerState<_ReaderPage> {
   @override
   Widget build(BuildContext context) {
     final content = widget.content;
-    final fontScale = widget.fontScale;
+    final appearance = widget.appearance;
     final markdown = widget.markdown;
     final pageStart = widget.start;
     final theme = Theme.of(context);
@@ -658,25 +676,14 @@ class _ReaderPageState extends ConsumerState<_ReaderPage> {
     final rendered = _rendered = markdown
         ? RenderedMarkdown.parse(content)
         : RenderedMarkdown.plain(content);
-    final baseSize = theme.textTheme.bodyLarge?.fontSize ?? 16;
 
+    // La columna de lectura del marco (F47, paso 1): de ancho cómodo, con los
+    // márgenes de un libro y sin la tarjeta de papel de antes.
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720),
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: theme.colorScheme.shadow.withValues(alpha: 0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
+        constraints: const BoxConstraints(maxWidth: readingColumnWidth),
+        child: Padding(
+          padding: readingColumnPadding(context).copyWith(top: 16, bottom: 16),
           child: NotificationListener<UserScrollNotification>(
             onNotification: (notification) {
               if (notification.depth == 0 &&
@@ -685,19 +692,18 @@ class _ReaderPageState extends ConsumerState<_ReaderPage> {
               }
               return false;
             },
+            // La física de la plataforma: dentro de una página se lee de
+            // corrido; las hojas se pasan con el `PageView` (F45, mejora 13).
             child: SingleChildScrollView(
               controller: _scroll,
-              physics: const ReadingScrollPhysics(),
               child: SelectableText.rich(
                 key: _textKey,
                 rendered.buildSpans(
                   theme,
                   const [],
-                  baseStyle: theme.textTheme.bodyLarge?.copyWith(
-                    height: 1.6,
-                    fontSize: baseSize * fontScale,
-                  ),
+                  baseStyle: appearance.bodyStyle(theme),
                   activeRange: reading,
+                  playing: appearance.highlight.color,
                   paints: paints,
                   marks: marks,
                 ),

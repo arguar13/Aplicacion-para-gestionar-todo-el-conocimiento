@@ -116,6 +116,8 @@ class HighlightableText extends ConsumerStatefulWidget {
     this.playing,
     this.onTapOffset,
     this.paints = const [],
+    this.baseStyle,
+    this.playingColor = RenderedMarkdown.playingColor,
     super.key,
   });
 
@@ -150,6 +152,14 @@ class HighlightableText extends ConsumerStatefulWidget {
   /// Capas de color por debajo y por encima de los resaltados: lo estudiado
   /// del documento (F36), en posiciones del contenido.
   final List<PaintedRange> paints;
+
+  /// La letra del texto; sin esto, la del cuerpo del tema. El marco de lectura
+  /// (F47, paso 1) pone la de «Apariencia».
+  final TextStyle? baseStyle;
+
+  /// El color de lo que suena: el amarillo de siempre, o el de «Resaltado de
+  /// lectura» en el marco.
+  final Color playingColor;
 
   @override
   ConsumerState<HighlightableText> createState() => _HighlightableTextState();
@@ -450,6 +460,8 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
           _rendered.buildSpans(
             theme,
             [?_flash],
+            baseStyle: widget.baseStyle,
+            playing: widget.playingColor,
             marks: handMarks(
               context,
               validHighlights,

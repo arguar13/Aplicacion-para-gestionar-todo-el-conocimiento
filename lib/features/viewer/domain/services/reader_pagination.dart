@@ -220,3 +220,60 @@ Future<List<({int start, int end})>> readerPageRangesOff(String content) async {
   if (content.length <= kReaderInlineChars) return readerPageRanges(content);
   return readerPagesFromBounds(await compute(readerPageBounds, content));
 }
+
+/// Un título de un libro en Markdown: dónde empieza, de qué nivel es y qué
+/// dice. Lo que muestra «Contenido» del marco de lectura (F47, paso 1).
+typedef ReaderHeading = ({int offset, int level, String text});
+
+/// Cuántos títulos se listan como mucho: un libro con miles de subtítulos no
+/// cabe en una hoja que se pueda recorrer, y los primeros niveles alcanzan.
+const kReaderMaxHeadings = 400;
+
+/// Los títulos de [content] —las líneas `#`, `##` y `###` de un Markdown—,
+/// en orden, sin el formato de adentro, hasta [kReaderMaxHeadings].
+List<ReaderHeading> readerHeadings(String content) {
+  final headings = <ReaderHeading>[];
+  for (final match in _heading.allMatches(content)) {
+    final text = match
+        .group(2)!
+        .replaceAllMapped(_link, (link) => link.group(1)!)
+        .replaceAll(_emphasis, '')
+        .trim();
+    if (text.isEmpty) continue;
+    headings.add((
+      offset: match.start,
+      level: match.group(1)!.length,
+      text: text,
+    ));
+    if (headings.length >= kReaderMaxHeadings) break;
+  }
+  return headings;
+}
+
+final _heading = RegExp(r'^(#{1,3})[ \t]+(.+?)[ \t#]*$', multiLine: true);
+final _link = RegExp(r'\[([^\]]*)\]\([^)]*\)');
+final _emphasis = RegExp('[*_`]+');
+
+/// Los títulos de [content] sin trabar la interfaz, como
+/// [readerPageRangesOff]: un libro largo, en otro hilo.
+Future<List<ReaderHeading>> readerHeadingsOff(String content) async {
+  if (content.length <= kReaderInlineChars) return readerHeadings(content);
+  final flat = await compute(_flatHeadings, content);
+  return [
+    for (var i = 0; i < flat.length; i += 3)
+      (
+        offset: flat[i] as int,
+        level: flat[i + 1] as int,
+        text: flat[i + 2] as String,
+      ),
+  ];
+}
+
+/// [readerHeadings] en una lista plana, para mandarla de otro hilo.
+List<Object> _flatHeadings(String content) => [
+  for (final heading in readerHeadings(content)) ...[
+    heading.offset,
+    heading.level,
+    heading.text,
+  ],
+];

@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/util/transcript_sync.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 
 /// Lo que une el texto que sigue al audio con quien lo muestra (F23): «Ir a
@@ -145,6 +146,9 @@ class _PlaybackSyncedTextState extends ConsumerState<PlaybackSyncedText> {
           : null,
     );
     final playing = _playing;
+    // La letra y el color de lo que suena de «Apariencia»: vive en el marco
+    // de lectura (F47, paso 1).
+    final appearance = ref.watch(readingAppearanceProvider);
 
     return HighlightableText(
       itemId: widget.item.id,
@@ -156,6 +160,8 @@ class _PlaybackSyncedTextState extends ConsumerState<PlaybackSyncedText> {
           ? null
           : (start: playing.start, end: playing.end),
       onTapOffset: _session == null ? null : _seekTo,
+      baseStyle: appearance.bodyStyle(Theme.of(context)),
+      playingColor: appearance.highlight.color,
     );
   }
 }

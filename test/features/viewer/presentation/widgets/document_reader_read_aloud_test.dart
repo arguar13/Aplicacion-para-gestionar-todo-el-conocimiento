@@ -304,10 +304,13 @@ void main() {
       await pumpReader(tester, content: long);
       final document = offered()!;
       // La de la página: el texto tiene la suya, de un renglón.
+      // La de la página, la vertical: arriba, la fila de IA del marco se
+      // desplaza de costado (F47, paso 1).
       final page = find
-          .descendant(
-            of: find.byType(SingleChildScrollView),
-            matching: find.byType(Scrollable),
+          .byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
           )
           .first;
       ScrollPosition position() => tester.state<ScrollableState>(page).position;
@@ -370,8 +373,13 @@ void main() {
         )
         ..showToolbar();
       await tester.pumpAndSettle();
-      // Va en «Más»: no entra en la barra.
-      await tester.tap(find.byIcon(Icons.more_vert));
+      // Va en «Más» de la barra de la selección: no entra en ella.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(TextSelectionToolbar),
+          matching: find.byIcon(Icons.more_vert),
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text(es.readAloudTooltip));
       await tester.pumpAndSettle();

@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
-import 'package:sinapsis/features/viewer/presentation/providers/reader_font_scale_notifier.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -95,24 +95,15 @@ void main() {
     },
   );
 
-  group('sigue el tema elegido (F39)', () {
-    /// El color de la hoja donde se lee, el del fondo y el de la letra.
-    (Color?, Color?, Color?) looks(WidgetTester tester) {
-      final sheet = tester.widget<Container>(
-        find
-            .ancestor(
-              of: find.byType(SelectableText),
-              matching: find.byType(Container),
-            )
-            .first,
-      );
+  group('sigue el tema elegido (F39), en el modo «Sistema» del marco de '
+      'lectura (F47, paso 1)', () {
+    /// El fondo de lo que se lee y el color de la letra.
+    (Color?, Color?) looks(WidgetTester tester) {
       final text = tester.widget<SelectableText>(find.byType(SelectableText));
       return (
-        (sheet.decoration! as BoxDecoration).color,
-        tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor ??
-            Theme.of(
-              tester.element(find.byType(Scaffold)),
-            ).scaffoldBackgroundColor,
+        tester
+            .widget<Scaffold>(find.byKey(const Key('reading-frame')))
+            .backgroundColor,
         text.textSpan!.style?.color,
       );
     }
@@ -123,70 +114,105 @@ void main() {
       AppThemeChoice.lavender,
       AppThemeChoice.graphite,
     ]) {
-      testWidgets('con ${choice.name}, la hoja, el fondo y la letra son los '
-          'del tema', (tester) async {
+      testWidgets('con ${choice.name}, el fondo y la letra son los del tema, '
+          'sin la tarjeta de papel', (tester) async {
         await pumpReader(tester, 'Un texto para leer.', theme: choice);
 
         final scheme = choice.theme.colorScheme;
-        expect(looks(tester), (
-          scheme.surfaceContainerLow,
-          choice.theme.scaffoldBackgroundColor,
-          scheme.onSurface,
-        ));
+        expect(looks(tester), (scheme.surface, scheme.onSurface));
+        expect(
+          find.ancestor(
+            of: find.byType(SelectableText),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Container &&
+                  widget.decoration is BoxDecoration &&
+                  (widget.decoration! as BoxDecoration).boxShadow != null,
+            ),
+          ),
+          findsNothing,
+        );
       });
     }
   });
 
-  group('tamaño de letra', () {
+  group('el tamaño de la letra, en Apariencia (F47, paso 1)', () {
+    Future<void> slideTo(WidgetTester tester, {required bool max}) async {
+      await tester.tap(find.byKey(const Key('reading-frame-appearance')));
+      await tester.pumpAndSettle();
+      final slider = find.byKey(const Key('reading-size'));
+      await tester.ensureVisible(slider);
+      final rect = tester.getRect(slider);
+      await tester.tapAt(
+        max
+            ? rect.centerRight - const Offset(4, 0)
+            : rect.centerLeft + const Offset(4, 0),
+      );
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+    }
+
+    EditableText textWidget(WidgetTester tester) =>
+        tester.widget<EditableText>(find.text('Un párrafo cualquiera.'));
+
     testWidgets('agrandar la letra hace más grande el texto de la página', (
       tester,
     ) async {
       await pumpReader(tester, 'Un párrafo cualquiera.');
+      final before = textWidget(tester).style.fontSize!;
 
-      EditableText textWidget() =>
-          tester.widget<EditableText>(find.text('Un párrafo cualquiera.'));
-      final before = textWidget().style.fontSize!;
+      await slideTo(tester, max: true);
 
-      await tester.tap(find.byIcon(Icons.text_increase));
-      await tester.pumpAndSettle();
-
-      expect(textWidget().style.fontSize, greaterThan(before));
+      expect(textWidget(tester).style.fontSize, closeTo(before * 1.6, 0.01));
     });
 
     testWidgets('achicar la letra hace más chico el texto, hasta un piso', (
       tester,
     ) async {
       await pumpReader(tester, 'Un párrafo cualquiera.');
+      final before = textWidget(tester).style.fontSize!;
 
-      EditableText textWidget() =>
-          tester.widget<EditableText>(find.text('Un párrafo cualquiera.'));
+      await slideTo(tester, max: false);
 
-      final steps = ((1 - ReaderFontScaleNotifier.min) / 0.1).round() + 2;
-      for (var i = 0; i < steps; i++) {
-        await tester.tap(find.byIcon(Icons.text_decrease));
-        await tester.pump();
-      }
-      await tester.pumpAndSettle();
-
-      final decreaseButton = tester.widget<IconButton>(
-        find.ancestor(
-          of: find.byIcon(Icons.text_decrease),
-          matching: find.byType(IconButton),
-        ),
-      );
-      expect(decreaseButton.onPressed, isNull);
       expect(
-        textWidget().style.fontSize,
-        moreOrLessEquals(
-          (Theme.of(
-                    tester.element(find.byType(DocumentReaderScreen)),
-                  ).textTheme.bodyLarge?.fontSize ??
-                  16) *
-              ReaderFontScaleNotifier.min,
-          epsilon: 0.5,
-        ),
+        textWidget(tester).style.fontSize,
+        closeTo(before * ReadingAppearanceNotifier.minScale, 0.01),
       );
     });
+  });
+
+  testWidgets('«Contenido» lleva los capítulos del libro, cada uno con su '
+      'página, y tocar uno salta ahí (F47, paso 1)', (tester) async {
+    final pages = [
+      for (var i = 0; i < 6; i++) '# Capítulo $i\n\nTexto del capítulo $i.',
+    ];
+    await pumpReader(tester, pages.join('\n\n---\n\n'));
+
+    await tester.tap(find.byKey(const Key('reading-frame-contents')));
+    await tester.pumpAndSettle();
+    expect(find.text('Capítulo 4'), findsOneWidget);
+    expect(find.text(es.documentReaderPageOf(5, 6)), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('reader-outline-4')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('reading-contents-sheet')), findsNothing);
+    expect(find.text(es.documentReaderPageOf(5, 6)), findsOneWidget);
+    expect(find.textContaining('Texto del capítulo 4.'), findsOneWidget);
+  });
+
+  testWidgets('dentro de una página se lee de corrido: la física de la '
+      'plataforma, sin el impulso de pasar hojas (F45, mejora 13)', (
+    tester,
+  ) async {
+    await pumpReader(tester, 'Un párrafo cualquiera.');
+    final page = tester.widget<SingleChildScrollView>(
+      find.ancestor(
+        of: find.byType(SelectableText),
+        matching: find.byType(SingleChildScrollView),
+      ),
+    );
+    expect(page.physics, isNull);
   });
 
   group('ir a página', () {

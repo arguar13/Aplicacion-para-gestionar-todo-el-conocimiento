@@ -200,6 +200,7 @@ class RenderedMarkdown {
     List<PaintedRange> paints = const [],
     List<HandMark> marks = const [],
     TextStyle? codeStyle,
+    Color playing = playingColor,
   }) {
     final resolvedBaseStyle =
         baseStyle ??
@@ -241,13 +242,14 @@ class RenderedMarkdown {
         ),
       for (final paint in paints)
         if (paint.aboveHighlights) layerOf(paint),
-      // Amarillo, con el texto oscuro también en modo oscuro: tiene que
+      // Amarillo —o el color de «Resaltado de lectura» del marco, [playing]
+      // (F47, paso 1)—, con el texto oscuro también en modo oscuro: tiene que
       // leerse de un vistazo mientras se escucha.
       if (activeRange != null)
         _Layer(
           rawToRender(activeRange.$1),
           rawToRender(activeRange.$2),
-          background: playingColor,
+          background: playing,
           foreground: Colors.black87,
         ),
     ];

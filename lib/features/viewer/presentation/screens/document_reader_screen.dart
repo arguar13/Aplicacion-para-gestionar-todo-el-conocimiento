@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// El modo de lectura a pantalla completa, con su propia barra de título.
+/// Un texto como libro paginado a pantalla completa, en **el marco de
+/// lectura** (F47, paso 1): un Word, un EPUB, un texto o un Markdown que no
+/// es el original de un documento —un adjunto, un texto que no se estudia—.
 ///
 /// Envoltorio delgado sobre [DocumentReaderView]: todo el lector de verdad
 /// vive ahí, para poder embeberlo también directo en el detalle de un
-/// elemento sin pasar por esta pantalla ni por `Navigator`. Acá se activan
-/// los controles de tamaño de letra —[DocumentReaderView.showFontControls]—
-/// porque hay lugar de sobra; embebido no, para no recargar un fragmento
-/// pensado para mirar de pasada.
+/// elemento sin pasar por esta pantalla ni por `Navigator`. La letra y su
+/// tamaño son los de «Apariencia»; los capítulos, los de «Contenido».
 class DocumentReaderScreen extends StatelessWidget {
   const DocumentReaderScreen({
     required this.title,
@@ -30,17 +32,18 @@ class DocumentReaderScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title, overflow: TextOverflow.ellipsis)),
-      body: SafeArea(
-        child: DocumentReaderView(
-          title: title,
-          content: content,
-          markdown: markdown,
-          study: study,
-          showFontControls: true,
-          controlsAtBottom: true,
-        ),
+    final l10n = AppLocalizations.of(context)!;
+    return ReadingFrame(
+      info: ReadingDocumentInfo(
+        title: title,
+        kindLabel: l10n.f47P1KindBook,
+        kindIcon: Icons.menu_book_outlined,
+      ),
+      body: DocumentReaderView(
+        title: title,
+        content: content,
+        markdown: markdown,
+        study: study,
       ),
     );
   }
