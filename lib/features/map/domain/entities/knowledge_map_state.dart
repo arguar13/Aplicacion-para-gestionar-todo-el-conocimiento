@@ -1,6 +1,7 @@
 import 'package:meta/meta.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
+import 'package:sinapsis/features/map/domain/entities/map_insights.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 
 /// Qué mapa se pide (F14): los temas de una categoría, sobre los elementos que
@@ -34,6 +35,7 @@ class MapTimings {
     required this.build,
     required this.communities,
     required this.total,
+    this.insights = Duration.zero,
   });
 
   /// Leer lo que hace falta de la base.
@@ -44,6 +46,10 @@ class MapTimings {
 
   /// Agrupar los temas en comunidades, en el isolate.
   final Duration communities;
+
+  /// Lo demás que sabe el motor —puentes, nombres, búsqueda, «Sin tema», lo
+  /// nuevo (F44)—, en el isolate.
+  final Duration insights;
 
   /// De punta a punta, con el paso de los datos de un isolate al otro: es lo
   /// que espera quien mira el mapa.
@@ -59,6 +65,7 @@ class KnowledgeMapSnapshot {
     required this.timings,
     required this.sequence,
     this.unassignedItemIds = const [],
+    this.insights = const MapInsights.empty(),
   });
 
   final MapRequest request;
@@ -69,6 +76,11 @@ class KnowledgeMapSnapshot {
   /// Los elementos que pasan el filtro sin ningún valor de lo que se mira:
   /// lo que el grafo no puede ubicar y el Mapa ofrece organizar (F28).
   final List<String> unassignedItemIds;
+
+  /// Lo que el motor sabe además del grafo y sus comunidades (F44): los
+  /// puentes, el nombre y la ficha de cada comunidad, la búsqueda, la burbuja
+  /// «Sin tema» y lo nuevo. Ver [MapInsights].
+  final MapInsights insights;
 
   /// Cuántos cálculos había hecho el motor al terminar este: dos resultados
   /// iguales de cálculos distintos se distinguen por él.

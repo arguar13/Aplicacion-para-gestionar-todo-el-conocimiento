@@ -34,6 +34,12 @@ import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 /// [areaDepth] usa el ancestro más profundo que tenga —nunca más abajo que
 /// el propio valor—.
 ///
+/// Con [now] (F44), cada elemento trae además un título y cuándo se procesó
+/// —repartido en los dos años anteriores a [now]—, cada vínculo cuándo se
+/// hizo —después de sus dos elementos— y la entrada la hora de la lectura: lo
+/// que el motor necesita para buscar y para lo nuevo. Las fechas salen de otra
+/// semilla, así que lo demás es idéntico con [now] o sin él.
+///
 /// Es determinista: la misma semilla da siempre lo mismo.
 TopicGraphInput structuredTopicInput(
   TopicGraphInput vault, {
@@ -43,6 +49,7 @@ TopicGraphInput structuredTopicInput(
   double bridgeShare = 0.08,
   double intraAreaLinkShare = 0.85,
   int areaDepth = 0,
+  DateTime? now,
 }) {
   final random = Random(seed);
   final values = vault.values;
@@ -146,11 +153,53 @@ TopicGraphInput structuredTopicInput(
     );
   }
 
+  if (now == null) {
+    return TopicGraphInput(
+      definitionId: vault.definitionId,
+      definitionName: vault.definitionName,
+      values: values,
+      items: topicItems,
+      relations: topicRelations,
+    );
+  }
+
+  final dates = Random(seed + 7919);
+  const span = Duration(days: 730);
+  final processedAt = [
+    for (var i = 0; i < topicItems.length; i++)
+      now.subtract(span * dates.nextDouble()),
+  ];
+  DateTime linkedAt(TopicRelation relation) {
+    final from = processedAt[int.parse(relation.fromItemId.substring(1))];
+    final to = processedAt[int.parse(relation.toItemId.substring(1))];
+    final later = from.isAfter(to) ? from : to;
+    final at = later.add(const Duration(days: 60) * dates.nextDouble());
+    return at.isAfter(now) ? now : at;
+  }
+
   return TopicGraphInput(
     definitionId: vault.definitionId,
     definitionName: vault.definitionName,
     values: values,
-    items: topicItems,
-    relations: topicRelations,
+    items: [
+      for (var i = 0; i < topicItems.length; i++)
+        TopicItem(
+          id: topicItems[i].id,
+          valueIds: topicItems[i].valueIds,
+          title: 'Documento $i',
+          createdAt: processedAt[i],
+        ),
+    ],
+    relations: [
+      for (final relation in topicRelations)
+        TopicRelation(
+          fromItemId: relation.fromItemId,
+          toItemId: relation.toItemId,
+          kind: relation.kind,
+          reviewed: relation.reviewed,
+          createdAt: linkedAt(relation),
+        ),
+    ],
+    readAt: now,
   );
 }

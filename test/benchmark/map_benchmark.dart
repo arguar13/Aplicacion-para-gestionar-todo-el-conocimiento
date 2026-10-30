@@ -10,13 +10,18 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/data/repositories/knowledge_map_repository_impl.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
+import 'package:sinapsis/features/map/domain/entities/map_insights.dart';
+import 'package:sinapsis/features/map/domain/entities/map_recent.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/services/community_detector.dart';
 import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
 import 'package:sinapsis/features/map/domain/services/level_of_detail.dart';
+import 'package:sinapsis/features/map/domain/services/map_insights_builder.dart';
 import 'package:sinapsis/features/map/domain/services/map_layout.dart';
+import 'package:sinapsis/features/map/domain/services/map_recent_builder.dart';
+import 'package:sinapsis/features/map/domain/services/topic_adjacency.dart';
 import 'package:sinapsis/features/map/domain/services/topic_graph_builder.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_node_size.dart';
@@ -276,6 +281,10 @@ void registerMapBenchmark(BenchmarkEnvironment env) {
         real,
         items: vault.profile.items,
         relations: vault.profile.relations,
+        // Con fechas y títulos: lo que el motor sabe además (F44) se mide
+        // con lo nuevo de verdad, y el grafo de hace un mes se vuelve a
+        // agrupar.
+        now: vault.now,
       );
       cold = computeMap(input, const CommunityMemory.none());
     });
@@ -376,6 +385,48 @@ void registerMapBenchmark(BenchmarkEnvironment env) {
       expect(
         afterCapture.detection.reassigned,
         lessThan(afterCapture.graph.nodes.length ~/ 10),
+      );
+    });
+
+    test('lo que el motor sabe además: puentes, nombres, búsqueda, «Sin '
+        'tema» y lo nuevo (F44)', () async {
+      final history = buildTopicGraphHistory(
+        input,
+        asOf: recentSince(vault.now, kRecentMonthDays),
+      );
+      final adjacency = TopicAdjacency.of(
+        cold.graph,
+        const TopicGraphWeights(),
+        kHierarchyWeight,
+      );
+      late MapInsights insights;
+      check(
+        await measure(
+          'Mapa: lo que sabe además de las comunidades (F44)',
+          () async => insights = buildMapInsights(
+            input: input,
+            graph: cold.graph,
+            detection: cold.detection,
+            adjacency: adjacency,
+            past: history.changedSince ? history.past : null,
+          ),
+          runs: 7,
+        ),
+      );
+      note(
+        'Lo que sabe además: ${insights.bridges.candidates} temas unen '
+        'comunidades (se entregan ${insights.bridges.bridges.length}, con '
+        '${insights.bridges.visits} uniones miradas de '
+        '${adjacency.neighbors.length}); el índice tiene '
+        '${insights.search.entries.length} entradas; '
+        '${insights.recent.month.processedCount} procesados y '
+        '${insights.recent.month.linkedCount} vínculos en 30 días; '
+        '${insights.recent.figures.communities.before} comunidades hace un '
+        'mes y ${insights.recent.figures.communities.now} hoy.',
+      );
+      expect(
+        insights.bridges.visits,
+        lessThanOrEqualTo(3 * adjacency.neighbors.length),
       );
     });
 

@@ -4,9 +4,14 @@ import 'dart:isolate';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
+import 'package:sinapsis/features/map/domain/entities/map_insights.dart';
+import 'package:sinapsis/features/map/domain/entities/map_recent.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/community_detector.dart';
+import 'package:sinapsis/features/map/domain/services/map_insights_builder.dart';
+import 'package:sinapsis/features/map/domain/services/map_recent_builder.dart';
+import 'package:sinapsis/features/map/domain/services/topic_adjacency.dart';
 import 'package:sinapsis/features/map/domain/services/topic_graph_builder.dart';
 
 /// Lo que produce el cálculo del mapa, con lo que tardó cada parte.
@@ -16,12 +21,20 @@ class MapComputation {
     required this.detection,
     required this.build,
     required this.communities,
+    this.insights = const MapInsights.empty(),
+    this.insightsTime = Duration.zero,
   });
 
   final TopicGraph graph;
   final CommunityDetection detection;
   final Duration build;
   final Duration communities;
+
+  /// Lo que se sabe además de las comunidades (F44).
+  final MapInsights insights;
+
+  /// Lo que tardó calcular [insights].
+  final Duration insightsTime;
 }
 
 /// Cómo se calcula el mapa a partir de lo que entregó la base. Se inyecta para
@@ -32,22 +45,56 @@ typedef MapComputer =
       CommunityMemory memory,
     );
 
-/// El cálculo del mapa, en el isolate de quien lo llama: arma el grafo y lo
-/// agrupa en comunidades, partiendo de [memory].
+/// El cálculo del mapa, en el isolate de quien lo llama: arma el grafo, lo
+/// agrupa en comunidades partiendo de [memory] y saca de ahí lo demás que el
+/// mapa sabe (F44): los puentes, el nombre de cada comunidad, la búsqueda, la
+/// burbuja «Sin tema» y lo nuevo.
+///
+/// El grafo de hace `kRecentMonthDays` días sale de la MISMA pasada que el de
+/// hoy (`buildTopicGraphHistory`), y las uniones se arman una vez para las
+/// comunidades y para lo demás.
 MapComputation computeMap(TopicGraphInput input, CommunityMemory memory) {
   final buildWatch = Stopwatch()..start();
-  final graph = buildTopicGraph(input);
+  final readAt = input.readAt;
+  final history = readAt == null
+      ? null
+      : buildTopicGraphHistory(
+          input,
+          asOf: recentSince(readAt, kRecentMonthDays),
+        );
+  final graph = history?.current ?? buildTopicGraph(input);
   buildWatch.stop();
 
   final communitiesWatch = Stopwatch()..start();
-  final detection = detectCommunities(graph, previous: memory);
+  final adjacency = TopicAdjacency.of(
+    graph,
+    const TopicGraphWeights(),
+    kHierarchyWeight,
+  );
+  final detection = detectCommunities(
+    graph,
+    previous: memory,
+    adjacency: adjacency,
+  );
   communitiesWatch.stop();
+
+  final insightsWatch = Stopwatch()..start();
+  final insights = buildMapInsights(
+    input: input,
+    graph: graph,
+    detection: detection,
+    adjacency: adjacency,
+    past: history != null && history.changedSince ? history.past : null,
+  );
+  insightsWatch.stop();
 
   return MapComputation(
     graph: graph,
     detection: detection,
     build: buildWatch.elapsed,
     communities: communitiesWatch.elapsed,
+    insights: insights,
+    insightsTime: insightsWatch.elapsed,
   );
 }
 
@@ -296,10 +343,12 @@ class KnowledgeMapEngine {
           read: read,
           build: computed.build,
           communities: computed.communities,
+          insights: computed.insightsTime,
           total: total.elapsed,
         ),
         sequence: ++_sequence,
         unassignedItemIds: input.unassignedItemIds,
+        insights: computed.insights,
       );
       entry
         ..snapshot = snapshot
