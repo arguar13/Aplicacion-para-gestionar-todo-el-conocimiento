@@ -2916,14 +2916,26 @@ corta nada.
   a la vez](#crear-tarjetas-con-ia-para-muchos-documentos-a-la-vez)).
 - **El selector** (la píldora ancha de arriba) dice qué está elegido —por
   ejemplo *"Éxodo — Comentario de Alonso · 1 documento · 386 tarjetas"*—. Al
-  tocarla se abre una hoja con un **buscador**, **los recientes** (los últimos
-  cuatro que elegiste) y cuatro pestañas:
-  - **Todo lo procesado**;
-  - **Documento**: un documento procesado (cada fila dice cuántas tarjetas y
-    creaciones tiene y si ya tiene resumen o síntesis);
-  - **Cuaderno**: uno de tus cuadernos;
-  - **Tema**: uno del Atlas, por temas, etiquetas o cualquier categoría, con
-    su árbol. Solo aparecen los que tienen algo procesado.
+  tocarla se abre una hoja que tiene, **arriba**, un **buscador** y cuatro
+  pestañas —**Todo**, **Documentos**, **Cuadernos** y **Temas**— y, **debajo,
+  una sola lista**:
+  - en **Todo**, la primera fila es **Todo lo procesado**;
+  - **Recientes**: los últimos tres que elegiste de esa pestaña;
+  - **Todos**: lo demás, de la A a la Z, sin repetir los recientes. Un tema
+    lleva su rama (*"Roma › Imperio"*), así los de una misma rama quedan
+    juntos. En **Temas** elegís además por qué agrupar: temas, etiquetas o
+    cualquier categoría; solo aparecen los que tienen algo procesado.
+
+  **Cada fila dice lo mismo en todos lados**: el nombre y, debajo, lo que
+  tiene, cada dato con su ícono y su color —*"12 tarjetas"*, *"1 creación"*,
+  *"Resumen"*, *"Síntesis"*; un cuaderno o un tema dice también cuántos
+  documentos—. Lo elegido va resaltado y con ✓. El **buscador** mira el nombre,
+  sin importar mayúsculas ni acentos, en la pestaña en la que estés (en
+  **Todo**, en todo), y debajo suma los documentos que tienen lo buscado en su
+  texto; con texto, la lista es una sola: la de los resultados. Con miles de
+  documentos la hoja sigue fluida. Lo que se borró se va solo de los recientes,
+  y con el lector de pantalla cada fila se lee entera: el nombre, qué es, lo
+  que tiene y si es lo elegido.
 
   **Todo sale de Procesado**: la Biblioteca no aparece acá. Lo elegido manda en
   toda la pantalla —«Para hoy», las tarjetas de crear y «Lo creado» trabajan
