@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:meta/meta.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
@@ -10,11 +11,58 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/creations/data/repositories/study_creation_sql.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope_catalog.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope_summary.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_scope_resolver.dart';
 import 'package:sinapsis/features/notebooks/domain/repositories/notebook_repository.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
 import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
+
+/// Cada documento procesado vivo con lo que dice su fila del selector de
+/// Repasar (F43, M11), en UNA lectura: sus tarjetas y las de su fuente, si
+/// tiene resumen o síntesis y cuántas creaciones lo usan.
+///
+/// Lo de cada documento es una búsqueda por clave —las tarjetas por
+/// `idx_flashcards_item`, las partes por `idx_processed_parts_document`—, y
+/// las creaciones se cuentan una sola vez para todos, agrupadas: contarlas por
+/// documento abriría las fuentes de cada creación una vez por documento. Es la
+/// regla de `creationsOfDocumentSql`: las creadas sobre él y las que lo
+/// leyeron, cada una una vez.
+@visibleForTesting
+final creationScopeDocumentsSql =
+    """
+SELECT item.id AS id,
+       item.title AS title,
+       d.source_item_id AS source_item_id,
+       (SELECT COUNT(*) FROM flashcards f
+         WHERE f.item_id = item.id) AS own_cards,
+       (SELECT COUNT(*) FROM flashcards f
+          JOIN item source ON source.id = f.item_id
+         WHERE f.item_id = d.source_item_id
+           AND ${activeItemSql('source')}) AS source_cards,
+       EXISTS (SELECT 1 FROM processed_parts p
+                WHERE p.document_id = item.id
+                  AND p.section = '${ProcessedSection.summary.name}')
+         AS has_summary,
+       EXISTS (SELECT 1 FROM processed_parts p
+                WHERE p.document_id = item.id
+                  AND p.section = '${ProcessedSection.synthesis.name}')
+         AS has_synthesis,
+       COALESCE(made.n, 0) AS creations
+  FROM processed_documents d
+  JOIN item ON item.id = d.item_id
+  LEFT JOIN (
+    SELECT document, COUNT(*) AS n FROM (
+      SELECT c.id AS id, c.scope_id AS document
+        FROM study_creations c
+       WHERE c.deleted_at IS NULL
+         AND c.scope_kind = '${ProcessedDocumentScope.key}'
+      UNION
+      SELECT c.id AS id, s.value AS document
+        FROM study_creations c, json_each(c.source_ids_json) s
+       WHERE c.deleted_at IS NULL)
+     GROUP BY document) made ON made.document = item.id
+ WHERE $kActiveItemSql""";
 
 /// [CreationScopeResolver] sobre la base (F43).
 ///
@@ -168,6 +216,193 @@ class CreationScopeResolverImpl implements CreationScopeResolver {
     );
   }
 
+  @override
+  Stream<CreationScopeCatalog> watchCatalog(Set<CreationScope> topics) =>
+      watchQuery(
+        db: _db,
+        tables: _tables,
+        read: () => _catalogOf(topics),
+        telemetry: _telemetry,
+        hint: 'CreationScopeResolverImpl.watchCatalog',
+      );
+
+  /// El catálogo del selector, en lote: cada documento con lo suyo en una
+  /// lectura, «Todo» en otra, las creaciones de los cuadernos y los temas en
+  /// otra, los cuadernos en dos, los nombres de los temas en una por clase y
+  /// qué documentos tiene cada cuaderno y cada tema en una cada doscientos.
+  /// Nada depende de cuántos documentos hay.
+  ///
+  /// Las tarjetas de un cuaderno o un tema se suman acá, por elemento, de las
+  /// que ya trajo la lectura de los documentos: las suyas y las de su fuente,
+  /// cada elemento una vez, como `_cardsOf`.
+  Future<CreationScopeCatalog> _catalogOf(Set<CreationScope> requested) async {
+    final documents = await _documentFacts();
+    final cardsByItem = <String, int>{
+      for (final d in documents) ...{
+        d.id: d.ownCards,
+        if (d.sourceItemId case final source?) source: d.sourceCards,
+      },
+    };
+    final sourceOf = {
+      for (final d in documents)
+        if (d.sourceItemId case final source?) d.id: source,
+    };
+    int cardsOf(Set<String> documentIds) => {
+      ...documentIds,
+      for (final id in documentIds) ?sourceOf[id],
+    }.fold(0, (sum, item) => sum + (cardsByItem[item] ?? 0));
+
+    final made = await _creationsByScope();
+    final totals = await _db
+        .customSelect(
+          'SELECT (SELECT COUNT(*) FROM flashcards f '
+          'JOIN item ON item.id = f.item_id WHERE $kActiveItemSql) AS cards, '
+          '(SELECT COUNT(*) FROM study_creations c '
+          'WHERE c.deleted_at IS NULL) AS creations',
+        )
+        .getSingle();
+    final notebooks = await _notebooks.resolveAllQueries();
+    final topics = await _topicNamesOf(requested);
+    final members = switch (await _processed.matchingIdsOfMany({
+      for (final n in notebooks) NotebookScope(n.id).storageKey: n.query,
+      for (final scope in topics.keys)
+        scope.storageKey: switch (scope) {
+          SpaceScope(:final spaceId) => ProcessedQuery(spaceId: spaceId),
+          _ => ProcessedQuery(propertyValueIds: {scope.id!}),
+        },
+    })) {
+      Right(:final value) => value,
+      Left(:final value) => throw StateError(value.toString()),
+    };
+
+    CreationScopeLine lineOf(CreationScope scope, String name) {
+      final ids = members[scope.storageKey] ?? const <String>{};
+      return CreationScopeLine(
+        scope: scope,
+        name: name,
+        documents: ids.length,
+        cards: cardsOf(ids),
+        creations: made[scope.storageKey] ?? 0,
+      );
+    }
+
+    return CreationScopeCatalog(
+      all: CreationScopeLine(
+        scope: const CreationScope.allProcessed(),
+        name: '',
+        documents: documents.length,
+        cards: totals.read<int>('cards'),
+        creations: totals.read<int>('creations'),
+      ),
+      documents: [
+        for (final d in documents)
+          CreationScopeLine(
+            scope: CreationScope.document(d.id),
+            name: d.title,
+            documents: 1,
+            cards: cardsOf({d.id}),
+            creations: d.creations,
+            hasSummary: d.hasSummary,
+            hasSynthesis: d.hasSynthesis,
+          ),
+      ],
+      notebooks: [
+        for (final n in notebooks) lineOf(CreationScope.notebook(n.id), n.name),
+      ],
+      topics: [
+        for (final MapEntry(key: scope, value: name) in topics.entries)
+          lineOf(scope, name),
+      ],
+    );
+  }
+
+  /// Cada documento procesado vivo con lo que dice su fila, en UNA lectura
+  /// ([creationScopeDocumentsSql]).
+  Future<List<_DocumentFacts>> _documentFacts() async {
+    final rows = await _db.customSelect(creationScopeDocumentsSql).get();
+    return [
+      for (final row in rows)
+        (
+          id: row.read<String>('id'),
+          title: row.read<String>('title'),
+          sourceItemId: row.readNullable<String>('source_item_id'),
+          ownCards: row.read<int>('own_cards'),
+          sourceCards: row.read<int>('source_cards'),
+          hasSummary: row.read<bool>('has_summary'),
+          hasSynthesis: row.read<bool>('has_synthesis'),
+          creations: row.read<int>('creations'),
+        ),
+    ];
+  }
+
+  /// Las creaciones vivas de cada cuaderno y cada tema, por la clave del
+  /// recorte, en una lectura: la regla de `creationsInScopeSql` para ellos.
+  Future<Map<String, int>> _creationsByScope() async {
+    final rows = await _db
+        .customSelect(
+          'SELECT c.scope_kind AS kind, c.scope_id AS id, COUNT(*) AS n '
+          'FROM study_creations c WHERE c.deleted_at IS NULL '
+          'AND c.scope_id IS NOT NULL '
+          "AND c.scope_kind <> '${ProcessedDocumentScope.key}' "
+          'GROUP BY c.scope_kind, c.scope_id',
+        )
+        .get();
+    return {
+      for (final row in rows)
+        if (CreationScope.fromParts(
+              row.read<String>('kind'),
+              row.read<String>('id'),
+            )
+            case final scope?)
+          scope.storageKey: row.read<int>('n'),
+    };
+  }
+
+  /// El nombre de cada tema y cada espacio de [scopes] que existe: una lectura
+  /// por clase, para todos.
+  Future<Map<CreationScope, String>> _topicNamesOf(
+    Set<CreationScope> scopes,
+  ) async {
+    final values = [
+      for (final s in scopes)
+        if (s is TopicScope) s.valueId,
+    ];
+    final spaces = [
+      for (final s in scopes)
+        if (s is SpaceScope) s.spaceId,
+    ];
+    Future<Map<String, String>> namesIn(String sql, List<String> ids) async {
+      if (ids.isEmpty) return const {};
+      final rows = await _db
+          .customSelect(sql, variables: [Variable.withString(jsonEncode(ids))])
+          .get();
+      return {
+        for (final row in rows)
+          row.read<String>('id'): row.read<String>('name'),
+      };
+    }
+
+    final valueNames = await namesIn(
+      'SELECT id, value AS name FROM property_values '
+      'WHERE id IN (SELECT value FROM json_each(?))',
+      values,
+    );
+    final spaceNames = await namesIn(
+      'SELECT id, name FROM spaces '
+      'WHERE id IN (SELECT value FROM json_each(?))',
+      spaces,
+    );
+    return {
+      for (final s in scopes)
+        if (s case TopicScope(:final valueId) when valueNames[valueId] != null)
+          s: valueNames[valueId]!
+        else if (s case SpaceScope(
+          :final spaceId,
+        ) when spaceNames[spaceId] != null)
+          s: spaceNames[spaceId]!,
+    };
+  }
+
   /// El nombre de lo que apunta [scope]; `null` en «Todo» y si ya no existe.
   /// Un documento en la papelera ya no es del recorte: tampoco tiene nombre.
   Future<String?> _nameOf(CreationScope scope) async {
@@ -265,3 +500,15 @@ class CreationScopeResolverImpl implements CreationScopeResolver {
     }
   }
 }
+
+/// Lo de un documento procesado vivo que lee el catálogo del selector.
+typedef _DocumentFacts = ({
+  String id,
+  String title,
+  String? sourceItemId,
+  int ownCards,
+  int sourceCards,
+  bool hasSummary,
+  bool hasSynthesis,
+  int creations,
+});

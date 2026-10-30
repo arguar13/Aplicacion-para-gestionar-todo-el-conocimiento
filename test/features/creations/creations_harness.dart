@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' show Variable;
+import 'package:drift/drift.dart' show QueryExecutor, Variable;
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
@@ -73,8 +73,15 @@ class CreationsHarness {
     ProcessedWorker? worker,
     String deviceId = 'tel',
     FileStore? files,
+
+    /// La base de la bóveda: una que cuenta sus lecturas, por ejemplo.
+    QueryExecutor? executor,
   }) async => CreationsHarness._(
-    await ProcessedHarness.create(worker: worker, deviceId: deviceId),
+    await ProcessedHarness.create(
+      worker: worker,
+      deviceId: deviceId,
+      executor: executor,
+    ),
     worker: worker,
     files: files,
   );

@@ -1,6 +1,7 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope_catalog.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope_summary.dart';
 import 'package:sinapsis/features/flashcards/domain/services/study_scope_resolver.dart';
 
@@ -28,4 +29,13 @@ abstract interface class CreationScopeResolver implements ProcessedStudyItems {
   /// El nombre y las cifras de [scope] para la píldora del selector, y cada
   /// cambio.
   Stream<CreationScopeSummary> watchSummary(CreationScope scope);
+
+  /// Lo que ofrece el selector (M11), entero, con la línea de cada uno, y cada
+  /// cambio: «Todo lo procesado», cada documento procesado vivo, cada cuaderno
+  /// y, de [topics], los temas y los espacios que existen.
+  ///
+  /// **En lote**: unas pocas lecturas para todo, las mismas con diez
+  /// documentos que con diez mil —nunca una por fila—, y las cifras de cada
+  /// uno iguales a las de [watchSummary].
+  Stream<CreationScopeCatalog> watchCatalog(Set<CreationScope> topics);
 }
