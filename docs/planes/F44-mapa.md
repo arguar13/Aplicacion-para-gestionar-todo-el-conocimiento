@@ -262,4 +262,31 @@ sus mutaciones. Cada paso se integra en `main` con su suite, su push y su verifi
 
 ## Avance
 
-(vacío: se llena con cada paso)
+### Paso 1 (hecho): el motor sabe más
+
+Diez commits, solo en `lib/features/map/domain` y `lib/features/map/data`, sin nada visible
+todavía. Todo llega con cada mapa en `KnowledgeMapSnapshot.insights` (`MapInsights`), calculado en
+el mismo isolate que las comunidades y sin datos nuevos en la base (decisión E).
+
+- **Los puentes** (`BridgeAnalysis`): los temas que unen comunidades distintas, pesados por la
+  parte que llevan de lo que une a cada par. El único camino entre dos comunidades vale todo su
+  peso; uno entre cien parecidos, casi nada. Marca la «única unión» contando uniones, no sumando
+  decimales. El costo es lineal en las uniones, con un tope de 12 puentes y de 6 comunidades por
+  puente; la prueba cuenta lo recorrido exacto.
+- **El nombre de cada comunidad**, con sus dos temas más unidos con los demás de ella («Cristianismo
+  · Tomás de Aquino»), sin repetir un nombre por acentos o mayúsculas. Trae su ficha: sus temas en
+  orden, sus documentos y vínculos, con quién se une y lo más reciente.
+- **El índice de búsqueda** de temas y documentos, con tema o sin él, en memoria, sin acentos ni
+  mayúsculas, ordenado por cuán bien coincide; cada entrada dice por qué tema se llega a ella.
+- **La burbuja «Sin tema»**: los documentos sin ningún valor de lo que se mira, los más nuevos
+  primero hasta 200, con sus vínculos y las comunidades con las que se vinculan.
+- **Lo nuevo** de los últimos 7 y 30 días —lo procesado y lo vinculado, cada documento con su
+  lugar en el mapa— y **las cuatro cifras con lo que valían hace un mes**. El grafo de hace un mes
+  sale de la misma pasada que el de hoy, y se vuelve a agrupar solo si algo cambió en el mes.
+- **«Para estudiar» no está en el motor, a propósito**: necesitaría las tarjetas, y repasar una
+  tarjeta recalcularía el mapa (decisión 47). Lo calcula el Resumen (paso 3), aparte.
+- Pruebas con la bóveda grande (2.000 temas, 10.000 documentos, 25.000 vínculos y 500 sin tema),
+  de estructura, y `EXPLAIN QUERY PLAN` con un solo recorrido de `item` y de `relations`, como
+  antes. Diez mutaciones, todas muertas: dos sobrevivían y se reforzaron sus pruebas.
+- Las carpetas del mapa, las creaciones, las tarjetas y Organizar: 3.168 pruebas pasan.
+- Queda medirlo en el emulador contra la medición de F18, en el cierre (paso 6).
