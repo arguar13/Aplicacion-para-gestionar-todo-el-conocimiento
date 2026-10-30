@@ -8,18 +8,10 @@
 /// —"Nederlands (NL)", o "xx-YY" tal cual—, que es feo pero no miente.
 library;
 
-/// `es_us`, `es-US` o `ES-us` → `es-US`: los motores de voz no se ponen de
-/// acuerdo en cómo escribir un locale.
-String normalizeAccent(String locale) {
-  final parts = locale.trim().split(RegExp('[-_]'));
-  final language = parts.first.toLowerCase();
-  if (parts.length < 2 || parts[1].isEmpty) return language;
-  return '$language-${parts[1].toUpperCase()}';
-}
+import 'package:sinapsis/features/narration/domain/voices/voice_locale.dart';
 
-/// El idioma de un acento: `es-AR` → `es`.
-String accentLanguage(String locale) =>
-    normalizeAccent(locale).split('-').first;
+export 'package:sinapsis/features/narration/domain/voices/voice_locale.dart'
+    show accentLanguage, normalizeAccent;
 
 /// El nombre de un acento para mostrar, en su propio idioma.
 String accentDisplayName(String locale) {
@@ -31,6 +23,22 @@ String accentDisplayName(String locale) {
   final region = _regions[parts.first]?[parts[1]] ?? parts[1];
   return '$language ($region)';
 }
+
+/// El nombre de la región de un acento, en su propio idioma —«Argentina»,
+/// «United Kingdom»—, o su código si la tabla no la tiene; `null` si el
+/// acento no dice de dónde es. Es lo que muestra el filtro de acento de la
+/// biblioteca de voces (F47, paso 3).
+String? accentRegionName(String locale) {
+  final normalized = normalizeAccent(locale);
+  final region = accentRegion(normalized);
+  if (region == null) return null;
+  return _regions[accentLanguage(normalized)]?[region] ?? region;
+}
+
+/// El nombre de un idioma en su propio idioma —«Español», «English»—, o su
+/// código si la tabla no lo tiene.
+String languageDisplayName(String language) =>
+    _languages[language.toLowerCase()] ?? language;
 
 const _languages = {
   'es': 'Español',

@@ -28,7 +28,16 @@ const _maximumLength = 2000;
 /// —que se compara con el idioma que se habla antes de guardarlo (F45, paso
 /// 4)— se mira más: su comienzo puede ser una presentación con música o un
 /// saludo en otro idioma.
-String? guessLanguage(String text, {int maximumLength = _maximumLength}) {
+///
+/// [minimumHits] es cuántas palabras de la lista hacen falta. Para una sola
+/// oración —el lector en voz alta elige la voz de cada una por su idioma
+/// (F47, paso 3)— se piden menos: una oración de diez palabras rara vez trae
+/// cuatro de la lista, y el margen sobre el segundo idioma sigue exigiéndose.
+String? guessLanguage(
+  String text, {
+  int maximumLength = _maximumLength,
+  int minimumHits = _minimumHits,
+}) {
   final cut = text.length > maximumLength
       ? text.substring(0, maximumLength)
       : text;
@@ -47,7 +56,7 @@ String? guessLanguage(String text, {int maximumLength = _maximumLength}) {
     ..sort((a, b) => b.value.compareTo(a.value));
   final best = ranking.first;
   final second = ranking[1];
-  if (best.value < _minimumHits) return null;
+  if (best.value < minimumHits) return null;
   if (best.value < second.value * _winningMargin) return null;
   return best.key;
 }
