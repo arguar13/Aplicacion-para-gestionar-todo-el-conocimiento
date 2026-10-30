@@ -2967,8 +2967,13 @@ tres contadores (el de la cola de la tarjeta que ves va subrayado).
    **Pausar** (no vuelve hasta que la reactives), **Posponer hasta mañana** y
    **Borrar** (pide confirmación: se lleva también su historial). Pausar y
    posponer avisan con un **"Deshacer"**.
-6. Si la tarjeta sabe de dónde salió, hay un botón "Ver en la fuente" para
-   volver al lugar exacto del texto original.
+6. Con la respuesta a la vista, si la tarjeta sabe de dónde salió, hay un
+   botón "Ver en la fuente" para volver al lugar exacto del texto original. Al
+   lado está **"Explicar"** (el globo con una chispa): abre el chat en una
+   conversación nueva con la pregunta y la respuesta de la tarjeta —de opción
+   múltiple, también la opción que tocaste y la correcta—, el título de la
+   fuente y el pasaje del que salió, y le pide que te explique por qué. No se
+   manda nada si no lo tocás.
 
 Atajos de teclado: **espacio** da vuelta la tarjeta, **1 a 4** califican, **Z**
 (o Control+Z) deshace. No andan mientras escribís en un campo.
@@ -3424,16 +3429,35 @@ ahora» o «Generar más tarde». Se abre desde «Lo creado».
   sus tarjetas y la app las junta, repartidas de principio a fin y sin repetir
   la misma pregunta. Con Gemma en el teléfono funciona igual, solo que de a
   pocas por parte.
-- **El visor es la tarjeta de Repasar**: tocala (o **"Dar vuelta"**) y se da
-  vuelta; deslizala o usá **‹ ›** para ir a la anterior o la siguiente. Arriba,
-  **"3 / 20"** y la barra de avance; **"Barajar"** las mezcla sin sacarte la
-  que estás mirando, y tocarlo de nuevo vuelve al orden del mazo. Si una
-  tarjeta trae pista, **"Ver la pista"** la muestra sin darla vuelta. Hojear no
-  califica nada.
+- **El mazo se estudia como en Anki**, con la tarjeta y los cuatro botones de
+  la sesión de Repasar:
+  1. ves la pregunta y pensás la respuesta;
+  2. **"Mostrar respuesta"** (o tocás la tarjeta) y se da vuelta: arriba la
+     pregunta, abajo la respuesta;
+  3. calificás con **De nuevo**, **Difícil**, **Bien** o **Fácil**, que dicen
+     debajo cuándo vuelve la tarjeta (*"10 min"*, *"4 d"*). También podés
+     **deslizarla**, como en Repasar: derecha "Bien", izquierda "De nuevo",
+     arriba "Fácil", abajo "Difícil".
+- **Las calificaciones van al calendario de esas tarjetas**, las del documento
+  procesado: es lo mismo que repasarlas en «Para hoy», y queda en tu historial
+  y en la racha. **"De nuevo"** la vuelve a poner al final de la vuelta.
+- Arriba, **"3 / 18"** y la barra de avance (una que volvió por "De nuevo"
+  suma una más); **"Barajar"** mezcla las que faltan sin sacarte la que estás
+  mirando, y tocarlo de nuevo vuelve al orden del mazo. Si una tarjeta trae
+  pista, **"Ver la pista"** la muestra sin darla vuelta.
+- Con la respuesta a la vista, **"Ver en la fuente"** abre el lugar del que
+  salió (o el documento procesado) y **"Explicar"** lleva la pregunta y la
+  respuesta al chat, como en Repasar.
+- **Al terminar la vuelta**, cuántas fueron a cada botón, si quedó en el
+  calendario o fue de práctica, y tu racha. **"Repasar las de «De nuevo»"**
+  arma otra vuelta solo con esas, y **"Otra vuelta"** vuelve a todas.
 - **"Sumar a mi repaso"**, prendido de fábrica (también en la hoja): las
   tarjetas quedan en el **documento procesado**, junto a las que ya tenía, y
-  entran en **«Para hoy»** con el calendario de siempre. Apagado, el mazo queda
-  solo para hojear. Se puede cambiar cuando quieras desde el visor:
+  entran en **«Para hoy»** con el calendario de siempre. **Apagado, se
+  califican de práctica**: los cuatro botones están igual, sin intervalo, y el
+  visor dice *"De práctica: estas calificaciones no cambian ningún
+  calendario."*; terminar la vuelta igual suma a la racha. Se puede cambiar
+  cuando quieras desde el visor:
   - sumar dos veces no duplica nada, y una pregunta que el documento ya tenía
     se usa en vez de crear otra;
   - **apagarlo las pausa**: dejan de aparecer en «Para hoy», pero no se borra
@@ -3465,16 +3489,29 @@ o «Generar más tarde».
   imágenes"** (como en las tarjetas: ilustraciones guardadas con el
   cuestionario; volver a generarlo libera las de la vez anterior, y se van
   todas al borrarlo para siempre).
-- **Arriba**, **"6 / 14"**, el tipo de la pregunta y la barra de avance. Abajo,
-  **"Anterior"** y **"Siguiente"**; en la última, **"Ver el resultado"**. Se
-  puede saltear una y volver después.
-- **Opción única:** las opciones **A, B, C y D**; tocar una ya responde. La
-  correcta se pone **en verde con "¡Exacto!"**; si elegiste otra, la tuya
-  queda **en rojo** y la correcta en verde. Debajo de **cada opción** aparece
-  su explicación —por qué es o no es—, y al final el **"Por qué"** de la
-  pregunta.
+- **Se ve como el de NotebookLM.** Arriba, **"6 / 14"**, el tipo de la
+  pregunta, la barra de avance y **⋮** con **"Ver en la fuente"** (abre el
+  documento de la pregunta) y **"Empezar de nuevo"**. La pregunta va en
+  negrita y grande, y cada opción en su tarjeta, con **"A."** al costado.
+  Abajo, fijos y a lo ancho, **"Anterior"** y **"Siguiente"**; en la última,
+  **"Ver el resultado"**. Se puede saltear una y volver después.
+- **Opción única:** tocar una opción ya responde. La correcta queda con
+  **borde verde y "✓ ¡Exacto!"**; si elegiste otra, la tuya queda con **borde
+  rojo y "No es esa"**, y la correcta dice **"La correcta"**. Debajo de **cada
+  opción** aparece su explicación en gris —por qué es o no es—, y al final el
+  **"Por qué"** de la pregunta.
 - **Selección múltiple:** tildás **todas las que correspondan** y tocás
   **"Comprobar"**. Está bien solo si marcaste exactamente las correctas.
+- **"Explicar"**, debajo de las opciones (o de lo que escribiste), abre el
+  chat en una conversación nueva, acotada al cuaderno si el cuestionario se
+  hizo sobre uno, con la pregunta, sus opciones y el título de la fuente:
+  - **antes de responder**, le pide que te explique la pregunta **sin decirte
+    cuál es la correcta**;
+  - **después**, por qué la correcta es esa y por qué la que elegiste (o lo
+    que escribiste) no.
+
+  Va con la IA que elegiste para el chat, y no se manda nada si no lo tocás.
+  No hay 👍 ni 👎: acá no hay a quién mandárselo.
 - **Completar espacios:** escribís lo que falta. Se compara **sin tildes ni
   mayúsculas** (ni puntuación, ni un artículo de más), y valen las otras formas
   que trae la pregunta. Si hay una diferencia chica —un error de tipeo—, dice
