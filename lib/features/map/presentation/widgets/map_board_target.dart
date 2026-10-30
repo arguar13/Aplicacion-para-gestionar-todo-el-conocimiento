@@ -4,9 +4,10 @@ import 'package:meta/meta.dart';
 /// una altura —tocar una cifra grande—, un tema o un documento —tocar una
 /// fila—. El Explorador queda para «Abrir», en la ficha del nodo.
 ///
-/// El Resumen solo dice adónde; quien lo muestra decide cómo llegar —qué
-/// altura, qué capa, qué foco—, así el lienzo puede crecer sin que el Resumen
-/// cambie.
+/// La vista del Resumen solo dice adónde; `MapBoardPane` lo traduce a un
+/// pedido del lienzo (`canvasRequestFor`, `mapCanvasRequestProvider`) y el
+/// lienzo decide cómo llegar —qué altura, qué foco—, así puede crecer sin que
+/// el Resumen cambie.
 @immutable
 sealed class MapBoardTarget {
   const MapBoardTarget();
