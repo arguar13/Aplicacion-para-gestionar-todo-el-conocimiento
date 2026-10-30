@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
+import 'package:sinapsis/features/creations/presentation/explain_in_chat_question.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/explain_in_chat_button.dart';
 import 'package:sinapsis/features/habit/domain/entities/daily_activity.dart';
 import 'package:sinapsis/features/habit/domain/entities/difficult_card.dart';
 import 'package:sinapsis/features/habit/domain/entities/review_history.dart';
@@ -65,21 +71,23 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      MaterialApp(
-        theme: theme,
-        locale: const Locale('es'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
-        ),
-        home: Scaffold(
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [ReviewHistorySections(history: value)],
+      ProviderScope(
+        child: MaterialApp(
+          theme: theme,
+          locale: const Locale('es'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [ReviewHistorySections(history: value)],
+            ),
           ),
         ),
       ),
@@ -185,7 +193,124 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Canberra'), findsOneWidget);
     expect(find.text(es.flashcardsViewSource), findsOneWidget);
+    expect(find.byKey(const Key('difficult-card-explain')), findsOneWidget);
   });
+
+  testWidgets(
+    '«Explicar» en la hoja de una difícil (F43, M15): cierra la '
+    'hoja y lleva al chat la tarjeta, el título de su documento y el pasaje',
+    (tester) async {
+      final reads = <(String, int?, int?)>[];
+      final container = ProviderContainer(
+        overrides: [
+          explainSourceReaderProvider.overrideWithValue(
+            _FakeSourceReader((itemId, start, end) {
+              reads.add((itemId, start, end));
+              return (title: 'Geografía', passage: 'Canberra es la capital');
+            }),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final handoffs = <ChatHandoff>[];
+      container.listen(chatHandoffProvider, (_, next) {
+        if (next != null) handoffs.add(next);
+      });
+      // Como en la app: Estudiar y el chat, dos ramas del shell, cada una
+      // con su pila. Ir al chat no cierra lo que quedó abierto en la otra.
+      final router = GoRouter(
+        routes: [
+          StatefulShellRoute.indexedStack(
+            builder: (_, _, shell) => shell,
+            branches: [
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/',
+                    builder: (_, _) => Scaffold(
+                      body: ListView(
+                        children: [
+                          ReviewHistorySections(
+                            history: history(
+                              hardest: const [
+                                DifficultCard(
+                                  flashcardId: 'a',
+                                  front: '¿Capital de Australia?',
+                                  back: 'Canberra',
+                                  itemId: 'geo',
+                                  total: 9,
+                                  againCount: 3,
+                                  lapses: 2,
+                                  sourceStart: 4,
+                                  sourceEnd: 30,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: RoutePaths.chat,
+                    builder: (_, _) => const Scaffold(body: Text('el chat')),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            routerConfig: router,
+            locale: const Locale('es'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('hardest-card-a')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('difficult-card-explain')));
+      await tester.pumpAndSettle();
+
+      expect(reads, [('geo', 4, 30)]);
+      expect(handoffs, [
+        ChatHandoff(
+          question: explainInChatQuestion(
+            es,
+            const ExplainSubject(
+              question: '¿Capital de Australia?',
+              answer: 'Canberra',
+              answered: true,
+              sourceTitle: 'Geografía',
+              passage: 'Canberra es la capital',
+            ),
+          ),
+        ),
+      ]);
+      expect(find.text('el chat'), findsOneWidget);
+
+      // Al volver a Estudiar, la hoja ya no está.
+      router.go('/');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('hardest-card-a')), findsOneWidget);
+      expect(find.byKey(const Key('difficult-card-sheet')), findsNothing);
+    },
+  );
 
   testWidgets('sin difíciles lo dice, y no ofrece repasar nada', (
     tester,
@@ -250,4 +375,15 @@ void main() {
       expect(months.first.$1, layout.positionOf(DateTime(2026, 8, 1, 4)).$1);
     });
   });
+}
+
+/// Lee la fuente sin la base: devuelve lo que diga [read].
+class _FakeSourceReader implements ExplainSourceReader {
+  _FakeSourceReader(this._read);
+
+  final ExplainSource Function(String itemId, int? start, int? end) _read;
+
+  @override
+  Future<ExplainSource?> read(String itemId, {int? start, int? end}) async =>
+      _read(itemId, start, end);
 }

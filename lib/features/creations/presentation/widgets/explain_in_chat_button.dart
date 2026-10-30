@@ -61,6 +61,8 @@ final explainSourceReaderProvider = Provider<ExplainSourceReader>(
 ///   documento y —con [passageStart] y [passageEnd]— el pasaje: así la
 ///   búsqueda en la bóveda va a él.
 /// - Con [notebookId], la conversación nueva queda acotada a ese cuaderno.
+/// - Con [host], el botón está en una hoja: la hoja se cierra antes de ir al
+///   chat, que se abre desde [host].
 ///
 /// No manda nada sin que se lo toque (decisión L).
 class ExplainInChatButton extends ConsumerStatefulWidget {
@@ -70,6 +72,7 @@ class ExplainInChatButton extends ConsumerStatefulWidget {
     this.passageStart,
     this.passageEnd,
     this.notebookId,
+    this.host,
     super.key,
   });
 
@@ -78,6 +81,12 @@ class ExplainInChatButton extends ConsumerStatefulWidget {
   final int? passageStart;
   final int? passageEnd;
   final String? notebookId;
+
+  /// La pantalla de abajo, si el botón está en una hoja. Ir al chat cambia de
+  /// pestaña sin cerrar la hoja, que seguiría abierta al volver: se cierra
+  /// antes, y el chat se abre desde acá, como «Preguntarle al chat» del mapa
+  /// mental.
+  final BuildContext? host;
 
   @override
   ConsumerState<ExplainInChatButton> createState() =>
@@ -108,13 +117,17 @@ class _ExplainInChatButtonState extends ConsumerState<ExplainInChatButton> {
       }
     }
     if (!mounted) return;
-    askInChat(
-      context,
-      ChatHandoff(
-        question: explainInChatQuestion(l10n, subject),
-        notebookId: widget.notebookId,
-      ),
+    final handoff = ChatHandoff(
+      question: explainInChatQuestion(l10n, subject),
+      notebookId: widget.notebookId,
     );
+    final host = widget.host;
+    if (host == null) {
+      askInChat(context, handoff);
+      return;
+    }
+    Navigator.of(context).pop();
+    if (host.mounted) askInChat(host, handoff);
   }
 
   @override

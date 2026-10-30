@@ -3819,8 +3819,10 @@ y prefiere no mostrarte un número inventado.
 - **Tarjetas difíciles**: solo las que de verdad te cuestan —al menos un "De
   nuevo" y tres repasos—, de la que más veces olvidaste a la que menos, con
   *"3 de 9 «De nuevo» · 2 lapsos"* (un lapso es olvidarla cuando ya estaba en
-  repaso). Tocá una para ver la respuesta y **"Ver en la fuente"**.
-  **"Repasar estas"** las practica solo a ellas, sin tocar su calendario.
+  repaso). Tocá una para ver la respuesta, **"Ver en la fuente"** y
+  **"Explicar"**, que lleva la pregunta, la respuesta y el pasaje al chat,
+  como en Repasar. **"Repasar estas"** las practica solo a ellas, sin tocar
+  su calendario.
 
 ### Sesión de quiz suelta
 

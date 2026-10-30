@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' show DateFormat, NumberFormat;
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/features/creations/presentation/explain_in_chat_question.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/explain_in_chat_button.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/stats_charts.dart';
 import 'package:sinapsis/features/habit/domain/entities/daily_activity.dart';
 import 'package:sinapsis/features/habit/domain/entities/difficult_card.dart';
@@ -709,8 +711,8 @@ String _tally(AppLocalizations l10n, DifficultCard card) => [
   l10n.f43S20HardestLapses(card.lapses),
 ].join(' · ');
 
-/// La hoja de una tarjeta difícil: la pregunta, la respuesta, sus números y
-/// el camino a su fuente.
+/// La hoja de una tarjeta difícil: la pregunta, la respuesta, sus números, el
+/// camino a su fuente y «Explicar» (F43, M15), que lleva la tarjeta al chat.
 Future<void> showDifficultCardSheet(BuildContext context, DifficultCard card) {
   return showModalBottomSheet<void>(
     context: context,
@@ -765,12 +767,18 @@ Future<void> showDifficultCardSheet(BuildContext context, DifficultCard card) {
                       );
                     },
                   ),
-                  // La marca la pide así el encargo del paso 20, para
-                  // encontrarla al integrar el paso 19.
-                  // ignore: flutter_style_todos
-                  // TODO(F43 M15): «Explicar» (`ExplainInChatButton`, del paso
-                  // 19) con la pregunta y la respuesta de esta tarjeta; va
-                  // acá, al lado de «Ver en la fuente», al integrar.
+                  ExplainInChatButton(
+                    key: const Key('difficult-card-explain'),
+                    host: context,
+                    subject: () => ExplainSubject(
+                      question: card.front,
+                      answer: card.back,
+                      answered: true,
+                    ),
+                    sourceItemId: card.itemId,
+                    passageStart: card.hasSourceRange ? card.sourceStart : null,
+                    passageEnd: card.hasSourceRange ? card.sourceEnd : null,
+                  ),
                 ],
               ),
             ],
