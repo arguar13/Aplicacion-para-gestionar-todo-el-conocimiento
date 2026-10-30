@@ -369,6 +369,7 @@ void main() {
       harness.container
           .read(aiOrganizeStatusProvider.notifier)
           .state = const AiOrganizeWorking(
+        itemId: 'roma',
         itemTitle: 'Roma',
         pending: 3,
         source: AiWorkSource.fresh,
@@ -479,6 +480,7 @@ void main() {
 
         setStatus(
           const AiOrganizeWorking(
+            itemId: 'de-antes-1',
             itemTitle: 'De antes 1',
             pending: 1,
             source: AiWorkSource.existingLibrary,
@@ -504,6 +506,7 @@ void main() {
         // antes—, y esto mostraba la barra sin que fuera la biblioteca.
         setStatus(
           const AiOrganizeWorking(
+            itemId: 'de-antes-1',
             itemTitle: 'De antes 1',
             pending: 1,
             source: AiWorkSource.requested,
@@ -528,6 +531,7 @@ void main() {
 
         setStatus(
           const AiOrganizeWorking(
+            itemId: 'nuevo',
             itemTitle: 'Nuevo',
             pending: 2,
             source: AiWorkSource.fresh,

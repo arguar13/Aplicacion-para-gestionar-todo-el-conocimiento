@@ -108,6 +108,7 @@ void main() {
       await pumpScreen(tester);
       setStatus(
         const AiOrganizeWorking(
+          itemId: 'roma',
           itemTitle: 'Roma',
           pending: 3,
           source: AiWorkSource.fresh,
@@ -750,6 +751,7 @@ void main() {
       tracker.begin(kind: AiTaskKind.organize, title: 'Roma');
       setStatus(
         const AiOrganizeWorking(
+          itemId: 'roma',
           itemTitle: 'Roma',
           pending: 3,
           source: AiWorkSource.fresh,

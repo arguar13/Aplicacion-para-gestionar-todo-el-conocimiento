@@ -186,10 +186,16 @@ enum AiWorkSource {
 /// detrás, contando la pasada por la biblioteca existente.
 final class AiOrganizeWorking extends AiOrganizeStatus {
   const AiOrganizeWorking({
+    required this.itemId,
     required this.itemTitle,
     required this.pending,
     required this.source,
   });
+
+  /// El elemento que está organizando: el documento que lo pidió desde
+  /// «Crear» (F45, paso 7b) lo reconoce por él, no por su título, que dos
+  /// documentos pueden compartir.
+  final String itemId;
 
   final String itemTitle;
   final int pending;

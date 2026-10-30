@@ -934,6 +934,7 @@ class AiOrganizeQueue {
     final pending = math.max(0, await _pending(epoch, quietBefore) - 1);
     _onStatus(
       AiOrganizeWorking(
+        itemId: item.id,
         itemTitle: item.title,
         source: source,
         pending: pending,
@@ -1106,6 +1107,7 @@ class AiOrganizeQueue {
       }
       _onStatus(
         AiOrganizeWorking(
+          itemId: item.id,
           itemTitle: item.title,
           source: AiWorkSource.flashcardsRequest,
           pending: pending,
@@ -1252,6 +1254,7 @@ class AiOrganizeQueue {
       }
       _onStatus(
         AiOrganizeWorking(
+          itemId: item.id,
           itemTitle: item.title,
           source: AiWorkSource.datesRequest,
           pending: pending,
