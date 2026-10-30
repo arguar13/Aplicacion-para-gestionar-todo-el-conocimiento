@@ -45,13 +45,21 @@ final readableRegistryProvider =
 
 /// El texto de la pantalla que se ve, o `null` si no hay ninguno: lo que lee
 /// el botón flotante.
-final currentReadableProvider = Provider<ReadableDocument?>((ref) {
-  final offered = ref.watch(readableRegistryProvider);
+final currentReadableProvider = Provider<ReadableDocument?>(
+  (ref) => currentReadableOf(ref.watch(readableRegistryProvider)),
+);
+
+/// De lo [offered], lo de la pantalla de más arriba con algo que leer.
+///
+/// Quien lo mira en vivo desde una pantalla lo hace con
+/// `readableRegistryProvider.select(currentReadableOf)`: sin un provider de
+/// por medio que se refresque cuando la pantalla ya se fue.
+ReadableDocument? currentReadableOf(List<ReadableDocument> offered) {
   for (final document in offered.reversed) {
     if (!document.isEmpty) return document;
   }
   return null;
-});
+}
 
 /// Declara que [child] muestra [document], para leerlo en voz alta (F25).
 ///

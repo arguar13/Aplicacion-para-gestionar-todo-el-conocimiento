@@ -162,10 +162,7 @@ void main() {
             path: '/',
             builder: (_, _) => Scaffold(
               body: docked
-                  ? ReadAloudDock(
-                      documentId: document.id,
-                      child: const Text('Visor'),
-                    )
+                  ? const ReadAloudDock(child: Text('Visor'))
                   : const Text('Otra'),
             ),
           ),
@@ -194,11 +191,13 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('mientras se lee lo de esa pantalla, el lector flotante no '
-        'aparece: ni el reproductor ni el botón', (tester) async {
+    testWidgets('mientras se ve esa pantalla —el marco de lectura (F47, paso '
+        '1)—, el lector flotante no aparece: ni el reproductor ni el botón', (
+      tester,
+    ) async {
       await pump(tester, docked: true);
 
-      expect(container.read(readAloudDockProvider), {document.id});
+      expect(container.read(readAloudDockProvider), isNotEmpty);
       expect(player, findsNothing);
       controller().minimize();
       await tester.pumpAndSettle();

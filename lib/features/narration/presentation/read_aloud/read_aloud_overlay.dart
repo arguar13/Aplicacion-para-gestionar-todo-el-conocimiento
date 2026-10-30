@@ -56,6 +56,9 @@ const _snackBarInset = EdgeInsets.fromLTRB(15, 5, 15, 10);
 /// Y mantiene viva **la tarjeta de lo que suena** (F47, paso 2b) —ver
 /// `mediaSessionHubProvider`—, con el lector en ella: con la app minimizada o
 /// la pantalla apagada, sigue sonando y se maneja desde la notificación.
+///
+/// En el marco de lectura (F47, paso 1), que trae su propio lugar para el
+/// reproductor (`ReadAloudDock`), se hace a un lado.
 class ReadAloudOverlay extends ConsumerStatefulWidget {
   const ReadAloudOverlay({
     required this.router,
@@ -323,9 +326,9 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
 
   @override
   Widget build(BuildContext context) {
-    final (panel, title, reading) = ref.watch(
+    final (panel, title) = ref.watch(
       readAloudControllerProvider.select(
-        (s) => (s.panel, s.document?.title, s.document?.id),
+        (s) => (s.panel, s.document?.title),
       ),
     );
     final offered = ref.watch(currentReadableProvider.select((d) => d != null));
@@ -333,10 +336,10 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
       narrationSettingsNotifierProvider.select((s) => s.focusedReading),
     );
     if (title != null) _title = title;
-    // Lo que suena tiene su propio reproductor en la pantalla que se ve —un
-    // visor de extraer de Repasar (F43, paso 7)—: este no lo repite.
+    // La pantalla que se ve trae su lugar para el reproductor —el marco de
+    // lectura (F47, paso 1)—: este no lo repite, ni pone el botón flotante.
     final docked = ref.watch(
-      readAloudDockProvider.select((ids) => ids.contains(reading)),
+      readAloudDockProvider.select((owners) => owners.isNotEmpty),
     );
 
     final media = MediaQuery.of(context);
