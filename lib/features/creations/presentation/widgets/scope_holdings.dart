@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope_summary.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
@@ -250,7 +251,7 @@ Future<void> openScopeExtract(
   created.match(
     (_) => messenger
       ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(failed))),
+      ..showAppSnackBar(AppSnackBar(content: Text(failed))),
     (creation) => openCreation(context, creation),
   );
 }

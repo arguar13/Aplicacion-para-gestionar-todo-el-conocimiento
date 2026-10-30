@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
@@ -124,7 +125,9 @@ class _ReviewEntryScreenState extends ConsumerState<ReviewEntryScreen> {
     result.match((failure) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+        );
     }, (_) {});
   }
 

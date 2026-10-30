@@ -72,10 +72,10 @@ class VocabularyFeedback {
   void report(Either<Failure, VocabularyOperation> result) {
     _messenger.hideCurrentSnackBar();
     result.fold(
-      (failure) => _messenger.showSnackBar(
-        SnackBar(content: Text(failure.localizedMessage(_l10n))),
+      (failure) => _messenger.showAppSnackBar(
+        AppSnackBar(content: Text(failure.localizedMessage(_l10n))),
       ),
-      (operation) => _messenger.showSnackBar(
+      (operation) => _messenger.showAppSnackBar(
         AppSnackBar(
           content: Text(vocabularyOperationMessage(_l10n, operation)),
           action: SnackBarAction(
@@ -93,8 +93,8 @@ class VocabularyFeedback {
 
     _messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
+      ..showAppSnackBar(
+        AppSnackBar(
           content: Text(
             result.isRight()
                 ? _l10n.vocabularyUndone

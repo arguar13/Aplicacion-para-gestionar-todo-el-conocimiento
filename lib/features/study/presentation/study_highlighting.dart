@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -327,7 +328,7 @@ Future<void> pickStudyAt(
   final messenger = ScaffoldMessenger.maybeOf(context);
   void say(String message) => messenger
     ?..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+    ..showAppSnackBar(AppSnackBar(content: Text(message)));
 
   final toggle = studyPickAt(
     content: content,

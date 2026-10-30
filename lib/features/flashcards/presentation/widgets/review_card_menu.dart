@@ -76,13 +76,15 @@ class ReviewCardMenu extends ConsumerWidget {
 
     void fail(Failure failure) => messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+      );
 
     /// El aviso con «Deshacer» de pausar y posponer.
     void notify(String message, String id, {required bool wasSuspended}) {
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(
+        ..showAppSnackBar(
           AppSnackBar(
             content: Text(message),
             action: SnackBarAction(

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/ai_models/domain/services/creation_cost_estimator.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/illustration_providers.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_capability_card.dart';
@@ -271,7 +272,7 @@ class _CreationCustomizeSheetState
     navigator.pop();
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showAppSnackBar(AppSnackBar(content: Text(message)));
   }
 
   Future<void> _generate(List<String> sourceIds, {required bool runNow}) async {
@@ -323,7 +324,9 @@ class _CreationCustomizeSheetState
         setState(() => _busy = false);
         messenger
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(l10n.f43StudioCreateFailed)));
+          ..showAppSnackBar(
+            AppSnackBar(content: Text(l10n.f43StudioCreateFailed)),
+          );
       },
       (_) {
         navigator.pop();
@@ -332,7 +335,7 @@ class _CreationCustomizeSheetState
             : (runNow ? l10n.f43StudioQueuedSnack : l10n.f43StudioLaterSnack);
         messenger
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(text)));
+          ..showAppSnackBar(AppSnackBar(content: Text(text)));
       },
     );
   }

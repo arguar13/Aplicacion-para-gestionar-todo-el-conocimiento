@@ -239,7 +239,7 @@ Future<void> _trash(
     (_) => _say(messenger, l10n.f43StudioActionFailed),
     (_) => messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(
+      ..showAppSnackBar(
         AppSnackBar(
           content: Text(l10n.f43StudioTrashed),
           action: SnackBarAction(
@@ -272,7 +272,7 @@ Future<void> _rename(
 
 void _say(ScaffoldMessengerState messenger, String text) => messenger
   ..hideCurrentSnackBar()
-  ..showSnackBar(SnackBar(content: Text(text)));
+  ..showAppSnackBar(AppSnackBar(content: Text(text)));
 
 class _RenameDialog extends StatefulWidget {
   const _RenameDialog({required this.initial});

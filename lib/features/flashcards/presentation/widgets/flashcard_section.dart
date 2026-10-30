@@ -137,7 +137,7 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
     ) {
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(
+        ..showAppSnackBar(
           AppSnackBar(
             content: Text(l10n.flashcardRejected),
             action: SnackBarAction(
@@ -149,8 +149,8 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
                   receipt,
                 );
                 undone.match(
-                  (failure) => messenger.showSnackBar(
-                    SnackBar(content: Text(failure.localizedMessage(l10n))),
+                  (failure) => messenger.showAppSnackBar(
+                    AppSnackBar(content: Text(failure.localizedMessage(l10n))),
                   ),
                   (_) {},
                 );
@@ -164,7 +164,7 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showAppSnackBar(AppSnackBar(content: Text(message)));
   }
 
   @override

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/creations/data_table/domain/study_table.dart';
 import 'package:sinapsis/features/creations/data_table/domain/table_sort.dart';
 import 'package:sinapsis/features/creations/data_table/presentation/data_table_state.dart';
@@ -227,6 +228,6 @@ class TableCellSheet extends StatelessWidget {
     await Clipboard.setData(ClipboardData(text: value));
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(copied)));
+      ..showAppSnackBar(AppSnackBar(content: Text(copied)));
   }
 }

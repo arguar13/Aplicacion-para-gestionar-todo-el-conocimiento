@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/infographic/domain/infographic_design.dart';
 import 'package:sinapsis/features/creations/infographic/presentation/widgets/infographic_design_sheet.dart';
@@ -228,8 +229,8 @@ class _InfographicSaveImageButtonState
       if (path != null) {
         messenger
           ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text(l10n.f43StudioDownloaded(file.fileName))),
+          ..showAppSnackBar(
+            AppSnackBar(content: Text(l10n.f43StudioDownloaded(file.fileName))),
           );
       }
       // Lo que falla al dibujar o al guardar se dice en una línea, como en
@@ -238,7 +239,9 @@ class _InfographicSaveImageButtonState
     } catch (_) {
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.f43StudioActionFailed)));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(l10n.f43StudioActionFailed)),
+        );
     } finally {
       if (mounted) setState(() => _busy = false);
     }

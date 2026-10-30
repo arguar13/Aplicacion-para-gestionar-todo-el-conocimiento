@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
 import 'package:sinapsis/features/ai_models/domain/services/creation_cost_estimator.dart';
 import 'package:sinapsis/features/ai_models/presentation/illustration_texts.dart';
@@ -113,8 +114,8 @@ class _PresentationIllustrationSheetState
         navigator.pop();
         messenger
           ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text(l10n.f43PresDrawnSnack(run.drawn))),
+          ..showAppSnackBar(
+            AppSnackBar(content: Text(l10n.f43PresDrawnSnack(run.drawn))),
           );
         return;
       }

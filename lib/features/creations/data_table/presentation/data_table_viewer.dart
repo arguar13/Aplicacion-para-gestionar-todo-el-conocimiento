@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SliverLayoutDimensions;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/creations/data_table/domain/study_table.dart';
 import 'package:sinapsis/features/creations/data_table/domain/study_table_json.dart';
 import 'package:sinapsis/features/creations/data_table/domain/table_export.dart';
@@ -630,7 +631,7 @@ Future<void> copyDataTable(
   );
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(l10n.f43TableCopied)));
+    ..showAppSnackBar(AppSnackBar(content: Text(l10n.f43TableCopied)));
 }
 
 /// Los botones de la tabla en la barra del visor: copiarla y exportarla a

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
 import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_providers.dart';
@@ -35,7 +36,9 @@ Future<bool> requestVocabularyMove(
   final plan = preview.fold((failure) {
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+      );
     return null;
   }, (plan) => plan);
   if (plan == null) return false;

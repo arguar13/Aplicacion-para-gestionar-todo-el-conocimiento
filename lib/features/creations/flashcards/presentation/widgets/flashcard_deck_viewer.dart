@@ -115,7 +115,7 @@ class _FlashcardDeckViewerState extends ConsumerState<FlashcardDeckViewer> {
         setState(() => _grading = false);
         messenger
           ..hideCurrentSnackBar()
-          ..showSnackBar(
+          ..showAppSnackBar(
             AppSnackBar(content: Text(l10n.f43S19DeckGradeFailed)),
           );
         return;
@@ -164,7 +164,9 @@ class _FlashcardDeckViewerState extends ConsumerState<FlashcardDeckViewer> {
     if (!saved) {
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(AppSnackBar(content: Text(l10n.f43CardsInReviewFailed)));
+        ..showAppSnackBar(
+          AppSnackBar(content: Text(l10n.f43CardsInReviewFailed)),
+        );
     }
   }
 
