@@ -14761,10 +14761,6 @@
   "@f47P1AskAiDraft": {"description": "F47, paso 1: la pregunta a medio escribir con que se abre el chat desde «Preguntar a la IA».", "placeholders": {"title": {"type": "String"}}},
   "f47P1Podcast": "Podcast",
   "@f47P1Podcast": {"description": "F47, paso 1: ficha «Podcast» de la fila de IA; el podcast llega en el paso 6."},
-  "f47P1PodcastSoon": "Próximamente",
-  "@f47P1PodcastSoon": {"description": "F47, paso 1: estado de la ficha «Podcast», que todavía no hace nada."},
-  "f47P1PodcastSoonHint": "El podcast a medida llega en una próxima versión",
-  "@f47P1PodcastSoonHint": {"description": "F47, paso 1: lo que dice el lector de pantalla de la ficha «Podcast», apagada."},
   "f47P1Listen": "Escuchar",
   "@f47P1Listen": {"description": "F47, paso 1: el botón del lugar del reproductor, abajo del marco, cuando no suena nada."},
   "f47P1MoreSummarize": "Resumir",
@@ -14882,5 +14878,13 @@
   "f47P1MoreOpenYoutube": "Ver en YouTube",
   "@f47P1MoreOpenYoutube": {"description": "F47, paso 1: ⋮ del marco de lectura de un video de YouTube."},
   "f47P1ReportIndex": "El informe",
-  "@f47P1ReportIndex": {"description": "F47, paso 1: Contenido del marco de lectura de un informe, con su índice."}
+  "@f47P1ReportIndex": {"description": "F47, paso 1: Contenido del marco de lectura de un informe, con su índice."},
+  "f47P1PodcastMade": "A tu medida",
+  "@f47P1PodcastMade": {"description": "F47, paso 1: el detalle de la ficha «Podcast» de la fila de IA del marco de lectura, que abre la hoja del podcast (paso 6a)."},
+  "f47P1PodcastHint": "Arma un podcast sobre lo que leés, con su formato, su duración y sus voces",
+  "@f47P1PodcastHint": {"description": "F47, paso 1: lo que dice el lector de pantalla de la ficha «Podcast», prendida."},
+  "f47P1PodcastOnlyProcessed": "Solo en lo procesado",
+  "@f47P1PodcastOnlyProcessed": {"description": "F47, paso 1: el detalle de la ficha «Podcast», apagada, en un lector que no es de un documento procesado ni de lo creado (una nota, una fuente de la Biblioteca)."},
+  "f47P1PodcastOnlyProcessedHint": "El podcast se arma con un documento procesado: abrilo desde Procesado",
+  "@f47P1PodcastOnlyProcessedHint": {"description": "F47, paso 1: lo que dice el lector de pantalla de la ficha «Podcast», apagada."}
 }

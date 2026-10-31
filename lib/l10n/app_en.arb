@@ -15738,10 +15738,6 @@
   "@f47P1AskAiDraft": {"description": "F47, paso 1: la pregunta a medio escribir con que se abre el chat desde «Preguntar a la IA».", "placeholders": {"title": {"type": "String"}}},
   "f47P1Podcast": "Podcast",
   "@f47P1Podcast": {"description": "F47, paso 1: ficha «Podcast» de la fila de IA; el podcast llega en el paso 6."},
-  "f47P1PodcastSoon": "Coming soon",
-  "@f47P1PodcastSoon": {"description": "F47, paso 1: estado de la ficha «Podcast», que todavía no hace nada."},
-  "f47P1PodcastSoonHint": "The custom podcast is coming in a later version",
-  "@f47P1PodcastSoonHint": {"description": "F47, paso 1: lo que dice el lector de pantalla de la ficha «Podcast», apagada."},
   "f47P1Listen": "Listen",
   "@f47P1Listen": {"description": "F47, paso 1: el botón del lugar del reproductor, abajo del marco, cuando no suena nada."},
   "f47P1MoreSummarize": "Summarize",
@@ -15859,5 +15855,13 @@
   "f47P1MoreOpenYoutube": "Watch on YouTube",
   "@f47P1MoreOpenYoutube": {"description": "F47, paso 1: ⋮ del marco de lectura de un video de YouTube."},
   "f47P1ReportIndex": "The report",
-  "@f47P1ReportIndex": {"description": "F47, paso 1: Contenido del marco de lectura de un informe, con su índice."}
+  "@f47P1ReportIndex": {"description": "F47, paso 1: Contenido del marco de lectura de un informe, con su índice."},
+  "f47P1PodcastMade": "Made for you",
+  "@f47P1PodcastMade": {"description": "F47, paso 1: el detalle de la ficha «Podcast» de la fila de IA del marco de lectura, que abre la hoja del podcast (paso 6a)."},
+  "f47P1PodcastHint": "Makes a podcast about what you're reading, with its format, length and voices",
+  "@f47P1PodcastHint": {"description": "F47, paso 1: lo que dice el lector de pantalla de la ficha «Podcast», prendida."},
+  "f47P1PodcastOnlyProcessed": "Processed only",
+  "@f47P1PodcastOnlyProcessed": {"description": "F47, paso 1: el detalle de la ficha «Podcast», apagada, en un lector que no es de un documento procesado ni de lo creado (una nota, una fuente de la Biblioteca)."},
+  "f47P1PodcastOnlyProcessedHint": "A podcast is made from a processed document: open it from Processed",
+  "@f47P1PodcastOnlyProcessedHint": {"description": "F47, paso 1: lo que dice el lector de pantalla de la ficha «Podcast», apagada."}
 }

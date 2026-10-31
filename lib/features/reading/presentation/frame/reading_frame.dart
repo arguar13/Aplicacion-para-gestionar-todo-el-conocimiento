@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_dock.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_ai_row.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
@@ -156,9 +157,9 @@ class _ReadingFrameScope extends InheritedWidget {
 ///   ([showTitle] lo pone arriba si el cuerpo no lo trae).
 /// - **La fila de IA**, debajo, que IA prende y apaga y que se recuerda: las
 ///   fichas de [aiRow] —Resumir · Sintetizar · Palabras clave, con su estado
-///   y su avance—, **Preguntar a la IA** y **Podcast**. En angosto se
-///   desplaza de costado. [aiRowPinned] la deja abierta mientras se elige a
-///   mano.
+///   y su avance—, **Preguntar a la IA** y **Podcast** ([podcastScope]). En
+///   angosto se desplaza de costado. [aiRowPinned] la deja abierta mientras
+///   se elige a mano.
 /// - **El cuerpo**, con los colores del modo de lectura de «Apariencia».
 /// - **Abajo, el lugar del reproductor** ([ReadingPlayerSlot]): «Escuchar»
 ///   si no suena nada; si suena, el reproductor de hoy. Sin el botón
@@ -181,6 +182,7 @@ class ReadingFrame extends ConsumerStatefulWidget {
     this.menu = const [],
     this.ownPlayer,
     this.ownReadableId,
+    this.podcastScope,
     super.key,
   });
 
@@ -224,6 +226,11 @@ class ReadingFrame extends ConsumerStatefulWidget {
   final WidgetBuilder? ownPlayer;
   final String? ownReadableId;
 
+  /// Sobre qué se arma un podcast desde la ficha «Podcast» —el documento
+  /// procesado que se lee, el recorte de lo creado—; `null` si no es de lo
+  /// procesado, y la ficha queda apagada diciendo por qué.
+  final CreationScope? podcastScope;
+
   @override
   ConsumerState<ReadingFrame> createState() => _ReadingFrameState();
 }
@@ -251,7 +258,7 @@ class _ReadingFrameState extends ConsumerState<ReadingFrame> {
     final aiOpen = appearance.aiRowOpen || widget.aiRowPinned;
     final trailing = [
       ReadingAskAiChip(onPressed: _askAi),
-      const ReadingPodcastChip(),
+      ReadingPodcastChip(scope: widget.podcastScope),
     ];
 
     return Theme(

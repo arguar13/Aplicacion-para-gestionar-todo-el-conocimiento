@@ -10,6 +10,7 @@ import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/core/design/reading_scroll_physics.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
@@ -55,6 +56,7 @@ void main() {
     ReadingZoom? zoom,
     bool showTitle = true,
     Widget? own,
+    CreationScope? podcastScope,
     Map<String, Object> stored = const {},
   }) async {
     SharedPreferences.setMockInitialValues(stored);
@@ -119,6 +121,7 @@ void main() {
             ],
             ownPlayer: own == null ? null : (_) => own,
             ownReadableId: own == null ? null : document.id,
+            podcastScope: podcastScope,
           ),
         ),
         GoRoute(path: '/chat', builder: (_, _) => const Text('El chat')),
@@ -281,28 +284,56 @@ void main() {
       expect(prefs.getBool(ReadingAppearanceNotifier.aiRowKey), isTrue);
     });
 
-    testWidgets('Podcast tiene su lugar, apagado y diciendo que llega '
-        'después: tocarlo no hace nada', (tester) async {
+    testWidgets('Podcast, fuera de lo procesado, queda apagado y dice por '
+        'qué: tocarlo no hace nada', (tester) async {
       final semantics = tester.ensureSemantics();
       await pump(tester);
 
       final podcast = find.byKey(const Key('reading-ai-podcast'));
       expect(
-        find.descendant(of: podcast, matching: find.text(es.f47P1PodcastSoon)),
+        find.descendant(
+          of: podcast,
+          matching: find.text(es.f47P1PodcastOnlyProcessed),
+        ),
         findsOneWidget,
       );
       expect(
         tester.getSemantics(podcast),
         matchesSemantics(
-          label: '${es.f47P1Podcast}. ${es.f47P1PodcastSoon}',
-          hint: es.f47P1PodcastSoonHint,
+          label: '${es.f47P1Podcast}. ${es.f47P1PodcastOnlyProcessed}',
+          hint: es.f47P1PodcastOnlyProcessedHint,
           isButton: true,
           hasEnabledState: true,
         ),
       );
+      await tester.ensureVisible(podcast);
+      await tester.pumpAndSettle();
       await tester.tap(podcast);
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('reading-frame')), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
+      semantics.dispose();
+    });
+
+    testWidgets('Podcast, sobre lo procesado, está prendido y dice qué hace '
+        '(la hoja que abre se prueba en reading_podcast_test)', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pump(tester, podcastScope: const CreationScope.document('d-1'));
+
+      final podcast = find.byKey(const Key('reading-ai-podcast'));
+      expect(
+        find.descendant(of: podcast, matching: find.text(es.f47P1PodcastMade)),
+        findsOneWidget,
+      );
+      expect(
+        tester.getSemantics(podcast),
+        containsSemantics(
+          label: '${es.f47P1Podcast}. ${es.f47P1PodcastMade}',
+          hint: es.f47P1PodcastHint,
+          isButton: true,
+          isEnabled: true,
+          hasTapAction: true,
+        ),
+      );
       semantics.dispose();
     });
 

@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/creations/podcast/presentation/podcast_entry.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La fila de IA del marco de lectura (F47, paso 1, captura 4): las fichas en
@@ -176,22 +179,35 @@ class ReadingAskAiChip extends StatelessWidget {
   }
 }
 
-/// «Podcast»: su lugar en la fila, apagado y diciendo que llega después. El
-/// podcast a medida se construye en el paso 6 de F47; hasta entonces la ficha
-/// no hace nada y no aparenta hacerlo.
+/// «Podcast»: abre la hoja del podcast (F47, paso 6a) sobre [scope] —el
+/// documento procesado que se lee, o el recorte de lo creado—, la misma que
+/// la tarjeta «Podcast» de Repasar.
+///
+/// Sin [scope] —una nota, una fuente de la Biblioteca, el pasaje de una
+/// tarjeta— queda apagada y dice por qué: el podcast se arma con lo
+/// procesado.
 class ReadingPodcastChip extends StatelessWidget {
-  const ReadingPodcastChip({super.key});
+  const ReadingPodcastChip({required this.scope, super.key});
+
+  final CreationScope? scope;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final scope = this.scope;
     return ReadingAiChip(
       key: const Key('reading-ai-podcast'),
       icon: Icons.podcasts_outlined,
       label: l10n.f47P1Podcast,
-      detail: l10n.f47P1PodcastSoon,
-      semanticsHint: l10n.f47P1PodcastSoonHint,
-      onPressed: null,
+      detail: scope == null
+          ? l10n.f47P1PodcastOnlyProcessed
+          : l10n.f47P1PodcastMade,
+      semanticsHint: scope == null
+          ? l10n.f47P1PodcastOnlyProcessedHint
+          : l10n.f47P1PodcastHint,
+      onPressed: scope == null
+          ? null
+          : () => unawaited(startPodcast(context, scope)),
     );
   }
 }

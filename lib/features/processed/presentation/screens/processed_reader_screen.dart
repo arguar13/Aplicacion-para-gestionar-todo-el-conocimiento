@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/extract/presentation/providers/extract_providers.dart';
 import 'package:sinapsis/features/creations/extract/presentation/widgets/extract_study_chips.dart';
@@ -130,6 +131,7 @@ class ProcessedReaderScreen extends ConsumerWidget {
       menu: document == null ? const [] : _menuOf(context, ref, l10n, document),
       ownPlayer: (context) => ExtractPlayer(read: read, title: title),
       ownReadableId: read.readableId,
+      podcastScope: single ? CreationScope.document(documentIds.single) : null,
     );
   }
 

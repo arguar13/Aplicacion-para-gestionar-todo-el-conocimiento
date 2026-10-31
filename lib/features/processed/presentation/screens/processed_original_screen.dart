@@ -9,6 +9,7 @@ import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_original_view_providers.dart';
@@ -131,6 +132,7 @@ class ProcessedOriginalScreen extends ConsumerWidget {
           ),
       ],
       menu: value == null ? const [] : _menuOf(context, ref, l10n, value),
+      podcastScope: CreationScope.document(documentId),
     );
   }
 

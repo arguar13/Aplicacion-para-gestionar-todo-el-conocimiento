@@ -6,6 +6,7 @@ import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/storage/file_opener.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_actions.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_study_bar.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_contents_sheet.dart';
@@ -74,6 +75,7 @@ class OriginalScreen extends ConsumerWidget {
     this.kindLabel,
     this.contents = const [],
     this.menu = const [],
+    this.podcastScope,
     super.key,
   });
 
@@ -96,6 +98,10 @@ class OriginalScreen extends ConsumerWidget {
 
   final List<ReadingContentsSection> contents;
   final List<ReadingMenuGroup> menu;
+
+  /// Sobre qué se arma un podcast desde su ficha: el documento procesado;
+  /// `null` en una fuente de la Biblioteca (ver [ReadingFrame.podcastScope]).
+  final CreationScope? podcastScope;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -132,6 +138,7 @@ class OriginalScreen extends ConsumerWidget {
             ),
       contents: contents,
       menu: menu,
+      podcastScope: podcastScope,
     );
   }
 }

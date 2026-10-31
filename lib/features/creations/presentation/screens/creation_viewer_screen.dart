@@ -258,6 +258,8 @@ class _CreationReader extends ConsumerWidget {
           ? (context) => ownPlayer(context, creation)
           : null,
       ownReadableId: reader.ownReadableId?.call(creation),
+      // Un podcast sobre lo mismo que esta creación.
+      podcastScope: creation.scope,
     );
   }
 }

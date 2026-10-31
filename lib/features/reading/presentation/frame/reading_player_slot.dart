@@ -26,6 +26,20 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   visores de extraer, con su avance que se arrastra— cuando suena eso.
 ///
 /// Respeta el borde seguro de abajo.
+///
+/// **Al integrar el paso 2** (su reproductor, `ReadAloudAnchoredPlayer`, lo
+/// monta `ReadAloudOverlay` para toda la app):
+/// - sonando o achicado, este lugar deja de dibujar un reproductor y el del
+///   paso 2 queda a la vista también en el marco: `ReadAloudDock` ya no
+///   aparta lo que suena, solo el botón redondo. Queda «Escuchar» cuando no
+///   suena nada;
+/// - el cuerpo del marco reserva abajo lo que ocupa ese reproductor
+///   (`readAloudPlayerExtentProvider`, su `resting`), para que no tape lo
+///   último que se lee;
+/// - ⋮ suma «Añadir a la cola» con `controller.enqueue(documento)`, sobre el
+///   documento que ofrece el cuerpo ([currentReadableOf]);
+/// - «Leer: Todo · Resumen · Síntesis · Palabras clave» ya está en
+///   «Contenido» (`reading-read-*`), y se queda ahí.
 class ReadingPlayerSlot extends ConsumerStatefulWidget {
   const ReadingPlayerSlot({this.ownPlayer, this.ownReadableId, super.key});
 
