@@ -4946,8 +4946,10 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
     cursor en el cuadro, listo para pegar un enlace o escribir lo que quieras.
     Si pegás un enlace, te dice qué se va a guardar, como siempre.
   - **"Seguir escuchando"**: el título de lo último que escuchaste. Tocarlo
-    abre la pantalla desde donde lo escuchaste. Por ahora lo llena el lector
-    en voz alta: lo último que empezaste a escuchar con él. El título se ve
+    abre la pantalla desde donde lo escuchaste. Cuenta todo lo que suena
+    y se ve en la tarjeta de la notificación: el lector en voz alta, un audio
+    o un video. Pausar no lo cambia; empezar a escuchar otra cosa, sí.
+    El título se ve
     en la pantalla de inicio aunque la bóveda esté cerrada (la pantalla de
     los widgets te lo recuerda).
 
