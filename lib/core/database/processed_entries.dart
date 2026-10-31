@@ -50,9 +50,9 @@ String processedDepthSql(String itemId) {
 /// palabra para el título, para las partes y para las notas—, vivos o no: lo
 /// vivo lo decide quien la usa. Cada palabra buscada tiene que estar en el
 /// documento, en su título, en cualquiera de sus partes o en una de sus notas
-/// en el texto —las de la copia del original y las del texto procesado (F45,
-/// mejora 19), que son texto de la persona; las del original de la Biblioteca
-/// son de la fuente y no entran acá—: con varias, se intersecan.
+/// en el texto —las de su copia del original y las de su texto (F45, mejora
+/// 19), que son texto de la persona; las del original de la Biblioteca son de
+/// la fuente, otro elemento, y no lo traen—: con varias, se intersecan.
 ///
 /// Envuelta en su propio `SELECT … FROM (…)` a propósito: en SQLite `UNION` e
 /// `INTERSECT` tienen la misma precedencia y se asocian a la izquierda, así que
@@ -66,5 +66,4 @@ const processedDocumentsWithTermSql =
     'JOIN processed_parts pp ON pp.row_key = processed_part_search.rowid '
     'WHERE processed_part_search MATCH ? '
     'UNION SELECT text_note_search.item_id AS doc FROM text_note_search '
-    'WHERE text_note_search MATCH ? '
-    "AND text_note_search.target IN ('processed_original', 'processed_text'))";
+    'WHERE text_note_search MATCH ?)';

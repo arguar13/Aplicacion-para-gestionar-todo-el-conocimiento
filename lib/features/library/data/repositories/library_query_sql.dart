@@ -321,15 +321,15 @@ class LibraryQuerySql {
   /// en fragmentos distintos.
   bool get hasEveryWordBranch => _termMatches.isNotEmpty;
 
-  /// Las fuentes cuyas notas en el texto tienen lo buscado (F45, mejora 19):
-  /// lo que la persona escribió sobre el original de la Biblioteca cuenta
-  /// como su propio texto (`t` = 1), igual que el título. Solo las del
-  /// original de la Biblioteca: las de Procesado son de lo procesado, que la
-  /// Biblioteca no muestra (decisión H). Un parámetro: lo buscado.
+  /// Los elementos cuyas notas en el texto tienen lo buscado (F45, mejora
+  /// 19): lo que la persona escribió sobre un original cuenta como su propio
+  /// texto (`t` = 1), igual que el título. Cada nota es de su dueño —la fuente
+  /// de su original, el documento de su copia o de su texto—, así que las de
+  /// Procesado no traen nada acá: sus documentos quedan afuera de la
+  /// Biblioteca como siempre (decisión H). Un parámetro: lo buscado.
   static const _noteHits =
       'SELECT text_note_search.item_id AS item_id, 1 AS t, NULL AS s '
-      'FROM text_note_search WHERE text_note_search MATCH ? '
-      "AND text_note_search.target = 'source_original'";
+      'FROM text_note_search WHERE text_note_search MATCH ?';
 
   /// Lo que no es un documento procesado (F41): ver `notProcessedSql`.
   static final _notProcessed = notProcessedSql('item.id');
