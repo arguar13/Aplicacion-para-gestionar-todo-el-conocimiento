@@ -802,12 +802,41 @@ void main() {
       await openAddToChat(tester);
       expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('chat-add-think-more')), findsOneWidget);
+      // Lo de adentro se desplaza y arriba sigue a la vista el chat: un
+      // toque ahí la cierra.
+      expect(
+        tester.getRect(find.byType(BottomSheet)).top,
+        greaterThan(0),
+        reason: 'la hoja del «+» no tapa la pantalla entera',
+      );
       await closeChatSheets(tester);
 
       // Y ya en una conversación, con el aviso en una línea arriba del
       // campo.
       await sendChatMessage(tester, 'hola');
       expect(tester.takeException(), isNull);
+      expect(
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (w) =>
+                w.key is ValueKey<String> &&
+                (w.key! as ValueKey<String>).value.startsWith(
+                  'chat-user-bubble-',
+                ),
+          ),
+          matching: find.text('hola'),
+        ),
+        findsOneWidget,
+      );
+      final notice = find.byKey(const Key('chat-model-notice'));
+      expect(notice, findsOneWidget);
+      expect(tester.widget(notice), isA<Padding>(), reason: 'en una línea');
+      expect(
+        tester.getRect(notice).bottom,
+        lessThanOrEqualTo(
+          tester.getRect(find.byKey(const Key('chat-composer'))).top,
+        ),
+      );
     });
 
     test('en cada tema, lo que se lee del vacío y del campo tiene '

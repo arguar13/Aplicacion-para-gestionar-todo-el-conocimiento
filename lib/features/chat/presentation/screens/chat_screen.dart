@@ -337,6 +337,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   /// La hoja «Agregar al chat» del «+» (F42): adjuntar, dónde se pregunta
   /// y «Pensar más». Lo que se cambia ahí vale en el acto.
+  ///
+  /// Como «Dónde pregunto», llega a lo sumo al 85 % del alto: con la letra
+  /// grande en un teléfono chico lo de adentro se desplaza, y arriba sigue a
+  /// la vista el chat, que la cierra con un toque.
   Future<void> _openAddSheet() async {
     FocusScope.of(context).unfocus();
     await showModalBottomSheet<void>(
@@ -344,13 +348,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       showDragHandle: true,
       useSafeArea: true,
       isScrollControlled: true,
-      builder: (_) => AddToChatSheet(
-        thinkMore: _thinkMore,
-        hasImage: _pendingAttachments.any((a) => a.isImage),
-        onCamera: () => unawaited(_attachFrom(_AttachSource.camera)),
-        onPhotos: () => unawaited(_attachFrom(_AttachSource.photos)),
-        onFiles: () => unawaited(_attachFrom(_AttachSource.files)),
-        onThinkMoreChanged: (on) => setState(() => _thinkMore = on),
+      builder: (sheetContext) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.85,
+        ),
+        child: AddToChatSheet(
+          thinkMore: _thinkMore,
+          hasImage: _pendingAttachments.any((a) => a.isImage),
+          onCamera: () => unawaited(_attachFrom(_AttachSource.camera)),
+          onPhotos: () => unawaited(_attachFrom(_AttachSource.photos)),
+          onFiles: () => unawaited(_attachFrom(_AttachSource.files)),
+          onThinkMoreChanged: (on) => setState(() => _thinkMore = on),
+        ),
       ),
     );
   }
