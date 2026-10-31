@@ -88,4 +88,47 @@ void main() {
       expect(system.spoken, ['Hola.']);
     });
   });
+
+  group('las voces propias en la nube (F47, paso 4)', () {
+    const clonada = NarrationVoice(
+      name: 'mia:v1',
+      locale: 'es-AR',
+      engine: NarrationEngine.cloud,
+    );
+    late FakeTextToSpeechService cloud;
+    late RoutingTextToSpeechService withCloud;
+
+    setUp(() {
+      cloud = FakeTextToSpeechService();
+      withCloud = RoutingTextToSpeechService(
+        system: system,
+        offline: offline,
+        cloud: cloud,
+      );
+      addTearDown(withCloud.dispose);
+    });
+
+    test('leen con su motor, y pasar a él corta el que sonaba', () async {
+      await withCloud.setVoice(_daniela);
+      await withCloud.speak('Sin conexión.');
+      await withCloud.setVoice(clonada);
+      await withCloud.speak('En la nube.');
+      expect(offline.stopCount, 1);
+      expect(cloud.spoken, ['En la nube.']);
+      expect(cloud.lastVoice, clonada);
+      expect(offline.spoken, ['Sin conexión.']);
+    });
+
+    test('la velocidad vale también para la nube', () async {
+      await withCloud.setSpeed(1.25);
+      expect(cloud.lastSpeed, 1.25);
+    });
+
+    test('donde no hay motor de la nube, lee la del sistema', () async {
+      await router.setVoice(clonada);
+      await router.speak('Hola.');
+      expect(system.lastVoice, isNull);
+      expect(system.spoken, ['Hola.']);
+    });
+  });
 }

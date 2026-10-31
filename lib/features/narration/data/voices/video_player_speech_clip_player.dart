@@ -28,9 +28,10 @@ class VideoPlayerSpeechClipPlayer implements SpeechClipPlayer {
   Future<bool> play(
     SpeechClip clip, {
     void Function(double)? onProgress,
+    double speed = 1,
   }) async {
     await stop();
-    final playback = _current = _Playback(_open(clip), onProgress);
+    final playback = _current = _Playback(_open(clip), onProgress, speed);
     return playback.run();
   }
 
@@ -46,10 +47,11 @@ class VideoPlayerSpeechClipPlayer implements SpeechClipPlayer {
 }
 
 class _Playback {
-  _Playback(this._controller, this._onProgress);
+  _Playback(this._controller, this._onProgress, this._speed);
 
   final VideoPlayerController _controller;
   final void Function(double)? _onProgress;
+  final double _speed;
   final _done = Completer<bool>();
   var _released = false;
 
@@ -59,6 +61,7 @@ class _Playback {
       // Cortado mientras se abría: no suena.
       if (!_done.isCompleted) {
         _controller.addListener(_onChange);
+        if (_speed != 1) await _controller.setPlaybackSpeed(_speed);
         await _controller.play();
       }
     } on Object catch (error, stackTrace) {

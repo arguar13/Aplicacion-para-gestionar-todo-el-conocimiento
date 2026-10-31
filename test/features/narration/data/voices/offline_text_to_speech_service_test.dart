@@ -223,4 +223,67 @@ void main() {
       expect(old.existsSync(), isFalse);
     });
   });
+
+  group('una voz creada en el teléfono (F47, paso 4)', () {
+    const clara = NarrationVoice(
+      name: 'mia:v1',
+      locale: 'es',
+      engine: NarrationEngine.offline,
+    );
+
+    test('lee como su hablante, a la velocidad elegida por su ritmo', () async {
+      synthesizer = FakeOfflineSpeechSynthesizer();
+      player = FakeSpeechClipPlayer();
+      final resolved = <NarrationVoice>[];
+      final mine = OfflineTextToSpeechService(
+        synthesizer: synthesizer,
+        player: player,
+        engineOf: (voice) async => OfflineVoiceEngineConfig(
+          family: voice.package.family,
+          model: 'model.onnx',
+          tokens: 'tokens.txt',
+          dataDir: 'espeak-ng-data',
+          voices: voice.isBlend ? 'creadas.voices.bin' : 'voices.bin',
+        ),
+        voiceOf: (voice) async {
+          resolved.add(voice);
+          return const OfflineVoice.blend(
+            id: 'v1',
+            speakerId: 7,
+            name: 'Clara',
+            locale: 'es',
+            kokoroPhonemes: KokoroPhonemes.espeak('es'),
+            pace: 0.9,
+          );
+        },
+        clipsDirectory: () async => clips,
+      );
+      addTearDown(mine.dispose);
+      await mine.setVoice(clara);
+      await mine.setSpeed(1.5);
+      await mine.speak('Hola.');
+
+      expect(resolved, [clara]);
+      final request = synthesizer.requests.single;
+      expect(request.speakerId, 7);
+      expect(request.speed, closeTo(1.35, 1e-9));
+      expect(request.engine.voices, 'creadas.voices.bin');
+    });
+
+    test('una que ya no está no lee', () async {
+      final mine = OfflineTextToSpeechService(
+        synthesizer: synthesizer,
+        player: player,
+        engineOf: (voice) async => null,
+        voiceOf: (voice) async => null,
+        clipsDirectory: () async => clips,
+      );
+      addTearDown(mine.dispose);
+      await mine.setVoice(clara);
+      await expectLater(
+        mine.speak('Hola.'),
+        throwsA(isA<OfflineSpeechException>()),
+      );
+    });
+  });
 }

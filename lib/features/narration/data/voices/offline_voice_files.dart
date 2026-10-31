@@ -98,9 +98,35 @@ class OfflineVoiceFiles {
     return bytes;
   }
 
+  /// El `voices.bin` del paquete de Kokoro, o `null` si no está: de donde
+  /// salen las voces creadas en el teléfono (F47, paso 4).
+  Future<File?> kokoroStyles() async {
+    final config = await engineConfigOf(
+      OfflineVoiceCatalog.voices.firstWhere(
+        (voice) => voice.package == OfflineVoiceCatalog.kokoro,
+      ),
+    );
+    final voices = config?.voices;
+    return voices == null || !File(voices).existsSync() ? null : File(voices);
+  }
+
+  /// Dónde va el `voices.bin` de las voces creadas en el teléfono (F47, paso
+  /// 4): junto a los modelos, porque se arma de nuevo desde sus fichas —que
+  /// están en la bóveda— y del paquete de Kokoro. [name] separa el de las
+  /// voces guardadas del de la muestra que se escucha al crearlas.
+  Future<File> blendStylesFile(String name) async =>
+      File(p.join((await _directory()).path, 'mezclas', '$name.voices.bin'));
+
   /// Dónde están los archivos de [voice], para armar su motor; `null` si su
-  /// paquete no está.
-  Future<OfflineVoiceEngineConfig?> engineConfigOf(OfflineVoice voice) async {
+  /// paquete no está. Una voz creada ([OfflineVoice.isBlend]) lee los
+  /// estilos de [blendStyles], el `voices.bin` de las voces creadas.
+  Future<OfflineVoiceEngineConfig?> engineConfigOf(
+    OfflineVoice voice, {
+    File? blendStyles,
+  }) async {
+    if (voice.isBlend && blendStyles == null) {
+      throw ArgumentError.value(voice, 'voice', 'una voz creada sin estilos');
+    }
     final folder = await _installedFolderOf(voice.package);
     final manifest = File(p.join(folder.path, _manifestName));
     if (!manifest.existsSync()) return null;
@@ -113,7 +139,7 @@ class OfflineVoiceFiles {
       tokens: p.join(base, 'tokens.txt'),
       dataDir: p.join(base, 'espeak-ng-data'),
       voices: voice.package.family == OfflineVoiceFamily.kokoro
-          ? p.join(base, 'voices.bin')
+          ? blendStyles?.path ?? p.join(base, 'voices.bin')
           : null,
       lexicon: kokoro?.lexicon == null ? null : p.join(base, kokoro!.lexicon),
       espeakVoice: kokoro?.espeakVoice,

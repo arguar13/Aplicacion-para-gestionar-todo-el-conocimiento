@@ -81,6 +81,9 @@ class FakeSynthesis {
 /// le pidió y «termina», «avanza» o «falla» cuando la prueba lo dice.
 class FakeSpeechClipPlayer implements SpeechClipPlayer {
   final played = <SpeechClip>[];
+
+  /// La velocidad con que se pidió cada uno de [played] (F47, paso 4).
+  final speeds = <double>[];
   int stops = 0;
 
   Completer<bool>? _current;
@@ -90,9 +93,14 @@ class FakeSpeechClipPlayer implements SpeechClipPlayer {
   bool get playing => _current != null;
 
   @override
-  Future<bool> play(SpeechClip clip, {void Function(double)? onProgress}) {
+  Future<bool> play(
+    SpeechClip clip, {
+    void Function(double)? onProgress,
+    double speed = 1,
+  }) {
     _cut();
     played.add(clip);
+    speeds.add(speed);
     final current = _current = Completer<bool>();
     _onProgress = onProgress;
     return current.future;

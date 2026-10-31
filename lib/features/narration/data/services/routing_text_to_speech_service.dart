@@ -3,25 +3,28 @@ import 'dart:async';
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 import 'package:sinapsis/features/narration/domain/services/text_to_speech_service.dart';
 
-/// Un solo [TextToSpeechService] para el lector, con los dos motores detrás
-/// (F47, paso 3): el del sistema y el sin conexión. Cada voz dice con cuál
-/// lee ([NarrationVoice.engine]); el lector no sabe que son dos.
+/// Un solo [TextToSpeechService] para el lector, con los motores detrás (F47,
+/// pasos 3 y 4): el del sistema, el sin conexión y el de las voces propias en
+/// la nube. Cada voz dice con cuál lee ([NarrationVoice.engine]); el lector no
+/// sabe que son varios.
 ///
-/// - Elegir una voz de otro motor corta el que sonaba: nunca suenan los dos.
+/// - Elegir una voz de otro motor corta el que sonaba: nunca suenan dos.
 /// - [events] y [progress] traen solo lo del motor de la voz elegida: un
-///   «terminó» tardío del otro no hace pasar al lector de oración.
-/// - Donde no hay motor sin conexión, una voz sin conexión
-///   no se puede elegir —la biblioteca no la ofrece—, y si quedó elegida de
+///   «terminó» tardío de otro no hace pasar al lector de oración.
+/// - Donde no hay un motor —el sin conexión, el de la nube—, una voz suya no
+///   se puede elegir —la biblioteca no la ofrece—, y si quedó elegida de
 ///   antes, lee la del sistema.
 class RoutingTextToSpeechService implements TextToSpeechService {
   RoutingTextToSpeechService({
     required TextToSpeechService system,
     TextToSpeechService? offline,
+    TextToSpeechService? cloud,
   }) : _system = system,
        _offline = offline,
+       _cloud = cloud,
        _active = system {
     _subscriptions = [
-      for (final engine in [system, ?offline]) ...[
+      for (final engine in [system, ?offline, ?cloud]) ...[
         engine.events.listen((event) {
           if (identical(engine, _active)) _events.add(event);
         }),
@@ -34,42 +37,45 @@ class RoutingTextToSpeechService implements TextToSpeechService {
 
   final TextToSpeechService _system;
   final TextToSpeechService? _offline;
+  final TextToSpeechService? _cloud;
   TextToSpeechService _active;
   late final List<StreamSubscription<Object>> _subscriptions;
 
   final _events = StreamController<NarrationEvent>.broadcast();
   final _progress = StreamController<int>.broadcast();
 
-  /// Las voces del teléfono: las sin conexión salen del catálogo, no de un
-  /// motor.
+  /// Las voces del teléfono: las sin conexión salen del catálogo y las
+  /// propias de Mías, no de un motor.
   @override
   Future<List<NarrationVoice>> getVoices() => _system.getVoices();
 
+  /// El motor de [voice], o `null` si no está en este dispositivo.
+  TextToSpeechService? _engineOf(NarrationVoice? voice) =>
+      switch (voice?.engine) {
+        NarrationEngine.offline => _offline,
+        NarrationEngine.cloud => _cloud,
+        NarrationEngine.system || null => _system,
+      };
+
   @override
   Future<void> setVoice(NarrationVoice? voice) async {
-    final offline = _offline;
-    final next = voice?.engine == NarrationEngine.offline && offline != null
-        ? offline
-        : _system;
+    final own = _engineOf(voice);
+    final next = own ?? _system;
     if (!identical(next, _active)) {
       final previous = _active;
       _active = next;
       await previous.stop();
     }
-    // Una voz sin conexión donde no hay motor sin conexión: la del sistema.
-    await next.setVoice(
-      identical(next, _system) && _isOffline(voice) ? null : voice,
-    );
+    // Una voz de un motor que no está: la del sistema.
+    await next.setVoice(own == null ? null : voice);
   }
 
-  static bool _isOffline(NarrationVoice? voice) =>
-      voice?.engine == NarrationEngine.offline;
-
-  /// La velocidad vale para los dos: cambiar de voz no la cambia.
+  /// La velocidad vale para todos: cambiar de voz no la cambia.
   @override
   Future<void> setSpeed(double speed) async {
     await _system.setSpeed(speed);
     await _offline?.setSpeed(speed);
+    await _cloud?.setSpeed(speed);
   }
 
   @override
@@ -87,7 +93,7 @@ class RoutingTextToSpeechService implements TextToSpeechService {
   @override
   Stream<int> get progress => _progress.stream;
 
-  /// Suelta lo suyo; los dos motores son de quien los armó.
+  /// Suelta lo suyo; los motores son de quien los armó.
   @override
   Future<void> dispose() async {
     for (final subscription in _subscriptions) {

@@ -189,6 +189,12 @@ object SinapsisEngine {
         MethodChannel(messenger, DictationChannel.CHANNEL).setMethodCallHandler(dictation)
         EventChannel(messenger, DictationChannel.EVENTS).setStreamHandler(dictation)
 
+        // Grabar la muestra de una voz que se clona (F47, paso 4): el
+        // micrófono con `AudioRecord`, a un WAV.
+        val voiceRecorder = VoiceRecorderChannel(context)
+        MethodChannel(messenger, VoiceRecorderChannel.CHANNEL).setMethodCallHandler(voiceRecorder)
+        EventChannel(messenger, VoiceRecorderChannel.EVENTS).setStreamHandler(voiceRecorder)
+
         // El encendido del teléfono, para que la bóveda pida la clave una
         // vez por encendido: el contador de arranques del sistema, que sube
         // en uno cada vez que el teléfono arranca. Sin permisos. Antes de

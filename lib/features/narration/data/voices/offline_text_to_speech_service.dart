@@ -28,16 +28,25 @@ class OfflineTextToSpeechService implements TextToSpeechService {
     required Future<OfflineVoiceEngineConfig?> Function(OfflineVoice voice)
     engineOf,
     required Future<Directory> Function() clipsDirectory,
+    Future<OfflineVoice?> Function(NarrationVoice voice)? voiceOf,
   }) : _synthesizer = synthesizer,
        _player = player,
        _engineOf = engineOf,
-       _clipsDirectory = clipsDirectory;
+       _clipsDirectory = clipsDirectory,
+       _voiceOf = voiceOf ?? _catalogVoiceOf;
 
   final OfflineSpeechSynthesizer _synthesizer;
   final SpeechClipPlayer _player;
   final Future<OfflineVoiceEngineConfig?> Function(OfflineVoice voice)
   _engineOf;
   final Future<Directory> Function() _clipsDirectory;
+
+  /// Qué voz sin conexión es una [NarrationVoice]: la del catálogo y, desde
+  /// el paso 4, una creada en el teléfono (`OfflineVoice.blend`).
+  final Future<OfflineVoice?> Function(NarrationVoice voice) _voiceOf;
+
+  static Future<OfflineVoice?> _catalogVoiceOf(NarrationVoice voice) async =>
+      OfflineVoiceCatalog.byId(voice.name);
 
   final _events = StreamController<NarrationEvent>.broadcast();
   final _progress = StreamController<int>.broadcast();
@@ -63,10 +72,10 @@ class OfflineTextToSpeechService implements TextToSpeechService {
 
   @override
   Future<void> setVoice(NarrationVoice? voice) async {
-    _voice = voice?.engine == NarrationEngine.offline
-        ? OfflineVoiceCatalog.byId(voice!.name)
-        : null;
     _discardPrepared();
+    _voice = voice?.engine == NarrationEngine.offline
+        ? await _voiceOf(voice!)
+        : null;
   }
 
   @override
@@ -171,7 +180,8 @@ class OfflineTextToSpeechService implements TextToSpeechService {
       engine: engine,
       speakerId: voice.speakerId,
       text: text,
-      speed: _speed,
+      // Una voz creada trae su ritmo, que se suma a la velocidad elegida.
+      speed: _speed * voice.pace,
       outputPath: path,
     );
     return _Clip(path);

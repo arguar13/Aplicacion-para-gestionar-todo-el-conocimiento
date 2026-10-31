@@ -59,8 +59,8 @@ class MainActivity : FlutterActivity() {
     }
 
     // La respuesta del diálogo de un permiso: el de notificaciones del aviso
-    // (F31) o el del micrófono para dictar en el chat (F42). Cada canal mira
-    // si el pedido era suyo.
+    // (F31), el del micrófono para dictar en el chat (F42) o para grabar una
+    // voz que se clona (F47). Cada canal mira si el pedido era suyo.
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,
@@ -69,6 +69,7 @@ class MainActivity : FlutterActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         StudyReminderChannel.onPermissionsResult(requestCode, grantResults)
         DictationChannel.onPermissionsResult(requestCode, grantResults)
+        VoiceRecorderChannel.onPermissionsResult(requestCode, grantResults)
     }
 
     // El motor es el del proceso (F29), no uno propio: sobrevive a esta
