@@ -461,3 +461,73 @@ Seis commits, de `a8de0df7` a `b55938de`.
 - **A mirar en el teléfono:** con la letra al doble, la ficha se desplaza sola y las acciones de
   abajo pueden quedar fuera de la vista hasta desplazarla. La medición en el emulador es del
   cierre (paso 6).
+
+### Paso 5 (hecho): las capas y la búsqueda
+
+Nueve commits, de `f5c0a59d` a este Avance: los pares parecidos en las relaciones, el dominio de las
+capas, cómo se ve cada una, las capas en el lienzo, ⚲ Buscar, la GUÍA, una prueba que faltaba y un
+import sin uso. Cada commit compila solo: los archivos que llevan cambios de dos commits se
+stagearon en su versión intermedia.
+
+- **El botón «Capas»** (`map_layers_sheet.dart`), donde estaba la cadena: una hoja con las cinco,
+  cada una con su interruptor, lo que agrega y sus atajos. Arrancan apagadas salvo «Vínculos»
+  (decisión B) y la elección se recuerda (`mapLayersProvider`). Visto como lista, el botón está
+  arriba.
+- **Prender o apagar una no acomoda nada ni vuelve a leer lo que ya se tiene** (`layeredScene`): el
+  lienzo acomoda una sola vez lo que cualquier capa puede mostrar —la burbuja, los vínculos entre
+  documentos— y dibuja el recorte. Lo que se lee aparte —las tarjetas, los parecidos— lo escucha
+  `CanvasLayerFeeds` solo con su capa prendida. Las pruebas cuentan los layouts y las lecturas.
+- **Vínculos**: las uniones entre documentos donde los haya. «Ver todo lo vinculado» es lo que era
+  la vista Vínculos, con su filtro de fuerza y «Se muestran 3 de 6»; apagar la capa ahí vuelve
+  adonde se estaba. «Ver en el Mapa» y «Ver sus vínculos» la prenden si estaba apagada.
+- **Sin tema**: la burbuja gris de lejos, unida a las comunidades con las que se vinculan sus
+  documentos. Un toque entra (no tiene ficha) y sus documentos los trae el motor, sin la base; la
+  miga dice «Todo › Sin tema» y alejarse vuelve a las comunidades. En Radial, Árbol y la lista,
+  entre las comunidades. **`MapShowDocument` de un documento sin tema vuela a ella** y prende la
+  capa: es lo que quedaba del paso 4.
+- **Contradicciones**: en rojo y con su rayo, en la pantalla y en el SVG; apagada, se dibujan como
+  las demás. Abajo, cuántas hay a la vista, con «Abrir Tensión» (también en la hoja).
+- **Parecidos**: con los vectores de F30 (`ItemVectorIndex.similarPairs`), fuera del hilo de la
+  interfaz, entre los documentos a la vista (a lo sumo 200), con un mínimo de 0,6, dos por
+  documento y 30 en total, sin lo ya vinculado en ningún sentido —también lo que «Más fuertes» no
+  dibuja: la fuente lee los vínculos (`mapSimilarSource`)—. Una línea punteada con su «≈»; tocarlo
+  ofrece «Vincular» (un «relacionado»), «Elegir el tipo» o «Ahora no»: nunca vincula sola
+  (decisión C), y lo vinculado deja de proponerse en el acto. Sin el modelo, la capa lo dice y
+  lleva a descargarlo.
+- **Estudio**: tiñe cada documento con la lectura de las tarjetas del Resumen
+  (`boardCardsProvider`), con una insignia que se lee sin el color —anillo vacío, la cuenta de hoy
+  o ✓— y su leyenda; en la Red, en Radial y Árbol y en la lista.
+- **⚲ Buscar** (`map_search_delegate.dart`), arriba: el índice del motor, en memoria; cada
+  resultado dice dónde está. Elegir uno deja `MapShowTopic` o `MapShowDocument` tal como estaban,
+  y el lienzo vuela, abre la ficha y **lo marca con un pulso** (`MapPulse`; sin animaciones, solo
+  el anillo). El pulso vale para todo lo que se pide de afuera.
+- **Se exporta lo que se ve** (decisión G): la burbuja, el rayo, los parecidos punteados y el
+  estudio, en el SVG; el PNG ya es la captura.
+- **Con el lector de pantalla**: cada capa es un interruptor con su nombre, y cada cambio se anuncia
+  («Contradicciones: prendida»); un documento con Estudio dice cómo va, el «≈» nombra los dos
+  documentos y cuánto se parecen, la burbuja dice cuántos tiene, y la búsqueda anuncia cuántos
+  resultados hay.
+- **Lo de F18 se conserva**: los topes 60/300/200, el layout en otro isolate y el caché del gesto.
+  `map_canvas_view.dart` creció lo justo: las capas tienen su pieza (`canvas_layer_state.dart`,
+  `canvas_layer_feeds.dart`, `canvas_layer_notes.dart`, `map_layer_marks.dart`).
+- **Verificado:**
+  - analyze en 19, la línea base;
+  - 1.914 pruebas del Mapa, la app, la base, el chat y las relaciones, y 2.723 de las creaciones,
+    las tarjetas y Organizar (13 salteadas, como siempre);
+  - a 360 dp con la letra al doble, en claro y en oscuro, con la hoja de las capas y todas
+    prendidas: la leyenda de Estudio desbordaba y ahora baja de renglón;
+  - murieron las 23 mutaciones. Sobrevivía «Parecidos compara sin el modelo»: la prueba se quedaba
+    de lejos, sin documentos; se sumó la de la capa prendida de antes, sin el modelo y con
+    documentos a la vista. Entre las otras: la burbuja que se ve apagada, el rayo sin su capa,
+    «Vínculos» apagada que sigue dibujando, el desborde que no suma sus vínculos con la burbuja,
+    un parecido ya vinculado, sin tope por documento, la fuente que no deja afuera lo vinculado,
+    la elección que no se recuerda, «Estudio» que lee apagada, el anuncio equivocado, la búsqueda
+    que pide un tema como documento, el pulso que no late y alejarse de la burbuja hacia los
+    temas.
+- **Queda para el paso 6 (el cierre):**
+  - la suite entera y la medición en el emulador de los gestos con las capas prendidas, contra la de
+    F18 —la burbuja suma un nodo de lejos; Parecidos compara en otro isolate—;
+  - la decisión 90 en arquitectura y la GUÍA de «El Mapa» reescrita de punta a punta;
+  - mirar en el teléfono la hoja de las capas y el «≈» con la letra al doble;
+  - la burbuja dibuja los 200 documentos sin tema más nuevos: buscar uno más viejo vuela a ella, pero
+    no lo encuentra dibujado.
