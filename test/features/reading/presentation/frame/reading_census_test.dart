@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,7 +48,7 @@ import '../../../processed/presentation/processed_ui_fixture.dart';
 /// plan— con dónde quedó en el lector nuevo, y una prueba que llega a ella.
 ///
 /// Las pruebas van por familia de documento; cada una anota lo que alcanzó
-/// con [reach], y al final se comprueba que **no quedó ninguna sin
+/// con `reach`, y al final se comprueba que **no quedó ninguna sin
 /// alcanzar**, salvo las que todavía no existen en la app (con el paso que
 /// las trae).
 void main() {

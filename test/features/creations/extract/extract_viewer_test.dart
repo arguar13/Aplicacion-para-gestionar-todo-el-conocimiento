@@ -7,7 +7,6 @@ import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
-import 'package:sinapsis/features/creations/extract/presentation/providers/extract_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_dock.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
