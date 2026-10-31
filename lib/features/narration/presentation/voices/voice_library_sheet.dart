@@ -7,9 +7,11 @@ import 'package:sinapsis/features/library/presentation/widgets/list_controls.dar
 import 'package:sinapsis/features/narration/domain/voices/voice_filter.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_traits.dart';
+import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/providers/voice_library_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
+import 'package:sinapsis/features/narration/presentation/voices/mine/my_voice_actions.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_card.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_filters_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_texts.dart';
@@ -236,12 +238,38 @@ class _VoiceList extends ConsumerWidget {
           onSelect: () => select(voice),
         );
 
-        if (shown.isEmpty && tab == VoiceLibraryTab.mine && filter.isEmpty) {
-          return _Message(
-            key: const Key('voice-library-mine-empty'),
-            title: l10n.f47P3MineEmptyTitle,
-            text: l10n.f47P3MineEmpty,
-            icon: Icons.record_voice_over_outlined,
+        // Mías (F47, paso 4): arriba, «Clonar una voz» y «Crear una voz»;
+        // sin voces todavía, qué va a haber. Fuera de Android, que es del
+        // teléfono.
+        if (tab == VoiceLibraryTab.mine) {
+          final available = ref.watch(myVoicesAvailableProvider);
+          return ListView(
+            key: const Key('voice-library-list-mine'),
+            controller: scroll,
+            padding: const EdgeInsets.only(bottom: 24),
+            children: [
+              if (available) const MyVoicesEntry(),
+              if (!available)
+                _Message(
+                  key: const Key('voice-library-mine-unavailable'),
+                  title: l10n.f47P3MineEmptyTitle,
+                  text: l10n.f47P4OnlyAndroid,
+                  icon: Icons.smartphone_outlined,
+                  compact: true,
+                )
+              else if (shown.isEmpty && filter.isEmpty)
+                _Message(
+                  key: const Key('voice-library-mine-empty'),
+                  title: l10n.f47P3MineEmptyTitle,
+                  text: l10n.f47P4MineEmpty,
+                  icon: Icons.record_voice_over_outlined,
+                  compact: true,
+                )
+              else if (shown.isEmpty)
+                _Message(text: l10n.f47P3NothingMatches, compact: true)
+              else
+                for (final voice in shown) card(voice),
+            ],
           );
         }
         if (shown.isEmpty &&

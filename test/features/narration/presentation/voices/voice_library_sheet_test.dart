@@ -249,15 +249,34 @@ void main() {
       expect(find.text(es.f47P3Recommended), findsNothing);
     });
 
-    testWidgets('Mías, vacía y lista para las clonadas y las creadas', (
-      tester,
-    ) async {
+    testWidgets('Mías, vacía: arriba clonar y crear, y qué va a haber (F47, '
+        'paso 4)', (tester) async {
       await open(tester, textScale: 2);
       await tapVisible(tester, find.text(es.f47P3TabMine));
       await tester.pumpAndSettle();
 
-      expect(find.text(es.f47P3MineEmpty), findsOneWidget);
+      expect(find.byKey(const Key('my-voices-clone')), findsOneWidget);
+      expect(find.byKey(const Key('my-voices-create')), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text(es.f47P4MineEmpty),
+        200,
+        scrollable: find.descendant(
+          of: find.byKey(const Key('voice-library-list-mine')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      expect(find.text(es.f47P4MineEmpty), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('fuera de Android, Mías dice que es del teléfono', (
+      tester,
+    ) async {
+      await open(tester, offline: false);
+      await tapVisible(tester, find.text(es.f47P3TabMine));
+      await tester.pumpAndSettle();
+      expect(find.text(es.f47P4OnlyAndroid), findsOneWidget);
+      expect(find.byKey(const Key('my-voices-clone')), findsNothing);
     });
 
     testWidgets('una favorita se guarda y aparece en Favoritas', (

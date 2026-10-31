@@ -8,6 +8,7 @@ import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_traits.dart';
 import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/voice_library_providers.dart';
+import 'package:sinapsis/features/narration/presentation/voices/mine/my_voice_actions.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_face_view.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_texts.dart';
 import 'package:sinapsis/features/transform/presentation/providers/model_download_notifier.dart';
@@ -166,6 +167,16 @@ class VoiceCard extends ConsumerWidget {
                   ),
                 if (voice.origin == VoiceOrigin.offline && !ready)
                   VoiceDownloadControls(voice: voice),
+                // Una propia: su nombre, su cara, su consentimiento y
+                // borrarla (F47, paso 4).
+                if (voice.mine case final mine?)
+                  IconButton(
+                    key: Key('voice-mine-actions-${voice.id}'),
+                    tooltip: l10n.f47P4VoiceActions,
+                    icon: const Icon(Icons.more_vert_rounded),
+                    onPressed: () =>
+                        unawaited(showMyVoiceActions(context, mine)),
+                  ),
               ],
             ),
           ),

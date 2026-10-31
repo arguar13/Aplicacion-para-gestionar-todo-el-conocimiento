@@ -2,18 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
 import 'package:sinapsis/features/narration/presentation/voices/downloaded_voices_sheet.dart';
+import 'package:sinapsis/features/narration/presentation/voices/mine/clone_voice_screen.dart';
+import 'package:sinapsis/features/narration/presentation/voices/mine/create_voice_screen.dart';
+import 'package:sinapsis/features/narration/presentation/voices/mine/voice_cloud_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_library_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voices_by_language_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Lo de «Voz y lectura» en Ajustes (F47, paso 3): la biblioteca de voces, la
-/// voz elegida para cada idioma y,
-/// donde se ofrecen las voces sin conexión, las descargadas para borrarlas;
-/// y la Lectura enfocada del reproductor (paso 2). El paso 7 suma el resto
-/// de la sección (la velocidad, la tipografía…).
+/// voz elegida para cada idioma, clonar y crear voces con la nube para voces
+/// (paso 4), donde se ofrecen las voces sin conexión, las descargadas para
+/// borrarlas, y la Lectura enfocada del reproductor (paso 2). El paso 7 suma
+/// el resto de la sección (la velocidad, la tipografía…).
 List<Widget> voiceSettingsTiles(BuildContext context, WidgetRef ref) {
   final l10n = AppLocalizations.of(context)!;
   final offline = ref.watch(offlineVoicesAvailableProvider);
@@ -21,6 +25,7 @@ List<Widget> voiceSettingsTiles(BuildContext context, WidgetRef ref) {
   final focusedReading = ref.watch(
     narrationSettingsNotifierProvider.select((s) => s.focusedReading),
   );
+  final cloud = ref.watch(voiceCloudSettingsProvider);
   return [
     ListTile(
       key: const Key('settings-voice-library'),
@@ -37,6 +42,38 @@ List<Widget> voiceSettingsTiles(BuildContext context, WidgetRef ref) {
       subtitle: Text(l10n.f47P3SettingsByLanguageSubtitle),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => unawaited(showVoicesByLanguage(context)),
+    ),
+    // Las voces propias (F47, paso 4): clonar, crear y la nube para voces,
+    // apagada de entrada.
+    ListTile(
+      key: const Key('settings-clone-voice'),
+      leading: const Icon(Icons.record_voice_over_outlined),
+      title: Text(l10n.f47P4CloneTitle),
+      subtitle: Text(l10n.f47P4CloneEntry),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => unawaited(showCloneVoice(context)),
+    ),
+    ListTile(
+      key: const Key('settings-create-voice'),
+      leading: const Icon(Icons.auto_awesome_outlined),
+      title: Text(l10n.f47P4CreateTitle),
+      subtitle: Text(l10n.f47P4CreateEntry),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => unawaited(showCreateVoice(context)),
+    ),
+    ListTile(
+      key: const Key('settings-voice-cloud'),
+      leading: const Icon(Icons.cloud_outlined),
+      title: Text(l10n.f47P4CloudTitle),
+      subtitle: Text(
+        cloud.ready
+            ? l10n.f47P4CloudOn
+            : cloud.enabled
+            ? l10n.f47P4CloudNoKey
+            : l10n.f47P4CloudOff,
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => unawaited(showVoiceCloudSheet(context)),
     ),
     if (offline)
       ListTile(
