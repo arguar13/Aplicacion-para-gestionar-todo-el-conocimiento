@@ -66,7 +66,6 @@ void main() {
         'su color; la que ya no está, afuera', () {
       final notes = buildDocumentNotes(
         content: content,
-        textKey: 'rend',
         notes: [
           note('b', 'tablas', text: 'Segunda'),
           note('a', 'monte', text: 'Primera'),
@@ -94,7 +93,6 @@ void main() {
             study: DocumentStudy.notStarted,
             highlights: const [],
             notes: notes,
-            textKey: 'rend',
           );
 
       expect(available(const []).myNotes, isFalse);
@@ -191,7 +189,6 @@ void main() {
         highlights: const [],
         options: options,
         notes: notes,
-        textKey: 'rend',
       );
     }
 

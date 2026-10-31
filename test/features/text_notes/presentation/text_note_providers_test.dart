@@ -55,11 +55,7 @@ void main() {
     await h.noteOn(library, text, 'tablas', note: 'Las dos');
     await h.noteOn(library, text, 'Moisés', note: 'El que sube');
     const changed = 'Moisés sube al monte. Baja con la ley.';
-    final key = (
-      target: library as TextNoteTarget,
-      textKey: 'rend-fuente',
-      content: changed,
-    );
+    final key = (target: library as TextNoteTarget, content: changed);
     final placed = container.listen(placedTextNotesProvider(key), (_, _) {});
 
     await Future<void>.delayed(Duration.zero);

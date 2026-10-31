@@ -138,8 +138,8 @@ List<DocumentMark> buildDocumentMarks({
 }
 
 /// Las notas en el texto para el documento que se descarga (F45, mejora 19),
-/// en el orden del texto: cada una en su lugar de [content] —el texto con la
-/// clave [textKey]—, buscada por su pedazo si el texto cambió
+/// en el orden del texto: cada una en su lugar de [content], buscada por su
+/// pedazo si el texto cambió
 /// (`placeTextNotes`). La que quedó sin lugar no tiene dónde ir y se deja
 /// afuera; sigue en la lista de la app.
 ///
@@ -147,15 +147,10 @@ List<DocumentMark> buildDocumentMarks({
 /// con el subrayado): el ícono y la línea tienen que verse sobre el papel.
 List<DocumentNote> buildDocumentNotes({
   required String content,
-  required String textKey,
   required List<TextNote> notes,
   required DocumentMarkColors colors,
 }) => [
-  for (final placed in placeTextNotes(
-    notes,
-    textKey: textKey,
-    content: content,
-  ))
+  for (final placed in placeTextNotes(notes, content: content))
     if (placed.placed)
       DocumentNote(
         start: placed.start!,
@@ -174,7 +169,6 @@ MarkedDocumentOptions availableMarkedOptions({
   required DocumentStudy study,
   required List<Highlight> highlights,
   List<TextNote> notes = const [],
-  String textKey = '',
 }) {
   bool has(StudyMarkKind kind) =>
       study.of(kind).any((mark) => _fits(content, mark.start, mark.end));
@@ -187,7 +181,6 @@ MarkedDocumentOptions availableMarkedOptions({
     ),
     myNotes: placeTextNotes(
       notes,
-      textKey: textKey,
       content: content,
     ).any((placed) => placed.placed),
   );

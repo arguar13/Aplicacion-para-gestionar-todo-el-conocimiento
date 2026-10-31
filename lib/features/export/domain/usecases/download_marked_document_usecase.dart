@@ -74,7 +74,6 @@ final class DownloadMarkedDocumentParams {
     required this.highlights,
     required this.options,
     this.notes = const [],
-    this.textKey = '',
   });
 
   /// El elemento: de él salen el título y el archivo original.
@@ -90,11 +89,9 @@ final class DownloadMarkedDocumentParams {
   final List<Highlight> highlights;
   final MarkedDocumentOptions options;
 
-  /// Las notas en el texto de la persona sobre [content] (F45, mejora 19), y
-  /// la clave de ese texto (`StudyText.renditionId`), con la que se sabe si
-  /// sus posiciones guardadas siguen valiendo: ver `buildDocumentNotes`.
+  /// Las notas en el texto de la persona sobre [content] (F45, mejora 19):
+  /// ver `buildDocumentNotes`.
   final List<TextNote> notes;
-  final String textKey;
 }
 
 /// Descarga el original con lo elegido marcado, en su mismo formato (F38).
@@ -161,7 +158,6 @@ class DownloadMarkedDocumentUseCase {
     final notes = params.options.myNotes
         ? buildDocumentNotes(
             content: params.content,
-            textKey: params.textKey,
             notes: params.notes,
             colors: _colors,
           )

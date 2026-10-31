@@ -31,15 +31,16 @@ class PlacedTextNote {
   String toString() => 'PlacedTextNote(${note.id}, [$start, $end))';
 }
 
-/// Dónde cae cada una de [notes] en [content], el texto que se muestra con la
-/// clave [textKey] (`StudyText.renditionId`), en el orden del texto.
+/// Dónde cae cada una de [notes] en [content], el texto que se muestra, en el
+/// orden del texto.
 ///
 /// Lo guardado manda mientras siga siendo verdad: si en su lugar sigue el
-/// pedazo citado —y es el mismo texto: una nota del original de la Biblioteca
-/// escrita sobre otra forma no vale por sus posiciones—, queda ahí. Si no, se
-/// busca el pedazo citado como se reubica un subrayado (`ExcerptLocator`),
-/// cerca de donde estaba; si no se encuentra, queda sin lugar. Nunca se
-/// pierde ninguna.
+/// pedazo citado, queda ahí. Si no, se busca el pedazo citado como se reubica
+/// un subrayado (`ExcerptLocator`), la aparición más cercana a donde estaba;
+/// si no se encuentra, queda sin lugar. Nunca se pierde ninguna. Vale igual
+/// para una nota del original escrita sobre otra forma de texto: si en su
+/// lugar está su pedazo, es ese pedazo —lo más cercano a ese lugar es él
+/// mismo—.
 ///
 /// Es la red de todo lo que cambia un texto sin pasar por la reubicación de
 /// la base —una página corregida de un procesado, lo creado que se vuelve a
@@ -47,7 +48,6 @@ class PlacedTextNote {
 /// que se pinta caiga siempre sobre su pedazo.
 List<PlacedTextNote> placeTextNotes(
   List<TextNote> notes, {
-  required String textKey,
   required String content,
 }) {
   final locator = ExcerptLocator(content);
@@ -55,9 +55,7 @@ List<PlacedTextNote> placeTextNotes(
   for (final note in notes) {
     final start = note.start;
     final end = note.end;
-    final sameText = note.renditionId == null || note.renditionId == textKey;
-    if (sameText &&
-        start != null &&
+    if (start != null &&
         end != null &&
         end <= content.length &&
         content.substring(start, end) == note.excerpt) {

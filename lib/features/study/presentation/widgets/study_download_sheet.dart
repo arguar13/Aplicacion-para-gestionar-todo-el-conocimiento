@@ -114,7 +114,6 @@ class _StudyDownloadSheetState extends ConsumerState<StudyDownloadSheet> {
       study: study,
       highlights: highlights,
       notes: notes,
-      textKey: renditionId,
     );
     // Lo elegido que ya no tiene nada para marcar —se borró el último
     // subrayado— no cuenta.
@@ -272,7 +271,6 @@ class _StudyDownloadSheetState extends ConsumerState<StudyDownloadSheet> {
         highlights: highlights,
         options: options,
         notes: notes,
-        textKey: widget.text.renditionId,
       ),
     );
     if (!mounted) return;

@@ -53,26 +53,15 @@ final textNoteCountProvider = StreamProvider.autoDispose
       (ref, target) => ref.watch(textNoteRepositoryProvider).watchCount(target),
     );
 
-/// Las notas de `target` sobre el texto que se muestra —`content`, con la
-/// clave `textKey` (`StudyText.renditionId`)—: cada una en su lugar de ESE
-/// texto, o sin lugar si su pedazo ya no está, en el orden del texto
-/// (`placeTextNotes`).
-typedef TextNotesInText = ({
-  TextNoteTarget target,
-  String textKey,
-  String content,
-});
+/// Las notas de `target` sobre el texto que se muestra, `content`: cada una
+/// en su lugar de ESE texto, o sin lugar si su pedazo ya no está, en el orden
+/// del texto (`placeTextNotes`).
+typedef TextNotesInText = ({TextNoteTarget target, String content});
 
 /// Ver [TextNotesInText].
 final placedTextNotesProvider = Provider.autoDispose
     .family<AsyncValue<List<PlacedTextNote>>, TextNotesInText>(
       (ref, key) => ref
           .watch(textNotesProvider(key.target))
-          .whenData(
-            (notes) => placeTextNotes(
-              notes,
-              textKey: key.textKey,
-              content: key.content,
-            ),
-          ),
+          .whenData((notes) => placeTextNotes(notes, content: key.content)),
     );
