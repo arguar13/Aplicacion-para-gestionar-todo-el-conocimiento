@@ -177,6 +177,9 @@ class RepasarHarness {
     CreationSharer? sharer,
     int materialChars = 9000,
 
+    /// Los temas sugeridos de la hoja («+ Moisés y Faraón»).
+    List<String> suggestedTopics = const ['Moisés y Faraón', 'Alianza'],
+
     /// Los de la prueba, además de los de siempre: el servicio de
     /// ilustraciones de mentira de un tipo, por ejemplo.
     List<Override> overrides = const [],
@@ -214,7 +217,7 @@ class RepasarHarness {
           return estimate(request);
         }),
         creationSuggestedTopicsProvider.overrideWith(
-          (ref, scope) async => const ['Moisés y Faraón', 'Alianza'],
+          (ref, scope) async => suggestedTopics,
         ),
         ...overrides,
       ],

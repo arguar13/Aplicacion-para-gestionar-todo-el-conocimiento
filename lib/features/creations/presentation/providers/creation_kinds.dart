@@ -8,6 +8,7 @@ import 'package:sinapsis/features/creations/extract/presentation/extract_kind_sp
 import 'package:sinapsis/features/creations/flashcards/presentation/flashcards_kind.dart';
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_spec.dart';
 import 'package:sinapsis/features/creations/mind_map/mind_map_kind.dart';
+import 'package:sinapsis/features/creations/podcast/podcast_kind.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
 import 'package:sinapsis/features/creations/presentation_kind/presentation/presentation_kind_spec.dart';
@@ -41,6 +42,7 @@ final creationKindSpecsProvider = Provider<List<CreationKindSpec>>(
     ref.watch(flashcardsKindSpecProvider),
     ref.watch(quizKindSpecProvider),
     ref.watch(presentationKindSpecProvider),
+    ref.watch(podcastKindSpecProvider),
   ],
 );
 

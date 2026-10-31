@@ -5,6 +5,7 @@ import 'package:sinapsis/features/creations/domain/services/creation_generator.d
 import 'package:sinapsis/features/creations/flashcards/presentation/flashcards_kind.dart';
 import 'package:sinapsis/features/creations/infographic_kind/presentation/infographic_kind_providers.dart';
 import 'package:sinapsis/features/creations/mind_map/mind_map_kind.dart';
+import 'package:sinapsis/features/creations/podcast/podcast_kind.dart';
 import 'package:sinapsis/features/creations/presentation_kind/presentation/providers/presentation_providers.dart';
 import 'package:sinapsis/features/creations/quiz/presentation/quiz_kind.dart';
 import 'package:sinapsis/features/creations/report/presentation/report_kind.dart';
@@ -33,6 +34,7 @@ final creationGeneratorsProvider = Provider<List<CreationGenerator>>(
     ref.watch(flashcardsGeneratorProvider),
     ref.watch(quizGeneratorProvider),
     ref.watch(presentationGeneratorProvider),
+    ref.watch(podcastGeneratorProvider),
   ],
 );
 

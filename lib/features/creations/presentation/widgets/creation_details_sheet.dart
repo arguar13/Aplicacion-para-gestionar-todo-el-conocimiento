@@ -67,7 +67,7 @@ List<(String, String)> creationRequestLines(
   }
   for (final (key, label) in [
     (CreationOptionKeys.description, l10n.f43StudioDescribe),
-    (CreationOptionKeys.topic, l10n.f43StudioTopic),
+    (CreationOptionKeys.topic, spec.topic?.label(l10n) ?? l10n.f43StudioTopic),
   ]) {
     final value = options[key];
     if (value is String && value.trim().isNotEmpty) {

@@ -16,8 +16,10 @@ import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_kinds.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_queue_providers.dart';
+import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
 import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
 import 'package:sinapsis/features/creations/presentation/widgets/creation_kind_icon.dart';
+import 'package:sinapsis/features/creations/presentation/widgets/creation_scope_picker.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Los idiomas de «Seleccionar idioma», cada uno con su nombre en su idioma.
@@ -102,6 +104,11 @@ class _CreationCustomizeSheetState
 
   /// Las fuentes tildadas; `null` es «todas las del recorte».
   Set<String>? _picked;
+
+  /// Lo sumado con «+ Sumar otro documento» ([CreationField.moreSources]), en
+  /// el orden en que se sumó. Lo que además está en el recorte se cuenta con
+  /// él, no acá ([_added]).
+  final _extra = <String>[];
   var _sourcesOpen = false;
   var _busy = false;
 
@@ -126,6 +133,10 @@ class _CreationCustomizeSheetState
     _language = regenerating?.languageCode ?? last.languageCode ?? 'es';
     if (regenerating != null) {
       _picked = regenerating.sourceIds.toSet();
+      // Lo que se había sumado de afuera del recorte vuelve sumado.
+      if (_spec.fields.contains(CreationField.moreSources)) {
+        _extra.addAll(regenerating.sourceIds);
+      }
       _description.text = _textOf(saved, CreationOptionKeys.description);
       _topic.text = _textOf(saved, CreationOptionKeys.topic);
       final account = saved[CreationOptionKeys.imageAccountId];
@@ -150,11 +161,46 @@ class _CreationCustomizeSheetState
 
   void _set(String key, Object? value) => setState(() => _options[key] = value);
 
-  /// Los documentos tildados, en el orden del recorte.
+  /// Los documentos tildados, en el orden del recorte, y después los sumados
+  /// de afuera.
   List<String> _chosen(List<String> all) => [
     for (final id in all)
       if (_picked == null || _picked!.contains(id)) id,
+    ..._added(all),
   ];
+
+  /// Los sumados con «+» que no están en el recorte.
+  List<String> _added(List<String> all) {
+    final inScope = all.toSet();
+    return [
+      for (final id in _extra)
+        if (!inScope.contains(id)) id,
+    ];
+  }
+
+  /// «+ Sumar otro documento»: el selector de arriba de Repasar, y lo elegido
+  /// —un documento, o los de un cuaderno o un tema— pasa a las fuentes. Lo que
+  /// ya estaba en el recorte queda tildado; «Todo lo procesado» no suma nada
+  /// que no esté ya a mano.
+  Future<void> _addSources(List<String> all) async {
+    final scope = await showCreationScopePicker(context, current: widget.scope);
+    if (scope == null || scope.isAll || !mounted) return;
+    final ids =
+        (await ref.read(creationScopeResolverProvider).documentIds(scope))
+            .getOrElse((_) => const []);
+    if (!mounted || ids.isEmpty) return;
+    setState(() {
+      for (final id in ids) {
+        if (all.contains(id)) {
+          _picked?.add(id);
+        } else if (!_extra.contains(id)) {
+          _extra.add(id);
+        }
+      }
+      if (_picked != null && all.every(_picked!.contains)) _picked = null;
+      _sourcesOpen = true;
+    });
+  }
 
   void _toggleSource(List<String> all, String id, {required bool on}) {
     setState(() {
@@ -375,6 +421,7 @@ class _CreationCustomizeSheetState
                           options: Map.unmodifiable(_options),
                           set: _set,
                           sources: _sourcesOf(all),
+                          languageCode: _language,
                         ),
                       ),
                     if (each != null && eachContext != null)
@@ -550,7 +597,8 @@ class _CreationCustomizeSheetState
         style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error),
       );
     }
-    final total = all?.length ?? 0;
+    final added = all == null ? const <String>[] : _added(all);
+    final total = (all?.length ?? 0) + added.length;
     final partial = all != null && chosen.length != total;
     final count = l10n.f43StudioSources(chosen.length);
     final ofTotal = l10n.f43StudioSourcesOf(chosen.length, total);
@@ -594,6 +642,16 @@ class _CreationCustomizeSheetState
               style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
             ),
           ),
+        if (_spec.fields.contains(CreationField.moreSources) && all != null)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              key: const Key('creation-sources-add'),
+              onPressed: () => unawaited(_addSources(all)),
+              icon: const Icon(Icons.add),
+              label: Text(l10n.f47P6AddSource),
+            ),
+          ),
         if (_sourcesOpen && all != null) _sourceList(context, all, chosen),
       ],
     );
@@ -605,7 +663,8 @@ class _CreationCustomizeSheetState
     List<String> chosen,
   ) {
     final l10n = AppLocalizations.of(context)!;
-    final sources = _sourcesOf(all);
+    final sources = _sourcesOf([...all, ..._added(all)]);
+    final inScope = all.toSet();
     final chosenSet = chosen.toSet();
     final scaler = MediaQuery.textScalerOf(context);
     return Column(
@@ -646,8 +705,10 @@ class _CreationCustomizeSheetState
                   overflow: TextOverflow.ellipsis,
                 ),
                 subtitle: marks.isEmpty ? null : Text(marks.join(' · ')),
-                onChanged: (on) =>
-                    _toggleSource(all, source.documentId, on: on ?? false),
+                onChanged: (on) => inScope.contains(source.documentId)
+                    ? _toggleSource(all, source.documentId, on: on ?? false)
+                    // Uno sumado de afuera, destildado, deja de estar sumado.
+                    : setState(() => _extra.remove(source.documentId)),
               );
             },
           ),
@@ -687,23 +748,25 @@ class _CreationCustomizeSheetState
 
   List<Widget> _topicField(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final field = _spec.topic;
     final suggested =
-        ref.watch(creationSuggestedTopicsProvider(widget.scope)).valueOrNull ??
-        const <String>[];
+        (ref.watch(creationSuggestedTopicsProvider(widget.scope)).valueOrNull ??
+                const <String>[])
+            .take(field?.suggestions ?? kSuggestedTopicsShown);
     return [
-      CreationSectionLabel(l10n.f43StudioTopic),
+      CreationSectionLabel(field?.label(l10n) ?? l10n.f43StudioTopic),
       TextField(
         key: const Key('creation-topic'),
         controller: _topic,
         decoration: InputDecoration(
-          hintText: l10n.f43StudioTopicHint,
+          hintText: field?.hint(l10n) ?? l10n.f43StudioTopicHint,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
       if (suggested.isNotEmpty) ...[
         const SizedBox(height: 12),
         Text(
-          l10n.f43StudioSuggested,
+          field?.suggestionsLabel(l10n) ?? l10n.f43StudioSuggested,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
