@@ -737,3 +737,84 @@ cada tramo y la escucha— es el paso 6b.
     armado de F43 elige lo que entra), y el podcast sale más corto; el visor lo dice;
   - exportar el guion como texto;
   - no se miró en el emulador ni en el teléfono.
+
+### Paso 7a (hecho): Ayuda y los widgets
+
+Ocho commits, de `ed236298` a `b43a3f97`, y el de este avance (decisión G). La segunda
+parte —Ajustes → «Voz y lectura» entera— es el paso 7b.
+
+- **De paso, un arreglo de base:** el armado de los bloques de Markdown del chat (títulos, listas,
+  citas, código y tablas) salió de `chat_answer.dart` a `MarkdownBlockStyle` y
+  `MarkdownBlockView`, para que la guía y las novedades se lean con la misma letra. El chat se ve
+  igual.
+- **La guía de uso dentro de la app** (Ajustes → Ayuda):
+  - `GUIA_DE_USO.md` y `NOVEDADES.md` se empaquetan desde la raíz, sin copias; una prueba
+    comprueba que lo empaquetado es igual al archivo;
+  - se parte en capítulos por sus «##», con las secciones («###») en el índice; el «Índice»
+    escrito a mano de la guía se deja afuera, porque la app arma el suyo. Un censo comprueba que
+    cada «##» y cada «###» aparecen, en orden;
+  - un capítulo por vez, con «Anterior» y «Siguiente», y «atrás» vuelve al índice; los párrafos
+    cortados a mano se leen de corrido y el texto se puede seleccionar;
+  - **la búsqueda** no distingue mayúsculas ni acentos y toma cada salto de renglón como un
+    espacio; desde el índice lista cada resultado con su renglón, y dentro de un capítulo una
+    barra dice «3 de 17» y salta de uno a otro, cruzando capítulos; el resultado de ahora va en
+    amarillo y los demás con el fondo de resaltado.
+- **Novedades y «Acerca de»:**
+  - `NOVEDADES.md`, una etapa por «##», de F47 (en curso) a «F1 a F12 · La base», armado con los
+    planes, sus Avances y las decisiones de la arquitectura, sin nada que no se pudiera
+    respaldar; arriba, la versión que está corriendo;
+  - la versión sale de `package_info_plus` (ya venía por `sentry_flutter`; se declaró directo en
+    la misma 9.0.1), con el sufijo del sabor en Android;
+  - las licencias, con el tema de la app y con las ocho letras empaquetadas (OFL), que antes no
+    se mostraban; un censo comprueba que cada letra de `fonts:` tiene su licencia.
+- **Los tres widgets de Android** (`home_widget` 0.10.0, BSD-3; decisión G), con una
+  implementación nula en la web y en Windows, y Ajustes → Widgets con «Agregar» en cada uno (si el
+  teléfono no deja, explica cómo hacerlo a mano):
+  - **«Para hoy»:** el mismo número de la insignia de Repasar, válido hasta el fin del día de
+    estudio (las 4:00); se actualiza con la bóveda abierta, ante cada cambio y al volver a la app,
+    y el sistema lo redibuja cada hora. Con la cifra de ayer dice «Tocá para ver lo de hoy»; con
+    cero, «Estás al día»;
+  - **«Guardar rápido»:** abre Guardar en «Texto para pegar» con el cursor en el cuadro; lo que
+    llega compartido desde otra app sigue mandando;
+  - **«Seguir escuchando»:** lo último que empezó a sonar con el foco de audio de la app, el mismo
+    que muestra la tarjeta de la notificación del paso 2 (`focusedMediaSourceProvider`, junto al
+    hub): el lector, un audio o un video, y lo que se sume a la tarjeta, como el podcast. Cuenta al
+    empezar algo nuevo (otra fuente u otro título); pausar y seguir no cuenta, ni lo que suena sin
+    el foco. La dirección es la pantalla de arriba de todo cuando empieza a sonar; al widget solo
+    va el título.
+  - **Los toques** van por un canal propio (`app.sinapsis/home_widgets`) con un pedido pendiente,
+    como el aviso diario: `home_widget` perdería el toque que abre una actividad nueva sobre un
+    Dart que ya andaba, porque el motor sobrevive a la actividad (F29). Con la bóveda cerrada, el
+    pedido espera a que se abra;
+  - los diseños, con los colores del tema claro y oscuro de la app (un censo los compara con
+    `AppTheme`), y los textos en castellano y en inglés.
+- **Ajustes, en orden:** Vos · Apariencia · Voz y lectura · Citas · IA · Segundo plano · Bóveda ·
+  Desarrollo (solo en la versión de desarrollo) · Widgets (solo en Android) · Ayuda · «Bloquear
+  bóveda».
+- **Verificado:**
+  - analyze en 19;
+  - antes de unirlo con el paso 2, 2.407 pruebas de Ajustes, la app, `core`, la Ayuda, los
+    widgets, el chat, Guardar y la narración; después, 2.696 (sumando el visor);
+    ya sobre el paso 8a de F45 y el arreglo del chat, 2.739 de Ajustes, la app, `core`, la
+    Ayuda, los widgets, la narración, el chat, el visor y las notas en el texto; dos de tiempos
+    que fallaron con la PC cargada pasaron después, junto con las 520 del chat y la Ayuda;
+  - murieron las 28 mutaciones: 22 del paso y 6 de la unión con la sesión de medios. La de «la
+    sección de widgets aunque no haya widgets» sobrevivía porque, con la letra al doble, la
+    sección quedaba fuera de la vista: la prueba pasó a mirar Ajustes entero. Entre las otras: el
+    índice escrito a mano que entra como capítulo, buscar sin plegar los acentos, la frase
+    partida en dos renglones que no se encuentra, «siguiente» que no da la vuelta, la dirección
+    mandada al widget en vez del título, un toque con la bóveda cerrada que se pierde, el fin del
+    día equivocado, el color oscuro separado del tema, contar lo que está en pausa y no seguir a
+    la fuente nueva cuando cambia el foco;
+  - el APK de depuración compila.
+- **Para decidir con el dueño:** «Seguir escuchando» guarda el título sin cifrar y lo muestra en la
+  pantalla de inicio aunque la bóveda esté cerrada. La pantalla de los widgets lo avisa.
+- **Queda para después:**
+  - **el paso 7b**, «Voz y lectura» entera: la biblioteca con la voz de ahora, clonar y crear,
+    la nube para voces (ElevenLabs), la velocidad por defecto, la tipografía y el resaltado de
+    lectura. «Voces por idioma», «Voces descargadas» y «Lectura enfocada» ya entraron;
+  - cuando el marco (paso 1) dé ruta a lo que lee el lector, sumar `location` a
+    `MediaSessionSource` para que cada fuente diga su dirección;
+  - los enlaces `[…](#…)` del cuerpo de la guía se ven pero no se tocan: hacerlo pide cambiar
+    `RenderedMarkdown`, que usa toda la app;
+  - no se miró en el emulador ni en el teléfono.
