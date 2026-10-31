@@ -316,7 +316,7 @@ void _sayFlashcardsFailure(
   if (failure is ChatModelNotReadyException) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
+      ..showAppSnackBar(
         AppSnackBar(
           content: Text(l10n.flashcardsModelMissing),
           action: SnackBarAction(
@@ -384,7 +384,7 @@ Future<void> _createQuiz(
 
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(
+    ..showAppSnackBar(
       AppSnackBar(
         content: Text(l10n.quizSaved(saved.length)),
         action: SnackBarAction(
@@ -448,7 +448,7 @@ Future<void> _createDerivedNote(
     final saved = result.note;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
+      ..showAppSnackBar(
         AppSnackBar(
           content: Text(l10n.derivedNoteCreated(saved.title)),
           action: SnackBarAction(
@@ -539,7 +539,7 @@ Future<void> _writeNote(
     }
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(
+      ..showAppSnackBar(
         AppSnackBar(
           content: Text(l10n.f45S7bNoteAdded),
           action: SnackBarAction(
@@ -548,8 +548,8 @@ Future<void> _writeNote(
               final undone = await notes.undo(outcome.undo);
               messenger
                 ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  SnackBar(
+                ..showAppSnackBar(
+                  AppSnackBar(
                     content: Text(
                       undone.match(
                         (failure) => failure.localizedMessage(l10n),
@@ -568,5 +568,5 @@ Future<void> _writeNote(
 void _say(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+    ..showAppSnackBar(AppSnackBar(content: Text(message)));
 }

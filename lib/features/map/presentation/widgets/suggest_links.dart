@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/ai_suggest_relations_dialog.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -31,7 +32,9 @@ Future<void> suggestLinksAmong(
   if (failure != null) {
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(failure.localizedMessage(l10n))),
+      );
     return;
   }
   await showAiSuggestRelationsDialog(
