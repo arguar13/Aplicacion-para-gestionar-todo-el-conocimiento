@@ -3494,7 +3494,7 @@ día](#aviso-diario-y-tarjetas-por-día-ajustes--repasar).
 **Cómo llegar:** pantalla "Repasar", debajo del selector. Todo se crea sobre
 lo elegido en él.
 
-#### Las diez tarjetas de crear
+#### Las once tarjetas de crear
 
 Cada una con su ícono de color y un lápiz ✎ de personalizar:
 
@@ -3504,8 +3504,8 @@ Cada una con su ícono de color y un lápiz ✎ de personalizar:
   si cambia. Si a una fuente le falta el resumen, la síntesis o las palabras
   clave, la hoja lo dice y se le pide el análisis de siempre al crearla.
 - **Presentación**, **Mapa mental**, **Informes**, **Tarjetas didácticas**,
-  **Cuestionario**, **Infografía** y **Tabla de datos**: las escribe la IA que
-  elegiste en Ajustes.
+  **Cuestionario**, **Infografía**, **Tabla de datos** y **Podcast**: las
+  escribe la IA que elegiste en Ajustes (ver [El podcast](#el-podcast)).
 
 En el teléfono van de a dos; en una pantalla ancha, de a tres o cuatro; con la
 letra muy grande, de a una.
@@ -3519,11 +3519,16 @@ tipo:
 - **"Seleccionar idioma"**, en español por defecto.
 - **"Fuentes: N fuentes ▾"**: se despliega y podés **destildar** documentos
   del recorte; **"Todas"** los vuelve a tildar. Sin ninguna tildada no se puede
-  generar.
+  generar. En el podcast, **"+ Sumar otro documento"** abre el mismo selector
+  de arriba de Repasar: lo que elijas —un documento, o los de un cuaderno o un
+  tema— se suma a las fuentes de esa creación, sin cambiar lo elegido arriba;
+  destildarlo lo saca.
 - **"Describí lo que querés crear"**, con un ejemplo tenue (presentación,
   infografía y tabla de datos).
 - **El tema**, con **temas sugeridos** que salen de las palabras clave de lo
   elegido: tocás uno y queda escrito (mapa mental, tarjetas y cuestionario).
+  En el podcast se llama **"¿De qué trata?"**, con **tres propuestas del
+  material** y el cuadro para pedir **un enfoque propio**.
 - Las opciones del tipo, con botones que marcan lo elegido con ✓: el
   **formato** (*Detallada* o *Del presentador*; *Interactivo* o *Documento*), la
   **plantilla** (las veintiocho de la presentación, o las del informe con
@@ -3935,6 +3940,67 @@ donde la coma es la de los decimales) separa con **«;»**, que es lo que Excel
 espera en esas computadoras; en inglés, con **«,»**. Sheets entiende los dos.
 Un valor que empieza con «=» se guarda como texto: abrir el archivo nunca
 ejecuta una fórmula.
+
+#### El podcast
+
+**Cómo llegar:** Repasar → tarjeta **Podcast** (al lado de Tabla de datos) →
+«Generar ahora» o «Generar más tarde». Se hace sobre lo elegido arriba: un
+documento, un cuaderno, un tema o todo lo procesado. Se abre desde «Lo
+creado».
+
+En su hoja elegís:
+
+- **El formato:** **Conversación** (dos voces que charlan: la *Voz 1* conduce
+  y pregunta, la *Voz 2* explica, y se repreguntan), **Breve** (lo esencial,
+  con una voz), **Clase** (para aprender, con preguntas a quien escucha y una
+  pausa para pensar antes de responderlas) o **Relato** (contado como una
+  historia, en orden, sin inventar nada para ambientar).
+- **El idioma** y **la duración:** **Corto** ~3 min, **Medio** ~8 o **Largo**
+  ~15.
+- **¿De qué trata?:** tres propuestas sacadas de las palabras clave del
+  material —tocás una y queda escrita—, o tu propio enfoque en el cuadro
+  («cómo cambia Moisés a lo largo del viaje»). Con **"+ Sumar otro
+  documento"** sumás a las fuentes algo que no está en lo elegido.
+- **Elegí las voces:** una, o dos en Conversación. Por ahora son **las voces
+  del teléfono que leen sin conexión**, del idioma del podcast: al abrir la
+  hoja ya quedan elegidas —en Conversación, dos distintas si el teléfono
+  tiene—, y cambiando el idioma cambian solas. Las que leen por internet no se
+  ofrecen: nada sale del teléfono. Si las dos personas quedan con la misma
+  voz, la hoja lo avisa; si es la única del idioma, solo lo dice.
+
+**Cómo se escribe:** la IA que elegiste en Ajustes escribe **el guion** (con
+Gemma, todo queda en el teléfono), en segundo plano y con el aviso de siempre
+en la barra de notificaciones; podés salir de la pantalla o cerrar la app, y
+lo que quedó a medias se retoma al abrirla.
+
+- **Solo con lo del material, y con la cita de cada dato.** El guion va por
+  tramos —lo que dice una voz de corrido—, con quién habla en cada uno y las
+  pausas: un respiro si sigue la misma voz, una pausa al cambiar de voz y una
+  más larga donde hace falta pensar.
+- **Se comprueba antes de guardarlo.** Cada cita tiene que estar, entera, en
+  el texto que leyó la IA. Un tramo que dice algo **sin cita**, con una cita
+  **que no está** en el material o con **una cifra que no aparece** en él se
+  quita. Los saludos, las preguntas y las transiciones cortas no necesitan
+  cita.
+- **La duración se mide en palabras** (unas 150 por minuto). Si el guion
+  queda muy corto o muy largo —también por lo que se quitó—, se le pide a la
+  IA una vez que lo corrija; si tampoco, la fila dice que falló y ofrece
+  **"Reintentar"**. Si el material no da para lo que pediste sin rellenar,
+  apunta a lo que da y lo dice.
+- **Lo largo, por vueltas.** Si el guion no entra en una respuesta de la IA
+  (con Gemma, casi siempre), se escribe en varias: la primera abre, la última
+  cierra y cada una sigue donde quedó la anterior. En la conversación hablan
+  las dos voces.
+
+**Al abrirlo**, arriba dice de qué es (*"Conversación · ~8 min · 2 voces"*),
+el rótulo **"Hecho con IA"** con el modelo que lo escribió y el botón
+**"Escuchar"**, todavía apagado: *"El audio se genera en el paso siguiente"*.
+Debajo, **la transcripción**: cada tramo con quién lo dice y **sus citas como
+fichas**; tocar una abre la lectura del documento **parada en el pasaje**, con
+el tramo marcado. Si la comprobación quitó tramos, una línea lo cuenta
+(*"Se quitaron 2 tramos que no se sostenían en el material"*): al abrirla se
+ven tachados, con por qué. Si salió más corto porque el material no daba para
+más, también se dice.
 
 #### Tarjetas didácticas
 
