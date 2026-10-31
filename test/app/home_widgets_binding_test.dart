@@ -1,11 +1,15 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/home_widgets_binding.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/audio/audio_focus.dart';
+import 'package:sinapsis/core/audio/media_session.dart';
+import 'package:sinapsis/core/audio/media_session_hub.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/flashcards/domain/services/study_day.dart';
@@ -14,8 +18,6 @@ import 'package:sinapsis/features/home_widgets/domain/home_screen_widgets.dart';
 import 'package:sinapsis/features/home_widgets/presentation/providers/home_widgets_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
-import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -144,44 +146,133 @@ void main() {
       );
     });
 
-    testWidgets('hasta el reproductor anclado, lo alimenta el lector en voz '
-        'alta, con la pantalla desde donde se escucha', (tester) async {
-      await setUpWith();
-      await pumpApp(tester);
-      // Abierto encima de la Biblioteca, como lo abre tocar una fila.
-      unawaited(
+    group('se alimenta de lo que suena con el foco de audio', () {
+      /// Abre el elemento encima de la Biblioteca, como lo abre tocar una
+      /// fila, y registra [source] en la tarjeta con su testigo [owner].
+      Future<void> openAndRegister(
+        WidgetTester tester,
+        Object owner,
+        _Source source,
+      ) async {
+        unawaited(
+          harness.container
+              .read(goRouterProvider)
+              .push<void>(RoutePaths.itemDetail(itemId)),
+        );
+        await tester.pumpAndSettle();
         harness.container
-            .read(goRouterProvider)
-            .push<void>(RoutePaths.itemDetail(itemId)),
-      );
-      await tester.pumpAndSettle();
+            .read(mediaSessionSourcesProvider.notifier)
+            .register(owner, source);
+        await tester.pumpAndSettle();
+      }
 
-      await harness.container
-          .read(readAloudControllerProvider.notifier)
-          .open(
-            const ReadableDocument(
-              id: 'item:uno',
-              title: 'Una fuente',
-              segments: [
-                ReadableSegment(
-                  sourceKey: 'texto',
-                  start: 0,
-                  end: 5,
-                  spoken: 'Hola.',
-                ),
-              ],
+      testWidgets('lo que empieza a sonar llega a «Seguir escuchando», con la '
+          'pantalla de arriba de todo', (tester) async {
+        await setUpWith();
+        await pumpApp(tester);
+        final owner = Object();
+        final source = _Source();
+        addTearDown(source.dispose);
+        await openAndRegister(tester, owner, source);
+
+        harness.container.read(audioFocusProvider.notifier).claim(owner);
+        source.sound('Un audio');
+        await tester.pumpAndSettle();
+
+        final expected = ContinueListening(
+          title: 'Un audio',
+          location: RoutePaths.itemDetail(itemId),
+        );
+        expect(harness.container.read(continueListeningProvider), expected);
+        expect(widgets.continueListening.last, expected);
+      });
+
+      testWidgets('quieto, o sin el foco, no cuenta', (tester) async {
+        await setUpWith();
+        await pumpApp(tester);
+        final owner = Object();
+        final source = _Source();
+        addTearDown(source.dispose);
+        await openAndRegister(tester, owner, source);
+
+        // Suena, pero el foco es de otro.
+        source.sound('Sin el foco');
+        await tester.pumpAndSettle();
+        expect(harness.container.read(continueListeningProvider), isNull);
+
+        // Con el foco, pero en pausa: abierto no es escuchado.
+        source.sound('En pausa', playing: false);
+        harness.container.read(audioFocusProvider.notifier).claim(owner);
+        await tester.pumpAndSettle();
+        expect(harness.container.read(continueListeningProvider), isNull);
+      });
+
+      testWidgets(
+        'otro título de lo mismo que suena —el lector que pasa a otro '
+        'texto— cuenta otra vez, desde la pantalla de ahora',
+        (tester) async {
+          await setUpWith();
+          await pumpApp(tester);
+          final owner = Object();
+          final source = _Source();
+          addTearDown(source.dispose);
+          await openAndRegister(tester, owner, source);
+          harness.container.read(audioFocusProvider.notifier).claim(owner);
+          source.sound('Primero');
+          await tester.pumpAndSettle();
+
+          harness.container.read(goRouterProvider).go(RoutePaths.review);
+          await tester.pumpAndSettle();
+          // Pausar y seguir con lo mismo no cambia nada.
+          source
+            ..sound('Primero', playing: false)
+            ..sound('Primero');
+          await tester.pumpAndSettle();
+          expect(
+            harness.container.read(continueListeningProvider)?.location,
+            RoutePaths.itemDetail(itemId),
+          );
+
+          source.sound('Segundo');
+          await tester.pumpAndSettle();
+          expect(
+            harness.container.read(continueListeningProvider),
+            const ContinueListening(
+              title: 'Segundo',
+              location: RoutePaths.review,
             ),
           );
-      await tester.pumpAndSettle();
-
-      expect(
-        harness.container.read(continueListeningProvider),
-        ContinueListening(
-          title: 'Una fuente',
-          location: RoutePaths.itemDetail(itemId),
-        ),
+        },
       );
-      expect(widgets.continueListening.last?.title, 'Una fuente');
+
+      testWidgets('el foco pasa a otra fuente: cuenta la nueva', (
+        tester,
+      ) async {
+        await setUpWith();
+        await pumpApp(tester);
+        final reader = Object();
+        final audio = Object();
+        final readerSource = _Source();
+        final audioSource = _Source();
+        addTearDown(readerSource.dispose);
+        addTearDown(audioSource.dispose);
+        await openAndRegister(tester, reader, readerSource);
+        harness.container
+            .read(mediaSessionSourcesProvider.notifier)
+            .register(audio, audioSource);
+        harness.container.read(audioFocusProvider.notifier).claim(reader);
+        readerSource.sound('El texto');
+        await tester.pumpAndSettle();
+
+        audioSource.sound('El audio');
+        harness.container.read(audioFocusProvider.notifier).claim(audio);
+        await tester.pumpAndSettle();
+
+        expect(
+          harness.container.read(continueListeningProvider)?.title,
+          'El audio',
+        );
+      });
     });
   });
 
@@ -281,4 +372,20 @@ void main() {
     expect(widgets.continueListening, isEmpty);
     expect(location().path, isNot(RoutePaths.review));
   });
+}
+
+/// Algo que suena en la tarjeta, de mentira: un audio, el lector.
+class _Source implements MediaSessionSource {
+  final _state = ValueNotifier<MediaSessionState?>(null);
+
+  @override
+  ValueListenable<MediaSessionState?> get state => _state;
+
+  @override
+  void handle(MediaCommand command) {}
+
+  void sound(String title, {bool playing = true}) =>
+      _state.value = MediaSessionState(title: title, playing: playing);
+
+  void dispose() => _state.dispose();
 }

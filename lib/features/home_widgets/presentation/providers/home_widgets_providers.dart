@@ -17,10 +17,11 @@ final homeScreenWidgetsProvider = Provider<HomeScreenWidgets>(
 /// Lo último que se escuchó (F47, paso 7): lo que muestra «Seguir
 /// escuchando» y adónde lleva tocarlo.
 ///
-/// **Es el único punto que lo alimenta**: quien hace sonar algo llama a
-/// [listened]. Hoy lo llama el puente con el lector en voz alta
-/// (`HomeWidgetsBinding`); con el reproductor anclado de F47 (paso 2), lo
-/// llama su sesión de medios, y el puente se va.
+/// **Es el único punto que lo alimenta**: lo llama `HomeWidgetsBinding` cada
+/// vez que empieza a sonar algo con el foco de audio de la app —lo que
+/// muestra la tarjeta de la sesión de medios (F47, paso 2b)—: el lector en
+/// voz alta, un audio o un video, y lo que se registre después, como el
+/// podcast.
 ///
 /// Se guarda en las preferencias de la app: el widget lo sigue mostrando con
 /// la app cerrada, y tocarlo después de reiniciar el teléfono tiene que saber

@@ -4,13 +4,14 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/audio/media_session.dart';
+import 'package:sinapsis/core/audio/media_session_hub.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/flashcards/domain/services/study_day.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/home_widgets/domain/home_screen_widgets.dart';
 import 'package:sinapsis/features/home_widgets/presentation/providers/home_widgets_providers.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 
@@ -22,9 +23,10 @@ import 'package:sinapsis/features/vault/presentation/providers/vault_providers.d
 ///   se lo cuenta al widget, con el fin del día de estudio: pasado, el widget
 ///   no repite una cifra vieja. Al volver al frente se cuenta de nuevo, por
 ///   las tarjetas que vencieron mientras tanto.
-/// - **«Seguir escuchando»**: lo que diga [continueListeningProvider]. Hasta
-///   que llegue el reproductor anclado (F47, paso 2), lo alimenta el lector
-///   en voz alta de hoy: ver `_feedFromReadAloud`.
+/// - **«Seguir escuchando»**: lo que diga [continueListeningProvider], que
+///   se alimenta de lo que suena con el foco de audio de la app —el lector en
+///   voz alta, un audio o un video, y lo que se registre después en la
+///   tarjeta, como el podcast—: ver `_followWhatPlays`.
 /// - **Los toques**: «Para hoy» lleva a Repasar, «Guardar rápido» abre
 ///   Guardar listo para pegar o escribir, y «Seguir escuchando», la pantalla
 ///   desde donde se escuchó. Con la app abierta, de una vez; desde cero
@@ -50,7 +52,12 @@ class _HomeWidgetsBindingState extends ConsumerState<HomeWidgetsBinding> {
   StreamSubscription<HomeWidgetKind>? _openRequests;
   ProviderSubscription<AsyncValue<int>>? _dueToday;
   ProviderSubscription<ContinueListening?>? _continueListening;
-  ProviderSubscription<String?>? _readAloud;
+  ProviderSubscription<MediaSessionSource?>? _playing;
+
+  /// Lo que suena ahora con el foco de audio, y lo último que se contó de él
+  /// a «Seguir escuchando».
+  MediaSessionSource? _source;
+  (MediaSessionSource, String)? _reported;
 
   /// El widget que se tocó y todavía no se atendió.
   HomeWidgetKind? _pendingOpen;
@@ -73,7 +80,11 @@ class _HomeWidgetsBindingState extends ConsumerState<HomeWidgetsBinding> {
     ) {
       unawaited(_widgets.showContinueListening(current));
     }, fireImmediately: true);
-    _readAloud = _feedFromReadAloud();
+    _playing = ref.listenManual(
+      focusedMediaSourceProvider,
+      (_, source) => _followWhatPlays(source),
+      fireImmediately: true,
+    );
     _syncDueToday();
   }
 
@@ -82,33 +93,51 @@ class _HomeWidgetsBindingState extends ConsumerState<HomeWidgetsBinding> {
     unawaited(_openRequests?.cancel());
     _dueToday?.close();
     _continueListening?.close();
-    _readAloud?.close();
+    _playing?.close();
+    _source?.state.removeListener(_onPlaying);
     _lifecycle?.dispose();
     super.dispose();
   }
 
-  /// El puente con el lector en voz alta (F25), hasta el reproductor anclado
-  /// de F47 (paso 2), cuya sesión de medios llamará a
-  /// `ContinueListeningNotifier.listened` por su cuenta.
+  /// Sigue a lo que suena con el foco de audio de la app —lo mismo que
+  /// muestra la tarjeta de la notificación (F47, paso 2b)—.
+  void _followWhatPlays(MediaSessionSource? source) {
+    if (identical(source, _source)) return;
+    _source?.state.removeListener(_onPlaying);
+    _source = source;
+    source?.state.addListener(_onPlaying);
+    _onPlaying();
+  }
+
+  /// Cuando empieza a sonar algo —otra fuente, u otro título de la misma: el
+  /// lector que pasa a otro texto—, eso es lo último que se escuchó, y la
+  /// pantalla de ahora es adonde vuelve el widget.
   ///
-  /// Cuando el lector empieza un texto nuevo, ese es lo último que se
-  /// escuchó, y la pantalla de ahora —la que lo ofreció— es adonde vuelve
-  /// el widget.
-  ProviderSubscription<String?> _feedFromReadAloud() => ref.listenManual(
-    readAloudControllerProvider.select((state) => state.document?.id),
-    (previous, current) {
-      final document = ref.read(readAloudControllerProvider).document;
-      if (current == null || document == null) return;
-      // La de arriba de todo, también si se abrió encima de otra (`push`):
-      // `state` es la de la última ruta, no la de la base de la pila.
-      final location = widget.router.state.uri.toString();
-      unawaited(
-        ref
-            .read(continueListeningProvider.notifier)
-            .listened(title: document.title, location: location),
-      );
-    },
-  );
+  /// La pantalla es la de arriba de todo, también si se abrió encima de otra
+  /// (`push`): `state` es la de la última ruta, no la de la base de la pila.
+  /// Es la que ofreció lo que suena, porque se acaba de tocar «Escuchar» ahí.
+  /// Cuando cada fuente sepa su propia ruta —el marco de lectura (F47, paso 1)
+  /// se la da a lo que lee el lector—, la podrá decir ella.
+  void _onPlaying() {
+    final source = _source;
+    final state = source?.state.value;
+    if (source == null || state == null || !state.playing) return;
+    final reported = _reported;
+    if (reported != null &&
+        identical(reported.$1, source) &&
+        reported.$2 == state.title) {
+      return;
+    }
+    _reported = (source, state.title);
+    unawaited(
+      ref
+          .read(continueListeningProvider.notifier)
+          .listened(
+            title: state.title,
+            location: widget.router.state.uri.toString(),
+          ),
+    );
+  }
 
   Future<void> _takePendingOpen() async {
     final pending = await _widgets.takePendingOpen();

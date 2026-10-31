@@ -54,6 +54,19 @@ final mediaSessionSourcesProvider =
       MediaSessionSources.new,
     );
 
+/// Lo que suena ahora en la app: la fuente registrada por quien tiene el foco
+/// de audio, o `null`. Es lo mismo que sigue la tarjeta —ver
+/// [mediaSessionHubProvider]—, para quien lo mire de afuera: el widget
+/// «Seguir escuchando» cuenta lo que empieza a sonar acá (F47, paso 7).
+///
+/// La tarjeta no lo escucha a él sino al foco y a las fuentes, de a uno: así
+/// la sigue en el mismo instante en que cambian, sin esperar a que se vuelva
+/// a calcular un provider derivado.
+final focusedMediaSourceProvider = Provider<MediaSessionSource?>((ref) {
+  final owner = ref.watch(audioFocusProvider);
+  return owner == null ? null : ref.watch(mediaSessionSourcesProvider)[owner];
+});
+
 /// La tarjeta de lo que suena, de punta a punta (F47, paso 2b): muestra lo
 /// que tiene el foco de audio de la app, le pasa lo que se toca y se porta
 /// bien con el resto del teléfono.
