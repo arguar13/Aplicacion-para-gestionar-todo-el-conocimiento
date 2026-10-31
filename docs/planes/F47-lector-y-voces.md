@@ -412,6 +412,9 @@ Lo que no se suma, y por qué (para que quede dicho):
   también la voz del teléfono, que no es un archivo. Es una dependencia nueva del código.
   - *Alternativa:* escribir la sesión de medios a mano en Kotlin (Media3), como el servicio de
     procesar. Es más código propio para lo mismo.
+  - **Cambiada en el paso 2 por la alternativa**, a mano con la `MediaSession` de Android y sin
+    dependencias nuevas: `audio_service` destruye el motor de Flutter al irse su servicio, y ese
+    motor es el mismo de la cola de procesamiento (F29). El porqué, en el Avance del paso 2.
 
 - **K. Los filtros se siguen aplicando al tocarlos, y el botón de abajo cierra el panel con la
   cifra de lo que se va a ver.** Así la cifra dice de antemano si un filtro deja algo, y no se
@@ -518,10 +521,97 @@ Cinco commits, de `b1d1c045` a `b4f2ddf3` (mejoras 20 y 21, decisión K).
   - murieron las 16 mutaciones. Entre ellas: la tarjeta que vuelve a ofrecer leerse, la cifra
     vieja mientras cuenta, el pie que salta de tamaño (sobrevivía hasta probarlo con una cifra
     de dos líneas), el cero prendido, la lista que no vuelve arriba y la región viva sin la frase.
+  - commit por commit (`verify_commit`), cada uno compila solo. `85627b76` y `54b2530d` dan 20
+    avisos, uno más que la línea base: un tipo de más en el `onPressed` de `list_controls.dart`,
+    que corrige el commit siguiente, `b4f2ddf3`. No se reescribió la historia.
 - **Queda para después:**
   - en la Biblioteca, el tablero y el calendario no tienen un «arriba» que recuperar;
   - en «Volver a triar», a 360 dp con la letra al doble, la explicación de arriba ocupa toda la
     pantalla (viene de antes);
+  - no se miró en el emulador ni en el teléfono.
+
+### Paso 2 (hecho): el reproductor anclado y en segundo plano
+
+Cinco commits, de `1bed0d51` a `9b291f71`, y el de este avance (decisiones H y J, esta última
+cambiada: ver abajo).
+
+- **El dominio**, puro y probado:
+  - `ReadingTimeline`: el tiempo por las palabras (150 por minuto a 1×) y la velocidad; ±10 s
+    salta a la oración más cercana y siempre mueve. Reemplaza la medición del ritmo de F25.
+  - `ReadingQueue` con Repetir (no, la cola, esto) y `SleepTimer` (15, 30, 45 o 60 min, o al
+    terminar esto).
+  - La regla de 0,5× a 3,0×, de a una décima, con los atajos 1,0 · 1,2 · 1,5 · 2,0 · 3,0 y sin
+    candados (decisión H).
+  - **De paso, un error viejo:** a `flutter_tts` se le pedía siempre la mitad de la velocidad,
+    que es lo justo solo en Android. En la web 1× sonaba a la mitad y en Windows 2× sonaba a
+    1,5×. Ahora `flutterTtsRate` traduce la escala de cada plataforma, solo adentro de
+    `FlutterTtsService`; las voces sin conexión (sherpa) reciben el multiplicador tal cual.
+- **El reproductor** (`ReadAloudAnchoredPlayer`, que ya monta `ReadAloudOverlay`):
+  - **abierto:** el título que se desliza (dos pasadas, quieto sin animaciones), ⟲, ☰, ⌄, la
+    barra con sus tiempos, la cara de la voz, −10 s, ▶ grande, +10 s y «1,0×»;
+  - **achicado:** ▶, el título, +10 s y ⌃; arrastrarlo hacia abajo deja de leer, y el lector de
+    pantalla tiene la acción «Dejar de leer»;
+  - **la cola:** «Ahora suena» con «Leer: Todo · Resumen · Síntesis · Palabras clave» y «Dejar
+    de leer», lo de la pantalla para sumar o leer ya, reordenar arrastrando, Repetir y el
+    temporizador;
+  - **la regla de la velocidad**, que se arrastra; el lector de pantalla la sube y la baja de a
+    una décima;
+  - **Lectura enfocada**, en Ajustes → «Voz y lectura», debajo de «Voces por idioma» y «Voces
+    descargadas»: el reproductor se achica solo mientras te desplazás.
+- **Con la biblioteca de voces (paso 3):**
+  - la cara del reproductor es la de la voz que lee, con su nombre en «Leyendo con …», y tocarla
+    abre la biblioteca (`openVoicePicker` → `showVoiceLibrary`);
+  - la voz del sistema, que no tiene perfil en la biblioteca, tiene una cara propia que siempre
+    es la misma;
+  - ±10 s y la cola leen con la voz del idioma donde caen, y cambiar la velocidad vuelve a decir
+    la oración y vuelve a preparar el pedazo siguiente a la velocidad nueva.
+- **En segundo plano, la tarjeta de lo que suena** en la notificación, en la pantalla de bloqueo,
+  en los auriculares y en el reloj:
+  - el contrato está en `lib/core/audio/media_session.dart` (`MediaSessionState`, los comandos,
+    las interrupciones y `MediaSessionSource`, lo que implementa cada cosa que suena);
+  - `MediaSessionHub` muestra lo que tiene el foco de audio de la app y manda solo lo que cambia
+    a la vista; la barra la adelanta el teléfono y se corrige si se aparta más de 2 s;
+  - una llamada pausa y al cortar sigue; otra app que se queda con el sonido pausa y no vuelve;
+    desconectar los auriculares pausa; al terminar, la tarjeta se va;
+  - hoy suenan ahí el lector (con la voz del chat) y un audio o un video, que siguen sonando en
+    segundo plano con su título y su tiempo real;
+  - **la portada** es la cara de la voz, dibujada una vez por voz como PNG; mientras lee la misma
+    voz se manda la misma imagen.
+- **La decisión J, cambiada: sin `audio_service`.** Su código busca el motor de Flutter por su
+  propio nombre y lo destruye cuando su servicio se va y no hay actividad. El motor de la app es
+  el del proceso (F29), así que cerrar la app desde «recientes» habría matado la cola de
+  procesamiento (F21 y F29). Se hizo la alternativa de la misma decisión: la sesión de medios a
+  mano, con `MediaSession` y `Notification.MediaStyle` de Android y **sin dependencias nuevas**.
+  El servicio es de tipo «reproducción de medios» (`FOREGROUND_SERVICE_MEDIA_PLAYBACK` y
+  `WAKE_LOCK`), aparte del de procesar; el porqué queda escrito en `MediaSessionChannel.kt`.
+- **Los avisos van por encima del reproductor:** lo que ocupa se publica en
+  `readAloudPlayerExtentProvider` con dos cifras: `current`, lo que ocupa ahora, y `resting`, lo
+  que ocupa en la forma elegida, sin el achicarse pasajero de la Lectura enfocada. Con `resting`
+  suben hoy los `SnackBar`, por el tema: con una sola cifra, el tema de toda la app cambiaba a
+  mitad de un desplazamiento y Flutter tiraba un error de semántica.
+- **Para el podcast (paso 6b):** implementa `MediaSessionSource` y se registra en
+  `mediaSessionSourcesProvider` con el mismo testigo con que toma `audioFocusProvider`; la
+  portada ya está en el contrato.
+- **Verificado:**
+  - analyze en 19;
+  - 2.795 pruebas de la narración, Ajustes, la app, `core`, los visores, la Biblioteca, extraer
+    y Repasar con el lector, y las 454 del chat, después de unir el paso 3; antes de unirlo
+    habían pasado 3.025, con el chat;
+  - murieron las 33 mutaciones: 25 del paso (diez del dominio, siete del reproductor y ocho de la
+    tarjeta) y 8 de la unión con el paso 3. Entre ellas: la cara que no abre la biblioteca, el
+    pedazo leído con la voz de antes, la velocidad que no vuelve a preparar, sherpa recibiendo la
+    escala de `flutter_tts` y la portada que se redibuja con cada cambio (colgó las pruebas, y
+    cuenta como muerta);
+  - el APK de depuración compiló los tres sabores con el Kotlin nuevo.
+- **Queda para después:**
+  - **para el paso 1 (el marco):** la ruta del documento en `ReadableDocument`, para que tocar
+    la tarjeta lo abra en la línea que suena (hoy trae la app al frente con el reproductor
+    abierto); un margen abajo para que el reproductor no tape lo último de cada lista; «Añadir a
+    la cola» en ⋮, con `controller.enqueue`; llevar «Leer: …» a «Contenido»; y sacar el botón
+    redondo de los lectores;
+  - **para F45 paso 1:** el anfitrión de los avisos lee `readAloudPlayerExtentProvider.current`;
+  - en iOS no hay tarjeta y la voz del teléfono no pasa de su techo: no se escribió código para
+    iOS;
   - no se miró en el emulador ni en el teléfono.
 
 ### Paso 3 (hecho): la biblioteca de voces
