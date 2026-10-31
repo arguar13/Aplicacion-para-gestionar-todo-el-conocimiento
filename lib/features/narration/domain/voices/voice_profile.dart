@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
+import 'package:sinapsis/features/narration/domain/voices/mine/my_voice.dart';
 import 'package:sinapsis/features/narration/domain/voices/offline_voice_catalog.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_locale.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_traits.dart';
@@ -27,6 +28,7 @@ class VoiceProfile {
     this.styles = const {},
     this.age,
     this.needsInternet = false,
+    this.mine,
   }) : assert(name != null || number != null, 'una voz sin nombre ni número');
 
   /// Qué voz es, para siempre: lo que se guarda al marcarla favorita.
@@ -57,8 +59,19 @@ class VoiceProfile {
   final Set<VoiceStyle> styles;
   final VoiceAge? age;
 
-  /// Una voz del teléfono que lee desde internet (`…-network` en Android).
+  /// Una voz del teléfono que lee desde internet (`…-network` en Android), o
+  /// una propia que vive en ElevenLabs (F47, paso 4).
   final bool needsInternet;
+
+  /// La voz propia, si es una clonada o creada (F47, paso 4): dónde vive, su
+  /// consentimiento y su cara elegida.
+  final MyVoice? mine;
+
+  /// Si leer con ella pasa por la nube y gasta cuota (F47, paso 4).
+  bool get inCloud => mine?.home == MyVoiceHome.elevenLabs;
+
+  /// De dónde sale su cara: el id, o la cara que se le eligió.
+  String get faceKey => mine?.faceKey ?? id;
 
   /// El idioma, sin el acento: `es`.
   String get language => accentLanguage(locale);
@@ -98,10 +111,40 @@ List<VoiceProfile> offlineVoiceProfiles(Iterable<OfflineVoice> voices) => [
     ),
 ];
 
+/// Las voces de la pestaña Mías, como voces de la biblioteca (F47, paso 4):
+/// con los rasgos que eligió quien las creó, que Filtrar ofrece.
+List<VoiceProfile> myVoiceProfiles(Iterable<MyVoice> voices) => [
+  for (final voice in voices)
+    VoiceProfile(
+      id: voice.narrationVoice.name,
+      voice: voice.narrationVoice,
+      origin: voice.origin,
+      locale: voice.locale,
+      name: voice.name,
+      gender: voice.gender,
+      age: voice.age,
+      timbre: voice.timbre,
+      styles: voice.styles,
+      purposes: voice.purposes,
+      needsInternet: voice.home == MyVoiceHome.elevenLabs,
+      mine: voice,
+    ),
+];
+
 /// La voz de la biblioteca de una voz del teléfono —la elegida, que puede no
 /// estar en la lista de ahora—, o la de una sin conexión del catálogo. `null`
-/// si es una sin conexión que el catálogo ya no tiene.
-VoiceProfile? voiceProfileOf(NarrationVoice voice, {int number = 1}) {
+/// si es una sin conexión que el catálogo ya no tiene, o una propia que no
+/// está en [mine] (F47, paso 4).
+VoiceProfile? voiceProfileOf(
+  NarrationVoice voice, {
+  int number = 1,
+  Iterable<MyVoice> mine = const [],
+}) {
+  if (isMyVoice(voice)) {
+    final id = myVoiceIdOf(voice);
+    final own = mine.where((candidate) => candidate.id == id);
+    return own.isEmpty ? null : myVoiceProfiles(own).single;
+  }
   if (voice.engine == NarrationEngine.offline) {
     final offline = OfflineVoiceCatalog.byId(voice.name);
     return offline == null ? null : offlineVoiceProfiles([offline]).single;

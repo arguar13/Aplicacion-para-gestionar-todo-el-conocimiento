@@ -32,8 +32,10 @@ class OfflineVoiceEngineConfig {
   final String? espeakVoice;
 
   /// Lo que distingue un motor de otro: el mismo modelo con otra forma de
-  /// pronunciar —Kokoro en español y en francés— es otro motor.
-  String get key => '$model|${lexicon ?? ''}|${espeakVoice ?? ''}';
+  /// pronunciar —Kokoro en español y en francés— es otro motor, y también
+  /// con otros estilos: el `voices.bin` de las voces creadas (F47, paso 4).
+  String get key =>
+      '$model|${voices ?? ''}|${lexicon ?? ''}|${espeakVoice ?? ''}';
 
   @override
   bool operator ==(Object other) =>

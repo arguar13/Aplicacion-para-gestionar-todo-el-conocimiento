@@ -80,7 +80,7 @@ abstract final class OfflineVoiceCatalog {
         locale: locale,
         gender: gender,
         quality: quality,
-        kokoroPhonemes: _kokoroPhonemesOf(locale),
+        kokoroPhonemes: kokoroPhonemesFor(locale),
       ),
   ]);
 
@@ -101,10 +101,17 @@ abstract final class OfflineVoiceCatalog {
     return '$_piperSamples/$locale/$package/$speaker.mp3';
   }
 
+  /// Los idiomas y acentos que Kokoro pronuncia, en el orden del catálogo:
+  /// los de una voz creada en el teléfono (F47, paso 4).
+  static final List<String> kokoroLocales = List.unmodifiable({
+    for (final (_, _, locale, _, _) in _kokoroVoices) locale,
+  });
+
   /// Cómo pronuncia Kokoro cada idioma: el inglés con su léxico —el de
   /// Estados Unidos o el británico—, el resto con la voz de espeak-ng que
-  /// usa Kokoro para ese idioma (`VOICES.md`).
-  static KokoroPhonemes _kokoroPhonemesOf(String locale) => switch (locale) {
+  /// usa Kokoro para ese idioma (`VOICES.md`). Lo usa también una voz creada
+  /// en el teléfono (F47, paso 4), que lee con el mismo motor.
+  static KokoroPhonemes kokoroPhonemesFor(String locale) => switch (locale) {
     'en-US' => const KokoroPhonemes.lexicon('lexicon-us-en.txt'),
     'en-GB' => const KokoroPhonemes.lexicon('lexicon-gb-en.txt'),
     'es' => const KokoroPhonemes.espeak('es'),
@@ -603,9 +610,37 @@ class OfflineVoice {
     this.quality,
     this.kokoroPhonemes,
     this.sampleUrl,
+    this.blendId,
+    this.pace = 1,
   });
 
+  /// Una voz creada en el teléfono (F47, paso 4): una mezcla de voces de
+  /// Kokoro que lee como un hablante más —su [speakerId]— del `voices.bin` de
+  /// las voces creadas, no del que trae el paquete.
+  const OfflineVoice.blend({
+    required String id,
+    required this.speakerId,
+    required this.name,
+    required this.locale,
+    required KokoroPhonemes this.kokoroPhonemes,
+    this.pace = 1,
+  }) : package = OfflineVoiceCatalog.kokoro,
+       blendId = id,
+       gender = null,
+       quality = null,
+       sampleUrl = null;
+
   final OfflineVoicePackage package;
+
+  /// El id de la voz creada, si es una mezcla (ver [OfflineVoice.blend]).
+  final String? blendId;
+
+  /// Si es una voz creada: lee del `voices.bin` de las voces creadas.
+  bool get isBlend => blendId != null;
+
+  /// Cuánto más rápido o más lento que la velocidad elegida habla: el ritmo
+  /// de una voz creada. 1 en las del catálogo.
+  final double pace;
 
   /// El `sid` del hablante en el paquete.
   final int speakerId;
@@ -629,8 +664,10 @@ class OfflineVoice {
   final String? sampleUrl;
 
   /// Qué voz es, para siempre: lo que se guarda al elegirla o marcarla
-  /// favorita. `<paquete>#<sid>`.
-  String get id => '${package.id}#$speakerId';
+  /// favorita. `<paquete>#<sid>`; en una voz creada, `mia:<id>` (F47, paso
+  /// 4): su lugar en el `voices.bin` de las creadas puede cambiar, ella no.
+  String get id =>
+      blendId != null ? 'mia:$blendId' : '${package.id}#$speakerId';
 
   /// El idioma, sin el acento: `es`.
   String get language => locale.split('-').first;

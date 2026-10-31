@@ -8,8 +8,14 @@ enum NarrationEngine {
   system,
 
   /// El motor sin conexión de la app (`sherpa_onnx`): una voz neuronal de
-  /// Piper o de Kokoro, bajada a pedido.
+  /// Piper o de Kokoro, bajada a pedido. También una voz creada en el
+  /// teléfono, mezclando voces de Kokoro (F47, paso 4).
   offline,
+
+  /// Una voz propia que vive en ElevenLabs (F47, paso 4, decisión C): solo
+  /// si la persona la eligió, con su cuenta. Leer con ella manda el texto a
+  /// ElevenLabs y gasta su cuota (decisión F).
+  cloud,
 }
 
 /// Una voz con la que se lee en voz alta: quién la lee, en qué acento y con
