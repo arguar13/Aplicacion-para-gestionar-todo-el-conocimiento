@@ -267,6 +267,28 @@ void main() {
       expect(parts.view.right, parts.undo.right);
     });
 
+    testWidgets('un texto corto con un botón largo: el botón baja y el texto '
+        'no se aprieta', (tester) async {
+      // «Movido» entra al lado de la ✕, pero no al lado de «Deshacer».
+      await show(
+        tester,
+        () => AppSnackBar(content: const Text('Movido'), action: undo()),
+      );
+
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.text('Movido'),
+      );
+      expect(
+        tester.getRect(find.text('Movido')).height,
+        closeTo(paragraph.preferredLineHeight, 0.5),
+      );
+      expect(
+        tester.getRect(button('Deshacer')).top,
+        greaterThanOrEqualTo(tester.getRect(find.text('Movido')).bottom),
+      );
+      expect(card(tester).right - tester.getRect(button('Deshacer')).right, 4);
+    });
+
     testWidgets('un texto largo, en hasta tres renglones', (tester) async {
       final message = List.filled(12, 'una palabra más').join(' ');
       await show(
