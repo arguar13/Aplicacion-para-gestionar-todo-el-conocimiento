@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/library/presentation/widgets/list_controls.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_filter.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
@@ -215,8 +216,8 @@ class _VoiceList extends ConsumerWidget {
           }
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(
+            ..showAppSnackBar(
+              AppSnackBar(
                 content: Text(
                   l10n.f47P3ChosenForLanguage(
                     voiceName(voice, l10n),

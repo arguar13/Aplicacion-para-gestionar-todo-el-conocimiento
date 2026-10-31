@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/map/domain/entities/map_layers.dart';
@@ -362,8 +363,8 @@ Future<bool> showMapSimilarProposal(
       );
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
+    ..showAppSnackBar(
+      AppSnackBar(
         content: Text(
           result.fold(
             (failure) => failure.localizedMessage(l10n),

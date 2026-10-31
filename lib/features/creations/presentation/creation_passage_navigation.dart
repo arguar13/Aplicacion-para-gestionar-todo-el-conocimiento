@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_passage.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
@@ -49,7 +50,9 @@ Future<void> openCreationPassage(
   if (source == null || !source.isLive) {
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.f43StudioSourceDeleted)));
+      ..showAppSnackBar(
+        AppSnackBar(content: Text(l10n.f43StudioSourceDeleted)),
+      );
     return;
   }
   final itemId = source.sourceItemId;
@@ -65,7 +68,7 @@ Future<void> openCreationPassage(
     }
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.f43MindPassageMissing)));
+      ..showAppSnackBar(AppSnackBar(content: Text(l10n.f43MindPassageMissing)));
   }
   unawaited(router.push(RoutePaths.processedDocument(documentId)));
 }
