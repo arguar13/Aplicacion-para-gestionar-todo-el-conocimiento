@@ -52,8 +52,8 @@ class NarrationSettings {
 /// separado por un carácter que ninguna voz real trae en su nombre— en vez
 /// de dos claves sueltas: así una lectura a medio guardar nunca deja el
 /// nombre de una voz emparejado con el locale de otra. Una voz sin conexión
-/// suma un tercer campo, `offline` (F47, paso 3); las guardadas antes, de
-/// dos, son del sistema, como eran.
+/// suma un tercer campo, `offline` (F47, paso 3), y una propia en la nube,
+/// `cloud` (paso 4); las guardadas antes, de dos, son del sistema, como eran.
 ///
 /// Las voces por idioma van juntas en un JSON. La voz guardada antes de
 /// F47 —una sola para todo— cuenta como la elegida para su idioma, si ese
@@ -69,6 +69,9 @@ class NarrationSettingsNotifier extends StateNotifier<NarrationSettings> {
   static const _focusedReadingKey = 'narration_focused_reading';
   static const _voiceSeparator = '\u0000';
   static const _offlineMark = 'offline';
+
+  /// Una voz propia que vive en ElevenLabs (F47, paso 4).
+  static const _cloudMark = 'cloud';
 
   final SharedPreferences _prefs;
 
@@ -115,14 +118,25 @@ class NarrationSettingsNotifier extends StateNotifier<NarrationSettings> {
         engine: NarrationEngine.offline,
       );
     }
+    if (parts.length == 3 && parts[2] == _cloudMark) {
+      return NarrationVoice(
+        name: parts[0],
+        locale: parts[1],
+        engine: NarrationEngine.cloud,
+      );
+    }
     return null;
   }
 
   static String _encode(NarrationVoice voice) => [
     voice.name,
     voice.locale,
-    if (voice.engine == NarrationEngine.offline) _offlineMark,
-  ].join(_voiceSeparator);
+    switch (voice.engine) {
+      NarrationEngine.offline => _offlineMark,
+      NarrationEngine.cloud => _cloudMark,
+      NarrationEngine.system => null,
+    },
+  ].nonNulls.join(_voiceSeparator);
 
   /// Elige [voice] para leer —y para su idioma, de ahora en más—. `null` es
   /// la voz del sistema: deja sin elegida a [language], el idioma que se

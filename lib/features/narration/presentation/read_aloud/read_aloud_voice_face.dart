@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
+import 'package:sinapsis/features/narration/domain/voices/mine/my_voice.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_face.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 import 'package:sinapsis/features/narration/presentation/providers/voice_library_providers.dart';
@@ -34,9 +35,14 @@ void openVoicePicker(BuildContext context) =>
 /// Cómo se nombra [voice] en una frase —«Leyendo con …»—: su nombre si es
 /// un nombre de verdad («Daniela», «Mónica»), su acento si es un código del
 /// motor («Español (Argentina)») y la voz del teléfono si no hay ninguna.
-String readAloudVoiceName(NarrationVoice? voice, AppLocalizations l10n) {
+/// Una voz propia (F47, paso 4) se nombra con su ficha, de [mine].
+String readAloudVoiceName(
+  NarrationVoice? voice,
+  AppLocalizations l10n, {
+  Iterable<MyVoice> mine = const [],
+}) {
   if (voice == null) return l10n.f47P2PhoneVoice;
-  final name = voiceProfileOf(voice)?.name;
+  final name = voiceProfileOf(voice, mine: mine)?.name;
   if (name != null) return name;
   if (looksLikeVoiceCode(voice.name)) return accentDisplayName(voice.locale);
   return voice.name;
@@ -60,6 +66,43 @@ class ReadAloudVoiceFace extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final voice = ref.watch(currentVoiceProfileProvider);
+    if (voice != null && voice.inCloud) {
+      // Una voz propia de la nube lleva la nube en la cara (F47, paso 4): lo
+      // que se lee sale a ElevenLabs. Lo dice en palabras la línea de
+      // arriba («Voz clonada», «En la nube»).
+      final scheme = Theme.of(context).colorScheme;
+      return SizedBox.square(
+        dimension: size,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            VoiceFaceView.of(voice, size: size),
+            PositionedDirectional(
+              end: -2,
+              bottom: -2,
+              child: ExcludeSemantics(
+                child: DecoratedBox(
+                  key: const Key('read-aloud-voice-cloud-mark'),
+                  decoration: BoxDecoration(
+                    color: scheme.tertiaryContainer,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: scheme.surface, width: 1.5),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Icon(
+                      Icons.cloud_rounded,
+                      size: size * 0.3,
+                      color: scheme.onTertiaryContainer,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     if (voice != null) return VoiceFaceView.of(voice, size: size);
     final l10n = AppLocalizations.of(context)!;
     return VoiceFaceView(

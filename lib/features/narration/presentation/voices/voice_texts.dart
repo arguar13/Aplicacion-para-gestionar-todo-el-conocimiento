@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
+import 'package:sinapsis/features/narration/domain/voices/mine/voice_cloud.dart';
 import 'package:sinapsis/features/narration/domain/voices/offline_voice_catalog.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_locale.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
@@ -113,9 +114,35 @@ String voiceOriginLine(
     VoiceOrigin.offline => l10n.f47P3OriginOfflineSize(
       formatFileSize(package!.bytes, l10n.localeName),
     ),
-    VoiceOrigin.cloned => l10n.f47P3OriginCloned,
-    VoiceOrigin.created => l10n.f47P3OriginCreated,
+    // Las propias dicen dónde viven y, en la nube, lo que cuesta leer (F47,
+    // paso 4): «Clonada · En la nube · 1 crédito por carácter».
+    VoiceOrigin.cloned ||
+    VoiceOrigin.created => myVoiceOriginLine(voice, l10n, ready: ready),
   };
+}
+
+/// De dónde es una voz propia, y si es de la nube, lo que cuesta leer con
+/// ella y si hoy puede leer (F47, paso 4).
+String myVoiceOriginLine(
+  VoiceProfile voice,
+  AppLocalizations l10n, {
+  required bool ready,
+}) {
+  final cloned = voice.origin == VoiceOrigin.cloned;
+  final origin = cloned ? l10n.f47P3OriginCloned : l10n.f47P3OriginCreated;
+  if (!voice.inCloud) {
+    return [
+      origin,
+      l10n.f47P4OnPhone,
+      if (!ready) l10n.f47P4NeedsKokoro,
+    ].join(' · ');
+  }
+  return [
+    origin,
+    l10n.f47P4InCloud,
+    l10n.f47P4CreditPerCharacter(ElevenLabsFacts.creditsPerCharacter),
+    if (!ready) l10n.f47P4NeedsCloud,
+  ].join(' · ');
 }
 
 final int _kokoroVoices = OfflineVoiceCatalog.voices

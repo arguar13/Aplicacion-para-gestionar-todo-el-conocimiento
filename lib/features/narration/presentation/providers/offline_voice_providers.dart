@@ -13,6 +13,7 @@ import 'package:sinapsis/features/narration/data/voices/video_player_speech_clip
 import 'package:sinapsis/features/narration/domain/services/offline_speech_synthesizer.dart';
 import 'package:sinapsis/features/narration/domain/services/text_to_speech_service.dart';
 import 'package:sinapsis/features/narration/domain/voices/offline_voice_catalog.dart';
+import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 import 'package:sinapsis/features/transform/presentation/providers/model_download_notifier.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
@@ -61,11 +62,15 @@ final offlineTextToSpeechServiceProvider = Provider<TextToSpeechService?>((
   final files = ref.watch(offlineVoiceFilesProvider);
   final synthesizer = ref.watch(offlineSpeechSynthesizerProvider);
   if (files == null || synthesizer == null) return null;
+  // Las del catálogo y las creadas en el teléfono (F47, paso 4), que leen del
+  // `voices.bin` de las creadas.
+  final mine = ref.watch(myVoicesServiceProvider);
   final player = VideoPlayerSpeechClipPlayer();
   final service = OfflineTextToSpeechService(
     synthesizer: synthesizer,
     player: player,
-    engineOf: files.engineConfigOf,
+    engineOf: mine.engineConfigOf,
+    voiceOf: mine.offlineVoiceOf,
     clipsDirectory: () async => Directory(
       p.join((await getTemporaryDirectory()).path, 'voz-sin-conexion'),
     ),

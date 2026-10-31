@@ -19,10 +19,11 @@ import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 class VoiceFaceView extends StatelessWidget {
   const VoiceFaceView({required this.face, this.size = 48, super.key});
 
-  /// La cara de [voice].
+  /// La cara de [voice]: la de su id o, en una propia, la que se le eligió
+  /// (F47, paso 4).
   factory VoiceFaceView.of(VoiceProfile voice, {double size = 48, Key? key}) =>
       VoiceFaceView(
-        face: VoiceFace.of(voice.id, voice.label),
+        face: VoiceFace.of(voice.faceKey, voice.label),
         size: size,
         key: key,
       );

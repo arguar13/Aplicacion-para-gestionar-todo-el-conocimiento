@@ -10,14 +10,18 @@ import 'package:sinapsis/features/narration/domain/read_aloud/reading_timeline.d
 import 'package:sinapsis/features/narration/domain/read_aloud/sleep_timer.dart';
 import 'package:sinapsis/features/narration/domain/services/speech_track_player.dart';
 import 'package:sinapsis/features/narration/domain/services/text_to_speech_service.dart';
+import 'package:sinapsis/features/narration/domain/voices/mine/my_voice.dart';
+import 'package:sinapsis/features/narration/domain/voices/mine/voice_cloud.dart';
 import 'package:sinapsis/features/narration/domain/voices/offline_voice_catalog.dart';
 import 'package:sinapsis/features/narration/domain/voices/passage_languages.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_locale.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_traits.dart';
+import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/cloud_reading_gate.dart';
 
 /// Cómo se ve el lector (F25; anclado abajo desde F47, paso 2).
 enum ReadAloudPanel {
@@ -291,6 +295,9 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   /// elegida que se borró no lee (F47, paso 3).
   Set<String> _installedPackages = const {};
 
+  /// Las voces propias que pueden leer, por su nombre (F47, paso 4).
+  Set<String> _readyMine = const {};
+
   /// El último cambio de voz por un cambio de elección, para que
   /// [setVoice] lo espere.
   Future<void>? _following;
@@ -324,6 +331,12 @@ class ReadAloudController extends Notifier<ReadAloudState> {
       ..listen(installedVoicePackagesProvider, (previous, next) {
         _installedPackages = next.valueOrNull ?? const {};
         // La primera vez es al nacer, antes de que haya estado.
+        if (previous != null) unawaited(_following = _followChoice());
+      }, fireImmediately: true)
+      // Una voz propia que se crea, se borra o deja de poder leer —se apagó
+      // la nube— cambia con qué se lee (F47, paso 4).
+      ..listen(readyMyVoiceNamesProvider, (previous, next) {
+        _readyMine = next;
         if (previous != null) unawaited(_following = _followChoice());
       }, fireImmediately: true);
     unawaited(
@@ -772,6 +785,14 @@ class ReadAloudController extends Notifier<ReadAloudState> {
       if (generation != _generation || !state.playing) return;
     }
 
+    // Una voz de la nube gasta la cuota de la persona: lo largo se avisa
+    // antes, con su costo (F47, paso 4).
+    if (!await _cloudApproved(voice, from)) {
+      if (generation == _generation && state.playing) await pause();
+      return;
+    }
+    if (generation != _generation || !state.playing) return;
+
     _base = from;
     try {
       await _tts.speak(text);
@@ -1037,8 +1058,40 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     );
   }
 
-  /// [voice], si puede leer: una sin conexión cuyo paquete se borró, no.
+  /// Si se puede leer con [voice] desde el carácter [from] del pedazo de
+  /// ahora: sí, salvo con una voz de la nube y lo que queda del documento
+  /// largo ([cloudLongReadCharacters]), que se pregunta una vez por documento
+  /// y voz, con su costo (F47, paso 4). Sin quien pregunte, no se gasta.
+  Future<bool> _cloudApproved(NarrationVoice? voice, int from) async {
+    if (voice == null || voice.engine != NarrationEngine.cloud) return true;
+    final key =
+        '${state.document?.id}\u0000${state.scope.name}\u0000'
+        '${voice.name}';
+    if (_cloudAllowed.contains(key)) return true;
+    // Lo que falta de lo que se lee, desde donde se empieza: en caracteres
+    // de lo que se dice, que es lo que cobra ElevenLabs.
+    final remaining =
+        _timeline.length - (_timeline.startOf(state.segmentIndex) + from);
+    if (remaining >= cloudLongReadCharacters) {
+      final approved = await ref
+          .read(cloudReadingGateProvider)
+          .approve(voice: voice, characters: remaining);
+      if (!approved) return false;
+    }
+    _cloudAllowed.add(key);
+    return true;
+  }
+
+  /// Lo que ya se aprobó leer en la nube: documento, parte y voz.
+  final _cloudAllowed = <String>{};
+
+  /// [voice], si puede leer: una sin conexión cuyo paquete se borró, no; una
+  /// propia (F47, paso 4), si sigue en Mías y puede leer —Kokoro bajado, o la
+  /// nube prendida con su clave—.
   NarrationVoice? _usable(NarrationVoice? voice) {
+    if (isMyVoice(voice)) {
+      return _readyMine.contains(voice!.name) ? voice : null;
+    }
     if (voice == null || voice.engine != NarrationEngine.offline) return voice;
     final offline = OfflineVoiceCatalog.byId(voice.name);
     if (offline == null) return null;

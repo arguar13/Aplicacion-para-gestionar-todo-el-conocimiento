@@ -10,21 +10,23 @@ import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/services/speech_clip_player.dart';
 import 'package:sinapsis/features/narration/domain/services/text_to_speech_service.dart';
+import 'package:sinapsis/features/narration/domain/voices/mine/my_voice.dart';
 import 'package:sinapsis/features/narration/domain/voices/offline_voice_catalog.dart';
 import 'package:sinapsis/features/narration/domain/voices/passage_languages.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_filter.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_samples.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_traits.dart';
+import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_audio_focus.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 
-/// Todas las voces de la biblioteca (F47, paso 3): las del teléfono y, donde
-/// se ofrecen, las sin conexión del catálogo, estén o no bajadas. Las
-/// clonadas y las creadas se suman en el paso 4.
+/// Todas las voces de la biblioteca (F47, paso 3): las propias de Mías
+/// —clonadas y creadas, paso 4—, las del teléfono y, donde se ofrecen, las
+/// sin conexión del catálogo, estén o no bajadas.
 ///
 /// Si el teléfono no dice sus voces —un motor que falla al preguntarle—, la
 /// biblioteca sigue con las demás.
@@ -34,29 +36,40 @@ final voiceLibraryProvider = FutureProvider.autoDispose<List<VoiceProfile>>((
   final offline = ref.watch(offlineVoicesAvailableProvider)
       ? offlineVoiceProfiles(OfflineVoiceCatalog.voices)
       : const <VoiceProfile>[];
+  final mine = myVoiceProfiles(
+    ref.watch(myVoicesProvider).valueOrNull ?? const [],
+  );
   List<NarrationVoice> device;
   try {
     device = await ref.watch(narrationVoicesProvider.future);
   } on Object {
     device = const [];
   }
-  return [...offline, ...deviceVoiceProfiles(device)];
+  return [...mine, ...offline, ...deviceVoiceProfiles(device)];
 });
 
-/// Las voces que ya pueden leer, por su id: las del teléfono, siempre, y las
-/// sin conexión cuyo paquete está bajado.
+/// Las voces que ya pueden leer, por su id: las del teléfono, siempre; las
+/// sin conexión cuyo paquete está bajado, y las propias que pueden leer
+/// (ver [readyMyVoiceNamesProvider]).
 final installedVoiceIdsProvider = Provider.autoDispose<Set<String>>((ref) {
   final packages = ref.watch(installedVoicePackagesProvider).valueOrNull;
-  if (packages == null || packages.isEmpty) return const {};
+  final mine = ref.watch(readyMyVoiceNamesProvider);
   return {
-    for (final voice in OfflineVoiceCatalog.voices)
-      if (packages.contains(voice.package.id)) voice.id,
+    if (packages != null)
+      for (final voice in OfflineVoiceCatalog.voices)
+        if (packages.contains(voice.package.id)) voice.id,
+    ...mine,
   };
 });
 
 /// Si [voice] puede leer ya, sin bajar nada.
 bool isVoiceReady(VoiceProfile voice, Set<String> installed) =>
-    voice.origin != VoiceOrigin.offline || installed.contains(voice.id);
+    switch (voice.origin) {
+      VoiceOrigin.device => true,
+      VoiceOrigin.offline ||
+      VoiceOrigin.cloned ||
+      VoiceOrigin.created => installed.contains(voice.id),
+    };
 
 /// El idioma de lo que se lee ahora (F47, paso 3): el del pedazo que suena,
 /// o —sin nada sonando— el del texto que ofrece la pantalla. Es el que
@@ -119,6 +132,11 @@ final voiceSampleClipPlayerProvider = Provider<SpeechClipPlayer>((ref) {
 /// oración de muestra, o de Kokoro sin bajar (sus muestras publicadas no
 /// están en su idioma).
 VoiceSample? voiceSampleOf(VoiceProfile voice, Set<String> installed) {
+  // Una propia de la nube suena con su muestra ya generada: decirla de
+  // nuevo gastaría cuota cada vez (F47, paso 4).
+  if (voice.mine case final mine? when mine.home == MyVoiceHome.elevenLabs) {
+    return mine.sampleFile == null ? null : StoredSample(mine);
+  }
   if (isVoiceReady(voice, installed)) {
     final text = voiceSampleText(voice.language);
     return text == null ? null : SpokenSample(text);
@@ -143,6 +161,13 @@ class PublishedSample extends VoiceSample {
   const PublishedSample(this.url);
 
   final String url;
+}
+
+/// Suena la muestra guardada de una voz propia de la nube (F47, paso 4).
+class StoredSample extends VoiceSample {
+  const StoredSample(this.voice);
+
+  final MyVoice voice;
 }
 
 /// La muestra que suena: el id de su voz, o `null` (F47, paso 3).
@@ -202,6 +227,17 @@ class VoiceSampleController extends AutoDisposeNotifier<String?> {
           // nada más.
         }
         if (generation == _generation) state = null;
+      case StoredSample(voice: final mine):
+        await ref.read(readAloudControllerProvider.notifier).pause();
+        final file = await ref.read(myVoicesServiceProvider).sampleFileOf(mine);
+        try {
+          if (file != null && generation == _generation) {
+            await _clips.play(FileSpeechClip(file.path));
+          }
+        } on Object {
+          // Un archivo que no se pudo abrir: no suena, y nada más.
+        }
+        if (generation == _generation) state = null;
       case SpokenSample(:final text):
         final reader = ref.read(readAloudControllerProvider.notifier);
         await reader.pause();
@@ -245,5 +281,9 @@ final voiceSampleProvider =
 /// sin conexión que el catálogo ya no tiene.
 final currentVoiceProfileProvider = Provider.autoDispose<VoiceProfile?>((ref) {
   final voice = ref.watch(readAloudControllerProvider.select((s) => s.voice));
-  return voice == null ? null : voiceProfileOf(voice);
+  if (voice == null) return null;
+  return voiceProfileOf(
+    voice,
+    mine: ref.watch(myVoicesProvider).valueOrNull ?? const [],
+  );
 });

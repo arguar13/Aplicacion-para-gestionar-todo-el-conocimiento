@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/reading_queue.dart';
+import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player_extent.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_speed_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_voice_face.dart';
+import 'package:sinapsis/features/narration/presentation/voices/voice_kind_badges.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart'
     show mediaSkipStep;
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -137,6 +139,8 @@ class _OpenPlayer extends ConsumerWidget {
       ),
     );
     final speedText = formatReadAloudSpeed(speed, locale);
+    // Las propias se nombran con su ficha (F47, paso 4).
+    final mine = ref.watch(myVoicesProvider).valueOrNull ?? const [];
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
@@ -157,6 +161,9 @@ class _OpenPlayer extends ConsumerWidget {
                     ),
                     const SizedBox(height: 2),
                     const _StatusLine(),
+                    // «Voz clonada», «Voz creada», «En la nube» (F47, paso
+                    // 4): de la voz de la cara de abajo.
+                    const CurrentVoiceBadges(),
                   ],
                 ),
               ),
@@ -187,7 +194,7 @@ class _OpenPlayer extends ConsumerWidget {
                   alignment: AlignmentDirectional.centerStart,
                   child: Tooltip(
                     message: l10n.f47P2VoiceFace(
-                      readAloudVoiceName(voice, l10n),
+                      readAloudVoiceName(voice, l10n, mine: mine),
                     ),
                     child: InkResponse(
                       key: const Key('read-aloud-voice'),
@@ -381,7 +388,11 @@ class _StatusLine extends ConsumerWidget {
         ),
       ),
     );
-    final voiceName = readAloudVoiceName(voice, l10n);
+    final voiceName = readAloudVoiceName(
+      voice,
+      l10n,
+      mine: ref.watch(myVoicesProvider).valueOrNull ?? const [],
+    );
     final speedText = formatReadAloudSpeed(speed, locale);
     final text = failed
         ? l10n.readAloudFailed

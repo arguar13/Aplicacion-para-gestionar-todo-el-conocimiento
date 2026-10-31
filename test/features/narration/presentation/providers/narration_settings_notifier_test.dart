@@ -43,6 +43,29 @@ void main() {
       expect(again.state.voicesByLanguage, {'en': _english, 'es': _daniela});
     });
 
+    test('una voz propia, de la nube o del teléfono, se recuerda con su '
+        'motor (F47, paso 4)', () async {
+      const clonada = NarrationVoice(
+        name: 'mia:v1',
+        locale: 'es-AR',
+        engine: NarrationEngine.cloud,
+      );
+      const creada = NarrationVoice(
+        name: 'mia:v2',
+        locale: 'en-GB',
+        engine: NarrationEngine.offline,
+      );
+      final notifier = await create();
+      await notifier.selectVoice(creada);
+      await notifier.selectVoice(clonada);
+
+      final again = NarrationSettingsNotifier(
+        prefs: await SharedPreferences.getInstance(),
+      );
+      expect(again.state.voice, clonada);
+      expect(again.state.voicesByLanguage, {'en': creada, 'es': clonada});
+    });
+
     test('la del sistema deja sin elegida al idioma que se leía', () async {
       final notifier = await create();
       await notifier.selectVoice(_english);

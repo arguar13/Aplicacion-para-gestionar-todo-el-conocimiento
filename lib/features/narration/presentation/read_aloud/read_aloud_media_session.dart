@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/audio/media_session.dart';
 import 'package:sinapsis/core/audio/media_session_hub.dart';
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
+import 'package:sinapsis/features/narration/domain/voices/mine/my_voice.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_face.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
+import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_audio_focus.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_speed_sheet.dart';
@@ -49,6 +51,7 @@ class ReadAloudMediaSource implements MediaSessionSource {
     AppLocalizations l10n,
     String locale, {
     Uint8List? artwork,
+    Iterable<MyVoice> mine = const [],
   }) {
     final document = reading.document;
     _location = document?.location;
@@ -56,7 +59,8 @@ class ReadAloudMediaSource implements MediaSessionSource {
       _state.value = null;
       return;
     }
-    final voice = readAloudVoiceName(reading.voice, l10n);
+    // Una voz propia (F47, paso 4) se nombra con su ficha.
+    final voice = readAloudVoiceName(reading.voice, l10n, mine: mine);
     final speed = formatReadAloudSpeed(reading.speed, locale);
     // Un audio ya generado —un podcast (F47, paso 6b)— se escucha, no se lee,
     // y su reproductor pide el foco de audio por su cuenta: dos pedidos de la
@@ -144,6 +148,10 @@ class _ReadAloudMediaSessionState extends ConsumerState<ReadAloudMediaSession> {
     mediaSessionSourcesProvider.notifier,
   );
   late final ProviderSubscription<ReadAloudState> _reading;
+
+  /// Las voces propias (F47, paso 4): su nombre y su cara elegida, que
+  /// pueden llegar o cambiar mientras se lee.
+  late final ProviderSubscription<AsyncValue<List<MyVoice>>> _mine;
   AppLocalizations? _l10n;
   var _locale = '';
 
@@ -161,6 +169,10 @@ class _ReadAloudMediaSessionState extends ConsumerState<ReadAloudMediaSession> {
     _reading = ref.listenManual(
       readAloudControllerProvider,
       (_, next) => _describe(next),
+    );
+    _mine = ref.listenManual(
+      myVoicesProvider,
+      (_, _) => _describe(ref.read(readAloudControllerProvider)),
     );
     // Fuera de la construcción: cambiar un provider mientras se construye
     // otro widget no está permitido.
@@ -180,11 +192,13 @@ class _ReadAloudMediaSessionState extends ConsumerState<ReadAloudMediaSession> {
   void _describe(ReadAloudState reading) {
     final l10n = _l10n;
     if (l10n == null) return;
+    final mine = _mine.read().valueOrNull ?? const <MyVoice>[];
     _source.describe(
       reading,
       l10n,
       _locale,
-      artwork: _artworkOf(reading.voice, l10n),
+      artwork: _artworkOf(reading.voice, l10n, mine),
+      mine: mine,
     );
   }
 
@@ -192,15 +206,21 @@ class _ReadAloudMediaSessionState extends ConsumerState<ReadAloudMediaSession> {
   /// de la voz del sistema—, si ya está dibujada. Si no, se dibuja aparte y,
   /// al estar, la tarjeta se vuelve a describir. Donde no hay tarjeta, no se
   /// dibuja nada.
-  Uint8List? _artworkOf(NarrationVoice? voice, AppLocalizations l10n) {
+  Uint8List? _artworkOf(
+    NarrationVoice? voice,
+    AppLocalizations l10n,
+    Iterable<MyVoice> mine,
+  ) {
     if (!ref.read(mediaSessionPlatformProvider).isSupported) return null;
-    final profile = voice == null ? null : voiceProfileOf(voice);
+    final profile = voice == null ? null : voiceProfileOf(voice, mine: mine);
     final face = profile == null
         ? VoiceFace.of(
             ReadAloudVoiceFace.systemFaceId,
             l10n.readAloudSystemVoice,
           )
-        : VoiceFace.of(profile.id, profile.label);
+        // La misma cara de la biblioteca: en una propia, la que se le
+        // eligió (F47, paso 4).
+        : VoiceFace.of(profile.faceKey, profile.label);
     final ready = _artworks[face];
     if (ready != null || !_drawing.add(face)) return ready;
     unawaited(
@@ -225,6 +245,7 @@ class _ReadAloudMediaSessionState extends ConsumerState<ReadAloudMediaSession> {
   @override
   void dispose() {
     _reading.close();
+    _mine.close();
     final sources = _sources;
     final source = _source;
     WidgetsBinding.instance.addPostFrameCallback((_) {

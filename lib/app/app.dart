@@ -20,6 +20,7 @@ import 'package:sinapsis/features/ai_models/presentation/widgets/ai_notice_liste
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_review_switch_offer.dart';
 import 'package:sinapsis/features/chat/presentation/providers/model_memory_providers.dart';
 import 'package:sinapsis/features/keep_working/presentation/widgets/keep_working_offer_listener.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/cloud_reading_gate.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_tidy_notice_listener.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
@@ -161,8 +162,13 @@ class _AppState extends ConsumerState<App> {
                       // que muestran y adónde lleva tocarlos.
                       child: HomeWidgetsBinding(
                         router: router,
-                        child: GlobalErrorListener(
-                          child: child ?? const SizedBox.shrink(),
+                        // Antes de leer algo largo con una voz de la nube, su
+                        // costo (F47, paso 4).
+                        child: CloudReadingGateHost(
+                          navigatorKey: router.routerDelegate.navigatorKey,
+                          child: GlobalErrorListener(
+                            child: child ?? const SizedBox.shrink(),
+                          ),
                         ),
                       ),
                     ),

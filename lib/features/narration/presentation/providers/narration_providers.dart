@@ -7,11 +7,12 @@ import 'package:sinapsis/features/narration/data/voices/video_player_speech_trac
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 import 'package:sinapsis/features/narration/domain/services/speech_track_player.dart';
 import 'package:sinapsis/features/narration/domain/services/text_to_speech_service.dart';
+import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
 
 /// El motor del lector: el del sistema y, donde se ofrecen, el de las voces
-/// sin conexión (F47, paso 3), detrás de uno solo —cada voz dice con cuál
-/// lee—.
+/// sin conexión (F47, paso 3) y el de las voces propias en la nube (paso 4),
+/// detrás de uno solo —cada voz dice con cuál lee—.
 ///
 /// Deliberadamente NO autoDispose: cerrar y volver a abrir el canal nativo
 /// con el motor de voz en cada pantalla que lee algo en voz alta sería
@@ -22,6 +23,7 @@ final textToSpeechServiceProvider = Provider<TextToSpeechService>((ref) {
   final service = RoutingTextToSpeechService(
     system: system,
     offline: ref.watch(offlineTextToSpeechServiceProvider),
+    cloud: ref.watch(cloudTextToSpeechServiceProvider),
   );
   ref.onDispose(() {
     unawaited(service.dispose());
