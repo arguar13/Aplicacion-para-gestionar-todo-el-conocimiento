@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 /// Lo que ocupa abajo el aviso que se ve (F45, paso 1): desde su borde de
 /// arriba hasta el borde de abajo de la pantalla, y cuánto de eso está ya a
@@ -92,8 +92,20 @@ class SnackBarFootprints extends ChangeNotifier
 /// abarca a los avisos —que se dibujan en el `Scaffold` de cada pantalla— y a
 /// lo que flota por encima de todas, como el lector en voz alta. Sin
 /// anfitrión, el aviso no publica nada y nada se corre.
+///
+/// Y al revés, lo que está anclado abajo —el reproductor de lectura sobre la
+/// barra de navegación (F47, paso 2)— no tapa al aviso: el anfitrión lo
+/// para [floor] más arriba de donde lo pone el `Scaffold`. Lo hace con el
+/// margen de abajo del tema de los avisos (`SnackBarThemeData.insetPadding`),
+/// así que el aviso que se está viendo también sube o baja apenas cambia
+/// [floor], y lo que se corre por él sigue a su nuevo borde.
 class SnackBarFootprintHost extends StatefulWidget {
-  const SnackBarFootprintHost({required this.child, super.key});
+  const SnackBarFootprintHost({required this.child, this.floor = 0, super.key});
+
+  /// Cuánto ocupa lo anclado abajo, por encima de donde el `Scaffold` apoya
+  /// los avisos —la barra de navegación, si la hay—: el aviso va encima. Es
+  /// lo que ocupa ahora (el `current` de `PlayerExtent`), no en reposo.
+  final double floor;
 
   final Widget child;
 
@@ -116,9 +128,27 @@ class _SnackBarFootprintHostState extends State<SnackBarFootprintHost> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _SnackBarFootprintScope(footprints: _footprints, child: widget.child);
+  Widget build(BuildContext context) {
+    final theme = SnackBarTheme.of(context);
+    // El margen de Material 3 para un aviso flotante, más lo anclado abajo.
+    final inset = theme.insetPadding ?? _kSnackBarInset;
+    return SnackBarTheme(
+      data: widget.floor <= 0
+          ? theme
+          : theme.copyWith(
+              insetPadding: inset.copyWith(bottom: inset.bottom + widget.floor),
+            ),
+      child: _SnackBarFootprintScope(
+        footprints: _footprints,
+        child: widget.child,
+      ),
+    );
+  }
 }
+
+/// El margen de afuera de un aviso flotante en Material 3, cuando el tema no
+/// pone otro (`_SnackbarDefaultsM3.insetPadding`).
+const _kSnackBarInset = EdgeInsets.fromLTRB(15, 5, 15, 10);
 
 /// Pasa las huellas sin reconstruir a nadie cuando cambian: quien las usa las
 /// escucha (ver [LiftAboveSnackBar]).

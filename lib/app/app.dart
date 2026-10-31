@@ -122,7 +122,10 @@ class _AppState extends ConsumerState<App> {
       //
       // Por encima de todo, el anfitrión de los avisos de abajo (F45, paso
       // 1): cada aviso le dice lo que ocupa, y el lector flotante se corre
-      // arriba de él.
+      // arriba de él. Lo anclado abajo —el reproductor de lectura de F47,
+      // paso 2— se le pasa como `floor`, con lo que ocupa ahora (el
+      // `current` de `readAloudPlayerExtentProvider`), y los avisos van
+      // encima.
       builder: (context, child) => SnackBarFootprintHost(
         child: KeepWorkingOfferListener(
           navigatorKey: router.routerDelegate.navigatorKey,

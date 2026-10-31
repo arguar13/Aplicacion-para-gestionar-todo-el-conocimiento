@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
@@ -17,7 +18,14 @@ void main() {
 
   /// La app con algo que flota abajo a la derecha, parado a [bottom] del
   /// borde, por encima de las pantallas: como el lector flotante.
-  Future<void> pump(WidgetTester tester, {double bottom = 16}) async {
+  ///
+  /// [floor] es lo anclado abajo —el reproductor de lectura—: los avisos van
+  /// encima.
+  Future<void> pump(
+    WidgetTester tester, {
+    double bottom = 16,
+    ValueListenable<double>? floor,
+  }) async {
     tester.view
       ..physicalSize = phone
       ..devicePixelRatio = 1;
@@ -32,7 +40,10 @@ void main() {
           data: MediaQuery.of(
             context,
           ).copyWith(textScaler: const TextScaler.linear(2)),
-          child: SnackBarFootprintHost(
+          child: ValueListenableBuilder<double>(
+            valueListenable: floor ?? ValueNotifier(0),
+            builder: (context, floor, child) =>
+                SnackBarFootprintHost(floor: floor, child: child!),
             child: Stack(
               children: [
                 child!,
@@ -188,6 +199,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(floatingBottom(tester), phone.height - 16);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('el aviso va encima de lo anclado abajo, y lo sigue si '
+      'cambia con el aviso a la vista', (tester) async {
+    final floor = ValueNotifier<double>(100);
+    addTearDown(floor.dispose);
+    await pump(tester, floor: floor);
+    await tester.tap(find.text('abrir'));
+    await tester.pumpAndSettle();
+
+    // El margen de abajo de siempre, más lo anclado.
+    expect(card(tester).bottom, phone.height - 10 - 100);
+    expect(floatingBottom(tester), closeTo(card(tester).top - 12, 0.5));
+
+    // El reproductor se agranda: el aviso sube, y lo que flota con él.
+    floor.value = 180;
+    await tester.pumpAndSettle();
+    expect(card(tester).bottom, phone.height - 10 - 180);
+    expect(floatingBottom(tester), closeTo(card(tester).top - 12, 0.5));
+
+    // Sin nada anclado, vuelve a su lugar de siempre.
+    floor.value = 0;
+    await tester.pumpAndSettle();
+    expect(card(tester).bottom, phone.height - 10);
   });
 
   testWidgets('lo que ya está por encima del aviso no se mueve', (
