@@ -32,6 +32,7 @@ import 'package:sinapsis/features/health/presentation/screens/grown_notes_screen
 import 'package:sinapsis/features/help/presentation/screens/about_screen.dart';
 import 'package:sinapsis/features/help/presentation/screens/user_guide_screen.dart';
 import 'package:sinapsis/features/help/presentation/screens/whats_new_screen.dart';
+import 'package:sinapsis/features/home_widgets/presentation/screens/home_widgets_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/keep_working/presentation/screens/keep_working_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
@@ -122,7 +123,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.capture,
         name: RouteNames.capture,
-        builder: (context, state) => const CaptureScreen(),
+        // «Guardar rápido» (F47, paso 7) la abre lista para pegar o escribir.
+        builder: (context, state) => CaptureScreen(
+          startPasting: state.uri.queryParameters['paste'] == '1',
+        ),
       ),
       GoRoute(
         path: RoutePaths.transcriptionModel,
@@ -269,6 +273,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.about,
         name: RouteNames.about,
         builder: (context, state) => const AboutScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.homeWidgets,
+        name: RouteNames.homeWidgets,
+        builder: (context, state) => const HomeWidgetsScreen(),
       ),
       GoRoute(
         path: RoutePaths.reviewHistory,

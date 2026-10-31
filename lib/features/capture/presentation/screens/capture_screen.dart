@@ -157,7 +157,12 @@ bool get _cameraIsSupported =>
 /// un enlace que en realidad es de una publicación merece saberlo antes de
 /// apretar el botón, no después.
 class CaptureScreen extends ConsumerStatefulWidget {
-  const CaptureScreen({super.key});
+  const CaptureScreen({this.startPasting = false, super.key});
+
+  /// Empezar ya en «Texto para pegar», con el cuadro listo para pegar o
+  /// escribir: lo que abre el widget «Guardar rápido» (F47, paso 7). Lo que
+  /// llegue compartido desde otra app manda igual.
+  final bool startPasting;
 
   @override
   ConsumerState<CaptureScreen> createState() => _CaptureScreenState();
@@ -215,6 +220,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     super.initState();
     final filtered = ref.read(libraryQueryNotifierProvider).spaceId;
     _spaceIds = filtered != null ? {filtered} : ref.read(lastSpacesProvider);
+    if (widget.startPasting) _kind = _CaptureKind.pasteText;
     // Lo escrito decide qué se muestra abajo, así que hay que redibujar a
     // medida que se escribe.
     _inputController.addListener(_onInputChanged);

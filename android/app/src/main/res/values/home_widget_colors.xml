@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Los colores de los widgets de la pantalla de inicio (F47, paso 7), los
+     mismos del tema claro de la app (`AppTheme.lightTheme`): el fondo de las
+     tarjetas, el texto, el texto secundario, el índigo y el recuadro de los
+     íconos. Los del tema oscuro, en `values-night/`. Una prueba
+     (`home_widget_resources_test.dart`) compara estos valores con los del
+     tema, para que no se separen. -->
+<resources>
+    <color name="home_widget_surface">#FFFFFFFF</color>
+    <color name="home_widget_on_surface">#FF1F2937</color>
+    <color name="home_widget_on_surface_variant">#FF4B5563</color>
+    <color name="home_widget_primary">#FF4338CA</color>
+    <color name="home_widget_primary_container">#FFE3DFFF</color>
+    <color name="home_widget_on_primary_container">#FF424078</color>
+</resources>

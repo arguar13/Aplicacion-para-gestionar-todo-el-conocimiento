@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Las medidas de los widgets de la pantalla de inicio (F47, paso 7). -->
+<resources>
+    <!-- Lo redondeado de las esquinas. Desde Android 12, el del sistema: ver
+         `values-v31/`. -->
+    <dimen name="home_widget_radius">24dp</dimen>
+    <dimen name="home_widget_padding">14dp</dimen>
+</resources>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Los widgets de la pantalla de inicio (F47, paso 7): ver HomeWidgets. -->
+<resources>
+    <!-- «Para hoy»: las tarjetas que tocan hoy en Repasar. -->
+    <string name="home_widget_due_today_title">Para hoy</string>
+    <plurals name="home_widget_due_today_cards">
+        <item quantity="one">tarjeta</item>
+        <item quantity="other">tarjetas</item>
+    </plurals>
+    <!-- Cuando no toca ninguna. -->
+    <string name="home_widget_due_today_none">Estás al día</string>
+    <!-- Cuando la app todavía no contó, o lo contado es de otro día. -->
+    <string name="home_widget_due_today_unknown">Tocá para ver lo de hoy</string>
+    <string name="home_widget_due_today_description">Las tarjetas que tocan hoy en Repasar</string>
+
+    <!-- «Guardar rápido»: abre Guardar, listo para pegar o escribir. -->
+    <string name="home_widget_quick_capture_title">Guardar rápido</string>
+    <string name="home_widget_quick_capture_hint">Pegá o escribí</string>
+    <string name="home_widget_quick_capture_description">Abre Guardar, listo para pegar o escribir</string>
+
+    <!-- «Seguir escuchando»: lo último que se escuchó. -->
+    <string name="home_widget_continue_title">Seguir escuchando</string>
+    <string name="home_widget_continue_empty">Todavía no escuchaste nada</string>
+    <string name="home_widget_continue_description">Lo último que escuchaste, para volver a abrirlo</string>
+</resources>

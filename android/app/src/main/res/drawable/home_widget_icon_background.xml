@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- El recuadro de los íconos de los widgets (F47, paso 7): el mismo de los
+     íconos de la pantalla de los widgets en la app. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/home_widget_primary_container" />
+    <corners android:radius="14dp" />
+</shape>

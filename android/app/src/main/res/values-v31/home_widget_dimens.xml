@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Desde Android 12 los widgets redondean sus esquinas como las del resto de
+     la pantalla de inicio: el radio lo pone el sistema (F47, paso 7). -->
+<resources>
+    <dimen name="home_widget_radius">@android:dimen/system_app_widget_background_radius</dimen>
+</resources>

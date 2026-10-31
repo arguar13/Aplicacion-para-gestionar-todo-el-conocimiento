@@ -30,10 +30,12 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         try {
             super.onNewIntent(intent)
-            // El toque a la notificación del aviso de repaso (F31), o a la
-            // tarjeta de lo que suena (F47, paso 2b).
+            // El toque a la notificación del aviso de repaso (F31), a la
+            // tarjeta de lo que suena (F47, paso 2b) o a un widget de la
+            // pantalla de inicio (F47, paso 7).
             StudyReminderChannel.onIntent(intent)
             MediaSessionChannel.onIntent(intent)
+            HomeWidgetsChannel.onIntent(intent)
         } catch (e: SecurityException) {
             Log.w(TAG, "Intent de compartir descartado: sin permiso para leer el URI", e)
         } catch (e: IllegalArgumentException) {
@@ -51,6 +53,9 @@ class MainActivity : FlutterActivity() {
         // La tarjeta de lo que suena, tocada con la actividad cerrada: el
         // motor seguía sonando (F47, paso 2b).
         MediaSessionChannel.onIntent(intent)
+        // Lo mismo si se abrió tocando un widget de la pantalla de inicio
+        // (F47, paso 7): queda pedido lo que abre ese widget.
+        HomeWidgetsChannel.onIntent(intent)
     }
 
     // La respuesta del diálogo de un permiso: el de notificaciones del aviso

@@ -105,6 +105,43 @@
                 <action android:name="android.intent.action.TIMEZONE_CHANGED"/>
             </intent-filter>
         </receiver>
+        <!-- Los widgets de la pantalla de inicio (F47, paso 7): «Para hoy»,
+             «Guardar rápido» y «Seguir escuchando». Exportados porque es la
+             pantalla de inicio la que les pide dibujarse; solo responden a
+             eso. Ver `HomeWidgets`. -->
+        <receiver
+            android:name=".DueTodayWidget"
+            android:exported="true"
+            android:label="@string/home_widget_due_today_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/home_widget_due_today_info"/>
+        </receiver>
+        <receiver
+            android:name=".QuickCaptureWidget"
+            android:exported="true"
+            android:label="@string/home_widget_quick_capture_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/home_widget_quick_capture_info"/>
+        </receiver>
+        <receiver
+            android:name=".ContinueListeningWidget"
+            android:exported="true"
+            android:label="@string/home_widget_continue_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/home_widget_continue_listening_info"/>
+        </receiver>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

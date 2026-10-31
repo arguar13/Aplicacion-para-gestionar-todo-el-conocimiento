@@ -154,6 +154,12 @@ object SinapsisEngine {
         studyReminder.setMethodCallHandler(StudyReminderChannel(context))
         StudyReminderChannel.install(studyReminder)
 
+        // Los toques a los widgets de la pantalla de inicio (F47, paso 7):
+        // qué widget abrió la app. Ver `HomeWidgets`.
+        val homeWidgets = MethodChannel(messenger, HomeWidgetsChannel.CHANNEL)
+        homeWidgets.setMethodCallHandler(HomeWidgetsChannel())
+        HomeWidgetsChannel.install(homeWidgets)
+
         // Los ajustes que deciden si el sistema deja seguir el trabajo con
         // la app cerrada (F29): "Inicio automático" y el ahorro de batería.
         MethodChannel(messenger, BackgroundSettingsChannel.CHANNEL)

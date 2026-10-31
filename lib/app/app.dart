@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/app/global_error_listener.dart';
+import 'package:sinapsis/app/home_widgets_binding.dart';
 import 'package:sinapsis/app/repair_stored_text.dart';
 import 'package:sinapsis/app/resume_model_downloads.dart';
 import 'package:sinapsis/app/router/app_router.dart';
@@ -144,8 +145,13 @@ class _AppState extends ConsumerState<App> {
                   // El texto de un video que no estaba en el idioma que se
                   // habla (F45, paso 4): no se guardó, y sale del audio.
                   child: VideoTextNoticeListener(
-                    child: GlobalErrorListener(
-                      child: child ?? const SizedBox.shrink(),
+                    // Los widgets de la pantalla de inicio (F47, paso 7): lo
+                    // que muestran y adónde lleva tocarlos.
+                    child: HomeWidgetsBinding(
+                      router: router,
+                      child: GlobalErrorListener(
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),

@@ -90,6 +90,13 @@ dependencies:
   # el reconocedor de script latino: cubre español e inglés, los dos idiomas
   # de la interfaz, sin sumar los paquetes de otros alfabetos.
   google_mlkit_text_recognition: ^0.17.1
+  # Los widgets de la pantalla de inicio de Android (F47, decisión G): «Para
+  # hoy», «Guardar rápido» y «Seguir escuchando». Guarda lo que muestran en
+  # las preferencias que lee cada widget y le pide al sistema que los vuelva
+  # a dibujar; los diseños y lo que hace un toque son propios, en
+  # `android/` (ver `HomeScreenWidgets`). BSD-3. Solo Android: en el resto la
+  # app usa una implementación que no hace nada.
+  home_widget: ^0.10.0
   # Parseo de HTML, para la extracción de artículos y para convertir a
   # Markdown el HTML de las páginas y los libros EPUB. La conversión es
   # propia (`html_to_markdown.dart`) y no de `html2md`, que escapaba el texto

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Guardar rápido» (F47, paso 7): dos por uno. No cambia nunca, así que el
+     sistema no tiene por qué volver a dibujarlo. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/home_widget_quick_capture_description"
+    android:initialLayout="@layout/home_widget_quick_capture"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:previewLayout="@layout/home_widget_quick_capture"
+    android:resizeMode="horizontal"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

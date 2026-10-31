@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Seguir escuchando» (F47, paso 7): cuatro por uno, para que entre el
+     título. Lo vuelve a dibujar la app cuando cambia lo escuchado. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/home_widget_continue_description"
+    android:initialLayout="@layout/home_widget_continue_listening"
+    android:minWidth="250dp"
+    android:minHeight="40dp"
+    android:previewLayout="@layout/home_widget_continue_listening"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

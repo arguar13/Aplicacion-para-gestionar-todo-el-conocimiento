@@ -13,6 +13,9 @@ figura solo lo que ya está hecho. Cómo se usa cada cosa, en la **Guía de uso*
   «Ningún resultado».
 - **Ayuda, en Ajustes**: esta guía de uso dentro de la app, con su índice y su búsqueda; estas
   novedades; y «Acerca de», con la versión, la compilación y las licencias.
+- **Widgets en la pantalla de inicio de Android**: «Para hoy», con las tarjetas que tocan hoy;
+  «Guardar rápido», que abre Guardar listo para pegar o escribir; y «Seguir escuchando», con lo
+  último que escuchaste.
 
 ## F45 · Pulido del 30/10 — en curso (octubre de 2026)
 

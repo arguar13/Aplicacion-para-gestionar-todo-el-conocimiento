@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home screen widgets (F47, paso 7): see HomeWidgets. -->
+<resources>
+    <!-- "Due today": the cards due today in Review. -->
+    <string name="home_widget_due_today_title">Due today</string>
+    <plurals name="home_widget_due_today_cards">
+        <item quantity="one">card</item>
+        <item quantity="other">cards</item>
+    </plurals>
+    <!-- When none are due. -->
+    <string name="home_widget_due_today_none">You\'re all caught up</string>
+    <!-- When the app hasn't counted yet, or the count is from another day. -->
+    <string name="home_widget_due_today_unknown">Tap to see today\'s cards</string>
+    <string name="home_widget_due_today_description">The cards due today in Review</string>
+
+    <!-- "Quick save": opens Save, ready to paste or type. -->
+    <string name="home_widget_quick_capture_title">Quick save</string>
+    <string name="home_widget_quick_capture_hint">Paste or type</string>
+    <string name="home_widget_quick_capture_description">Opens Save, ready to paste or type</string>
+
+    <!-- "Keep listening": the last thing listened to. -->
+    <string name="home_widget_continue_title">Keep listening</string>
+    <string name="home_widget_continue_empty">You haven\'t listened to anything yet</string>
+    <string name="home_widget_continue_description">The last thing you listened to, to open it again</string>
+</resources>

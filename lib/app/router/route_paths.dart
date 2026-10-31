@@ -61,6 +61,10 @@ abstract final class RoutePaths {
   /// Guardar algo nuevo.
   static const capture = '/capture';
 
+  /// Guardar algo nuevo, ya en «Texto para pegar», con el cuadro listo para
+  /// pegar o escribir: lo que abre el widget «Guardar rápido» (F47, paso 7).
+  static const quickCapture = '$capture?paste=1';
+
   /// El modelo de transcripción: si está descargado, y descargarlo.
   static const transcriptionModel = '/transcription-model';
 
@@ -243,6 +247,10 @@ abstract final class RoutePaths {
   /// La versión, la compilación y las licencias (F47, paso 7).
   static const about = '$settings/about';
 
+  /// Los widgets de la pantalla de inicio de Android, para agregarlos (F47,
+  /// paso 7). Solo se ofrece donde hay widgets.
+  static const homeWidgets = '$settings/home-widgets';
+
   /// Lo que se borró y todavía se puede restaurar (F11).
   static const trash = '/trash';
 
@@ -306,6 +314,7 @@ abstract final class RouteNames {
   static const userGuide = 'user-guide';
   static const whatsNew = 'whats-new';
   static const about = 'about';
+  static const homeWidgets = 'home-widgets';
   static const trash = 'trash';
   static const aiActivity = 'ai-activity';
   static const conflicts = 'conflicts';

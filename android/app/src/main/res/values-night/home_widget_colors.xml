@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Los colores de los widgets con el teléfono en modo oscuro (F47, paso 7):
+     los del tema oscuro de la app (`AppTheme.darkTheme`). Ver los claros en
+     `values/home_widget_colors.xml`. -->
+<resources>
+    <color name="home_widget_surface">#FF1E293B</color>
+    <color name="home_widget_on_surface">#FFF1F5F9</color>
+    <color name="home_widget_on_surface_variant">#FF94A3B8</color>
+    <color name="home_widget_primary">#FF818CF8</color>
+    <color name="home_widget_primary_container">#FF3C4279</color>
+    <color name="home_widget_on_primary_container">#FFE0E0FF</color>
+</resources>

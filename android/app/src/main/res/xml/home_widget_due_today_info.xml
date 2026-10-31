@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Para hoy» (F47, paso 7): dos por dos. Se vuelve a dibujar cada hora, sin
+     abrir la app, solo para dejar de mostrar la cifra de ayer cuando empieza
+     otro día de estudio: contar, cuenta la app (ver `HomeWidgets`). -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/home_widget_due_today_description"
+    android:initialLayout="@layout/home_widget_due_today"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:previewLayout="@layout/home_widget_due_today"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="3600000"
+    android:widgetCategory="home_screen" />
