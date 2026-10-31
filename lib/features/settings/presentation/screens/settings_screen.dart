@@ -16,6 +16,7 @@ import 'package:sinapsis/features/citations/presentation/citation_presentation.d
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
 import 'package:sinapsis/features/dev_seed/presentation/providers/sample_library_providers.dart';
 import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_tile.dart';
+import 'package:sinapsis/features/help/presentation/widgets/help_settings_tiles.dart';
 import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_settings_tiles.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/owner_name_tile.dart';
@@ -288,6 +289,15 @@ class SettingsScreen extends ConsumerWidget {
               children: const [SampleLibraryTile()],
             ),
           ],
+          // F47 (paso 7): la Ayuda —la guía, las novedades y «Acerca de»—, al
+          // final.
+          const SizedBox(height: 24),
+          _SettingsSection(
+            title: l10n.f47P7HelpSection,
+            children: [
+              for (final page in HelpPage.values) HelpSettingsTile(page),
+            ],
+          ),
           const SizedBox(height: 24),
           _SettingsSection(
             children: [

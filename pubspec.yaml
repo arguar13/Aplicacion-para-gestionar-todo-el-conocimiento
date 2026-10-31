@@ -279,6 +279,12 @@ flutter:
   uses-material-design: true
   generate: true
 
+  # La guía de uso de la Ayuda de Ajustes (F47, paso 7) se lee del mismo
+  # archivo de la raíz que se escribe con cada cambio: un solo origen, sin
+  # copias a mano que se queden viejas.
+  assets:
+    - GUIA_DE_USO.md
+
   # Inter, empaquetada con la app en vez de bajada en tiempo de ejecución
   # (ver la decisión 12 en docs/arquitectura.md y tool/fetch_inter_font.sh).
   # Un solo archivo variable cubre los dos pesos que usa la escala

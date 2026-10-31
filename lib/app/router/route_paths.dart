@@ -233,6 +233,10 @@ abstract final class RoutePaths {
   /// Ajustes › Repasar.
   static const ankiImport = kRouteAnkiImport;
 
+  /// La guía de uso dentro de la app, con su índice y su búsqueda (F47, paso
+  /// 7). Se llega desde Ajustes › Ayuda.
+  static const userGuide = '$settings/guide';
+
   /// Lo que se borró y todavía se puede restaurar (F11).
   static const trash = '/trash';
 
@@ -293,6 +297,7 @@ abstract final class RouteNames {
   static const creation = 'creation';
   static const settings = 'settings';
   static const ankiImport = 'anki-import';
+  static const userGuide = 'user-guide';
   static const trash = 'trash';
   static const aiActivity = 'ai-activity';
   static const conflicts = 'conflicts';
