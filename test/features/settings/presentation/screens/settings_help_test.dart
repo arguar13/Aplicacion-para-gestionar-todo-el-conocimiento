@@ -90,6 +90,29 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Ajustes entero en la ventana, sin desplazar: una lista perezosa no arma
+  /// lo que está lejos, y estas pruebas miran Ajustes de punta a punta.
+  Future<void> pumpWholeSettings(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(harness.wrap(const SettingsScreen()));
+    await tester.pumpAndSettle();
+    final overflow = tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(SettingsScreen),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position
+        .maxScrollExtent;
+    tester.view.physicalSize = Size(800, 1600 + overflow);
+    await tester.pumpAndSettle();
+  }
+
   for (final brightness in Brightness.values) {
     testWidgets('en ${brightness.name}, a 360 dp con la letra al doble: los '
         'widgets y la Ayuda entran sin desbordar', (tester) async {
@@ -115,26 +138,7 @@ void main() {
     tester,
   ) async {
     await setUpWith();
-    tester.view.physicalSize = const Size(800, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(harness.wrap(const SettingsScreen()));
-    await tester.pumpAndSettle();
-    // La ventana del alto de Ajustes entero: una lista perezosa no arma lo
-    // que está lejos, y acá se comparan lugares de punta a punta.
-    final overflow = tester
-        .state<ScrollableState>(
-          find
-              .descendant(
-                of: find.byType(SettingsScreen),
-                matching: find.byType(Scrollable),
-              )
-              .first,
-        )
-        .position
-        .maxScrollExtent;
-    tester.view.physicalSize = Size(800, 1600 + overflow);
-    await tester.pumpAndSettle();
+    await pumpWholeSettings(tester);
 
     double top(Finder finder) => tester.getTopLeft(finder).dy;
     final sections = [
@@ -158,9 +162,9 @@ void main() {
     tester,
   ) async {
     await setUpWith(widgets: false);
-    await pumpSettings(tester);
+    await pumpWholeSettings(tester);
 
-    await scrollTo(tester, find.text(es.lockVaultTooltip));
+    expect(find.text(es.lockVaultTooltip), findsOneWidget);
     expect(find.text(es.f47P7WidgetsSection), findsNothing);
     expect(find.byKey(const Key('settings-home-widgets')), findsNothing);
     expect(find.text(es.f47P7HelpSection), findsOneWidget);
