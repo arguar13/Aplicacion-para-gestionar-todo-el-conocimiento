@@ -725,3 +725,68 @@ Seis commits, de `91dc465e` a `9afecf8c` y este avance (mejoras 14, 15 y 16, dec
   - el editor de propiedades del detalle de una fuente se desborda en 360 dp con la letra al doble
     de las pruebas; no es de este paso;
   - el marco nuevo de F47 (paso 1) se pone sobre `OriginalScreen` y `OriginalView`.
+
+### Paso 8a (hecho): las notas en el texto, los datos
+
+Lo que no depende de la pantalla (mejora 19, decisión I). La interfaz —poner y ver una nota, los
+globitos y «Notas (N)»— es el paso 8b, sobre el marco de lectura de F47 (paso 1).
+
+- **La tabla `text_notes`, esquema v49** (solo agrega; los conteos de todo lo demás son
+  compuerta):
+  - de qué texto es (`target`): `source_original` (el original de la Biblioteca, de la fuente y
+    sobre su forma de texto), `processed_original` (la copia de Procesado), `processed_text` (el
+    texto propio de un procesado; el resumen y la síntesis son sus oraciones, en sus posiciones)
+    y `creation` (lo creado). Cada clase con su dueño, y la base lo hace cumplir;
+  - su lugar (`start_offset`, `end_offset`; los dos `null` es «Sin lugar»), el pedazo citado, la
+    nota (nunca en blanco), el color (uno de los de resaltar) y las fechas;
+  - se va con la fuente, el documento o la creación al borrarse de verdad; la forma de texto va
+    **sin clave foránea**: soltar el texto deja la nota sin lugar, no la borra;
+  - su índice de texto, `text_note_search`, lleva también las notas de los resaltados de antes
+    (F38), que **no se migran**: se leen, se ven y se buscan igual;
+  - viaja en la copia y en la unión (queda lo editado más tarde), con su cifra en la vista previa
+    y en el resultado, y en los censos de columnas, de lecturas y de lo que la unión cuenta.
+- **El repositorio** (`TextNoteRepository`): poner, editar, cambiar de color, borrar con
+  «Deshacer» (`restore` con lo que `delete` devolvió) y listar en el orden del texto, cada texto
+  por su clave. Las notas de los resaltados de antes llegan mezcladas (`TextNoteOrigin.highlight`):
+  sus cambios van al resaltado, y borrarla le saca la nota y deja el resaltado. Nada toca el
+  documento.
+- **Reubicar**: al volver a extraer, `TextAnchorRelocator` lleva cada nota a su pedazo (las del
+  original, las de la copia de sus procesados y las del texto de un procesado que se lee sobre el
+  de la fuente); la que no se encuentra queda sin lugar, y vuelve si el texto nuevo la tiene.
+  Además, `placeTextNotes` ubica las notas sobre el texto que se muestra —lo guardado si ahí
+  sigue su pedazo; si no, la aparición más cercana—: es la red de lo que cambia sin volver a
+  extraer (una página corregida, lo creado que se rehace).
+- **La búsqueda y el chat**: la Biblioteca encuentra la fuente por las notas de su original (como
+  texto propio, antes que lo que solo lo menciona); Procesado, por las de su copia y su texto; el
+  chat trae la nota con el pedazo citado. Nada de la papelera, y nada de uno en el otro.
+- **La descarga marcada**: «Mis notas» en la hoja; en el PDF, notas del PDF (`Text`, el ícono
+  que se abre con un toque, en el margen a la altura del renglón, con el pedazo subrayado); en el
+  Word y el texto suelto, notas al pie de Word; en el Markdown, `[^nota-1]`; en el EPUB, notas al
+  pie de EPUB 3; en la página web, notas al final con su vuelta.
+- **Para el paso 8b** (en `text_note_providers.dart`): `textNoteTargetOf(studyText)` dice de qué
+  texto son (lo creado usa `TextNoteTarget.creation`); `placedTextNotesProvider` da los globitos y
+  la lista con «Sin lugar» al final; `textNoteCountProvider`, el N de «Notas (N)»; las acciones,
+  en `textNoteRepositoryProvider`.
+- **Verificado:**
+  - analyze en 19, la línea base, sobre `main` con F47 paso 6a;
+  - 5.174 pruebas de la base, la app, la Biblioteca, Procesado, la exportación, el chat, las
+    notas, la bóveda, la transformación y Estudiar, todas en una corrida (no hay
+    `test/features/search`). En una corrida anterior, con la PC al 100 %, fallaron 7 de tiempos
+    o de temporales —la copia entrante, la unión de referencias, los conflictos, la copia de la
+    bóveda, el ZIP y el remuestreo de audio—, que pasaron solas;
+  - murieron las 23 mutaciones finales. Dos sobrevivieron primero y mostraron código
+    redundante, que salió: filtrar por la clase del texto en la búsqueda (cada nota ya es de su
+    dueño) y comparar la forma de texto al ubicar (si en su lugar está su pedazo, es ese). Entre
+    las otras: la nota de la Biblioteca en Procesado, la reubicación que la pierde, «Sin lugar»
+    que se borra, la búsqueda que no la encuentra, la nota del PDF que no sale, la migración que
+    no copia, la unión que no se queda con lo último y la nota de un resaltado de antes que sale
+    dos veces.
+- **Queda abierto:**
+  - la interfaz (paso 8b): poner y ver una nota, los globitos, «Notas (N)» y el lector de
+    pantalla;
+  - una página corregida de un procesado no corre el lugar guardado de sus notas: las ubica
+    `placeTextNotes` al mostrarlas, y la base se pone al día la próxima vez que se reubica;
+  - un resaltado de antes con nota que no se encuentra al volver a extraer sigue yendo, como en
+    F22, a las notas del elemento (no se migra);
+  - la búsqueda de la Biblioteca encuentra la fuente por una nota, pero el renglón del
+    resultado no muestra la nota: muestra el fragmento, como siempre.
