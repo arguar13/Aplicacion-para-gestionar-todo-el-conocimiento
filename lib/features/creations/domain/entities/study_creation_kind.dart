@@ -1,5 +1,6 @@
-/// Las diez tarjetas de crear de Repasar (F43, punto 4 del plan), en el orden
-/// de la grilla: las tres de extraer juntas, después las siete de la IA.
+/// Las once tarjetas de crear de Repasar (F43, punto 4 del plan, y F47, punto
+/// 5), en el orden de la grilla: las tres de extraer juntas, después las ocho
+/// de la IA.
 ///
 /// [storageKey] es lo que se guarda en `study_creations.kind`: estable, no el
 /// `name` de Dart —renombrar un caso no puede dejar huérfanas las creaciones
@@ -36,7 +37,11 @@ enum StudyCreationKind {
   infographic('infographic'),
 
   /// Una tabla de datos.
-  dataTable('data_table');
+  dataTable('data_table'),
+
+  /// Un podcast a medida (F47): el guion con sus citas, por tramos y con una
+  /// o dos voces; el audio de cada tramo se genera en el teléfono.
+  podcast('podcast');
 
   const StudyCreationKind(this.storageKey);
 
@@ -55,7 +60,8 @@ enum StudyCreationKind {
     flashcards ||
     quiz ||
     infographic ||
-    dataTable => false,
+    dataTable ||
+    podcast => false,
   };
 
   /// Si la escribe la IA: todas menos las de extraer.

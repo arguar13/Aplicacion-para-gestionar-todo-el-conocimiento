@@ -21,10 +21,12 @@ String studyCreationKindLabel(AppLocalizations l10n, StudyCreationKind kind) =>
       StudyCreationKind.quiz => l10n.f43DataKindQuiz,
       StudyCreationKind.infographic => l10n.f43DataKindInfographic,
       StudyCreationKind.dataTable => l10n.f43DataKindDataTable,
+      StudyCreationKind.podcast => l10n.f47P6KindPodcast,
     };
 
 /// El ícono de [kind], el de las capturas del plan: ¶, ≡, ◆, ▭, ⊶, ✦, ⧉, ?,
-/// ▥ y ☰. El color de cada uno lo pone la grilla.
+/// ▥, ☰ y, el del podcast (F47), unas ondas. El color de cada uno lo pone la
+/// grilla.
 IconData studyCreationKindIcon(StudyCreationKind kind) => switch (kind) {
   StudyCreationKind.fullText => Icons.notes_outlined,
   StudyCreationKind.summary => Icons.short_text,
@@ -36,6 +38,7 @@ IconData studyCreationKindIcon(StudyCreationKind kind) => switch (kind) {
   StudyCreationKind.quiz => Icons.quiz_outlined,
   StudyCreationKind.infographic => Icons.insert_chart_outlined,
   StudyCreationKind.dataTable => Icons.table_chart_outlined,
+  StudyCreationKind.podcast => Icons.podcasts,
 };
 
 /// El título de [creation]: el suyo, o el nombre de su tipo mientras no tiene.

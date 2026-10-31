@@ -58,7 +58,7 @@ void main() {
   CreationRequest lastRequest() => harness.queue.requests.last;
 
   group('la grilla', () {
-    testWidgets('las diez tarjetas, con las tres de extraer juntas en la '
+    testWidgets('las once tarjetas, con las tres de extraer juntas en la '
         'primera fila', (tester) async {
       await harness.openRepasar(tester);
 
@@ -73,7 +73,8 @@ void main() {
           .dy;
       expect(top(StudyCreationKind.summary), top(StudyCreationKind.fullText));
       expect(top(StudyCreationKind.synthesis), top(StudyCreationKind.fullText));
-      // De a dos en el teléfono, y Tabla de datos sola.
+      // De a dos en el teléfono, y Tabla de datos en la última fila, con el
+      // Podcast (F47).
       expect(
         top(StudyCreationKind.mindMap),
         top(StudyCreationKind.presentation),

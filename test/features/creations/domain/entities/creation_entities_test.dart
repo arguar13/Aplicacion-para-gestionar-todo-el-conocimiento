@@ -50,6 +50,7 @@ void main() {
           StudyCreationKind.quiz: 'quiz',
           StudyCreationKind.infographic: 'infographic',
           StudyCreationKind.dataTable: 'data_table',
+          StudyCreationKind.podcast: 'podcast',
         },
       );
       for (final kind in StudyCreationKind.values) {

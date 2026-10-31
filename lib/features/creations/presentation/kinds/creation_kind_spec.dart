@@ -28,8 +28,35 @@ enum CreationField {
   description,
 
   /// El tema, con las fichas de los temas sugeridos («+ Moisés y Faraón»),
-  /// sacados de las palabras clave del recorte.
+  /// sacados de las palabras clave del recorte. Un tipo puede decirlo con sus
+  /// palabras ([CreationKindSpec.topic]): «¿De qué trata?» en el podcast.
   topic,
+
+  /// «+ Sumar otro documento» en «Fuentes» (F47): un documento, un cuaderno
+  /// o un tema que no está en el recorte, elegido con el selector de arriba
+  /// de Repasar. Lo sumado va a las fuentes de esta creación, no al recorte.
+  moreSources,
+}
+
+/// Cómo dice un tipo la pieza del tema ([CreationField.topic]): su título, su
+/// ejemplo tenue, el nombre de los sugeridos y cuántos ofrece. Sin esto, «Tema»
+/// con los temas sugeridos de siempre.
+@immutable
+class CreationTopicField {
+  const CreationTopicField({
+    required this.label,
+    required this.hint,
+    required this.suggestionsLabel,
+    this.suggestions,
+  });
+
+  final CreationText label;
+  final CreationText hint;
+  final CreationText suggestionsLabel;
+
+  /// Cuántos sugeridos ofrece; sin esto, los de siempre
+  /// (`kSuggestedTopicsShown`).
+  final int? suggestions;
 }
 
 /// Lo que guardan las piezas comunes en las opciones de una creación: las
@@ -196,10 +223,15 @@ class CreationOptionsContext {
     required this.options,
     required this.set,
     this.sources = const [],
+    this.languageCode = 'es',
   });
 
   final StudyCreationKind kind;
   final CreationScope scope;
+
+  /// El idioma elegido arriba («Seleccionar idioma»): con él se ofrecen, por
+  /// ejemplo, las voces del podcast.
+  final String languageCode;
 
   /// Las opciones de ahora, con las de fábrica ya puestas.
   final Map<String, Object?> options;
@@ -407,6 +439,7 @@ class CreationKindSpec {
     this.viewerActions,
     this.exporter,
     this.eachDocument,
+    this.topic,
   });
 
   final StudyCreationKind kind;
@@ -468,6 +501,9 @@ class CreationKindSpec {
   /// «Cómo», con más de un documento: una creación o «Para cada documento»
   /// (F43, M18). Sin esto, siempre una.
   final CreationEachDocument? eachDocument;
+
+  /// Cómo dice la pieza del tema ([CreationField.topic]); sin esto, «Tema».
+  final CreationTopicField? topic;
 
   /// Lo que la IA escribe por defecto, si el tipo no dice otra cosa.
   static const defaultOutputTokens = 2000;
@@ -540,6 +576,7 @@ class CreationKindSpec {
     CreationViewerActionsBuilder? viewerActions,
     CreationExporter? exporter,
     CreationEachDocument? eachDocument,
+    CreationTopicField? topic,
   }) => CreationKindSpec(
     kind: kind,
     accent: accent ?? this.accent,
@@ -558,5 +595,6 @@ class CreationKindSpec {
     viewerActions: viewerActions ?? this.viewerActions,
     exporter: exporter ?? this.exporter,
     eachDocument: eachDocument ?? this.eachDocument,
+    topic: topic ?? this.topic,
   );
 }

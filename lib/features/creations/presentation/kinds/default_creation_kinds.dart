@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
+import 'package:sinapsis/features/creations/podcast/presentation/podcast_kind_base.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation_deck/domain/deck_design.dart';
 import 'package:sinapsis/features/creations/presentation_deck/presentation/widgets/deck_labels.dart';
@@ -358,6 +359,7 @@ CreationKindSpec defaultCreationKindSpec(StudyCreationKind kind) =>
         descriptionHint: (l) => l.f43StudioDescribeHintTable,
         expectedOutputTokens: (_) => 2500,
       ),
+      StudyCreationKind.podcast => podcastKindSpecBase(_accents[kind]!),
     };
 
 /// Un color vivo por tipo, como los íconos del Studio de NotebookLM: el tono
@@ -402,6 +404,10 @@ const _accents = <StudyCreationKind, CreationAccent>{
   StudyCreationKind.dataTable: CreationAccent(
     light: Color(0xFF0B7285),
     dark: Color(0xFF78D9EC),
+  ),
+  StudyCreationKind.podcast: CreationAccent(
+    light: Color(0xFF3949AB),
+    dark: Color(0xFFA4B0FF),
   ),
 };
 

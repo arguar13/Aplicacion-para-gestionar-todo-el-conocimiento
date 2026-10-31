@@ -7,14 +7,14 @@ import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spe
 import 'package:sinapsis/features/creations/presentation/providers/creation_kinds.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// La grilla de las diez tarjetas de crear (F43, punto 2 del plan), con el
+/// La grilla de las once tarjetas de crear (F43, punto 2 del plan), con el
 /// estilo del Studio de NotebookLM: fondo apenas más claro que la pantalla,
 /// bordes muy redondeados, el ícono de color propio de cada una, su nombre y
 /// el lápiz de personalizar.
 ///
 /// - **Las tres de extraer** van juntas en la primera fila, más compactas.
-/// - **Las otras siete**, de a dos en un teléfono —**Tabla de datos** queda
-///   sola, como en la captura—, de a tres o cuatro en una pantalla ancha.
+/// - **Las otras ocho**, de a dos en un teléfono —**Tabla de datos** con el
+///   **Podcast** de F47 al lado—, de a tres o cuatro en una pantalla ancha.
 /// - **Con letra grande** cada tarjeta pide más ancho: si no entran, van menos
 ///   por fila, nunca cortadas.
 class CreationKindGrid extends ConsumerWidget {
