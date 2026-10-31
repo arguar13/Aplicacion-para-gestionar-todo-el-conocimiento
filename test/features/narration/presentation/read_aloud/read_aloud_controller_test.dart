@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -955,9 +957,9 @@ void main() {
       () async {
         await start(
           stored: {
-            'narration_voices_by_language':
-                r'{"es": "vits-piper-es_AR-daniela-high#0\u0000es-AR'
-                r'\u0000offline"}',
+            'narration_voices_by_language': jsonEncode({
+              'es': 'vits-piper-es_AR-daniela-high#0\u0000es-AR\u0000offline',
+            }),
           },
         );
         expect(
