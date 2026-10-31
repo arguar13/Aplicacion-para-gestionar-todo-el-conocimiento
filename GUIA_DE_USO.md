@@ -3301,7 +3301,9 @@ de escucharlo.
      quieto; con las animaciones apagadas en el teléfono no se mueve), y
      debajo con qué voz y a qué velocidad lee: «Leyendo con la voz del
      teléfono · 1,0×». Una lunita al lado dice que hay un temporizador para
-     dormir.
+     dormir. Con una voz tuya, abajo dice **«Voz clonada»** o **«Voz
+     creada»**, y **«En la nube»** si lo que se lee sale a ElevenLabs (ver
+     [La nube para voces](#la-nube-para-voces)).
    - **⟲ Repetir**: cada toque pasa de no repetir a **repetir la cola** y a
      **repetir esto**, como en un reproductor de música.
    - **☰ Cola**: ver más abajo. Con algo esperando, lleva un número.
@@ -3311,7 +3313,8 @@ de escucharlo.
      (unas 150 palabras por minuto a 1×), así que a 2× el total es la mitad.
      Arrastrala y, al soltar, sigue desde ahí.
    - **La cara de la voz**, a la izquierda: el retrato de la voz que lee lo
-     que suena —la del idioma del texto—. Tocala para abrir la
+     que suena —la del idioma del texto—, con la cara que le elegiste si es
+     tuya, y una nubecita si es de la nube. Tocala para abrir la
      **biblioteca de voces** (ver [La biblioteca de voces](#la-biblioteca-de-voces)).
    - **−10 s**, **▶ / ⏸** grande y **+10 s**. La pausa es de verdad: al
      seguir, retoma en la misma palabra. **±10 s salta a la oración más
@@ -3403,8 +3406,11 @@ voces**. Ocupa casi toda la pantalla y tiene tres pestañas:
   que se lee, después las del idioma de la app y después las demás.
 - **Favoritas**: las que marcaste con **♡**. Quedan guardadas.
 - **Mías**: las voces que clones (la tuya, o la de quien te dé permiso) y las
-  que crees describiéndolas. Llegan en un paso siguiente; por ahora la
-  pestaña lo explica.
+  que crees describiéndolas. Arriba están **«Clonación de voz»** y **«Crear
+  una voz»** (ver [Clonar una voz](#clonar-una-voz) y
+  [Crear una voz](#crear-una-voz)); sin ninguna todavía, la pestaña dice qué
+  va a haber. Es del teléfono Android: en la computadora y en la web lo
+  explica.
 
 Arriba dice qué voz **lee ahora**.
 
@@ -3426,6 +3432,10 @@ siempre la misma cara—, su nombre con la **bandera de su acento**, sus rasgos
   **«Cancelar»**; si el teléfono se queda sin lugar, lo dice. Sigue bajando
   aunque cierres la app, como los demás modelos. Solo en Android: en la
   computadora y en la web leen las voces del sistema.
+- **Clonada** o **Creada**: las tuyas, de la pestaña Mías. Dicen dónde viven:
+  **«En el teléfono»** (gratis, sin conexión) o **«En la nube · 1 crédito por
+  carácter»** (ElevenLabs, con tu cuenta). Si hoy no pueden leer, lo dicen:
+  «Bajá Kokoro para que lea» o «Prendé la nube para que lea».
 
 Con cada tarjeta:
 
@@ -3434,8 +3444,12 @@ Con cada tarjeta:
 - **▶** pasa una **muestra corta**: la voz dice una oración en su idioma. Una
   sin conexión que todavía no bajaste suena con la muestra que publicó
   sherpa-onnx (hace falta internet); las de Kokoro sin bajar no tienen
-  muestra, porque las publicadas no están en su idioma. Si estaba leyendo, la
-  lectura se pausa.
+  muestra, porque las publicadas no están en su idioma. Una tuya de la nube
+  suena con la muestra que se guardó al crearla: oírla no gasta. Si estaba
+  leyendo, la lectura se pausa.
+- **⋮**, en las tuyas: cambiarle el **nombre** o la **cara** (**«Otra
+  cara»**), ver con qué **permiso** se clonó —de quién es la voz y la fecha— y
+  **«Borrar esta voz»** (ver [Borrar una voz tuya](#borrar-una-voz-tuya)).
 
 **Filtrar** (arriba a la derecha) abre el panel de filtros de siempre: el
 **idioma**, el **acento** (México, España, Argentina…) y el **género**; para
@@ -3443,7 +3457,8 @@ qué es ideal, el timbre, el estilo y la edad aparecen con las voces que crees
 (las publicadas no los dicen). Cada filtro se aplica al tocarlo, el número de
 filtros queda en el botón, **«Limpiar filtros»** los saca y abajo **«Ver N
 voces»** cierra el panel y muestra la lista desde arriba (con cero, «Ninguna
-voz», apagado).
+voz», apagado). Las voces que creás llevan el género, la edad, el timbre y el
+estilo que les pusiste, y Filtrar los ofrece apenas hay una.
 
 **La voz sigue al idioma del texto.** Elegís una voz por idioma: la que tocás
 queda para el suyo. Un documento en inglés se lee con tu voz inglesa y uno en
@@ -3453,7 +3468,149 @@ idioma. Si en un idioma no elegiste ninguna, lee la mejor sin conexión que
 hayas bajado de ese idioma, o una del teléfono en ese idioma, o la del
 sistema: nunca una de otro idioma. Lo que no se sabe en qué idioma está se
 lee con la última que elegiste. Elegir una voz de otro idioma no traduce
-nada: queda para cuando el texto esté en su idioma, y te lo avisa.
+nada: queda para cuando el texto esté en su idioma, y te lo avisa. Las tuyas
+también: una voz que clonaste o creaste en español queda para el español.
+
+### Clonar una voz
+
+**Clonación de voz** hace una copia de una voz real —**la tuya, o la de
+alguien que te dio permiso**: un amigo, alguien de tu familia, un profesor—
+para que te lea tus documentos con ella. Se abre desde la pestaña **Mías** de
+la biblioteca de voces o desde **Ajustes → Voz y lectura → Clonación de
+voz**. Son cuatro pasos:
+
+1. **Qué es y dónde se clona.** La presentación dice qué es, cómo se usa y
+   que se borra cuando quieras.
+   - **En el teléfono, todavía no.** El único modelo que existe para clonar
+     en el teléfono (ZipVoice) habla chino e inglés, y leería el español como
+     si fuera inglés. Cuando haya uno en español y se mida, va a estar acá,
+     gratis.
+   - **En la nube (ElevenLabs)**, con tu cuenta y tu clave: hace falta
+     prender **la nube para voces** (ver [La nube para
+     voces](#la-nube-para-voces)). Si está apagada, **«Empezar»** no se
+     puede tocar y está el botón para prenderla.
+2. **¿De quién es la voz?** Antes de grabar elegís:
+   - **«Es mi voz»**, o **«Es de otra persona, y me dio permiso»**: escribís
+     el nombre (el tuyo aparece solo si lo pusiste en «Cómo te llamo») y
+     confirmás que es tu voz, o que esa persona te dio permiso. **El nombre y
+     la fecha quedan guardados con la voz.** Cambiar de opción pide confirmar
+     de nuevo. Abajo elegís en qué **idioma y acento** va a leer.
+   - **«Es de alguien famoso, o no tengo su permiso»**: esa voz **no se
+     clona** —copiarla sin permiso es hacerse pasar por esa persona—. La app
+     lo dice y ofrece **«Crear una voz describiendo el estilo»**.
+3. **La muestra.** **«Grabar»** y leé en voz alta el texto que propone la app
+   (en español y en inglés hay uno escrito para esto; en otros idiomas, leé
+   uno tuyo), 1 o 2 minutos, en un lugar callado y con el teléfono a un
+   palmo. Mientras grabás se ve el tiempo y el nivel; **«Terminar»** la
+   cierra (a los 3 minutos se cierra sola). O **«Subir un audio»** de 1 a 3
+   minutos con esa voz sola, sin música ni otras voces. La app **mide** la
+   muestra —cuánto dura, cuántos segundos de voz tiene y cuánto ruido de
+   fondo— y dice si salió bien o si **conviene repetirla**: corta, con ruido,
+   baja o saturada. Con avisos la podés usar igual (**«Usarla igual»**); con
+   menos de 20 segundos de voz, o con más de 5 minutos, no.
+4. **Clonar.** Le ponés **nombre** y **cara** (**«Otra cara»** cambia el
+   dibujo, nunca una foto). Antes de clonar, la app dice **lo que cuesta**
+   —clonar necesita el plan **Starter** de ElevenLabs o uno mayor, desde
+   **USD 6 por mes**, y ocupa uno de los lugares de voz de tu plan; además se
+   genera una muestra de la voz clonada, que gasta unos 54 créditos— y **lo
+   que sale del teléfono**: el audio de la muestra se sube a tu cuenta de
+   ElevenLabs, y leer con esa voz manda el texto allá y gasta tus créditos, 1
+   por carácter. También dice cuántos créditos te quedan; si tu plan no clona
+   o no tiene lugar para otra voz, lo dice y no deja seguir.
+   **«Clonar en ElevenLabs»** la crea, y aparece en **Mías**.
+
+**La grabación queda en tu bóveda**, junto a la voz y su permiso, y viaja en
+la copia de seguridad. Lo que la voz clonada lee se marca **«Voz clonada»** y
+**«En la nube»** en el reproductor.
+
+### Crear una voz
+
+**Crear una voz** arma una voz nueva, **que no es la de nadie**,
+describiéndola o con controles. Se abre desde la pestaña **Mías** o desde
+**Ajustes → Voz y lectura → Crear una voz**. Son tres pasos:
+
+1. **Qué es y dónde se crea.**
+   - **En el teléfono, gratis** (la opción de siempre): mezcla voces de
+     **Kokoro**, sin conexión y sin costo. Hace falta el paquete de Kokoro;
+     si no está, **«Bajar Kokoro»** lo baja (solo si lo tocás).
+   - **En la nube (ElevenLabs)**, si prendiste la nube para voces: el diseño
+     de voces de ElevenLabs, desde tu descripción.
+2. **Cómo es.**
+   - **«Describila con palabras»** —por ejemplo «hombre joven, rioplatense,
+     cálido y entusiasta, como un relator de fútbol»— y **«Usar la
+     descripción»**: la app pone los controles y dice qué entendió. Entiende
+     español e inglés.
+   - **Una voz creada no imita a nadie.** Si la descripción nombra a una
+     persona («como Messi», «la voz de Juan Pérez», «que suene como…»), la
+     app lo dice y propone describir el estilo en su lugar —«grave, enérgico,
+     como un relator de fútbol»—, y no deja seguir hasta cambiarla.
+   - **Los controles:** el **idioma y acento**, el **género**, la **edad**, el
+     **timbre** (grave, claro, aterciopelado, brillante), el **estilo**
+     (cálido, sereno, expresivo, enérgico, con autoridad) y, en el teléfono,
+     el **ritmo**. Cada uno tiene **«Sin definir»**.
+   - **En el teléfono**, **«La mezcla»** dice de qué voces de Kokoro sale
+     —por ejemplo «Dora 45 % · Heart 30 % · Alex 25 %»—: el timbre de unas y
+     la forma de hablar de otras, siempre al menos dos, así que no es
+     ninguna voz del catálogo. Es un punto de partida: **«Escuchar
+     muestra»** la dice en su idioma, **«Otra variante»** prueba otra
+     combinación y cada control la cambia. En el teléfono, Kokoro pronuncia
+     el español de una sola forma: si pedís un acento («rioplatense»,
+     «mexicano»), la app avisa que en el teléfono no está y que en la nube sí
+     se puede pedir.
+   - **En la nube**, **«Generar 3 propuestas»** primero dice **lo que
+     cuesta** —tu descripción y un texto de muestra salen a ElevenLabs, y cada
+     generación gasta créditos por los caracteres de ese texto— y recién con
+     **«Generar»** las pide. Cada propuesta tiene **▶** para oírla; elegís
+     una.
+3. **El nombre y la cara**, y **«Guardar»**. La creada en el teléfono lee sin
+   conexión, gratis; la de la nube queda en tu cuenta de ElevenLabs y leer
+   con ella gasta tus créditos.
+
+En el teléfono caben hasta 54 voces creadas (las que admite el modelo de
+Kokoro); para crear otra, borrá una. Lo que lee una voz creada se marca **«Voz
+creada»** en el reproductor, y **«En la nube»** si vive en ElevenLabs.
+
+### La nube para voces
+
+**Ajustes → Voz y lectura → La nube para voces.** **Está apagada de
+entrada**: todo se hace en el teléfono, gratis, y nada sale. Prendela solo si
+querés clonar voces, o crearlas, con **ElevenLabs** y tu propia cuenta.
+
+- **Qué sale del teléfono**: la muestra de la voz que clonás, la descripción
+  de la que creás y el texto que lea una voz de la nube. ElevenLabs guarda el
+  historial de lo que lee. Nunca tu nombre ni tu correo.
+- **Lo que cuesta**, según ElevenLabs al 31/10/2026: clonar necesita el plan
+  Starter o mayor, desde USD 6 por mes (30.000 créditos); crear gasta
+  créditos por el texto de muestra de cada generación; leer, 1 crédito por
+  carácter. Antes de cada cosa, la app lo dice.
+- **«Usar ElevenLabs»** la prende. Después cargás la **clave** de tu cuenta
+  de ElevenLabs: se guarda en el almacén seguro del teléfono —fuera de la
+  bóveda y de sus copias— y nunca se muestra; **«Cambiar»** y **«Borrar»**.
+- **«Lo gastado»**: tu plan, los créditos usados este mes de los que tenés,
+  cuándo se renuevan, si tu plan clona y cuántas voces tenés allá.
+  **«Actualizar»** lo vuelve a pedir.
+
+Apagarla no borra nada: las voces de la nube quedan en Mías, pero no leen
+(dicen «Prendé la nube para que lea») hasta que la vuelvas a prender.
+
+**Leer con una voz de la nube.** El texto sale a ElevenLabs y gasta tus
+créditos. Si lo que falta por leer es largo (más de unos 1.500 caracteres),
+antes de empezar aparece **«Leer con «…» en la nube»**, con cuántos caracteres
+y créditos son, lo que sale del teléfono y cuántos créditos te quedan:
+**«Leer en la nube»** lo aprueba para ese documento, y **«Cancelar»** deja el
+reproductor en pausa. Lo corto no pregunta, pero igual se marca **«En la
+nube»** en el reproductor. Cambiar la velocidad no vuelve a gastar: el audio
+suena más rápido o más lento.
+
+### Borrar una voz tuya
+
+En la tarjeta, **⋮ → «Borrar esta voz»**, y confirmar. Se borra **del
+teléfono** —la ficha, la grabación si es clonada y la muestra— y, si vive en
+ElevenLabs, **también de tu cuenta de ElevenLabs**, primero allá. Si allá no
+se pudo (sin conexión, por ejemplo), acá no se borra y lo dice; **«Borrar
+solo de este teléfono»** la borra igual, sabiendo que queda en tu cuenta de
+ElevenLabs. Si era la elegida para su idioma, ese idioma vuelve a leer con la
+mejor que haya.
 
 ### Escuchar dentro del documento
 
@@ -5111,10 +5268,15 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
 - **Voz y lectura:** **«Biblioteca de voces»** (ver
   [La biblioteca de voces](#la-biblioteca-de-voces)); **«Voces por
   idioma»**, la voz elegida para cada idioma, con **✕** para volver a la del
-  teléfono; y, en Android, **«Voces descargadas»**: las voces sin conexión que
-  bajaste, con lo que ocupa cada una y **«Borrar»** (pide confirmar; la podés
-  volver a bajar, y mientras tanto ese idioma se lee con la del teléfono); y
-  **«Lectura enfocada»**: el reproductor de lectura se achica solo mientras te
+  teléfono; **«Clonación de voz»** y **«Crear una voz»** (ver
+  [Clonar una voz](#clonar-una-voz) y [Crear una voz](#crear-una-voz));
+  **«La nube para voces»**, apagada de entrada, con su estado (ver
+  [La nube para voces](#la-nube-para-voces)); en Android, **«Voces
+  descargadas»**: las voces sin conexión que bajaste, con lo que ocupa cada
+  una y **«Borrar»** (pide confirmar; la podés volver a bajar, y mientras
+  tanto ese idioma se lee con la del teléfono; si borrás Kokoro, las voces
+  que creaste en el teléfono no leen hasta volver a bajarlo); y **«Lectura
+  enfocada»**: el reproductor de lectura se achica solo mientras te
   desplazás (ver [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)).
 - **Citas:** el estilo de cita por defecto (APA, MLA, etc.) y su idioma.
 - **IA y modelos:** primero se elige la IA y después lo que hace con ella.
