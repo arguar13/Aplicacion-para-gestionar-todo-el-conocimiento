@@ -676,8 +676,12 @@ costado:
   apaga el rosa.
 - **Preguntar a la IA**: abre el chat con la pregunta sobre este documento a
   medio escribir (*"Sobre «Roma»: "*), para que la termines.
-- **Podcast**: tiene su lugar, apagado y con *"Próximamente"*: el podcast a
-  medida llega en una próxima versión.
+- **Podcast** (*"A tu medida"*): abre la hoja del podcast —la misma de la
+  tarjeta **Podcast** de Repasar, ver [El podcast](#el-podcast)— sobre lo que
+  leés: el documento procesado, o lo mismo sobre lo que se hizo la creación
+  que estás leyendo. En una nota, una fuente de la Biblioteca o el pasaje de
+  una tarjeta queda apagada y dice *"Solo en lo procesado"*: el podcast se
+  arma con un documento procesado.
 
 **El cuerpo** es una columna de lectura de ancho cómodo, con márgenes
 generosos y sin tarjeta alrededor. El texto va con la letra de **Apariencia**
@@ -4170,7 +4174,8 @@ ejecuta una fórmula.
 **Cómo llegar:** Repasar → tarjeta **Podcast** (al lado de Tabla de datos) →
 «Generar ahora» o «Generar más tarde». Se hace sobre lo elegido arriba: un
 documento, un cuaderno, un tema o todo lo procesado. Se abre desde «Lo
-creado».
+creado». También desde cualquier lector de lo procesado: la ficha **Podcast**
+de la fila de IA abre la misma hoja sobre el documento que estás leyendo.
 
 En su hoja elegís:
 
