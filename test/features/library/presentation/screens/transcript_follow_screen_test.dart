@@ -134,7 +134,7 @@ void main() {
     );
     expect(
       tester.getSemantics(button),
-      containsSemantics(
+      isSemantics(
         label: es.f45S3TranscriptNow,
         isButton: true,
         hasTapAction: true,

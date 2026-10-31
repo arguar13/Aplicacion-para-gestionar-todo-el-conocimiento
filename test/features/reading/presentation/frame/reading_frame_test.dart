@@ -326,7 +326,7 @@ void main() {
       );
       expect(
         tester.getSemantics(podcast),
-        containsSemantics(
+        isSemantics(
           label: '${es.f47P1Podcast}. ${es.f47P1PodcastMade}',
           hint: es.f47P1PodcastHint,
           isButton: true,
