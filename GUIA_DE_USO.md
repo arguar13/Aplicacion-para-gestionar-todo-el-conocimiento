@@ -710,18 +710,22 @@ quedó solo en el PDF, para pasar hojas).
 cambiarle el nombre (en lo creado) y el tipo; después, en grupos, lo que ese
 documento ofrece —**Resumir**, **"Descargar con lo marcado"**, **"Editar el
 texto"**, **"Copiar todo"**, **Descargar** y **Compartir** lo creado, los
-detalles, volver a crear— y, al final y en rojo, **lo que se borra**: la copia
-del original, la creación o el documento procesado. **Nunca la fuente de la
-Biblioteca.** Lo que todavía no está en la app no aparece: descargar y
-exportar el audio, las notas en el texto, la cola, el temporizador para
-dormir, favoritos y marcar como terminado llegan en próximas versiones.
+detalles, volver a crear—, **"Añadir a la cola"** (lo que estás leyendo suena
+después de lo de ahora; si no suena nada, empieza) y, al final y en rojo,
+**lo que se borra**: la copia del original, la creación o el documento
+procesado. **Nunca la fuente de la Biblioteca.** Lo que todavía no está en la
+app no aparece: descargar y exportar el audio, las notas en el texto,
+favoritos y marcar como terminado llegan en próximas versiones.
 
-**Abajo, el lugar del reproductor.** Sin nada sonando, **"Escuchar"** lee lo
-que ves. Sonando, el reproductor con la velocidad, la voz y **"Leer: Todo ·
-Resumen · Síntesis · Palabras clave"**; achicado, una línea con el botón de
-siempre y el título, que lo vuelve a abrir. En el marco **no aparece el botón
-redondo flotante**: el marco trae su lugar. Si salís, sigue sonando y vuelve
-el de siempre.
+**Abajo, el reproductor.** Sin nada sonando, **"Escuchar"** lee lo que ves.
+Sonando, el reproductor anclado de toda la app —el mismo que en cualquier
+pantalla, con la cola, Repetir, el temporizador para dormir, la velocidad y la
+voz; ver [Escuchar](#escuchar-el-lector-en-voz-alta)—, abierto o achicado, y
+el marco le deja su lugar abajo para que no tape lo último que estás leyendo.
+**"Leer: Todo ·
+Resumen · Síntesis · Palabras clave"** está en **Contenido**. En el marco **no
+aparece el botón redondo flotante**: el marco trae **"Escuchar"**. Si salís,
+sigue sonando en el mismo reproductor.
 
 Se ve bien en un teléfono angosto con la letra al doble, en claro, oscuro y
 sepia, con «sin animaciones» (las hojas aparecen sin deslizarse) y en una
@@ -2261,8 +2265,8 @@ tienen (*"6 páginas"*, *"12 oraciones"*): tocarlo abre **el mismo lector que
 el de «Lo creado»**, rotulado *"Texto · 6 páginas"*, sin crear nada. El texto
 se ve **limpio** —los enlaces como palabras, sin su dirección, y sin las
 imágenes como `![](…)`—, con las palabras clave en rosa. Arriba, las fichas
-de la fila de IA lo crean o lo abren; abajo, **"Escuchar"**: un solo dictado
-de voz, el mismo en los tres, sin el botón redondo. En **⋮**, **"Editar el
+de la fila de IA lo crean o lo abren; abajo, **"Escuchar"**, con el reproductor
+anclado de siempre, sin el botón redondo. En **⋮**, **"Editar el
 texto"** (o **"Editar las oraciones"**) abre la edición de siempre, de a una
 página, con **"Editar"**, **"Quitar"** y **"Deshacer"**; lo que cambiás se ve
 en el lector al volver. Ahí también **"Copiar todo"** (en el resumen y la
@@ -3929,17 +3933,16 @@ detalles, volver a crear y, en rojo, la papelera; ✎ le cambia el nombre. El
 **informe** también se lee en el marco, con su índice en **Contenido** y el
 PDF —para leer o imprimir— o el Markdown en **⋮ → Descargar**.
 
-- **Escuchar**, abajo: abre el **modo escuchar**, un reproductor grande abajo
-  de la pantalla. Se lee lo que se ve, en su orden (con varios documentos, primero el
-  título de cada uno). Lo que suena va **en amarillo**, con las palabras clave
-  **siempre en rosa encima**, y la pantalla **acompaña sola** la lectura; si te
-  movés a mano, te deja tranquilo y aparece **"Volver a la lectura"**. En el
-  reproductor: **reproducir o pausar**, **oración anterior** y **siguiente**,
-  la **barra de avance** (arrastrala y soltá donde quieras seguir), la
-  **velocidad** y la **voz**. La ✕ deja de escuchar. Mientras escuchás acá, el
-  botón redondo de leer en voz alta no aparece; si salís de la pantalla, sigue
-  leyendo y vuelve el de siempre. Con «sin animaciones», la pantalla salta en
-  vez de deslizarse.
+- **Escuchar**, abajo: lee lo que se ve, en su orden (con varios documentos,
+  primero el título de cada uno), con el **reproductor anclado** de toda la app
+  —reproducir o pausar, ±10 s, la **barra de avance** (arrastrala y soltá
+  donde quieras seguir), la cola, la **velocidad** y la **voz**; ver
+  [Escuchar](#escuchar-el-lector-en-voz-alta)—. Lo que suena va **en
+  amarillo**, con las palabras clave **siempre en rosa encima**, y la pantalla
+  **acompaña sola** la lectura; si te movés a mano, te deja tranquilo y
+  aparece **"Volver a la lectura"**. El botón redondo de leer en voz alta no
+  aparece acá; si salís de la pantalla, sigue sonando en el mismo
+  reproductor. Con «sin animaciones», la pantalla salta en vez de deslizarse.
 - **Palabras clave**, en la fila de IA: un toque las oculta o las muestra.
   Es **la misma opción** que mostrar u ocultar las palabras clave en el
   original: si la apagás acá se apaga allá, y al revés. Con varios
