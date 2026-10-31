@@ -120,12 +120,32 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('«Ir a lo que suena» está en la barra, para el lector de '
-      'pantalla también; sin nada sonando, no mueve nada', (tester) async {
+  testWidgets('«Ir a lo que suena» va con su nombre bajo el reproductor —la '
+      'barra del marco lleva solo sus cuatro botones (F47, paso 1)—, para el '
+      'lector de pantalla también; sin nada sonando, no mueve nada', (
+    tester,
+  ) async {
     await pump(tester);
 
     final button = find.byKey(const Key('transcript-follow-now'));
-    expect(find.byTooltip(es.f45S3TranscriptNow), findsOneWidget);
+    expect(
+      find.descendant(of: button, matching: find.text(es.f45S3TranscriptNow)),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSemantics(button),
+      containsSemantics(
+        label: es.f45S3TranscriptNow,
+        isButton: true,
+        hasTapAction: true,
+      ),
+    );
+    expect(
+      tester
+          .getBottomLeft(find.byKey(const Key('transcript-follow-player')))
+          .dy,
+      lessThanOrEqualTo(tester.getTopLeft(button).dy),
+    );
     await tester.tap(button);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);

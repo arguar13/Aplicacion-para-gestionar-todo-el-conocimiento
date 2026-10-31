@@ -113,7 +113,9 @@ void main() {
         .whereType<File>()
         .where((f) => f.path.endsWith('-OFL.txt'))
         .toList();
-    expect(licenses, hasLength(7));
+    // Las siete de lo creado y Atkinson Hyperlegible Next, que suma el marco
+    // de lectura (F47, paso 1; su prueba está en reading_appearance_test).
+    expect(licenses, hasLength(8));
     for (final license in licenses) {
       expect(
         license.readAsStringSync(),
