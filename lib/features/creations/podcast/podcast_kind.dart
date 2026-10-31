@@ -5,6 +5,7 @@ import 'package:sinapsis/features/creations/domain/services/creation_generator.d
 import 'package:sinapsis/features/creations/podcast/domain/podcast_generator.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_options.dart';
 import 'package:sinapsis/features/creations/podcast/presentation/podcast_labels.dart';
+import 'package:sinapsis/features/creations/podcast/presentation/widgets/podcast_viewer.dart';
 import 'package:sinapsis/features/creations/podcast/presentation/widgets/podcast_voices_section.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
@@ -18,7 +19,7 @@ final podcastGeneratorProvider = Provider<CreationGenerator>(
 );
 
 /// El podcast en Repasar (F47, paso 6): la tarjeta y la hoja de fábrica
-/// (`podcastKindSpecBase`) con «Elegí las voces». Lo que suma
+/// (`podcastKindSpecBase`) con «Elegí las voces» y su visor. Lo que suma
 /// `creationKindSpecsProvider`.
 final podcastKindSpecProvider = Provider<CreationKindSpec>(
   (ref) => podcastKindSpec(),
@@ -30,6 +31,8 @@ CreationKindSpec podcastKindSpec() =>
       optionsBuilder: (context, options) =>
           PodcastVoicesSection(context: options),
       requestLines: podcastRequestLines,
+      viewerBuilder: (context, creation) =>
+          PodcastViewer(key: ValueKey(creation.id), creation: creation),
     );
 
 /// Las voces elegidas, para «Ver petición y fuentes»: quién habla y con qué
