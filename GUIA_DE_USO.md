@@ -4928,6 +4928,50 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
   terminar avisa cuántos se cargaron y, si alguno falló, **"Ver qué falló"**
   dice cuál y por qué. Tocarla otra vez no duplica nada: sigue con lo que
   falte —lo cancelado o lo que falló—.
+- **Widgets** (solo en Android): **"Widgets de la pantalla de inicio"** abre
+  los tres que podés poner en la pantalla de inicio del teléfono, cada uno con
+  lo que muestra y un botón **"Agregar"**: el teléfono te pregunta dónde
+  ponerlo. Si tu teléfono no deja agregarlos desde la app, la pantalla te dice
+  cómo hacerlo a mano: mantené apretada la pantalla de inicio, tocá
+  **"Widgets"** y buscá Sinapsis. Los tres siguen tu tema del teléfono, claro u
+  oscuro, con los colores de la app:
+  - **"Para hoy"**: cuántas tarjetas tocan hoy en Repasar, el mismo número del
+    botón de Repasar. Tocarlo abre Repasar. La cifra la cuenta la app mientras
+    la bóveda está abierta, y se pone al día cada vez que repasás o agregás
+    tarjetas y cada vez que volvés a la app. Cuando empieza otro día de estudio
+    (a las 4:00) sin que hayas abierto la app, no te muestra la cifra de ayer:
+    dice **"Tocá para ver lo de hoy"**. Sin nada que repasar, dice **"Estás al
+    día"**.
+  - **"Guardar rápido"**: abre **Guardar** ya en **"Texto para pegar"**, con el
+    cursor en el cuadro, listo para pegar un enlace o escribir lo que quieras.
+    Si pegás un enlace, te dice qué se va a guardar, como siempre.
+  - **"Seguir escuchando"**: el título de lo último que escuchaste. Tocarlo
+    abre la pantalla desde donde lo escuchaste. Por ahora lo llena el lector
+    en voz alta: lo último que empezaste a escuchar con él. El título se ve
+    en la pantalla de inicio aunque la bóveda esté cerrada (la pantalla de
+    los widgets te lo recuerda).
+
+  Si tocás un widget con la bóveda cerrada, primero te pide la clave y
+  después te lleva adonde ibas.
+- **Ayuda** (al final):
+  - **"Guía de uso"**: esta misma guía, dentro de la app. Arriba, un campo
+    para buscar; debajo, el **índice**, con cada capítulo y sus secciones.
+    Tocá un capítulo para leerlo, o una sección para abrirlo justo ahí; al
+    pie de cada capítulo están el **anterior** y el **siguiente**, y la
+    flecha de arriba (o "atrás") te devuelve al índice. Para buscar,
+    escribí en el campo: no importan las mayúsculas ni los acentos
+    ("busqueda" encuentra "Búsqueda"). Ves cuántos resultados hay y cada uno
+    con su renglón; tocá uno y se abre su capítulo con lo buscado pintado y
+    una barra que dice **"3 de 17"**, con flechas para ir al anterior o al
+    siguiente —también en otros capítulos—. Lo encontrado se pinta en el
+    texto, y en el que estás, en amarillo. Dentro de un capítulo, la lupa de
+    arriba abre la misma búsqueda; la **✕** la cierra y saca lo pintado. Se
+    puede seleccionar y copiar texto de la guía.
+  - **"Novedades"**: lo que trajo cada etapa de la app, de la más nueva a la
+    más vieja, con la versión que tenés arriba de todo.
+  - **"Acerca de"**: el nombre de la app, su versión y su compilación, qué
+    es, y **"Licencias"**: las de los paquetes que usa la app y las de las
+    letras que trae adentro.
 - **Bloquear bóveda** (al final, en rojo): cierra la sesión y vuelve a la
   pantalla de desbloqueo, sin borrar absolutamente nada. La próxima vez que
   abras la app te pide la clave, aunque no hayas reiniciado el teléfono.
