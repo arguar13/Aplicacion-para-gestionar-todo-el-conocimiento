@@ -1,6 +1,8 @@
-/// Dónde está, en el texto de una fuente, el pasaje que la IA copió para una
-/// idea del mapa (F43): lo que hace que «Ver en el documento» abra la lectura
-/// parada ahí, con el tramo marcado.
+/// Dónde está, en el texto de una fuente, el pasaje que la IA copió de él: el
+/// de una idea del mapa mental (F43) o el de una cita del podcast (F47). Es lo
+/// que hace que «Ver en el documento» abra la lectura parada ahí, con el tramo
+/// marcado, y lo que comprueba que una cita del podcast está de verdad en el
+/// material.
 library;
 
 /// Un tramo de un texto: de `start` a `end`, sin incluir `end`.
@@ -37,18 +39,51 @@ PassageRange? findPassage(String text, String quote) {
   return null;
 }
 
-/// La primera vez que [probe] está en [text] empezando y terminando en un
-/// borde de palabra.
-int _findWhole(String text, String probe) {
-  var from = 0;
+/// Un texto preparado para comprobar muchas citas contra él (F47): se lleva a
+/// lo que se compara una sola vez, no una por cita.
+///
+/// A diferencia de [findPassage], que se conforma con el comienzo para llegar
+/// al lugar, [containsWhole] pide la cita **entera**: una cita que empieza con
+/// palabras del texto y sigue con otras que no están no es una cita del texto.
+class PassageIndex {
+  PassageIndex(String text) : _haystack = _Folded.of(text).text;
+
+  final String _haystack;
+
+  /// Si [quote] está entera en el texto, comparada como [findPassage] —sin
+  /// mayúsculas, sin tildes y sin signos—. Una elipsis («…» o «...») marca lo
+  /// que la IA salteó: cada pedazo tiene que estar, en el orden en que va.
+  bool containsWhole(String quote) {
+    final pieces = [
+      for (final piece in quote.split(_ellipsis))
+        if (_Folded.of(piece).text case final folded when folded.isNotEmpty)
+          folded,
+    ];
+    if (pieces.isEmpty || _haystack.isEmpty) return false;
+    var from = 0;
+    for (final piece in pieces) {
+      final at = _findWhole(_haystack, piece, from: from);
+      if (at < 0) return false;
+      from = at + piece.length;
+    }
+    return true;
+  }
+
+  static final _ellipsis = RegExp(r'…|\.\.\.+');
+}
+
+/// La primera vez que [probe] está en [text], desde [from], empezando y
+/// terminando en un borde de palabra.
+int _findWhole(String text, String probe, {int from = 0}) {
+  var start = from;
   while (true) {
-    final at = text.indexOf(probe, from);
+    final at = text.indexOf(probe, start);
     if (at < 0) return -1;
     final end = at + probe.length;
     final startsWord = at == 0 || text.codeUnitAt(at - 1) == 0x20;
     final endsWord = end == text.length || text.codeUnitAt(end) == 0x20;
     if (startsWord && endsWord) return at;
-    from = at + 1;
+    start = at + 1;
   }
 }
 

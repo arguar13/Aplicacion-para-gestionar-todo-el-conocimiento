@@ -93,12 +93,19 @@ class CreationMaterialBuilder {
         (sum, t) => sum + _headed(t.title, '').length + 2 + t.at(level).length,
       );
       if (length <= budget.inputChars) {
+        final pieces = [for (final t in texts) _headed(t.title, t.at(level))];
+        // Dónde empieza cada fuente, con los dos saltos que las separan.
+        final starts = <int>[];
+        var at = 0;
+        for (final piece in pieces) {
+          starts.add(at);
+          at += piece.length + 2;
+        }
         return right(
           CreationMaterial(
             mode: mode,
-            text: [
-              for (final t in texts) _headed(t.title, t.at(level)),
-            ].join('\n\n'),
+            text: pieces.join('\n\n'),
+            sourceStarts: starts,
             sources: [
               for (final t in texts)
                 CreationMaterialSource(

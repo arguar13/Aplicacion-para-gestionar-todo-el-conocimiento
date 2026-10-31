@@ -75,6 +75,55 @@ void main() {
       },
     );
 
+    test('de una vez, sabe dónde empieza cada fuente: lo leído se corta por '
+        'documento (F47, las citas del podcast)', () async {
+      final material = await build([genesis, exodo], fitting(100000));
+
+      final readings = material.readings;
+      expect([for (final r in readings) r.documentId], [genesis, exodo]);
+      expect([for (final r in readings) r.title], ['Génesis', 'Éxodo']);
+      expect(readings.first.text, startsWith('## Génesis\n\n'));
+      expect(readings.first.text, isNot(contains('Moisés')));
+      expect(readings.last.text, startsWith('## Éxodo\n\nMoisés guía'));
+      expect(readings.map((r) => r.text).join(), material.text);
+    });
+
+    test('por partes, cada parte es lo leído de su documento', () async {
+      final material = await build([exodo, genesis], fitting(40));
+
+      expect(material.mode, CreationMaterialMode.byParts);
+      expect(material.readings, [
+        for (final part in material.parts)
+          CreationMaterialReading(
+            documentId: part.documentId,
+            title: material.titles[part.documentId],
+            text: part.text,
+          ),
+      ]);
+    });
+
+    test('un material armado a mano, sin dónde empieza cada una: con una sola '
+        'fuente, todo es de ella; con varias, de ninguna en particular', () {
+      const one = CreationMaterial(
+        mode: CreationMaterialMode.fullText,
+        text: '## Éxodo\n\nEl mar se abre.',
+        sources: [
+          CreationMaterialSource(documentId: 'e', title: 'Éxodo', chars: 14),
+        ],
+      );
+      expect(one.readings.single.documentId, 'e');
+      const two = CreationMaterial(
+        mode: CreationMaterialMode.fullText,
+        text: 'Uno. Dos.',
+        sources: [
+          CreationMaterialSource(documentId: 'a', title: 'A', chars: 4),
+          CreationMaterialSource(documentId: 'b', title: 'B', chars: 4),
+        ],
+      );
+      expect(two.readings.single.documentId, isNull);
+      expect(two.readings.single.text, 'Uno. Dos.');
+    });
+
     test('si no cabe, las oraciones del resumen', () async {
       final material = await build([exodo], fitting(200));
 

@@ -1,7 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sinapsis/features/creations/mind_map/domain/mind_map_passage.dart';
+import 'package:sinapsis/features/creations/domain/services/creation_passage.dart';
 
-/// F43, paso 9: «Ver en el documento» encuentra el pasaje que copió la IA,
+/// F43, paso 9, y F47, paso 6: «Ver en el documento» encuentra el pasaje que
+/// copió la IA —el de una idea del mapa mental, el de una cita del podcast—,
 /// aunque no lo haya copiado letra por letra.
 void main() {
   const text =

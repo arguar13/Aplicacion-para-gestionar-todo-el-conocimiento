@@ -179,6 +179,7 @@ class CreationMaterial {
     this.totalParts = 0,
     this.coverage = 1,
     this.withoutStudyMarks = const [],
+    this.sourceStarts = const [],
   });
 
   final CreationMaterialMode mode;
@@ -207,6 +208,57 @@ class CreationMaterial {
   /// la próxima creación sobre lo esencial en vez de sobre partes sueltas.
   final List<String> withoutStudyMarks;
 
+  /// De una vez, dónde empieza en [text] lo de cada una de [sources], en su
+  /// orden (su `## título` incluido); vacía por partes, donde cada parte ya
+  /// dice de qué fuente es. Con esto se sabe de qué documento es un pasaje
+  /// que se encuentra en el material ([readings]).
+  final List<int> sourceStarts;
+
+  /// Lo que se leyó, cortado por fuente: de una vez, el tramo de [text] de
+  /// cada una de [sources] (con [sourceStarts]); por partes, cada parte. Es lo
+  /// que permite comprobar una cita contra el material y saber de qué
+  /// documento es (el podcast, F47). Sin [sourceStarts] —un material armado a
+  /// mano—, todo [text] es de la primera fuente si es la única, y de ninguna
+  /// en particular si son varias.
+  List<CreationMaterialReading> get readings {
+    if (!mode.isSingle) {
+      return [
+        for (final part in parts)
+          CreationMaterialReading(
+            documentId: part.documentId,
+            title: titles[part.documentId],
+            text: part.text,
+          ),
+      ];
+    }
+    final all = text ?? '';
+    if (sourceStarts.length != sources.length || sources.isEmpty) {
+      final only = sources.length == 1 ? sources.single : null;
+      return [
+        CreationMaterialReading(
+          documentId: only?.documentId,
+          title: only?.title,
+          text: all,
+        ),
+      ];
+    }
+    final readings = <CreationMaterialReading>[];
+    for (final (i, source) in sources.indexed) {
+      final from = sourceStarts[i].clamp(0, all.length);
+      final next = i + 1 < sourceStarts.length
+          ? sourceStarts[i + 1]
+          : all.length;
+      readings.add(
+        CreationMaterialReading(
+          documentId: source.documentId,
+          title: source.title,
+          text: all.substring(from, next.clamp(from, all.length)),
+        ),
+      );
+    }
+    return readings;
+  }
+
   /// Cuántos caracteres se mandan, en total.
   int get chars =>
       text?.length ?? parts.fold(0, (sum, part) => sum + part.text.length);
@@ -229,4 +281,30 @@ class CreationMaterial {
   String toString() =>
       'CreationMaterial(${mode.name}, $chars caracteres, '
       '${parts.length}/$totalParts partes)';
+}
+
+/// Un tramo de lo que se leyó en una creación, con su fuente:
+/// [CreationMaterial.readings].
+@immutable
+class CreationMaterialReading {
+  const CreationMaterialReading({
+    required this.text,
+    this.documentId,
+    this.title,
+  });
+
+  /// El documento procesado del que es; `null` si no se sabe.
+  final String? documentId;
+  final String? title;
+  final String text;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CreationMaterialReading &&
+      other.documentId == documentId &&
+      other.title == title &&
+      other.text == text;
+
+  @override
+  int get hashCode => Object.hash(documentId, title, text);
 }

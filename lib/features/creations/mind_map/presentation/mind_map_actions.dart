@@ -2,22 +2,13 @@
 /// «Preguntarle al chat sobre esto» y «Ver en el documento».
 library;
 
-import 'dart:async';
-import 'dart:isolate';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/mind_map/domain/mind_map.dart';
-import 'package:sinapsis/features/creations/mind_map/domain/mind_map_passage.dart';
-import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
-import 'package:sinapsis/features/creations/presentation/widgets/creation_source_chips.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
-import 'package:sinapsis/features/reading/domain/extractable_text.dart';
+import 'package:sinapsis/features/creations/presentation/creation_passage_navigation.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La pregunta para el chat sobre [node], como la arma NotebookLM: la idea y,
@@ -76,69 +67,18 @@ void askMindMapNodeInChat(
 }
 
 /// «Ver en el documento»: la lectura de la fuente parada en el pasaje de
-/// [node], con el tramo marcado —el mismo salto de las citas del chat y de
-/// «Abrir en el original»—. Si la idea no trae pasaje, o no aparece en el
-/// texto, abre el documento procesado; si no se sabe de qué documento sale,
-/// la lista de fuentes de la creación.
+/// [node], con el tramo marcado (`openCreationPassage`). Si la idea no trae
+/// pasaje, o no aparece en el texto, abre el documento procesado; si no se
+/// sabe de qué documento sale, la lista de fuentes de la creación.
 Future<void> openMindMapNodeInDocument(
   BuildContext context,
   WidgetRef ref,
   StudyCreation creation,
   MindMapNode node,
-) async {
-  final l10n = AppLocalizations.of(context)!;
-  final messenger = ScaffoldMessenger.of(context);
-  final router = GoRouter.of(context);
-  final documentId = mindMapNodeDocument(creation, node);
-  if (documentId == null) {
-    await showCreationSources(context, creation);
-    return;
-  }
-  final sources = (await ref.read(creationScopeResolverProvider).sourcesOf([
-    documentId,
-  ])).getOrElse((_) => const []);
-  final source = sources.isEmpty ? null : sources.first;
-  if (source == null || !source.isLive) {
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.f43StudioSourceDeleted)));
-    return;
-  }
-  final quote = node.source?.quote;
-  final itemId = source.sourceItemId;
-  if (quote != null && itemId != null) {
-    final range = await _locate(ref, itemId, quote);
-    if (range != null) {
-      unawaited(
-        router.push(
-          RoutePaths.reading(itemId, start: range.start, end: range.end),
-        ),
-      );
-      return;
-    }
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.f43MindPassageMissing)));
-  }
-  unawaited(router.push(RoutePaths.processedDocument(documentId)));
-}
-
-/// Dónde está [quote] en el texto que abre la lectura de [itemId]
-/// (`extractableRendition`: sus posiciones son las de ella). Un texto largo
-/// —un libro— se recorre en otro hilo.
-Future<PassageRange?> _locate(
-  WidgetRef ref,
-  String itemId,
-  String quote,
-) async {
-  final item = (await ref.read(libraryRepositoryProvider).findById(itemId))
-      .getOrElse((_) => null);
-  final text = item == null ? null : extractableRendition(item)?.content;
-  if (text == null || text.isEmpty) return null;
-  if (text.length < _kInlineSearchChars) return findPassage(text, quote);
-  return Isolate.run(() => findPassage(text, quote));
-}
-
-/// Hasta cuánto texto se busca el pasaje sin salir del hilo de la pantalla:
-/// unas cuarenta páginas se recorren en milisegundos.
-const _kInlineSearchChars = 100000;
+) => openCreationPassage(
+  context,
+  ref,
+  creation,
+  documentId: mindMapNodeDocument(creation, node),
+  quote: node.source?.quote,
+);
