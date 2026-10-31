@@ -226,12 +226,36 @@ Lo que hay acá:
     });
   });
 
-  group('empaquetada con la app', () {
+  group('empaquetadas con la app', () {
     test('la guía es la de la raíz, tal cual', () async {
       expect(
         await rootBundle.loadString(kUserGuideAsset, cache: false),
         File(kUserGuideAsset).readAsStringSync(),
       );
+    });
+
+    test('las novedades son las de la raíz, tal cual', () async {
+      expect(
+        await rootBundle.loadString(kWhatsNewAsset, cache: false),
+        File(kWhatsNewAsset).readAsStringSync(),
+      );
+    });
+  });
+
+  group('las novedades (NOVEDADES.md)', () {
+    final whatsNew = HelpDocument.parse(
+      File(kWhatsNewAsset).readAsStringSync(),
+    );
+
+    test('una etapa por capítulo, la más nueva arriba', () {
+      expect(whatsNew.title, 'Novedades');
+      expect(whatsNew.chapters.first.title, startsWith('F47'));
+      expect(whatsNew.chapters.last.title, startsWith('F1 a F12'));
+      final numbers = [
+        for (final stage in whatsNew.chapters)
+          int.parse(RegExp(r'^F(\d+)').firstMatch(stage.title)!.group(1)!),
+      ];
+      expect(numbers, [...numbers]..sort((a, b) => b.compareTo(a)));
     });
   });
 }

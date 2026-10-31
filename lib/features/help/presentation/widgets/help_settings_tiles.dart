@@ -6,7 +6,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Lo que hay en Ajustes › Ayuda (F47, paso 7), en el orden en que se ve: de
 /// lo que más se busca a lo que menos.
 enum HelpPage {
-  guide(RoutePaths.userGuide, Icons.menu_book_outlined);
+  guide(RoutePaths.userGuide, Icons.menu_book_outlined),
+  whatsNew(RoutePaths.whatsNew, Icons.new_releases_outlined),
+  about(RoutePaths.about, Icons.info_outline);
 
   const HelpPage(this.route, this.icon);
 
@@ -15,10 +17,14 @@ enum HelpPage {
 
   String title(AppLocalizations l10n) => switch (this) {
     HelpPage.guide => l10n.f47P7Guide,
+    HelpPage.whatsNew => l10n.f47P7WhatsNew,
+    HelpPage.about => l10n.f47P7About,
   };
 
   String subtitle(AppLocalizations l10n) => switch (this) {
     HelpPage.guide => l10n.f47P7GuideSubtitle,
+    HelpPage.whatsNew => l10n.f47P7WhatsNewSubtitle,
+    HelpPage.about => l10n.f47P7AboutSubtitle,
   };
 }
 

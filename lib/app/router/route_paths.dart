@@ -237,6 +237,12 @@ abstract final class RoutePaths {
   /// 7). Se llega desde Ajustes › Ayuda.
   static const userGuide = '$settings/guide';
 
+  /// Lo nuevo de cada etapa (F47, paso 7): Ajustes › Ayuda y «Acerca de».
+  static const whatsNew = '$settings/whats-new';
+
+  /// La versión, la compilación y las licencias (F47, paso 7).
+  static const about = '$settings/about';
+
   /// Lo que se borró y todavía se puede restaurar (F11).
   static const trash = '/trash';
 
@@ -298,6 +304,8 @@ abstract final class RouteNames {
   static const settings = 'settings';
   static const ankiImport = 'anki-import';
   static const userGuide = 'user-guide';
+  static const whatsNew = 'whats-new';
+  static const about = 'about';
   static const trash = 'trash';
   static const aiActivity = 'ai-activity';
   static const conflicts = 'conflicts';

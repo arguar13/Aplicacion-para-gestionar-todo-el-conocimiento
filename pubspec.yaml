@@ -133,6 +133,11 @@ dependencies:
   # y el único candidato con soporte parejo en los seis destinos del
   # proyecto — Android, iOS, Windows, macOS, Linux y web.
   open_app_file: ^4.0.5
+  # El nombre, la versión y la compilación de la app, para «Acerca de»
+  # (F47, paso 7). Ya venía como dependencia transitiva —la usa
+  # `sentry_flutter`—; se declara porque ahora la usa la app, en la misma
+  # versión que ya se compilaba. BSD-3.
+  package_info_plus: ^9.0.1
   # Para guardar los archivos pesados (PDFs, audio, imágenes, copias de
   # páginas) fuera de la base: SQLite se vuelve lento si se le meten binarios
   # grandes, y casi ninguna consulta los necesita.
@@ -279,11 +284,22 @@ flutter:
   uses-material-design: true
   generate: true
 
-  # La guía de uso de la Ayuda de Ajustes (F47, paso 7) se lee del mismo
-  # archivo de la raíz que se escribe con cada cambio: un solo origen, sin
-  # copias a mano que se queden viejas.
+  # La Ayuda de Ajustes (F47, paso 7) lee la guía y las novedades de los
+  # mismos archivos de la raíz que se escriben con cada cambio: un solo
+  # origen, sin copias a mano que se queden viejas. Y las licencias de las
+  # letras empaquetadas abajo, para mostrarlas en «Acerca de» con las de
+  # los paquetes (ver `registerBundledFontLicenses`).
   assets:
     - GUIA_DE_USO.md
+    - NOVEDADES.md
+    - assets/fonts/LICENSE.txt
+    - assets/fonts/Caveat-OFL.txt
+    - assets/fonts/JetBrainsMono-OFL.txt
+    - assets/fonts/Lora-OFL.txt
+    - assets/fonts/Nunito-OFL.txt
+    - assets/fonts/PlayfairDisplay-OFL.txt
+    - assets/fonts/SourceSans3-OFL.txt
+    - assets/fonts/SpaceGrotesk-OFL.txt
 
   # Inter, empaquetada con la app en vez de bajada en tiempo de ejecución
   # (ver la decisión 12 en docs/arquitectura.md y tool/fetch_inter_font.sh).

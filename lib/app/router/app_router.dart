@@ -29,7 +29,9 @@ import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.
 import 'package:sinapsis/features/flashcards/presentation/screens/review_stats_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/local_graph_screen.dart';
 import 'package:sinapsis/features/health/presentation/screens/grown_notes_screen.dart';
+import 'package:sinapsis/features/help/presentation/screens/about_screen.dart';
 import 'package:sinapsis/features/help/presentation/screens/user_guide_screen.dart';
+import 'package:sinapsis/features/help/presentation/screens/whats_new_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/keep_working/presentation/screens/keep_working_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
@@ -257,6 +259,16 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.userGuide,
         name: RouteNames.userGuide,
         builder: (context, state) => const UserGuideScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.whatsNew,
+        name: RouteNames.whatsNew,
+        builder: (context, state) => const WhatsNewScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.about,
+        name: RouteNames.about,
+        builder: (context, state) => const AboutScreen(),
       ),
       GoRoute(
         path: RoutePaths.reviewHistory,
