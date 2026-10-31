@@ -13,6 +13,7 @@ import 'package:sinapsis/features/narration/presentation/providers/narration_pro
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_dock.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 import '../../../../support/fake_text_to_speech_service.dart';
@@ -146,11 +147,13 @@ void main() {
     });
   });
 
-  group('un reproductor propio en la pantalla', () {
+  group('el marco de lectura en la pantalla (F47, paso 1)', () {
     final player = find.byKey(const Key('read-aloud-player'));
     final button = find.byKey(const Key('read-aloud-button'));
 
-    Future<void> pump(WidgetTester tester, {required bool docked}) async {
+    /// La app con el lector flotante encima y [document] ofrecido para
+    /// escuchar; con [framed], la pantalla es un marco de lectura.
+    Future<GoRouter> pump(WidgetTester tester, {required bool framed}) async {
       await start();
       tester.view
         ..physicalSize = const Size(400, 800)
@@ -161,8 +164,8 @@ void main() {
           GoRoute(
             path: '/',
             builder: (_, _) => Scaffold(
-              body: docked
-                  ? const ReadAloudDock(child: Text('Visor'))
+              body: framed
+                  ? const ReadAloudDock(child: Text('Marco'))
                   : const Text('Otra'),
             ),
           ),
@@ -173,6 +176,9 @@ void main() {
         ],
       );
       addTearDown(router.dispose);
+      container
+          .read(readableRegistryProvider.notifier)
+          .offer(Object(), document);
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
@@ -187,44 +193,40 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await controller().open(document);
-      await tester.pumpAndSettle();
+      return router;
     }
 
-    testWidgets('mientras se ve esa pantalla —el marco de lectura (F47, paso '
-        '1)—, el lector flotante no aparece: ni el reproductor ni el botón', (
-      tester,
-    ) async {
-      await pump(tester, docked: true);
+    testWidgets('mientras se ve el marco no va el botón flotante —el marco '
+        'trae «Escuchar»—; sonando, el reproductor anclado es el mismo de '
+        'toda la app', (tester) async {
+      await pump(tester, framed: true);
 
       expect(container.read(readAloudDockProvider), isNotEmpty);
-      expect(player, findsNothing);
-      controller().minimize();
-      await tester.pumpAndSettle();
       expect(button, findsNothing);
-    });
 
-    testWidgets('en otra pantalla, el de siempre', (tester) async {
-      await pump(tester, docked: false);
-
-      expect(container.read(readAloudDockProvider), isEmpty);
+      await controller().open(document);
+      await tester.pumpAndSettle();
       expect(player, findsOneWidget);
     });
 
-    testWidgets('si otra pantalla la tapa, vuelve el de siempre con la '
-        'lectura donde iba', (tester) async {
-      await pump(tester, docked: true);
-      expect(player, findsNothing);
+    testWidgets('en otra pantalla, el botón de siempre', (tester) async {
+      await pump(tester, framed: false);
 
-      final router =
-          tester.widget<MaterialApp>(find.byType(MaterialApp)).routerConfig!
-              as GoRouter;
+      expect(container.read(readAloudDockProvider), isEmpty);
+      expect(button, findsOneWidget);
+    });
+
+    testWidgets('si otra pantalla tapa el marco, vuelve el botón', (
+      tester,
+    ) async {
+      final router = await pump(tester, framed: true);
+      expect(button, findsNothing);
+
       unawaited(router.push<void>('/arriba'));
       await tester.pumpAndSettle();
 
       expect(container.read(readAloudDockProvider), isEmpty);
-      expect(player, findsOneWidget);
-      expect(state().document?.id, document.id);
+      expect(button, findsOneWidget);
     });
   });
 }

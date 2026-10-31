@@ -16,6 +16,7 @@ import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player_extent.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_contents_sheet.dart';
@@ -55,7 +56,6 @@ void main() {
     ReadingBodyKind bodyKind = ReadingBodyKind.text,
     ReadingZoom? zoom,
     bool showTitle = true,
-    Widget? own,
     CreationScope? podcastScope,
     Map<String, Object> stored = const {},
   }) async {
@@ -119,8 +119,6 @@ void main() {
                 ),
               ]),
             ],
-            ownPlayer: own == null ? null : (_) => own,
-            ownReadableId: own == null ? null : document.id,
             podcastScope: podcastScope,
           ),
         ),
@@ -458,12 +456,15 @@ void main() {
         'Resumen · 2 oraciones',
       );
       expect(find.byKey(const Key('reading-more-summarize')), findsOneWidget);
+      expect(find.byKey(const Key('reading-more-enqueue')), findsOneWidget);
+      // Cuatro grupos —Resumir, la cola, los del lector y lo que se borra—,
+      // separados.
       expect(
         find.descendant(
           of: find.byKey(const Key('reading-more-sheet')),
           matching: find.byType(Divider),
         ),
-        findsNWidgets(2),
+        findsNWidgets(3),
       );
       final scheme = Theme.of(
         tester.element(find.byKey(const Key('reading-more-sheet'))),
@@ -524,39 +525,48 @@ void main() {
 
   group('el lugar del reproductor', () {
     final floating = find.byKey(const Key('read-aloud-button'));
+    final slot = find.byKey(const Key('reading-player-slot'));
 
-    testWidgets('sin nada sonando, «Escuchar»; sonando, el reproductor de '
-        'hoy con su velocidad y su voz; achicado, una línea. Nunca el '
-        'botón flotante', (tester) async {
+    /// Lo que ocupa el reproductor anclado según el lector flotante.
+    double resting() => container.read(readAloudPlayerExtentProvider).resting;
+
+    testWidgets('sin nada sonando, «Escuchar»; sonando, el reproductor '
+        'anclado de toda la app, abierto o achicado, con su lugar libre abajo '
+        'para no tapar lo último que se lee. Nunca el botón flotante', (
+      tester,
+    ) async {
       await pump(tester);
       expect(find.byKey(const Key('reading-listen')), findsOneWidget);
       expect(floating, findsNothing);
 
       await tapKey(tester, 'reading-listen');
-      expect(find.byKey(const Key('read-aloud-player')), findsOneWidget);
+      final player = find.byKey(const Key('read-aloud-player'));
+      expect(player, findsOneWidget);
       expect(find.byKey(const Key('read-aloud-speed')), findsOneWidget);
       expect(find.byKey(const Key('read-aloud-voice')), findsOneWidget);
+      expect(find.byKey(const Key('read-aloud-queue')), findsOneWidget);
       expect(floating, findsNothing);
+      // Uno solo: el del lector flotante, no uno del marco.
+      expect(find.descendant(of: slot, matching: player), findsNothing);
+      expect(resting(), greaterThan(0));
+      expect(tester.getSize(slot).height, resting());
       expect(
-        find.descendant(
-          of: find.byKey(const Key('reading-player-slot')),
-          matching: find.byKey(const Key('read-aloud-player')),
-        ),
-        findsOneWidget,
+        tester.getTopLeft(player).dy,
+        greaterThanOrEqualTo(tester.getTopLeft(slot).dy),
       );
 
       await tapKey(tester, 'read-aloud-minimize');
-      expect(find.byKey(const Key('reading-player-minimized')), findsOneWidget);
-      expect(floating, findsOneWidget);
+      final collapsed = find.byKey(const Key('read-aloud-collapsed'));
+      expect(collapsed, findsOneWidget);
+      expect(floating, findsNothing);
+      expect(tester.getSize(slot).height, resting());
       expect(
-        find.descendant(
-          of: find.byKey(const Key('reading-player-minimized')),
-          matching: floating,
-        ),
-        findsOneWidget,
+        tester.getTopLeft(collapsed).dy,
+        greaterThanOrEqualTo(tester.getTopLeft(slot).dy),
       );
-      await tapKey(tester, 'reading-player-minimized');
-      expect(find.byKey(const Key('read-aloud-player')), findsOneWidget);
+
+      await tapKey(tester, 'read-aloud-expand');
+      expect(player, findsOneWidget);
     });
 
     testWidgets('la voz del reproductor abre la biblioteca de voces, como en '
@@ -568,7 +578,7 @@ void main() {
       expect(find.text(es.f47P3LibraryTitle), findsOneWidget);
     });
 
-    testWidgets('al salir del marco sigue sonando, en el lector flotante', (
+    testWidgets('al salir del marco sigue sonando, en el mismo reproductor', (
       tester,
     ) async {
       await pump(tester);
@@ -581,22 +591,32 @@ void main() {
         'marco:1',
       );
       expect(find.byKey(const Key('read-aloud-player')), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('reading-player-slot')),
-          matching: find.byKey(const Key('read-aloud-player')),
-        ),
-        findsNothing,
-      );
+      expect(slot, findsNothing);
     });
 
-    testWidgets('con un reproductor propio, ese, mientras suena lo suyo', (
+    testWidgets('⋮ «Añadir a la cola»: sin nada sonando, empieza; con otra '
+        'cosa sonando, va a la cola; lo que ya suena no se repite', (
       tester,
     ) async {
-      await pump(tester, own: const Text('Propio', key: Key('propio')));
-      await tapKey(tester, 'reading-listen');
-      expect(find.byKey(const Key('propio')), findsOneWidget);
-      expect(find.byKey(const Key('read-aloud-player')), findsNothing);
+      final enqueue = find.byKey(const Key('reading-more-enqueue'));
+      bool enabled() => tester.widget<ListTile>(enqueue).enabled;
+      Future<void> openMore() => tapKey(tester, 'reading-frame-more');
+
+      await pump(tester);
+      await openMore();
+      expect(find.text(es.f47P2AddToQueue), findsOneWidget);
+      expect(enabled(), isTrue);
+      await tester.tap(enqueue);
+      await tester.pumpAndSettle();
+      expect(
+        container.read(readAloudControllerProvider).document?.id,
+        'marco:1',
+      );
+
+      await openMore();
+      expect(enabled(), isFalse);
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
 
       await controller().open(
         ReadableDocument(
@@ -606,8 +626,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('propio')), findsNothing);
-      expect(find.byKey(const Key('read-aloud-player')), findsOneWidget);
+      await openMore();
+      expect(enabled(), isTrue);
+      await tester.tap(enqueue);
+      await tester.pumpAndSettle();
+      final state = container.read(readAloudControllerProvider);
+      expect(state.document?.id, 'otro');
+      expect(
+        [for (final q in state.queue.upcoming) q.document.id],
+        ['marco:1'],
+      );
     });
   });
 

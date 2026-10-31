@@ -57,8 +57,9 @@ const _snackBarInset = EdgeInsets.fromLTRB(15, 5, 15, 10);
 /// `mediaSessionHubProvider`—, con el lector en ella: con la app minimizada o
 /// la pantalla apagada, sigue sonando y se maneja desde la notificación.
 ///
-/// En el marco de lectura (F47, paso 1), que trae su propio lugar para el
-/// reproductor (`ReadAloudDock`), se hace a un lado.
+/// En el marco de lectura (F47, paso 1) no va el botón: el marco trae
+/// «Escuchar» abajo (`ReadAloudDock`). El reproductor sí, el mismo de toda la
+/// app, y el marco le deja su lugar.
 class ReadAloudOverlay extends ConsumerStatefulWidget {
   const ReadAloudOverlay({
     required this.router,
@@ -327,18 +328,16 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
   @override
   Widget build(BuildContext context) {
     final (panel, title) = ref.watch(
-      readAloudControllerProvider.select(
-        (s) => (s.panel, s.document?.title),
-      ),
+      readAloudControllerProvider.select((s) => (s.panel, s.document?.title)),
     );
     final offered = ref.watch(currentReadableProvider.select((d) => d != null));
     final focused = ref.watch(
       narrationSettingsNotifierProvider.select((s) => s.focusedReading),
     );
     if (title != null) _title = title;
-    // La pantalla que se ve trae su lugar para el reproductor —el marco de
-    // lectura (F47, paso 1)—: este no lo repite, ni pone el botón flotante.
-    final docked = ref.watch(
+    // La pantalla que se ve es el marco de lectura (F47, paso 1), que trae
+    // «Escuchar» abajo: ahí no va el botón flotante.
+    final framed = ref.watch(
       readAloudDockProvider.select((owners) => owners.isNotEmpty),
     );
 
@@ -346,8 +345,9 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
     final clearance = ref.watch(readAloudClearanceProvider);
     // Mientras se escribe o hay algo abierto encima, el lector se hace a un
     // lado; sigue leyendo igual.
-    final aside = media.viewInsets.bottom > 0 || widget.popupOnTop || docked;
-    final showButton = !aside && panel == ReadAloudPanel.hidden && offered;
+    final aside = media.viewInsets.bottom > 0 || widget.popupOnTop;
+    final showButton =
+        !aside && !framed && panel == ReadAloudPanel.hidden && offered;
     final showPlayer = !aside && panel != ReadAloudPanel.hidden;
     // La Lectura enfocada achica lo abierto mientras se desplaza, sin
     // cambiar lo que se eligió: al soltar, vuelve como estaba.

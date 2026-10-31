@@ -223,12 +223,19 @@ extension ProcessedUiFixture on LibraryHarness {
 }
 
 /// Monta la app con su router de verdad, en un ancho de escritorio y alto de
-/// sobra, y espera a que se asiente.
-Future<void> pumpApp(WidgetTester tester, LibraryHarness harness) async {
+/// sobra, y espera a que se asiente. Con [withReadAloud], con el lector
+/// flotante encima, como en la app.
+Future<void> pumpApp(
+  WidgetTester tester,
+  LibraryHarness harness, {
+  bool withReadAloud = false,
+}) async {
   tester.view.physicalSize = const Size(1200, 2400);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(harness.wrapWithAppRouter());
+  await tester.pumpWidget(
+    harness.wrapWithAppRouter(withReadAloud: withReadAloud),
+  );
   await tester.pumpAndSettle();
 }
 

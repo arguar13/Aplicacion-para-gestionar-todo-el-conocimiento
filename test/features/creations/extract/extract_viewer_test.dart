@@ -328,48 +328,40 @@ void main() {
   });
 
   group('el modo escuchar (M8, decisión 86)', () {
-    testWidgets('«Escuchar» abre el reproductor grande y lee lo que se ve; '
-        'lo que suena va en amarillo con el rosa encima, y avanza con la '
-        'voz', (tester) async {
+    testWidgets('«Escuchar» abre el reproductor anclado de toda la app y lee '
+        'lo que se ve; lo que suena va en amarillo con el rosa encima, y '
+        'avanza con la voz', (tester) async {
       final id = await romaWithSummary();
       final creation = await h.creation(StudyCreationKind.summary, [id]);
-      await h.open(tester, creation);
-      expect(find.byKey(const Key('extract-player')), findsNothing);
+      await h.open(tester, creation, withReadAloud: true);
+      final player = find.byKey(const Key('read-aloud-player'));
+      expect(player, findsNothing);
 
       await tester.tap(find.byKey(const Key('reading-listen')));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('extract-player')), findsOneWidget);
+      expect(player, findsOneWidget);
       expect(h.tts.spoken, ['César cruzó el Rubicón.']);
       // El amarillo en la oración que suena; la palabra clave, rosa encima.
       expect(paintedWith(tester, yellow).join(), ' cruzó el Rubicón.');
       expect(paintedWith(tester, pink), ['César']);
-      expect(find.text('${es.readAloudReading} · 1 de 2'), findsOneWidget);
-      // El lector flotante no repite el reproductor: el marco trae el suyo.
+      // Uno solo: en el marco no va el botón flotante, y el reproductor es
+      // el de toda la app.
       expect(h.container.read(readAloudDockProvider), isNotEmpty);
+      expect(find.byKey(const Key('read-aloud-button')), findsNothing);
 
       h.tts.completeCurrent();
       await tester.pumpAndSettle();
       expect(h.tts.spoken.last, 'Escipión volvió a Roma.');
       expect(paintedWith(tester, yellow).join(), 'Escipión volvió a Roma.');
 
-      await tester.tap(find.byKey(const Key('extract-player-previous')));
-      await tester.pumpAndSettle();
-      expect(h.tts.spoken.last, 'César cruzó el Rubicón.');
-      expect(h.container.read(readAloudControllerProvider).segmentIndex, 0);
-
-      await tester.tap(find.byKey(const Key('extract-player-play')));
+      await tester.tap(find.byKey(const Key('read-aloud-play')));
       await tester.pumpAndSettle();
       expect(h.container.read(readAloudControllerProvider).playing, isFalse);
 
-      await tester.tap(find.byKey(const Key('extract-player-next')));
+      await h.container.read(readAloudControllerProvider.notifier).close();
       await tester.pumpAndSettle();
-      expect(h.container.read(readAloudControllerProvider).segmentIndex, 1);
-      expect(paintedWith(tester, yellow).join(), 'Escipión volvió a Roma.');
-
-      await tester.tap(find.byKey(const Key('extract-player-close')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('extract-player')), findsNothing);
+      expect(player, findsNothing);
       expect(paintedWith(tester, yellow), isEmpty);
     });
 
@@ -492,12 +484,13 @@ void main() {
           size: const Size(360, 780),
           theme: theme,
           textScale: 2,
+          withReadAloud: true,
         );
         expect(tester.takeException(), isNull);
 
         await tester.tap(find.byKey(const Key('reading-listen')));
         await tester.pumpAndSettle();
-        expect(find.byKey(const Key('extract-player')), findsOneWidget);
+        expect(find.byKey(const Key('read-aloud-player')), findsOneWidget);
         expect(tester.takeException(), isNull);
 
         await tester.tap(find.byKey(const Key('reading-frame-appearance')));

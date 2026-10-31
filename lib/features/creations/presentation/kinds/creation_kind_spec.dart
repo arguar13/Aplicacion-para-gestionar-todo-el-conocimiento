@@ -362,8 +362,6 @@ class CreationReaderSpec {
     this.bodyShowsTitle = false,
     this.aiRow,
     this.contents,
-    this.ownPlayer,
-    this.ownReadableId,
   });
 
   /// Si el visor trae su título grande adentro —y lo desplaza con el resto—:
@@ -385,11 +383,6 @@ class CreationReaderSpec {
     StudyCreation creation,
   )?
   contents;
-
-  /// Su reproductor, mientras suena lo de [ownReadableId].
-  final Widget Function(BuildContext context, StudyCreation creation)?
-  ownPlayer;
-  final String Function(StudyCreation creation)? ownReadableId;
 }
 
 /// El archivo de una creación, para «Compartir» y «Descargar»: un PDF, un

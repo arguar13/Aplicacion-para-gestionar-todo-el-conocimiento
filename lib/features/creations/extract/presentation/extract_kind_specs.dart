@@ -28,11 +28,6 @@ CreationKindSpec extractKindSpec(StudyCreationKind kind) =>
           read: ExtractRead.ofCreation(creation),
           trailing: trailing,
         ),
-        ownPlayer: (context, creation) => ExtractPlayer(
-          read: ExtractRead.ofCreation(creation),
-          title: studyCreationTitle(AppLocalizations.of(context)!, creation),
-        ),
-        ownReadableId: (creation) => extractReadableId(creation.id),
       ),
       exporter: exportExtract,
     );

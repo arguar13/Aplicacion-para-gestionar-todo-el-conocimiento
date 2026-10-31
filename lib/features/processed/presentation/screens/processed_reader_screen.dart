@@ -129,8 +129,6 @@ class ProcessedReaderScreen extends ConsumerWidget {
           ),
       ],
       menu: document == null ? const [] : _menuOf(context, ref, l10n, document),
-      ownPlayer: (context) => ExtractPlayer(read: read, title: title),
-      ownReadableId: read.readableId,
       podcastScope: single ? CreationScope.document(documentIds.single) : null,
     );
   }

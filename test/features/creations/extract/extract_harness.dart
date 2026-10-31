@@ -16,6 +16,7 @@ import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart'
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_queue_providers.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
 import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_study_text.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
@@ -182,10 +183,13 @@ class ExtractHarness {
   }
 
   /// La app entera con su router, en [theme], con la letra por [textScale] y
-  /// sin animaciones —como pide la persona en el sistema—.
+  /// sin animaciones —como pide la persona en el sistema—. Con
+  /// [withReadAloud], encima el lector flotante de la app, con su reproductor
+  /// anclado (F47, paso 2): lo que suena se maneja desde ahí.
   Widget app({
     AppThemeChoice theme = AppThemeChoice.light,
     double textScale = 1,
+    bool withReadAloud = false,
   }) {
     container.read(vaultSessionControllerProvider.notifier).markUnlocked();
     return UncontrolledProviderScope(
@@ -204,7 +208,12 @@ class ExtractHarness {
               textScaler: TextScaler.linear(textScale),
               disableAnimations: true,
             ),
-            child: child!,
+            child: withReadAloud
+                ? ReadAloudOverlay(
+                    router: ref.watch(goRouterProvider),
+                    child: child!,
+                  )
+                : child!,
           ),
         ),
       ),
@@ -218,11 +227,14 @@ class ExtractHarness {
     Size size = const Size(420, 1400),
     AppThemeChoice theme = AppThemeChoice.light,
     double textScale = 1,
+    bool withReadAloud = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(app(theme: theme, textScale: textScale));
+    await tester.pumpWidget(
+      app(theme: theme, textScale: textScale, withReadAloud: withReadAloud),
+    );
     await tester.pumpAndSettle();
     library.pushTo(RoutePaths.creation(creation.id));
     await tester.pumpAndSettle();

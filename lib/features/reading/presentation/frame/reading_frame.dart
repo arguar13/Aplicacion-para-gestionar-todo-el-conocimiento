@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_dock.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_ai_row.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_appearance_sheet.dart';
@@ -162,9 +164,11 @@ class _ReadingFrameScope extends InheritedWidget {
 ///   se elige a mano.
 /// - **El cuerpo**, con los colores del modo de lectura de «Apariencia».
 /// - **Abajo, el lugar del reproductor** ([ReadingPlayerSlot]): «Escuchar»
-///   si no suena nada; si suena, el reproductor de hoy. Sin el botón
-///   flotante: el marco trae su lugar (`ReadAloudDock`). El reproductor
-///   anclado de toda la app (F47, paso 2) se enchufa acá.
+///   si no suena nada; si suena, el lugar del reproductor anclado de toda la
+///   app (F47, paso 2), que no tapa lo último que se lee. Sin el botón
+///   flotante: el marco lo aparta (`ReadAloudDock`).
+/// - **⋮** lleva, además de [menu], «Resumir» si hay [onSummarize] y
+///   «Añadir a la cola» para lo que ofrece el cuerpo.
 ///
 /// Nada de lo que se ve depende de que haya animaciones: la fila aparece y
 /// se va de una con «sin animaciones».
@@ -180,8 +184,6 @@ class ReadingFrame extends ConsumerStatefulWidget {
     this.onSummarize,
     this.contents = const [],
     this.menu = const [],
-    this.ownPlayer,
-    this.ownReadableId,
     this.podcastScope,
     super.key,
   });
@@ -220,12 +222,6 @@ class ReadingFrame extends ConsumerStatefulWidget {
   /// Los grupos de ⋮, en orden; el de lo que se borra va último.
   final List<ReadingMenuGroup> menu;
 
-  /// Un reproductor propio para lo que suena de [ownReadableId] —el de los
-  /// visores de extraer, con su avance que se arrastra—: hasta que llegue el
-  /// anclado (F47, paso 2).
-  final WidgetBuilder? ownPlayer;
-  final String? ownReadableId;
-
   /// Sobre qué se arma un podcast desde la ficha «Podcast» —el documento
   /// procesado que se lee, el recorte de lo creado—; `null` si no es de lo
   /// procesado, y la ficha queda apagada diciendo por qué.
@@ -242,6 +238,24 @@ class _ReadingFrameState extends ConsumerState<ReadingFrame> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  /// «Añadir a la cola» (F47, paso 2): lo que ofrece el cuerpo suena después
+  /// de lo de ahora, y sin nada sonando empieza. Apagado si no hay nada que
+  /// leer o si es lo que ya suena.
+  ReadingMenuEntry _enqueueEntry(AppLocalizations l10n) {
+    final offered = currentReadableOf(ref.read(readableRegistryProvider));
+    final reading = ref.read(readAloudControllerProvider).document?.id;
+    return ReadingMenuEntry(
+      key: const Key('reading-more-enqueue'),
+      icon: Icons.playlist_add_rounded,
+      label: l10n.f47P2AddToQueue,
+      onSelected: offered == null || offered.id == reading
+          ? null
+          : () => unawaited(
+              ref.read(readAloudControllerProvider.notifier).enqueue(offered),
+            ),
+    );
   }
 
   void _askAi() {
@@ -313,6 +327,9 @@ class _ReadingFrameState extends ConsumerState<ReadingFrame> {
                                   onSelected: summarize,
                                 ),
                               ]),
+                            ReadingMenuGroup([
+                              _enqueueEntry(AppLocalizations.of(context)!),
+                            ]),
                             ...widget.menu,
                           ],
                         ),
@@ -341,10 +358,7 @@ class _ReadingFrameState extends ConsumerState<ReadingFrame> {
                         ],
                       ),
                     ),
-                    ReadingPlayerSlot(
-                      ownPlayer: widget.ownPlayer,
-                      ownReadableId: widget.ownReadableId,
-                    ),
+                    const ReadingPlayerSlot(),
                   ],
                 ),
               ),

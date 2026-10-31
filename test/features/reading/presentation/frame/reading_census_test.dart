@@ -93,8 +93,9 @@ void main() {
     '«Leer: Todo · Resumen · Síntesis · Palabras clave»': 'Contenido',
     'En un audio o un video, empezar por lo estudiado':
         'el marco de la transcripción',
-    'La velocidad y la voz': 'el lugar del reproductor, abajo',
-    'Seguir sonando al cambiar de pantalla': 'el lector flotante, al salir',
+    'La velocidad y la voz': 'el reproductor anclado de toda la app, abajo',
+    'Seguir sonando al cambiar de pantalla':
+        'el mismo reproductor anclado, al salir',
     // Lo de cada lector de antes.
     '🎧 de «Lo creado»': '«Escuchar», en el lugar del reproductor',
     'A− A+ y la letra': 'Apariencia',
@@ -175,7 +176,7 @@ void main() {
     ) async {
       final semantics = tester.ensureSemantics();
       final id = await processBook();
-      await pumpApp(tester, harness);
+      await pumpApp(tester, harness, withReadAloud: true);
       await pushAndSettle(tester, harness, RoutePaths.processedDocument(id));
       await tester.tap(find.byKey(const Key('embedded-viewer-read-as-book')));
       await tester.pumpAndSettle();
@@ -250,6 +251,7 @@ void main() {
       expect(reading.scope, ReadScope.summary);
       expect(reading.panel, ReadAloudPanel.expanded);
       reach('«Leer: Todo · Resumen · Síntesis · Palabras clave»');
+      expect(find.byKey(const Key('read-aloud-player')), findsOneWidget);
       expect(find.byKey(const Key('read-aloud-speed')), findsOneWidget);
       expect(find.byKey(const Key('read-aloud-voice')), findsOneWidget);
       reach('La velocidad y la voz');
@@ -263,6 +265,7 @@ void main() {
         isNotNull,
       );
       expect(harness.container.read(readAloudDockProvider), isEmpty);
+      expect(find.byKey(const Key('read-aloud-player')), findsOneWidget);
       reach('Seguir sonando al cambiar de pantalla');
       semantics.dispose();
     });
@@ -340,7 +343,9 @@ void main() {
           })(),
       ], isNotEmpty);
       reach('La línea que se lee, siguiendo a la voz');
-      await tester.tap(find.byKey(const Key('extract-player-close')));
+      await harness.container
+          .read(readAloudControllerProvider.notifier)
+          .close();
       await tester.pumpAndSettle();
 
       // ⋮: editar lo procesado.
@@ -570,7 +575,7 @@ void main() {
       );
       await h.mark(id, 'César cruzó el Rubicón.');
       final creation = await h.creation(StudyCreationKind.summary, [id]);
-      await h.open(tester, creation);
+      await h.open(tester, creation, withReadAloud: true);
 
       await tester.tap(find.byKey(const Key('reading-frame-contents')));
       await tester.pumpAndSettle();
@@ -593,7 +598,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('reading-listen')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('extract-player')), findsOneWidget);
+      expect(find.byKey(const Key('read-aloud-player')), findsOneWidget);
       reach('🎧 de «Lo creado»');
 
       // El modo de lectura, sobre el tema de la app: Sepia pinta el marco.

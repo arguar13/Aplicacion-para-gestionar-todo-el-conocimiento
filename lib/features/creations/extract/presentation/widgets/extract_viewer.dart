@@ -11,7 +11,6 @@ import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.
 import 'package:sinapsis/features/creations/extract/domain/extract_text.dart';
 import 'package:sinapsis/features/creations/extract/presentation/extract_marking.dart';
 import 'package:sinapsis/features/creations/extract/presentation/providers/extract_providers.dart';
-import 'package:sinapsis/features/creations/extract/presentation/widgets/extract_listen_player.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creation_kinds.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
@@ -601,51 +600,6 @@ class _Column extends StatelessWidget {
       child: Padding(padding: readingColumnPadding(context), child: child),
     ),
   );
-}
-
-/// El reproductor propio de los visores de extraer, en el lugar del
-/// reproductor del marco mientras suena lo de [read]: el de hoy, con la
-/// oración anterior y la siguiente y el avance que se arrastra, hasta que
-/// llegue el anclado de toda la app (F47, paso 2). Dice de qué documento es
-/// lo que suena.
-class ExtractPlayer extends ConsumerWidget {
-  const ExtractPlayer({required this.read, required this.title, super.key});
-
-  final ExtractRead read;
-
-  /// Lo que se lee, si lo que suena no es de ningún documento.
-  final String title;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final sections = [
-      for (final id in read.documentIds)
-        ref.watch(
-          extractSectionProvider((
-            kind: read.kind,
-            documentId: id,
-            readsTrashed: read.readsTrashed,
-          )),
-        ),
-    ];
-    final accent = ref
-        .watch(creationKindRegistryProvider)
-        .of(read.kind)
-        .accent
-        .of(context);
-    return ExtractListenPlayer(
-      accent: accent,
-      titleOf: (key) {
-        for (final section in sections) {
-          if (key == section.sourceKey ||
-              key == extractTitleKey(section.documentId)) {
-            return section.title;
-          }
-        }
-        return title;
-      },
-    );
-  }
 }
 
 /// El título de un documento: qué se lee, en el color del tipo, el título

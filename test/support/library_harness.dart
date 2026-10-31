@@ -28,6 +28,7 @@ import 'package:sinapsis/features/chat/presentation/widgets/chat_ambient_glow.da
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
 import 'package:sinapsis/features/organize/presentation/providers/last_spaces.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
@@ -562,7 +563,13 @@ class LibraryHarness {
   /// Para las pruebas de navegación: tocar una fila y llegar al detalle, o
   /// el botón de guardar y llegar a la captura. Con un router de mentira se
   /// estaría probando el router de mentira.
-  Widget wrapWithAppRouter({Locale locale = const Locale('es')}) {
+  ///
+  /// Con [withReadAloud], encima el lector flotante de la app, con su
+  /// reproductor anclado (F47, paso 2), como lo monta `App`.
+  Widget wrapWithAppRouter({
+    Locale locale = const Locale('es'),
+    bool withReadAloud = false,
+  }) {
     container.read(vaultSessionControllerProvider.notifier).markUnlocked();
 
     return UncontrolledProviderScope(
@@ -573,6 +580,12 @@ class LibraryHarness {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           routerConfig: ref.watch(goRouterProvider),
+          builder: withReadAloud
+              ? (context, child) => ReadAloudOverlay(
+                  router: ref.watch(goRouterProvider),
+                  child: child!,
+                )
+              : null,
         ),
       ),
     );

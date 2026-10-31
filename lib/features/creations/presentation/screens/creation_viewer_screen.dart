@@ -201,7 +201,6 @@ class _CreationReader extends ConsumerWidget {
         if (wanted.contains(action)) entry(action),
     ];
     final aiRow = reader.aiRow;
-    final ownPlayer = reader.ownPlayer;
     final sources = creation.sourceIds.length;
 
     return ReadingFrame(
@@ -254,10 +253,6 @@ class _CreationReader extends ConsumerWidget {
         ),
         ReadingMenuGroup(entries({CreationAction.trash})),
       ],
-      ownPlayer: ready && ownPlayer != null
-          ? (context) => ownPlayer(context, creation)
-          : null,
-      ownReadableId: reader.ownReadableId?.call(creation),
       // Un podcast sobre lo mismo que esta creación.
       podcastScope: creation.scope,
     );

@@ -4,20 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Las pantallas que traen **su propio lugar para el reproductor** en lo que
 /// se ve ahora: el marco de lectura (F47, paso 1, `ReadingFrame`), en el
 /// original, el texto extraído, el resumen, la síntesis y lo creado. En su
-/// borde de abajo, el marco muestra el reproductor —o «Escuchar», si no suena
-/// nada—, y mientras se ve, el lector flotante de toda la app —el botón
-/// redondo y el mini reproductor— se hace a un lado: serían dos
-/// reproductores, y el marco no lleva el botón flotante.
+/// borde de abajo, el marco lleva «Escuchar» si no suena nada, y si suena,
+/// le deja su lugar al reproductor anclado de toda la app (F47, paso 2).
+/// Mientras se ve, el botón redondo del lector flotante no se dibuja: el
+/// marco no lo lleva. El reproductor anclado sí: es uno solo en toda la app.
 ///
-/// Es el mismo motor, no otro: lo que se lee, el resaltado y la posición son
-/// los de `readAloudControllerProvider`. Al salir del marco, el lector
-/// flotante vuelve a aparecer con la lectura donde iba: sigue sonando al
-/// cambiar de pantalla.
-///
-/// Antes (F43, paso 7) eran los ids de los documentos que tenían su
-/// reproductor —solo los visores de extraer de Repasar—; ahora el marco lleva
-/// el lugar para lo que suene, sea de él o de otro documento, así que alcanza
-/// con saber si hay alguno a la vista. El estado son sus dueños.
+/// Antes (F43, paso 7) eran los ids de los documentos que tenían su propio
+/// reproductor —los visores de extraer de Repasar—, y el flotante se apartaba
+/// entero. Con el reproductor anclado, ninguna pantalla trae otro: alcanza
+/// con saber si hay un marco a la vista. El estado son sus dueños.
 class ReadAloudDocks extends Notifier<Set<Object>> {
   @override
   Set<Object> build() => const {};
@@ -35,8 +30,8 @@ class ReadAloudDocks extends Notifier<Set<Object>> {
   }
 }
 
-/// Quiénes traen su lugar para el reproductor; con alguno, el lector
-/// flotante no se dibuja.
+/// Quiénes traen su lugar para el reproductor; con alguno, el botón redondo
+/// del lector flotante no se dibuja.
 final readAloudDockProvider = NotifierProvider<ReadAloudDocks, Set<Object>>(
   ReadAloudDocks.new,
 );
@@ -45,8 +40,8 @@ final readAloudDockProvider = NotifierProvider<ReadAloudDocks, Set<Object>>(
 /// [ReadAloudDocks]).
 ///
 /// Como `ReadableRegion`, solo cuenta mientras se ve: una pantalla tapada por
-/// otra —`TickerMode` apagado— deja de contar, y el lector flotante vuelve a
-/// mostrar la lectura en las demás.
+/// otra —`TickerMode` apagado— deja de contar, y el botón redondo vuelve en
+/// las demás.
 class ReadAloudDock extends ConsumerStatefulWidget {
   const ReadAloudDock({required this.child, super.key});
 
