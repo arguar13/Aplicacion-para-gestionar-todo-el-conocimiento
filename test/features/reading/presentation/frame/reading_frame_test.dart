@@ -528,6 +528,15 @@ void main() {
       expect(find.byKey(const Key('read-aloud-player')), findsOneWidget);
     });
 
+    testWidgets('la voz del reproductor abre la biblioteca de voces, como en '
+        'el lector flotante (F47, paso 3)', (tester) async {
+      await pump(tester);
+      await tapKey(tester, 'reading-listen');
+      await tapKey(tester, 'read-aloud-voice');
+
+      expect(find.text(es.f47P3LibraryTitle), findsOneWidget);
+    });
+
     testWidgets('al salir del marco sigue sonando, en el lector flotante', (
       tester,
     ) async {

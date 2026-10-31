@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_speed_sheet.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_voice_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
+import 'package:sinapsis/features/narration/presentation/voices/voice_library_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// **El lugar del reproductor**, abajo del marco de lectura (F47, paso 1).
@@ -104,7 +104,8 @@ class _ReadingPlayerSlotState extends ConsumerState<ReadingPlayerSlot> {
           child: ReadAloudPlayer(
             title: _title,
             onSpeed: () => _openSheet(const ReadAloudSpeedSheet()),
-            onVoice: () => _openSheet(const ReadAloudVoiceSheet()),
+            // La biblioteca de voces (F47, paso 3), como en el lector flotante.
+            onVoice: () => unawaited(showVoiceLibrary(context)),
           ),
         );
     }
