@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_face.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
@@ -63,6 +65,46 @@ class VoiceFaceView extends StatelessWidget {
       ),
     );
   }
+}
+
+/// La cara [face] como una imagen PNG de [size] píxeles de lado, en claro: la
+/// portada de la tarjeta de lo que suena en la notificación y la pantalla de
+/// bloqueo (F47, paso 2b). La misma que [VoiceFaceView], con sus iniciales;
+/// afuera de la app no hay tema oscuro que seguir. `null` si el motor de
+/// dibujo no pudo armarla.
+Future<Uint8List?> voiceFacePng(VoiceFace face, {int size = 256}) async {
+  final side = size.toDouble();
+  final palette = VoiceFacePalette.of(face, dark: false);
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  _FacePainter(face: face, palette: palette).paint(canvas, Size.square(side));
+  final initials = TextPainter(
+    text: TextSpan(
+      text: face.initials,
+      style: TextStyle(
+        color: palette.ink,
+        fontWeight: FontWeight.w700,
+        fontSize: side * 0.32,
+        height: 1,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout(maxWidth: side * 0.64);
+  initials
+    ..paint(
+      canvas,
+      Offset(
+        (side - initials.width) / 2,
+        (side - initials.height) / 2 - side * 0.06,
+      ),
+    )
+    ..dispose();
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(size, size);
+  picture.dispose();
+  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+  image.dispose();
+  return bytes?.buffer.asUint8List();
 }
 
 /// Los colores de una cara en un tema.

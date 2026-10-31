@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,8 +11,10 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
+import 'package:sinapsis/features/narration/domain/voices/voice_face.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_media_session.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -41,6 +45,9 @@ void main() {
   late FakeMediaSession platform;
   late ProviderContainer container;
 
+  /// Las caras que se dibujaron como portada, en orden.
+  late List<VoiceFace> drawn;
+
   ReadAloudController controller() =>
       container.read(readAloudControllerProvider.notifier);
   ReadAloudState state() => container.read(readAloudControllerProvider);
@@ -50,6 +57,7 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     tts = FakeTextToSpeechService();
     platform = FakeMediaSession();
+    drawn = [];
     container = ProviderContainer(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
@@ -57,6 +65,10 @@ void main() {
         narrationClockProvider.overrideWithValue(() => Duration.zero),
         mediaSessionPlatformProvider.overrideWithValue(platform),
         mediaSessionClockProvider.overrideWithValue(() => Duration.zero),
+        voiceArtworkProvider.overrideWithValue((face) async {
+          drawn.add(face);
+          return Uint8List.fromList([drawn.length]);
+        }),
       ],
     );
     addTearDown(container.dispose);
@@ -101,6 +113,23 @@ void main() {
     expect(card.playing, isTrue);
     expect(card.hasNext, isFalse);
     expect(card.requestsAudioFocus, isTrue);
+  });
+
+  testWidgets('la portada es la cara de la voz que lee, dibujada una vez: '
+      'la misma imagen mientras lea esa voz', (tester) async {
+    await pump(tester);
+    await controller().open(document);
+    await tester.pumpAndSettle();
+
+    final cover = platform.card!.artwork;
+    expect(cover, isNotNull);
+    expect(drawn, [VoiceFace.of('system', es.readAloudSystemVoice)]);
+
+    await controller().pause();
+    await tester.pumpAndSettle();
+    expect(platform.card!.playing, isFalse);
+    expect(identical(platform.card!.artwork, cover), isTrue);
+    expect(drawn, hasLength(1));
   });
 
   testWidgets('en pausa lo dice, y con algo en la cola ofrece «siguiente»', (
