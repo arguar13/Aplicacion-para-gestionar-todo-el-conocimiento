@@ -523,3 +523,61 @@ Cinco commits, de `b1d1c045` a `b4f2ddf3` (mejoras 20 y 21, decisión K).
   - en «Volver a triar», a 360 dp con la letra al doble, la explicación de arriba ocupa toda la
     pantalla (viene de antes);
   - no se miró en el emulador ni en el teléfono.
+
+### Paso 3 (hecho): la biblioteca de voces
+
+Siete commits, de `7b26d6d8` a `7d82b688`, y el de este avance
+(decisiones B, D y L).
+
+- **El catálogo** (`OfflineVoiceCatalog`), relevado de la versión `tts-models` de sherpa-onnx el
+  30/10:
+  - **26 paquetes de Piper, 28 voces**: español de Argentina (Daniela), España (Davefx, Sharvard
+    F y M, Carlfm) y México (Claude, Ald); inglés de Estados Unidos (Lessac, Ryan, HFC mujer y
+    hombre) y del Reino Unido (Cori, Alba, Northern English); portugués de Brasil (Faber, Cadu,
+    Jeff) y de Portugal (Tugão); francés (Siwis, Tom, Jessica y Pierre); italiano (Paola,
+    Riccardo) y alemán (Thorsten, Kerstin, Ramona, Eva K). El modelo original de cada una, el que
+    documenta sherpa-onnx; de 26 a 116 MB.
+  - **Kokoro multilingüe v1.0 en 8 bits, 132 MB, 28 voces**: inglés de Estados Unidos (11) y del
+    Reino Unido (4), español (3), francés (1), italiano (2), portugués de Brasil (3) e hindi (4).
+  - Cada paquete con su tamaño y su huella SHA-256, que se comprueban al bajarlo.
+  - **Sin confirmar, y por eso sin poner:** el género de las de Piper cuyo modelo no lo dice (solo
+    se puso en HFC, Northern English y Sharvard, y en todas las de Kokoro); el tono, el timbre, el
+    estilo, la edad y para qué es ideal de todas (nadie los publica); la calidad de las de Kokoro
+    en español y en portugués (sin nota en `VOICES.md`).
+  - **Afuera:** GLaDOS (imita un personaje), las de Kokoro con nota D o F —todas las de chino—, las
+    de japonés (sherpa-onnx las pronuncia con espeak-ng, sin comprobar que alcance), y las
+    `-int8`/`-fp16` de Piper, más livianas pero sin medir en el teléfono.
+- **El motor sin conexión** (`sherpa_onnx` 1.13.8, ya en la app por Whisper): VITS para Piper,
+  Kokoro con su `sid` y su `lang` de espeak-ng (o su léxico, en inglés), en un isolate con hasta
+  dos voces armadas. Cada tramo es un WAV que suena con `video_player`; el siguiente se genera
+  mientras suena el de ahora. Solo en Android: en la web y en Windows no se ofrece y lee la del
+  sistema (implementación nula).
+- **Bajar a pedido**, con la transferencia de todos los modelos y su retome al abrir la app; el
+  `.tar.bz2` se abre en un isolate sin tragarse errores ni escribir afuera. Se borra desde Ajustes
+  → «Voces descargadas».
+- **La biblioteca** (`showVoiceLibrary(context)`), que reemplaza la hoja «Voz y acento»: Todas ·
+  Favoritas · Mías, «Te puede interesar», las tarjetas con su cara, ♡ y ▶, Filtrar con «Ver N
+  voces» y Mías vacía, lista para el paso 4.
+- **La voz sigue al idioma del texto**, pedazo por pedazo, con una elegida por idioma (en las
+  preferencias, sin tabla nueva); Ajustes → «Voces por idioma».
+- **Para el paso 2:** la cara de la voz es `VoiceFaceView.of(voz)` con `currentVoiceProfileProvider`
+  (la voz que lee ahora), y tocarla abre `showVoiceLibrary(context)`.
+- **No entró:** «Varias voces en un mismo documento» (texto y comillas). Hace falta partir cada
+  pedazo en tramos con su voz y que el resaltado, los ±10 s y la cola sigan al tramo: es lo que
+  arma el paso 6 (el podcast, decisión E, tramo por tramo y una voz por persona). Queda ahí.
+- **Verificado:**
+  - analyze en 19;
+  - 2.912 pruebas de la narración, Ajustes, los modelos de IA, `core`, la app, la Biblioteca y el
+    visor de Repasar;
+  - murieron las 20 mutaciones. Una sobrevivía —sacar la velocidad de la clave de lo preparado—
+    porque la clave repetía lo que cambiar la velocidad ya descarta: se sacó lo repetido y se
+    mutó lo que queda. Entre las otras: la voz que no sigue al idioma del pedazo, una del teléfono
+    de otro idioma, una voz borrada que sigue leyendo, el filtro que no cuenta, la favorita que no
+    se guarda, la cara que cambia, una voz que se baja sin pedirla, un paquete con otra huella o
+    sin modelo, y abrir un paquete afuera de su carpeta.
+- **Queda para después:**
+  - medir en el teléfono cuánto tarda cada voz en generar una oración (sobre todo Kokoro) y si la
+    pausa entre oraciones se nota;
+  - que el idioma guardado de la fuente (`Source.language`) llegue al lector: hoy se detecta del
+    texto;
+  - no se miró en el emulador ni en el teléfono.
