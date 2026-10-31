@@ -2966,7 +2966,9 @@ afuera, con "atrás" o deslizándolo hacia la izquierda.
     guardado.
 
   Lo que cambiás ahí vale en el acto; la hoja se cierra al elegir algo para
-  adjuntar.
+  adjuntar, o tocando el chat que queda a la vista arriba. Con la letra
+  grande en un teléfono chico tampoco tapa la pantalla entera: lo de adentro
+  se desplaza y arriba sigue asomando el chat, para cerrarla de un toque.
 - **🎤 Dictar**: tocá el micrófono y hablá; lo que decís se escribe en el
   campo mientras lo decís, después de lo que ya había. Al hacer una pausa,
   termina solo (o tocalo de nuevo para cortar). La primera vez el teléfono
