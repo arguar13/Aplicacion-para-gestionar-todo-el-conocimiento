@@ -581,3 +581,69 @@ Siete commits, de `7b26d6d8` a `7d82b688`, y el de este avance
   - que el idioma guardado de la fuente (`Source.language`) llegue al lector: hoy se detecta del
     texto;
   - no se miró en el emulador ni en el teléfono.
+
+### Paso 6a (hecho): el podcast, hasta el guion
+
+Seis commits, de `5e8f3d09` a `547430b3` (decisiones B, E, F y L). La segunda parte —el audio de
+cada tramo y la escucha— es el paso 6b.
+
+- **Una creación más de «Lo creado»** (decisión E): el tipo `podcast` entra en `study_creations`,
+  cuyo tipo es texto, así que el esquema no cambia. Usa la cola de F43 tal cual: su fila, «ahora /
+  más tarde», el retome hasta tres veces, el servicio en primer plano y la papelera.
+- **La tarjeta «Podcast» en Repasar** (la grilla pasa a 11) y su hoja, la común de lo creado, que
+  ganó dos piezas que cualquier tipo puede pedir:
+  - «+ Sumar otro documento», que abre el selector de arriba de Repasar; lo sumado va a las
+    fuentes de esa creación, no al recorte;
+  - un tema con nombre propio —en el podcast, «¿De qué trata?»—, con tres propuestas sacadas de
+    las palabras clave del material.
+- **El guion se escribe por vueltas:** lo que no entra en una respuesta del modelo se escribe en
+  varias (con Gemma, 2 en Corto y 8 en Largo; con uno de la nube, un Medio sale en una). La primera
+  abre, la última cierra, cada una sabe cómo terminó la anterior, y si el material va por partes
+  cada vuelta lee su tramo, en orden.
+- **La duración se mide en palabras** y nunca pasa de 1,5 palabras de podcast por palabra leída:
+  si el material no da para lo pedido, no se rellena, y el visor lo dice.
+- **Cada tramo se comprueba contra el material**, con la forma de F43 (se queda lo que se
+  sostiene y se le pide a la IA, una sola vez, que corrija con el porqué):
+  - una cita vale solo si está entera en lo que leyó esa vuelta (sin mayúsculas, tildes ni signos;
+    la elipsis marca pedazos salteados, en orden); menos de 4 palabras o de 24 letras no cuenta, y
+    su documento sale de dónde se la encontró, no de lo que dice la IA;
+  - se quita, con su porqué, el tramo de datos sin cita, el de citas que no están y el de una
+    cifra que el material no tiene (1.200, 1,200 y 1200 cuentan igual); un saludo, una pregunta o
+    una transición de hasta 30 palabras, sin cifras, no necesita cita;
+  - vuelve a la IA la vuelta fuera de 70–140 % de lo pedido, la que se quedó sin tramos y la
+    Conversación de una sola voz; si corregida tampoco cumple, falla con «Reintentar»;
+  - lo quitado queda guardado, tachado y con su motivo, y el visor lo cuenta.
+- **Las voces, como dato** (`{speaker, voiceId}` con prefijo de origen, `device:es-AR:<nombre>`),
+  para que la biblioteca sume las suyas sin migrar. Se ofrecen solo las del teléfono que leen sin
+  conexión (decisiones B y F: las de internet mandarían el guion afuera); siguen al idioma del
+  podcast (decisión L), y en Conversación se eligen solas dos distintas.
+- **Las pausas**, por tramo y listas para el audio: 300 ms con la misma voz, 550 ms al cambiar y
+  1.200 ms donde la IA pidió una larga.
+- **Lo guardado:** el guion como transcripción, cada cita tocable que lleva al pasaje, «Hecho con
+  IA» con el modelo (F43 no lo tenía), y el botón de escuchar apagado con «El audio se genera en el
+  paso siguiente», sin fingir un audio.
+- **De paso:** el buscador de pasajes y el salto al pasaje salieron del mapa mental a un lugar
+  común que usan los dos; el mapa mental se comporta igual.
+- **Para el marco (paso 1):** `startPodcast(context, scope)` abre la misma hoja desde la ficha del
+  lector.
+- **Verificado:**
+  - analyze en 19;
+  - 3.769 pruebas de lo creado, las tarjetas, Repasar, la app y la base, con la cola de verdad
+    sobre SQLite;
+  - murieron las 21 mutaciones. Entre ellas: el tramo sin cita que pasa, la cita incompleta o que
+    se conforma con su comienzo, la cifra inventada, la duración que no se respeta, una sola voz en
+    Conversación, las dos personas con la misma voz, la cita que no lleva al pasaje, el trabajo que
+    no se retoma y el botón que finge un audio. Una salió «colgada» con la PC cargada; sola muere
+    en 11 s.
+- **Queda para después:**
+  - **el paso 6b:**
+    - el audio de cada tramo con las voces sin conexión;
+    - la escucha en el reproductor anclado, con la transcripción que se sigue;
+    - las voces de la biblioteca en `podcastVoiceOptionsProvider`;
+    - el costo antes, si se elige una voz de la nube;
+  - **el retome por vuelta:** hoy un Largo con Gemma que se corta en la vuelta 6 de 8 vuelve a
+    empezar; guardar las vueltas pide un método nuevo en el repositorio de creaciones;
+  - **con Gemma y un documento mediano**, el material puede ser solo el resumen o la síntesis (el
+    armado de F43 elige lo que entra), y el podcast sale más corto; el visor lo dice;
+  - exportar el guion como texto;
+  - no se miró en el emulador ni en el teléfono.
