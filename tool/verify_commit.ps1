@@ -66,7 +66,10 @@ $paths = @(
 ) | Where-Object { git ls-tree --name-only $Rev -- $_ }
 git archive --format=tar --output=$tar $Rev -- @paths
 if ($LASTEXITCODE -ne 0) { throw 'git archive falló.' }
-tar -xf $tar -C $work
+# El tar de Windows, con su ruta: lanzado desde Git Bash, el primero del PATH
+# es el de GNU, que lee «C:\…» como una máquina remota y no extrae nada.
+& (Join-Path $env:SystemRoot 'System32\tar.exe') -xf $tar -C $work
+if ($LASTEXITCODE -ne 0) { throw 'tar no pudo extraer el commit.' }
 Remove-Item $tar
 
 # --- Lo generado, que no se versiona ---------------------------------------------
