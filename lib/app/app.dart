@@ -10,6 +10,7 @@ import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/back_navigation.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/app/study_reminder_binding.dart';
+import 'package:sinapsis/core/audio/lock_screen_title.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
@@ -95,6 +96,9 @@ class _AppState extends ConsumerState<App> {
     // `null` = seguir el idioma del sistema; MaterialApp ya sabe resolver
     // eso solo contra `supportedLocales` cuando `locale` es null.
     final locale = ref.watch(localeNotifierProvider);
+    // Si la tarjeta de lo que suena deja ver el título con el teléfono
+    // bloqueado (F47, paso 7a-bis): llega a Android antes de que suene nada.
+    ref.watch(lockScreenTitleSyncProvider);
 
     return MaterialApp.router(
       title: EnvConfig.current.appName,

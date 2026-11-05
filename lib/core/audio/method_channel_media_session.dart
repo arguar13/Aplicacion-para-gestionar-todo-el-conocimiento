@@ -47,6 +47,10 @@ class MethodChannelMediaSession implements MediaSessionPlatform {
   Future<void> end() => _invoke('end');
 
   @override
+  Future<void> showTitleOnLockScreen({required bool show}) =>
+      _invoke('lockScreen', {'showTitle': show});
+
+  @override
   Stream<MediaCommand> get commands => _commands.stream;
 
   @override

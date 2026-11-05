@@ -16,6 +16,9 @@ class NullMediaSession implements MediaSessionPlatform {
   Future<void> end() async {}
 
   @override
+  Future<void> showTitleOnLockScreen({required bool show}) async {}
+
+  @override
   Stream<MediaCommand> get commands => const Stream.empty();
 
   @override

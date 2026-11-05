@@ -167,6 +167,12 @@ abstract interface class MediaSessionPlatform {
   /// devuelve.
   Future<void> end();
 
+  /// Si la tarjeta deja ver lo que suena —título, subtítulo e imagen— con el
+  /// teléfono bloqueado (F47, paso 7a-bis). Si no, ahí dice «Reproduciendo»
+  /// con los mismos botones. Se aplica en el momento, también a la tarjeta
+  /// que está a la vista; hasta que se diga, no lo deja ver.
+  Future<void> showTitleOnLockScreen({required bool show});
+
   /// Lo que se toca en la tarjeta, los auriculares o el reloj.
   Stream<MediaCommand> get commands;
 

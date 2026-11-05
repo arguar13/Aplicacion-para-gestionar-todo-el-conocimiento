@@ -44,6 +44,14 @@ class FakeMediaSession implements MediaSessionPlatform {
     _showing = false;
   }
 
+  /// Cada vez que se le dijo si se ve el título en la pantalla de bloqueo, en
+  /// orden (F47, paso 7a-bis).
+  final lockScreenTitle = <bool>[];
+
+  @override
+  Future<void> showTitleOnLockScreen({required bool show}) async =>
+      lockScreenTitle.add(show);
+
   @override
   Stream<MediaCommand> get commands => _commands.stream;
 
