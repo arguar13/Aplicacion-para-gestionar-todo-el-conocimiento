@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast.dart';
@@ -204,8 +205,8 @@ Future<void> requestPodcastAudio(
       : await ref.read(creationQueueProvider).retry(creation.id, runNow: true);
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
+    ..showAppSnackBar(
+      AppSnackBar(
         content: Text(
           queued.isLeft()
               ? l10n.f47P6bAudioRequestFailed
