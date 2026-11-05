@@ -307,6 +307,7 @@ flutter:
     - assets/fonts/PlayfairDisplay-OFL.txt
     - assets/fonts/SourceSans3-OFL.txt
     - assets/fonts/SpaceGrotesk-OFL.txt
+    - assets/fonts/AtkinsonHyperlegibleNext-OFL.txt
 
   # Inter, empaquetada con la app en vez de bajada en tiempo de ejecución
   # (ver la decisión 12 en docs/arquitectura.md y tool/fetch_inter_font.sh).

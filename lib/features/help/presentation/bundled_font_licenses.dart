@@ -15,6 +15,7 @@ const kBundledFontLicenses = <String, String>{
   'Playfair Display': 'assets/fonts/PlayfairDisplay-OFL.txt',
   'Source Sans 3': 'assets/fonts/SourceSans3-OFL.txt',
   'Space Grotesk': 'assets/fonts/SpaceGrotesk-OFL.txt',
+  'Atkinson Hyperlegible Next': 'assets/fonts/AtkinsonHyperlegibleNext-OFL.txt',
 };
 
 var _registered = false;
