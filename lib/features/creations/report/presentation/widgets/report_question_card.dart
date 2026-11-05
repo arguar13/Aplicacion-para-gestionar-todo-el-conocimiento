@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/design/app_semantic_colors.dart';
 import 'package:sinapsis/features/creations/report/domain/report.dart';
+import 'package:sinapsis/features/creations/report/domain/report_canonical_text.dart';
 import 'package:sinapsis/features/creations/report/domain/report_markup.dart';
 import 'package:sinapsis/features/creations/report/domain/report_order.dart';
+import 'package:sinapsis/features/creations/report/presentation/widgets/report_notes.dart';
 import 'package:sinapsis/features/creations/report/presentation/widgets/report_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -14,6 +16,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 class ReportQuestionCard extends StatelessWidget {
   const ReportQuestionCard({
     required this.question,
+    required this.section,
+    required this.index,
     required this.number,
     required this.total,
     required this.picked,
@@ -23,6 +27,11 @@ class ReportQuestionCard extends StatelessWidget {
   });
 
   final ReportQuestion question;
+
+  /// Su sección y su lugar en ella (desde 0): dónde está en el texto del
+  /// informe, con sus opciones (F45, paso 8c).
+  final int section;
+  final int index;
 
   /// Su número en la sección (desde 1) y cuántas hay.
   final int number;
@@ -68,7 +77,8 @@ class ReportQuestionCard extends StatelessWidget {
             style: t.small.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
-          ReportRichText(
+          ReportPartText(
+            place: ReportTextPlace.question(section, index),
             inlines: parseReportInlines(question.question),
             style: t.subheading,
             typography: t,
@@ -82,6 +92,11 @@ class ReportQuestionCard extends StatelessWidget {
               ),
               letter: reportOptionLetter(index),
               option: option,
+              place: ReportTextPlace.option(
+                section,
+                this.index,
+                question.options.indexOf(option),
+              ),
               state: !answered
                   ? _OptionState.open
                   : option == question.correct
@@ -122,6 +137,7 @@ class _OptionTile extends StatelessWidget {
   const _OptionTile({
     required this.letter,
     required this.option,
+    required this.place,
     required this.state,
     required this.success,
     required this.typography,
@@ -131,6 +147,9 @@ class _OptionTile extends StatelessWidget {
 
   final String letter;
   final ReportOption option;
+
+  /// Dónde está su texto en el del informe.
+  final ReportTextPlace place;
   final _OptionState state;
   final Color success;
   final ReportTypography typography;
@@ -232,12 +251,14 @@ class _OptionTile extends StatelessWidget {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 3),
-                    child: Text(
-                      option.text,
+                    child: ReportPartText.plain(
+                      place: place,
+                      text: option.text,
                       style: t.body.copyWith(
                         height: 1.4,
                         color: state == _OptionState.other ? t.muted : t.ink,
                       ),
+                      typography: t,
                     ),
                   ),
                 ),

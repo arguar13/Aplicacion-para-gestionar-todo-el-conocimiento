@@ -3,7 +3,9 @@ import 'package:sinapsis/features/creations/design/creation_fonts.dart';
 import 'package:sinapsis/features/creations/design/creation_palette.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
+import 'package:sinapsis/features/creations/report/domain/report_canonical_text.dart';
 import 'package:sinapsis/features/creations/report/domain/report_markup.dart';
+import 'package:sinapsis/features/creations/report/presentation/widgets/report_notes.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 
 /// La tipografía de un informe en pantalla: Lora en los títulos y Source
@@ -130,21 +132,28 @@ class ReportRichText extends StatelessWidget {
 
 /// Los bloques del texto de una sección, con su ritmo: los párrafos con aire
 /// entre ellos, las viñetas pegadas, los subtítulos con más aire arriba.
+///
+/// Con [section], cada bloque es una parte del texto del informe (F45, paso
+/// 8c: `ReportPartText`), que lleva sus notas.
 class ReportBlocks extends StatelessWidget {
   const ReportBlocks({
     required this.blocks,
     required this.typography,
+    this.section,
     super.key,
   });
 
   final List<ReportBlock> blocks;
   final ReportTypography typography;
 
+  /// La sección de los bloques (desde 0), o `null` si no llevan notas.
+  final int? section;
+
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[];
     ReportBlock? previous;
-    for (final block in blocks) {
+    for (final (index, block) in blocks.indexed) {
       final gap = switch ((previous, block)) {
         (null, _) => 0.0,
         (ReportBullet(), ReportBullet()) => 6.0,
@@ -152,7 +161,7 @@ class ReportBlocks extends StatelessWidget {
         _ => 12.0,
       };
       if (gap > 0) children.add(SizedBox(height: gap));
-      children.add(_block(block));
+      children.add(_block(block, index));
       previous = block;
     }
     return Column(
@@ -162,19 +171,29 @@ class ReportBlocks extends StatelessWidget {
     );
   }
 
-  Widget _block(ReportBlock block) {
+  /// El texto del bloque [index], con [style]: una parte del informe si los
+  /// bloques llevan notas.
+  Widget _text(ReportBlock block, int index, TextStyle style) {
+    final section = this.section;
+    return section == null
+        ? ReportRichText(
+            inlines: block.inlines,
+            style: style,
+            typography: typography,
+          )
+        : ReportPartText(
+            place: ReportTextPlace.block(section, index),
+            inlines: block.inlines,
+            style: style,
+            typography: typography,
+          );
+  }
+
+  Widget _block(ReportBlock block, int index) {
     final t = typography;
     return switch (block) {
-      ReportParagraph() => ReportRichText(
-        inlines: block.inlines,
-        style: t.body,
-        typography: t,
-      ),
-      ReportSubheading() => ReportRichText(
-        inlines: block.inlines,
-        style: t.subheading,
-        typography: t,
-      ),
+      ReportParagraph() => _text(block, index, t.body),
+      ReportSubheading() => _text(block, index, t.subheading),
       ReportQuote() => Container(
         padding: const EdgeInsetsDirectional.only(start: 14),
         decoration: BoxDecoration(
@@ -182,10 +201,10 @@ class ReportBlocks extends StatelessWidget {
             start: BorderSide(color: t.accent, width: 3),
           ),
         ),
-        child: ReportRichText(
-          inlines: block.inlines,
-          style: t.body.copyWith(fontStyle: FontStyle.italic),
-          typography: t,
+        child: _text(
+          block,
+          index,
+          t.body.copyWith(fontStyle: FontStyle.italic),
         ),
       ),
       ReportBullet(:final level, :final number) => Padding(
@@ -216,13 +235,7 @@ class ReportBlocks extends StatelessWidget {
                       ),
                     ),
             ),
-            Expanded(
-              child: ReportRichText(
-                inlines: block.inlines,
-                style: t.body,
-                typography: t,
-              ),
-            ),
+            Expanded(child: _text(block, index, t.body)),
           ],
         ),
       ),

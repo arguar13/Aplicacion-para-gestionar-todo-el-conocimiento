@@ -378,15 +378,15 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
     return (section: section, start: start, end: end);
   }
 
-  /// El menú de lo elegido: el de siempre y, sobre el texto de un documento,
-  /// «Nota» (F45, paso 8b).
+  /// El menú de lo elegido: sobre el texto de un documento, «Nota» (F45,
+  /// paso 8b), y lo de siempre.
   Widget _selectionMenu(BuildContext context, SelectableRegionState region) {
     final l10n = AppLocalizations.of(context)!;
     final chosen = _selectedForNote();
     return AdaptiveTextSelectionToolbar.buttonItems(
       anchors: region.contextMenuAnchors,
       buttonItems: [
-        ...region.contextMenuButtonItems,
+        // Primero (F45, paso 8c): en un teléfono, lo que no entra va a «Más».
         if (chosen != null && _notes[chosen.section].target != null)
           ContextMenuButtonItem(
             label: l10n.highlightAddNote,
@@ -406,6 +406,7 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
               );
             },
           ),
+        ...region.contextMenuButtonItems,
       ],
     );
   }

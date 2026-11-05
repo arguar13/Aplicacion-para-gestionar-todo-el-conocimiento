@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/features/creations/report/domain/report.dart';
+import 'package:sinapsis/features/creations/report/domain/report_canonical_text.dart';
 import 'package:sinapsis/features/creations/report/domain/report_keywords.dart';
 import 'package:sinapsis/features/creations/report/domain/report_markup.dart';
+import 'package:sinapsis/features/creations/report/presentation/widgets/report_notes.dart';
 import 'package:sinapsis/features/creations/report/presentation/widgets/report_question_card.dart';
 import 'package:sinapsis/features/creations/report/presentation/widgets/report_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -96,7 +98,12 @@ class ReportSectionCard extends StatelessWidget {
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.only(top: 2),
-                        child: Text(title, style: t.sectionTitle),
+                        child: ReportPartText.plain(
+                          place: ReportTextPlace.sectionTitle(index),
+                          text: title,
+                          style: t.sectionTitle,
+                          typography: t,
+                        ),
                       ),
                     ),
                     if (interactive && _allAnswered) ...[
@@ -136,6 +143,7 @@ class ReportSectionCard extends StatelessWidget {
                     ReportBlocks(
                       blocks: reportBlocksWithKeywords(section.body, keywords),
                       typography: t,
+                      section: index,
                     ),
                   if (section.entries.isNotEmpty) ...[
                     if (section.body.trim().isNotEmpty)
@@ -143,6 +151,8 @@ class ReportSectionCard extends StatelessWidget {
                     for (final (i, entry) in section.entries.indexed)
                       _EntryTile(
                         entry: entry,
+                        section: index,
+                        index: i,
                         first: i == 0,
                         keywords: keywords,
                         typography: t,
@@ -167,6 +177,8 @@ class ReportSectionCard extends StatelessWidget {
                       ReportQuestionCard(
                         key: ValueKey('report-question-$index-$q'),
                         question: question,
+                        section: index,
+                        index: q,
                         number: q + 1,
                         total: questions.length,
                         picked: answers[q],
@@ -260,12 +272,19 @@ class _ScoreBadge extends StatelessWidget {
 class _EntryTile extends StatelessWidget {
   const _EntryTile({
     required this.entry,
+    required this.section,
+    required this.index,
     required this.first,
     required this.keywords,
     required this.typography,
   });
 
   final ReportEntry entry;
+
+  /// Su sección y su lugar en el glosario (desde 0): dónde está en el texto
+  /// del informe.
+  final int section;
+  final int index;
   final bool first;
   final ReportKeywords keywords;
   final ReportTypography typography;
@@ -289,10 +308,16 @@ class _EntryTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(entry.term, style: t.term.copyWith(color: t.accent)),
+          ReportPartText.plain(
+            place: ReportTextPlace.term(section, index),
+            text: entry.term,
+            style: t.term.copyWith(color: t.accent),
+            typography: t,
+          ),
           if (entry.definition.isNotEmpty) ...[
             const SizedBox(height: 4),
-            ReportRichText(
+            ReportPartText(
+              place: ReportTextPlace.definition(section, index),
               inlines: withReportKeywords(
                 parseReportInlines(entry.definition),
                 keywords,

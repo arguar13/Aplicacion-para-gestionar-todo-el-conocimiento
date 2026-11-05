@@ -1,17 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
 import 'package:sinapsis/features/creations/report/domain/report.dart';
+import 'package:sinapsis/features/creations/report/domain/report_canonical_text.dart';
 import 'package:sinapsis/features/creations/report/domain/report_keywords.dart';
 import 'package:sinapsis/features/creations/report/domain/report_template.dart';
 import 'package:sinapsis/features/creations/report/presentation/providers/report_providers.dart';
 import 'package:sinapsis/features/creations/report/presentation/report_labels.dart';
 import 'package:sinapsis/features/creations/report/presentation/widgets/report_index_sheet.dart';
+import 'package:sinapsis/features/creations/report/presentation/widgets/report_notes.dart';
 import 'package:sinapsis/features/creations/report/presentation/widgets/report_section_card.dart';
 import 'package:sinapsis/features/creations/report/presentation/widgets/report_text.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_follow.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note.dart';
 import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/domain/services/text_note_placement.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
+import 'package:sinapsis/features/text_notes/presentation/text_note_actions.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_note_margin.dart';
 import 'package:sinapsis/features/text_notes/presentation/widgets/text_notes_list_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -38,6 +48,31 @@ class ReportView extends ConsumerStatefulWidget {
 class _ReportViewState extends ConsumerState<ReportView> {
   final _sectionKeys = <int, GlobalKey>{};
 
+  /// Las partes del informe que se ven ahora (F45, paso 8c).
+  final _parts = ReportNoteParts();
+
+  /// La nota a la que se fue desde «Notas (N)», marcada un momento.
+  late final _flash = ReportNoteFlash(() {
+    if (mounted) setState(() {});
+  });
+
+  /// El texto del informe que se muestra, armado una vez por contenido.
+  (String?, ReportText)? _text;
+
+  ReportText _textOf(String? content, Report report) {
+    final cached = _text;
+    if (cached != null && cached.$1 == content) return cached.$2;
+    final text = ReportText.of(report);
+    _text = (content, text);
+    return text;
+  }
+
+  @override
+  void dispose() {
+    _flash.dispose();
+    super.dispose();
+  }
+
   GlobalKey _keyOf(int section) =>
       _sectionKeys.putIfAbsent(section, GlobalKey.new);
 
@@ -55,6 +90,69 @@ class _ReportViewState extends ConsumerState<ReportView> {
         curve: Curves.easeOutCubic,
       );
     });
+  }
+
+  /// Lleva la vista a `[start, end)` del texto del informe y lo marca un
+  /// momento: lo que hace tocar una nota en «Notas (N)». Si su sección estaba
+  /// plegada, la despliega. `false` si el informe no lo muestra —una pregunta
+  /// en el formato de lectura—.
+  bool _revealNote(ReportText text, int start, int end) {
+    final part = text.firstPartOf(start, end);
+    if (part == null) return false;
+    final place = part.place;
+    final interactive =
+        ReportFormat.of(widget.creation.options) == ReportFormat.interactive;
+    if (place.interactiveOnly && !interactive) return false;
+    final id = widget.creation.id;
+    if (place.section >= 0 &&
+        ref.read(reportReadingProvider(id)).folded.contains(place.section)) {
+      ref.read(reportReadingProvider(id).notifier).toggleFold(place.section);
+    }
+    _flash.show(start, end);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _parts.contextOf(place);
+      if (target == null || !target.mounted || !mounted) return;
+      unawaited(
+        Scrollable.ensureVisible(target, alignment: ReadAloudBand.landing),
+      );
+    });
+    return true;
+  }
+
+  /// El menú de lo elegido: sobre el texto del informe, «Nota» (F45, paso
+  /// 8c), y lo de siempre.
+  Widget _selectionMenu(
+    BuildContext context,
+    SelectableRegionState region,
+    ReportText text,
+  ) {
+    final l10n = AppLocalizations.of(context)!;
+    final chosen = _parts.selected(text);
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: region.contextMenuAnchors,
+      buttonItems: [
+        // Primero: en un teléfono, lo que no entra va a «Más».
+        if (chosen != null)
+          ContextMenuButtonItem(
+            label: l10n.highlightAddNote,
+            onPressed: () {
+              ContextMenuController.removeAny();
+              region.clearSelection();
+              unawaited(
+                writeTextNote(
+                  this.context,
+                  ref,
+                  target: TextNoteTarget.creation(widget.creation.id),
+                  start: chosen.start,
+                  end: chosen.end,
+                  excerpt: text.content.substring(chosen.start, chosen.end),
+                ),
+              );
+            },
+          ),
+        ...region.contextMenuButtonItems,
+      ],
+    );
   }
 
   @override
@@ -96,68 +194,117 @@ class _ReportViewState extends ConsumerState<ReportView> {
     final keywordsOn = reading.keywords ?? byDefault;
     final painted = keywordsOn ? keywords : ReportKeywords.empty;
 
+    // Las notas (F45, paso 8c): sobre el texto del informe, cada una en su
+    // lugar; las que tienen lugar llevan su punteado y su globito.
+    final text = _textOf(creation.content, report);
+    final target = TextNoteTarget.creation(id);
+    final notes =
+        ref
+            .watch(
+              placedTextNotesProvider((target: target, content: text.content)),
+            )
+            .valueOrNull ??
+        const <PlacedTextNote>[];
+    final placed = [
+      for (final note in notes)
+        if (note.placed) note,
+    ];
+    // El margen de los globitos aparece con la primera nota con lugar, a la
+    // derecha: el informe se corre lo que mide y ni una letra queda tapada.
+    final gutter = placed.isEmpty ? 0.0 : _gutter;
+
     final view = SingleChildScrollView(
       key: const Key('report-view'),
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+      padding: EdgeInsets.fromLTRB(16, 20, placed.isEmpty ? 16 : 4, 40),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: kReportMaxWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _Header(
-                report: report,
-                kicker: l10n.reportKicker(template, format),
-                interactive: interactive,
-                keywordsAvailable: !keywords.isEmpty,
-                keywordsOn: keywordsOn,
-                onKeywords: (on) => notifier.setKeywords(shown: on),
-                onIndex: () => showReportIndex(context, creation),
-                typography: t,
-              ),
-              const SizedBox(height: 20),
-              for (final (i, section) in report.sections.indexed) ...[
-                if (i > 0) const SizedBox(height: 14),
-                ReportSectionCard(
-                  key: _keyOf(i),
-                  section: section,
-                  index: i,
-                  title: l10n.reportSectionTitle(report, i),
-                  folded: reading.folded.contains(i),
-                  onToggle: () => notifier.toggleFold(i),
-                  keywords: painted,
-                  interactive: interactive,
-                  answers: {
-                    for (final MapEntry(key: (s, q), :value)
-                        in reading.answers.entries)
-                      if (s == i) q: value,
-                  },
-                  onAnswer: (q, option) => notifier.answer(i, q, option),
-                  typography: t,
-                ),
-              ],
-              if (interactive && report.questionCount > 0) ...[
-                const SizedBox(height: 20),
-                _Score(
+          constraints: BoxConstraints(maxWidth: kReportMaxWidth + gutter),
+          child: TextNoteMargin(
+            gutter: gutter,
+            notes: placed,
+            lineOf: (note) => _parts.lineOf(text, note.start!, note.end!),
+            onOpen: _openNotes,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _Header(
                   report: report,
-                  answers: reading.answers,
-                  onReset: notifier.resetAnswers,
+                  kicker: l10n.reportKicker(template, format),
+                  interactive: interactive,
+                  keywordsAvailable: !keywords.isEmpty,
+                  keywordsOn: keywordsOn,
+                  onKeywords: (on) => notifier.setKeywords(shown: on),
+                  onIndex: () => showReportIndex(context, creation),
                   typography: t,
                 ),
+                const SizedBox(height: 20),
+                for (final (i, section) in report.sections.indexed) ...[
+                  if (i > 0) const SizedBox(height: 14),
+                  ReportSectionCard(
+                    key: _keyOf(i),
+                    section: section,
+                    index: i,
+                    title: l10n.reportSectionTitle(report, i),
+                    folded: reading.folded.contains(i),
+                    onToggle: () => notifier.toggleFold(i),
+                    keywords: painted,
+                    interactive: interactive,
+                    answers: {
+                      for (final MapEntry(key: (s, q), :value)
+                          in reading.answers.entries)
+                        if (s == i) q: value,
+                    },
+                    onAnswer: (q, option) => notifier.answer(i, q, option),
+                    typography: t,
+                  ),
+                ],
+                if (interactive && report.questionCount > 0) ...[
+                  const SizedBox(height: 20),
+                  _Score(
+                    report: report,
+                    answers: reading.answers,
+                    onReset: notifier.resetAnswers,
+                    typography: t,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
     );
-    // Las notas de lo creado (F45, paso 8b): un informe no es un texto de
-    // corrido que se elige —son secciones, preguntas y opciones—, así que
-    // sus notas son sobre el informe entero, en «Notas (N)» de ⋮.
+    // Las notas de lo creado (F45, pasos 8b y 8c): sobre lo que se elija del
+    // informe —con «Nota» en el menú de lo elegido— o sobre el informe
+    // entero, desde «Notas (N)» de ⋮, que lleva a cada una.
     return ReadingNotesOffer(
-      sources: [TextNoteSource(target: TextNoteTarget.creation(id))],
-      child: view,
+      sources: [
+        TextNoteSource(
+          target: target,
+          content: text.content,
+          reveal: (start, end) => _revealNote(text, start, end),
+        ),
+      ],
+      child: ReportNotes(
+        text: text,
+        notes: placed,
+        parts: _parts,
+        flash: _flash.range,
+        onOpen: _openNotes,
+        child: SelectionArea(
+          contextMenuBuilder: (context, region) =>
+              _selectionMenu(context, region, text),
+          child: view,
+        ),
+      ),
     );
   }
+
+  void _openNotes(List<TextNote> notes) =>
+      unawaited(openTextNotes(context, ref, notes));
+
+  /// El margen de los globitos: lo que mide el de una columna de lectura
+  /// angosta, más el aire de la tarjeta.
+  static const _gutter = 28.0;
 }
 
 class _Header extends StatelessWidget {
@@ -204,15 +351,22 @@ class _Header extends StatelessWidget {
           const SizedBox(height: 8),
           Semantics(
             header: true,
-            child: Text(
-              report.title,
-              key: const Key('report-title'),
+            child: ReportPartText.plain(
+              place: const ReportTextPlace.title(),
+              text: report.title,
               style: t.title,
+              typography: t,
+              textKey: const Key('report-title'),
             ),
           ),
           if (report.subtitle.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(report.subtitle, style: t.subtitle),
+            ReportPartText.plain(
+              place: const ReportTextPlace.subtitle(),
+              text: report.subtitle,
+              style: t.subtitle,
+              typography: t,
+            ),
           ],
           const SizedBox(height: 10),
           Text(meta, style: t.small),
