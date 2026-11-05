@@ -124,6 +124,9 @@ void main() {
     await settle();
     expect(track.calls, ['speed 2.0', 'seek 5000', 'play']);
     expect(state().segmentIndex, 2);
+    // El tiempo, el de lo que se oye a 2×: 5 s del audio son 2,5 s, de 4.
+    expect(state().elapsed, const Duration(milliseconds: 2500));
+    expect(state().total, const Duration(seconds: 4));
 
     await controller().seekToSegment(1);
     await settle();
