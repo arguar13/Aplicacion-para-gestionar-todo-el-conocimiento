@@ -84,6 +84,9 @@ void main() {
       'lugar', () {
     final text = pdf(['El origen\n$body', body]);
     expect(foundIn(text, [mark('El origen', 2)], pageCount: 2), [null]);
+    // Tampoco en la página que sigue a la suya.
+    final later = pdf([body, 'El origen\n$body']);
+    expect(foundIn(later, [mark('El origen', 1)], pageCount: 2), [null]);
   });
 
   test('sin una raya por página, cada uno en el último lugar antes del que '

@@ -151,6 +151,8 @@ void main() {
       expect(titlesOf('- ítem\n\n  # Del ítem\n\n# Afuera'), [(1, 'Afuera')]);
       expect(titlesOf('| # | a |\n|---|---|\n| # | b |'), isEmpty);
       expect(titlesOf('Nombre | Valor\n--- | ---\nUno | 1'), isEmpty);
+      // Una raya debajo de la tabla no la subraya: la tabla no es un párrafo.
+      expect(titlesOf('Nombre | Valor\n--- | ---\nUno | 1\n---'), isEmpty);
     });
 
     test('lo que está en un bloque de HTML, hasta el renglón en blanco', () {
