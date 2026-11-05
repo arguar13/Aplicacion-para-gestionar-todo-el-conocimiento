@@ -5163,7 +5163,8 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
     tarjetas y cada vez que volvés a la app. Cuando empieza otro día de estudio
     (a las 4:00) sin que hayas abierto la app, no te muestra la cifra de ayer:
     dice **"Tocá para ver lo de hoy"**. Sin nada que repasar, dice **"Estás al
-    día"**.
+    día"**. Con la bóveda cerrada sigue mostrando la cifra: es solo un número,
+    no dice de qué son las tarjetas.
   - **"Guardar rápido"**: abre **Guardar** ya en **"Texto para pegar"**, con el
     cursor en el cuadro, listo para pegar un enlace o escribir lo que quieras.
     Si pegás un enlace, te dice qué se va a guardar, como siempre.
@@ -5172,9 +5173,14 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
     del documento que se leía. Cuenta todo lo que suena
     y se ve en la tarjeta de la notificación: el lector en voz alta, un audio
     o un video. Pausar no lo cambia; empezar a escuchar otra cosa, sí.
-    El título se ve
-    en la pantalla de inicio aunque la bóveda esté cerrada (la pantalla de
-    los widgets te lo recuerda).
+    **Con la bóveda cerrada no muestra el título**: dice **"Protegido: tocá
+    para seguir"**, y al abrir la bóveda vuelve el título. Vale también
+    cuando reiniciás el teléfono, aunque todavía no hayas abierto la app: la
+    bóveda queda cerrada y el widget lo sabe solo. Si preferís ver el título
+    siempre, prendé **"Mostrar el título con la bóveda cerrada"**, al pie de
+    la pantalla de los widgets (de entrada está apagado); el widget cambia en
+    el momento. Ojo: prendido, cualquiera que mire tu pantalla de inicio ve
+    lo último que escuchaste.
 
   Si tocás un widget con la bóveda cerrada, primero te pide la clave y
   después te lleva adonde ibas.
