@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
 import 'package:sinapsis/features/creations/report/domain/report_canonical_text.dart';
+import 'package:sinapsis/features/creations/report/presentation/widgets/report_section_card.dart';
 import 'package:sinapsis/features/text_notes/domain/entities/text_note.dart';
 import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
 import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
@@ -157,6 +158,15 @@ void main() {
     final bubbleRect = tester.getRect(bubble);
     final line = tester.getRect(paragraphOf(paragraph));
     expect(bubbleRect.left, greaterThanOrEqualTo(line.right));
+    // En su margen, del tamaño de un globito, sin pisar la tarjeta.
+    expect(bubbleRect.width, greaterThanOrEqualTo(18));
+    final card = tester.getRect(
+      find.ancestor(
+        of: paragraphOf(paragraph),
+        matching: find.byType(ReportSectionCard),
+      ),
+    );
+    expect(bubbleRect.left, greaterThanOrEqualTo(card.right));
     // A la altura del renglón de su pedazo.
     final piece = centerOf(tester, paragraph, 'Moisés');
     expect(bubbleRect.top, lessThanOrEqualTo(piece.dy));
