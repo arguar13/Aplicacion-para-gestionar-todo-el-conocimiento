@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/features/creations/extract/presentation/providers/extract_providers.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
@@ -190,7 +191,7 @@ Future<void> copyProcessedSection(
   );
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(l10n.studyCopied)));
+    ..showAppSnackBar(AppSnackBar(content: Text(l10n.studyCopied)));
 }
 
 /// «Copiar» la sección entera, una parte por párrafo.
