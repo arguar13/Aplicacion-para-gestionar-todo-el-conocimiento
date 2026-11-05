@@ -66,6 +66,14 @@ void main() {
     await platform.show(
       const LongWorkNotice(owner: LongWorkOwner.creating, done: 40, total: 100),
     );
+    await platform.show(
+      const LongWorkNotice(
+        owner: LongWorkOwner.speechAudio,
+        done: 7,
+        total: 21,
+        kinds: {LongWorkKind.mediaProcessing},
+      ),
+    );
     await platform.stop();
 
     expect(calls, [
@@ -75,6 +83,7 @@ void main() {
       'working reviewing 2/9 [data_sync]',
       'working studying 3/12 [data_sync]',
       'working creating 40/100 [data_sync]',
+      'working speech_audio 7/21 [media_processing]',
       'idle',
     ]);
   });

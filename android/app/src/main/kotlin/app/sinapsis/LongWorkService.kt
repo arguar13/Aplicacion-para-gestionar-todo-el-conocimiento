@@ -220,6 +220,12 @@ class LongWorkService : Service() {
                     getString(R.string.long_work_model_starting, model)
                 }
             }
+            KIND_SPEECH_AUDIO ->
+                if (percent >= 0) {
+                    getString(R.string.long_work_speech_audio_progress, percent)
+                } else {
+                    getString(R.string.long_work_starting)
+                }
             KIND_AUDIO_DOWNLOAD ->
                 if (percent >= 0) {
                     getString(R.string.long_work_audio_progress, percent)
@@ -251,6 +257,7 @@ class LongWorkService : Service() {
                 KIND_STUDYING -> R.string.long_work_studying_title
                 KIND_TIDYING -> R.string.long_work_tidying_title
                 KIND_CREATING -> R.string.long_work_creating_title
+                KIND_SPEECH_AUDIO -> R.string.long_work_speech_audio_title
                 KIND_MODEL_DOWNLOAD -> R.string.long_work_model_title
                 KIND_AUDIO_DOWNLOAD -> R.string.long_work_audio_title
                 KIND_SAMPLE_LIBRARY -> R.string.long_work_sample_library_title
@@ -335,6 +342,9 @@ class LongWorkService : Service() {
 
         /** El trabajo es generar algo de «Lo creado» en Repasar (F43). */
         const val KIND_CREATING = "creating"
+
+        /** El trabajo es generar el audio de un documento para escucharlo sin conexión (F47). */
+        const val KIND_SPEECH_AUDIO = "speech_audio"
 
         /** El trabajo es bajar un modelo; [EXTRA_DETAIL] dice cuál. */
         const val KIND_MODEL_DOWNLOAD = "model_download"

@@ -17,6 +17,7 @@ import 'package:sinapsis/features/narration/domain/voices/passage_languages.dart
 import 'package:sinapsis/features/narration/domain/voices/voice_locale.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_traits.dart';
+import 'package:sinapsis/features/narration/presentation/providers/document_audio_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
@@ -302,6 +303,10 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   /// [setVoice] lo espere.
   Future<void>? _following;
 
+  /// Cuántas lecturas se empezaron: una que todavía buscaba su audio
+  /// descargado y ya no es la última no sigue (F47, paso 5).
+  int _starts = 0;
+
   @override
   ReadAloudState build() {
     _tts = ref.read(textToSpeechServiceProvider);
@@ -373,14 +378,27 @@ class ReadAloudController extends Notifier<ReadAloudState> {
             ? state.scope
             : document.defaultScope);
     if (same && target == state.scope && document.offers(target)) {
+      // El audio descargado que el lector le puso al empezar (F47, paso 5)
+      // no viene en lo que la pantalla vuelve a ofrecer: con el mismo texto
+      // se conserva; con otro, ese audio ya no es el de este texto, y se
+      // vuelve a empezar desde el mismo pedazo, con lo que corresponda.
+      var offered = document;
+      final kept = current.recording;
+      if (kept != null && document.recording == null) {
+        if (listEquals(current.segments, document.segments)) {
+          offered = document.withRecording(kept);
+        } else if (target == ReadScope.all) {
+          return _start(document, target, fromSegment: state.segmentIndex);
+        }
+      }
       // El mismo documento, quizá con el texto cambiado —la pantalla se
       // reconstruyó después de editarlo—: se toma el nuevo para que el
       // resaltado caiga en su lugar, sin volver a empezar.
-      final segments = document.segmentsOf(target);
-      if (current != document) _load(segments);
+      final segments = offered.segmentsOf(target);
+      if (current != offered) _load(segments);
       final index = state.segmentIndex.clamp(0, segments.length - 1);
       state = state.copyWith(
-        document: document,
+        document: offered,
         segmentIndex: index,
         charInSegment: state.charInSegment.clamp(
           0,
@@ -417,14 +435,30 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     );
   }
 
-  /// Lee [scope] de [document] desde el pedazo [fromSegment], cortando lo que
+  /// Lee [scope] de [offered] desde el pedazo [fromSegment], cortando lo que
   /// esté sonando.
+  ///
+  /// «Todo» de un documento con su audio descargado (F47, paso 5) suena
+  /// desde ese audio, si sigue siendo el de este texto con estas voces: ver
+  /// `downloadedSpeechLookupProvider`.
   Future<void> _start(
-    ReadableDocument document,
+    ReadableDocument offered,
     ReadScope scope, {
     int fromSegment = 0,
     ReadAloudPanel panel = ReadAloudPanel.expanded,
   }) async {
+    var document = offered;
+    final request = ++_starts;
+    final lookup = ref.read(downloadedSpeechLookupProvider);
+    if (lookup != null &&
+        scope == ReadScope.all &&
+        offered.recording == null &&
+        !offered.ownAudio) {
+      final recording = await lookup(offered, voicesFor);
+      // Mientras se buscaba se pidió otra cosa: manda lo último.
+      if (request != _starts) return;
+      if (recording != null) document = offered.withRecording(recording);
+    }
     final segments = document.segmentsOf(scope);
     final generation = _cut();
     final wasPlaying = state.playing;
@@ -1025,6 +1059,17 @@ class ReadAloudController extends Notifier<ReadAloudState> {
         ? null
         : PassageLanguages.of(segments).at(index);
     return _voiceFor(language);
+  }
+
+  /// La voz con que se leería ahora cada pedazo de [segments], sin audio ya
+  /// generado: la de su idioma (decisión L), la misma que elige el lector al
+  /// decirlo. Es lo que se genera al descargar el audio de un documento
+  /// (F47, paso 5), y con lo que se sabe si el descargado quedó viejo.
+  List<NarrationVoice?> voicesFor(List<ReadableSegment> segments) {
+    final languages = PassageLanguages.of(segments);
+    return [
+      for (var i = 0; i < segments.length; i++) _voiceFor(languages.at(i)),
+    ];
   }
 
   /// La voz para [language]: la elegida; sin elegida, la mejor sin conexión

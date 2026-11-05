@@ -299,6 +299,20 @@ class ReadableDocument {
     recording: recording,
   );
 
+  /// Con [recording] —su audio ya generado, o ninguno— en lugar del que
+  /// traía: el audio descargado de un documento (F47, paso 5), que el lector
+  /// le pone al empezar a leerlo.
+  ReadableDocument withRecording(RecordedSpeech? recording) => ReadableDocument(
+    id: id,
+    title: title,
+    segments: segments,
+    scopes: scopes,
+    ownAudio: ownAudio,
+    startAt: startAt,
+    location: location,
+    recording: recording,
+  );
+
   /// Si no hay nada que leer, con ninguna parte.
   bool get isEmpty =>
       ReadScope.values.every((scope) => segmentsOf(scope).isEmpty);

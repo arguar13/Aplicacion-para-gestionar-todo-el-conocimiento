@@ -125,6 +125,11 @@ enum LongWorkOwner {
   /// libro por partes son muchos minutos.
   creating,
 
+  /// Generar en el teléfono el audio de un documento, para escucharlo sin
+  /// conexión (F47, paso 5): lo pidió la persona con «Descargar audio», y un
+  /// libro con una voz sin conexión son muchos minutos.
+  speechAudio,
+
   /// La IA que organiza sola (F27): lo nuevo, lo pedido, las notas y, con el
   /// cargador, la biblioteca que ya existía.
   aiOrganize,

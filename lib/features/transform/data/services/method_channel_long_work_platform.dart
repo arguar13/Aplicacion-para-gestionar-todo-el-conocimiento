@@ -34,6 +34,7 @@ class MethodChannelLongWorkPlatform implements LongWorkPlatform {
     LongWorkOwner.study => 'studying',
     LongWorkOwner.tidying => 'tidying',
     LongWorkOwner.creating => 'creating',
+    LongWorkOwner.speechAudio => 'speech_audio',
     LongWorkOwner.aiOrganize => 'organizing',
     LongWorkOwner.sampleLibrary => 'sample_library',
   };
