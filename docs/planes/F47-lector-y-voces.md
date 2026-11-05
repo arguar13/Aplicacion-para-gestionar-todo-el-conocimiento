@@ -1326,3 +1326,104 @@ ningún aviso.
   «mostrar todo el contenido» y con «ocultar contenido sensible», que los botones anden y que al
   desbloquear vuelva el título; y en un Android 11 o más nuevo, los controles de medios de los
   ajustes rápidos con el teléfono bloqueado.
+
+### Paso 7b (hecho): Ajustes › «Voz y lectura» entera
+
+Dos commits, `3f2af1e9` (el código, los textos y las pruebas) y `ea594b4a` (la GUÍA), y el de
+este avance. Hecho sobre `a7ffb552` y rebasado sobre `d8a452f7` (F45 8b, las notas en el
+texto): solo chocaron los `.arb`, resueltos con lo de `main` primero y las claves `f47P7b*`
+al final, sin repetidas.
+
+- **Lo que había:** las piezas ya estaban en una sección «Voz y lectura» de los pasos 2, 3 y 4
+  (`voiceSettingsTiles`), en el orden en que fueron llegando —la Lectura enfocada al final, «Voces
+  descargadas» entre la nube y la Lectura enfocada— y con dos íconos iguales (la biblioteca y
+  clonar). Faltaban la voz de ahora, la velocidad y la tipografía con el resaltado. No había
+  entradas repetidas en otras secciones: «Apariencia» de Ajustes es el idioma y el tema de la
+  app, no la lectura.
+- **Una sola sección, en el orden en que se piensa** (Vos · Apariencia · **Voz y lectura** ·
+  Citas · …, como dejó el 7a):
+  1. **con qué voz se lee:** «Biblioteca de voces», «Voces por idioma» y, en Android, «Voces
+     descargadas»;
+  2. **las voces propias:** «Clonación de voz», «Crear una voz» y «La nube para voces», que solo
+     sirve para eso (decisión C) y por eso va con ellas;
+  3. **cómo se escucha y cómo se lee:** «Velocidad de lectura», «Lectura enfocada» y
+     «Tipografía y resaltado».
+  - Las voces quedan en `voiceSettingsTiles` y lo de escuchar en `readAloudSettingsTiles`, las dos
+    en la narración; la tipografía es del marco de lectura (`ReadingAppearanceSettingsTile`, en
+    `reading/presentation/frame/`). Las arma `SettingsScreen`, así la narración no pasa a depender
+    del marco, que ya depende de ella.
+  - Clonar pasa al ícono del micrófono: la biblioteca ahora lleva la cara de la voz, y las dos
+    filas tenían el mismo.
+- **La biblioteca, con la voz de ahora:** a la izquierda, **la misma cara del reproductor**
+  (`ReadAloudVoiceFace`, sobre `currentVoiceProfileProvider`: con la nube si la voz es de la nube
+  y la propia de la voz del sistema), y debajo «Lee ahora: Daniela» o «Lee ahora: la voz del
+  teléfono», la misma frase de arriba de la biblioteca. Tocarla la abre (`showVoiceLibrary`).
+  Si se borra la voz sin conexión que leía, la fila pasa sola a la del teléfono.
+- **La velocidad: una sola, no una «por defecto» aparte.** La app ya guarda la velocidad que se
+  elige en el reproductor (`narration_speed`) y con ella empieza todo lo que se lee. Sumar otra
+  cifra «por defecto» dejaría dos velocidades que se separan —la de Ajustes y la última del
+  reproductor— sin que se vea cuál manda. Así que «Velocidad de lectura» dice la guardada
+  («1,0×») y abre **la misma hoja del reproductor** (`ReadAloudSpeedSheet`, con la regla de 0,5× a
+  3× y los atajos), con una aclaración que solo lleva desde Ajustes (`note`): con esta empieza a
+  leer todo, y cambiarla en el reproductor también la cambia acá. Si algo está sonando, cambia en
+  el acto.
+- **La tipografía y el resaltado: la Apariencia del marco, no una copia.**
+  `ReadingAppearanceSheet.saved` es la misma hoja del paso 1 sin un documento detrás: la letra y
+  su tamaño con la muestra, **el tono de la página** (rotulado «El tono de la página de un PDF o
+  de una foto»), el resaltado de lo que suena y el modo. No lleva el zoom, que es de la página que
+  se está viendo: el campo `controller` pasó a ser opcional, y el constructor de siempre lo sigue
+  pidiendo. La fila dice lo elegido —«Lora · 100 % · Amarillo»—; el nombre de cada color salió a
+  `readingHighlightName`, que usan la hoja y la fila.
+- **Voces descargadas, con lo que ocupan:** la fila dice cuántas voces hay y cuánto ocupan entre
+  todas («N voces · tamaño», `downloadedVoicesSummaryProvider`): las del catálogo cuyo paquete
+  está (las 28 de Kokoro cuentan 28) y los bytes de cada paquete abierto, contados como en la
+  hoja. Se vuelve a contar al bajar o borrar una. Sin ninguna, «Ninguna todavía», como antes.
+- **«Mostrar el título en la pantalla de bloqueo» se queda en Privacidad.** La tarjeta de la
+  pantalla de bloqueo es de **todo lo que suena** —el lector, un podcast, un audio, un video, la
+  voz del chat—, no solo de la lectura: en «Voz y lectura» parecería que un video o un audio no
+  quedan cubiertos. Además, Privacidad agrupa lo que se ve sin desbloquear, justo antes de la
+  Bóveda, y es donde se lo busca cuando preocupa quién mira el teléfono. Ponerla en las dos
+  secciones sería una entrada repetida. La GUÍA lo dice en «Voz y lectura», para quien la busque
+  ahí.
+- **No se tocaron** la guía dentro de la app ni los widgets (7a): la guía se arma sola de
+  `GUIA_DE_USO.md`, y no se sumaron títulos.
+- **Verificado:**
+  - analyze en 19, completo, antes y después del rebase sobre `d8a452f7`. En la primera
+    corrida daba 20, por un `final` que pedía `const` en la prueba nueva: corregido antes de
+    cerrar el commit;
+  - antes del rebase, 821 pruebas de Ajustes, la Ayuda, la lectura y la narración, y 118 de
+    «Que siga con la app cerrada» y la pantalla de la Biblioteca (las otras que abren Ajustes);
+    después del rebase, **963 en verde** de Ajustes, la Ayuda, la lectura, la narración, la
+    app y «Que siga con la app cerrada», con `--concurrency=2`;
+  - **lo que encontró la app:** la prueba de la navegación adaptable
+    (`adaptive_scaffold_test`, «Biblioteca y Ajustes abren directo») fallaba al cerrar: Ajustes
+    ahora muestra la voz de ahora, que es la del lector en voz alta, y esa prueba armaba el
+    motor de voz de verdad (`flutter_tts`), sin el canal en las pruebas. En la app el lector
+    ya está vivo siempre (`ReadAloudOverlay`, en `App`), así que Ajustes no suma nada; la
+    causa era la prueba sin el doble: se le dio el `FakeTextToSpeechService` que usan las
+    demás;
+  - **21 pruebas nuevas** (`settings_voice_reading_test.dart`): la sección entera en claro y en
+    oscuro a 360 dp con la letra al doble; el orden, una sola vez cada fila y todas antes de
+    Citas; el título de la pantalla de bloqueo en Privacidad; la voz de ahora (la del teléfono,
+    una del teléfono elegida con su cara, una sin conexión bajada) y que abre la biblioteca; la
+    velocidad guardada, la hoja con su aclaración y un atajo que la guarda y la usa el lector, que
+    es una sola con la del reproductor y que el reproductor no lleva la aclaración; la tipografía
+    con lo elegido, la hoja con todo menos el zoom, lo elegido guardado y en la fila, y la hoja en
+    claro y en oscuro; las descargadas con cuántas y cuánto, sin ninguna, fuera de Android, y
+    borrar la que lee desde su hoja, que vuelve a contar y deja leyendo a la del teléfono; y el
+    lector de pantalla, que oye cada fila como botón con su nombre y lo de ahora;
+  - **murieron las 16 mutaciones**: la biblioteca sin la voz de ahora y sin su cara; la
+    velocidad de Ajustes sin su aclaración, la fila que dice siempre «1,0×» y el reproductor
+    con la aclaración de Ajustes; la fila de la tipografía sin el resaltado, la Apariencia de
+    Ajustes sin la letra o sin el tono de la página, y el nombre del Lila equivocado; las
+    descargadas que cuentan paquetes y no voces, lo que ocupan contando solo el último
+    paquete, sin ninguna que no lo dice y la fila donde no hay voces sin conexión; lo de
+    escuchar antes que las voces, la tipografía fuera de la sección y la tarjeta de bloqueo
+    repetida en «Voz y lectura».
+- **Queda para después:**
+  - `NOVEDADES.md` lista de F47 solo los pasos 0 y 7a: falta sumar el marco, el reproductor, las
+    voces, el podcast y «Voz y lectura» en el cierre (paso 8);
+  - la hoja de las descargadas pide el tamaño de cada paquete en cada armado, y el resumen de la
+    fila lo recorre con `listSync`; con muchos archivos (Kokoro trae los de espeak-ng) conviene
+    medirlo en el teléfono;
+  - no se miró en el emulador ni en el teléfono.
