@@ -634,7 +634,8 @@ los pasos 2, 3, 6a y 7a.
     Biblioteca, la foto, el audio), dice la dirección de la pantalla de abajo. Para volver
     justo a él hace falta darle una ruta;
   - descargar y exportar el audio (paso 5): no está en ⋮ (las notas (N) ya están, con F45,
-    paso 8b);
+    paso 8b). *(Entraron con el paso 5: «Descargar audio», «Exportar audio» y «Borrar el
+    audio descargado», arriba de todo en ⋮; el censo queda en 32 de 32.)*
   - Favoritos, Marcar como terminado e Imprimir no existen en la app. Necesitan su dato en la
     base (o un paquete de impresión), así que no se inventaron. Hoy, «Imprimir» es el PDF de lo
     creado;
@@ -867,6 +868,134 @@ Nueve commits, de `eab4686a` a `af851c0f`, y el de este avance (decisión C; pun
   - clonar en el teléfono, cuando haya un ZipVoice con español;
   - no se miró en el emulador ni en el teléfono.
 
+### Paso 5 (hecho): descargar y exportar el audio
+
+Cinco commits, de `6c358383` a `15d47ed0`, y el de este avance (punto 6 del plan; decisiones B, C, F y L). Usa la pieza común del paso 6b
+(`SpeechAudioRenderer`) tal cual la dejó su contrato, y la puerta de la nube del paso 4.
+
+- **Lo que se descarga es lo que lee el lector**, para cualquier cuerpo del marco: el
+  `ReadableDocument` que ofrece la pantalla (`ReadableRegion`), con «Todo». Así sirve igual para
+  el texto, el resumen y la síntesis de lo procesado, el original (libro, PDF, página web, foto
+  con su texto) y lo creado, sin que cada cuerpo sepa nada del audio.
+  - **El plan** (`DocumentAudioPlan`, en `narration/domain/audio/document_audio.dart`): un tramo
+    por pedazo con algo que decir, con **la voz con que el lector lo diría ahora**
+    (`ReadAloudController.voicesFor`, la misma elección de `_voiceFor`: la elegida para el
+    idioma de ese pedazo, la mejor sin conexión bajada, una del teléfono —decisión L—), y su
+    pausa: 350 ms entre pedazos de un mismo texto, 900 ms al pasar a otro, ninguna al final.
+    Un pedazo en blanco no lleva tramo y empieza con el siguiente, así hay un comienzo por
+    pedazo y el resaltado cae en su lugar.
+  - **La voz como id de la pieza común** (`speechVoiceIdOf`): `offline:` las sin conexión,
+    `mia:` las propias (paso 4) tal cual, `device:<acento>:<nombre>` las del teléfono, y sin
+    voz, la del teléfono para el idioma del pedazo (o el del teléfono,
+    `speechFallbackLocaleProvider`).
+  - **La huella** es la misma del podcast, ahora común (`speechAudioFingerprint`, que
+    `podcastAudioFingerprint` llama): los podcasts de antes siguen siendo suyos, y una prueba
+    lo fija contra la cuenta de siempre.
+- **Dónde se guarda, sin esquema nuevo** (sigue en **v50**): `originales/audio-documentos/<clave>/`,
+  con el archivo (`audio-<huella>.m4a`) y su ficha `audio.json` (`DocumentAudio`: de qué
+  documento es, la huella, la duración, dónde empieza cada pedazo y con qué voz). La clave es un
+  resumen del id del lector (`documentAudioKeyOf`), porque un id trae `:`; la ficha dice de quién
+  es de verdad.
+  - **Por qué no una tabla:** el audio es de un documento *como lo lee el lector* —un original,
+    un procesado, un resumen, lo creado—, no de una fila: no hay a qué atarlo con una clave
+    ajena, y cada uno es dueño de su carpeta. Es lo que hizo el paso 4 con las voces propias.
+    El 6b pudo usar `audio_ref` porque el podcast es una creación con contenido propio; un
+    documento no tiene dónde.
+  - **La copia de seguridad lo lleva** (va en `originales/`). **La unión de bóvedas no**:
+    ninguna fila lo nombra, y se vuelve a generar en el otro teléfono con sus voces. Queda dicho
+    en la GUÍA.
+  - Guardar uno nuevo deja el archivo nuevo al lado y barre el de antes recién con la ficha
+    nueva escrita; una ficha rota, de otra versión, de otro documento o sin su archivo es como
+    no tener audio. Borrar se lleva solo esa carpeta: **de la Biblioteca nada se borra**.
+- **Las descargas** (`DocumentAudioDownloads`, una para toda la app: sigue aunque se cierre el
+  marco):
+  - **de a una**, en el orden pedido (el motor sin conexión es uno solo); las demás, «en
+    espera»;
+  - con su avance aquí y en **el servicio en primer plano**, con un dueño nuevo
+    (`LongWorkOwner.speechAudio`, tipo `mediaProcessing`, «Sinapsis está generando el audio de
+    un documento» en `LongWorkService.kt`): se puede salir de la app o apagar la pantalla;
+  - **cancelable y retomable**: el trabajo es `doc-<clave>` (`documentAudioWorkKey`), así que
+    lo ya generado no se rehace, y ⋮ dice «Seguir descargando el audio» cuando quedó algo
+    (`SpeechAudioRenderer.hasWork`, nuevo). Al guardar en la bóveda, `discard`;
+  - **los errores** de la pieza común (`voiceMissing`, `engine`, `file`) quedan con su porqué
+    hasta reintentar o cerrar el aviso; el disco al copiar a la bóveda también es `file`.
+  - El costo de una voz que cobra se pregunta antes de pedirla, en la pantalla
+    (`speechAudioApprovalProvider`, que con las propias usa `cloudReadingGateProvider`): con un
+    «no», no se pide nada.
+- **Suena desde el audio descargado**: al empezar a leer «Todo» de un documento sin audio propio,
+  el lector busca el suyo (`downloadedSpeechLookupProvider`) y, **si la huella es la de este
+  texto con estas voces**, le pone su `RecordedSpeech`: suena el archivo, con el tiempo real,
+  ±10 s, la velocidad sin cortar, el resaltado, la cara de la voz de cada pedazo, la cola y la
+  tarjeta de la notificación, como el podcast.
+  - Si quedó viejo (cambió el texto o las voces) o el archivo no está, se lee con la voz, como
+    siempre: nunca suena un audio que no es el de lo que se ve.
+  - La pantalla vuelve a ofrecer el documento sin el audio (por ejemplo, al marcar algo): con el
+    mismo texto el lector lo conserva; con otro, sigue desde el mismo pedazo con lo que
+    corresponda.
+  - Lo que se pide último manda: una lectura que todavía buscaba su audio y ya no es la última
+    no sigue (`_starts`).
+  - Donde no se descargan audios, el lector ni busca, y todo es como antes.
+- **⋮ del marco**, arriba de todo (como en la captura 6), el grupo del audio
+  (`readingAudioGroup`, en `reading/presentation/frame/reading_audio.dart`):
+  - **«Descargar audio»**, con las voces y lo que va a durar, estimado por las palabras («Con
+    Daniela · unos 25 min · para escuchar sin conexión»); mientras se descarga, «Descargando el
+    audio · 34 %», que lo cancela; si falló, por qué, que lo reintenta; descargado, «Audio
+    descargado · 12:34», que lo hace sonar; viejo, «Generar de nuevo el audio»;
+  - **«Exportar audio»**, solo con el audio de ahora: el archivo, **con la hoja de compartir de
+    siempre** (`SystemCreationSharer`, la de «Compartir» de lo creado), que suma `shareFileAt`
+    para pasarlo desde el disco sin traerlo a memoria;
+  - **«Borrar el audio descargado»**, en rojo, con su confirmación y lo que ocupa; si estaba
+    sonando, antes deja de leer.
+  - No está donde no se descarga (la web, Windows: `documentAudioSupportedProvider`, Android),
+    ni en lo que ya suena en su propio audio (un audio, un video, un podcast) ni sin nada que
+    decir.
+- **La barra de la descarga** (`ReadingAudioDownloadBar`), abajo del marco y encima del lugar
+  del reproductor: el avance con «Cancelar», «en espera», o el porqué con «Reintentar», la ✕ y
+  —si faltó una voz sin conexión— su botón para bajarla (`VoiceDownloadControls`). Con la letra
+  al doble no pasa de un tercio de la pantalla: lo demás se desplaza. Los avisos —empezó,
+  quedó (con «Escuchar»), se canceló, falló (con «Bajar la voz»), se borró— van por
+  `showAppSnackBar`.
+- **El podcast se exporta** (lo que dejó pendiente el 6b): su tipo tiene ahora `exporter`, así
+  que su ⋮ y su fila ofrecen «Compartir» y «Descargar». Con su audio de este guion en el
+  teléfono pregunta «¿Qué exportar?»: **el audio** (M4A, tal cual) o **el guion** como texto
+  (`podcastScriptText`: el título, «Hecho con IA» con el modelo, cada tramo con quién lo dice y
+  sus citas con su documento). Sin audio, o con uno de otra versión, el guion sin preguntar.
+- **El censo del marco** suma las dos entradas nuevas de ⋮: 32 funciones, todas alcanzadas.
+- **Verificado:**
+  - analyze en 19, completo;
+  - 47 pruebas nuevas: el plan, la ficha y la huella (10), la bóveda (5), `hasWork` (1), las
+    descargas y la escucha desde el audio (11, con la pieza común de verdad y voces de mentira),
+    ⋮ y la barra (14, a 360 dp con la letra al doble, en claro y en oscuro, con el lector de
+    pantalla), exportar el podcast (5) y el censo (1);
+  - sobre `30c4aefe`, con `--concurrency=2`: 880 de la narración, la lectura, el podcast y el
+    trabajo largo; 3.754 de lo creado, Procesado, los visores, la Biblioteca, la Ayuda (con la
+    guía empaquetada igual al archivo), Ajustes, las notas en el texto, el censo de los avisos
+    y la app (29 omitidas, las de siempre);
+  - murieron las 38 mutaciones, todas por pruebas que fallan. Una sobrevivía —«Audio
+    descargado» que lo pone en la cola en vez de hacerlo sonar— porque sin nada sonando la cola
+    también empieza: la prueba ahora lo toca con otra cosa sonando. Entre las otras: la pausa
+    larga y la corta al revés, un pedazo en blanco con tramo, el estado sin mirar los pedazos, la
+    huella de los podcasts de antes, una ficha de otro documento o sin su archivo, el de antes
+    sin barrer, el lector que no usa el audio o que usa uno viejo, la lectura vieja que sigue
+    después de buscar, volver a ofrecer el texto y perder el audio, las voces del plan que no
+    siguen al lector, dos descargas a la vez, el servicio con otro tipo o sin soltarse, el
+    trabajo sin soltar, el disco que no se dice, ⋮ sin el audio o con el audio abajo, ofrecerlo
+    donde no se puede, exportar uno viejo, el costo sin preguntar, borrar sin dejar de sonar,
+    «Cancelar» que no cancela y el podcast que exporta un audio de otra versión;
+  - no se compiló el APK (el Kotlin suma un tipo de trabajo y sus dos textos, nada más).
+- **Queda para después:**
+  - medir en el teléfono cuánto tarda en generarse el audio de un documento largo con cada voz
+    (sobre todo Kokoro y las del teléfono) y cuánto pesa;
+  - el audio de lo que no es «Todo» (el resumen, la síntesis, las palabras clave) se lee con la
+    voz: descargarlos aparte pediría un audio por parte;
+  - retomar sola, al abrir la app, una descarga que se cortó: hoy se retoma desde ⋮ («Seguir
+    descargando el audio»), porque el documento lo arma su pantalla;
+  - en ⋮ el avance es el del momento en que se abrió; el que se mueve está en la barra y en la
+    notificación;
+  - con una voz del teléfono «-network» elegida para leer, el audio también la usa: es la que
+    eligió la persona para ese idioma (el podcast no las ofrece);
+  - no se miró en el emulador ni en el teléfono.
+
 ### Paso 6a (hecho): el podcast, hasta el guion
 
 Seis commits, de `5e8f3d09` a `547430b3` (decisiones B, E, F y L). La segunda parte —el audio de
@@ -933,7 +1062,7 @@ cada tramo y la escucha— es el paso 6b.
     empezar; guardar las vueltas pide un método nuevo en el repositorio de creaciones;
   - **con Gemma y un documento mediano**, el material puede ser solo el resumen o la síntesis (el
     armado de F43 elige lo que entra), y el podcast sale más corto; el visor lo dice;
-  - exportar el guion como texto;
+  - exportar el guion como texto *(hecho en el paso 5)*;
   - no se miró en el emulador ni en el teléfono.
 
 ### Paso 6b (hecho): el audio del podcast y su escucha
@@ -1078,6 +1207,7 @@ Diez commits, de `33e6a5c0` a `73bf31d5`, y el de este avance (decisiones B, E, 
   - en la web el almacén no tiene ruta en el disco: un podcast con audio que llegó a la web
     dice «no está en este teléfono» (ahí tampoco se puede generar);
   - «Exportar audio» del podcast (paso 5, con lo mismo) y exportar el guion como texto;
+    *(hecho en el paso 5: «Compartir» y «Descargar» preguntan el audio o el guion)*
   - cambiar solo las voces de un podcast ya escrito, sin rehacer el guion: hoy es «Volver a
     generar con otras opciones»;
   - no se miró en el emulador ni en el teléfono.
