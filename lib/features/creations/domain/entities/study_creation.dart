@@ -96,7 +96,11 @@ enum CreationStep {
 
   /// Las ilustraciones con IA (decisión H), de a una, después del texto: la
   /// infografía y la presentación.
-  illustrating('illustrating');
+  illustrating('illustrating'),
+
+  /// La voz de cada tramo, en el teléfono, después del guion: el podcast
+  /// (F47, paso 6b).
+  voicing('voicing');
 
   const CreationStep(this.storageKey);
 

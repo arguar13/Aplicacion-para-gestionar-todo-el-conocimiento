@@ -11,6 +11,11 @@ import 'package:sinapsis/features/vault/data/services/backup_layout.dart';
 /// `originales/<creación>/ilustraciones/`.
 const kCreationIllustrationsFolder = 'ilustraciones';
 
+/// La subcarpeta del audio que la app genera para una creación —el de un
+/// podcast (F47, paso 6b)—: `originales/<creación>/audio/`. El contenido lo
+/// nombra con `audio_ref`.
+const kCreationAudioFolder = 'audio';
+
 /// Si [path] es un archivo de la creación [creationId]: de su carpeta
 /// (`originales/<su id>/…`, comparando el tramo entero con su `/`: la de `c1`
 /// no acepta `originales/c10/…`), sin `..` ni `\`.
@@ -31,11 +36,12 @@ bool isCreationFile(String creationId, String path) {
 }
 
 /// Los archivos que usan las creaciones de [schema] (`main` o la copia): las
-/// ilustraciones con IA, que se guardan como cualquier original —en
-/// `originales/<creación>/…`— y se nombran en el contenido con
-/// `illustration_ref`, a cualquier profundidad (los bloques de una
-/// infografía, las diapositivas de un mazo, las tarjetas). `json_tree` abre
-/// el JSON sin traerlo a Dart; uno roto no se abre.
+/// ilustraciones con IA y el audio generado, que se guardan como cualquier
+/// original —en `originales/<creación>/…`— y se nombran en el contenido con
+/// `illustration_ref` o `audio_ref`, a cualquier profundidad (los bloques de
+/// una infografía, las diapositivas de un mazo, las tarjetas, el audio de un
+/// podcast). `json_tree` abre el JSON sin traerlo a Dart; uno roto no se
+/// abre.
 ///
 /// **Solo cuentan los de la propia creación**, con la regla de
 /// [isCreationFile]: una ruta que nombre el archivo de otra creación o el
@@ -51,7 +57,7 @@ String studyCreationFilesSql(String schema, {bool oneCreation = false}) {
   return 'SELECT t.value AS path FROM $schema.study_creations c, '
       'json_tree(CASE WHEN json_valid(c.content_json) '
       "THEN c.content_json ELSE '{}' END) t "
-      "WHERE t.key = 'illustration_ref' AND t.type = 'text' "
+      "WHERE t.key IN ('illustration_ref', 'audio_ref') AND t.type = 'text' "
       "AND c.id NOT IN ('', '.') AND instr(c.id, '/') = 0 "
       'AND substr(t.value, 1, length($own)) = $own '
       'AND length(t.value) > length($own) '

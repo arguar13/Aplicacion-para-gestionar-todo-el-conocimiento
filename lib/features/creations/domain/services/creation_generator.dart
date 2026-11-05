@@ -9,17 +9,55 @@ import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.
 typedef CreationProgressReport =
     void Function(double progress, CreationStep step);
 
+/// Termina una creación sin la IA ni el material: ver
+/// [CreationGenerator.finisherWithoutModel].
+typedef CreationFinisher =
+    Future<CreationOutput> Function(CreationProgressReport progress);
+
+/// Lo hecho de una generación larga, guardado para retomarla si la app se
+/// cierra a mitad (F47, paso 6b): las vueltas ya escritas de un podcast, su
+/// guion mientras se genera la voz. Lo da la cola, sobre el repositorio
+/// (`StudyCreationRepository.checkpoint`); cada tipo guarda su propio JSON.
+abstract interface class CreationCheckpoint {
+  /// Lo guardado, o `null` si no hay —o no se pudo leer: se genera de cero—.
+  Future<String?> read();
+
+  /// Guarda [json] en lugar de lo que hubiera. Si no se puede, sigue sin
+  /// avisar: no poder guardar el avance no tumba la generación.
+  Future<void> save(String json);
+}
+
+/// Sin avance guardado: lo de fábrica, y lo de las pruebas que no lo miran.
+class NoCreationCheckpoint implements CreationCheckpoint {
+  const NoCreationCheckpoint();
+
+  @override
+  Future<String?> read() async => null;
+
+  @override
+  Future<void> save(String json) async {}
+}
+
 /// Lo que se le da a un generador: la creación tal como está guardada —su
-/// tipo, sus opciones, su recorte, su idioma— y la señal para cortarla.
+/// tipo, sus opciones, su recorte, su idioma—, la señal para cortarla y
+/// dónde guardar lo hecho para retomarla.
 @immutable
 class CreationJob {
-  const CreationJob({required this.creation, required this.cancellation});
+  const CreationJob({
+    required this.creation,
+    required this.cancellation,
+    this.checkpoint = const NoCreationCheckpoint(),
+  });
 
   final StudyCreation creation;
 
   /// Se cancela si la persona la cancela o la manda a la papelera: pasarla a
   /// [StructuredRequest.cancellation] corta lo que el modelo esté escribiendo.
   final CancellationSignal cancellation;
+
+  /// Lo hecho de un intento anterior, y dónde guardar lo de este: lo borra
+  /// la cola al terminar y al volver a generar de cero.
+  final CreationCheckpoint checkpoint;
 
   StudyCreationKind get kind => creation.kind;
   Map<String, Object?> get options => creation.options;
@@ -83,6 +121,17 @@ abstract class CreationGenerator {
         contextTokens: contextTokens,
         reservedOutputTokens: maxOutputTokens(job),
       );
+
+  /// Si lo que queda de [job] se termina sin la IA y sin el material —el
+  /// audio de un podcast cuyo guion ya está escrito (F47, paso 6b)—, con qué
+  /// terminarlo; `null`, lo de fábrica, si hay que generarlo como siempre
+  /// ([generate]).
+  ///
+  /// La cola lo pregunta antes de mirar si el modelo puede y antes de armar
+  /// el material: lo que no usa la IA no la espera, y no falla porque sus
+  /// fuentes se hayan borrado. Lo que el finalizador devuelve se guarda como
+  /// lo de [generate].
+  Future<CreationFinisher?> finisherWithoutModel(CreationJob job) async => null;
 
   /// Genera [job] con [material] y [writer]. Lanza
   /// [UnreadableStructuredReply] si la IA no devolvió lo pedido y

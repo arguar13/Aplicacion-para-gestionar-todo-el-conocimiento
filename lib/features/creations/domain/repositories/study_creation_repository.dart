@@ -63,9 +63,10 @@ abstract interface class StudyCreationRepository {
   /// leyeron ([sourceIds]; `null` deja las que tenía). Sin avance ni motivo
   /// de falla, y con los intentos en cero.
   ///
-  /// Ya guardado, se borran sus ilustraciones que el contenido nuevo no
-  /// nombra: las de la vez anterior, al volver a generarla. Lo que un
-  /// ilustrador todavía está guardando para ella no se toca.
+  /// Ya guardado, se borran sus ilustraciones y su audio que el contenido
+  /// nuevo no nombra: los de la vez anterior, al volver a generarla. Lo que
+  /// un ilustrador todavía está guardando para ella no se toca. También se va
+  /// lo hecho que había guardado para retomarse ([checkpoint]).
   Future<Either<Failure, Unit>> complete(
     String id, {
     required String title,
@@ -86,13 +87,36 @@ abstract interface class StudyCreationRepository {
   /// [runNow], cambia con qué turno se genera. Conserva su lugar en la lista y
   /// su título hasta que llegue el nuevo. Una de extraer no se vuelve a
   /// generar: queda lista con lo nuevo que se le dé.
+  ///
+  /// Con [keepCheckpoint] —«Reintentar»— lo hecho que la generación guardó
+  /// ([checkpoint]) queda, y se retoma desde ahí; sin él —«Volver a
+  /// generar»— se borra, y empieza de cero.
   Future<Either<Failure, StudyCreation>> requeue(
     String id, {
     bool? runNow,
     Map<String, Object?>? options,
     List<String>? sourceIds,
     String? languageCode,
+    bool keepCheckpoint = false,
   });
+
+  // --- Lo hecho de una generación larga (F47, paso 6b) ----------------------
+
+  /// Lo que guardó la generación de [id] para retomarse ([saveCheckpoint]),
+  /// o `null` si no guardó nada.
+  Future<Either<Failure, String?>> checkpoint(String id);
+
+  /// Guarda [json] —un JSON de su tipo— como lo hecho hasta ahora por la
+  /// generación de [id], en lugar de lo que hubiera: las vueltas ya escritas
+  /// de un podcast largo, su guion terminado mientras se genera la voz. Si la
+  /// app se cierra a mitad, el próximo intento lo lee y sigue desde ahí.
+  ///
+  /// Vive con los archivos de la creación (`originales/<creación>/avance/`):
+  /// se va al terminarla ([complete]), al volver a generarla de cero
+  /// ([requeue] sin `keepCheckpoint`) y al borrarla para siempre. Sin almacén
+  /// de archivos, o si la creación ya no está, no se guarda nada y se dice
+  /// con un `Failure.validation`: el próximo intento genera de cero.
+  Future<Either<Failure, Unit>> saveCheckpoint(String id, String json);
 
   /// Lo que quedó «generándose» de una sesión anterior —la app se cerró a
   /// mitad— vuelve a la cola; lo que ya se empezó [maxAttempts] veces queda

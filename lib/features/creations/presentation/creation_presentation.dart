@@ -70,4 +70,5 @@ String creationStepLabel(AppLocalizations l10n, CreationStep step) =>
       CreationStep.joining => l10n.f43DataStepJoining,
       CreationStep.finishing => l10n.f43DataStepFinishing,
       CreationStep.illustrating => l10n.f43IgStepIllustrating,
+      CreationStep.voicing => l10n.f47P6bStepVoicing,
     };

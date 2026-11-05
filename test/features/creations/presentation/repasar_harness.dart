@@ -74,6 +74,7 @@ class FakeCreationQueue extends CreationQueue {
     Map<String, Object?>? options,
     List<String>? sourceIds,
     String? languageCode,
+    bool resume = false,
   }) {
     calls.add((
       action: 'regenerate',
@@ -91,6 +92,7 @@ class FakeCreationQueue extends CreationQueue {
       options: options,
       sourceIds: sourceIds,
       languageCode: languageCode,
+      keepCheckpoint: resume,
     );
   }
 

@@ -99,4 +99,38 @@ void main() {
       );
     }
   });
+
+  test('el audio de un podcast (F47, paso 6b) cuenta igual, por su '
+      '`audio_ref`, con la misma regla de dueño', () async {
+    await vault.db
+        .into(vault.db.studyCreations)
+        .insert(
+          StudyCreationsCompanion.insert(
+            id: 'p1',
+            kind: 'podcast',
+            scopeKind: 'all',
+            contentJson: Value(
+              jsonEncode({
+                'audio': {'audio_ref': 'originales/p1/audio/podcast-ab.m4a'},
+                'otro': {'audio_ref': 'originales/p2/audio/ajeno.m4a'},
+                'cita': {'quote': 'originales/p1/audio/no-es-ref.m4a'},
+              }),
+            ),
+            languageCode: 'es',
+            status: 'ready',
+            createdAt: vault.now,
+            updatedAt: vault.now,
+          ),
+        );
+    final rows = await vault.db
+        .customSelect(
+          studyCreationFilesSql('main', oneCreation: true),
+          variables: [Variable.withString('p1')],
+        )
+        .get();
+    expect(
+      [for (final row in rows) row.read<String>('path')],
+      ['originales/p1/audio/podcast-ab.m4a'],
+    );
+  }, timeout: const Timeout(Duration(seconds: 30)));
 }

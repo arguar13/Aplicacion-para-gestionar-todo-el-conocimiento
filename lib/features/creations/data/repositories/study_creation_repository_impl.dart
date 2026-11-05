@@ -219,6 +219,7 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
       ),
     );
     await _sweep(id);
+    await _clearCheckpoint(id);
     return right(unit);
   });
 
@@ -249,11 +250,15 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
     Map<String, Object?>? options,
     List<String>? sourceIds,
     String? languageCode,
+    bool keepCheckpoint = false,
   }) => _guard('requeue', () async {
     final current = _toEntity(await _row(id));
     if (current == null) {
       return left(const Failure.validation(message: 'La creación no existe.'));
     }
+    // Antes de volver a la cola: la cola podría tomarla enseguida y leer lo
+    // de la vez anterior.
+    if (!keepCheckpoint) await _clearCheckpoint(id);
     final status = current.kind.isLiveView
         ? CreationStatus.ready
         : CreationStatus.queued;
@@ -323,6 +328,76 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
       return right(requeued);
     });
   });
+
+  // --- Lo hecho de una generación larga (F47, paso 6b) ----------------------
+
+  /// La subcarpeta de lo hecho, dentro de la de la creación, y su archivo.
+  static const _checkpointFolder = 'avance';
+  static const _checkpointName = 'avance.json';
+
+  @override
+  Future<Either<Failure, String?>> checkpoint(String id) =>
+      _guard('checkpoint', () async {
+        final files = _files;
+        if (files == null) return right(null);
+        for (final path in await files.filesOf(id, folder: _checkpointFolder)) {
+          if (!path.endsWith('/$_checkpointName')) continue;
+          final bytes = await files.read(path);
+          if (bytes == null) return right(null);
+          try {
+            return right(utf8.decode(bytes));
+          } on FormatException {
+            // Se cortó a mitad de escribirlo: como si no hubiera.
+            return right(null);
+          }
+        }
+        return right(null);
+      });
+
+  @override
+  Future<Either<Failure, Unit>> saveCheckpoint(String id, String json) =>
+      _guard('saveCheckpoint', () async {
+        final files = _files;
+        if (files == null) {
+          return left(
+            const Failure.validation(message: 'Sin almacén de archivos.'),
+          );
+        }
+        // Una que ya no está no guarda nada: sería una carpeta huérfana.
+        if (await _row(id) == null) {
+          return left(
+            const Failure.validation(message: 'La creación no existe.'),
+          );
+        }
+        await files.saveStream(
+          bytes: Stream.value(utf8.encode(json)),
+          suggestedName: _checkpointName,
+          id: id,
+          folder: _checkpointFolder,
+        );
+        return right(unit);
+      });
+
+  /// Borra lo hecho de [id]. Un archivo que se resiste se anota: a lo sumo,
+  /// el próximo intento lo lee y lo descarta por no ser de su pedido.
+  Future<void> _clearCheckpoint(String id) async {
+    final files = _files;
+    if (files == null) return;
+    try {
+      for (final path in await files.filesOf(id, folder: _checkpointFolder)) {
+        await files.delete(path);
+      }
+      // El disco puede fallar de muchas formas, y ninguna deshace lo que se
+      // guardó o se volvió a pedir.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      _telemetry.recordError(
+        e,
+        stackTrace,
+        hint: 'StudyCreationRepositoryImpl: no se borró el avance de $id',
+      );
+    }
+  }
 
   // --- La persona -----------------------------------------------------------
 
@@ -471,7 +546,9 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
   /// Lo que viene después de guardar un contenido de [id] —al generarla, al
   /// volver a generarla, al retocarla—, para todos los tipos por igual: se
   /// borran sus ilustraciones que el contenido guardado ya no nombra en
-  /// ningún `illustration_ref` (`CreationIllustrationStore.sweep`).
+  /// ningún `illustration_ref` (`CreationIllustrationStore.sweep`), y su
+  /// audio que no nombra en ningún `audio_ref` (el de un podcast que se
+  /// volvió a generar).
   ///
   /// Siempre **después** de escribir la fila: si el guardado falla o se
   /// cancela antes, lo de antes sigue nombrado y queda. Lo que un ilustrador
@@ -482,6 +559,7 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
     if (illustrations == null) return;
     try {
       await illustrations.sweep(id, named: () => _namedFiles(id));
+      await _sweepAudio(id);
       // El disco puede fallar de muchas formas, y ninguna deshace un
       // contenido que ya quedó guardado.
       // ignore: avoid_catches_without_on_clauses
@@ -491,6 +569,23 @@ class StudyCreationRepositoryImpl implements StudyCreationRepository {
         stackTrace,
         hint: 'StudyCreationRepositoryImpl.sweep: no se barrió $id',
       );
+    }
+  }
+
+  /// Borra el audio de [id] que su contenido guardado ya no nombra. A
+  /// diferencia de las ilustraciones, nadie guarda audio para ella mientras
+  /// tanto: lo guarda su propia generación, justo antes de [complete], y la
+  /// cola genera de a una.
+  Future<void> _sweepAudio(String id) async {
+    final files = _files!;
+    final listed = await files.filesOf(id, folder: kCreationAudioFolder);
+    if (listed.isEmpty) return;
+    final named = await _namedFiles(id);
+    if (named == null) return;
+    for (final path in listed) {
+      if (!named.contains(path) && isCreationFile(id, path)) {
+        await files.delete(path);
+      }
     }
   }
 

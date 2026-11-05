@@ -37,6 +37,12 @@ import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dar
 /// - **Cancelar y reintentar**: [cancel] corta lo que se escribe; [retry] y
 ///   [regenerate] la vuelven a la cola. Mandarla a la papelera la cancela
 ///   sola.
+/// - **Lo hecho no se rehace** (F47, paso 6b): cada generación puede guardar
+///   su avance (`CreationJob.checkpoint`). «Reintentar» —y el retome al abrir
+///   la app— sigue desde ahí; «Volver a generar» empieza de cero. Lo que se
+///   termina sin la IA —el audio de un podcast ya escrito— no espera al
+///   modelo ni arma el material
+///   (`CreationGenerator.finisherWithoutModel`).
 ///
 /// Sus dependencias se piden al usarlas, no al nacer —como la cola de
 /// procesamiento—: cambiar de modelo no la rearma ni pierde lo que espera.
@@ -118,19 +124,24 @@ class CreationQueue {
   }
 
   /// «Reintentar»: la vuelve a la cola, con el turno de antes o el de
-  /// [runNow].
+  /// [runNow], y sigue desde lo que el intento anterior dejó hecho.
   Future<Either<Failure, StudyCreation>> retry(String id, {bool? runNow}) =>
-      regenerate(id, runNow: runNow);
+      regenerate(id, runNow: runNow, resume: true);
 
   /// «Volver a generar con otras opciones»: la vuelve a la cola —con sus
   /// nuevas [options], [sourceIds] o [languageCode], si se dan— y conserva su
   /// lugar en «Lo creado». Una de extraer queda lista con lo nuevo.
+  ///
+  /// Empieza de cero —lo hecho por un intento anterior se descarta—, salvo
+  /// con [resume]: lo de «Reintentar», o un tipo que guardó él mismo lo que
+  /// quiere que se haga (el podcast, al pedir solo el audio).
   Future<Either<Failure, StudyCreation>> regenerate(
     String id, {
     bool? runNow,
     Map<String, Object?>? options,
     List<String>? sourceIds,
     String? languageCode,
+    bool resume = false,
   }) async {
     // Lo que se estaba generando se corta y se espera a que suelte: si no, su
     // «cancelada» llegaría después y pisaría la cola.
@@ -145,6 +156,7 @@ class CreationQueue {
       options: options,
       sourceIds: sourceIds,
       languageCode: languageCode,
+      keepCheckpoint: resume,
     );
     final creation = requeued.getRight().toNullable();
     if (creation == null) return requeued;
@@ -252,12 +264,34 @@ class CreationQueue {
     if (queued.isEmpty) return null;
     final check = _readiness?.call();
     if (check != null && !(await check(background: true)).isReady) {
+      // Lo que se termina sin la IA no la espera.
+      for (final creation in queued) {
+        if (await _finisherOf(creation) != null) return creation;
+      }
       _laterRetry?.cancel();
       _laterRetry = Timer(laterRetryDelay, _wake);
       return null;
     }
     return queued.first;
   }
+
+  /// Con qué se termina [creation] sin la IA, si se puede
+  /// ([CreationGenerator.finisherWithoutModel]).
+  Future<CreationFinisher?> _finisherOf(
+    StudyCreation creation, {
+    CancellationSignal? signal,
+  }) async {
+    final generator = _generators()[creation.kind];
+    if (generator == null) return null;
+    return generator.finisherWithoutModel(_jobOf(creation, signal));
+  }
+
+  CreationJob _jobOf(StudyCreation creation, CancellationSignal? signal) =>
+      CreationJob(
+        creation: creation,
+        cancellation: signal ?? CancellationSignal(),
+        checkpoint: _RepositoryCheckpoint(_repository(), creation.id),
+      );
 
   Future<void> _run(StudyCreation creation) async {
     final repository = _repository();
@@ -271,7 +305,17 @@ class CreationQueue {
       );
       return;
     }
-    if (creation.runNow) {
+    final signal = CancellationSignal();
+    final job = _jobOf(creation, signal);
+    CreationFinisher? finisher;
+    try {
+      finisher = await generator.finisherWithoutModel(job);
+      // Lo que no se puede saber se genera como siempre: no tumba la cola.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      _report(e, stackTrace);
+    }
+    if (finisher == null && creation.runNow) {
       final check = _readiness?.call();
       final status = check == null ? null : await check();
       if (status != null && !status.isReady) {
@@ -284,7 +328,6 @@ class CreationQueue {
       }
     }
 
-    final signal = CancellationSignal();
     final run = _Run(signal);
     _running[id] = run;
     // Si la mandan a la papelera desde cualquier lado mientras se genera, se
@@ -292,40 +335,47 @@ class CreationQueue {
     final watch = repository.watch(id).listen((current) {
       if (current == null || current.isTrashed) signal.cancel();
     }, onError: (Object _) {});
+    void report(double progress, CreationStep step) {
+      _working(progress);
+      unawaited(repository.reportProgress(id, progress: progress, step: step));
+    }
+
     _working(0);
     try {
-      await repository.markGenerating(id, modelName: _modelName?.call());
-      final writer = creation.runNow ? _personWriter() : _backgroundWriter();
-      final job = CreationJob(creation: creation, cancellation: signal);
-      final material = await _material().build(
-        sourceIds: creation.sourceIds,
-        budget: generator.budgetFor(job, writer.contextTokens),
+      // Sin la IA, el modelo que la escribió sigue siendo el de antes.
+      await repository.markGenerating(
+        id,
+        modelName: finisher == null ? _modelName?.call() : null,
       );
-      final built = material.getRight().toNullable();
-      if (built == null) {
-        throw StateError('No se pudo armar el material: $material');
-      }
-      if (built.isEmpty) {
-        await repository.fail(id, CreationFailure.noSources);
-        return;
-      }
-      if (signal.isCancelled) throw const CreationCancelledException();
-      final output = await generator.generate(job, built, writer, (
-        progress,
-        step,
-      ) {
-        _working(progress);
-        unawaited(
-          repository.reportProgress(id, progress: progress, step: step),
+      final CreationOutput output;
+      List<String>? readSources;
+      if (finisher != null) {
+        output = await finisher(report);
+      } else {
+        final writer = creation.runNow ? _personWriter() : _backgroundWriter();
+        final material = await _material().build(
+          sourceIds: creation.sourceIds,
+          budget: generator.budgetFor(job, writer.contextTokens),
         );
-      });
+        final built = material.getRight().toNullable();
+        if (built == null) {
+          throw StateError('No se pudo armar el material: $material');
+        }
+        if (built.isEmpty) {
+          await repository.fail(id, CreationFailure.noSources);
+          return;
+        }
+        if (signal.isCancelled) throw const CreationCancelledException();
+        output = await generator.generate(job, built, writer, report);
+        readSources = built.sourceIds;
+      }
       if (signal.isCancelled) throw const CreationCancelledException();
       await repository.complete(
         id,
         title: output.title,
         content: output.content,
         contentVersion: output.contentVersion,
-        sourceIds: output.sourceIds ?? built.sourceIds,
+        sourceIds: output.sourceIds ?? readSources,
       );
     } on CreationCancelledException {
       // Al descartarse la cola (la app se cierra) queda «generándose»: el
@@ -379,6 +429,24 @@ class CreationQueue {
 
   void _report(Object error, StackTrace stackTrace) =>
       _onError?.call(error, stackTrace);
+}
+
+/// Lo hecho de una creación, sobre el repositorio: lo que no se puede leer
+/// o guardar no tumba la generación —se genera de cero, o no se retoma—.
+class _RepositoryCheckpoint implements CreationCheckpoint {
+  const _RepositoryCheckpoint(this._repository, this._id);
+
+  final StudyCreationRepository _repository;
+  final String _id;
+
+  @override
+  Future<String?> read() async =>
+      (await _repository.checkpoint(_id)).getRight().toNullable();
+
+  @override
+  Future<void> save(String json) async {
+    await _repository.saveCheckpoint(_id, json);
+  }
 }
 
 /// Una creación que se está generando: su señal y cuándo termina.
