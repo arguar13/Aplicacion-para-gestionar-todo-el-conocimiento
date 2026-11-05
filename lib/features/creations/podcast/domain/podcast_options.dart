@@ -109,12 +109,13 @@ enum PodcastSpeaker {
 
 /// La voz elegida para una persona que habla, como dato: [voiceId] es el id
 /// estable de la voz, con el prefijo de dónde sale —`device:` para una voz del
-/// teléfono ([PodcastVoiceId.device])—, y `null` es la voz del teléfono que
-/// esté elegida por defecto.
+/// teléfono ([PodcastVoiceId.device]), `offline:` para una sin conexión de la
+/// biblioteca y, en el paso 4, el de las clonadas y las creadas—, y `null` es
+/// la voz del teléfono que esté elegida por defecto.
 ///
-/// Se guarda así, y no como una voz del motor, para que la biblioteca de voces
-/// (F47, paso 3) sume las suyas con su propio prefijo sin migrar nada: el audio
-/// (la segunda parte del paso 6) resuelve cada id con quien corresponda.
+/// Se guarda así, y no como una voz del motor, para que cada origen sume las
+/// suyas con su propio prefijo sin migrar nada: el audio (F47, paso 6b) le
+/// pide cada id a quien lo hace (`SpeechVoiceRenderer`).
 @immutable
 class PodcastVoiceChoice {
   const PodcastVoiceChoice({required this.speaker, this.voiceId});
@@ -170,29 +171,30 @@ abstract final class PodcastCast {
     ];
   }
 
-  /// [cast] ajustado a las voces que hay ([available], los ids en el orden en
-  /// que conviene ofrecerlas, todas del idioma del podcast; decisión L de
-  /// F47: la voz sigue al idioma):
+  /// [cast] ajustado a las voces que hay (decisión L de F47: la voz sigue al
+  /// idioma):
   ///
-  /// - una voz del teléfono que ya no está en [available] —de otro idioma, o
-  ///   desinstalada— se suelta;
+  /// - [offered] son todas las que se ofrecen en el idioma del podcast, y
+  ///   [available] las que de ellas ya pueden generar —sin bajar nada—, en el
+  ///   orden en que conviene ofrecerlas;
+  /// - una voz elegida que no está en [offered] —de otro idioma, o que ya no
+  ///   está en el teléfono— se suelta; una que se ofrece y falta bajar se
+  ///   deja: la persona la eligió, y la hoja ofrece bajarla;
   /// - quien no tiene voz recibe la primera de [available] que no use otra
   ///   persona: en la conversación, **dos voces distintas** si hay al menos
-  ///   dos; con una sola, las dos personas la comparten;
-  /// - una voz de otro lado —la biblioteca de voces— se deja como está: la
-  ///   resuelve quien la conoce.
+  ///   dos; con una sola, las dos personas la comparten.
   ///
-  /// Sin ninguna en [available], todas quedan en la del teléfono (`null`).
+  /// Sin ninguna en [available], quien no tiene voz queda en la del teléfono
+  /// (`null`). Sin [offered], se ofrecen solo las de [available].
   static List<PodcastVoiceChoice> fit(
     List<PodcastVoiceChoice> cast, {
     required List<String> available,
+    List<String>? offered,
   }) {
-    bool stays(String? id) =>
-        id != null &&
-        (!id.startsWith(PodcastVoiceId.devicePrefix) || available.contains(id));
+    final known = {...available, ...?offered};
     final kept = [
       for (final choice in cast)
-        if (stays(choice.voiceId))
+        if (choice.voiceId != null && known.contains(choice.voiceId))
           choice
         else
           PodcastVoiceChoice(speaker: choice.speaker),

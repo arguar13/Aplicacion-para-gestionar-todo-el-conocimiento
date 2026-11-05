@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
@@ -8,12 +9,19 @@ import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart'
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_queue.dart';
+import 'package:sinapsis/features/creations/podcast/data/service_podcast_voicer.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast.dart';
+import 'package:sinapsis/features/creations/podcast/domain/podcast_audio.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_generator.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_json.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_options.dart';
+import 'package:sinapsis/features/creations/podcast/domain/podcast_progress.dart';
+import 'package:sinapsis/features/narration/data/audio/speech_audio_renderer.dart';
+import 'package:sinapsis/features/narration/data/audio/speech_wav.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 
+import '../../../support/in_memory_file_store.dart';
+import '../../narration/data/audio/speech_audio_fakes.dart';
 import '../creations_harness.dart';
 import '../mind_map/support/fake_structured_writer.dart';
 
@@ -182,6 +190,111 @@ void main() {
     expect(done.status, CreationStatus.failed);
     expect(done.failure, CreationFailure.unreadableReply);
     expect(done.failureDetail, contains('No quedó ningún tramo'));
+  });
+
+  group('con la voz (F47, paso 6b)', () {
+    late Directory root;
+    late FakeVoiceRenderer voices;
+    late InMemoryFileStore files;
+
+    setUp(() async {
+      await h.close();
+      files = InMemoryFileStore();
+      h = await CreationsHarness.create(files: files);
+      exodo = await h.processedDoc('exodo', title: 'Éxodo', text: text);
+      root = Directory.systemTemp.createTempSync('cola-voz');
+      addTearDown(() => root.deleteSync(recursive: true));
+      voices = FakeVoiceRenderer(prefix: 'device:');
+    });
+
+    CreationQueue voicedQueue() => CreationQueue(
+      repository: () => h.creations,
+      scopes: () => h.scopes,
+      material: () => h.material,
+      generators: () => {
+        StudyCreationKind.podcast: PodcastGenerator(
+          voicer: ServicePodcastVoicer(
+            renderer: SpeechAudioRenderer(
+              voices: () => [voices],
+              workRoot: () async => root,
+              encoder: FakeEncoder(),
+              assemble: (job) async => assembleSpeechWav(job),
+            ),
+            files: files,
+          ),
+        ),
+      },
+      personWriter: () => writer,
+      backgroundWriter: () => writer,
+      readiness: () =>
+          ({bool background = false}) async => ready,
+      modelName: () => 'Gemma',
+      keeper: () => keeper,
+    );
+
+    test('el guion y su voz, en la misma creación, con el servicio de '
+        'siempre: queda lista con el audio en la bóveda', () async {
+      final queue = voicedQueue();
+      addTearDown(queue.dispose);
+      final created = (await queue.create(request())).getRight().toNullable()!;
+      final done = await settled(created.id);
+
+      expect(done.status, CreationStatus.ready);
+      final podcast = PodcastJson.decode(done.decodedContent)!;
+      final audio = podcast.audio!;
+      expect(files.paths, [audio.reference]);
+      expect(audio.reference, startsWith('originales/${created.id}/audio/'));
+      expect(
+        podcastAudioStateOf(
+          podcast,
+          PodcastCast.of(done.options, podcast.format),
+          'es',
+        ),
+        PodcastAudioState.ready,
+      );
+      expect(voices.said.map((s) => s.$1).toSet(), {
+        'device:es-AR:a',
+        'device:es-AR:b',
+      });
+      // Terminada, lo hecho para retomarla se va.
+      expect(
+        (await h.creations.checkpoint(created.id)).getRight().toNullable(),
+        isNull,
+      );
+    });
+
+    test('si la app se cerró mientras se generaba la voz, se retoma sin '
+        'volver a llamar a la IA ni rehacer lo dicho', () async {
+      voices.failOn = 'device:es-AR:b';
+      final queue = voicedQueue();
+      addTearDown(queue.dispose);
+      final created = (await queue.create(request())).getRight().toNullable()!;
+      final first = await settled(created.id);
+      // La voz B falló: el guion quedó, con por qué.
+      final failed = PodcastJson.decode(first.decodedContent)!;
+      expect(failed.audio, isNull);
+      expect(failed.audioIssue!.problem, PodcastAudioProblem.engine);
+      final calls = writer.calls.length;
+      final said = voices.said.length;
+      expect(said, greaterThan(0));
+
+      // «Generar el audio»: el guion como lo que falta, y «Reintentar».
+      voices.failOn = null;
+      await h.creations.saveCheckpoint(
+        created.id,
+        PodcastVoiceProgress(failed.withoutAudio(), keepTitle: true).encode(),
+      );
+      await queue.retry(created.id, runNow: true);
+      final done = await settled(created.id);
+
+      expect(writer.calls, hasLength(calls));
+      expect(PodcastJson.decode(done.decodedContent)!.audio, isNotNull);
+      // Lo de la voz A ya estaba dicho: solo se dice lo de la B.
+      expect(voices.said.skip(said).map((s) => s.$1).toSet(), {
+        'device:es-AR:b',
+      });
+      expect(done.title, first.title);
+    });
   });
 }
 

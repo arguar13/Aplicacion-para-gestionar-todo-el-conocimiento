@@ -6,9 +6,11 @@ import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.
 import 'package:sinapsis/features/creations/domain/services/creation_generator.dart';
 import 'package:sinapsis/features/creations/domain/services/structured_writer.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast.dart';
+import 'package:sinapsis/features/creations/podcast/domain/podcast_audio.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_check.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_json.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_options.dart';
+import 'package:sinapsis/features/creations/podcast/domain/podcast_progress.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_prompt.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 
@@ -75,8 +77,25 @@ int podcastRoundsFor(int targetWords, int replyTokens) {
 ///   que estar en el material; un tramo sin cita, con citas inventadas o con
 ///   una cifra que no está, se quita y queda anotado—. En la conversación
 ///   tienen que hablar las dos voces.
+/// - **Retomable por vuelta** (F47, paso 6b): cada vuelta escrita se guarda
+///   (`CreationJob.checkpoint`, [PodcastScriptProgress]); si la app se cierra
+///   en la vuelta 6 de 8, el próximo intento sigue en la 7 —con el mismo
+///   pedido sobre el mismo material ([podcastScriptKey]); si cambió algo,
+///   empieza de cero—.
+/// - **La voz, como una etapa más** (paso 6b): con el guion terminado, se
+///   guarda entero ([PodcastVoiceProgress]) y [voicer] genera el audio de
+///   cada tramo en el teléfono y lo deja en la bóveda. Si la app se cierra
+///   mientras tanto, el próximo intento termina la voz sin volver a llamar a
+///   la IA ([finisherWithoutModel]). Sin [voicer], queda el guion solo.
 class PodcastGenerator extends CreationGenerator {
-  const PodcastGenerator();
+  const PodcastGenerator({this.voicer});
+
+  /// Quien genera la voz; `null`, solo el guion.
+  final PodcastVoicer? voicer;
+
+  /// Hasta dónde llega el avance al terminar el guion, si después se genera
+  /// la voz.
+  static const scriptShare = 0.6;
 
   /// Lo más que escribe una vuelta: un Largo entero con un modelo grande.
   static const int replyTokens = 5600;
@@ -111,6 +130,32 @@ class PodcastGenerator extends CreationGenerator {
         instructionTokens: kPodcastInstructionTokens,
       );
 
+  /// Lo que queda de un podcast cuyo guion ya está ([PodcastVoiceProgress]):
+  /// su voz, sin la IA ni el material. Lo guarda la generación al terminar el
+  /// guion, y el visor al pedir «Generar el audio».
+  @override
+  Future<CreationFinisher?> finisherWithoutModel(CreationJob job) async {
+    final voicer = this.voicer;
+    if (voicer == null) return null;
+    final saved = PodcastProgress.decode(await job.checkpoint.read());
+    if (saved is! PodcastVoiceProgress) return null;
+    return (CreationProgressReport progress) {
+      // Pedido por la persona sobre uno ya listo, el título es el que tiene
+      // —quizá lo renombró—; retomado a mitad de una generación, el nuevo.
+      final title = saved.keepTitle
+          ? job.creation.title ?? saved.podcast.title
+          : saved.podcast.title;
+      return _voice(
+        job,
+        saved.podcast,
+        voicer,
+        progress,
+        from: 0,
+        title: title,
+      );
+    };
+  }
+
   @override
   Future<CreationOutput> generate(
     CreationJob job,
@@ -130,12 +175,40 @@ class PodcastGenerator extends CreationGenerator {
     final rounds = podcastRoundsFor(target, reply);
     final perRound = (target / rounds).ceil();
     final budget = budgetFor(job, writer.contextTokens);
+    final voicer = this.voicer;
+    final share = voicer == null ? 1.0 : scriptShare;
+    final key = podcastScriptKey(
+      format: format.storageKey,
+      length: length.storageKey,
+      focus: focus is String ? focus : null,
+      languageCode: job.languageCode,
+      targetWords: target,
+      rounds: rounds,
+      perRound: perRound,
+      material: [for (final reading in material.readings) reading.text],
+    );
 
     var title = '';
     final written = <List<PodcastSegment>>[];
     final discarded = <PodcastDiscard>[];
     String? previous;
-    for (var round = 0; round < rounds; round++) {
+    // Lo escrito por un intento anterior del mismo pedido no se vuelve a
+    // pedir.
+    final saved = PodcastProgress.decode(await job.checkpoint.read());
+    if (saved is PodcastScriptProgress &&
+        saved.key == key &&
+        saved.rounds.length <= rounds) {
+      title = saved.title;
+      for (final round in saved.rounds) {
+        written.add(round.segments);
+        discarded.addAll(round.discarded);
+      }
+      if (written.isNotEmpty) previous = _ending(written.last);
+    }
+    final kept = <PodcastRoundDone>[
+      if (saved is PodcastScriptProgress && written.isNotEmpty) ...saved.rounds,
+    ];
+    for (var round = written.length; round < rounds; round++) {
       if (job.cancellation.isCancelled) {
         throw const CreationCancelledException();
       }
@@ -173,16 +246,27 @@ class PodcastGenerator extends CreationGenerator {
           guidance: focus is String ? focus : null,
           languageCode: job.languageCode,
           cancellation: job.cancellation,
-          onProgress: (done, step) => progress((round + done) / rounds, step),
+          onProgress: (done, step) =>
+              progress((round + done) / rounds * share, step),
         ),
       );
       if (round == 0) title = result.title;
       written.add(result.check.segments);
       discarded.addAll(result.check.discarded);
       previous = _ending(result.check.segments);
+      kept.add(
+        PodcastRoundDone(
+          segments: result.check.segments,
+          discarded: result.check.discarded,
+        ),
+      );
+      if (round + 1 < rounds) {
+        await job.checkpoint.save(
+          PodcastScriptProgress(key: key, title: title, rounds: kept).encode(),
+        );
+      }
     }
     if (job.cancellation.isCancelled) throw const CreationCancelledException();
-    progress(1, CreationStep.finishing);
 
     final podcast = Podcast(
       title: title.isNotEmpty
@@ -197,13 +281,54 @@ class PodcastGenerator extends CreationGenerator {
       targetWords: target,
       discarded: discarded,
     );
-    return CreationOutput(
+    if (voicer == null) {
+      progress(1, CreationStep.finishing);
+      return _output(podcast, podcast.title);
+    }
+    // El guion, guardado entero antes de la voz: si la app se cierra ahora,
+    // no se le vuelve a pedir a la IA.
+    await job.checkpoint.save(PodcastVoiceProgress(podcast).encode());
+    return _voice(
+      job,
+      podcast,
+      voicer,
+      progress,
+      from: scriptShare,
       title: podcast.title,
-      // La versión 1 del esquema (`PodcastJson.contentVersion`): la de
-      // fábrica de `CreationOutput`.
-      content: PodcastJson.encodeString(podcast),
     );
   }
+
+  /// La voz de [podcast], con el avance de [progress] desde [from] —donde
+  /// quedó el guion, o cero si es lo único que falta— hasta el final. Si no
+  /// se pudo, el podcast queda con su guion y por qué no tiene audio.
+  Future<CreationOutput> _voice(
+    CreationJob job,
+    Podcast podcast,
+    PodcastVoicer voicer,
+    CreationProgressReport progress, {
+    required double from,
+    required String title,
+  }) async {
+    if (job.cancellation.isCancelled) throw const CreationCancelledException();
+    progress(from, CreationStep.voicing);
+    final voiced = await voicer.voice(
+      creationId: job.creation.id,
+      podcast: podcast.withoutAudio(),
+      cast: PodcastCast.of(job.options, podcast.format),
+      languageCode: job.languageCode,
+      cancellation: job.cancellation,
+      onProgress: (done) =>
+          progress(from + (1 - from) * done, CreationStep.voicing),
+    );
+    if (job.cancellation.isCancelled) throw const CreationCancelledException();
+    progress(1, CreationStep.finishing);
+    return _output(voiced, title);
+  }
+
+  // La versión 1 del esquema (`PodcastJson.contentVersion`): la de fábrica de
+  // `CreationOutput`.
+  CreationOutput _output(Podcast podcast, String title) =>
+      CreationOutput(title: title, content: PodcastJson.encodeString(podcast));
 }
 
 /// Lo que [round] de [rounds] lee de [material]: de una vez, todo —cada vuelta

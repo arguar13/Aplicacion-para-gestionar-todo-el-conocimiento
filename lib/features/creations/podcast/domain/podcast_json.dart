@@ -107,30 +107,55 @@ abstract final class PodcastJson {
     'length': podcast.length.storageKey,
     'requestedWords': podcast.requestedWords,
     'targetWords': podcast.targetWords,
-    'segments': [
-      for (final segment in podcast.segments)
-        {
-          'speaker': segment.speaker.storageKey,
-          'kind': segment.kind.storageKey,
-          'text': segment.text,
-          'pauseMs': segment.pauseAfter.inMilliseconds,
-          'citations': [
-            for (final citation in segment.citations)
-              {
-                'quote': citation.quote,
-                'documentId': ?citation.documentId,
-                'documentTitle': ?citation.documentTitle,
-              },
-          ],
-        },
-    ],
-    'discarded': [
-      for (final discard in podcast.discarded)
-        {'reason': discard.reason.storageKey, 'text': discard.text},
-    ],
+    'segments': encodeSegments(podcast.segments),
+    'discarded': encodeDiscarded(podcast.discarded),
+    if (podcast.audio case final audio?)
+      'audio': {
+        // `audio_ref`: la clave con que la unión de bóvedas y el barrido
+        // reconocen el archivo de una creación (`studyCreationFilesSql`).
+        'audio_ref': audio.reference,
+        'mimeType': audio.mimeType,
+        'fingerprint': audio.fingerprint,
+        'durationMs': audio.duration.inMilliseconds,
+        'startsMs': [for (final start in audio.starts) start.inMilliseconds],
+      },
+    if (podcast.audioIssue case final issue?)
+      'audioIssue': {
+        'reason': issue.problem.storageKey,
+        'voiceId': ?issue.voiceId,
+      },
   };
 
   static String encodeString(Podcast podcast) => jsonEncode(encode(podcast));
+
+  /// Los tramos como se guardan: los del podcast y, mientras se escribe, los
+  /// de cada vuelta (`PodcastProgress`).
+  static List<Map<String, Object?>> encodeSegments(
+    List<PodcastSegment> segments,
+  ) => [
+    for (final segment in segments)
+      {
+        'speaker': segment.speaker.storageKey,
+        'kind': segment.kind.storageKey,
+        'text': segment.text,
+        'pauseMs': segment.pauseAfter.inMilliseconds,
+        'citations': [
+          for (final citation in segment.citations)
+            {
+              'quote': citation.quote,
+              'documentId': ?citation.documentId,
+              'documentTitle': ?citation.documentTitle,
+            },
+        ],
+      },
+  ];
+
+  static List<Map<String, Object?>> encodeDiscarded(
+    List<PodcastDiscard> discarded,
+  ) => [
+    for (final discard in discarded)
+      {'reason': discard.reason.storageKey, 'text': discard.text},
+  ];
 
   /// Lo guardado de [json] (un `Map` o su texto), o `null` si no es un
   /// podcast con al menos un tramo. Lo que no se entiende de un tramo —una
@@ -138,9 +163,32 @@ abstract final class PodcastJson {
   static Podcast? decode(Object? json) {
     final raw = json is String ? _tryJson(json) : json;
     if (raw is! Map) return null;
+    final segments = decodeSegments(raw['segments']);
+    if (segments.isEmpty) return null;
+    final length =
+        PodcastLength.fromStorageKey(raw['length']) ?? PodcastLength.medium;
+    int words(Object? value) =>
+        value is num ? value.round() : length.targetWords;
+    return Podcast(
+      title: raw['title'] is String ? raw['title']! as String : '',
+      format:
+          PodcastFormat.fromStorageKey(raw['format']) ??
+          PodcastFormat.conversation,
+      length: length,
+      segments: segments,
+      requestedWords: words(raw['requestedWords']),
+      targetWords: words(raw['targetWords']),
+      discarded: decodeDiscarded(raw['discarded']),
+      audio: _audio(raw['audio']),
+      audioIssue: _audioIssue(raw['audioIssue']),
+    );
+  }
+
+  /// Los tramos de [raw] ([encodeSegments]); lo que no es un tramo con texto
+  /// no cuenta.
+  static List<PodcastSegment> decodeSegments(Object? raw) {
     final segments = <PodcastSegment>[];
-    for (final item
-        in raw['segments'] is List ? raw['segments']! as List : []) {
+    for (final item in raw is List ? raw : const []) {
       if (item is! Map) continue;
       final text = item['text'];
       if (text is! String || text.trim().isEmpty) continue;
@@ -176,29 +224,52 @@ abstract final class PodcastJson {
         ),
       );
     }
-    if (segments.isEmpty) return null;
-    final length =
-        PodcastLength.fromStorageKey(raw['length']) ?? PodcastLength.medium;
-    int words(Object? value) =>
-        value is num ? value.round() : length.targetWords;
-    return Podcast(
-      title: raw['title'] is String ? raw['title']! as String : '',
-      format:
-          PodcastFormat.fromStorageKey(raw['format']) ??
-          PodcastFormat.conversation,
-      length: length,
-      segments: segments,
-      requestedWords: words(raw['requestedWords']),
-      targetWords: words(raw['targetWords']),
-      discarded: [
-        for (final d
-            in raw['discarded'] is List ? raw['discarded']! as List : const [])
-          if (d is Map && d['text'] is String)
-            if (PodcastDiscardReason.fromStorageKey(d['reason'])
-                case final reason?)
-              PodcastDiscard(reason: reason, text: d['text']! as String),
+    return segments;
+  }
+
+  /// Lo quitado de [raw] ([encodeDiscarded]).
+  static List<PodcastDiscard> decodeDiscarded(Object? raw) => [
+    for (final d in raw is List ? raw : const [])
+      if (d is Map && d['text'] is String)
+        if (PodcastDiscardReason.fromStorageKey(d['reason']) case final reason?)
+          PodcastDiscard(reason: reason, text: d['text']! as String),
+  ];
+
+  /// El audio guardado, o `null` si no hay o le falta algo: sin archivo, sin
+  /// huella o con un comienzo que no es una cifra no se puede escuchar.
+  static PodcastAudio? _audio(Object? raw) {
+    if (raw is! Map) return null;
+    final reference = raw['audio_ref'];
+    final fingerprint = raw['fingerprint'];
+    final duration = raw['durationMs'];
+    final starts = raw['startsMs'];
+    if (reference is! String ||
+        reference.isEmpty ||
+        fingerprint is! String ||
+        duration is! num ||
+        starts is! List ||
+        starts.any((s) => s is! num)) {
+      return null;
+    }
+    final mime = raw['mimeType'];
+    return PodcastAudio(
+      reference: reference,
+      mimeType: mime is String ? mime : 'audio/mp4',
+      fingerprint: fingerprint,
+      duration: Duration(milliseconds: duration.round()),
+      starts: [
+        for (final start in starts.cast<num>())
+          Duration(milliseconds: start.round()),
       ],
     );
+  }
+
+  static PodcastAudioIssue? _audioIssue(Object? raw) {
+    if (raw is! Map) return null;
+    final problem = PodcastAudioProblem.fromStorageKey(raw['reason']);
+    if (problem == null) return null;
+    final voice = raw['voiceId'];
+    return PodcastAudioIssue(problem, voiceId: voice is String ? voice : null);
   }
 
   static Object? _tryJson(String text) {

@@ -165,19 +165,36 @@ void main() {
         expect(fitted.single.voiceId, sofia);
       });
 
-      test('una de la biblioteca de voces se deja como está', () {
+      test('una sin conexión elegida que falta bajar se deja —la hoja ofrece '
+          'bajarla—, y no se le asigna a quien no tiene voz', () {
+        const daniela = 'offline:vits-piper-es_AR-daniela-high#0';
         final fitted = PodcastCast.fit(
           const [
-            PodcastVoiceChoice(
-              speaker: PodcastSpeaker.a,
-              voiceId: 'piper:ar-1',
-            ),
+            PodcastVoiceChoice(speaker: PodcastSpeaker.a, voiceId: daniela),
             PodcastVoiceChoice(speaker: PodcastSpeaker.b),
           ],
           available: const [sofia],
+          offered: const [sofia, daniela, 'offline:otra#1'],
         );
 
-        expect([for (final c in fitted) c.voiceId], ['piper:ar-1', sofia]);
+        expect([for (final c in fitted) c.voiceId], [daniela, sofia]);
+      });
+
+      test('una que no se ofrece en el idioma —de otro, o de un origen que '
+          'este dispositivo no conoce— se suelta', () {
+        final fitted = PodcastCast.fit(
+          const [
+            PodcastVoiceChoice(speaker: PodcastSpeaker.a, voiceId: 'mia:x'),
+            PodcastVoiceChoice(
+              speaker: PodcastSpeaker.b,
+              voiceId: 'offline:de-otro-idioma#0',
+            ),
+          ],
+          available: const [sofia, jorge],
+          offered: const [sofia, jorge],
+        );
+
+        expect([for (final c in fitted) c.voiceId], [sofia, jorge]);
       });
 
       test('sin ninguna en el idioma, la del teléfono', () {

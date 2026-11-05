@@ -144,10 +144,104 @@ class PodcastDiscard {
   int get hashCode => Object.hash(reason, text);
 }
 
+/// El audio de un podcast (F47, paso 6b): un archivo de la bóveda con la voz
+/// de cada tramo, generado en el teléfono.
+@immutable
+class PodcastAudio {
+  const PodcastAudio({
+    required this.reference,
+    required this.mimeType,
+    required this.fingerprint,
+    required this.duration,
+    required this.starts,
+  });
+
+  /// La ruta relativa del archivo en la bóveda
+  /// (`originales/<creación>/audio/…`): en el contenido, `audio_ref`.
+  final String reference;
+
+  /// `audio/mp4` (M4A) o `audio/wav`.
+  final String mimeType;
+
+  /// La huella de lo que se dijo (`podcastAudioFingerprint`): cada tramo con
+  /// su voz y su pausa. Si el guion o las voces cambian, deja de coincidir, y
+  /// el audio es de otra versión.
+  final String fingerprint;
+
+  final Duration duration;
+
+  /// Dónde empieza cada tramo del guion, en orden.
+  final List<Duration> starts;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PodcastAudio &&
+      other.reference == reference &&
+      other.mimeType == mimeType &&
+      other.fingerprint == fingerprint &&
+      other.duration == duration &&
+      listEquals(other.starts, starts);
+
+  @override
+  int get hashCode => Object.hash(
+    reference,
+    mimeType,
+    fingerprint,
+    duration,
+    Object.hashAll(starts),
+  );
+}
+
+/// Por qué un podcast quedó sin audio.
+enum PodcastAudioProblem {
+  /// Una voz no está en el teléfono —falta bajarla— o este dispositivo no
+  /// sabe hacerla.
+  voiceMissing('voice_missing'),
+
+  /// El motor de una voz falló.
+  engine('engine'),
+
+  /// No se pudo armar o guardar el archivo.
+  file('file');
+
+  const PodcastAudioProblem(this.storageKey);
+
+  final String storageKey;
+
+  static PodcastAudioProblem? fromStorageKey(Object? key) {
+    for (final problem in values) {
+      if (problem.storageKey == key) return problem;
+    }
+    return null;
+  }
+}
+
+/// Lo que impidió generar el audio de un podcast: el guion quedó, y el visor
+/// lo dice y ofrece generarlo de nuevo.
+@immutable
+class PodcastAudioIssue {
+  const PodcastAudioIssue(this.problem, {this.voiceId});
+
+  final PodcastAudioProblem problem;
+
+  /// La voz que faltó o falló, si se sabe.
+  final String? voiceId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PodcastAudioIssue &&
+      other.problem == problem &&
+      other.voiceId == voiceId;
+
+  @override
+  int get hashCode => Object.hash(problem, voiceId);
+}
+
 /// Un podcast de «Lo creado» (F47, punto 5 del plan): el guion ya comprobado,
 /// por tramos, con quién habla en cada uno, sus citas y sus silencios. Es lo
-/// que se guarda en `StudyCreation.content`; el audio de cada tramo se genera
-/// después, con las voces de las opciones (`PodcastCast`).
+/// que se guarda en `StudyCreation.content`, con su audio ([audio]) una vez
+/// generado con las voces de las opciones (`PodcastCast`) —o por qué no se
+/// pudo ([audioIssue])—.
 @immutable
 class Podcast {
   const Podcast({
@@ -158,6 +252,8 @@ class Podcast {
     required this.requestedWords,
     required this.targetWords,
     this.discarded = const [],
+    this.audio,
+    this.audioIssue,
   });
 
   final String title;
@@ -177,6 +273,33 @@ class Podcast {
 
   /// Lo que la comprobación quitó.
   final List<PodcastDiscard> discarded;
+
+  /// El audio, si ya se generó.
+  final PodcastAudio? audio;
+
+  /// Por qué no se generó el audio, si se intentó y no se pudo.
+  final PodcastAudioIssue? audioIssue;
+
+  /// El mismo guion, con [audio] y sin problema.
+  Podcast withAudio(PodcastAudio audio) => _with(audio: audio);
+
+  /// El mismo guion, sin audio, por [issue].
+  Podcast withAudioIssue(PodcastAudioIssue issue) => _with(issue: issue);
+
+  /// El mismo guion, sin audio ni problema: lo que se vuelve a dar voz.
+  Podcast withoutAudio() => _with();
+
+  Podcast _with({PodcastAudio? audio, PodcastAudioIssue? issue}) => Podcast(
+    title: title,
+    format: format,
+    length: length,
+    segments: segments,
+    requestedWords: requestedWords,
+    targetWords: targetWords,
+    discarded: discarded,
+    audio: audio,
+    audioIssue: issue,
+  );
 
   /// Cuántas palabras se dicen, en total.
   int get words => segments.fold(0, (sum, s) => sum + s.words);
@@ -213,7 +336,9 @@ class Podcast {
       listEquals(other.segments, segments) &&
       other.requestedWords == requestedWords &&
       other.targetWords == targetWords &&
-      listEquals(other.discarded, discarded);
+      listEquals(other.discarded, discarded) &&
+      other.audio == audio &&
+      other.audioIssue == audioIssue;
 
   @override
   int get hashCode => Object.hash(
@@ -224,6 +349,8 @@ class Podcast {
     requestedWords,
     targetWords,
     Object.hashAll(discarded),
+    audio,
+    audioIssue,
   );
 }
 

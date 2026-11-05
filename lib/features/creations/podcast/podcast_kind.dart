@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_generator.dart';
+import 'package:sinapsis/features/creations/podcast/data/service_podcast_voicer.dart';
+import 'package:sinapsis/features/creations/podcast/domain/podcast_audio.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_generator.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_options.dart';
 import 'package:sinapsis/features/creations/podcast/presentation/podcast_labels.dart';
@@ -9,13 +12,23 @@ import 'package:sinapsis/features/creations/podcast/presentation/widgets/podcast
 import 'package:sinapsis/features/creations/podcast/presentation/widgets/podcast_voices_section.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/default_creation_kinds.dart';
+import 'package:sinapsis/features/narration/presentation/providers/speech_audio_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/accent_names.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Quien escribe el guion de los podcasts: lo que suma
+/// Quien da voz a los podcasts (F47, paso 6b): la pieza común del audio,
+/// que guarda en la bóveda.
+final podcastVoicerProvider = Provider<PodcastVoicer>(
+  (ref) => ServicePodcastVoicer(
+    renderer: ref.watch(speechAudioRendererProvider),
+    files: ref.watch(fileStoreProvider),
+  ),
+);
+
+/// Quien escribe el guion de los podcasts y les da voz: lo que suma
 /// `creationGeneratorsProvider`.
 final podcastGeneratorProvider = Provider<CreationGenerator>(
-  (ref) => const PodcastGenerator(),
+  (ref) => PodcastGenerator(voicer: ref.watch(podcastVoicerProvider)),
 );
 
 /// El podcast en Repasar (F47, paso 6): la tarjeta y la hoja de fábrica
