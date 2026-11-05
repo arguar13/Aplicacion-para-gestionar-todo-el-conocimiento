@@ -722,16 +722,19 @@ resaltado»** (ahí no está el zoom, que es de la página que estás viendo):
   cada uno con su muestra. Pinta el marco entero.
 
 **⋮** abre una hoja con, arriba, la miniatura, el título con **✎** para
-cambiarle el nombre (en lo creado) y el tipo; después, en grupos, lo que ese
-documento ofrece —**Resumir**, **"Descargar con lo marcado"**, **"Editar el
+cambiarle el nombre (en lo creado) y el tipo; después, primero, **el audio**
+de lo que estás leyendo —**"Descargar audio"**, **"Exportar audio"** y
+**"Borrar el audio descargado"**, en el teléfono Android; ver [Descargar el
+audio de un documento](#descargar-el-audio-de-un-documento)—, y en grupos lo
+que ese documento ofrece —**Resumir**, **"Descargar con lo marcado"**, **"Editar el
 texto"**, **"Copiar todo"**, **Descargar** y **Compartir** lo creado, los
 detalles, volver a crear—, **«Notas (N)»** con las notas en el texto (ver
 [Notas en el texto](#notas-en-el-texto)), **"Añadir a la cola"** (lo que estás leyendo suena
 después de lo de ahora; si no suena nada, empieza) y, al final y en rojo,
 **lo que se borra**: la copia del original, la creación o el documento
 procesado. **Nunca la fuente de la Biblioteca.** Lo que todavía no está en la
-app no aparece: descargar y exportar el audio, favoritos y marcar como
-terminado llegan en próximas versiones.
+app no aparece: favoritos y marcar como terminado llegan en próximas
+versiones.
 
 **Abajo, el reproductor.** Sin nada sonando, **"Escuchar"** lee lo que ves.
 Sonando, el reproductor anclado de toda la app —el mismo que en cualquier
@@ -3757,6 +3760,68 @@ detalle:
   texto», en el detalle: suena el libro entero, en amarillo sobre su página, y
   ese marco da vuelta la página solo.
 
+### Descargar el audio de un documento
+
+Para escuchar un documento **sin conexión**, con su audio de verdad y no con
+la voz que lee en el momento: **⋮** del marco de lectura → **"Descargar
+audio"**. Está en lo que lee el marco con **"Escuchar"**: el texto, el
+resumen y la síntesis de lo procesado, el original (un libro, un PDF, una
+página web, una foto con su texto) y lo creado. Debajo dice **con qué voces**
+y **cuánto va a durar**, estimado: *"Con Daniela · unos 25 min · para
+escuchar sin conexión"*.
+
+- **Se genera en el teléfono**, con las mismas voces con que lo leería el
+  lector ahora: **la de cada idioma** (un pedazo en inglés, con tu voz
+  inglesa; ver [La biblioteca de voces](#la-biblioteca-de-voces)), un tramo
+  por renglón u oración, con un respiro entre uno y otro y uno un poco más
+  largo al pasar de un texto al siguiente. Queda **en tu bóveda**, en M4A,
+  **nunca en la nube**.
+- **Si alguna voz cobra** —una tuya que vive en ElevenLabs—, antes se
+  pregunta, con lo que cuesta y lo que te queda del mes; con un **Cancelar**
+  no se genera nada. Las voces del teléfono, las sin conexión y las que
+  creaste en el teléfono son gratis.
+- **Mientras se genera**, abajo del marco aparece una barra con
+  *"Descargando el audio · 34 %"*, su avance y **"Cancelar"**; también en la
+  barra de notificaciones (*"Sinapsis está generando el audio de un
+  documento"*), así podés salir de la app o apagar la pantalla. Se generan
+  **de a uno**: si pedís otro, espera (*"en espera"*). En **⋮**, tocar la
+  descarga en curso la cancela.
+- **Cancelar no pierde nada**: lo ya generado queda guardado, y **⋮** pasa a
+  decir **"Seguir descargando el audio"**, que sigue desde ahí sin rehacerlo.
+  Lo mismo si se cerró la app a mitad.
+- **Si no se pudo**, la barra y **⋮** dicen por qué: una voz que falta en el
+  teléfono —si es una sin conexión, con su botón **Bajar**, el mismo de la
+  biblioteca—, una voz que falló a mitad o el disco lleno; **"Reintentar"**
+  sigue desde lo que quedó hecho y la **✕** saca el aviso.
+- **Al terminar**, un aviso: *"El audio de «Roma» quedó en el teléfono: suena
+  sin conexión"*, con **"Escuchar"**.
+
+**Con el audio descargado**, **"Escuchar"** (o **⋮** → *"Audio descargado ·
+12:34"*) **suena desde ese audio**, en el mismo reproductor de abajo: el
+tiempo y la barra son los reales, ±10 s salta 10 segundos de lo que se oye,
+la velocidad cambia sin cortar y sin cambiar el tono, y lo que suena se
+resalta en el texto como siempre. Con **Resumen**, **Síntesis** o
+**Palabras clave** se lee con la voz, como antes: el audio es del texto
+entero.
+
+- **Si el texto cambió** (lo editaste) **o cambiaron las voces** (elegiste
+  otra para ese idioma, bajaste una mejor), el audio **quedó viejo**: no
+  suena como si fuera el de ahora —se lee con la voz— y **⋮** dice **"Generar
+  de nuevo el audio"**: *"El audio descargado quedó viejo: cambió el texto o
+  las voces"*.
+- **"Exportar audio"** pasa el archivo a otra app con la hoja de compartir
+  del teléfono (para guardarlo en Drive, mandarlo, escucharlo en otro
+  reproductor), con el título del documento como nombre. Un audio viejo no se
+  exporta: primero, generarlo de nuevo.
+- **"Borrar el audio descargado"**, en rojo, pregunta antes y dice cuánto
+  ocupa; se lleva **solo el audio**: el documento queda como está, y la
+  fuente de la Biblioteca nunca se toca. Si estaba sonando, deja de sonar.
+- **En la copia de seguridad** viaja con todo lo demás. **Al unir bóvedas no
+  viaja**: se vuelve a generar en el otro teléfono, con sus voces.
+- **Solo en Android.** En la web y en Windows la app no tiene cómo generar
+  ese audio, y **⋮** no lo ofrece. Lo que ya suena en su propio audio —un
+  audio, un video, un podcast— tampoco lo ofrece: ya tiene el suyo.
+
 ---
 
 ## Notas generadas por IA
@@ -4578,6 +4643,15 @@ fingir nada:
 (*"Se quitaron 2 tramos que no se sostenían en el material"*): al abrirla se
 ven tachados, con por qué. Si salió más corto porque el material no daba para
 más, también se dice.
+
+**Exportarlo:** **⋮** del podcast (o mantener apretada su fila en «Lo
+creado») → **"Compartir"** o **"Descargar"**. Si su audio está en el teléfono
+y es el de este guion, pregunta **"¿Qué exportar?"**: **El audio** (*"M4A,
+8:12, para escucharlo en otra app"*), tal cual se generó, o **El guion**
+(*"Texto, con quién dice cada cosa y sus citas"*): un `.txt` con el título,
+*"Hecho con IA"* y el modelo, y cada tramo con quién lo dice y, debajo, sus
+citas del material con su documento. Sin audio —o con uno de otra versión
+del guion—, exporta el guion sin preguntar.
 
 #### Tarjetas didácticas
 
