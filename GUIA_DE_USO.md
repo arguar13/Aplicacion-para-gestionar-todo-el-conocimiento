@@ -703,7 +703,9 @@ suave del color de **«Resaltado de lectura»**. Se desplaza como cualquier
 lista del teléfono: un arrastre corto ya no baja de golpe (el impulso extra
 quedó solo en el PDF, para pasar hojas).
 
-**Apariencia (Aa)** se guarda para **todos los lectores**:
+**Apariencia (Aa)** se guarda para **todos los lectores**, y también se abre
+sin un documento desde **Ajustes → Voz y lectura → «Tipografía y
+resaltado»** (ahí no está el zoom, que es de la página que estás viendo):
 
 - **Fuente**, en lo que es texto: cinco letras que vienen con la app, cada una
   escrita con su forma —**Lora** (serif de libro), **Source Sans** (sans
@@ -3393,7 +3395,9 @@ de escucharlo.
      arrastra de costado (hacia la izquierda, más rápido), con − y + de a
      una décima y los atajos **1,0 · 1,2 · 1,5 · 2,0 · 3,0**. La regla se
      aplica al soltarla. Con el lector de pantalla, se sube y se baja de a
-     una décima.
+     una décima. **Es una sola velocidad, que queda guardada**: con ella
+     empieza a leer lo próximo, y es la misma de **Ajustes → Voz y lectura →
+     «Velocidad de lectura»**.
 3. **Achicado**, el reproductor es una sola línea: **▶**, el título, **+10 s**
    y **⌃** para abrirlo (también tocando el título). **Arrastralo hacia
    abajo** para dejar de leer; con el lector de pantalla, es la acción
@@ -5371,19 +5375,40 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
   resaltadores de estudiar, tus subrayados, el amarillo de lo que se lee en
   voz alta y la hoja del PDF se siguen leyendo bien en cada tema (en Sepia, el
   amarillo claro se carga un poco para que se vea sobre el papel crema).
-- **Voz y lectura:** **«Biblioteca de voces»** (ver
-  [La biblioteca de voces](#la-biblioteca-de-voces)); **«Voces por
-  idioma»**, la voz elegida para cada idioma, con **✕** para volver a la del
-  teléfono; **«Clonación de voz»** y **«Crear una voz»** (ver
-  [Clonar una voz](#clonar-una-voz) y [Crear una voz](#crear-una-voz));
-  **«La nube para voces»**, apagada de entrada, con su estado (ver
-  [La nube para voces](#la-nube-para-voces)); en Android, **«Voces
-  descargadas»**: las voces sin conexión que bajaste, con lo que ocupa cada
-  una y **«Borrar»** (pide confirmar; la podés volver a bajar, y mientras
-  tanto ese idioma se lee con la del teléfono; si borrás Kokoro, las voces
-  que creaste en el teléfono no leen hasta volver a bajarlo); y **«Lectura
-  enfocada»**: el reproductor de lectura se achica solo mientras te
-  desplazás (ver [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)).
+- **Voz y lectura:** todo lo de escuchar y leer, en este orden.
+  - **Con qué voz se lee:**
+    - **«Biblioteca de voces»**, con la cara y el nombre de la voz que lee
+      ahora («Lee ahora: Daniela», o «la voz del teléfono»); tocala para
+      abrir la biblioteca (ver
+      [La biblioteca de voces](#la-biblioteca-de-voces));
+    - **«Voces por idioma»**, la voz elegida para cada idioma, con **✕**
+      para volver a la del teléfono;
+    - en Android, **«Voces descargadas»**, con cuántas voces sin conexión
+      tenés y lo que ocupan entre todas («N voces · tamaño»).
+      Adentro, lo que ocupa cada paquete y **«Borrar»** (pide confirmar; la
+      podés volver a bajar, y mientras tanto ese idioma se lee con la del
+      teléfono; si borrás Kokoro, las voces que creaste en el teléfono no
+      leen hasta volver a bajarlo).
+  - **Tus voces:** **«Clonación de voz»** y **«Crear una voz»** (ver
+    [Clonar una voz](#clonar-una-voz) y [Crear una voz](#crear-una-voz)), y
+    **«La nube para voces»**, apagada de entrada, con su estado (ver
+    [La nube para voces](#la-nube-para-voces)).
+  - **Cómo se escucha y cómo se lee:**
+    - **«Velocidad de lectura»**, con la de ahora («1,0×»): abre la misma
+      regla del reproductor, de 0,5× a 3×. Es una sola: con ella empieza a
+      leer todo, y cambiarla en el reproductor también la cambia acá;
+    - **«Lectura enfocada»**: el reproductor de lectura se achica solo
+      mientras te desplazás (ver
+      [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta));
+    - **«Tipografía y resaltado»**, con lo elegido («Lora · 100 % ·
+      Amarillo»): abre la misma **Apariencia** del marco de lectura —la
+      letra y su tamaño, el tono de la página de un PDF o una foto, el
+      color de lo que suena y el modo—, que vale para todos los lectores
+      (ver [El marco de lectura](#el-marco-de-lectura-un-solo-lector-para-todo)).
+
+  Lo que se ve con el teléfono bloqueado no está acá sino en **Privacidad**:
+  la tarjeta de la pantalla de bloqueo es de todo lo que suena, no solo de
+  la lectura.
 - **Citas:** el estilo de cita por defecto (APA, MLA, etc.) y su idioma.
 - **IA y modelos:** primero se elige la IA y después lo que hace con ella.
   - Arriba, los accesos a los tres modelos: **"Modelo de lenguaje"** (con
