@@ -25,6 +25,9 @@ import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 ///   nota se reubica por él (`TextAnchorRelocator`), como un subrayado. Si ya
 ///   no se encuentra, queda **sin lugar** —las dos posiciones en `null`— y
 ///   conserva lo demás: una nota no se pierde nunca.
+/// - **Una nota sobre el texto entero** (F45, paso 8b, v50) —la que se
+///   escribe desde «Notas (N)» sin elegir nada— no tiene lugar ni pedazo: el
+///   pedazo vacío es eso, y nunca se reubica (no hay qué buscar).
 /// - **[renditionId] va sin clave foránea, a propósito.** Soltar el texto de
 ///   una fuente a la papelera del contenido —o que se vaya de verdad— no se
 ///   lleva las notas ni las deja colgando de nada: la nota es de la fuente, y
@@ -85,7 +88,8 @@ class TextNotes extends Table {
   IntColumn get startOffset => integer().nullable()();
   IntColumn get endOffset => integer().nullable()();
 
-  /// El pedazo citado, copiado: con él se reubica.
+  /// El pedazo citado, copiado: con él se reubica. Vacío solo en una nota
+  /// sobre el texto entero, que no tiene lugar.
   TextColumn get excerpt => text()();
 
   /// Lo que la persona escribió.
@@ -114,7 +118,9 @@ class TextNotes extends Table {
     'CHECK ((start_offset IS NULL) = (end_offset IS NULL))',
     'CHECK (start_offset IS NULL OR start_offset >= 0)',
     'CHECK (start_offset IS NULL OR end_offset > start_offset)',
-    'CHECK (length(excerpt) > 0)',
+    // Con lugar, siempre su pedazo; sin pedazo, solo la nota sobre el texto
+    // entero (v50), que nunca tiene lugar.
+    'CHECK (length(excerpt) > 0 OR start_offset IS NULL)',
     'CHECK (length(trim(note)) > 0)',
   ];
 }

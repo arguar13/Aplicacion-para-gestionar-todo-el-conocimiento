@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
@@ -66,6 +67,21 @@ void main() {
     expect(lost.note, 'Se fue');
     expect(lost.excerpt, 'Dos');
     expect(await h.notes.watchCount(library).first, 1);
+  });
+
+  test('la nota sobre el texto entero (F45, paso 8b) sigue sin lugar: no '
+      'tiene pedazo que buscar', () async {
+    final library = await h.source('fuente', text: from);
+    final whole = (await h.notes.createOnWholeText(
+      target: library,
+      note: 'Todo',
+      color: HighlightColor.lime,
+    )).getRight().toNullable()!;
+
+    await reextract();
+
+    final after = await reload(library, whole.id);
+    expect(after, whole);
   });
 
   test('la que estaba sin lugar vuelve a su lugar si el texto nuevo tiene su '

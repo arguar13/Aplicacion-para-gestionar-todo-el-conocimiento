@@ -47,7 +47,8 @@ class TextNote {
   final int? start;
   final int? end;
 
-  /// El pedazo citado, copiado: con él se reubica.
+  /// El pedazo citado, copiado: con él se reubica. Vacío en una nota sobre
+  /// el texto entero ([wholeText]).
   final String excerpt;
 
   /// Lo que la persona escribió.
@@ -68,6 +69,11 @@ class TextNote {
 
   /// Si tiene un lugar guardado.
   bool get hasPlace => start != null;
+
+  /// Si es una nota sobre el texto entero (F45, paso 8b): la que se escribió
+  /// desde «Notas (N)» sin elegir nada. No cita ningún pedazo, así que nunca
+  /// tiene lugar.
+  bool get wholeText => excerpt.isEmpty;
 
   TextNote copyWith({
     String? note,

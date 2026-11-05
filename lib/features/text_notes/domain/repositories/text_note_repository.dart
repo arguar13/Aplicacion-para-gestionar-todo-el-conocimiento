@@ -38,6 +38,15 @@ abstract interface class TextNoteRepository {
     required HighlightColor color,
   });
 
+  /// Pone una nota sobre el texto entero de [target] (F45, paso 8b): la que
+  /// se escribe desde «Notas (N)» sin elegir nada. No tiene lugar ni pedazo
+  /// —[TextNote.wholeText]— y va a «Sin lugar». Falla si está en blanco.
+  Future<Either<Failure, TextNote>> createOnWholeText({
+    required TextNoteTarget target,
+    required String note,
+    required HighlightColor color,
+  });
+
   /// Cambia lo que dice [note]. Una nota no queda en blanco: para sacarla, se
   /// borra.
   Future<Either<Failure, TextNote>> edit(TextNote note, String text);

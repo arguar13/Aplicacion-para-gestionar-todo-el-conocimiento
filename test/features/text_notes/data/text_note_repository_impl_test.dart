@@ -158,6 +158,56 @@ void main() {
       expect((await h.notesOf(library)).single.note, 'Algo');
     });
 
+    test('una nota sobre el texto entero (F45, paso 8b): sin lugar ni '
+        'pedazo, va al final con las sin lugar; en blanco no se guarda, y se '
+        'edita, se borra y vuelve con «Deshacer» como cualquiera', () async {
+      final library = await h.source('fuente', text: text);
+      final creation = await h.creation();
+      h.vault.at(1);
+      await h.noteOn(library, text, 'tablas', note: 'Con lugar');
+      h.vault.at(2);
+      final whole = (await h.notes.createOnWholeText(
+        target: library,
+        note: '  Todo el libro  ',
+        color: HighlightColor.coral,
+      )).getRight().toNullable()!;
+
+      expect(whole.wholeText, isTrue);
+      expect(whole.hasPlace, isFalse);
+      expect(whole.note, 'Todo el libro');
+      expect(whole.renditionId, 'rend-fuente');
+      expect(
+        [for (final n in await h.notesOf(library)) n.note],
+        ['Con lugar', 'Todo el libro'],
+      );
+      expect(await h.notes.watchCount(library).first, 2);
+      expect(
+        (await h.notes.createOnWholeText(
+          target: library,
+          note: ' \n',
+          color: HighlightColor.coral,
+        )).getLeft().toNullable(),
+        isA<ValidationFailure>(),
+      );
+
+      // En lo creado también: un informe no tiene texto que elegir.
+      final onCreation = (await h.notes.createOnWholeText(
+        target: creation,
+        note: 'Del informe',
+        color: HighlightColor.lime,
+      )).getRight().toNullable()!;
+      expect((await h.notesOf(creation)).single, onCreation);
+
+      final edited = (await h.notes.edit(
+        whole,
+        'Otra',
+      )).getRight().toNullable()!;
+      final removed = (await h.notes.delete(edited)).getRight().toNullable()!;
+      expect(await h.notes.watchCount(library).first, 1);
+      expect((await h.notes.restore(removed)).isRight(), isTrue);
+      expect((await h.notesOf(library)).last, edited);
+    });
+
     test('un pedazo que no es válido no se guarda', () async {
       final library = await h.source('fuente', text: text);
       for (final (start, end) in [(-1, 4), (5, 5), (6, 2)]) {

@@ -159,6 +159,30 @@ class TextNoteRepositoryImpl implements TextNoteRepository {
   });
 
   @override
+  Future<Either<Failure, TextNote>> createOnWholeText({
+    required TextNoteTarget target,
+    required String note,
+    required HighlightColor color,
+  }) => _guard('createOnWholeText', () async {
+    final text = note.trim();
+    if (text.isEmpty) return left(_blank);
+    final now = _clock();
+    final created = TextNote(
+      id: _ids.next(),
+      origin: TextNoteOrigin.note,
+      target: target,
+      excerpt: '',
+      note: text,
+      color: color,
+      renditionId: target.renditionId,
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _db.into(_table).insert(_companionOf(created));
+    return right(created);
+  });
+
+  @override
   Future<Either<Failure, TextNote>> edit(TextNote note, String text) => _guard(
     'edit',
     () async {

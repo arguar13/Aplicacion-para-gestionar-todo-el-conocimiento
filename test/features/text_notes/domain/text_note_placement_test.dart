@@ -39,6 +39,13 @@ void main() {
     for (final p in placed) (p.note.id, p.start, p.end),
   ];
 
+  test('la nota sobre el texto entero (F45, paso 8b) no tiene lugar en '
+      'ningún texto: va con las sin lugar', () {
+    final placed = placeTextNotes([note('todo', '')], content: text);
+
+    expect(places(placed), [('todo', null, null)]);
+  });
+
   test('lo guardado vale mientras en su lugar siga el pedazo', () {
     final start = text.indexOf('monte');
     final placed = placeTextNotes([

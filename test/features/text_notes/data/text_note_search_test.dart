@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/features/chat/data/services/chunk_passage_retriever.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
@@ -162,6 +163,23 @@ void main() {
       expect(passage.excerpt, contains('El Decálogo, dos veces'));
       expect(passage.excerpt, contains('«tablas»'));
       expect(passage.sourceCharStart, isNull);
+    });
+
+    test('la nota sobre el texto entero (F45, paso 8b) va sola, sin un '
+        'pedazo vacío entre comillas', () async {
+      final source = await h.source('fuente', text: text);
+      await h.notes.createOnWholeText(
+        target: source,
+        note: 'Todo el Éxodo',
+        color: HighlightColor.lime,
+      );
+
+      final [passage] = await ChunkPassageRetriever(
+        database: h.db,
+      ).retrieve('exodo');
+
+      expect(passage.itemId, 'fuente');
+      expect(passage.excerpt, 'Todo el Éxodo');
     });
 
     test('también la de un resaltado de antes, y la de lo procesado', () async {

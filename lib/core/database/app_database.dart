@@ -193,7 +193,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 49;
+  static const currentSchemaVersion = 50;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -1410,6 +1410,41 @@ class AppDatabase extends _$AppDatabase {
           }
           await _rebuildTextNoteSearchIndex();
           await _requireSameCounts(before, step: 'v49', tables: tables);
+        }
+        // La nota sobre el texto entero (F45, paso 8b): la que se escribe
+        // desde «Notas (N)» sin elegir nada, sin lugar y sin pedazo. Cambia
+        // una restricción de `text_notes` —el pedazo vacío vale sin lugar—, y
+        // SQLite solo lo hace rehaciendo la tabla: con las mismas filas, sus
+        // `row_key` —los del índice de texto— y sus índices, y el índice de
+        // texto rehecho y contado. Desde antes de v49 la tabla ya nació así.
+        if (from == 49) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+            ...VaultCounts.studyTables,
+            ...VaultCounts.itemSpaceTables,
+            ...VaultCounts.datedEventTables,
+            ...VaultCounts.processedTables,
+            ...VaultCounts.processedImageTables,
+            ...VaultCounts.studyCreationTables,
+            ...VaultCounts.textNoteTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          for (final trigger in textNoteSearchTriggerNames) {
+            await customStatement('DROP TRIGGER IF EXISTS $trigger');
+          }
+          await migrator.alterTable(TableMigration(textNotes));
+          await _rebuildTextNoteSearchIndex();
+          await _requireSameCounts(before, step: 'v50', tables: tables);
         }
       });
     },

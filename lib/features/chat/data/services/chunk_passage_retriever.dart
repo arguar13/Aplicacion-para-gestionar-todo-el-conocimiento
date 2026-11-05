@@ -139,10 +139,12 @@ class ChunkPassageRetriever implements VaultRetriever {
           'JOIN item i ON i.id = pp.document_id '
           'UNION ALL '
           // Las notas en el texto (F45, mejora 19): la nota y, debajo, el
-          // pedazo citado, sin posición en una forma.
+          // pedazo citado, sin posición en una forma. La nota sobre el texto
+          // entero (paso 8b) no cita nada: va sola.
           'SELECT ns.item_id, i.title, '
-          "ns.note || char(10) || '«' || COALESCE(tn.excerpt, "
-          "hh.excerpt, '') || '»', NULL, topn.s, 0 FROM ( "
+          "CASE WHEN COALESCE(tn.excerpt, hh.excerpt, '') = '' THEN ns.note "
+          "ELSE ns.note || char(10) || '«' || COALESCE(tn.excerpt, "
+          "hh.excerpt) || '»' END, NULL, topn.s, 0 FROM ( "
           'SELECT text_note_search.rowid AS rid, '
           'text_note_search.rank AS s FROM text_note_search '
           'WHERE text_note_search MATCH ?1 '
