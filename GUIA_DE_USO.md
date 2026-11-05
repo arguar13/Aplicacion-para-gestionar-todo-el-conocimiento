@@ -358,7 +358,7 @@ video, la página de un PDF, un fragmento de texto), lo vas a ver debajo del
 resultado; tocarlo te lleva directo a ese lugar exacto.
 
 También busca en **lo que escribiste sobre el texto de cada original**: las
-notas de tus resaltados (y, cuando estén, las notas en el texto). Son texto
+notas de tus resaltados y las [notas en el texto](#notas-en-el-texto). Son texto
 tuyo, como el título: lo que coincide ahí aparece antes que lo que solo lo
 menciona en el cuerpo de otra fuente. Lo que anotaste en **Procesado** no
 aparece acá —se busca en Procesado—, ni lo de la papelera.
@@ -723,12 +723,13 @@ quedó solo en el PDF, para pasar hojas).
 cambiarle el nombre (en lo creado) y el tipo; después, en grupos, lo que ese
 documento ofrece —**Resumir**, **"Descargar con lo marcado"**, **"Editar el
 texto"**, **"Copiar todo"**, **Descargar** y **Compartir** lo creado, los
-detalles, volver a crear—, **"Añadir a la cola"** (lo que estás leyendo suena
+detalles, volver a crear—, **«Notas (N)»** con las notas en el texto (ver
+[Notas en el texto](#notas-en-el-texto)), **"Añadir a la cola"** (lo que estás leyendo suena
 después de lo de ahora; si no suena nada, empieza) y, al final y en rojo,
 **lo que se borra**: la copia del original, la creación o el documento
 procesado. **Nunca la fuente de la Biblioteca.** Lo que todavía no está en la
-app no aparece: descargar y exportar el audio, las notas en el texto,
-favoritos y marcar como terminado llegan en próximas versiones.
+app no aparece: descargar y exportar el audio, favoritos y marcar como
+terminado llegan en próximas versiones.
 
 **Abajo, el reproductor.** Sin nada sonando, **"Escuchar"** lee lo que ves.
 Sonando, el reproductor anclado de toda la app —el mismo que en cualquier
@@ -836,8 +837,9 @@ seleccionar aparece en cambio una barrita sobre la selección:
   lector de pantalla lo dice).
 - **Subrayar**: lo marca con una línea del último color que elegiste (el
   amarillo, si todavía no elegiste ninguno).
-- **Copiar**, **Escuchar** (lee en voz alta lo seleccionado), **Nota** (resalta
-  y te deja escribir por qué), **Extraer como nota** (de una fuente, va a las
+- **Copiar**, **Escuchar** (lee en voz alta lo seleccionado), **Nota** (una
+  nota sobre ese pedazo: ver [Notas en el texto](#notas-en-el-texto)),
+  **Extraer como nota** (de una fuente, va a las
   notas de su documento procesado: ver
   [Extraer como nota va a Procesado](#extraer-como-nota-va-a-procesado)),
   **Crear tarjeta** y
@@ -886,6 +888,73 @@ ni la mueve de donde estabas. Eligiendo a mano, **cualquier palabra** de la
 página se puede tocar, esté o no en una oración resaltada. Una oración que en
 la página tiene una nota al pie en el medio se pinta igual, salteando la nota.
 Tocar el menú, una etiqueta o algo que no es del artículo no elige nada.
+
+### Notas en el texto
+
+Como en Adobe Reader o en Word, podés dejar **una nota sobre cualquier pedazo
+del texto**: en el original de la Biblioteca, en la copia del original de
+Procesado, en el texto, el resumen y la síntesis de un documento procesado, y
+en lo creado (el texto completo, el resumen y la síntesis). Las notas **se
+agregan**: el documento no cambia nunca, y de la Biblioteca nada se borra.
+
+**Poner una nota.** Seleccioná un pedazo y tocá **Nota** en la barrita (en el
+texto, el resumen y la síntesis de un procesado, **Nota** está en el menú de
+lo seleccionado). Se abre una hoja con el pedazo citado, los **nueve colores**
+de resaltar —de entrada, el último que elegiste— y el campo para escribir.
+**Listo** la guarda; si la cerrás de otro modo con algo escrito, también se
+guarda; **Cancelar** no guarda nada. **Una nota en blanco no se guarda**: la
+hoja te lo dice. En la copia del original de Procesado, que no se resalta,
+**Nota** está igual.
+
+**Cómo se ve.** El pedazo queda con un **subrayado fino punteado** del color
+de la nota y, **en el margen derecho, a la altura de su renglón, un globito**
+de ese color. No tapa el texto ni lo corre: va en el margen que la columna ya
+tenía. Si en un mismo renglón hay varias notas, el globito lleva el número.
+Con la letra al doble o en un teléfono angosto, el globito sigue en el margen,
+más chico.
+
+**Abrir una nota.** Tocá el globito **o el pedazo punteado**. Se abre su
+tarjeta: lo que dice, el pedazo citado, cuándo la escribiste (o la
+editaste), y:
+
+- **los colores**: tocás uno y la nota cambia de color en el acto;
+- **Editar**: la escribís de nuevo y **Listo** (en blanco no se guarda: para
+  sacarla, se borra);
+- **Copiar**: copia lo que dice;
+- **Borrar**: la borra, y el aviso de abajo trae **Deshacer**, que la
+  devuelve igual, en el mismo lugar.
+
+Un globito con varias notas abre primero la lista de ese renglón.
+
+**«Notas (N)».** En **⋮** del marco de lectura está **«Notas (N)»**, con
+cuántas notas tiene lo que leés. Abre la lista **en el orden del texto**, cada
+una con su color, lo que dice y, debajo, el pedazo que cita. Tocá una y el
+lector **va a su lugar** —su página, su renglón—, lo marca un momento y la
+abre. Al final, **«Sin lugar»**: las notas cuyo pedazo ya no está en el texto
+(se volvió a extraer y cambió; nunca se pierden) y las que escribiste **sobre
+el texto entero**. Para escribir una de esas, abajo de la lista está **«Nota
+sobre el texto entero»**. En lo creado de varios documentos, la lista va por
+documento, con su título.
+
+**Las notas de tus resaltados de antes** aparecen mezcladas en la lista, en su
+lugar. Cambiarles el color cambia también el del resaltado, y borrarlas le
+saca la nota pero deja el resaltado. Tocar el pedazo de un resaltado con nota
+abre su ficha de siempre.
+
+**En el PDF, en la página web y en la imagen de una foto**, las notas también
+se ponen con **Nota** al seleccionar: se guardan sobre el texto extraído, como
+los resaltados. Sobre la página no se dibuja el globito; las ves en
+**«Notas (N)»** (la lista lo dice arriba). En una foto, ir a una nota desde la
+imagen pasa a **«Texto»**, donde está con su globito.
+
+**En un informe** (lo creado), que no es un texto de corrido, las notas son
+sobre el informe entero: se escriben y se ven en **«Notas (N)»**.
+
+**Lo que es de cada uno:** las notas del original de la Biblioteca son de la
+fuente; las de la copia de Procesado, de la copia; nada de uno aparece en el
+otro. Una nota puesta leyendo el resumen de un procesado está también en su
+texto completo, en el mismo lugar. Para el lector de pantalla, cada globito y
+cada nota de la lista dicen *"Nota: …, sobre «…»"*.
 
 ---
 
