@@ -524,6 +524,10 @@ stagearon en su versión intermedia.
     la elección que no se recuerda, «Estudio» que lee apagada, el anuncio equivocado, la búsqueda
     que pide un tema como documento, el pulso que no late y alejarse de la burbuja hacia los
     temas.
+  - commit a commit (`verify_commit`): cinco dan 20, uno más que la línea base. `0795afaa` y
+    `9a4470a5`, por un `if` sin llaves en `canvas_layers.dart`, que corrige `a994cb79`; ese y
+    `e8c95e1d` y `e177716a`, por el import de `RelationKind` que quedó sin uso en
+    `map_canvas_view.dart`, que saca `215319be`. La historia ya estaba subida y no se reescribió.
 - **Queda para el paso 6 (el cierre):**
   - la suite entera y la medición en el emulador de los gestos con las capas prendidas, contra la de
     F18 —la burbuja suma un nodo de lejos; Parecidos compara en otro isolate—;

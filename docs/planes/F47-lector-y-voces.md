@@ -665,6 +665,9 @@ Siete commits, de `7b26d6d8` a `7d82b688`, y el de este avance
     de otro idioma, una voz borrada que sigue leyendo, el filtro que no cuenta, la favorita que no
     se guarda, la cara que cambia, una voz que se baja sin pedirla, un paquete con otra huella o
     sin modelo, y abrir un paquete afuera de su carpeta.
+  - commit a commit (`verify_commit`): `2e6fba0c` y `bdbb0a4a` dan 20, por dos textos pegados
+    sin espacio en la prueba del controlador del lector, que corrige `7d82b688`. La historia ya
+    estaba subida y no se reescribió.
 - **Queda para después:**
   - medir en el teléfono cuánto tarda cada voz en generar una oración (sobre todo Kokoro) y si la
     pausa entre oraciones se nota;
@@ -725,6 +728,9 @@ cada tramo y la escucha— es el paso 6b.
     Conversación, las dos personas con la misma voz, la cita que no lleva al pasaje, el trabajo que
     no se retoma y el botón que finge un audio. Una salió «colgada» con la PC cargada; sola muere
     en 11 s.
+  - commit a commit (`verify_commit`): `e45b01c2` da 20, por el import de `material.dart` sin
+    uso en `podcast_kind.dart`, que saca `09aa91e9`. La historia ya estaba subida y no se
+    reescribió.
 - **Queda para después:**
   - **el paso 6b:**
     - el audio de cada tramo con las voces sin conexión;

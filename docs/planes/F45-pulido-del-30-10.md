@@ -613,6 +613,9 @@ Ocho commits, de `513750fe` a `6d5e5780` (mejora 11, en `lib/features/creations`
     y las hojas se prueban a 360 dp con la letra al doble, en claro y en oscuro, con la semántica;
   - murieron las 17 mutaciones. Dos sobrevivieron en la primera vuelta y se reforzaron las pruebas
     (el nombre de cada fondo y los gráficos del pedido).
+  - commit a commit (`verify_commit`): `0eaaaf93` da 20, por un renglón de más de 80 columnas
+    en la prueba del esquema de las infografías, que corrige `6d5e5780`. La historia ya estaba
+    subida y no se reescribió.
 - **Queda para después:**
   - en la cuadrícula de imágenes, solo la primera usa la ilustración de la diapositiva; las demás
     las dibuja la app con su ícono. Pedir una por imagen cambiaría el costo que se avisa antes de
