@@ -402,6 +402,10 @@ Lo que no se suma, y por qué (para que quede dicho):
 - **G. Los widgets, con `home_widget`, solo en Android.** Es una dependencia nueva del código, no
   software que se instale en la PC ni en el teléfono.
   - *Alternativa:* dejarlos para después.
+  - **Precisada el 5/11 por el usuario**: «Seguir escuchando» no muestra el título con la bóveda
+    cerrada —dice «Protegido: tocá para seguir»—, y un interruptor en Ajustes › Widgets, «Mostrar
+    el título con la bóveda cerrada», lo deja a la vista para quien lo quiera. De entrada,
+    apagado: protege por defecto. Hecho en el paso 7a-bis.
 - **H. La velocidad va de 0,5× a 3,0×, sin candados.**
 - **I. El orden:**
   - F47 va **después de F45 y antes de F46**, porque cambia todas las pantallas de lectura y
@@ -1073,3 +1077,86 @@ parte —Ajustes → «Voz y lectura» entera— es el paso 7b.
   - los enlaces `[…](#…)` del cuerpo de la guía se ven pero no se tocan: hacerlo pide cambiar
     `RenderedMarkdown`, que usa toda la app;
   - no se miró en el emulador ni en el teléfono.
+
+### Paso 7a-bis (hecho): «Seguir escuchando» y la bóveda cerrada
+
+Lo que quedó «para decidir con el dueño» en el 7a, decidido el 5/11 (decisión G, precisada): con
+la bóveda cerrada el widget no muestra el título, y un interruptor lo deja a la vista para quien
+lo quiera. De entrada, apagado. Cuatro commits, de `f0f32e25` a `20c0849b`, y el de este avance.
+
+- **El interruptor**, «Mostrar el título con la bóveda cerrada», al pie de Ajustes › Widgets, en
+  lugar del aviso de antes (`f47P7WidgetsPrivacy`, borrado). Debajo, a todo el ancho, lo que pasa
+  según cómo esté: apagado, «Con la bóveda cerrada, también al reiniciar el teléfono, «Seguir
+  escuchando» dice «Protegido»»; prendido, «Cualquiera que mire la pantalla de inicio ve lo último
+  que escuchaste». Va solo ahí y no también en Ajustes: es cómo se ve uno de los widgets, y quien
+  no los usa no tiene nada que decidir. Se guarda en las preferencias de la app
+  (`continue_listening.show_while_locked`), como lo escuchado, y cambiarlo cambia el widget en el
+  momento.
+- **Con la bóveda cerrada** el widget dice «Protegido: tocá para seguir» (en inglés, «Protected:
+  tap to continue»); al abrirla vuelve el título. Tocarlo sigue igual: abre la app, pide la clave
+  y después va adonde se escuchó.
+- **El widget decide solo, también con la app muerta.** Al reiniciar el teléfono la bóveda queda
+  cerrada sin que Dart se entere, así que no alcanza con avisarle al cerrar. Dart le deja al
+  widget, junto al título, si se ve con la bóveda cerrada y **en qué encendido del teléfono está
+  abierta la bóveda** (`continue_listening_show_locked` y `continue_listening_open_boot`), y el
+  widget lo compara cada vez que se dibuja con el encendido de ahora.
+  - **El criterio es el de la bóveda, sin copia:** el encendido es el contador de arranques de
+    Android (`Settings.Global.BOOT_COUNT`), que la bóveda anota al abrirse y compara al abrir la
+    app para entrar sin la clave. Se lee en un solo lugar, `DeviceBoot.kt`, que lo da por el canal
+    `app.sinapsis/device_boot` a la bóveda y al widget, en el mismo texto que ve Dart (el número
+    en decimal). Un censo comprueba que ningún otro archivo de Kotlin lo lee. Reiniciado el
+    teléfono, el contador sube: la bóveda pide la clave y el widget oculta el título, siempre a la
+    par.
+  - **La regla**, una función pura de cada lado con los mismos tres casos
+    (`ContinueListeningDisplay.shownIn` en Dart y `HomeWidgets.continueListeningShown` en
+    Kotlin): sin nada escuchado, «Todavía no escuchaste nada»; a la vista por elección, el título;
+    si no, el título solo si el encendido en que la bóveda está abierta es el de ahora. En
+    cualquier otro caso, lo genérico: la bóveda cerrada, un encendido que no se sabe o lo que dejó
+    la versión del 7a sin estas claves. Ante la duda, oculta.
+  - **Además**, el widget se vuelve a dibujar con el arranque del teléfono (`BOOT_COMPLETED`, que
+    solo manda el sistema), sin esperar a que lo pida la pantalla de inicio.
+  - **El orden al guardar:** cada clave se guarda por separado y el sistema podría dibujar el
+    widget entre una y otra; primero va lo que restringe y el título al final, así que cuando algo
+    pasa a ocultarse no hay un instante en que se vea.
+  - **«Bloquear bóveda»** lo oculta en el momento: Dart manda que no hay encendido abierto. No hay
+    otros cierres: la bóveda no se cierra por tiempo ni al pasar al fondo (lo comprueba
+    `vault_session_per_boot_test`), solo a mano o al apagar o reiniciar el teléfono.
+  - Mientras la app arranca y todavía no sabe si la bóveda quedó abierta, no le manda nada al
+    widget: sigue con lo último, que de por sí no muestra de más.
+- **«Para hoy» no cambia:** con la bóveda cerrada sigue mostrando la cifra. Es un número, no dice
+  de qué son las tarjetas; ocultarlo le quitaría al widget su razón de ser sin proteger nada.
+  «Guardar rápido» no muestra nada propio.
+- **Archivos:** `home_screen_widgets.dart` (`ContinueListeningDisplay` y `ContinueListeningShown`),
+  `home_widgets_providers.dart` (el interruptor, el encendido de ahora y lo que se manda),
+  `android_home_screen_widgets.dart`, `null_home_screen_widgets.dart`, `home_widgets_binding.dart`
+  (solo lo que escucha `initState`; `_onPlaying` no se tocó), `home_widgets_screen.dart`;
+  `DeviceBoot.kt` (nuevo), `HomeWidgets.kt`, `HomeWidgetProviders.kt`, `SinapsisEngine.kt`, el
+  manifiesto y los textos de los widgets en castellano y en inglés; los `.arb`.
+- **Verificado:**
+  - analyze en 19. En el primer intento de la pantalla quedaban dos de más (`containsSemantics`,
+    obsoleto): se cambió por `isSemantics`, como la prueba de al lado, antes de cerrar el commit;
+  - 967 pruebas de la app (`test/app`), la bóveda, Ajustes y los widgets, y 42 de la Ayuda (la
+    guía empaquetada es la de la raíz), todas en verde. 22 nuevas: 13 de la regla y de lo que se
+    le manda al widget (de entrada oculto; cerrada, el genérico; abierta en este encendido, el
+    título; reiniciado el teléfono o sin saber el encendido, el genérico; el interruptor, al
+    instante y guardado; a la vista por elección, siempre el título), 3 del binding con la
+    bóveda cerrada (abrirla y bloquearla, el interruptor, el toque que pide la clave y después
+    va adonde se escuchó), 1 del orden al guardar, 4 de la pantalla (en claro y en oscuro a
+    360 dp con la letra al doble, prender y apagar, el lector de pantalla) y 2 censos;
+  - **lo que encontró la prueba de la pantalla:** con la explicación como subtítulo del
+    interruptor, a 360 dp con la letra al doble quedaba en una columna de 172 px más alta que la
+    pantalla. Pasó abajo, a todo el ancho, y los textos se acortaron;
+  - la regla de Kotlin no tiene prueba propia: el proyecto no tiene pruebas de JVM y sumarlas era
+    infraestructura nueva. Queda en una función pura, comentada caso por caso, y los censos
+    comprueban que tiene los mismos tres casos que la de Dart, que lee el encendido de
+    `DeviceBoot` y que el receptor escucha el arranque;
+  - no se compiló el APK ni se miró en el emulador ni en el teléfono.
+- **Queda para después:**
+  - **la tarjeta de la notificación de medios** (paso 2) se arma con `VISIBILITY_PUBLIC` y el
+    título de lo que suena (`MediaPlaybackService.kt`): en la pantalla de bloqueo se ve el título
+    aunque la bóveda esté cerrada, y con «ocultar contenido sensible» del teléfono también, porque
+    es pública. Mientras suena, la bóveda está abierta —se escucha desde la app—, pero al apagar
+    la pantalla con algo sonando, el título queda a la vista de quien tome el teléfono. Decidir si
+    pasa a `VISIBILITY_PRIVATE` con una versión pública sin el título, o si sigue igual;
+  - probarlo en el teléfono: reiniciar con el widget puesto y ver que dice «Protegido» antes de
+    abrir la app.
