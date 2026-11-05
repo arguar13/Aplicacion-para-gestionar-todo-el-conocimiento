@@ -7,6 +7,7 @@ import 'package:sinapsis/features/creations/podcast/data/service_podcast_voicer.
 import 'package:sinapsis/features/creations/podcast/domain/podcast_audio.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_generator.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_options.dart';
+import 'package:sinapsis/features/creations/podcast/presentation/podcast_export.dart';
 import 'package:sinapsis/features/creations/podcast/presentation/podcast_labels.dart';
 import 'package:sinapsis/features/creations/podcast/presentation/podcast_listening.dart';
 import 'package:sinapsis/features/creations/podcast/presentation/widgets/podcast_viewer.dart';
@@ -50,6 +51,8 @@ CreationKindSpec podcastKindSpec() =>
       // Con una voz de la nube (paso 4), el costo antes de pedirlo
       // (decisión F).
       confirmGenerate: confirmPodcastGenerate,
+      // «Compartir» y «Descargar»: el audio o el guion como texto (paso 5).
+      exporter: exportPodcast,
     );
 
 /// Las voces elegidas, para «Ver petición y fuentes»: quién habla y con qué
