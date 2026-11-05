@@ -903,17 +903,172 @@ creado. Con esto el censo de funciones del marco queda en 30 de 30.
     corrido, el texto de corrido sin globitos ni «Nota», la transcripción con
     la «Nota» de antes, el informe sin notas, la migración que no rehace la
     tabla y el chat con un «» vacío.
+- **Queda abierto:** lo que este paso dejó —el globito sobre la página de un
+  PDF y dentro de la página web, las notas sobre pedazos de un informe y las
+  notas sobre el texto entero en las descargas— lo hizo el paso 8c (abajo);
+  lo que sigue abierto está en su Avance.
+
+### Paso 8c (hecho): las notas sobre la página, en el informe y en las descargas
+
+Lo que el 8b dejó abierto, sobre sus datos y su interfaz (decisión I): las
+notas se ven **sobre la página misma** de un PDF y **dentro** de una página
+web; **un informe lleva notas sobre sus pedazos**; y **las descargas llevan
+las notas sobre el texto entero**, al comienzo. Sin esquema nuevo: sigue en
+v50.
+
+- **El PDF** (`PdfStudyOverlay`, `PdfViewerView`):
+  - cada nota se lleva a los rectángulos de su página con lo mismo que lo
+    estudiado (`PdfStudyPage.boxes`): **el punteado** —puntos cuadrados del
+    grueso de la línea, separados por otro tanto, del color de la línea de
+    la nota sobre el papel, multiplicando— debajo de las letras, encima de
+    todo y sin tapar nada;
+  - **el globito**, en el margen derecho de la página a la altura del
+    renglón donde empieza el pedazo, uno por renglón con el número si son
+    varias (`noteSpots`), como el ícono de nota de Adobe: va en
+    `pageOverlaysBuilder` de `pdfrx`, que lo pone sobre la página y lo mueve
+    con ella al hacer zoom y al desplazarse; mide siempre 24 (no crece con el
+    zoom ni con la letra) y se toca en 40 por `PdfOverlayInteractionRegion`,
+    que no le quita al visor el arrastre, el zoom ni la selección;
+  - **tocar** el globito o el pedazo (`notesAt`, con la regla del 8b: la
+    nota de un resaltado de antes, sola, abre su resaltado) abre la tarjeta
+    de siempre;
+  - **«Notas (N)»** lleva a su página y a su renglón (`placeOf`), lo marca
+    dos segundos con el fondo de resaltar sobre el papel (`flash`) y la abre;
+  - una página escaneada no tiene letras: lleva el aviso de siempre —ahora
+    también por sus notas— y la nota está en la lista, que lleva a la página.
+- **La página web** (`archived_page_study.dart`, `WebPageViewerView`), por
+  el mismo puente que los resaltados: el programa de la página envuelve el
+  pedazo de cada nota en un `span` punteado (encima de lo resaltado a mano y
+  debajo de las palabras clave) y pone los globitos —botones con
+  `aria-label`, uno por renglón, con el número si son varias— en una capa
+  aparte, fuera del texto que se cuenta, **al costado del párrafo**, en un
+  margen de 30 px que se abre a la derecha de la página con la primera nota
+  (`html.sn-notes`). Se vuelven a ubicar cuando la página cambia de tamaño o
+  termina de cargar una foto. Tocar el globito avisa `notes`; tocar el
+  pedazo, `tap` con las notas y el resaltado de ahí. «Notas (N)» pide
+  `revealNote`: baja hasta el renglón y lo marca dos segundos.
+- **«Notas (N)»**: sin el aviso de que en la página no se marcan
+  (`f45S8bNotesOnPage` y `TextNoteSource.onPage` salieron); cada visor le da
+  al marco su texto con su `reveal`, en vez del envoltorio del original.
+- **El informe** (`ReportText`, `ReportPartText`, `ReportNotes`):
+  - **su texto canónico**: el título, la bajada y, de cada sección, su
+    título, los bloques de su texto, el término y la definición de cada
+    entrada y cada pregunta con sus opciones —en el orden guardado, no en el
+    mezclado—, lo que se ve sin `**` ni `*`, separados por un renglón en
+    blanco, con el lugar de cada parte (`ReportTextPlace`);
+  - cada texto del visor es una parte (`ReportPartText`), dentro de una
+    `SelectionArea`: lo elegido va de la primera letra de la primera parte
+    a la última de la última, y **«Nota»** está en el menú de lo elegido
+    —primero, para que en un teléfono no quede en «Más»; lo mismo en el
+    texto de corrido del 8b—;
+  - el punteado se pinta en los pedazos de cada parte, y **el toque es del
+    pedazo** (un `TapGestureRecognizer` por pedazo con nota), así que tocar
+    fuera de él sigue eligiendo la opción o plegando la sección; el globito,
+    en un margen de 28 que aparece con la primera nota (`TextNoteMargin`);
+  - «Notas (N)» despliega la sección plegada, baja hasta la parte y la
+    marca dos segundos; la nota de una pregunta en el formato de lectura no
+    se ve en el informe, y la lista la abre.
+- **Las descargas**:
+  - la descarga marcada (`WholeDocumentNotes`, `buildWholeDocumentNotes`)
+    lleva las notas sobre el texto entero **al comienzo**, como notas del
+    documento, con el estilo de las demás notas de cada formato: en el PDF,
+    notas del PDF (`Text`) de su color arriba a la izquierda de la primera
+    página, una al lado de la otra, con el título «Notas del documento»
+    (`T`); en el Word y el texto suelto, un bloque con el título, cada nota
+    a 10 puntos —la letra de una nota al pie— con una raya de su color a la
+    izquierda, y una raya fina abajo, como la de las notas al pie; en el
+    Markdown, una cita después del encabezado `---`; en la página web y el
+    EPUB (en su primer capítulo), una sección con su título, la lista y una
+    raya. «Mis notas» se ofrece también con solo una de esas;
+  - **el informe** (`ReportExportNotes`, `ReportNoteCalls`), en el PDF y en
+    el Markdown: las del informe entero al comienzo, debajo del título,
+    bajo «Notas del informe»; las de un pedazo, con su número volado justo
+    después del pedazo y lo que dicen al final (en el PDF, bajo «Notas»,
+    antes de las respuestas; en el Markdown, notas al pie), numeradas en el
+    orden en que aparecen.
+- **Decisión — el globito del PDF como capa de la página, no pintado**: se
+  podía pintar en el lienzo de la página como el punteado, pero entonces no
+  tiene semántica ni un toque propio. Como widget de `pageOverlaysBuilder`
+  sigue a la página igual, lleva su `Semantics` («Nota: …, sobre "…"») por
+  fuera de la región de toque —que ignora el puntero y bloquea las acciones
+  del lector de pantalla adentro— y no compite con los gestos del visor.
+- **Decisión — el margen de la página web**: el globito no puede ir sobre
+  el texto, y una página para el teléfono llega hasta el borde. Se abre un
+  margen de 30 px a la derecha del documento con la primera nota: la página
+  se acomoda una vez —la correspondencia con el texto extraído es por
+  letras, no por lugar, así que nada se desubica— y ninguna letra queda
+  tapada, como el margen de la transcripción del 8b.
+- **Decisión — la foto**: su texto se leyó con el OCR (ML Kit o Tesseract),
+  que guarda solo el texto, no dónde está cada letra en la imagen: no hay
+  una capa de texto ubicable. Sus notas siguen en «Texto», con su globito, y
+  «Notas (N)» pasa ahí. Para ponerlas sobre la imagen habría que volver a
+  leer cada foto guardando los recuadros del OCR —otro paso, con su
+  esquema—.
+- **Decisión — el informe sin esquema nuevo**: `TextNoteTarget.creation` ya
+  tenía lugar y pedazo; faltaba sobre qué texto valen. Su texto canónico se
+  arma igual siempre que el informe sea el mismo, y si se vuelve a generar,
+  `placeTextNotes` busca cada nota por su pedazo. Las preguntas van siempre
+  en él, también en el formato de lectura, para que el lugar de cada nota no
+  cambie con el formato.
+- **Decisión — las notas sobre pedazos en la descarga del informe**: no
+  estaban pedidas, pero con notas sobre pedazos un informe descargado sin
+  ellas habría dejado afuera lo que un documento lleva; van como en un
+  documento, con su llamada. La de una pregunta en el formato de lectura,
+  que no tiene dónde ir, va al comienzo con el pedazo que cita.
+- **Archivos**: `report_canonical_text.dart`, `report_export_notes.dart`,
+  `report_markdown.dart`, `report_notes.dart`, `report_view.dart`,
+  `report_section_card.dart`, `report_question_card.dart`,
+  `report_text.dart`, `report_export.dart`, `report_pdf_exporter.dart`;
+  `pdf_study_overlay.dart`, `pdf_viewer_view.dart`, `archived_page_study.dart`,
+  `web_page_viewer_view.dart`, `image_viewer_screen.dart`,
+  `original_view.dart`, `document_highlight_toolbar.dart`,
+  `extract_viewer.dart`; `text_note_margin.dart` (el dibujo del globito,
+  `TextNoteBubbleFace`, aparte de su semántica), `text_notes_list_sheet.dart`;
+  en la exportación, `document_note.dart`, `pdf_mark.dart`,
+  `document_marks_builder.dart`, `marked_document_writer.dart`,
+  `download_marked_document_usecase.dart`, los seis escritores y
+  `study_download_sheet.dart`; tres textos nuevos (`f45P8c…`) y uno menos.
+- **Verificado** (sobre `main` 05d5a002):
+  - analyze en 19, la línea base;
+  - las pruebas nuevas: el texto del informe (10), sus notas en el visor
+    (7: «Nota» sobre una parte y sobre varias, el toque del pedazo que no
+    responde la opción, «Notas (N)» que despliega y marca, la pregunta en el
+    formato de lectura, 360 con la letra al doble en claro y en oscuro), sus
+    notas en la descarga (8), las del PDF sobre la página (8 del overlay y 5
+    del globito: lugar, tamaño, semántica, tonos del papel en los dos
+    modos), el puente de la página web (4), la foto en «Notas (N)» (1), las
+    notas del documento en la descarga marcada (10, el PDF con PDFium de
+    verdad) y su armado (5);
+  - por carpetas, con PDFium (`PDFIUM_PATH`), todas pasan: el visor, las
+    notas, la exportación, Estudiar y la lectura (1.157), y lo creado y
+    Procesado (2.543);
+  - la página web, además, en Chrome sin ventana: los tres globitos en el
+    margen, a la altura de su renglón, con su `aria-label`, el punteado de
+    cada color y la nota a la que se fue marcada;
+  - murieron las 31 mutaciones, todas por pruebas que fallan. Una (el
+    informe sin margen para los globitos) sobrevivió primero —el globito de
+    ancho cero seguía «a la derecha» del texto— y la prueba ahora pide que
+    mida lo de un globito y no pise la tarjeta. Entre las demás: la parte
+    vacía, la opción que no es del interactivo, lo elegido de varias partes,
+    el punteado liso, el pedazo que no abre la nota, la sección que no se
+    despliega, un globito del PDF por nota, en la página siguiente o en el
+    borde izquierdo, el punteado seguido o con el tono de fondo, la
+    escaneada sin aviso, el globito del PDF con los colores del tema, los
+    avisos de la página web, «Mis notas» apagada, el Word sin su raya, el
+    Markdown antes del encabezado, la página web con el bloque al final, el
+    PDF sin título, el EPUB en el último capítulo, la llamada que cambia de
+    número y la nota de una pregunta que se pierde.
 - **Queda abierto:**
-  - el globito sobre la página de un PDF y dentro de la página web: hoy se
-    ven en «Notas (N)». En el PDF hace falta llevar cada nota a los
-    rectángulos de su página (`PdfStudyOverlay` ya lo hace con lo
-    estudiado) y un toque que la encuentre; en la web, el mismo camino que
-    los resaltados, por el puente del `WebView`;
-  - una nota sobre un pedazo del informe: el informe no se elige de
-    corrido; hace falta su texto canónico con las posiciones de cada bloque;
-  - la descarga marcada deja afuera la nota sobre el texto entero (no tiene
-    dónde ir en el texto): podría ir al comienzo, como nota del documento;
-  - no se miró en el emulador ni en el teléfono.
+  - no se miró en el emulador ni en el teléfono: el globito sobre el PDF
+    (`pageOverlaysBuilder` y el toque por `PdfOverlayInteractionRegion`) y
+    el `WebView` real no corren en las pruebas;
+  - las notas sobre la imagen de una foto (decisión de arriba);
+  - en una página web con columnas de escritorio (la vista sin
+    `MobilePageWidth`), el margen se abre a la derecha del documento, que
+    puede quedar lejos del párrafo;
+  - un PDF con la página girada: el ícono de las notas del documento va
+    arriba a la izquierda en las coordenadas sin girar, como el de las demás
+    notas del 8a.
 
 ### Paso 1 (hecho): los avisos
 
