@@ -495,6 +495,8 @@ class _VaultBuilder {
   Future<void> _populateSearchIndex() async {
     await db.customStatement(populateItemSearch);
     await db.customStatement(rebuildChunkSearch);
+    // Las notas en el texto (F45, paso 8a): la bóveda no las genera, ni
+    // resaltados con nota, así que su índice no tiene qué llenar.
   }
 
   Future<void> _flushItemBlock() async {

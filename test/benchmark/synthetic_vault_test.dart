@@ -122,6 +122,9 @@ void main() {
         ...searchTriggerNames,
         ...chunkSearchTriggerNames,
         ...processedPartSearchTriggerNames,
+        // Las notas en el texto y las de los resaltados de antes (F45, paso
+        // 8a): su índice también se aparta durante la carga.
+        ...textNoteSearchTriggerNames,
       },
     );
 
