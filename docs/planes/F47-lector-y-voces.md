@@ -530,6 +530,109 @@ Cinco commits, de `b1d1c045` a `b4f2ddf3` (mejoras 20 y 21, decisión K).
     pantalla (viene de antes);
   - no se miró en el emulador ni en el teléfono.
 
+### Paso 1 (hecho): el marco de lectura
+
+Veintiún commits, de `574527a7` a `d56d0716`, y el de este avance (decisión A). Va sobre F45 7b
+(el original único de Procesado y la Biblioteca) y trae las mejoras 12 y 13 de F45. Se unió con
+los pasos 2, 3, 6a y 7a.
+
+- **El censo de funciones** (`reading_census_test.dart`): las 30 funciones de «Lo que hay hoy»,
+  cada una con dónde quedó y una prueba que llega a ella en el marco. Al final se comprueba que
+  no quedó ninguna sin alcanzar. La única pendiente son las notas en el texto, cuya interfaz
+  hace F45 8b sobre este marco.
+- **El marco** (`ReadingFrame`), uno solo:
+  - la barra: ← y cuatro botones redondos con borde, del mismo tamaño —Contenido, IA, Aa y ⋮—,
+    que no crecen con la letra. El título va grande, en el cuerpo;
+  - la fila de IA, que el botón IA prende y apaga, y que se recuerda. Va en un renglón que se
+    desplaza de costado:
+    - Resumir · Sintetizar · Palabras clave, con su estado y su avance;
+    - Preguntar a la IA, que abre el chat con la pregunta sobre el documento a medio escribir;
+    - Podcast, que abre la hoja del paso 6a (`startPodcast`) sobre el documento procesado o sobre
+      el recorte de lo creado. Fuera de lo procesado queda apagada y dice por qué;
+  - el cuerpo, en una columna de ancho cómodo, sin la tarjeta de papel, con la letra de
+    Apariencia y la línea que suena con el «Resaltado de lectura»;
+  - abajo, «Escuchar» si no suena nada.
+- **El reproductor es el anclado del paso 2**, uno solo en toda la app:
+  - sonando, el marco le deja su lugar abajo (el `resting` de `readAloudPlayerExtentProvider`),
+    así no tapa lo último que se lee;
+  - el botón redondo no va en el marco (`ReadAloudDock`);
+  - salen el reproductor propio de los visores de extraer (`ExtractPlayer` y
+    `ExtractListenPlayer`) y el mini reproductor del marco: el anclado ya trae la barra que se
+    arrastra, ±10 s, la cola y la voz;
+  - ⋮ suma «Añadir a la cola» (`controller.enqueue`), y «Leer: …» está en Contenido.
+- **La dirección de lo que suena** (`ReadableDocument.location`):
+  - el documento la toma de la pantalla que lo ofrece (`ReadableRegion`, con la ruta de arriba
+    del router);
+  - la fuente del lector la dice a la tarjeta (`MediaSessionSource.location`). Un audio suelto
+    no la dice;
+  - tocar la tarjeta lleva a esa pantalla si no se está ahí;
+  - «Seguir escuchando» (paso 7a) guarda esa dirección y no la de la pantalla de arriba.
+- **Apariencia**, guardada para todos los lectores:
+  - cinco letras que viajan con la app: Lora (la de entrada), Source Sans 3, Inter, Nunito y
+    Atkinson Hyperlegible Next. Atkinson es la que se suma: licencia OFL, 240 KB entre la
+    redonda y la itálica, y se baja con `tool/fetch_reading_fonts.sh`;
+  - el tamaño, de 80 % a 160 % (la misma preferencia que tenían A− A+);
+  - el color de lo que suena: Amarillo, Durazno, Lila o Lima;
+  - el modo: Sistema · Claro · Oscuro · Sepia;
+  - en un PDF o una foto, el zoom y el tono de la página: Original, Oscura (sin cambiar los
+    colores de lo marcado) o Sepia.
+- **⋮**: la miniatura, el título con ✎ y el tipo, y los grupos de cada lector. En rojo va lo que
+  se borra (la copia del original, la creación, el documento procesado); la fuente nunca.
+- **Contenido**:
+  - el índice que arma el cuerpo: los capítulos de un libro, los documentos de una extracción;
+  - las partes del documento y «Ver N fuentes»;
+  - «Leer: Todo · Resumen · Síntesis · Palabras clave».
+- **Todos los tipos de documento** se leen en el marco:
+  - el original: PDF, página web en vista móvil, libro paginado, foto con «Imagen · Texto»,
+    audio, video y YouTube con la transcripción;
+  - el texto, el resumen y la síntesis de un documento procesado. Usan el mismo lector que
+    «Lo creado», rotulado «Texto · N páginas», sin crear nada, y se editan desde ⋮;
+  - lo creado: el texto completo, el resumen, la síntesis y el informe;
+  - la fuente que se lee para destilar: una nota, una referencia, el pasaje de una tarjeta.
+- **El desplazamiento** (mejora 13): una prueba que mide un mismo gesto confirmó la causa. El
+  texto de corrido usa ahora la física de la plataforma; el impulso extra queda solo en el PDF.
+- **Salen**:
+  - la barra de «Lo creado» para lo que se lee: 🎧 y «Lectura» (`ExtractListenButton`,
+    `ExtractReadingSheet`);
+  - A− A+ (`ReaderFontScaleNotifier`);
+  - la tarjeta de papel;
+  - el panel de las fichas arriba del original. Queda solo en la pantalla de cortes del triaje;
+  - el texto desplegable de Procesado.
+- **Verificado:**
+  - analyze en 19;
+  - 5.558 pruebas de la lectura, los visores, Procesado, la narración, la Biblioteca, lo
+    creado, Crear, Estudiar, la app, `core` y los widgets, ya sobre `main` con los pasos 2, 3,
+    6a y 7a y el 8a de F45;
+  - dos pruebas viejas cambiaron con el diseño: «Ir a lo que suena» va con su nombre debajo del
+    reproductor (la barra lleva solo sus cuatro botones), y las licencias de las letras cuentan
+    la de Atkinson. Una de tiempos (`reader_pagination_off_thread_test`) falló una vez con la PC
+    cargada y pasó en las corridas siguientes;
+  - murieron las 32 mutaciones, todas por pruebas que fallan. Entre ellas: el botón flotante
+    dentro del marco, el marco que aparta también el reproductor anclado, el reproductor que tapa
+    lo último que se lee, «Añadir a la cola» que lee ya, la ficha Podcast que no abre la hoja, la
+    letra elegida que no se guarda, la página oscura sin invertir el negro, un capítulo de
+    Contenido que no salta a su página, lo ofrecido sin su dirección y tocar la tarjeta que apila
+    la misma pantalla otra vez.
+- **Queda para después:**
+  - **el margen abajo fuera del marco.** En el marco, el reproductor no tapa nada. En las listas
+    de las demás pantallas (la Biblioteca, Procesado, Repasar) todavía puede tapar el último
+    renglón. Darlo de una vez para toda la app no tiene un lugar limpio:
+    - subir el borde seguro (`MediaQuery.padding`) agranda la barra de navegación;
+    - fingir el teclado (`viewInsets`) confunde a lo que mira si está abierto.
+    Hace falta una pieza que cada lista pida, o que el anfitrión de los avisos de F45 paso 1 dé
+    ese margen;
+  - un visor que se abre con `Navigator.push`, sin una ruta propia (el original de la
+    Biblioteca, la foto, el audio), dice la dirección de la pantalla de abajo. Para volver
+    justo a él hace falta darle una ruta;
+  - descargar y exportar el audio (paso 5) y las notas (N) (F45, paso 8b): no están en ⋮;
+  - Favoritos, Marcar como terminado e Imprimir no existen en la app. Necesitan su dato en la
+    base (o un paquete de impresión), así que no se inventaron. Hoy, «Imprimir» es el PDF de lo
+    creado;
+  - en la página web, Apariencia cambia el modo y el color de lo que suena, pero no la letra,
+    que es la de la página;
+  - la miniatura de ⋮ es la imagen en una foto y el ícono del tipo en lo demás;
+  - no se miró en el emulador ni en el teléfono.
+
 ### Paso 2 (hecho): el reproductor anclado y en segundo plano
 
 Cinco commits, de `1bed0d51` a `9b291f71`, y el de este avance (decisiones H y J, esta última
