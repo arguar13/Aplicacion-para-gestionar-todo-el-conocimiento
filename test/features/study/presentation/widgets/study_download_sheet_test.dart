@@ -51,6 +51,7 @@ class _GatedWriter implements MarkedDocumentWriter {
     required String content,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
   }) async {
     await gate.future;
     return FakeMarkedDocumentWriter.outputFor(marks.length);

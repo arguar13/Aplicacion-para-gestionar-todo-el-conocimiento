@@ -27,6 +27,11 @@ import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 /// cada una con su vuelta a la llamada. Con los roles de accesibilidad de las
 /// notas (`doc-noteref`, `doc-endnotes`, `doc-backlink`).
 ///
+/// **Las notas sobre el documento entero** (F45, paso 8c), que no citan
+/// nada, van al comienzo de la página en un bloque como el de las notas del
+/// final —su título, la lista y una raya que lo separa de la página—
+/// ([documentNotesElement]).
+///
 /// Lo demás de la página queda como estaba —sus imágenes ya incrustadas, sus
 /// hojas de estilo, sus programas—. El HTML se lee y se vuelve a escribir, así
 /// que el marcado puede salir normalizado (comillas de los atributos,
@@ -41,8 +46,9 @@ class HtmlMarkWriter {
     String content,
     List<DocumentMark> marks, [
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
   ]) {
-    if (marks.isEmpty && notes.isEmpty) return html;
+    if (marks.isEmpty && notes.isEmpty && wholeNotes.isEmpty) return html;
     final document = html_parser.parse(html);
     final root = document.body ?? document.documentElement;
     if (root == null) return html;
@@ -52,7 +58,7 @@ class HtmlMarkWriter {
     final painter = MarkPainter([for (final text in texts) text.data], content)
       ..paint(marks)
       ..placeNotes(notes);
-    if (painter.isEmpty) return html;
+    if (painter.isEmpty && wholeNotes.isEmpty) return html;
 
     // El número de cada nota, en el orden de la página.
     final order = painter.noteOrder;
@@ -76,8 +82,58 @@ class HtmlMarkWriter {
     if (order.isNotEmpty) {
       root.append(_footnotes([for (final id in order) notes[id].note]));
     }
+    if (!wholeNotes.isEmpty) {
+      root.nodes.insert(0, documentNotesElement(wholeNotes));
+    }
     return document.outerHtml;
   }
+}
+
+/// Las notas sobre el documento entero (F45, paso 8c), al comienzo de una
+/// página o de un capítulo: su título, la lista de lo que dicen —un renglón
+/// por renglón, cada una con una raya de su color a la izquierda— y una raya
+/// que lo separa de lo que sigue, como la de las notas del final. Con
+/// `role="doc-preface"`, que es lo que es para quien lee con lector de
+/// pantalla.
+Element documentNotesElement(WholeDocumentNotes wholeNotes) {
+  final list = Element.tag('ul');
+  for (final note in wholeNotes.notes) {
+    final item = Element.tag('li')
+      ..attributes['style'] = documentNoteStyle(note.color);
+    final lines = note.note.trim().split(RegExp(r'\r\n|\r|\n'));
+    for (var l = 0; l < lines.length; l++) {
+      if (l > 0) item.append(Element.tag('br'));
+      item.append(Text(lines[l]));
+    }
+    list.append(item);
+  }
+  final section = Element.tag('section')
+    ..attributes.addAll({
+      'role': 'doc-preface',
+      'class': 'sinapsis-notas-documento',
+      if (wholeNotes.title.isNotEmpty) 'aria-label': wholeNotes.title,
+    });
+  if (wholeNotes.title.isNotEmpty) {
+    section.append(
+      Element.tag('p')
+        ..append(Element.tag('strong')..append(Text(wholeNotes.title))),
+    );
+  }
+  list.attributes['style'] = 'list-style:none;padding-left:0';
+  return section
+    ..append(list)
+    ..append(Element.tag('hr'));
+}
+
+/// El estilo de una nota sobre el documento entero en la lista del comienzo:
+/// una raya de su [color] (`0xAARRGGBB`) a la izquierda, con aire.
+String documentNoteStyle(int color) {
+  final hex = (color & 0xFFFFFF).toRadixString(16).padLeft(6, '0');
+  return [
+    'border-left:3px solid #$hex',
+    'padding-left:.5em',
+    'margin:.25em 0',
+  ].join(';');
 }
 
 void _collect(Node node, List<Text> texts) {

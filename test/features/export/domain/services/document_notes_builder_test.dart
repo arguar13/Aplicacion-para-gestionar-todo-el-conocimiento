@@ -158,6 +158,70 @@ void main() {
     });
   });
 
+  group('las notas sobre el texto entero (F45, paso 8c)', () {
+    TextNote whole(String id, String text, DateTime at) => TextNote(
+      id: id,
+      origin: TextNoteOrigin.note,
+      target: target,
+      excerpt: '',
+      note: text,
+      color: HighlightColor.violet,
+      createdAt: at,
+      updatedAt: at,
+    );
+
+    test('van aparte, al comienzo: en el orden en que se escribieron, con el '
+        'color de la línea y el título del bloque; las de un pedazo, no', () {
+      final notes = [
+        whole('b', 'Después', DateTime(2026, 10, 31)),
+        note('a', 'monte'),
+        whole('c', 'Antes', DateTime(2026, 10, 29)),
+      ];
+      final built = buildWholeDocumentNotes(
+        notes: notes,
+        colors: colors,
+        title: 'Notas del documento',
+      );
+      expect(built.title, 'Notas del documento');
+      expect([for (final n in built.notes) n.note], ['Antes', 'Después']);
+      expect(built.notes.first.color, 0xFF0000B1);
+      expect(
+        [
+          for (final n in buildDocumentNotes(
+            content: content,
+            notes: notes,
+            colors: colors,
+          ))
+            n.note,
+        ],
+        ['Una nota'],
+      );
+    });
+
+    test('sin ninguna, nada', () {
+      expect(
+        buildWholeDocumentNotes(
+          notes: [note('a', 'monte')],
+          colors: colors,
+          title: 'Notas',
+        ).isEmpty,
+        isTrue,
+      );
+    });
+
+    test('con una sola sobre el texto entero, «Mis notas» se ofrece', () {
+      expect(
+        availableMarkedOptions(
+          content: content,
+          study: DocumentStudy.notStarted,
+          highlights: const [],
+          notes: [whole('a', 'Todo', DateTime(2026))],
+        ).myNotes,
+        isTrue,
+      );
+    });
+  });
+
   group('el caso de uso', () {
     late InMemoryFileStore files;
     late FakeMarkedDocumentWriter writer;
@@ -189,6 +253,7 @@ void main() {
         highlights: const [],
         options: options,
         notes: notes,
+        documentNotesTitle: 'Notas del documento',
       );
     }
 
@@ -210,6 +275,56 @@ void main() {
       expect(writer.lastMarks, isEmpty);
       expect([for (final n in writer.lastNotes!) n.note], ['Sinaí']);
       expect(result.getRight().toNullable()!.fileName, 'Éxodo — mis notas.md');
+    });
+
+    test('solo con una nota sobre el texto entero, llega al escritor al '
+        'comienzo, con su título', () async {
+      final at = DateTime(2026, 10, 30);
+      final result = await build()(
+        await params(const MarkedDocumentOptions(myNotes: true), [
+          TextNote(
+            id: 'w',
+            origin: TextNoteOrigin.note,
+            target: target,
+            excerpt: '',
+            note: 'Repasar',
+            color: HighlightColor.violet,
+            createdAt: at,
+            updatedAt: at,
+          ),
+        ]),
+      );
+
+      expect(result.isRight(), isTrue);
+      expect(writer.lastNotes, isEmpty);
+      expect(writer.lastWholeNotes!.title, 'Notas del documento');
+      expect(
+        [for (final n in writer.lastWholeNotes!.notes) n.note],
+        ['Repasar'],
+      );
+    });
+
+    test('sin «Mis notas», tampoco las del texto entero', () async {
+      final at = DateTime(2026, 10, 30);
+      final result = await build()(
+        await params(const MarkedDocumentOptions(keywords: true), [
+          TextNote(
+            id: 'w',
+            origin: TextNoteOrigin.note,
+            target: target,
+            excerpt: '',
+            note: 'Repasar',
+            color: HighlightColor.violet,
+            createdAt: at,
+            updatedAt: at,
+          ),
+        ]),
+      );
+      expect(
+        result.getLeft().toNullable()!.error,
+        MarkedDownloadError.nothingToMark,
+      );
+      expect(writer.calls, 0);
     });
 
     test(

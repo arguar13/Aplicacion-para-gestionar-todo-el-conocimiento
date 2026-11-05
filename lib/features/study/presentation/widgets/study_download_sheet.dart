@@ -271,6 +271,7 @@ class _StudyDownloadSheetState extends ConsumerState<StudyDownloadSheet> {
         highlights: highlights,
         options: options,
         notes: notes,
+        documentNotesTitle: l10n.f45P8cDocumentNotes,
       ),
     );
     if (!mounted) return;

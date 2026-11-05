@@ -21,6 +21,7 @@ class FakeMarkedDocumentWriter implements MarkedDocumentWriter {
   String? lastContent;
   List<DocumentMark>? lastMarks;
   List<DocumentNote>? lastNotes;
+  WholeDocumentNotes? lastWholeNotes;
   int calls = 0;
 
   /// Lo que "escribe": el texto `marcado:<cuántos tramos>`.
@@ -33,6 +34,7 @@ class FakeMarkedDocumentWriter implements MarkedDocumentWriter {
     required String content,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
   }) async {
     calls++;
     if (error != null) throw error!;
@@ -40,6 +42,7 @@ class FakeMarkedDocumentWriter implements MarkedDocumentWriter {
     lastContent = content;
     lastMarks = marks;
     lastNotes = notes;
+    lastWholeNotes = wholeNotes;
     return outputFor(marks.length);
   }
 }

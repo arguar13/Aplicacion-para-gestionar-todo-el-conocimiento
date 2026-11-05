@@ -16405,5 +16405,11 @@
   "f47P5ScriptQuote": "“{quote}”",
   "@f47P5ScriptQuote": {"description": "F47, paso 5: una cita del material en el guion exportado de un podcast.", "placeholders": {"quote": {"type": "String"}}},
   "f47P5ScriptQuoteFrom": "“{quote}” — {document}",
-  "@f47P5ScriptQuoteFrom": {"description": "F47, paso 5: una cita del material en el guion exportado de un podcast, con su documento.", "placeholders": {"quote": {"type": "String"}, "document": {"type": "String"}}}
+  "@f47P5ScriptQuoteFrom": {"description": "F47, paso 5: una cita del material en el guion exportado de un podcast, con su documento.", "placeholders": {"quote": {"type": "String"}, "document": {"type": "String"}}},
+  "f45P8cDocumentNotes": "Document notes",
+  "@f45P8cDocumentNotes": {"description": "F45, step 8c: the title of the block, at the start of the document downloaded with what is marked, with the notes the person wrote about the whole text (without choosing a passage); in a PDF, the title of each of those notes."},
+  "f45P8cReportNotes": "Report notes",
+  "@f45P8cReportNotes": {"description": "F45, step 8c: the title of the block, at the start of the downloaded report (PDF or Markdown), with the notes the person wrote about the whole report."},
+  "f45P8cReportPieceNotes": "Notes",
+  "@f45P8cReportPieceNotes": {"description": "F45, step 8c: the title, at the end of a downloaded report's PDF, of the notes the person wrote about passages of the report, numbered like their calls in the text."}
 }

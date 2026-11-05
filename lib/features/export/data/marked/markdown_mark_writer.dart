@@ -20,6 +20,10 @@ import 'package:sinapsis/features/export/domain/entities/document_note.dart';
 /// después; si termina en un bloque de código, en un renglón propio después
 /// del bloque.
 ///
+/// **Las notas sobre el documento entero** (F45, paso 8c) van al comienzo
+/// —después del encabezado `---` si lo hay—, en una cita: el título en
+/// negrita y cada nota en una viñeta, con sus renglones.
+///
 /// **Sin romper la sintaxis.** Las marcas van **por renglón**: un tramo que
 /// cruza un salto de línea o de párrafo se parte en uno por renglón, porque
 /// un `==` abierto en un párrafo y cerrado en otro no lo lee ningún
@@ -55,6 +59,17 @@ class MarkdownMarkWriter {
     required String text,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
+  }) => _withDocumentNotes(
+    _marked(markdown: markdown, text: text, marks: marks, notes: notes),
+    wholeNotes,
+  );
+
+  String _marked({
+    required String markdown,
+    required String text,
+    required List<DocumentMark> marks,
+    required List<DocumentNote> notes,
   }) {
     if (marks.isEmpty && notes.isEmpty) return markdown;
     final protected = _protectedRanges(markdown);
@@ -91,6 +106,37 @@ class MarkdownMarkWriter {
     return out.toString();
   }
 }
+
+/// [markdown] con [wholeNotes] al comienzo (F45, paso 8c): ver
+/// [MarkdownMarkWriter].
+String _withDocumentNotes(String markdown, WholeDocumentNotes wholeNotes) {
+  if (wholeNotes.isEmpty) return markdown;
+  final block = <String>[
+    if (wholeNotes.title.isNotEmpty) ...['> **${wholeNotes.title}**', '>'],
+    for (final note in wholeNotes.notes) ..._quotedItem(note.note),
+  ].join('\n');
+  final front = _frontMatter.firstMatch(markdown);
+  final at = front?.end ?? 0;
+  final before = markdown.substring(0, at);
+  final after = markdown.substring(at).trimLeft();
+  return '$before$block\n\n$after';
+}
+
+/// [note] como una viñeta dentro de una cita: el primer renglón con su
+/// guion; los que siguen, con sangría, siguen siendo de ella.
+List<String> _quotedItem(String note) {
+  final lines = note.trim().split(RegExp(r'\r\n|\r|\n'));
+  return [
+    '> - ${lines.first}',
+    for (final line in lines.skip(1))
+      if (line.isEmpty) '>' else '>   $line',
+  ];
+}
+
+/// El encabezado `---` del principio, con el renglón en blanco que lo sigue.
+final _frontMatter = RegExp(
+  r'^---\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)',
+);
 
 /// Pinta [marks]: un tramo por letra —gana el último— y cada tramo,
 /// envuelto por renglón (ver [_wrapRange]).

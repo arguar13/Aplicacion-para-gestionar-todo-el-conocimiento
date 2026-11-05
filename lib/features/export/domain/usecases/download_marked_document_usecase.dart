@@ -74,6 +74,7 @@ final class DownloadMarkedDocumentParams {
     required this.highlights,
     required this.options,
     this.notes = const [],
+    this.documentNotesTitle = '',
   });
 
   /// El elemento: de él salen el título y el archivo original.
@@ -90,16 +91,22 @@ final class DownloadMarkedDocumentParams {
   final MarkedDocumentOptions options;
 
   /// Las notas en el texto de la persona sobre [content] (F45, mejora 19):
-  /// ver `buildDocumentNotes`.
+  /// ver `buildDocumentNotes`. Las que son sobre el texto entero van al
+  /// comienzo (F45, paso 8c): ver `buildWholeDocumentNotes`.
   final List<TextNote> notes;
+
+  /// El título del bloque de las notas sobre el texto entero, ya traducido:
+  /// «Notas del documento».
+  final String documentNotesTitle;
 }
 
 /// Descarga el original con lo elegido marcado, en su mismo formato (F38).
 ///
 /// Lee el archivo original, reconoce su formato por los bytes, arma los tramos
 /// —ver [buildDocumentMarks]— y, con «Mis notas», las notas —ver
-/// [buildDocumentNotes]—, se los da al escritor de ese formato y deja guardar
-/// el resultado como «título — lo elegido.extensión».
+/// [buildDocumentNotes] y, las del texto entero, al comienzo,
+/// [buildWholeDocumentNotes]—, se los da al escritor de ese formato y deja
+/// guardar el resultado como «título — lo elegido.extensión».
 ///
 /// Como en `ExportItemUseCase`, cancelar el selector no es un error: el
 /// resultado trae `path == null`.
@@ -162,7 +169,14 @@ class DownloadMarkedDocumentUseCase {
             colors: _colors,
           )
         : const <DocumentNote>[];
-    if (marks.isEmpty && notes.isEmpty) {
+    final wholeNotes = params.options.myNotes
+        ? buildWholeDocumentNotes(
+            notes: params.notes,
+            colors: _colors,
+            title: params.documentNotesTitle,
+          )
+        : WholeDocumentNotes.none;
+    if (marks.isEmpty && notes.isEmpty && wholeNotes.isEmpty) {
       return left(
         const MarkedDownloadFailure(MarkedDownloadError.nothingToMark),
       );
@@ -175,6 +189,7 @@ class DownloadMarkedDocumentUseCase {
         content: params.content,
         marks: marks,
         notes: notes,
+        wholeNotes: wholeNotes,
       );
       // Cada escritor falla a su manera —un ZIP roto, un PDF cifrado—, sin un
       // tipo común.

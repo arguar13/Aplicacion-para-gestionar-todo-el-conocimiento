@@ -141,7 +141,8 @@ List<DocumentMark> buildDocumentMarks({
 /// en el orden del texto: cada una en su lugar de [content], buscada por su
 /// pedazo si el texto cambió
 /// (`placeTextNotes`). La que quedó sin lugar no tiene dónde ir y se deja
-/// afuera; sigue en la lista de la app.
+/// afuera; sigue en la lista de la app. Las notas sobre el texto entero van
+/// aparte, al comienzo: ver [buildWholeDocumentNotes].
 ///
 /// El color es el de la línea de su color (`DocumentMarkColors.highlightOf`
 /// con el subrayado): el ícono y la línea tienen que verse sobre el papel.
@@ -161,9 +162,35 @@ List<DocumentNote> buildDocumentNotes({
       ),
 ];
 
+/// Las notas sobre el texto entero de [notes] para el documento que se
+/// descarga (F45, paso 8c), al comienzo, con [title] —«Notas del
+/// documento»—, en el orden en que se escribieron. El color, como el de las
+/// demás notas: el de la línea de su color sobre el papel.
+WholeDocumentNotes buildWholeDocumentNotes({
+  required List<TextNote> notes,
+  required DocumentMarkColors colors,
+  required String title,
+}) {
+  final whole = [
+    for (final note in notes)
+      if (note.wholeText) note,
+  ]..sort(compareInTextOrder);
+  if (whole.isEmpty) return WholeDocumentNotes.none;
+  return WholeDocumentNotes(
+    title: title,
+    notes: [
+      for (final note in whole)
+        WholeDocumentNote(
+          note: note.note,
+          color: colors.highlightOf(note.color, HighlightStyle.underline),
+        ),
+    ],
+  );
+}
+
 /// Qué de las cinco cosas que se pueden marcar hay para marcar: un resumen
 /// sin analizar, un documento sin palabras clave, sin subrayados o sin notas
-/// que caigan en su texto no tiene qué ofrecer.
+/// que caigan en su texto —o sobre el texto entero— no tiene qué ofrecer.
 MarkedDocumentOptions availableMarkedOptions({
   required String content,
   required DocumentStudy study,
@@ -179,10 +206,9 @@ MarkedDocumentOptions availableMarkedOptions({
     myHighlights: highlights.any(
       (h) => _fits(content, h.startOffset, h.endOffset),
     ),
-    myNotes: placeTextNotes(
-      notes,
-      content: content,
-    ).any((placed) => placed.placed),
+    myNotes:
+        notes.any((note) => note.wholeText) ||
+        placeTextNotes(notes, content: content).any((placed) => placed.placed),
   );
 }
 

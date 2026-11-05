@@ -42,6 +42,10 @@ import 'package:xml/xml.dart';
 /// llamada. Se reparten por capítulo como los tramos y se numeran en el orden
 /// del libro.
 ///
+/// **Las notas sobre el documento entero** (F45, paso 8c) van al comienzo del
+/// primer capítulo que se puede reescribir, en el mismo bloque que en la
+/// página web: su título, la lista y una raya.
+///
 /// Es una función sin E/S: un libro grande conviene correrlo fuera del hilo
 /// de la interfaz, como el parser.
 class EpubMarkWriter {
@@ -55,8 +59,9 @@ class EpubMarkWriter {
     String content,
     List<DocumentMark> marks, [
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
   ]) {
-    if (marks.isEmpty && notes.isEmpty) return epub;
+    if (marks.isEmpty && notes.isEmpty && wholeNotes.isEmpty) return epub;
     final archive = ZipDecoder().decodeBytes(epub);
     final chapters = _chapters(archive, content);
     _paintMarks(chapters, marks);
@@ -70,11 +75,21 @@ class EpubMarkWriter {
       }
     }
 
+    // Las notas sobre el libro entero, al comienzo del primero que se puede
+    // reescribir.
+    final opening = wholeNotes.isEmpty
+        ? null
+        : chapters.where((chapter) => chapter.state != null).firstOrNull;
     final rewritten = <String, List<int>>{};
     for (final chapter in chapters) {
       final state = chapter.state;
-      if (state == null || state.painter.isEmpty) continue;
-      rewritten[chapter.file.path] = state.write(numbers, notes);
+      final opens = identical(chapter, opening);
+      if (state == null || (state.painter.isEmpty && !opens)) continue;
+      rewritten[chapter.file.path] = state.write(
+        numbers,
+        notes,
+        opens ? wholeNotes : WholeDocumentNotes.none,
+      );
     }
     if (rewritten.isEmpty) return epub;
     return _zip(archive, rewritten);
@@ -273,9 +288,13 @@ class _ChapterState {
   final MarkPainter painter;
 
   /// El capítulo con los textos pintados y las llamadas de las notas —con
-  /// los números de [numbers], por id, y lo que dicen en [notes]—, en los
-  /// bytes de su codificación.
-  List<int> write(Map<int, int> numbers, List<DocumentNote> notes) {
+  /// los números de [numbers], por id, y lo que dicen en [notes]—, y
+  /// [wholeNotes] al comienzo, en los bytes de su codificación.
+  List<int> write(
+    Map<int, int> numbers,
+    List<DocumentNote> notes,
+    WholeDocumentNotes wholeNotes,
+  ) {
     final prefix = _body.name.prefix;
     for (final node in painter.touched.toList()..sort()) {
       final pieces = painter.piecesOf(node);
@@ -299,6 +318,9 @@ class _ChapterState {
       for (final id in order) {
         _body.children.add(_asideOf(numbers[id]!, notes[id].note, prefix));
       }
+    }
+    if (!wholeNotes.isEmpty) {
+      _body.children.insert(0, _documentNotesOf(wholeNotes, prefix));
     }
     return _encoding.encode(_document.toXmlString());
   }
@@ -356,6 +378,47 @@ XmlElement _asideOf(int number, String note, String? prefix) {
       XmlAttribute(XmlName('id'), '$kNoteIdPrefix$number'),
     ],
     [paragraph],
+  );
+}
+
+/// Las notas sobre el libro entero, al comienzo de un capítulo: el mismo
+/// bloque que en la página web (`documentNotesElement`).
+XmlElement _documentNotesOf(WholeDocumentNotes wholeNotes, String? prefix) {
+  final title = wholeNotes.title;
+  return XmlElement(
+    _named('section', prefix),
+    [
+      XmlAttribute(XmlName('class'), 'sinapsis-notas-documento'),
+      if (title.isNotEmpty) XmlAttribute(XmlName('aria-label'), title),
+    ],
+    [
+      if (title.isNotEmpty)
+        XmlElement(_named('p', prefix), const [], [
+          XmlElement(_named('strong', prefix), const [], [XmlText(title)]),
+        ]),
+      XmlElement(
+        _named('ul', prefix),
+        [XmlAttribute(XmlName('style'), 'list-style:none;padding-left:0')],
+        [
+          for (final note in wholeNotes.notes)
+            XmlElement(
+              _named('li', prefix),
+              [XmlAttribute(XmlName('style'), documentNoteStyle(note.color))],
+              [
+                for (final (l, line)
+                    in note.note
+                        .trim()
+                        .split(RegExp(r'\r\n|\r|\n'))
+                        .indexed) ...[
+                  if (l > 0) XmlElement(_named('br', prefix)),
+                  XmlText(line),
+                ],
+              ],
+            ),
+        ],
+      ),
+      XmlElement(_named('hr', prefix)),
+    ],
   );
 }
 

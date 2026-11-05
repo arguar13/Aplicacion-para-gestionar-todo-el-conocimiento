@@ -27,16 +27,24 @@ class TextDocxMarkWriter {
 
   final DocxMarkWriter _docx;
 
-  /// El texto [text] como Word, con [marks] marcados y [notes] como notas al
-  /// pie. [title] va a las propiedades del documento. Las posiciones de los
-  /// dos son de [text].
+  /// El texto [text] como Word, con [marks] marcados, [notes] como notas al
+  /// pie y [wholeNotes] al comienzo (F45, paso 8c). [title] va a las
+  /// propiedades del documento. Las posiciones de los tramos y de las notas
+  /// son de [text].
   Future<Uint8List> write({
     required String text,
     List<DocumentMark> marks = const [],
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
     String title = '',
   }) => Isolate.run(
-    () => writeSync(text: text, marks: marks, notes: notes, title: title),
+    () => writeSync(
+      text: text,
+      marks: marks,
+      notes: notes,
+      wholeNotes: wholeNotes,
+      title: title,
+    ),
   );
 
   /// Lo mismo que [write], en este hilo.
@@ -44,6 +52,7 @@ class TextDocxMarkWriter {
     required String text,
     List<DocumentMark> marks = const [],
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
     String title = '',
   }) {
     final plain = buildDocxPackage(
@@ -51,7 +60,13 @@ class TextDocxMarkWriter {
       title: title,
       creator: 'Sinapsis',
     );
-    return _docx.writeSync(docx: plain, text: text, marks: marks, notes: notes);
+    return _docx.writeSync(
+      docx: plain,
+      text: text,
+      marks: marks,
+      notes: notes,
+      wholeNotes: wholeNotes,
+    );
   }
 }
 

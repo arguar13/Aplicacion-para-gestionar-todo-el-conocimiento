@@ -65,7 +65,7 @@ void _annotate(({int document, List<PdfMark> marks}) message) {
   final document = pdfium_bindings.FPDF_DOCUMENT.fromAddress(message.document);
   final byPage = <int, List<PdfMark>>{};
   for (final mark in marks) {
-    if (mark.lines.isEmpty) continue;
+    if (mark.lines.isEmpty && mark.noteIcon == null) continue;
     (byPage[mark.pageNumber] ??= []).add(mark);
   }
 
@@ -76,7 +76,8 @@ void _annotate(({int document, List<PdfMark> marks}) message) {
     }
     try {
       for (final mark in pageMarks) {
-        _addMark(page, mark);
+        // Una nota sobre el documento entero no marca nada: va sola.
+        if (mark.lines.isNotEmpty) _addMark(page, mark);
         if (mark.noteIcon != null) _addNote(page, mark);
       }
       _generateAppearances(page);
@@ -184,8 +185,9 @@ void _addMark(pdfium_bindings.FPDF_PAGE page, PdfMark mark) {
 
 /// La nota del PDF de [mark] (F45, mejora 19): una anotación `Text` —el ícono
 /// de nota que cualquier lector abre con un toque— en [PdfMark.noteIcon], de
-/// su color y con lo que dice. No se agranda ni gira con la página, como las
-/// de Adobe, y sale al imprimir.
+/// su color y con lo que dice, y con [PdfMark.noteTitle] de título si tiene
+/// uno (F45, paso 8c). No se agranda ni gira con la página, como las de
+/// Adobe, y sale al imprimir.
 void _addNote(pdfium_bindings.FPDF_PAGE page, PdfMark mark) {
   final annot = _pdfium.FPDFPage_CreateAnnot(
     page,
@@ -225,6 +227,14 @@ void _addNote(pdfium_bindings.FPDF_PAGE page, PdfMark mark) {
           'Contents'.toNativeUtf8(allocator: arena).cast(),
           _wide(mark.note ?? '', arena),
         );
+      final title = mark.noteTitle;
+      if (title != null && title.isNotEmpty) {
+        _pdfium.FPDFAnnot_SetStringValue(
+          annot,
+          'T'.toNativeUtf8(allocator: arena).cast(),
+          _wide(title, arena),
+        );
+      }
     });
   } finally {
     _pdfium.FPDFPage_CloseAnnot(annot);

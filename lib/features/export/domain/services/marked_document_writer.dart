@@ -30,10 +30,15 @@ abstract interface class MarkedDocumentWriter {
   /// texto: en un PDF, notas del PDF —las que se abren con un toque—; en el
   /// texto, notas al pie, numeradas en ese orden. Una que no se encuentra en
   /// el archivo se saltea, como un tramo.
+  ///
+  /// [wholeNotes] son las notas sobre el texto entero (F45, paso 8c), que no
+  /// citan nada: van al comienzo, como notas del documento, con el mismo
+  /// estilo de las demás notas del formato.
   Future<Uint8List> write(
     Uint8List original, {
     required String content,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
   });
 }

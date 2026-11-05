@@ -54,6 +54,12 @@ import 'package:xml/xml.dart';
 /// como los tramos, después de pintarlos: no son una capa de color, así que un
 /// resaltado y una nota sobre el mismo pedazo conviven.
 ///
+/// **Las notas sobre el documento entero** (F45, paso 8c), que no citan
+/// nada, van al comienzo del cuerpo en un bloque prolijo: el título («Notas
+/// del documento») y cada nota en su párrafo, con la letra de una nota al pie
+/// y una raya a la izquierda de su color, y una raya fina abajo que lo separa
+/// del documento, como la de las notas al pie.
+///
 /// Lo que no cambia queda **tal cual**: las demás entradas del ZIP se
 /// copian con sus bytes comprimidos sin tocar. Cambian el cuerpo y, si hubo
 /// notas, los comentarios o las notas al pie, las relaciones del cuerpo y los
@@ -73,10 +79,19 @@ class DocxMarkWriter {
     required String text,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
   }) {
-    if (marks.isEmpty && notes.isEmpty) return Future.value(docx);
+    if (marks.isEmpty && notes.isEmpty && wholeNotes.isEmpty) {
+      return Future.value(docx);
+    }
     return Isolate.run(
-      () => writeSync(docx: docx, text: text, marks: marks, notes: notes),
+      () => writeSync(
+        docx: docx,
+        text: text,
+        marks: marks,
+        notes: notes,
+        wholeNotes: wholeNotes,
+      ),
     );
   }
 
@@ -86,8 +101,9 @@ class DocxMarkWriter {
     required String text,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
   }) {
-    if (marks.isEmpty && notes.isEmpty) return docx;
+    if (marks.isEmpty && notes.isEmpty && wholeNotes.isEmpty) return docx;
     final archive = ZipDecoder().decodeBytes(docx);
     final parts = _Parts(archive);
 
@@ -124,7 +140,9 @@ class DocxMarkWriter {
           notes: notes,
           replaced: replaced,
         );
-    if (!painted && !noted) return docx;
+    // Después de ubicar todo lo demás: su texto no es del documento.
+    final opened = !wholeNotes.isEmpty && _addDocumentNotes(body, wholeNotes);
+    if (!painted && !noted && !opened) return docx;
     replaced[parts.key(documentPart)] = Uint8List.fromList(
       utf8.encode(document.toXmlString()),
     );
@@ -706,6 +724,83 @@ bool _addFootnotes({
   );
   return true;
 }
+
+/// Pone [wholeNotes] al comienzo del cuerpo [body] (F45, paso 8c): ver la
+/// documentación de la clase. Devuelve si las puso.
+bool _addDocumentNotes(XmlElement body, WholeDocumentNotes wholeNotes) {
+  final prefix = body.name.prefix;
+  if (prefix == null) return false;
+  // La letra de una nota al pie: 10 puntos.
+  XmlElement size() => _w3(prefix, 'sz', {'val': '20'});
+  XmlElement sizeCs() => _w3(prefix, 'szCs', {'val': '20'});
+
+  final block = <XmlElement>[
+    if (wholeNotes.title.isNotEmpty)
+      _w3(prefix, 'p')
+        ..children.addAll([
+          _w3(prefix, 'pPr')
+            ..children.addAll([
+              _w3(prefix, 'keepNext'),
+              _w3(prefix, 'spacing', {'after': '80'}),
+            ]),
+          _w3(prefix, 'r')
+            ..children.addAll([
+              _w3(prefix, 'rPr')
+                ..children.addAll([_w3(prefix, 'b'), size(), sizeCs()]),
+              _textOf(prefix, wholeNotes.title),
+            ]),
+        ]),
+    for (final note in wholeNotes.notes)
+      _w3(prefix, 'p')
+        ..children.addAll([
+          _w3(prefix, 'pPr')
+            ..children.addAll([
+              _w3(prefix, 'pBdr')
+                ..children.add(
+                  _w3(prefix, 'left', {
+                    'val': 'single',
+                    'sz': '18',
+                    'space': '8',
+                    'color': _hexOf(note.color),
+                  }),
+                ),
+              _w3(prefix, 'spacing', {'after': '80'}),
+              _w3(prefix, 'ind', {'left': '160'}),
+            ]),
+          for (final (l, line) in _lines(note.note).indexed)
+            _w3(prefix, 'r')
+              ..children.addAll([
+                _w3(prefix, 'rPr')..children.addAll([size(), sizeCs()]),
+                if (l > 0) _w3(prefix, 'br'),
+                _textOf(prefix, line),
+              ]),
+        ]),
+    // La raya que lo separa del documento, como la de las notas al pie.
+    _w3(prefix, 'p')
+      ..children.add(
+        _w3(prefix, 'pPr')
+          ..children.addAll([
+            _w3(prefix, 'pBdr')
+              ..children.add(
+                _w3(prefix, 'bottom', {
+                  'val': 'single',
+                  'sz': '4',
+                  'space': '1',
+                  'color': 'auto',
+                }),
+              ),
+            _w3(prefix, 'spacing', {'after': '240'}),
+          ]),
+      ),
+  ];
+  final first = body.children.indexWhere((node) => node is XmlElement);
+  body.children.insertAll(first < 0 ? body.children.length : first, block);
+  return true;
+}
+
+/// [argb] como lo escribe Word: `RRGGBB`.
+String _hexOf(int argb) =>
+    (argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase();
 
 /// El pedazo de [note] como un tramo, para ubicarlo como se ubican todos.
 DocumentMark _asMark(DocumentNote note) => DocumentMark(

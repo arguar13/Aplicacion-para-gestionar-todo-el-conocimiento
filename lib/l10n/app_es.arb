@@ -15428,5 +15428,11 @@
   "f47P5ScriptQuote": "«{quote}»",
   "@f47P5ScriptQuote": {"description": "F47, paso 5: una cita del material en el guion exportado de un podcast.", "placeholders": {"quote": {"type": "String"}}},
   "f47P5ScriptQuoteFrom": "«{quote}» — {document}",
-  "@f47P5ScriptQuoteFrom": {"description": "F47, paso 5: una cita del material en el guion exportado de un podcast, con su documento.", "placeholders": {"quote": {"type": "String"}, "document": {"type": "String"}}}
+  "@f47P5ScriptQuoteFrom": {"description": "F47, paso 5: una cita del material en el guion exportado de un podcast, con su documento.", "placeholders": {"quote": {"type": "String"}, "document": {"type": "String"}}},
+  "f45P8cDocumentNotes": "Notas del documento",
+  "@f45P8cDocumentNotes": {"description": "F45, paso 8c: el título del bloque, al comienzo del documento descargado con lo marcado, con las notas que la persona escribió sobre el texto entero (sin elegir un pedazo); en un PDF, el título de cada una de esas notas."},
+  "f45P8cReportNotes": "Notas del informe",
+  "@f45P8cReportNotes": {"description": "F45, paso 8c: el título del bloque, al comienzo del informe descargado (PDF o Markdown), con las notas que la persona escribió sobre el informe entero."},
+  "f45P8cReportPieceNotes": "Notas",
+  "@f45P8cReportPieceNotes": {"description": "F45, paso 8c: el título, al final del PDF de un informe descargado, de las notas que la persona escribió sobre pedazos del informe, numeradas como sus llamadas en el texto."}
 }

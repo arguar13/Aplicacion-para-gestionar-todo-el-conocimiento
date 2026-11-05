@@ -38,9 +38,16 @@ class PdfMarkedDocumentWriter implements MarkedDocumentWriter {
     required String content,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
   }) async {
     await _initialize();
-    return _marker.mark(original, content: content, marks: marks, notes: notes);
+    return _marker.mark(
+      original,
+      content: content,
+      marks: marks,
+      notes: notes,
+      wholeNotes: wholeNotes,
+    );
   }
 }
 
@@ -56,8 +63,14 @@ class DocxMarkedDocumentWriter implements MarkedDocumentWriter {
     required String content,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
-  }) =>
-      _writer.write(docx: original, text: content, marks: marks, notes: notes);
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
+  }) => _writer.write(
+    docx: original,
+    text: content,
+    marks: marks,
+    notes: notes,
+    wholeNotes: wholeNotes,
+  );
 }
 
 /// Un texto suelto, que no tiene dónde guardar un color: sale como un Word
@@ -77,7 +90,13 @@ class TextMarkedDocumentWriter implements MarkedDocumentWriter {
     required String content,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
-  }) => _writer.write(text: content, marks: marks, notes: notes);
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
+  }) => _writer.write(
+    text: content,
+    marks: marks,
+    notes: notes,
+    wholeNotes: wholeNotes,
+  );
 }
 
 /// El Markdown, con `==resaltado==`: se decodifica como al leerlo —sin la
@@ -95,12 +114,14 @@ class MarkdownMarkedDocumentWriter implements MarkedDocumentWriter {
     required String content,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
   }) async => utf8.encode(
     _writer.write(
       markdown: decodePlainText(original),
       text: content,
       marks: marks,
       notes: notes,
+      wholeNotes: wholeNotes,
     ),
   );
 }
@@ -120,9 +141,12 @@ class EpubMarkedDocumentWriter implements MarkedDocumentWriter {
     required String content,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
   }) {
     final writer = _writer;
-    return Isolate.run(() => writer.write(original, content, marks, notes));
+    return Isolate.run(
+      () => writer.write(original, content, marks, notes, wholeNotes),
+    );
   }
 }
 
@@ -142,11 +166,12 @@ class WebPageMarkedDocumentWriter implements MarkedDocumentWriter {
     required String content,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
   }) {
     final writer = _writer;
     return Isolate.run(
       () => utf8.encode(
-        writer.write(utf8.decode(original), content, marks, notes),
+        writer.write(utf8.decode(original), content, marks, notes, wholeNotes),
       ),
     );
   }

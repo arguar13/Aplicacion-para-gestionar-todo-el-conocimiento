@@ -34,3 +34,38 @@ class DocumentNote {
   /// la línea que marca el pedazo.
   final int color;
 }
+
+/// Una nota sobre el documento entero para lo que se descarga (F45, paso
+/// 8c): la que se escribió desde «Notas (N)» sin elegir nada. No cita ningún
+/// pedazo, así que no tiene dónde ir en el texto: va al comienzo, como nota
+/// del documento ([WholeDocumentNotes]).
+class WholeDocumentNote {
+  const WholeDocumentNote({required this.note, required this.color});
+
+  /// Lo que la persona escribió.
+  final String note;
+
+  /// El color de la nota, en ARGB (`0xAARRGGBB`), el de su línea sobre el
+  /// papel: el de su ícono en el PDF y la raya que la acompaña en el texto.
+  final int color;
+}
+
+/// Las notas sobre el documento entero, al comienzo de lo que se descarga
+/// (F45, paso 8c), en un bloque prolijo con el mismo estilo de las demás
+/// notas de cada formato: en el PDF, notas del PDF arriba a la izquierda de
+/// la primera página; en el texto, un bloque con su título ([title], «Notas
+/// del documento») antes de lo primero que se lee.
+class WholeDocumentNotes {
+  const WholeDocumentNotes({required this.title, required this.notes});
+
+  /// Sin ninguna.
+  static const none = WholeDocumentNotes(title: '', notes: []);
+
+  /// El título del bloque, ya traducido.
+  final String title;
+
+  /// En el orden en que se escribieron.
+  final List<WholeDocumentNote> notes;
+
+  bool get isEmpty => notes.isEmpty;
+}

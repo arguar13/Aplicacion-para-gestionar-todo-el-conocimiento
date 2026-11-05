@@ -38,13 +38,18 @@ import 'package:sinapsis/features/viewer/domain/services/pdf_study_pages.dart';
 ///   nota, va en el margen derecho de la página, a la altura del primer
 ///   renglón del pedazo —como en la app—, y el pedazo queda subrayado de ese
 ///   color. Se ubica como un tramo.
+/// - Una **nota sobre el documento entero** (F45, paso 8c) es también una
+///   nota del PDF, sin pedazo: van todas al comienzo, arriba a la izquierda
+///   de la primera página, una al lado de la otra, cada una de su color y con
+///   el título del bloque («Notas del documento»).
 class PdfDocumentMarker {
   const PdfDocumentMarker({this.writer = const PdfMarkWriter()});
 
   final PdfMarkWriter writer;
 
-  /// El PDF [pdf] con [marks] marcados y [notes] puestas. [content] es su
-  /// texto extraído, el de las posiciones de los dos.
+  /// El PDF [pdf] con [marks] marcados, [notes] puestas y [wholeNotes] al
+  /// comienzo. [content] es su texto extraído, el de las posiciones de los
+  /// tramos y de las notas.
   ///
   /// Si no queda nada que marcar, devuelve [pdf] tal cual.
   Future<Uint8List> mark(
@@ -52,6 +57,7 @@ class PdfDocumentMarker {
     required String content,
     required List<DocumentMark> marks,
     List<DocumentNote> notes = const [],
+    WholeDocumentNotes wholeNotes = WholeDocumentNotes.none,
   }) async {
     final located = <_Located>[];
     for (final mark in marks) {
@@ -73,9 +79,9 @@ class PdfDocumentMarker {
         located.add((range: range, mark: mark, note: note.note));
       }
     }
-    if (located.isEmpty) return pdf;
+    if (located.isEmpty && wholeNotes.isEmpty) return pdf;
 
-    final pdfMarks = await _pdfMarks(pdf, content, located);
+    final pdfMarks = await _pdfMarks(pdf, content, located, wholeNotes);
     if (pdfMarks.isEmpty) return pdf;
     return writer.write(pdf, pdfMarks);
   }
@@ -84,16 +90,20 @@ class PdfDocumentMarker {
     Uint8List pdf,
     String content,
     List<_Located> located,
+    WholeDocumentNotes wholeNotes,
   ) async {
     final document = await PdfDocument.openData(pdf);
     try {
       final pages = document.pages;
+      final result = <PdfMark>[
+        if (pages.isNotEmpty) ..._documentNotes(pages.first, wholeNotes),
+      ];
+      if (located.isEmpty) return result;
 
       final placed = await _place(pages, content, located);
       final slices = placed.slices;
       final studied = placed.studied;
 
-      final result = <PdfMark>[];
       for (final (:range, :mark, :note) in located) {
         // El ícono de una nota va una sola vez: en la página donde empieza.
         var iconPlaced = false;
@@ -222,6 +232,42 @@ class PdfDocumentMarker {
       return null;
     }
   }
+}
+
+/// Las notas sobre el documento entero de [wholeNotes] (F45, paso 8c), como
+/// notas del PDF en [page] —la primera—: arriba a la izquierda, una al lado
+/// de la otra con un poco de aire, y si no entran en el ancho, en otra fila
+/// debajo. En las coordenadas del PDF, sin girar, como los íconos de las
+/// demás notas.
+List<PdfMark> _documentNotes(PdfPage page, WholeDocumentNotes wholeNotes) {
+  if (wholeNotes.isEmpty) return const [];
+  final quarter =
+      page.rotation == PdfPageRotation.clockwise90 ||
+      page.rotation == PdfPageRotation.clockwise270;
+  final width = quarter ? page.height : page.width;
+  final height = quarter ? page.width : page.height;
+  const step = _noteIconSize + 6;
+  final perRow = max(1, ((width - 16 + 6) / step).floor());
+  return [
+    for (final (i, note) in wholeNotes.notes.indexed)
+      () {
+        final left = 8 + (i % perRow) * step;
+        final top = max(_noteIconSize, height - 8 - (i ~/ perRow) * step);
+        return PdfMark(
+          pageNumber: page.pageNumber,
+          lines: const [],
+          color: note.color,
+          note: note.note,
+          noteIcon: PdfRect(
+            left,
+            top,
+            left + _noteIconSize,
+            top - _noteIconSize,
+          ),
+          noteTitle: wholeNotes.title,
+        );
+      }(),
+  ];
 }
 
 /// Un tramo ubicado en el texto; con `note`, el pedazo de una nota en el
