@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/narration/data/services/flutter_tts_service.dart';
 import 'package:sinapsis/features/narration/data/services/routing_text_to_speech_service.dart';
+import 'package:sinapsis/features/narration/data/voices/video_player_speech_track_player.dart';
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
+import 'package:sinapsis/features/narration/domain/services/speech_track_player.dart';
 import 'package:sinapsis/features/narration/domain/services/text_to_speech_service.dart';
 import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
 
@@ -26,6 +28,15 @@ final textToSpeechServiceProvider = Provider<TextToSpeechService>((ref) {
     unawaited(system.dispose());
   });
   return service;
+});
+
+/// Lo que hace sonar en el lector un audio ya generado —un podcast (F47,
+/// paso 6b)—, con su tiempo real. Uno para toda la app, como el motor de voz.
+/// Las pruebas lo cambian por uno de mentira.
+final speechTrackPlayerProvider = Provider<SpeechTrackPlayer>((ref) {
+  final player = VideoPlayerSpeechTrackPlayer();
+  ref.onDispose(() => unawaited(player.dispose()));
+  return player;
 });
 
 /// Las voces instaladas en este dispositivo, para el panel de voz y acento

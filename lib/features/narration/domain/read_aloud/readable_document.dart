@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 
 /// Un pedazo de lo que el lector flotante lee de una vez (F25): una línea
 /// del texto —o, si es muy larga, una oración—, con **dónde está en
@@ -67,6 +68,75 @@ enum ReadScope {
 /// una posición en él, tal cual se guarda.
 typedef ReadablePlace = ({String sourceKey, int offset});
 
+/// El audio ya generado de lo que se lee (F47, paso 6b): un podcast —o, en el
+/// paso 5, el audio descargado de un documento—. Con él, el lector no le pide
+/// nada a la voz: hace sonar el archivo, con su tiempo real, y resalta el
+/// pedazo que suena por dónde empieza cada uno.
+@immutable
+class RecordedSpeech {
+  const RecordedSpeech({
+    required this.path,
+    required this.duration,
+    required this.starts,
+    this.voices = const [],
+  });
+
+  /// La ruta del archivo en el teléfono.
+  final String path;
+
+  final Duration duration;
+
+  /// Dónde empieza cada pedazo de `ReadableDocument.segments`, en orden.
+  final List<Duration> starts;
+
+  /// La voz que dice cada pedazo —para la cara del reproductor y la
+  /// tarjeta—, en el mismo orden; vacía si no se sabe.
+  final List<NarrationVoice?> voices;
+
+  /// El pedazo que suena en [at]: el último que empezó.
+  int segmentAt(Duration at) {
+    var low = 0;
+    var high = starts.length - 1;
+    var found = 0;
+    while (low <= high) {
+      final middle = (low + high) >> 1;
+      if (starts[middle] <= at) {
+        found = middle;
+        low = middle + 1;
+      } else {
+        high = middle - 1;
+      }
+    }
+    return found;
+  }
+
+  /// Dónde empieza el pedazo [index] —antes del primero, el principio—.
+  Duration startOf(int index) {
+    if (starts.isEmpty || index <= 0) return Duration.zero;
+    return starts[index.clamp(0, starts.length - 1)];
+  }
+
+  /// La voz del pedazo [index], si se sabe.
+  NarrationVoice? voiceAt(int index) =>
+      index >= 0 && index < voices.length ? voices[index] : null;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RecordedSpeech &&
+      other.path == path &&
+      other.duration == duration &&
+      listEquals(other.starts, starts) &&
+      listEquals(other.voices, voices);
+
+  @override
+  int get hashCode => Object.hash(
+    path,
+    duration,
+    Object.hashAll(starts),
+    Object.hashAll(voices),
+  );
+}
+
 /// Lo que una pantalla ofrece para leer en voz alta (F25): su texto, ya
 /// partido en lo que se lee de una vez.
 ///
@@ -86,6 +156,7 @@ class ReadableDocument {
     this.ownAudio = false,
     this.startAt,
     this.location,
+    this.recording,
   });
 
   /// Qué es: lo mismo que se ofrece dos veces —la pantalla se reconstruyó—
@@ -126,6 +197,10 @@ class ReadableDocument {
   /// empuja con `Navigator.push`— dice la de la pantalla de abajo: se
   /// vuelve ahí, de donde se lo abrió.
   final String? location;
+
+  /// Su audio ya generado, si tiene uno (F47, paso 6b): lo que suena con
+  /// [ReadScope.all], en lugar de la voz. Uno por pedazo de [segments].
+  final RecordedSpeech? recording;
 
   /// Desde qué pedazo de [scope] empieza a leer quien no eligió: el primero
   /// que termina después del lugar de [startAt] en su texto. Sin [startAt],
@@ -183,6 +258,7 @@ class ReadableDocument {
     ownAudio: true,
     startAt: startAt,
     location: location,
+    recording: recording,
   );
 
   /// Con [scopes] en lugar de los que traía.
@@ -195,6 +271,7 @@ class ReadableDocument {
         ownAudio: ownAudio,
         startAt: startAt,
         location: location,
+        recording: recording,
       );
 
   /// Con [startAt] en lugar del que traía.
@@ -207,6 +284,7 @@ class ReadableDocument {
         ownAudio: ownAudio,
         startAt: startAt,
         location: location,
+        recording: recording,
       );
 
   /// Con [location] en lugar de la que traía.
@@ -218,6 +296,7 @@ class ReadableDocument {
     ownAudio: ownAudio,
     startAt: startAt,
     location: location,
+    recording: recording,
   );
 
   /// Si no hay nada que leer, con ninguna parte.
@@ -232,6 +311,7 @@ class ReadableDocument {
       other.ownAudio == ownAudio &&
       other.startAt == startAt &&
       other.location == location &&
+      other.recording == recording &&
       listEquals(other.segments, segments) &&
       _sameScopes(other.scopes, scopes);
 
@@ -242,6 +322,7 @@ class ReadableDocument {
     ownAudio,
     startAt,
     location,
+    recording,
     Object.hashAll(segments),
     Object.hashAll([
       for (final scope

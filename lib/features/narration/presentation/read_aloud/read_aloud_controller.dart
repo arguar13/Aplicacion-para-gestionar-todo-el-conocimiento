@@ -8,6 +8,7 @@ import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.
 import 'package:sinapsis/features/narration/domain/read_aloud/reading_queue.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/reading_timeline.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/sleep_timer.dart';
+import 'package:sinapsis/features/narration/domain/services/speech_track_player.dart';
 import 'package:sinapsis/features/narration/domain/services/text_to_speech_service.dart';
 import 'package:sinapsis/features/narration/domain/voices/offline_voice_catalog.dart';
 import 'package:sinapsis/features/narration/domain/voices/passage_languages.dart';
@@ -47,6 +48,7 @@ class ReadAloudState {
     this.failed = false,
     this.queue = const ReadingQueue(),
     this.sleep,
+    this.recordedAt = Duration.zero,
   });
 
   /// Lo que se está leyendo; `null` si nada.
@@ -83,6 +85,15 @@ class ReadAloudState {
   /// El Temporizador para dormir, si hay uno en marcha (F47, paso 2).
   final SleepTimer? sleep;
 
+  /// Por dónde va el audio ya generado ([recording]), en su tiempo real; sin
+  /// él, nada.
+  final Duration recordedAt;
+
+  /// El audio ya generado que suena, si lo que se lee tiene uno (F47, paso
+  /// 6b): un podcast. Solo con «Todo», que es lo que el audio dice.
+  RecordedSpeech? get recording =>
+      scope == ReadScope.all ? document?.recording : null;
+
   /// Los pedazos que se leen: los de [scope] de [document]. Lo que se
   /// resalta, el avance y los saltos salen todos de acá (F39).
   List<ReadableSegment> get segments =>
@@ -100,6 +111,11 @@ class ReadAloudState {
   /// entero son decenas de miles de pedazos—, sino lo dicho antes de cada
   /// pedazo, que se cuenta una vez por lista (ver [_spokenBefore]).
   double get progress {
+    final recording = this.recording;
+    if (recording != null) {
+      final total = recording.duration.inMicroseconds;
+      return total <= 0 ? 0 : (recordedAt.inMicroseconds / total).clamp(0, 1);
+    }
     final segments = this.segments;
     if (segments.isEmpty) return 0;
     final before = _spokenBefore[segments] ??= _countSpokenBefore(segments);
@@ -127,11 +143,21 @@ class ReadAloudState {
         charInSegment.clamp(0, segments[index].spoken.length);
   }
 
-  /// Cuánto se lleva leído, a la velocidad de ahora.
-  Duration get elapsed => timeline.elapsedAt(position, speed);
+  /// Cuánto se lleva leído, a la velocidad de ahora. Con audio ya generado,
+  /// el real, contado a esa velocidad —lo que se tarda en oírlo—, como con la
+  /// voz.
+  Duration get elapsed {
+    final recording = this.recording;
+    if (recording != null) return _atSpeed(recordedAt, speed);
+    return timeline.elapsedAt(position, speed);
+  }
 
   /// Cuánto dura todo lo que se lee, a la velocidad de ahora.
-  Duration get total => timeline.durationAt(speed);
+  Duration get total {
+    final recording = this.recording;
+    if (recording != null) return _atSpeed(recording.duration, speed);
+    return timeline.durationAt(speed);
+  }
 
   /// Si llegó al final leyendo —o saltando— y quedó ahí, quieto.
   bool get finished {
@@ -156,6 +182,7 @@ class ReadAloudState {
     ReadingQueue? queue,
     SleepTimer? sleep,
     bool clearSleep = false,
+    Duration? recordedAt,
   }) => ReadAloudState(
     document: clearDocument ? null : document ?? this.document,
     scope: scope ?? this.scope,
@@ -168,8 +195,17 @@ class ReadAloudState {
     failed: failed ?? this.failed,
     queue: queue ?? this.queue,
     sleep: clearSleep ? null : sleep ?? this.sleep,
+    recordedAt: recordedAt ?? this.recordedAt,
   );
 }
+
+/// Lo que se tarda en oír [media] —tiempo del audio— a [speed].
+Duration _atSpeed(Duration media, double speed) =>
+    Duration(microseconds: (media.inMicroseconds / speed).round());
+
+/// El tiempo del audio que se oye en [listening] a [speed].
+Duration _mediaAt(Duration listening, double speed) =>
+    Duration(microseconds: (listening.inMicroseconds * speed).round());
 
 /// Cuántos caracteres de `spoken` hay antes de cada pedazo de una lista, y al
 /// final el total: lo que cuenta [ReadAloudState.progress], una vez por lista
@@ -205,7 +241,19 @@ List<int> _countSpokenBefore(List<ReadableSegment> segments) {
 /// —lo que cada pantalla redibuja— una vez por línea.
 class ReadAloudController extends Notifier<ReadAloudState> {
   late TextToSpeechService _tts;
+  late SpeechTrackPlayer _track;
   late Duration Function() _now;
+
+  /// El archivo que tiene abierto [_track], y si lo que avisa es de la
+  /// escucha de ahora: como con la voz, lo que llega de un audio que ya se
+  /// cortó o se cambió no mueve nada.
+  String? _trackPath;
+  bool _trackLive = false;
+
+  /// Si el audio ya avisó que suena desde que se le pidió: solo entonces un
+  /// «no suena» es que se pausó solo —una llamada—, y no el aviso de un
+  /// salto que llegó antes de que arrancara.
+  bool _trackSounding = false;
 
   /// La línea de tiempo de lo que se lee: dónde empieza cada pedazo y cada
   /// oración, para los saltos, que cruzan pedazos. Una por lista de pedazos,
@@ -250,15 +298,20 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   @override
   ReadAloudState build() {
     _tts = ref.read(textToSpeechServiceProvider);
+    _track = ref.read(speechTrackPlayerProvider);
     _now = ref.read(narrationClockProvider);
     final events = _tts.events.listen(_onEvent);
     final progress = _tts.progress.listen(_onProgress);
+    final track = _track.positions.listen(_onTrack);
     ref
       ..onDispose(() {
         _cut();
+        _trackLive = false;
         _sleepTimer?.cancel();
         unawaited(events.cancel());
         unawaited(progress.cancel());
+        unawaited(track.cancel());
+        unawaited(_track.close());
       })
       // La voz o la velocidad cambiadas desde otro lado valen también para
       // lo que se está leyendo. Las que cambia este mismo controlador llegan
@@ -362,16 +415,27 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     final segments = document.segmentsOf(scope);
     final generation = _cut();
     final wasPlaying = state.playing;
+    final wasRecorded = state.recording != null;
     _load(segments);
+    final index = fromSegment.clamp(0, segments.length - 1);
+    final recording = scope == ReadScope.all ? document.recording : null;
     state = state.copyWith(
       document: document,
       scope: scope,
-      segmentIndex: fromSegment.clamp(0, segments.length - 1),
+      segmentIndex: index,
       charInSegment: 0,
       playing: true,
       panel: panel,
       failed: false,
+      recordedAt: recording?.startOf(index) ?? Duration.zero,
     );
+    if (wasRecorded && recording == null) await _closeTrack();
+    if (recording != null) {
+      // Lo que sonaba con la voz se corta: suena el audio.
+      if (wasPlaying && !wasRecorded) await _tts.stop();
+      if (generation != _generation) return;
+      return _playTrack(recording, from: recording.startOf(index));
+    }
     if (wasPlaying) await _tts.stop();
     // Cada documento nuevo vuelve a fijar la voz y la velocidad —al decir su
     // primer pedazo, con la voz de su idioma—: el motor es uno solo para
@@ -384,6 +448,12 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   Future<void> play() async {
     final document = state.document;
     if (document == null || state.playing) return;
+    final recording = state.recording;
+    if (recording != null) {
+      final from = _atEnd ? Duration.zero : state.recordedAt;
+      state = state.copyWith(playing: true, failed: false);
+      return _playTrack(recording, from: from);
+    }
     if (_atEnd) state = state.copyWith(segmentIndex: 0, charInSegment: 0);
     state = state.copyWith(playing: true, failed: false);
     await _speak();
@@ -396,6 +466,10 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     if (!state.playing) return;
     _cut();
     state = state.copyWith(playing: false);
+    if (state.recording != null) {
+      await _track.pause();
+      return;
+    }
     await _tts.stop();
   }
 
@@ -410,6 +484,15 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   /// final, queda terminado.
   Future<void> skip(Duration delta) async {
     if (state.document == null || delta == Duration.zero) return;
+    final recording = state.recording;
+    if (recording != null) {
+      // Con audio, el tiempo es el real: ±10 s de lo que se oye, a la
+      // velocidad de ahora.
+      return _seekTrack(
+        recording,
+        state.recordedAt + _mediaAt(delta, state.speed),
+      );
+    }
     final here = state.position;
     final landing = _timeline.skip(here, delta, state.speed);
     if (landing >= _timeline.length) return _finishAtEnd();
@@ -425,6 +508,10 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   /// reproductor, o arrastrar la de la notificación (F47, paso 2). Si
   /// estaba sonando, sigue desde ahí; en pausa, queda ahí en pausa.
   Future<void> seekTo(Duration time) async {
+    final recording = state.recording;
+    if (recording != null) {
+      return _seekTrack(recording, _mediaAt(time, state.speed));
+    }
     if (state.document == null || _timeline.length == 0) return;
     final target = _timeline.positionAt(time, state.speed);
     if (target >= _timeline.length) return _finishAtEnd();
@@ -442,6 +529,10 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     final segments = state.segments;
     if (state.document == null || segments.isEmpty) return;
     if (index >= segments.length) return _finishAtEnd();
+    final recording = state.recording;
+    if (recording != null) {
+      return _seekTrack(recording, recording.startOf(index));
+    }
     state = state.copyWith(
       segmentIndex: index < 0 ? 0 : index,
       charInSegment: 0,
@@ -461,6 +552,17 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   /// barra de avance después de arrastrarla (F43, paso 7). Si estaba
   /// sonando, sigue desde ahí; en pausa, queda ahí en pausa. 1 es el final.
   Future<void> seekToFraction(double fraction) async {
+    final recording = state.recording;
+    if (recording != null) {
+      return _seekTrack(
+        recording,
+        Duration(
+          microseconds:
+              (recording.duration.inMicroseconds * fraction.clamp(0.0, 1.0))
+                  .round(),
+        ),
+      );
+    }
     final total = _timeline.length;
     if (state.document == null || total == 0) return;
     final target = (fraction.clamp(0.0, 1.0) * total).round();
@@ -517,7 +619,9 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     _cut();
     _cancelSleepTimer();
     _timeline = ReadingTimeline.of(const []);
+    final recorded = state.recording != null;
     state = ReadAloudState(speed: state.speed, voice: state.voice);
+    if (recorded) await _closeTrack();
     await _tts.stop();
   }
 
@@ -618,6 +722,8 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   // --- La lectura -----------------------------------------------------------
 
   bool get _atEnd {
+    final recording = state.recording;
+    if (recording != null) return state.recordedAt >= recording.duration;
     final segments = state.segments;
     return state.segmentIndex >= segments.length - 1 &&
         state.charInSegment >= segments.last.spoken.length;
@@ -638,6 +744,11 @@ class ReadAloudController extends Notifier<ReadAloudState> {
   /// Con [restart], primero corta lo que esté sonando: en iOS un pedido
   /// nuevo se encola detrás del anterior en vez de reemplazarlo.
   Future<void> _speak({bool restart = false}) async {
+    // Lo que tiene su audio suena desde él, no con la voz.
+    final recording = state.recording;
+    if (recording != null) {
+      return _playTrack(recording, from: state.recordedAt);
+    }
     final generation = _cut();
     if (restart) await _tts.stop();
     if (generation != _generation || !state.playing) return;
@@ -691,11 +802,17 @@ class ReadAloudController extends Notifier<ReadAloudState> {
       );
       return _speak();
     }
+    await _reachedEnd();
+  }
+
+  /// Lo que se leía llegó al final: lo que diga la cola, o queda terminado.
+  Future<void> _reachedEnd() async {
     _cut();
     final document = state.document!;
     final atEnd = state.copyWith(
       charInSegment: state.currentSegment!.spoken.length,
       playing: false,
+      recordedAt: state.recording?.duration,
     );
     if (state.sleep?.atEndOfReading ?? false) {
       _cancelSleepTimer();
@@ -719,12 +836,113 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     final wasPlaying = state.playing;
     _cut();
     final segments = state.segments;
+    final recording = state.recording;
     state = state.copyWith(
       segmentIndex: segments.length - 1,
       charInSegment: segments.last.spoken.length,
       playing: false,
+      recordedAt: recording?.duration,
     );
+    if (recording != null) {
+      _trackLive = false;
+      await _track.pause();
+      return;
+    }
     if (wasPlaying) await _tts.stop();
+  }
+
+  // --- El audio ya generado (F47, paso 6b) ----------------------------------
+
+  /// Hace sonar [recording] desde [from]: lo abre si no estaba abierto, con
+  /// la velocidad de ahora.
+  Future<void> _playTrack(
+    RecordedSpeech recording, {
+    required Duration from,
+  }) async {
+    final generation = _generation;
+    _trackLive = false;
+    _trackSounding = false;
+    try {
+      if (_trackPath != recording.path) {
+        _trackPath = null;
+        await _track.open(recording.path);
+        _trackPath = recording.path;
+      }
+      if (generation != _generation || !state.playing) return;
+      await _track.setSpeed(state.speed);
+      await _track.seek(from);
+      if (generation != _generation || !state.playing) return;
+      _trackLive = true;
+      _followTrack(from);
+      await _track.play();
+    } on Object {
+      // Un archivo que ya no está o no se puede leer: no se finge.
+      if (generation == _generation) _fail();
+    }
+  }
+
+  /// Va a [to] del audio —antes del principio, el principio; pasado el
+  /// final, terminado—; si sonaba, sigue desde ahí, y en pausa queda ahí.
+  Future<void> _seekTrack(RecordedSpeech recording, Duration to) async {
+    if (to >= recording.duration) return _finishAtEnd();
+    final target = to < Duration.zero ? Duration.zero : to;
+    _followTrack(target);
+    if (state.playing) return _playTrack(recording, from: target);
+    if (_trackPath == recording.path) await _track.seek(target);
+  }
+
+  /// Lo que avisa el audio: por dónde va, si se pausó solo —una llamada—, si
+  /// terminó o falló.
+  void _onTrack(SpeechTrackPosition at) {
+    final recording = state.recording;
+    if (!_trackLive || recording == null) return;
+    if (at.failed) {
+      _trackLive = false;
+      _fail();
+      return;
+    }
+    if (at.completed) {
+      _trackLive = false;
+      unawaited(_reachedEnd());
+      return;
+    }
+    if (at.playing) {
+      _trackSounding = true;
+    } else if (_trackSounding && state.playing) {
+      // Se pausó solo: lo que se ve lo dice.
+      _cut();
+      _trackSounding = false;
+      state = state.copyWith(playing: false, recordedAt: at.position);
+      return;
+    }
+    _followTrack(at.position);
+  }
+
+  /// El pedazo que suena en [at], y la voz que lo dice: lo que resalta la
+  /// pantalla y muestra el reproductor. Cambia el estado solo si cambia algo
+  /// que se ve: el pedazo, o el segundo.
+  void _followTrack(Duration at) {
+    final recording = state.recording;
+    if (recording == null) return;
+    final index = recording.segmentAt(at).clamp(0, state.segments.length - 1);
+    final voice = recording.voiceAt(index) ?? state.voice;
+    if (index == state.segmentIndex &&
+        at.inSeconds == state.recordedAt.inSeconds &&
+        voice == state.voice) {
+      return;
+    }
+    state = state.copyWith(
+      segmentIndex: index,
+      charInSegment: 0,
+      recordedAt: at,
+      voice: voice,
+    );
+  }
+
+  Future<void> _closeTrack() async {
+    _trackLive = false;
+    _trackPath = null;
+    await _track.close();
   }
 
   void _fail() {
@@ -758,6 +976,11 @@ class ReadAloudController extends Notifier<ReadAloudState> {
 
   Future<void> _changeSpeed(double speed) async {
     state = state.copyWith(speed: speed);
+    if (state.recording != null) {
+      // El audio cambia de velocidad sin cortar.
+      await _track.setSpeed(speed);
+      return;
+    }
     await _tts.setSpeed(speed);
     // Que se oiga ya: el motor no cambia de velocidad a mitad de un pedido,
     // así que se vuelve a pedir desde la palabra en que iba.
@@ -771,8 +994,11 @@ class ReadAloudController extends Notifier<ReadAloudState> {
     if (voice != state.voice) await _changeVoice(voice);
   }
 
-  /// La voz con que se lee el pedazo [index]: la de su idioma.
+  /// La voz con que se lee el pedazo [index]: la de su idioma; con audio ya
+  /// generado, la que lo dice en el audio —elegir otra no cambia lo grabado—.
   NarrationVoice? _voiceAt(int index) {
+    final recording = state.recording;
+    if (recording != null) return recording.voiceAt(index) ?? state.voice;
     final segments = state.segments;
     final language = segments.isEmpty
         ? null

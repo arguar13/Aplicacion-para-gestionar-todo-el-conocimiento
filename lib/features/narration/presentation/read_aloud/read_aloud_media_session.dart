@@ -16,8 +16,9 @@ import 'package:sinapsis/features/narration/presentation/voices/voice_face_view.
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El lector en voz alta en la tarjeta de lo que suena (F47, paso 2b): lo
-/// que se lee —también la voz del chat, que es el mismo lector—, con qué voz
-/// y a qué velocidad, por dónde va, y lo que se toca en la tarjeta.
+/// que se lee —también la voz del chat, que es el mismo lector, y un podcast
+/// con su audio (paso 6b), que suena en el mismo reproductor—, con qué voz y
+/// a qué velocidad, por dónde va, y lo que se toca en la tarjeta.
 ///
 /// Se registra con el testigo del lector ([readAloudFocusOwner]): la tarjeta
 /// lo muestra mientras el lector tenga el foco de audio de la app.
@@ -57,15 +58,22 @@ class ReadAloudMediaSource implements MediaSessionSource {
     }
     final voice = readAloudVoiceName(reading.voice, l10n);
     final speed = formatReadAloudSpeed(reading.speed, locale);
+    // Un audio ya generado —un podcast (F47, paso 6b)— se escucha, no se lee,
+    // y su reproductor pide el foco de audio por su cuenta: dos pedidos de la
+    // misma app se pisarían.
+    final recorded = reading.recording != null;
     _state.value = MediaSessionState(
       title: document.title,
-      subtitle: reading.playing
-          ? l10n.f47P2ReadingWith(voice, speed)
-          : l10n.f47P2PausedWith(voice, speed),
+      subtitle: !reading.playing
+          ? l10n.f47P2PausedWith(voice, speed)
+          : recorded
+          ? l10n.f47P6bListeningWith(voice, speed)
+          : l10n.f47P2ReadingWith(voice, speed),
       position: reading.elapsed,
       duration: reading.total,
       playing: reading.playing,
       hasNext: !reading.queue.isEmpty,
+      requestsAudioFocus: !recorded,
       artwork: artwork,
     );
   }
