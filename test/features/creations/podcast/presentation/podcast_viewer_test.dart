@@ -254,6 +254,8 @@ void main() {
       final reading = harness.container.read(readAloudControllerProvider);
       expect(reading.document!.id, podcastReadableId(creation.id));
       expect(reading.recording!.starts, audio.starts);
+      // La tarjeta y «Seguir escuchando» vuelven a este visor.
+      expect(reading.document!.location, '/creations/${creation.id}');
       expect(reading.document!.segments.map((s) => s.spoken), [
         for (final segment in podcast.segments) segment.text,
       ]);

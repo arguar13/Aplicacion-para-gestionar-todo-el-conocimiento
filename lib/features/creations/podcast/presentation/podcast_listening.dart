@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast.dart';
@@ -79,7 +80,10 @@ NarrationVoice? podcastNarrationVoice(String voiceId) {
 }
 
 /// Lo que suena al escuchar [podcast] de [creation], con su audio en [path]:
-/// el documento del reproductor anclado, con el título de la creación.
+/// el documento del reproductor anclado, con el título de la creación y la
+/// dirección de su visor —adonde vuelven la tarjeta de lo que suena y
+/// «Seguir escuchando» (F47, pasos 1 y 7a)—, también cuando se abre con
+/// «Escuchar» y no desde la pantalla.
 ReadableDocument podcastReadableDocument({
   required StudyCreation creation,
   required Podcast podcast,
@@ -92,6 +96,7 @@ ReadableDocument podcastReadableDocument({
   return ReadableDocument(
     id: podcastReadableId(creation.id),
     title: title,
+    location: RoutePaths.creation(creation.id),
     segments: podcastReadableSegments(podcast, creation.id),
     recording: RecordedSpeech(
       path: path,
