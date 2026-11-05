@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/navigation/adaptive_scaffold.dart'
     show kNavRailBreakpoint;
 import 'package:sinapsis/core/audio/media_session_hub.dart';
+import 'package:sinapsis/core/design/widgets/snack_bar_footprint.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_anchored_player.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_audio_focus.dart';
@@ -25,9 +26,6 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/readable_reg
 
 /// El alto de `NavigationBar` cuando el tema no dice otro: el de Material 3.
 const _navigationBarHeight = 80.0;
-
-/// Los avisos flotantes de Material, cuando el tema no dice otro margen.
-const _snackBarInset = EdgeInsets.fromLTRB(15, 5, 15, 10);
 
 /// El lector en voz alta de toda la app (F25): el botón redondo abajo a la
 /// derecha y, mientras se lee, el reproductor anclado abajo y a lo ancho
@@ -47,8 +45,10 @@ const _snackBarInset = EdgeInsets.fromLTRB(15, 5, 15, 10);
 /// incluidos los suyos.
 ///
 /// **Los avisos van por encima del reproductor**: cuánto ocupa se publica en
-/// `readAloudPlayerExtentProvider`, y los avisos flotantes de Material suben
-/// eso, así que nunca tapa un aviso ni su ✕.
+/// `readAloudPlayerExtentProvider`, y los avisos suben eso con
+/// `SnackBarFloor` (F45, paso 1), abierto o achicado, así que nunca tapa un
+/// aviso ni su ✕. El botón redondo, en cambio, flota sobre los avisos: se
+/// corre arriba de uno mientras se ve (`LiftAboveSnackBar`, decisión C).
 ///
 /// Con la **Lectura enfocada** (Ajustes), el reproductor abierto se achica
 /// solo mientras se desplaza cualquier pantalla, y vuelve al soltar.
@@ -169,12 +169,13 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
     unawaited(widget.router.push<void>(location));
   }
 
-  /// Cuánto tienen que subir los avisos flotantes para quedar por encima del
-  /// reproductor: lo que ocupa, menos lo que el andamio de la pantalla ya
-  /// esquiva solo —la barra de navegación, o el borde seguro—.
+  /// Cuánto tienen que subir los avisos para quedar por encima del
+  /// reproductor: lo que ocupa ahora —también achicado por la Lectura
+  /// enfocada—, menos lo que el andamio de la pantalla ya esquiva solo —la
+  /// barra de navegación, o el borde seguro—, que `current` incluye.
   double _snackBarLift(MediaQueryData media) {
     final extent = ref.watch(
-      readAloudPlayerExtentProvider.select((extent) => extent.resting),
+      readAloudPlayerExtentProvider.select((extent) => extent.current),
     );
     if (extent == 0) return 0;
     final wide = media.size.width >= kNavRailBreakpoint;
@@ -192,22 +193,16 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
       ..watch(readAloudAudioFocusProvider)
       // La tarjeta de lo que suena, en la notificación (F47, paso 2b).
       ..watch(mediaSessionHubProvider);
-    final theme = Theme.of(context);
-    final inset = theme.snackBarTheme.insetPadding ?? _snackBarInset;
     final lift = _snackBarLift(MediaQuery.of(context));
 
     return ReadAloudMediaSession(
       onOpenLocation: _openLocation,
       child: Stack(
         children: [
-          // Siempre con el mismo `Theme` encima, aunque no haya que subir nada:
-          // ponerlo y sacarlo volvería a armar todas las pantallas.
-          Theme(
-            data: theme.copyWith(
-              snackBarTheme: theme.snackBarTheme.copyWith(
-                insetPadding: inset.copyWith(bottom: inset.bottom + lift),
-              ),
-            ),
+          // Con el mismo andar que el reproductor, que cambia de alto con
+          // `AnimatedSize` (`ReadAloudAnchoredPlayer`).
+          SnackBarFloor(
+            floor: lift,
             child: NotificationListener<UserScrollNotification>(
               onNotification: _onUserScroll,
               child: widget.child,
@@ -261,8 +256,8 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
   /// derecho.
   static const _gap = 16.0;
 
-  /// Encima de lo que se le pide esquivar, el botón va un poco más pegado:
-  /// como un botón flotante sobre un aviso.
+  /// Encima de lo que se le pide esquivar y de un aviso, el botón va un poco
+  /// más pegado: como un botón flotante sobre un aviso.
   static const _clearanceGap = 12.0;
 
   /// El reproductor no pasa de este ancho en una pantalla ancha.
@@ -363,6 +358,7 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
     final expanded =
         panel == ReadAloudPanel.expanded && !(focused && widget.scrolling);
     final playerBottom = _playerBottom(media, clearance);
+    final buttonBottom = _buttonBottom(media, clearance);
     final height = _heights[expanded] ?? 0;
     final restingHeight = _heights[panel == ReadAloudPanel.expanded] ?? height;
     _publishExtent(
@@ -380,11 +376,14 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
           duration: _move,
           curve: Curves.easeOutCubic,
           right: media.padding.right + _gap,
-          bottom: _buttonBottom(media, clearance),
-          child: _Reveal(
-            visible: showButton,
-            style: _RevealStyle.pop,
-            child: ReadAloudButton(onPressed: _onButton),
+          bottom: buttonBottom,
+          child: LiftAboveSnackBar(
+            bottom: buttonBottom,
+            child: _Reveal(
+              visible: showButton,
+              style: _RevealStyle.pop,
+              child: ReadAloudButton(onPressed: _onButton),
+            ),
           ),
         ),
         AnimatedPositioned(

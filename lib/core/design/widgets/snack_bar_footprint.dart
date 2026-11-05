@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -93,19 +95,11 @@ class SnackBarFootprints extends ChangeNotifier
 /// lo que flota por encima de todas, como el lector en voz alta. Sin
 /// anfitrión, el aviso no publica nada y nada se corre.
 ///
-/// Y al revés, lo que está anclado abajo —el reproductor de lectura sobre la
-/// barra de navegación (F47, paso 2)— no tapa al aviso: el anfitrión lo
-/// para [floor] más arriba de donde lo pone el `Scaffold`. Lo hace con el
-/// margen de abajo del tema de los avisos (`SnackBarThemeData.insetPadding`),
-/// así que el aviso que se está viendo también sube o baja apenas cambia
-/// [floor], y lo que se corre por él sigue a su nuevo borde.
+/// Es la mitad de un acuerdo: lo que flota **sobre** un aviso se corre por él
+/// ([LiftAboveSnackBar]); lo que está anclado **debajo** de los avisos los
+/// sube a ellos ([SnackBarFloor]).
 class SnackBarFootprintHost extends StatefulWidget {
-  const SnackBarFootprintHost({required this.child, this.floor = 0, super.key});
-
-  /// Cuánto ocupa lo anclado abajo, por encima de donde el `Scaffold` apoya
-  /// los avisos —la barra de navegación, si la hay—: el aviso va encima. Es
-  /// lo que ocupa ahora (el `current` de `PlayerExtent`), no en reposo.
-  final double floor;
+  const SnackBarFootprintHost({required this.child, super.key});
 
   final Widget child;
 
@@ -128,19 +122,63 @@ class _SnackBarFootprintHostState extends State<SnackBarFootprintHost> {
   }
 
   @override
+  Widget build(BuildContext context) =>
+      _SnackBarFootprintScope(footprints: _footprints, child: widget.child);
+}
+
+/// Sube los avisos de [child] [floor] por encima de donde los apoya el
+/// `Scaffold` (F45, paso 1, con F47, paso 2): lo que está anclado abajo —el
+/// reproductor de lectura sobre la barra de navegación— nunca tapa un aviso
+/// ni su ✕, abierto o achicado.
+///
+/// Lo hace con el margen de abajo del tema de los avisos
+/// (`SnackBarThemeData.insetPadding`), en un `SnackBarTheme` propio y no en el
+/// `Theme` de la app: cambiarlo reconstruye solo los avisos, no las
+/// pantallas. Por eso [floor] puede seguir a lo anclado en cada cambio —lo
+/// que ocupa ahora—, también mientras se desplaza una lista: cambiar el
+/// `Theme` entero a mitad de un arrastre volvía a armar la lista que se
+/// arrastraba, y Flutter tiraba un error de semántica.
+///
+/// El aviso que se está viendo acompaña el cambio con la misma animación que
+/// lo anclado ([duration], [curve]); con «sin animaciones», de una vez. Lo
+/// que flota sobre el aviso sigue a su nuevo borde ([LiftAboveSnackBar]).
+class SnackBarFloor extends StatelessWidget {
+  const SnackBarFloor({
+    required this.floor,
+    required this.child,
+    this.duration = const Duration(milliseconds: 220),
+    this.curve = Curves.easeOutCubic,
+    super.key,
+  });
+
+  /// Cuánto ocupa lo anclado abajo **por encima de donde el `Scaffold` apoya
+  /// los avisos**: sin la barra de navegación ni el borde seguro, que el
+  /// `Scaffold` ya esquiva solo. 0, nada.
+  final double floor;
+
+  final Duration duration;
+  final Curve curve;
+  final Widget child;
+
+  @override
   Widget build(BuildContext context) {
     final theme = SnackBarTheme.of(context);
-    // El margen de Material 3 para un aviso flotante, más lo anclado abajo.
+    // El margen de Material 3 para un aviso flotante, si el tema no pone otro.
     final inset = theme.insetPadding ?? _kSnackBarInset;
-    return SnackBarTheme(
-      data: widget.floor <= 0
-          ? theme
-          : theme.copyWith(
-              insetPadding: inset.copyWith(bottom: inset.bottom + widget.floor),
-            ),
-      child: _SnackBarFootprintScope(
-        footprints: _footprints,
-        child: widget.child,
+    // Siempre el mismo `SnackBarTheme` encima, aunque no haya nada anclado:
+    // ponerlo y sacarlo volvería a armar lo de abajo.
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: math.max(0, floor)),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : duration,
+      curve: curve,
+      child: child,
+      builder: (context, floor, child) => SnackBarTheme(
+        data: theme.copyWith(
+          insetPadding: inset.copyWith(bottom: inset.bottom + floor),
+        ),
+        child: child!,
       ),
     );
   }

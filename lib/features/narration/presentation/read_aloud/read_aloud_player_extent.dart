@@ -15,14 +15,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class PlayerExtent {
   const PlayerExtent({this.current = 0, this.resting = 0});
 
-  /// Lo que ocupa ahora, en la forma que se ve: lo que usa un anfitrión de
-  /// avisos que se acomoda solo.
+  /// Lo que ocupa ahora, en la forma que se ve —también achicado a mitad de
+  /// un desplazamiento con la Lectura enfocada—. Con esto suben los avisos
+  /// (`SnackBarFloor`, F45, paso 1), que acompañan cada cambio sin volver a
+  /// armar las pantallas.
   final double current;
 
   /// Lo que ocupa en la forma que se eligió —abierto o achicado—, sin el
   /// achicarse pasajero de la Lectura enfocada: no cambia mientras se
-  /// desplaza. Lo usan los avisos de Material (`SnackBar`), que suben con el
-  /// tema y volverían a armar todas las pantallas en cada cambio.
+  /// desplaza. Para lo que no debe moverse a mitad de un arrastre, como un
+  /// margen al pie de una lista.
   final double resting;
 
   @override

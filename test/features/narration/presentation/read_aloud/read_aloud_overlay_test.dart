@@ -360,6 +360,8 @@ void main() {
           child: TextButton(
             onPressed: () => ScaffoldMessenger.of(context).showAppSnackBar(
               AppSnackBar(
+                // Como los de la app: flotantes, por el tema.
+                behavior: SnackBarBehavior.floating,
                 content: const Text('Movido a la papelera'),
                 action: SnackBarAction(label: 'Deshacer', onPressed: () {}),
               ),
@@ -406,27 +408,142 @@ void main() {
       expect(tester.getRect(button).bottom, _phone.height - 16);
     });
 
-    testWidgets('el reproductor también se corre arriba del aviso', (
-      tester,
-    ) async {
-      await pump(tester, initial: _reading, screen: noticeScreen);
-      final resting = tester.getRect(player).bottom;
+    testWidgets('el aviso va por encima del reproductor abierto, achicado y '
+        'sin él, y el reproductor se queda en su lugar', (tester) async {
+      await pump(
+        tester,
+        initial: _reading,
+        withBar: true,
+        screen: noticeScreen,
+      );
+      final open = tester.getRect(player);
 
       await tester.tap(find.text('avisar'));
       await tester.pumpAndSettle();
 
-      expect(
-        tester.getRect(player).bottom,
-        closeTo(notice(tester).top - 12, 0.5),
-      );
-      expect(
-        tester.getRect(player).overlaps(tester.getRect(noticeClose)),
-        isFalse,
-      );
+      // Encima del reproductor abierto, con el margen de siempre: el
+      // reproductor no se mueve ni tapa la ✕.
+      expect(notice(tester).bottom, closeTo(open.top - 10, 0.5));
+      expect(tester.getRect(player), open);
+      expect(open.overlaps(tester.getRect(noticeClose)), isFalse);
 
+      // Achicado, el aviso baja con él.
+      reader.minimize();
+      await tester.pumpAndSettle();
+      final small = tester.getRect(collapsed);
+      expect(notice(tester).bottom, closeTo(small.top - 10, 0.5));
+
+      // Sin reproductor, encima de la barra de navegación, como siempre.
+      await reader.close();
+      await tester.pumpAndSettle();
+      const bar = 80.0;
+      expect(notice(tester).bottom, _phone.height - bar - 10);
+
+      // La ✕ se toca.
       await tester.tap(noticeClose);
       await tester.pumpAndSettle();
-      expect(tester.getRect(player).bottom, resting);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('el aviso acompaña al reproductor cuando se achica, sin '
+        'saltar', (tester) async {
+      // Con la semántica prendida, como con el lector de pantalla: el aviso
+      // se reconstruye en cada cuadro de la animación.
+      final semantics = tester.ensureSemantics();
+      await pump(
+        tester,
+        initial: _reading,
+        withBar: true,
+        screen: noticeScreen,
+      );
+      await tester.tap(find.text('avisar'));
+      await tester.pumpAndSettle();
+      final above = notice(tester).bottom;
+
+      reader.minimize();
+      await tester.pumpAndSettle();
+      final below = notice(tester).bottom;
+      reader.expand();
+      await tester.pumpAndSettle();
+      expect(notice(tester).bottom, above);
+
+      reader.minimize();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(notice(tester).bottom, greaterThan(above));
+      expect(notice(tester).bottom, lessThan(below));
+      await tester.pumpAndSettle();
+      expect(notice(tester).bottom, below);
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    });
+
+    testWidgets('con la Lectura enfocada, el aviso sigue al reproductor '
+        'mientras te desplazás, sin errores', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pump(
+        tester,
+        initial: _reading,
+        withBar: true,
+        stored: {'narration_focused_reading': true},
+        screen: Scaffold(
+          body: Builder(
+            builder: (context) => ListView(
+              children: [
+                TextButton(
+                  onPressed: () =>
+                      ScaffoldMessenger.of(context).showAppSnackBar(
+                        AppSnackBar(
+                          behavior: SnackBarBehavior.floating,
+                          content: const Text('Movido a la papelera'),
+                          action: SnackBarAction(
+                            label: 'Deshacer',
+                            onPressed: () {},
+                          ),
+                        ),
+                      ),
+                  child: const Text('avisar'),
+                ),
+                for (var i = 0; i < 60; i++) ListTile(title: Text('Fila $i')),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('avisar'));
+      await tester.pumpAndSettle();
+      expect(
+        notice(tester).bottom,
+        closeTo(tester.getRect(player).top - 10, 0.5),
+      );
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('Fila 2')),
+      );
+      await gesture.moveBy(const Offset(0, -40));
+      await gesture.moveBy(const Offset(0, -40));
+      await tester.pump();
+      await tester.pump();
+      for (var i = 0; i < 12; i++) {
+        await gesture.moveBy(const Offset(0, -10));
+        await tester.pump(const Duration(milliseconds: 30));
+      }
+      // Achicado a mitad del arrastre, y el aviso encima de él.
+      expect(collapsed, findsOneWidget);
+      expect(
+        notice(tester).bottom,
+        closeTo(tester.getRect(collapsed).top - 10, 0.5),
+      );
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(
+        notice(tester).bottom,
+        closeTo(tester.getRect(player).top - 10, 0.5),
+      );
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
     });
   });
 
@@ -696,8 +813,8 @@ void main() {
       await tester.pump();
       expect(player, findsNothing);
       expect(collapsed, findsOneWidget);
-      // Es solo lo que se ve: lo elegido sigue siendo abierto, y los avisos
-      // no se mueven mientras tanto.
+      // Es solo lo que se ve: lo elegido sigue siendo abierto. Lo que ocupa
+      // ahora es menos que en reposo, y con eso se acomodan los avisos.
       expect(reader.state.panel, ReadAloudPanel.expanded);
       final extent = container.read(readAloudPlayerExtentProvider);
       expect(extent.current, lessThan(extent.resting));
