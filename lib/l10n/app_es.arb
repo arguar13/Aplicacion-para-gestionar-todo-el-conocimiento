@@ -15324,5 +15324,15 @@
   "f45S8bOpenNote": "abrir la nota",
   "@f45S8bOpenNote": {"description": "F45, paso 8b: la pista del lector de pantalla para tocar un globito o una nota de la lista."},
   "f45S8bSeveralTitle": "Notas de este renglón",
-  "@f45S8bSeveralTitle": {"description": "F45, paso 8b: el título de la hoja que abre el globito de un renglón con varias notas."}
+  "@f45S8bSeveralTitle": {"description": "F45, paso 8b: el título de la hoja que abre el globito de un renglón con varias notas."},
+  "f47P7bSpeedTile": "Velocidad de lectura",
+  "@f47P7bSpeedTile": {"description": "F47, paso 7b: Ajustes › Voz y lectura, la fila de la velocidad con que empieza a leer; debajo va la cifra, como «1,0×»."},
+  "f47P7bSpeedNote": "Con esta velocidad empieza a leer todo. Es la misma del reproductor: cambiarla allá también la cambia acá.",
+  "@f47P7bSpeedNote": {"description": "F47, paso 7b: la aclaración de la hoja de la velocidad cuando se abre desde Ajustes."},
+  "f47P7bAppearanceTile": "Tipografía y resaltado",
+  "@f47P7bAppearanceTile": {"description": "F47, paso 7b: Ajustes › Voz y lectura, la fila que abre la Apariencia de lectura (la letra, su tamaño, el resaltado de lo que suena y el modo); debajo, lo elegido, como «Lora · 100 % · Amarillo»."},
+  "f47P7bAppearancePageHint": "El tono de la página de un PDF o de una foto.",
+  "@f47P7bAppearancePageHint": {"description": "F47, paso 7b: en la Apariencia de lectura abierta desde Ajustes, debajo de «La página», a qué se aplica el tono."},
+  "f47P7bDownloadedSummary": "{count, plural, =1{1 voz · {size}} other{{count} voces · {size}}}",
+  "@f47P7bDownloadedSummary": {"description": "F47, paso 7b: Ajustes › Voz y lectura › Voces descargadas: cuántas voces sin conexión hay en el teléfono y cuánto ocupan entre todas.", "placeholders": {"count": {"type": "int"}, "size": {"type": "String"}}}
 }

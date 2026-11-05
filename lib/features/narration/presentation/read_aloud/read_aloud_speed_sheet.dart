@@ -21,8 +21,15 @@ String formatReadAloudSpeed(double speed, String locale) =>
 /// Los botones y los atajos se aplican en el acto; la regla, al soltarla:
 /// cada cambio de velocidad le hace retomar la frase al motor de voz, y
 /// arrastrar no tiene que tartamudear.
+///
+/// Es una sola velocidad, la que se guarda: con ella empieza a leer todo, y
+/// la misma hoja la cambia desde el reproductor y desde Ajustes › Voz y
+/// lectura (F47, paso 7b), que le pasa [note] para decirlo.
 class ReadAloudSpeedSheet extends ConsumerStatefulWidget {
-  const ReadAloudSpeedSheet({super.key});
+  const ReadAloudSpeedSheet({this.note, super.key});
+
+  /// Una aclaración debajo del título; `null`, sin aclaración.
+  final String? note;
 
   @override
   ConsumerState<ReadAloudSpeedSheet> createState() =>
@@ -63,6 +70,15 @@ class _ReadAloudSpeedSheetState extends ConsumerState<ReadAloudSpeedSheet> {
               style: text.titleMedium,
               textAlign: TextAlign.center,
             ),
+            if (widget.note case final note?) ...[
+              const SizedBox(height: 4),
+              Text(
+                note,
+                key: const Key('read-aloud-speed-note'),
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+            ],
             const SizedBox(height: 8),
             // La cifra la dice la regla al lector de pantalla.
             ExcludeSemantics(

@@ -23,6 +23,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/unsorted_items_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
+import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/screens/notebooks_screen.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
@@ -32,6 +33,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../support/fake_shared_content_listener.dart';
+import '../../support/fake_text_to_speech_service.dart';
 import '../../support/map_overrides.dart';
 import '../../support/vault_test_doubles.dart';
 
@@ -93,6 +95,11 @@ void main() {
         }),
         // La pestaña del Mapa calcula en un isolate: ver `mapInlineOverrides`.
         ...mapInlineOverrides,
+        // Ajustes muestra la voz que lee ahora (F47, paso 7b), que es la del
+        // lector en voz alta: con el doble, y no con el motor del teléfono.
+        textToSpeechServiceProvider.overrideWithValue(
+          FakeTextToSpeechService(),
+        ),
         ...overrides,
       ],
     );

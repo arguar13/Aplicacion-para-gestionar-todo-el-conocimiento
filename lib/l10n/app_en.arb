@@ -16301,5 +16301,15 @@
   "f45S8bOpenNote": "open the note",
   "@f45S8bOpenNote": {"description": "F45, step 8b: the screen reader hint for tapping a bubble or a list note."},
   "f45S8bSeveralTitle": "Notes on this line",
-  "@f45S8bSeveralTitle": {"description": "F45, step 8b: title of the sheet a bubble opens on a line with several notes."}
+  "@f45S8bSeveralTitle": {"description": "F45, step 8b: title of the sheet a bubble opens on a line with several notes."},
+  "f47P7bSpeedTile": "Reading speed",
+  "@f47P7bSpeedTile": {"description": "F47, paso 7b: Ajustes › Voz y lectura, la fila de la velocidad con que empieza a leer; debajo va la cifra, como «1,0×»."},
+  "f47P7bSpeedNote": "Everything starts reading at this speed. It's the same one as the player's: changing it there changes it here too.",
+  "@f47P7bSpeedNote": {"description": "F47, paso 7b: la aclaración de la hoja de la velocidad cuando se abre desde Ajustes."},
+  "f47P7bAppearanceTile": "Typeface and highlight",
+  "@f47P7bAppearanceTile": {"description": "F47, paso 7b: Ajustes › Voz y lectura, la fila que abre la Apariencia de lectura (la letra, su tamaño, el resaltado de lo que suena y el modo); debajo, lo elegido, como «Lora · 100 % · Amarillo»."},
+  "f47P7bAppearancePageHint": "The page tone of a PDF or a photo.",
+  "@f47P7bAppearancePageHint": {"description": "F47, paso 7b: en la Apariencia de lectura abierta desde Ajustes, debajo de «La página», a qué se aplica el tono."},
+  "f47P7bDownloadedSummary": "{count, plural, =1{1 voice · {size}} other{{count} voices · {size}}}",
+  "@f47P7bDownloadedSummary": {"description": "F47, paso 7b: Ajustes › Voz y lectura › Voces descargadas: cuántas voces sin conexión hay en el teléfono y cuánto ocupan entre todas.", "placeholders": {"count": {"type": "int"}, "size": {"type": "String"}}}
 }

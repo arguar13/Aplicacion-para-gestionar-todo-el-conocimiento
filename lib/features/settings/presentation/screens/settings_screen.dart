@@ -21,6 +21,7 @@ import 'package:sinapsis/features/help/presentation/widgets/help_settings_tiles.
 import 'package:sinapsis/features/home_widgets/presentation/providers/home_widgets_providers.dart';
 import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_settings_tiles.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_appearance_tile.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/lock_screen_title_tile.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/owner_name_tile.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/review_settings_section.dart';
@@ -103,11 +104,18 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 24),
-          // F47, paso 3: la biblioteca de voces y las descargadas. El paso 7
-          // le suma el resto de «Voz y lectura».
+          // F47, paso 7b: «Voz y lectura», todo lo de escuchar y leer en un
+          // solo lugar —con qué voz, las voces propias, la velocidad, la
+          // Lectura enfocada y la letra con el resaltado de lo que suena—.
+          // Lo que se ve con el teléfono bloqueado es de todo lo que suena, no
+          // solo de la lectura, y queda en Privacidad.
           _SettingsSection(
             title: l10n.f47P3SettingsSection,
-            children: voiceSettingsTiles(context, ref),
+            children: [
+              ...voiceSettingsTiles(context, ref),
+              ...readAloudSettingsTiles(context, ref),
+              const ReadingAppearanceSettingsTile(),
+            ],
           ),
           const SizedBox(height: 24),
           _SettingsSection(

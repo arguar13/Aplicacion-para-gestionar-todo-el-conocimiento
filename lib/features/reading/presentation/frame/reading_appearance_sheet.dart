@@ -13,7 +13,25 @@ Future<void> showReadingAppearance(
   required ReadingBodyKind bodyKind,
   required ReadingFrameController controller,
   required ThemeData appTheme,
-}) {
+}) => _showSheet(
+  context,
+  ReadingAppearanceSheet(
+    bodyKind: bodyKind,
+    controller: controller,
+    appTheme: appTheme,
+  ),
+);
+
+/// Abre la misma «Apariencia» desde Ajustes › Voz y lectura (F47, paso 7b),
+/// sin un documento abierto: con todo lo que se guarda para los lectores
+/// —la letra y su tamaño, el tono de la página, el resaltado y el modo— y
+/// sin el zoom, que es de la página que se está viendo.
+Future<void> showReadingAppearanceSettings(BuildContext context) => _showSheet(
+  context,
+  ReadingAppearanceSheet.saved(appTheme: Theme.of(context)),
+);
+
+Future<void> _showSheet(BuildContext context, Widget sheet) {
   final still = MediaQuery.disableAnimationsOf(context);
   return showModalBottomSheet<void>(
     context: context,
@@ -21,11 +39,7 @@ Future<void> showReadingAppearance(
     useSafeArea: true,
     showDragHandle: true,
     sheetAnimationStyle: still ? AnimationStyle.noAnimation : null,
-    builder: (_) => ReadingAppearanceSheet(
-      bodyKind: bodyKind,
-      controller: controller,
-      appTheme: appTheme,
-    ),
+    builder: (_) => sheet,
   );
 }
 
@@ -41,16 +55,29 @@ Future<void> showReadingAppearance(
 /// - **El modo**: Sistema · Claro · Oscuro · Sepia, cada uno con su muestra.
 ///
 /// Cada cambio se ve en el acto detrás de la hoja: el marco mira lo mismo.
+///
+/// Desde Ajustes ([ReadingAppearanceSheet.saved]) no hay un cuerpo detrás:
+/// muestra todo lo que se guarda, con la página rotulada para un PDF o una
+/// foto, y la muestra de la letra hace de vista previa.
 class ReadingAppearanceSheet extends ConsumerWidget {
   const ReadingAppearanceSheet({
-    required this.bodyKind,
-    required this.controller,
+    required ReadingBodyKind this.bodyKind,
+    required ReadingFrameController this.controller,
     required this.appTheme,
     super.key,
   });
 
-  final ReadingBodyKind bodyKind;
-  final ReadingFrameController controller;
+  /// Sin un documento abierto: desde Ajustes › Voz y lectura (F47, paso 7b).
+  const ReadingAppearanceSheet.saved({required this.appTheme, super.key})
+    : bodyKind = null,
+      controller = null;
+
+  /// El cuerpo que se lee; `null` desde Ajustes, donde vale para todos.
+  final ReadingBodyKind? bodyKind;
+
+  /// El del marco abierto, que tiene el zoom de su página; `null` desde
+  /// Ajustes.
+  final ReadingFrameController? controller;
 
   /// El tema de la app, debajo del modo de lectura: el de «Sistema».
   final ThemeData appTheme;
@@ -76,7 +103,8 @@ class ReadingAppearanceSheet extends ConsumerWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          if (bodyKind == ReadingBodyKind.text ||
+          if (bodyKind == null ||
+              bodyKind == ReadingBodyKind.text ||
               bodyKind == ReadingBodyKind.pageWithText) ...[
             _Heading(l10n.f47P1AppearanceFont),
             _FontChoices(
@@ -90,16 +118,28 @@ class ReadingAppearanceSheet extends ConsumerWidget {
             ),
             _Sample(appearance: appearance),
           ],
-          if (bodyKind == ReadingBodyKind.page ||
+          if (bodyKind == null ||
+              bodyKind == ReadingBodyKind.page ||
               bodyKind == ReadingBodyKind.pageWithText) ...[
             _Heading(l10n.f47P1AppearancePage),
-            ListenableBuilder(
-              listenable: controller,
-              builder: (context, _) => switch (controller.zoom) {
-                final zoom? => _ZoomRow(zoom: zoom),
-                null => const SizedBox.shrink(),
-              },
-            ),
+            if (controller case final controller?)
+              ListenableBuilder(
+                listenable: controller,
+                builder: (context, _) => switch (controller.zoom) {
+                  final zoom? => _ZoomRow(zoom: zoom),
+                  null => const SizedBox.shrink(),
+                },
+              )
+            else
+              // Desde Ajustes no hay página a la vista: se dice a qué se
+              // aplica el tono.
+              Text(
+                l10n.f47P7bAppearancePageHint,
+                key: const Key('reading-paper-hint'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             const SizedBox(height: 8),
             _PaperChoices(
               selected: appearance.paper,
@@ -156,6 +196,17 @@ class _Heading extends StatelessWidget {
       ReadingFont.nunito => ('Nunito', l10n.f47P1FontNunitoHint),
       ReadingFont.atkinson => ('Atkinson', l10n.f47P1FontAtkinsonHint),
     };
+
+/// El nombre del color de lo que suena: «Amarillo», «Durazno»…
+String readingHighlightName(
+  AppLocalizations l10n,
+  ReadingHighlight highlight,
+) => switch (highlight) {
+  ReadingHighlight.yellow => l10n.f47P1HighlightYellow,
+  ReadingHighlight.peach => l10n.f47P1HighlightPeach,
+  ReadingHighlight.lilac => l10n.f47P1HighlightLilac,
+  ReadingHighlight.lime => l10n.f47P1HighlightLime,
+};
 
 /// Las cinco letras, cada una escrita con su letra: se elige viéndola.
 class _FontChoices extends StatelessWidget {
@@ -442,12 +493,8 @@ class _HighlightChoices extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final scheme = Theme.of(context).colorScheme;
-    String label(ReadingHighlight highlight) => switch (highlight) {
-      ReadingHighlight.yellow => l10n.f47P1HighlightYellow,
-      ReadingHighlight.peach => l10n.f47P1HighlightPeach,
-      ReadingHighlight.lilac => l10n.f47P1HighlightLilac,
-      ReadingHighlight.lime => l10n.f47P1HighlightLime,
-    };
+    String label(ReadingHighlight highlight) =>
+        readingHighlightName(l10n, highlight);
     return Wrap(
       spacing: 12,
       runSpacing: 12,

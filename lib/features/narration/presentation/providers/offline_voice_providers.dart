@@ -98,6 +98,36 @@ final installedVoicePackagesProvider = StreamProvider<Set<String>>((
   }
 });
 
+/// Cuántas voces sin conexión hay en el teléfono y cuánto ocupan entre todas
+/// (F47, paso 7b): lo que dice «Voces descargadas» en Ajustes antes de
+/// abrirla. Las voces son las del catálogo cuyo paquete está —las 28 de
+/// Kokoro cuentan como 28—, y los bytes, los de cada paquete abierto, como
+/// los muestra la hoja. `null` donde no hay voces sin conexión o mientras no
+/// se sabe qué paquetes están.
+///
+/// Se vuelve a contar cuando una voz se baja o se borra: mira
+/// [installedVoicePackagesProvider].
+final downloadedVoicesSummaryProvider =
+    FutureProvider.autoDispose<DownloadedVoicesSummary?>((ref) async {
+      final installed = ref.watch(installedVoicePackagesProvider).valueOrNull;
+      final files = ref.watch(offlineVoiceFilesProvider);
+      if (installed == null || files == null) return null;
+      var bytes = 0;
+      for (final package in OfflineVoiceCatalog.packages) {
+        if (!installed.contains(package.id)) continue;
+        bytes += await files.installedBytes(package) ?? 0;
+      }
+      return (
+        voices: OfflineVoiceCatalog.voices
+            .where((voice) => installed.contains(voice.package.id))
+            .length,
+        bytes: bytes,
+      );
+    });
+
+/// Ver [downloadedVoicesSummaryProvider].
+typedef DownloadedVoicesSummary = ({int voices, int bytes});
+
 /// La descarga de cada paquete de voz, viva aparte de su tarjeta (ver
 /// [ModelDownloadNotifier]): una por paquete, por su id. NO autoDispose:
 /// sigue aunque nadie la mire.
