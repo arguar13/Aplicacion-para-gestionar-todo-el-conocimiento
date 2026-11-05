@@ -118,6 +118,64 @@ String archivedPageMarksScript(List<ArchivedPageMark> marks) {
   return 'window.sinapsis && window.sinapsis.marks($items);';
 }
 
+/// Una nota en el texto lista para la página (F45, paso 8c): sus `ranges` en
+/// el texto corrido de la página —ver [ArchivedPageAlignment]—, el color de
+/// su `line` —el punteado y el borde del globito— y el de su `fill` —el
+/// globito—, en `0xAARRGGBB`, y lo que dice el lector de pantalla de su
+/// globito (`label`).
+typedef ArchivedPageNote = ({
+  String id,
+  List<PageRange> ranges,
+  int line,
+  int fill,
+  String label,
+});
+
+/// Lo que se le pide a la página para poner las notas en el texto [notes]
+/// (F45, paso 8c): el pedazo de cada una con un subrayado fino punteado de su
+/// color y, al costado de su párrafo, en un margen que se abre a la derecha
+/// de la página, **el globito** del renglón donde empieza —uno por renglón,
+/// con el número si son varias—. [several] dice lo que lee el lector de
+/// pantalla del globito de un renglón con varias, por cuántas son; [flash]
+/// es el fondo con que se marca un momento la nota a la que se va. Reemplaza
+/// lo que había.
+String archivedPageNotesScript(
+  List<ArchivedPageNote> notes, {
+  required Map<int, String> several,
+  required int flash,
+}) {
+  final items = jsonEncode([
+    for (final note in notes)
+      {
+        'id': note.id,
+        'ranges': [
+          for (final range in note.ranges) [range.start, range.end],
+        ],
+        'line': _hex(note.line),
+        'fill': _hex(note.fill),
+        'label': note.label,
+      },
+  ]);
+  final labels = jsonEncode({
+    for (final MapEntry(:key, :value) in several.entries) '$key': value,
+  });
+  return 'window.sinapsis && '
+      'window.sinapsis.notes($items, $labels, ${jsonEncode(_hex(flash))});';
+}
+
+/// Lo que se le pide a la página para ir a la nota [id] (F45, paso 8c): deja
+/// el renglón donde empieza a la altura de [landing] —una fracción del alto
+/// de lo que se ve—, de a poco con [smooth], y la marca un momento.
+String archivedPageRevealNoteScript(
+  String id, {
+  required bool smooth,
+  required double landing,
+}) {
+  final options = jsonEncode({'smooth': smooth, 'landing': landing});
+  return 'window.sinapsis && '
+      'window.sinapsis.revealNote(${jsonEncode(id)}, $options);';
+}
+
 /// Lo que la página avisa por [archivedPageMarksChannel] (F38).
 sealed class ArchivedPageEvent {
   const ArchivedPageEvent();
@@ -147,11 +205,20 @@ class ArchivedPageDeselected extends ArchivedPageEvent {
   const ArchivedPageDeselected();
 }
 
-/// La persona tocó el resaltado suyo [id].
+/// La persona tocó lo suyo en la página: el resaltado [id], si hay uno, y
+/// el pedazo de las notas en el texto [notes] (F45, paso 8c), si hay alguna.
 class ArchivedPageMarkTapped extends ArchivedPageEvent {
-  const ArchivedPageMarkTapped(this.id);
+  const ArchivedPageMarkTapped(this.id, {this.notes = const []});
 
-  final String id;
+  final String? id;
+  final List<String> notes;
+}
+
+/// La persona tocó el globito de las notas [ids] (F45, paso 8c).
+class ArchivedPageNotesTapped extends ArchivedPageEvent {
+  const ArchivedPageNotesTapped(this.ids);
+
+  final List<String> ids;
 }
 
 /// La persona empezó a mover la página con el dedo —o la rueda del ratón—:
@@ -197,7 +264,14 @@ ArchivedPageEvent? parseArchivedPageEvent(String message) {
           viewWidth: (data['vw'] as num).toDouble(),
         );
       case 'tap':
-        return ArchivedPageMarkTapped(data['id'] as String);
+        return ArchivedPageMarkTapped(
+          data['id'] as String?,
+          notes: [...?(data['notes'] as List<dynamic>?)?.cast<String>()],
+        );
+      case 'notes':
+        return ArchivedPageNotesTapped([
+          ...(data['ids'] as List<dynamic>).cast<String>(),
+        ]);
       case 'moved':
         return const ArchivedPageMoved();
       case 'seen':
@@ -661,9 +735,10 @@ String _css(ArchivedPageColors colors) {
   ].join('\n');
 }
 
-/// El programa de la app en la página: pinta lo estudiado y los resaltados de
-/// la persona, cambia las clases que prenden cada color, avisa lo que se
-/// selecciona y, eligiendo a mano, la posición de lo que se toca.
+/// El programa de la app en la página: pinta lo estudiado, los resaltados de
+/// la persona y sus notas en el texto con sus globitos (F45, paso 8c), cambia
+/// las clases que prenden cada color, avisa lo que se selecciona y lo suyo
+/// que se toca y, eligiendo a mano, la posición de lo que se toca.
 const _script = r'''
 (function () {
   var root = document.documentElement;
@@ -738,6 +813,15 @@ const _script = r'''
   var study = {summary: [], synthesis: [], keyword: []};
   var hand = [];
 
+  // Las notas en el texto (F45, paso 8c): el pedazo de cada una, punteado, y
+  // los globitos, en un margen que se abre a la derecha de la página.
+  var notes = [];
+  var several = {};
+  var noteFlash = null;
+  var flashTimer = null;
+  var BUBBLE = 22;
+  var GUTTER = 30;
+
   function unwrap() {
     var painted = document.querySelectorAll('.sn-p');
     for (var i = painted.length - 1; i >= 0; i--) {
@@ -766,6 +850,14 @@ const _script = r'''
     } else {
       span.style.background = item.color;
     }
+    return span;
+  }
+  function noteSpanOf(item) {
+    var span = document.createElement('span');
+    span.className = 'sn-p sn-n' + (item.id === noteFlash ? ' sn-nf' : '');
+    span.setAttribute('data-n', item.id);
+    span.style.cssText = 'text-decoration:underline dotted ' + item.line +
+      ';text-decoration-thickness:2px;text-underline-offset:3px';
     return span;
   }
   function wrapText(node, parts, make) {
@@ -986,10 +1078,120 @@ const _script = r'''
       item.ranges.forEach(function (range) { marked.push({range: range, k: k}); });
     });
     paint(marked, function (k) { return spanOf(hand[k]); });
+    var noted = [];
+    notes.forEach(function (item, k) {
+      item.ranges.forEach(function (range) { noted.push({range: range, k: k}); });
+    });
+    paint(noted, function (k) { return noteSpanOf(notes[k]); });
     paint(each(study.keyword), markOf('k'));
     // Lo que suena va encima de todo; envuelto en una marca, se lo llevó
     // unwrap.
     paintReading();
+    placeBubbles();
+  }
+
+  // El primer renglón de la nota k, en la página: el primero de sus tramos
+  // que se ve.
+  function firstLine(item) {
+    var found = domRanges(item.ranges.slice(0, 1));
+    if (!found.length) return null;
+    var rects = found[0].getClientRects();
+    for (var i = 0; i < rects.length; i++) {
+      if (rects[i].width || rects[i].height) return rects[i];
+    }
+    return null;
+  }
+  function bubbles() {
+    var box = document.getElementById('sn-bubbles');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'sn-bubbles';
+      document.documentElement.appendChild(box);
+    }
+    return box;
+  }
+  // Los globitos: uno por renglón donde empieza alguna nota, al costado de
+  // su párrafo, en el margen de la derecha. Se vuelven a ubicar cuando la
+  // página cambia de tamaño o termina de cargar una foto.
+  function placeBubbles() {
+    var box = bubbles();
+    while (box.firstChild) box.removeChild(box.firstChild);
+    root.classList.toggle('sn-notes', notes.length > 0);
+    if (!notes.length) return;
+    var scrollX = window.pageXOffset || 0;
+    var scrollY = window.pageYOffset || 0;
+    var rows = [];
+    notes.forEach(function (item) {
+      var line = firstLine(item);
+      if (!line) return;
+      var top = line.top + scrollY;
+      var row = null;
+      for (var i = 0; i < rows.length; i++) {
+        if (Math.abs(rows[i].top - top) < 2) { row = rows[i]; break; }
+      }
+      if (row) row.items.push(item);
+      else rows.push({top: top, height: line.height, items: [item]});
+    });
+    var left = root.clientWidth - GUTTER + (GUTTER - BUBBLE) / 2 + scrollX;
+    rows.forEach(function (row) {
+      var first = row.items[0];
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'sn-bubble';
+      button.setAttribute('aria-label', row.items.length > 1
+        ? (several[String(row.items.length)] || first.label) : first.label);
+      button.style.left = left + 'px';
+      button.style.top = (row.top + row.height / 2 - BUBBLE / 2) + 'px';
+      button.style.background = first.fill;
+      button.style.borderColor = first.line;
+      if (row.items.length > 1) {
+        button.textContent = String(row.items.length);
+      } else {
+        button.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" ' +
+          'aria-hidden="true"><path fill="currentColor" d="M4 6h16v2H4zm0 ' +
+          '5h16v2H4zm0 5h10v2H4z"/></svg>';
+      }
+      var ids = row.items.map(function (item) { return item.id; });
+      button.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        post({t: 'notes', ids: ids});
+      });
+      box.appendChild(button);
+    });
+  }
+  var placing = false;
+  function placeSoon() {
+    if (placing || !notes.length) return;
+    placing = true;
+    (window.requestAnimationFrame || setTimeout)(function () {
+      placing = false;
+      placeBubbles();
+    });
+  }
+  window.addEventListener('resize', placeSoon);
+  document.addEventListener('load', placeSoon, true);
+  if (window.ResizeObserver) new ResizeObserver(placeSoon).observe(document.body);
+  function setNotesStyle(flash) {
+    var style = document.getElementById('sn-notes-style');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'sn-notes-style';
+      (document.head || document.documentElement).appendChild(style);
+    }
+    style.textContent =
+      'html.sn-notes{padding-right:' + GUTTER + 'px!important;' +
+      'box-sizing:border-box!important}' +
+      '#sn-bubbles{position:absolute;left:0;top:0;width:0;height:0;' +
+      'z-index:2147483646}' +
+      '#sn-bubbles .sn-bubble{position:absolute;box-sizing:border-box;' +
+      'width:' + BUBBLE + 'px;height:' + BUBBLE + 'px;margin:0;padding:0;' +
+      'border:1.5px solid;border-radius:11px 11px 11px 4px;display:flex;' +
+      'align-items:center;justify-content:center;color:rgba(0,0,0,.87);' +
+      'font:700 11px/1 sans-serif;box-shadow:0 1px 3px rgba(0,0,0,.2);' +
+      'cursor:pointer;-webkit-user-select:none;user-select:none;' +
+      'touch-action:manipulation;-webkit-tap-highlight-color:transparent}' +
+      '.sn-nf{background:' + flash + '!important}';
   }
 
   // Dónde cae el cursor en (x, y): el texto y el lugar en él.
@@ -1012,6 +1214,37 @@ const _script = r'''
     marks: function (items) {
       hand = items || [];
       repaint();
+    },
+    notes: function (items, labels, flash) {
+      notes = items || [];
+      several = labels || {};
+      setNotesStyle(flash);
+      repaint();
+    },
+    revealNote: function (id, options) {
+      var item = null;
+      notes.forEach(function (n) { if (n.id === id) item = n; });
+      if (!item) return;
+      var line = firstLine(item);
+      if (line) {
+        var view = viewBox();
+        window.scrollBy({
+          top: line.top - (view.top + view.height * options.landing),
+          left: 0,
+          behavior: options.smooth ? 'smooth' : 'auto'
+        });
+      }
+      noteFlash = id;
+      var spans = document.querySelectorAll('.sn-n');
+      for (var i = 0; i < spans.length; i++) {
+        spans[i].classList.toggle('sn-nf', spans[i].getAttribute('data-n') === id);
+      }
+      clearTimeout(flashTimer);
+      flashTimer = setTimeout(function () {
+        noteFlash = null;
+        var lit = document.querySelectorAll('.sn-nf');
+        for (var j = 0; j < lit.length; j++) lit[j].classList.remove('sn-nf');
+      }, 2000);
     },
     study: function (layers) {
       study = {
@@ -1067,20 +1300,27 @@ const _script = r'''
     var at = position(textNodes(), caret.node, caret.offset);
     if (window.SinapsisStudy) window.SinapsisStudy.postMessage(String(at));
   }, true);
-  // Tocar un resaltado de la persona avisa cuál, salvo que se esté
+  // Tocar lo de la persona avisa qué: el resaltado de más adentro y las
+  // notas cuyo pedazo está ahí (F45, paso 8c), salvo que se esté
   // seleccionando o sea un enlace.
   document.addEventListener('click', function (event) {
     var selection = window.getSelection();
     if (selection && !selection.isCollapsed) return;
     var node = event.target;
+    var id = null;
+    var ids = [];
     while (node && node.nodeType === 1) {
       if (node.localName === 'a') return;
-      if (node.classList.contains('sn-h')) {
-        post({t: 'tap', id: node.getAttribute('data-h')});
-        return;
+      if (node.classList.contains('sn-n')) {
+        var noted = node.getAttribute('data-n');
+        if (ids.indexOf(noted) < 0) ids.unshift(noted);
+      }
+      if (id === null && node.classList.contains('sn-h')) {
+        id = node.getAttribute('data-h');
       }
       node = node.parentNode;
     }
+    if (id !== null || ids.length) post({t: 'tap', id: id, notes: ids});
   });
 })();
 ''';

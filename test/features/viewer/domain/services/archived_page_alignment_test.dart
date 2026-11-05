@@ -592,4 +592,137 @@ void main() {
       expect(script, contains("post({t: 'view', at:"));
     });
   });
+
+  group('las notas en el texto en la página (F45, paso 8c)', () {
+    String scriptOfPage() => html_parser
+        .parse(
+          showableArchivedPage(
+            '<html><head></head><body><p>Hola mundo largo.</p></body></html>',
+            study: (
+              content: 'Hola mundo largo.',
+              colors: (summary: 0, synthesis: 0, keyword: 0, summaryLine: 0),
+            ),
+          ),
+        )
+        .getElementById('sinapsis-study-script')!
+        .text;
+
+    test('el pedido para ponerlas: los tramos, los colores, lo que dice cada '
+        'globito, lo que dice el de un renglón con varias y el fondo de la '
+        'que se marca', () {
+      final script = archivedPageNotesScript(
+        [
+          (
+            id: 'n-1',
+            ranges: const [(start: 3, end: 9), (start: 12, end: 15)],
+            line: 0xFF5A7A00,
+            fill: 0xFFDDF4A6,
+            label: 'Nota: El río, sobre «Rubicón»',
+          ),
+        ],
+        several: {2: '2 notas en este renglón'},
+        flash: 0xFFFFE8A0,
+      );
+
+      expect(script, startsWith('window.sinapsis && window.sinapsis.notes('));
+      final inside = script.substring(
+        script.indexOf('notes(') + 6,
+        script.length - 2,
+      );
+      final args = jsonDecode('[$inside]') as List<dynamic>;
+      expect(args[0], [
+        {
+          'id': 'n-1',
+          'ranges': [
+            [3, 9],
+            [12, 15],
+          ],
+          'line': '#5a7a00',
+          'fill': '#ddf4a6',
+          'label': 'Nota: El río, sobre «Rubicón»',
+        },
+      ]);
+      expect(args[1], {'2': '2 notas en este renglón'});
+      expect(args[2], '#ffe8a0');
+    });
+
+    test('ir a una nota: cuál, de a poco o de un salto, y a qué altura', () {
+      final script = archivedPageRevealNoteScript(
+        'n-"1"',
+        smooth: false,
+        landing: 0.2,
+      );
+      expect(
+        script,
+        r'window.sinapsis && window.sinapsis.revealNote("n-\"1\"", '
+        '{"smooth":false,"landing":0.2});',
+      );
+    });
+
+    test('lo que avisa: el pedazo tocado, con el resaltado si hay uno, y el '
+        'globito tocado', () {
+      final tap =
+          parseArchivedPageEvent(
+                jsonEncode({
+                  't': 'tap',
+                  'id': null,
+                  'notes': ['n-1', 'n-2'],
+                }),
+              )!
+              as ArchivedPageMarkTapped;
+      expect(tap.id, isNull);
+      expect(tap.notes, ['n-1', 'n-2']);
+
+      final both =
+          parseArchivedPageEvent(
+                jsonEncode({
+                  't': 'tap',
+                  'id': 'h-1',
+                  'notes': ['h-1'],
+                }),
+              )!
+              as ArchivedPageMarkTapped;
+      expect(both.id, 'h-1');
+      expect(both.notes, ['h-1']);
+
+      final bubble =
+          parseArchivedPageEvent(
+                jsonEncode({
+                  't': 'notes',
+                  'ids': ['n-3'],
+                }),
+              )!
+              as ArchivedPageNotesTapped;
+      expect(bubble.ids, ['n-3']);
+    });
+
+    test('el programa las pone: el punteado encima de lo resaltado a mano y '
+        'debajo de las palabras clave, los globitos en un margen a la derecha '
+        'que se abre con la primera, y lo que avisa al tocar', () {
+      final script = scriptOfPage();
+      expect(script, contains('notes: function (items, labels, flash)'));
+      expect(script, contains('revealNote: function (id, options)'));
+      final order = [
+        'spanOf(hand[k])',
+        'noteSpanOf(notes[k])',
+        "markOf('k')",
+        'placeBubbles();',
+      ].map(script.indexOf).toList();
+      expect(order, everyElement(greaterThan(0)));
+      expect([...order]..sort(), order);
+      expect(script, contains('underline dotted'));
+      expect(script, contains("root.classList.toggle('sn-notes'"));
+      expect(script, contains('html.sn-notes{padding-right:'));
+      expect(script, contains("post({t: 'notes', ids: ids})"));
+      expect(script, contains("post({t: 'tap', id: id, notes: ids})"));
+      expect(script, contains("button.setAttribute('aria-label'"));
+      // Se vuelven a ubicar cuando la página cambia de tamaño o termina de
+      // cargar una foto.
+      expect(script, contains("window.addEventListener('resize', placeSoon)"));
+      expect(
+        script,
+        contains("document.addEventListener('load', placeSoon, true)"),
+      );
+    });
+  });
 }

@@ -23,18 +23,27 @@ import 'package:sinapsis/features/organize/presentation/widgets/markdown_display
 import 'package:sinapsis/features/processed/domain/entities/processed_part.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/domain/services/text_note_placement.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
+import 'package:sinapsis/features/text_notes/presentation/text_note_actions.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_notes_list_sheet.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_alignment.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_study.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_hand_marks.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_highlight_toolbar.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_selection.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/pdf_study_overlay.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
@@ -116,6 +125,15 @@ String webPageStudyState(StudyView view) => archivedPageStateScript(
 /// que se ve y **sigue la lectura**, desplazándose cuando la línea sale de la
 /// parte cómoda de la vista; si la persona mueve la página, la deja tranquila
 /// y ofrece «Volver a la lectura» (ver `ReadAloudFollow`).
+///
+/// **Las notas en el texto (F45, paso 8c).** También con [text], van dentro
+/// de la página, por el mismo puente que los resaltados: el pedazo de cada
+/// una con un subrayado fino punteado de su color y, al costado de su
+/// párrafo —en un margen angosto que se abre a la derecha de la página con
+/// la primera nota—, el globito del renglón donde empieza (ver
+/// `archivedPageNotesScript`). Tocar el globito o el pedazo abre la tarjeta
+/// de la nota; en «Notas (N)» del marco, tocar una lleva a su renglón, lo
+/// marca un momento y la abre.
 ///
 /// Sin `Scaffold` propio a propósito: `WebPageViewerScreen` lo envuelve para
 /// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
@@ -217,6 +235,12 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
   List<ProcessedAnchor> _cuts = const [];
   String? _marks;
   String? _appliedMarks;
+
+  /// Las notas en el texto con lugar (F45, paso 8c), el pedido para ponerlas
+  /// en la página y cuál se le mandó a esta copia.
+  List<PlacedTextNote> _notes = const [];
+  String? _notesScript;
+  String? _appliedNotes;
 
   /// Lo que la persona tiene seleccionado en la página, o `null`.
   ArchivedPageSelected? _selected;
@@ -323,6 +347,7 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     _alignment = shown.alignment;
     _updateStudy(force: true);
     _updateMarks(force: true);
+    _updateNotes(force: true);
     _updateReading();
     await _controller.loadHtmlString(shown.html, baseUrl: widget.url);
   }
@@ -380,12 +405,20 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
         _select(selected);
       case ArchivedPageDeselected():
         _select(null);
-      case ArchivedPageMarkTapped(:final id):
-        for (final highlight in _highlights) {
-          if (highlight.id == id) {
-            unawaited(openHighlightCard(context, ref, highlight));
-          }
+      case ArchivedPageMarkTapped(:final id, :final notes):
+        final highlight = _highlights.where((h) => h.id == id).firstOrNull;
+        final noted = _notesWithIds(notes);
+        // Una nota en el texto (F45, paso 8c); la de un resaltado de antes,
+        // sola, abre su resaltado, como en el texto.
+        if (noted.isNotEmpty &&
+            !noted.every((note) => note.id == highlight?.id)) {
+          unawaited(openTextNotes(context, ref, noted));
+        } else if (highlight != null) {
+          unawaited(openHighlightCard(context, ref, highlight));
         }
+      case ArchivedPageNotesTapped(:final ids):
+        final noted = _notesWithIds(ids);
+        if (noted.isNotEmpty) unawaited(openTextNotes(context, ref, noted));
       case ArchivedPageMoved():
         _follow.release();
       case ArchivedPageReadingSeen():
@@ -414,6 +447,11 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
       if (marks != null && marks != _appliedMarks) {
         _appliedMarks = marks;
         await _controller.runJavaScript(marks);
+      }
+      final notes = _notesScript;
+      if (notes != null && notes != _appliedNotes) {
+        _appliedNotes = notes;
+        await _controller.runJavaScript(notes);
       }
       final reading = _readingScript;
       if (reading != null && reading != _appliedReading) {
@@ -478,6 +516,72 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     if (script == _marks && !force) return;
     _marks = script;
     unawaited(_apply());
+  }
+
+  /// Las notas de [ids], en el orden del texto.
+  List<TextNote> _notesWithIds(List<String> ids) => [
+    for (final placed in _notes)
+      if (ids.contains(placed.note.id)) placed.note,
+  ];
+
+  /// Arma el pedido para poner las notas en el texto [_notes] en la copia que
+  /// se ve (F45, paso 8c), con sus colores sobre el papel —la página es
+  /// blanca también en modo oscuro— y lo que dice de cada globito el lector
+  /// de pantalla; lo manda si cambió (o con [force]).
+  void _updateNotes({bool force = false}) {
+    final alignment = _alignment;
+    if (alignment == null || !mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    final notes = <ArchivedPageNote>[];
+    for (final placed in _notes) {
+      final ranges = alignment.pageRangesOf(placed.start!, placed.end!);
+      if (ranges.isEmpty) continue;
+      final color = placed.note.color;
+      notes.add((
+        id: placed.note.id,
+        ranges: ranges,
+        line: HighlightPalette.lineOnPaper(color).toARGB32(),
+        fill: HighlightPalette.onPaper(color).toARGB32(),
+        label: textNoteSemantics(l10n, placed.note),
+      ));
+    }
+    final script = archivedPageNotesScript(
+      notes,
+      several: {
+        for (var count = 2; count <= notes.length; count++)
+          count: l10n.f45S8bBubbleSeveral(count),
+      },
+      flash: PdfStudyOverlay.flashColor.toARGB32(),
+    );
+    if (script == _notesScript && !force) return;
+    _notesScript = script;
+    unawaited(_apply());
+  }
+
+  /// Lleva la página a la nota `[start, end)` del texto extraído, la marca un
+  /// momento y la deja de seguir la lectura (F45, paso 8c): lo que hace
+  /// tocar una nota en «Notas (N)». `false` si la página no la tiene.
+  bool _revealNote(int start, int end) {
+    final placed = _notes
+        .where((note) => note.start == start && note.end == end)
+        .firstOrNull;
+    final alignment = _alignment;
+    if (placed == null ||
+        alignment == null ||
+        alignment.pageRangesOf(start, end).isEmpty) {
+      return false;
+    }
+    _follow.release();
+    unawaited(
+      _runInPage(
+        archivedPageRevealNoteScript(
+          placed.note.id,
+          smooth: !_still,
+          landing: ReadAloudBand.landing,
+        ),
+      ),
+    );
+    return true;
   }
 
   /// El color con que se pinta lo que suena.
@@ -579,6 +683,24 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
       _cuts = cuts;
       _updateMarks();
     }
+
+    final notes = [
+      for (final note
+          in ref
+                  .watch(
+                    placedTextNotesProvider((
+                      target: textNoteTargetOf(text),
+                      content: text.content,
+                    )),
+                  )
+                  .valueOrNull ??
+              const <PlacedTextNote>[])
+        if (note.placed) note,
+    ];
+    if (!listEquals(notes, _notes)) {
+      _notes = notes;
+      _updateNotes();
+    }
   }
 
   @override
@@ -594,7 +716,24 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
       _playing = playing;
       _updateReading();
     }
-    if (text == null || !widget.readAloud) return _buildPage();
+    if (text == null) return _buildPage();
+    // Las notas del texto, para «Notas (N)» del marco: tocar una lleva a su
+    // lugar en la página.
+    return ReadingNotesOffer(
+      sources: [
+        TextNoteSource(
+          target: textNoteTargetOf(text),
+          content: text.content,
+          reveal: _revealNote,
+        ),
+      ],
+      child: widget.readAloud ? _buildReadAloud(text) : _buildPage(),
+    );
+  }
+
+  /// La página, ofreciendo el artículo para leer en voz alta y con «Volver a
+  /// la lectura» arriba.
+  Widget _buildReadAloud(StudyText text) {
     _follow.resumeOnNewReadings(ref);
     return ReadableRegion(
       document: _readable(text),
