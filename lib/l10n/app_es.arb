@@ -14934,5 +14934,13 @@
   "f47P7WidgetsShowLockedOn": "Cualquiera que mire la pantalla de inicio ve lo último que escuchaste.",
   "@f47P7WidgetsShowLockedOn": {"description": "F47, paso 7a-bis: debajo del interruptor, prendido."},
   "f47P7WidgetsShowLockedOff": "Con la bóveda cerrada, también al reiniciar el teléfono, «Seguir escuchando» dice «Protegido».",
-  "@f47P7WidgetsShowLockedOff": {"description": "F47, paso 7a-bis: debajo del interruptor, apagado (lo de entrada). «Protegido» es lo que dice el widget: «Protegido: tocá para seguir»."}
+  "@f47P7WidgetsShowLockedOff": {"description": "F47, paso 7a-bis: debajo del interruptor, apagado (lo de entrada). «Protegido» es lo que dice el widget: «Protegido: tocá para seguir»."},
+  "f47P7bisPrivacySection": "Privacidad",
+  "@f47P7bisPrivacySection": {"description": "F47, paso 7a-bis: la sección de Ajustes con lo que se ve sin desbloquear el teléfono."},
+  "f47P7bisLockScreenTitle": "Mostrar el título en la pantalla de bloqueo",
+  "@f47P7bisLockScreenTitle": {"description": "F47, paso 7a-bis: el interruptor de Ajustes › Privacidad que deja ver qué suena en la tarjeta de la pantalla de bloqueo. De entrada, apagado."},
+  "f47P7bisLockScreenOn": "Sin desbloquear el teléfono se ve qué suena, con su título y su imagen.",
+  "@f47P7bisLockScreenOn": {"description": "F47, paso 7a-bis: debajo del interruptor, prendido."},
+  "f47P7bisLockScreenOff": "Con el teléfono bloqueado, la tarjeta de lo que suena dice «Reproduciendo»; los botones siguen andando.",
+  "@f47P7bisLockScreenOff": {"description": "F47, paso 7a-bis: debajo del interruptor, apagado (lo de entrada). «Reproduciendo» es lo que dice la tarjeta en lugar del título."}
 }

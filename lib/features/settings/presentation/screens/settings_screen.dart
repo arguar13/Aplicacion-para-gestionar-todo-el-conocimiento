@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/audio/media_session_hub.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
@@ -20,6 +21,7 @@ import 'package:sinapsis/features/help/presentation/widgets/help_settings_tiles.
 import 'package:sinapsis/features/home_widgets/presentation/providers/home_widgets_providers.dart';
 import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_settings_tiles.dart';
+import 'package:sinapsis/features/settings/presentation/widgets/lock_screen_title_tile.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/owner_name_tile.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/review_settings_section.dart';
 import 'package:sinapsis/features/settings/presentation/widgets/theme_choice_picker.dart';
@@ -65,6 +67,9 @@ class SettingsScreen extends ConsumerWidget {
         ref.watch(backgroundSettingsProvider) != null;
     final homeWidgetsAvailable = ref
         .watch(homeScreenWidgetsProvider)
+        .isSupported;
+    final mediaCardAvailable = ref
+        .watch(mediaSessionPlatformProvider)
         .isSupported;
 
     return Scaffold(
@@ -216,6 +221,15 @@ class SettingsScreen extends ConsumerWidget {
           // F31: el aviso diario, cuántas tarjetas por día y el camino a Anki.
           const ReviewSettingsSection(),
           const SizedBox(height: 24),
+          // F47, paso 7a-bis: lo que se ve sin desbloquear el teléfono. Donde
+          // hay tarjeta de lo que suena, que es Android.
+          if (mediaCardAvailable) ...[
+            _SettingsSection(
+              title: l10n.f47P7bisPrivacySection,
+              children: const [LockScreenTitleTile()],
+            ),
+            const SizedBox(height: 24),
+          ],
           _SettingsSection(
             title: l10n.settingsVaultSection,
             children: [

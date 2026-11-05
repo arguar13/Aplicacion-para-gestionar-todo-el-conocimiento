@@ -15911,5 +15911,13 @@
   "f47P7WidgetsShowLockedOn": "Anyone who looks at the home screen sees the last thing you listened to.",
   "@f47P7WidgetsShowLockedOn": {"description": "F47, paso 7a-bis: debajo del interruptor, prendido."},
   "f47P7WidgetsShowLockedOff": "While the vault is locked, also after restarting the phone, “Keep listening” says “Protected”.",
-  "@f47P7WidgetsShowLockedOff": {"description": "F47, paso 7a-bis: debajo del interruptor, apagado (lo de entrada). «Protegido» es lo que dice el widget: «Protegido: tocá para seguir»."}
+  "@f47P7WidgetsShowLockedOff": {"description": "F47, paso 7a-bis: debajo del interruptor, apagado (lo de entrada). «Protegido» es lo que dice el widget: «Protegido: tocá para seguir»."},
+  "f47P7bisPrivacySection": "Privacy",
+  "@f47P7bisPrivacySection": {"description": "F47, paso 7a-bis: la sección de Ajustes con lo que se ve sin desbloquear el teléfono."},
+  "f47P7bisLockScreenTitle": "Show the title on the lock screen",
+  "@f47P7bisLockScreenTitle": {"description": "F47, paso 7a-bis: el interruptor de Ajustes › Privacidad que deja ver qué suena en la tarjeta de la pantalla de bloqueo. De entrada, apagado."},
+  "f47P7bisLockScreenOn": "Without unlocking the phone, anyone can see what is playing, with its title and picture.",
+  "@f47P7bisLockScreenOn": {"description": "F47, paso 7a-bis: debajo del interruptor, prendido."},
+  "f47P7bisLockScreenOff": "With the phone locked, the now-playing card says “Playing”; the buttons keep working.",
+  "@f47P7bisLockScreenOff": {"description": "F47, paso 7a-bis: debajo del interruptor, apagado (lo de entrada). «Reproduciendo» es lo que dice la tarjeta en lugar del título."}
 }
