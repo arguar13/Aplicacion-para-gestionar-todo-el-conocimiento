@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
@@ -23,12 +21,12 @@ class _Writer implements StructuredWriter {
       throw UnimplementedError();
 }
 
-/// Un generador de mentira que guarda su avance â€”Â«mitadÂ»â€” y, si lo encuentra
-/// como Â«listo:<algo>Â», termina sin la IA con eso.
+/// Un generador de mentira que guarda su avance —«mitad»— y, si lo encuentra
+/// como `listo:<algo>`, termina sin la IA con eso.
 class _Generator extends CreationGenerator {
   final seen = <String?>[];
-  var generated = 0;
-  var finished = 0;
+  int generated = 0;
+  int finished = 0;
   Exception? error;
 
   @override
@@ -41,7 +39,7 @@ class _Generator extends CreationGenerator {
   Future<CreationFinisher?> finisherWithoutModel(CreationJob job) async {
     final saved = await job.checkpoint.read();
     if (saved == null || !saved.startsWith('listo:')) return null;
-    return (progress) async {
+    return (CreationProgressReport progress) async {
       finished++;
       progress(0.5, CreationStep.voicing);
       return CreationOutput(title: 'Sin IA', content: saved.substring(6));
@@ -63,8 +61,8 @@ class _Generator extends CreationGenerator {
   }
 }
 
-/// F47, paso 6b: la cola de Â«Lo creadoÂ» con lo hecho guardado â€”Â«ReintentarÂ»
-/// sigue desde ahÃ­, Â«Volver a generarÂ» empieza de ceroâ€” y lo que se termina
+/// F47, paso 6b: la cola de «Lo creado» con lo hecho guardado —«Reintentar»
+/// sigue desde ahí, «Volver a generar» empieza de cero— y lo que se termina
 /// sin la IA, que no la espera ni arma el material.
 void main() {
   late CreationsHarness h;
@@ -94,7 +92,7 @@ void main() {
 
   setUp(() async {
     h = await CreationsHarness.create(files: InMemoryFileStore());
-    exodo = await h.processedDoc('exodo', title: 'Ã‰xodo');
+    exodo = await h.processedDoc('exodo', title: 'Éxodo');
     generator = _Generator();
     status = ready;
     queues = [];
@@ -123,9 +121,9 @@ void main() {
         runNow: runNow,
       );
 
-  test('el generador recibe lo que guardÃ³ el intento anterior; Â«ReintentarÂ» '
-      'lo conserva y Â«Volver a generarÂ» lo descarta', () async {
-    generator.error = Exception('se cortÃ³');
+  test('el generador recibe lo que guardó el intento anterior; «Reintentar» '
+      'lo conserva y «Volver a generar» lo descarta', () async {
+    generator.error = Exception('se cortó');
     final queue = newQueue();
     final c = (await queue.create(request())).getRight().toNullable()!;
     await settled(c.id);
@@ -145,8 +143,8 @@ void main() {
   }, timeout: const Timeout(Duration(seconds: 30)));
 
   test('lo que se termina sin la IA no espera al modelo, no arma el material '
-      'â€”aunque sus fuentes se hayan borradoâ€” y conserva el modelo con que se '
-      'escribiÃ³', () async {
+      '—aunque sus fuentes se hayan borrado— y conserva el modelo con que se '
+      'escribió', () async {
     final queue = newQueue();
     final c = (await queue.create(request())).getRight().toNullable()!;
     expect((await settled(c.id)).modelName, 'Gemma');
@@ -176,8 +174,8 @@ void main() {
     expect(generator.generated, 0);
   }, timeout: const Timeout(Duration(seconds: 30)));
 
-  test('lo de Â«mÃ¡s tardeÂ» que se termina sin la IA no espera la cuota de '
-      'fondo; lo demÃ¡s, sÃ­', () async {
+  test('lo de «más tarde» que se termina sin la IA no espera la cuota de '
+      'fondo; lo demás, sí', () async {
     status = unavailable;
     final queue = newQueue();
     final waits = (await queue.create(

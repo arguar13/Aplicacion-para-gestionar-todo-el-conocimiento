@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:mocktail/mocktail.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/creations/data/creation_files.dart';
 import 'package:sinapsis/features/creations/data/repositories/study_creation_repository_impl.dart';
