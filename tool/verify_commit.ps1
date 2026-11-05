@@ -60,8 +60,12 @@ if (Test-Path $work) { Remove-Item -Recurse -Force $work }
 New-Item -ItemType Directory -Path $work | Out-Null
 $tar = Join-Path (Split-Path $work) "sinapsis-verify-$sha.tar"
 
+# Con los recursos que declara `pubspec.yaml` (`assets/` y los .md de la raíz
+# que la app muestra, desde F47, paso 7a): sin ellos el analizador avisa
+# `asset_does_not_exist` por cada uno, y un commit sano pasaba la línea base.
 $paths = @(
   'lib', 'test', 'integration_test', 'test_driver', 'tool', 'drift_schemas',
+  'assets', 'GUIA_DE_USO.md', 'NOVEDADES.md',
   'pubspec.yaml', 'pubspec.lock', 'analysis_options.yaml', 'l10n.yaml'
 ) | Where-Object { git ls-tree --name-only $Rev -- $_ }
 git archive --format=tar --output=$tar $Rev -- @paths
