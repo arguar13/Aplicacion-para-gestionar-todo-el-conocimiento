@@ -3342,8 +3342,10 @@ de escucharlo.
    bloqueo** aparece su tarjeta, la de los reproductores de música: de
    portada, la cara de la voz que lee; el título, «Leyendo con … · 1,0×», la
    barra de avance (que se puede arrastrar), **−10 s, ▶/⏸ y +10 s**, y
-   **siguiente** si hay algo en la cola. Tocarla vuelve a la app con el reproductor abierto. Los
-   **auriculares y el reloj** pausan, siguen y saltan.
+   **siguiente** si hay algo en la cola. Tocarla vuelve a la app con el
+   reproductor abierto, **en la pantalla de lo que se lee** —el documento, en
+   la línea que suena—, si estabas en otra. Los **auriculares y el reloj**
+   pausan, siguen y saltan.
    - Se porta bien con el teléfono: **una llamada o el GPS hablando lo
      pausan**, y al cortar sigue solo; si otra app empieza a sonar, se pausa
      y no vuelve; **desconectar los auriculares lo pausa**.
@@ -5097,7 +5099,8 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
     cursor en el cuadro, listo para pegar un enlace o escribir lo que quieras.
     Si pegás un enlace, te dice qué se va a guardar, como siempre.
   - **"Seguir escuchando"**: el título de lo último que escuchaste. Tocarlo
-    abre la pantalla desde donde lo escuchaste. Cuenta todo lo que suena
+    abre la pantalla desde donde lo escuchaste: con el lector en voz alta, la
+    del documento que se leía. Cuenta todo lo que suena
     y se ve en la tarjeta de la notificación: el lector en voz alta, un audio
     o un video. Pausar no lo cambia; empezar a escuchar otra cosa, sí.
     El título se ve
