@@ -847,6 +847,152 @@ cada tramo y la escucha— es el paso 6b.
   - exportar el guion como texto;
   - no se miró en el emulador ni en el teléfono.
 
+### Paso 6b (hecho): el audio del podcast y su escucha
+
+Diez commits, de `33e6a5c0` a `73bf31d5`, y el de este avance (decisiones B, E, F y L).
+
+- **La pieza común para generar audio en el teléfono** (`SpeechAudioRenderer`, en
+  `lib/features/narration/data/audio/`), la que reusa el paso 5:
+  - de una lista de tramos `SpeechAudioPiece {text, voiceId, pauseAfter}` a un solo archivo;
+    cada tramo con quien sabe hacer su voz (`SpeechVoiceRenderer`, por el prefijo del id);
+  - **retomable por tramo**: cada uno en su WAV, nombrado por su texto, su voz y la versión de
+    la voz, escrito aparte y renombrado al terminar; con la misma `workKey`, lo hecho no se
+    rehace, y un tramo que cambió se genera solo él. Antes de generar nada se fija que estén
+    todas las voces que faltan usar;
+  - **el armado**, en otro isolate: recorta el silencio de cada motor (deja 40 ms), lleva todo a
+    24 kHz mono y pone **exactamente** la pausa pedida (300, 550 o 1.200 ms en un podcast);
+  - **el formato: M4A (AAC-LC, 64 kb/s, mono)**, con el codificador del sistema
+    (`WavToM4a.kt`), que lee el WAV de a pedazos: un podcast de 15 minutos son ~7 MB en vez
+    de 43 en WAV. **Sin dependencias nuevas.** No se usó `audio_decoder.convertToM4a`, que la
+    app ya trae: decodifica el archivo entero a memoria, y con el audio de un documento de una
+    hora un `OutOfMemoryError` —que no es una `Exception`— tumbaría el proceso con la cola
+    adentro. Donde no hay codificador queda el WAV;
+  - **lo que un motor deje en otro formato** —el MP3 de una voz de la nube— se decodifica con
+    el `AudioToPcm.kt` de siempre (`SpeechClipDecoder`) antes de armar;
+  - el avance (`onProgress(hechos, total)`, con un paso más para el armado), sin bloquear la
+    interfaz: los motores trabajan en su isolate o en el sistema.
+- **Las voces que sabe hacer**, en `speechVoiceRenderersProvider`:
+  - `offline:<id del catálogo>`: Piper y Kokoro, con el mismo motor sherpa del lector, siempre
+    a velocidad 1 (la velocidad se elige al escuchar);
+  - `device:<acento>:<nombre>` (sin nombre, la del teléfono para ese idioma): **las del
+    teléfono también**, con un `TextToSpeech` propio en Kotlin (`DeviceSpeechChannel.kt`). No
+    con `flutter_tts`: avisa el fin de un archivo con el mismo «terminó» que el de una oración
+    —el lector saltaría de oración con cada tramo del podcast—, y si el lector corta, la
+    espera de `synthesizeToFile` no se completa nunca. Con su propia cola, generar un podcast
+    no corta lo que se escucha. En la web y en Windows no se ofrece nada.
+- **El avance guardado de una creación larga** (para el retome por vuelta y la voz):
+  `StudyCreationRepository.checkpoint` / `saveCheckpoint`, un JSON de cada tipo con los
+  archivos de la creación (`originales/<creación>/avance/`). **Sin esquema nuevo (no hizo falta
+  la v50).** La cola se lo da al generador (`CreationJob.checkpoint`); «Reintentar» y el
+  retome al abrir la app lo conservan, «Volver a generar» lo borra, y terminarla también.
+- **Terminar sin la IA** (`CreationGenerator.finisherWithoutModel`): lo que queda se termina
+  sin el modelo y sin armar el material —no espera a la IA ni a la cuota de fondo, y no falla
+  porque se hayan borrado sus fuentes—.
+- **El audio del podcast**, como una etapa más de la misma creación (decisión E): con el
+  guion terminado se guarda entero (`PodcastVoiceProgress`) y `ServicePodcastVoicer` le da
+  voz con la pieza común —`podcast-<creación>` es el trabajo—, con la fila «Generando la voz»,
+  el retome de siempre (hasta tres veces) y el servicio en primer plano. Queda en
+  `originales/<creación>/audio/` (decisión F) y el contenido lo nombra con `audio_ref`: la
+  unión de bóvedas lo copia, y al guardar uno nuevo el viejo se barre. Si la voz no se pudo
+  (una que falta, un motor, el disco), **el guion queda** con su porqué (`audioIssue`).
+- **El retome por vuelta**: cada vuelta escrita se guarda (`PodcastScriptProgress`, con la
+  clave del pedido, el material y el reparto en vueltas); un Largo con Gemma que se corta en
+  la vuelta 6 de 8 sigue en la 7. Si cambió algo —el material, la ventana del modelo—,
+  empieza de cero.
+- **La escucha**, en el reproductor anclado de siempre: un `ReadableDocument` con su
+  `RecordedSpeech` (el archivo, cuánto dura, dónde empieza cada tramo y qué voz lo dice).
+  Con eso el lector no le pide nada a la voz: hace sonar el archivo (`SpeechTrackPlayer`,
+  sobre `video_player`/ExoPlayer, que cambia la velocidad sin cambiar el tono):
+  - el tiempo y la barra son los reales, contados a la velocidad de ahora como con la voz;
+    ±10 s salta 10 s de lo que se oye; la velocidad cambia sin cortar; la cola, Repetir y el
+    temporizador funcionan igual, porque es un documento más de la cola;
+  - el tramo que suena y la cara de su voz siguen al audio; si el audio se pausa solo —una
+    llamada—, el lector lo dice; un archivo que falta o falla no se finge;
+  - **la tarjeta de la notificación**: el `MediaSessionSource` del lector, que ya es «el que
+    suena» (y lo que usa «Seguir escuchando» de 7a por `focusedMediaSourceProvider`), dice
+    «Escuchando a … · 1,0×» y **no pide el foco de audio**: ExoPlayer ya lo pide. No se
+    sumó una segunda fuente para el podcast: sería un segundo reproductor de lo mismo,
+    peleando el foco con el lector por el mismo reproductor anclado;
+  - **su dirección** (`ReadableDocument.location`, del paso 1) es la de su visor,
+    `/creations/<id>`, también cuando se abre con «Escuchar» y no desde la pantalla: la
+    tarjeta y «Seguir escuchando» vuelven ahí.
+- **El visor**: «Escuchar» se prende cuando el audio es de este guion con estas voces (la
+  huella, `podcastAudioFingerprint`) y está en el teléfono; mientras suena, «Pausar», y en
+  pausa, «Seguir escuchando». **La transcripción se sigue**: el tramo que suena en el amarillo
+  del lector, y la vista lo acompaña con la política de siempre (`ReadAloudFollow`, «Volver a
+  la lectura»). Sin audio, se dice por qué sin fingir —de otra versión del guion, no está en
+  el teléfono, una voz que falta (con su «Bajar»), el motor, el disco, uno de antes del
+  audio— y **«Generar el audio»** lo pide por la misma cola, sin la IA y conservando el
+  título; lo confirma con el aviso común (`showAppSnackBar`, F45 paso 1). Con el audio listo, el podcast se ofrece al lector (`ReadableRegion`): la cola lo
+  suma como cualquier texto.
+- **Las voces de la biblioteca en la hoja** (`podcastVoiceOptionsProvider`, sobre
+  `voiceLibraryProvider`): solo las nativas del idioma (decisión L); primero las sin conexión
+  bajadas, por calidad, después las del teléfono y al final las que falta bajar, con su
+  tamaño; elegir una de esas ofrece «Bajar» ahí mismo. Lo que nadie sabe hacer en el
+  dispositivo no se ofrece, y la hoja dice que ahí no se genera el audio.
+- **De paso, una carrera**: la lista de voces se armaba antes de saber qué paquetes estaban
+  bajados, y una sin conexión ya bajada quedaba como «falta bajarla» y se elegían otras;
+  ahora espera los paquetes instalados.
+- **El contrato para el paso 5** (descargar el audio de un documento y exportarlo):
+  - armar los `SpeechAudioPiece` del documento —un tramo por oración o por pedazo, con la voz
+    del idioma de cada uno (decisión L) y la pausa que corresponda— y pedir
+    `ref.read(speechAudioRendererProvider).render(SpeechAudioRequest(workKey: 'doc-<id>',
+    pieces: …), cancellation: …, onProgress: …)`;
+  - el resultado (`SpeechAudioResult`) trae la ruta en el teléfono, el `mimeType`, la
+    duración y **dónde empieza cada tramo** (`starts`): con eso, un `RecordedSpeech` y el
+    lector lo hace sonar con el resaltado, sin escribir nada más;
+  - copiarlo a la bóveda (`FileStore.saveStream` de `File(path).openRead()`) y después
+    `discard(workKey)`; las carpetas abandonadas se barren solas a las dos semanas;
+  - lanza `SpeechAudioException` (`voiceMissing`, `engine`, `file`) con la voz que faltó o
+    falló, y `ProcessingCancelledException` al cancelar; en los dos casos lo hecho queda para
+    el próximo intento con la misma clave;
+  - antes de generar, `costOf(pieces)` dice si alguna voz cobra, y
+    `speechAudioApprovalProvider` pregunta.
+- **El enganche del paso 4** (voces propias `mia:<id>`, `offline` o `cloud`):
+  - un `SpeechVoiceRenderer` que sea dueño del prefijo `mia:`, sumado a
+    `speechVoiceRenderersProvider`. Las `offline` se generan como una del catálogo
+    (`MyVoicesService.offlineVoiceOf` y `engineConfigOf`, con `speed × pace`) y las `cloud`
+    con `VoiceCloud.speak`: **su MP3 se escribe tal cual** en el `outputPath`, y la pieza común
+    lo decodifica; `isReady` con lo que diga `readyMyVoiceNamesProvider`, `versionOf` con lo
+    que cambie la voz, y **`priceOf` con lo que cobra la nube**;
+  - para la hoja: que `voiceLibraryProvider` traiga las propias con su `VoiceProfile.id`
+    (`mia:<id>`) —el podcast las ofrece tal cual, sin cambiar nada más—;
+  - el costo antes de generar: con un `priceOf`, la hoja del podcast y «Generar el audio»
+    calculan el costo (`SpeechAudioCost`, con los caracteres de cada voz en
+    `charactersByVoice`) y preguntan por `speechAudioApprovalProvider`. De fábrica es un
+    aviso con el costo; **el paso 4 lo cambia por su puerta**
+    (`cloudReadingGateProvider.approve(voice, characters)` voz por voz).
+- **Verificado:**
+  - analyze en 19, completo;
+  - sobre `main` en `a1991355` (con 7a), 4.437 pruebas de la narración (397), lo creado
+    (1.956), estudiar (250), los visores (324), `core` con la base (1.295), la app (128) y
+    Ajustes (87); rebasado sobre `ca4e9c52` (con F47 paso 1 y F45 paso 1), 2.740 de lo
+    tocado: la narración (403), lo creado (1.957), la unión de bóvedas (376) y el censo de
+    avisos (4), con `--concurrency=2`;
+  - murieron las 39 mutaciones. Una sobrevivía —el tiempo de un audio sin dividir por la
+    velocidad— porque la prueba lo miraba solo a 1×: se le sumó la cuenta a 2×. Entre las
+    otras: lo hecho que se rehace, las voces que no se miran antes, la versión de la voz que
+    no cuenta, el MP3 sin decodificar, la pausa y el margen del armado, el avance que «Volver
+    a generar» conserva, lo sin IA que espera al modelo o a la cuota de fondo, `audio_ref`
+    fuera de la unión, la vuelta que se vuelve a pedir, el título renombrado pisado, la huella
+    sin la pausa, la velocidad que corta, la pausa sola que no se ve, el foco pedido dos veces,
+    la hoja que no espera lo bajado o no pregunta el costo, el archivo fingido, el audio de
+    otra versión sin decir y la transcripción que no se sigue;
+  - el APK de depuración (`dev`) compiló con el Kotlin nuevo (`WavToM4a.kt` y
+    `DeviceSpeechChannel.kt`), sin avisos en ellos; no se instaló en ningún teléfono.
+- **Queda para después:**
+  - medir en el teléfono cuánto tarda en generarse un podcast con cada voz (sobre todo Kokoro y
+    las del teléfono) y cuánto pesa, y oír si las pausas recortadas suenan naturales;
+  - con una voz sin conexión del lector (paso 3) suenan tramos con `video_player`, que pide
+    el foco de audio, mientras la tarjeta del lector también lo pide: dos pedidos de la misma
+    app pueden pisarse. Con el podcast no pasa (no lo pide). Mirarlo en el teléfono;
+  - en la web el almacén no tiene ruta en el disco: un podcast con audio que llegó a la web
+    dice «no está en este teléfono» (ahí tampoco se puede generar);
+  - «Exportar audio» del podcast (paso 5, con lo mismo) y exportar el guion como texto;
+  - cambiar solo las voces de un podcast ya escrito, sin rehacer el guion: hoy es «Volver a
+    generar con otras opciones»;
+  - no se miró en el emulador ni en el teléfono.
+
 ### Paso 7a (hecho): Ayuda y los widgets
 
 Ocho commits, de `ed236298` a `b43a3f97`, y el de este avance (decisión G). La segunda
