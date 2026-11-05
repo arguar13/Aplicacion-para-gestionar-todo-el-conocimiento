@@ -3370,7 +3370,8 @@ de escucharlo.
    - En pausa, la tarjeta se puede descartar deslizándola: eso deja de leer.
      **Al terminar, la tarjeta se va sola.**
    - Es la misma tarjeta para todo lo que suena en la app: el lector, la voz
-     del chat y un audio o un video (con su título y su tiempo real).
+     del chat, un podcast de Repasar (*"Escuchando a …"*, con su tiempo real)
+     y un audio o un video (con su título y su tiempo real).
    - En la web y en Windows no hay tarjeta: suena con la app abierta, como
      siempre.
 8. Dentro de un documento abierto, ver
@@ -4213,12 +4214,26 @@ En su hoja elegís:
   material —tocás una y queda escrita—, o tu propio enfoque en el cuadro
   («cómo cambia Moisés a lo largo del viaje»). Con **"+ Sumar otro
   documento"** sumás a las fuentes algo que no está en lo elegido.
-- **Elegí las voces:** una, o dos en Conversación. Por ahora son **las voces
-  del teléfono que leen sin conexión**, del idioma del podcast: al abrir la
-  hoja ya quedan elegidas —en Conversación, dos distintas si el teléfono
-  tiene—, y cambiando el idioma cambian solas. Las que leen por internet no se
-  ofrecen: nada sale del teléfono. Si las dos personas quedan con la misma
-  voz, la hoja lo avisa; si es la única del idioma, solo lo dice.
+- **Elegí las voces:** una, o dos en Conversación, de **tu biblioteca de
+  voces** (ver [La biblioteca de voces](#la-biblioteca-de-voces)), solo las
+  nativas del idioma del podcast: primero **las sin conexión que ya bajaste**
+  (las de mejor calidad arriba), después **las del teléfono** y al final **las
+  sin conexión que todavía no bajaste**, con su tamaño (*"Daniela · Español
+  (Argentina) · falta bajarla (63 MB)"*). Al abrir la hoja ya quedan elegidas
+  de las que pueden hablar sin bajar nada —en Conversación, dos distintas si
+  hay—, y cambiando el idioma cambian solas. Si elegís una que falta bajar,
+  debajo aparece *"Daniela falta bajarla: el audio se genera con ella"* con su
+  botón **Bajar** (el mismo de la biblioteca, con su avance, «Pausar» y
+  «Cancelar»). Las que leen por internet no se ofrecen: nada sale del
+  teléfono. Si las dos personas quedan con la misma voz, la hoja lo avisa; si
+  es la única del idioma, solo lo dice. En la web y en Windows, donde la app no
+  sabe hacer estas voces, la hoja dice que ahí no se genera el audio: queda el
+  guion para leer.
+- **Si alguna voz cobra** (las de la nube, cuando estén: clonadas o creadas
+  con tu cuenta), antes de pedirlo se dice cuánto cuesta, con tu cuenta y por
+  cuántos caracteres, y que el texto se manda a la nube de esa voz: **"Generar
+  igual"** o **Cancelar**. Con voces del teléfono o sin conexión no se
+  pregunta nada: son gratis.
 
 **Cómo se escribe:** la IA que elegiste en Ajustes escribe **el guion** (con
 Gemma, todo queda en el teléfono), en segundo plano y con el aviso de siempre
@@ -4242,14 +4257,50 @@ lo que quedó a medias se retoma al abrirla.
 - **Lo largo, por vueltas.** Si el guion no entra en una respuesta de la IA
   (con Gemma, casi siempre), se escribe en varias: la primera abre, la última
   cierra y cada una sigue donde quedó la anterior. En la conversación hablan
-  las dos voces.
+  las dos voces. **Cada vuelta escrita se guarda**: si la app se cierra en la
+  vuelta 6 de 8, al abrirla sigue en la 7, sin volver a pedir las anteriores
+  (si cambiaste algo —el material, la IA—, empieza de cero).
+
+**La voz**, después del guion, como una etapa más de la misma creación (la
+fila dice *"Generando la voz"* con su avance): cada tramo se dice con la voz
+de quien habla, **en el teléfono**, con sus pausas exactas, y queda **un solo
+audio en tu bóveda** (en M4A: un podcast de 15 minutos ocupa unos 7 MB),
+nunca en la nube. También retomable: si la app se cierra a mitad, lo que ya
+se dijo no se vuelve a generar y la IA no se vuelve a llamar.
+
+- Si una voz no está en el teléfono, o falla, **el guion queda igual** y el
+  visor dice por qué, con **"Generar el audio"** para probar de nuevo (y, si
+  es una voz sin conexión que falta, su botón **Bajar**).
 
 **Al abrirlo**, arriba dice de qué es (*"Conversación · ~8 min · 2 voces"*),
 el rótulo **"Hecho con IA"** con el modelo que lo escribió y el botón
-**"Escuchar"**, todavía apagado: *"El audio se genera en el paso siguiente"*.
-Debajo, **la transcripción**: cada tramo con quién lo dice y **sus citas como
-fichas**; tocar una abre la lectura del documento **parada en el pasaje**, con
-el tramo marcado. Si la comprobación quitó tramos, una línea lo cuenta
+**"Escuchar"**, con *"Audio en el teléfono · 8:12"* debajo. Tocalo y el
+podcast suena en **el reproductor de abajo** —el mismo del lector, ver
+[Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)—, y en la tarjeta de la notificación
+(*"Escuchando a Daniela · 1,0×"*): el tiempo es el real, ±10 s salta 10
+segundos del audio, la velocidad cambia sin cortar y sin cambiar el tono, y
+se puede sumar a la cola o poner el temporizador. Mientras suena, el botón
+dice **"Pausar"**, y en pausa, **"Seguir escuchando"**. La cara del
+reproductor es la de la voz que habla en cada momento.
+
+Debajo, **la transcripción**, que **sigue lo que suena**: el tramo que se
+oye se resalta en amarillo y la vista lo acompaña (si te movés a mano, deja
+de seguirlo y aparece **"Volver a la lectura"**). Cada tramo dice quién lo
+dice y lleva **sus citas como fichas**; tocar una abre la lectura del
+documento **parada en el pasaje**, con el tramo marcado.
+
+Si no hay audio que escuchar, el botón queda apagado y se dice por qué, sin
+fingir nada:
+
+- *"Este podcast todavía no tiene audio"* (uno hecho antes de que hubiera
+  audio), *"El audio no está en este teléfono"* (llegó de otra bóveda sin él)
+  o por qué no se pudo generar (una voz que falta, una que falló, el disco
+  lleno): **"Generar el audio"** lo genera con las voces elegidas, por la
+  misma cola y sin volver a llamar a la IA. Conserva el título, aunque lo
+  hayas cambiado.
+- *"El audio que hay es de otra versión del guion o de otras voces"*: no se
+  reproduce, porque no coincidiría con lo que se lee; **"Generar el audio de
+  nuevo"** lo rehace (lo ya dicho que no cambió no se vuelve a generar). Si la comprobación quitó tramos, una línea lo cuenta
 (*"Se quitaron 2 tramos que no se sostenían en el material"*): al abrirla se
 ven tachados, con por qué. Si salió más corto porque el material no daba para
 más, también se dice.
