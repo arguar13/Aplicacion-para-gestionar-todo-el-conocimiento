@@ -11,6 +11,15 @@ const kDueTodayCountKey = 'due_today_count';
 const kDueTodayValidUntilKey = 'due_today_valid_until';
 const kContinueListeningTitleKey = 'continue_listening_title';
 
+/// Si el título de «Seguir escuchando» se ve también con la bóveda cerrada
+/// (F47, paso 7a-bis). Solo `true` lo deja a la vista: sin la clave —lo que
+/// dejó una versión anterior—, se oculta.
+const kContinueListeningShowLockedKey = 'continue_listening_show_locked';
+
+/// El encendido del teléfono en que la bóveda está abierta (F47, paso 7a-bis):
+/// el widget lo compara con el de ahora. Sin la clave, no está abierta.
+const kContinueListeningOpenBootKey = 'continue_listening_open_boot';
+
 /// [HomeScreenWidgets] en Android (F47, paso 7, decisión G).
 ///
 /// - **Lo que muestran** va por `home_widget`: guarda los datos en las
@@ -50,10 +59,22 @@ class AndroidHomeScreenWidgets implements HomeScreenWidgets {
   }
 
   @override
-  Future<void> showContinueListening(ContinueListening? listening) async {
+  Future<void> showContinueListening(ContinueListeningDisplay display) async {
+    // Cada clave se guarda por separado, y el sistema podría dibujar el
+    // widget entre una y otra: primero lo que restringe —si se ve con la
+    // bóveda cerrada y en qué encendido está abierta— y el título al final.
+    // Así, cuando algo pasa a ocultarse, nunca hay un instante en que se vea.
+    await HomeWidget.saveWidgetData<bool>(
+      kContinueListeningShowLockedKey,
+      display.showWhileLocked,
+    );
+    await HomeWidget.saveWidgetData<String>(
+      kContinueListeningOpenBootKey,
+      display.openBoot,
+    );
     await HomeWidget.saveWidgetData<String>(
       kContinueListeningTitleKey,
-      listening?.title,
+      display.title,
     );
     await _redraw(HomeWidgetKind.continueListening);
   }

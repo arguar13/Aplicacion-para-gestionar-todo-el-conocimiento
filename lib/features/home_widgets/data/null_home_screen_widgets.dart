@@ -12,7 +12,7 @@ class NullHomeScreenWidgets implements HomeScreenWidgets {
   Future<void> showDueToday(DueToday dueToday) async {}
 
   @override
-  Future<void> showContinueListening(ContinueListening? listening) async {}
+  Future<void> showContinueListening(ContinueListeningDisplay display) async {}
 
   @override
   Future<bool> canAddFromApp() async => false;

@@ -14,7 +14,7 @@ class FakeHomeScreenWidgets implements HomeScreenWidgets {
   final dueToday = <DueToday>[];
 
   /// Cada «Seguir escuchando» que se le mostró, en orden.
-  final continueListening = <ContinueListening?>[];
+  final continueListening = <ContinueListeningDisplay>[];
 
   /// Los widgets que se pidió agregar.
   final added = <HomeWidgetKind>[];
@@ -35,8 +35,8 @@ class FakeHomeScreenWidgets implements HomeScreenWidgets {
       this.dueToday.add(dueToday);
 
   @override
-  Future<void> showContinueListening(ContinueListening? listening) async =>
-      continueListening.add(listening);
+  Future<void> showContinueListening(ContinueListeningDisplay display) async =>
+      continueListening.add(display);
 
   @override
   Future<bool> canAddFromApp() async => canAdd;

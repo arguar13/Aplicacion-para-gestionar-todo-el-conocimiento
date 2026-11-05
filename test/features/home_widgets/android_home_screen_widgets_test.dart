@@ -73,28 +73,52 @@ void main() {
     },
   );
 
-  test('«Seguir escuchando» guarda solo el título: la dirección no sale de '
-      'la app', () async {
+  test('«Seguir escuchando» guarda el título, si se ve con la bóveda '
+      'cerrada y en qué encendido está abierta, y se redibuja', () async {
     final widgets = AndroidHomeScreenWidgets();
 
     await widgets.showContinueListening(
-      const ContinueListening(title: 'El Imperio', location: '/processed/p1'),
+      const ContinueListeningDisplay(title: 'El Imperio', openBoot: '7'),
     );
 
     expect(saved(kContinueListeningTitleKey)['data'], 'El Imperio');
-    expect(
-      stored.where((c) => c.toString().contains('/processed/p1')),
-      isEmpty,
-    );
+    expect(saved(kContinueListeningShowLockedKey)['data'], isFalse);
+    expect(saved(kContinueListeningOpenBootKey)['data'], '7');
     expect(redrawn(), ['app.sinapsis.ContinueListeningWidget']);
+  });
+
+  test('lo que restringe se guarda antes que el título: si el widget se '
+      'dibuja a mitad de camino, no muestra de más', () async {
+    final widgets = AndroidHomeScreenWidgets();
+
+    await widgets.showContinueListening(
+      const ContinueListeningDisplay(title: 'El Imperio'),
+    );
+
+    expect(
+      [
+        for (final call in stored)
+          if (call.method == 'saveWidgetData')
+            (call.arguments as Map)['id'] as String,
+      ],
+      [
+        kContinueListeningShowLockedKey,
+        kContinueListeningOpenBootKey,
+        kContinueListeningTitleKey,
+      ],
+    );
+    expect(saved(kContinueListeningOpenBootKey)['data'], isNull);
   });
 
   test('sin nada escuchado, borra el título', () async {
     final widgets = AndroidHomeScreenWidgets();
 
-    await widgets.showContinueListening(null);
+    await widgets.showContinueListening(
+      const ContinueListeningDisplay(showWhileLocked: true),
+    );
 
     expect(saved(kContinueListeningTitleKey)['data'], isNull);
+    expect(saved(kContinueListeningShowLockedKey)['data'], isTrue);
   });
 
   test('agregar le pide al sistema el widget de cada clase', () async {
@@ -157,7 +181,7 @@ void main() {
     expect(await widgets.canAddFromApp(), isFalse);
     expect(await widgets.takePendingOpen(), isNull);
     await widgets.showDueToday(DueToday(count: 1, validUntil: DateTime(2026)));
-    await widgets.showContinueListening(null);
+    await widgets.showContinueListening(const ContinueListeningDisplay());
     await widgets.add(HomeWidgetKind.dueToday);
     expect(stored, isEmpty);
     expect(await widgets.openRequests.isEmpty, isTrue);

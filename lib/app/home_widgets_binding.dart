@@ -23,10 +23,11 @@ import 'package:sinapsis/features/vault/presentation/providers/vault_providers.d
 ///   se lo cuenta al widget, con el fin del día de estudio: pasado, el widget
 ///   no repite una cifra vieja. Al volver al frente se cuenta de nuevo, por
 ///   las tarjetas que vencieron mientras tanto.
-/// - **«Seguir escuchando»**: lo que diga [continueListeningProvider], que
-///   se alimenta de lo que suena con el foco de audio de la app —el lector en
-///   voz alta, un audio o un video, y lo que se registre después en la
-///   tarjeta, como el podcast—: ver `_followWhatPlays`.
+/// - **«Seguir escuchando»**: lo que diga [continueListeningDisplayProvider]
+///   —el título y si se puede ver con la bóveda cerrada (F47, paso 7a-bis)—.
+///   Lo escuchado se alimenta de lo que suena con el foco de audio de la app
+///   —el lector en voz alta, un audio o un video, y lo que se registre
+///   después en la tarjeta, como el podcast—: ver `_followWhatPlays`.
 /// - **Los toques**: «Para hoy» lleva a Repasar, «Guardar rápido» abre
 ///   Guardar listo para pegar o escribir, y «Seguir escuchando», la pantalla
 ///   desde donde se escuchó. Con la app abierta, de una vez; desde cero
@@ -51,7 +52,7 @@ class _HomeWidgetsBindingState extends ConsumerState<HomeWidgetsBinding> {
   AppLifecycleListener? _lifecycle;
   StreamSubscription<HomeWidgetKind>? _openRequests;
   ProviderSubscription<AsyncValue<int>>? _dueToday;
-  ProviderSubscription<ContinueListening?>? _continueListening;
+  ProviderSubscription<ContinueListeningDisplay?>? _continueListening;
   ProviderSubscription<MediaSessionSource?>? _playing;
 
   /// Lo que suena ahora con el foco de audio, y lo último que se contó de él
@@ -74,11 +75,14 @@ class _HomeWidgetsBindingState extends ConsumerState<HomeWidgetsBinding> {
     // seguidos al mismo widget son dos pedidos.
     _openRequests = _widgets.openRequests.listen(_requestOpen);
     unawaited(_takePendingOpen());
-    _continueListening = ref.listenManual(continueListeningProvider, (
+    // Lo escuchado, la preferencia y la bóveda: cambia cualquiera —también
+    // el interruptor de Ajustes, o «Bloquear bóveda»— y el widget, al
+    // instante. `null` es que todavía no se sabe qué mandar.
+    _continueListening = ref.listenManual(continueListeningDisplayProvider, (
       previous,
       current,
     ) {
-      unawaited(_widgets.showContinueListening(current));
+      if (current != null) unawaited(_widgets.showContinueListening(current));
     }, fireImmediately: true);
     _playing = ref.listenManual(
       focusedMediaSourceProvider,

@@ -24,6 +24,7 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../support/fake_home_screen_widgets.dart';
 import '../support/library_harness.dart';
+import '../support/vault_test_doubles.dart';
 
 /// Los widgets de la pantalla de inicio enchufados a la app (F47, paso 7):
 /// lo que se les cuenta y adónde lleva tocarlos, con la plataforma
@@ -124,10 +125,13 @@ void main() {
   });
 
   group('«Seguir escuchando»', () {
-    testWidgets('lo que se escuchó llega al widget', (tester) async {
+    testWidgets('lo que se escuchó llega al widget —el título, nunca la '
+        'dirección—', (tester) async {
       await setUpWith();
       await pumpApp(tester);
-      expect(widgets.continueListening, [null]);
+      expect(widgets.continueListening, [
+        const ContinueListeningDisplay(openBoot: kTestDeviceBoot),
+      ]);
 
       await harness.container
           .read(continueListeningProvider.notifier)
@@ -139,11 +143,95 @@ void main() {
 
       expect(
         widgets.continueListening.last,
-        ContinueListening(
+        const ContinueListeningDisplay(
           title: 'El Imperio',
-          location: RoutePaths.itemDetail(itemId),
+          openBoot: kTestDeviceBoot,
         ),
       );
+    });
+
+    group('con la bóveda cerrada (paso 7a-bis)', () {
+      ContinueListeningShown shown() =>
+          widgets.continueListening.last.shownIn(kTestDeviceBoot);
+
+      testWidgets('de entrada se oculta: el genérico mientras está cerrada, '
+          'el título al abrirla, y al bloquearla otra vez el genérico', (
+        tester,
+      ) async {
+        await setUpWith();
+        await harness.container
+            .read(continueListeningProvider.notifier)
+            .listened(
+              title: 'El Imperio',
+              location: RoutePaths.itemDetail(itemId),
+            );
+        await pumpApp(tester, unlocked: false);
+        expect(shown(), ContinueListeningShown.protected);
+
+        harness.container
+            .read(vaultSessionControllerProvider.notifier)
+            .markUnlocked();
+        await tester.pumpAndSettle();
+        expect(shown(), ContinueListeningShown.title);
+
+        await harness.container
+            .read(vaultSessionControllerProvider.notifier)
+            .lock();
+        await tester.pumpAndSettle();
+        expect(shown(), ContinueListeningShown.protected);
+        // Lo que quedó en el widget tampoco se ve en otro encendido.
+        expect(
+          widgets.continueListening.last.shownIn('otro-arranque'),
+          ContinueListeningShown.protected,
+        );
+      });
+
+      testWidgets('el interruptor lo cambia al instante, con la bóveda '
+          'cerrada', (tester) async {
+        await setUpWith();
+        await harness.container
+            .read(continueListeningProvider.notifier)
+            .listened(
+              title: 'El Imperio',
+              location: RoutePaths.itemDetail(itemId),
+            );
+        await pumpApp(tester, unlocked: false);
+        expect(shown(), ContinueListeningShown.protected);
+
+        await harness.container
+            .read(continueListeningShowWhileLockedProvider.notifier)
+            .set(show: true);
+        await tester.pumpAndSettle();
+        expect(shown(), ContinueListeningShown.title);
+
+        await harness.container
+            .read(continueListeningShowWhileLockedProvider.notifier)
+            .set(show: false);
+        await tester.pumpAndSettle();
+        expect(shown(), ContinueListeningShown.protected);
+      });
+
+      testWidgets('tocarlo con la bóveda cerrada pide la clave y después va '
+          'adonde se escuchó', (tester) async {
+        await setUpWith();
+        await harness.container
+            .read(continueListeningProvider.notifier)
+            .listened(
+              title: 'El Imperio',
+              location: RoutePaths.itemDetail(itemId),
+            );
+        await pumpApp(tester, unlocked: false);
+
+        widgets.tap(HomeWidgetKind.continueListening);
+        await tester.pumpAndSettle();
+        expect(location().path, isNot(RoutePaths.itemDetail(itemId)));
+
+        harness.container
+            .read(vaultSessionControllerProvider.notifier)
+            .markUnlocked();
+        await tester.pumpAndSettle();
+        expect(location().path, RoutePaths.itemDetail(itemId));
+      });
     });
 
     group('se alimenta de lo que suena con el foco de audio', () {
@@ -184,7 +272,7 @@ void main() {
           location: RoutePaths.itemDetail(itemId),
         );
         expect(harness.container.read(continueListeningProvider), expected);
-        expect(widgets.continueListening.last, expected);
+        expect(widgets.continueListening.last.title, expected.title);
       });
 
       testWidgets('si la fuente dice su pantalla —el lector, la del '

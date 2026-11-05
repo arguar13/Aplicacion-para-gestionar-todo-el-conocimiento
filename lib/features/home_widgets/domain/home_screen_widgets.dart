@@ -80,6 +80,90 @@ class ContinueListening {
   String toString() => 'ContinueListening("$title" en $location)';
 }
 
+/// Lo que se ve en «Seguir escuchando» (F47, paso 7a-bis).
+enum ContinueListeningShown {
+  /// «Todavía no escuchaste nada».
+  nothing,
+
+  /// El título de lo último que se escuchó.
+  title,
+
+  /// Un texto genérico —«Protegido: tocá para seguir»—, sin el título: hay
+  /// algo escuchado, pero la bóveda no está abierta y la persona eligió no
+  /// dejarlo a la vista.
+  protected,
+}
+
+/// Lo que se le manda a «Seguir escuchando» (F47, paso 7a-bis): el título y
+/// con qué condiciones se puede ver.
+///
+/// **El widget decide solo.** Lo dibuja Android con la app muerta —al
+/// reiniciar el teléfono, por ejemplo, la bóveda queda cerrada sin que Dart se
+/// entere—, así que no alcanza con decirle «ahora mostrá esto»: se le dice el
+/// título, si la persona lo quiere a la vista con la bóveda cerrada, y en qué
+/// encendido del teléfono está abierta la bóveda. El lado de Android aplica
+/// [shownIn] con el encendido de cada momento: la misma regla, en Kotlin, es
+/// `HomeWidgets.continueListeningShown`.
+///
+/// El encendido es el mismo criterio de la bóveda (ver `DeviceBoot`): el
+/// contador de arranques de Android, `Settings.Global.BOOT_COUNT`, como texto.
+/// La bóveda está abierta mientras el encendido en que se abrió sea el de
+/// ahora; el widget, igual.
+@immutable
+class ContinueListeningDisplay {
+  const ContinueListeningDisplay({
+    this.title,
+    this.showWhileLocked = false,
+    this.openBoot,
+  });
+
+  /// Lo último que se escuchó; `null`, nada.
+  final String? title;
+
+  /// Si la persona eligió dejar el título a la vista también con la bóveda
+  /// cerrada (Ajustes › Widgets). De entrada, no.
+  final bool showWhileLocked;
+
+  /// El encendido del teléfono en que la bóveda está abierta, o `null` si no
+  /// está abierta —o no se sabe en qué encendido: ante la duda, se oculta—.
+  final String? openBoot;
+
+  /// Qué se ve con el teléfono en el encendido [currentBoot] (`null`, que no
+  /// se sabe).
+  ///
+  /// - sin nada escuchado, [ContinueListeningShown.nothing];
+  /// - si la persona lo quiere a la vista, el título siempre;
+  /// - si no, el título solo si la bóveda está abierta en este mismo
+  ///   encendido, y si no, el texto genérico.
+  ContinueListeningShown shownIn(String? currentBoot) {
+    final title = this.title;
+    if (title == null || title.trim().isEmpty) {
+      return ContinueListeningShown.nothing;
+    }
+    if (showWhileLocked) return ContinueListeningShown.title;
+    final openBoot = this.openBoot;
+    if (openBoot != null && currentBoot != null && openBoot == currentBoot) {
+      return ContinueListeningShown.title;
+    }
+    return ContinueListeningShown.protected;
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is ContinueListeningDisplay &&
+      other.title == title &&
+      other.showWhileLocked == showWhileLocked &&
+      other.openBoot == openBoot;
+
+  @override
+  int get hashCode => Object.hash(title, showWhileLocked, openBoot);
+
+  @override
+  String toString() =>
+      'ContinueListeningDisplay("$title", '
+      '${showWhileLocked ? 'siempre a la vista' : 'abierta en $openBoot'})';
+}
+
 /// Los widgets de la pantalla de inicio, del lado de la plataforma (F47,
 /// paso 7): lo que muestran, agregarlos desde la app y los toques que abren
 /// la app.
@@ -97,11 +181,12 @@ abstract interface class HomeScreenWidgets {
   /// Lo que muestra «Para hoy». El sistema lo vuelve a dibujar enseguida.
   Future<void> showDueToday(DueToday dueToday);
 
-  /// Lo que muestra «Seguir escuchando»; `null`, que no se escuchó nada.
+  /// Lo que muestra «Seguir escuchando»: el título y cuándo se puede ver (ver
+  /// [ContinueListeningDisplay]). El sistema lo vuelve a dibujar enseguida.
   ///
   /// Solo el título sale de la app: dónde se abre lo guarda la app, y un toque
   /// del widget solo dice «Seguir escuchando».
-  Future<void> showContinueListening(ContinueListening? listening);
+  Future<void> showContinueListening(ContinueListeningDisplay display);
 
   /// Si el teléfono deja poner un widget desde la app (Android 8 en adelante,
   /// y si la pantalla de inicio lo permite).
