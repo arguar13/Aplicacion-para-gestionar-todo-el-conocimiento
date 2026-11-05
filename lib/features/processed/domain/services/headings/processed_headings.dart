@@ -198,13 +198,12 @@ List<ProcessedHeading> _fromPdf(
 /// Con [slices] —dónde cae cada página del PDF en el texto—, la página de
 /// una posición, de 1 en adelante: la del tramo que la tiene. Los comienzos
 /// se juntan una sola vez, y cada pregunta es una búsqueda binaria.
-int? Function(int at) _pdfPageFinder(List<TextSlice> slices) {
+int Function(int at) _pdfPageFinder(List<TextSlice> slices) {
   final starts = [for (final slice in slices) slice.start];
-  return (at) {
-    final page = _countAtOrBefore(starts, at);
-    if (page == 0) return null;
-    return at <= slices[page - 1].end ? page : null;
-  };
+  // La primera página empieza en 0, y un título nunca empieza en la raya
+  // entre dos páginas —son renglones en blanco y `---`—: su página es la del
+  // último comienzo que tiene antes o en su lugar.
+  return (at) => _countAtOrBefore(starts, at);
 }
 
 /// Cuántos de [starts] —en orden— son [at] o menos: con los comienzos de las
