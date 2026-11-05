@@ -64,7 +64,8 @@ class FakeCreationQueue extends CreationQueue {
   @override
   Future<Either<Failure, StudyCreation>> retry(String id, {bool? runNow}) {
     calls.add((action: 'retry', id: id, detail: runNow));
-    return store.requeue(id, runNow: runNow);
+    // Como la cola de verdad: «Reintentar» sigue desde lo hecho.
+    return store.requeue(id, runNow: runNow, keepCheckpoint: true);
   }
 
   @override

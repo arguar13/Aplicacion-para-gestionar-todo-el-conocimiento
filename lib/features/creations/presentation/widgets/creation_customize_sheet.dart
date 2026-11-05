@@ -292,6 +292,16 @@ class _CreationCustomizeSheetState
       if (_imageAccountId != null && _spec.illustrationsFor(_options) > 0)
         CreationOptionKeys.imageAccountId: _imageAccountId,
     };
+    // Lo que el tipo pide confirmar —el costo de una voz de la nube—, antes
+    // de pedir nada.
+    final confirm = _spec.confirmGenerate;
+    if (confirm != null) {
+      setState(() => _busy = true);
+      final go = await confirm(context, ref, options, _language);
+      if (!mounted) return;
+      setState(() => _busy = false);
+      if (!go) return;
+    }
     setState(() => _busy = true);
     // Lo elegido se recuerda para la próxima; lo que se escribió para este
     // recorte —la descripción, el tema, la cuenta de un aviso— no.

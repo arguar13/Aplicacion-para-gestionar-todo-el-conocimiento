@@ -165,7 +165,7 @@ class VoiceCard extends ConsumerWidget {
                     ),
                   ),
                 if (voice.origin == VoiceOrigin.offline && !ready)
-                  _DownloadControls(voice: voice),
+                  VoiceDownloadControls(voice: voice),
               ],
             ),
           ),
@@ -176,9 +176,11 @@ class VoiceCard extends ConsumerWidget {
 }
 
 /// Bajar una voz sin conexión, y cómo va: el botón con su tamaño, el avance
-/// con «Pausar» y «Cancelar», la pausa con «Seguir», o por qué falló.
-class _DownloadControls extends ConsumerWidget {
-  const _DownloadControls({required this.voice});
+/// con «Pausar» y «Cancelar», la pausa con «Seguir», o por qué falló. En su
+/// tarjeta y, en la hoja del podcast, junto a una voz elegida que falta
+/// bajar (F47, paso 6b).
+class VoiceDownloadControls extends ConsumerWidget {
+  const VoiceDownloadControls({required this.voice, super.key});
 
   final VoiceProfile voice;
 

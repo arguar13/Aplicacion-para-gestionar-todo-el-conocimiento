@@ -8,6 +8,7 @@ import 'package:sinapsis/features/creations/podcast/domain/podcast_audio.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_generator.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_options.dart';
 import 'package:sinapsis/features/creations/podcast/presentation/podcast_labels.dart';
+import 'package:sinapsis/features/creations/podcast/presentation/podcast_listening.dart';
 import 'package:sinapsis/features/creations/podcast/presentation/widgets/podcast_viewer.dart';
 import 'package:sinapsis/features/creations/podcast/presentation/widgets/podcast_voices_section.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
@@ -46,6 +47,9 @@ CreationKindSpec podcastKindSpec() =>
       requestLines: podcastRequestLines,
       viewerBuilder: (context, creation) =>
           PodcastViewer(key: ValueKey(creation.id), creation: creation),
+      // Con una voz de la nube (paso 4), el costo antes de pedirlo
+      // (decisión F).
+      confirmGenerate: confirmPodcastGenerate,
     );
 
 /// Las voces elegidas, para «Ver petición y fuentes»: quién habla y con qué

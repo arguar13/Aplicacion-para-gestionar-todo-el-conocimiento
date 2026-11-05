@@ -6,17 +6,23 @@ import 'package:sinapsis/features/creations/podcast/domain/podcast_options.dart'
 import 'package:sinapsis/features/creations/podcast/presentation/podcast_labels.dart';
 import 'package:sinapsis/features/creations/podcast/presentation/providers/podcast_voices.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
+import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
+import 'package:sinapsis/features/narration/presentation/providers/speech_audio_providers.dart';
+import 'package:sinapsis/features/narration/presentation/voices/voice_card.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// «Elegí las voces» en la hoja del podcast (F47, punto 5 del plan): una voz
-/// por persona que habla —una, o dos en la conversación—, de las del idioma
-/// elegido arriba (decisión L: la voz sigue al idioma).
+/// por persona que habla —una, o dos en la conversación—, de las de la
+/// biblioteca en el idioma elegido arriba (decisión L: cada idioma con sus
+/// voces nativas).
 ///
 /// Lo elegido se guarda como dato en las opciones
 /// ([PodcastOptionKeys.voices]): el id de cada voz y quién habla. Al abrir, y
 /// cada vez que cambian el idioma, el formato o las voces que hay, se ajusta
 /// ([PodcastCast.fit]): una voz de otro idioma se suelta, y quien no tiene voz
-/// recibe una del idioma —en la conversación, dos distintas si hay—.
+/// recibe una del idioma que ya pueda generar —en la conversación, dos
+/// distintas si hay—. Una voz sin conexión elegida que falta bajar se ofrece
+/// bajar ahí mismo (F47, paso 6b).
 class PodcastVoicesSection extends ConsumerStatefulWidget {
   const PodcastVoicesSection({required this.context, super.key});
 
@@ -49,7 +55,11 @@ class _PodcastVoicesSectionState extends ConsumerState<PodcastVoicesSection> {
     final cast = _cast;
     final fitted = PodcastCast.fit(
       cast,
-      available: [for (final v in voices) v.id],
+      available: [
+        for (final v in voices)
+          if (v.ready) v.id,
+      ],
+      offered: [for (final v in voices) v.id],
     );
     if (listEquals(fitted, cast) || listEquals(fitted, _fitted)) return;
     _fitted = fitted;
@@ -73,6 +83,7 @@ class _PodcastVoicesSectionState extends ConsumerState<PodcastVoicesSection> {
     final scheme = theme.colorScheme;
     final language = _options.languageCode;
     final voices = ref.watch(podcastVoiceOptionsProvider(language)).valueOrNull;
+    final audioHere = ref.watch(speechVoiceRenderersProvider).isNotEmpty;
     if (voices != null) _fit(voices);
     final cast = _cast;
     final conversation = _format.speakerCount == 2;
@@ -85,6 +96,8 @@ class _PodcastVoicesSectionState extends ConsumerState<PodcastVoicesSection> {
     // otra; si es la única del idioma, solo se dice.
     final note = voices == null
         ? null
+        : !audioHere
+        ? l10n.f47P6bNoAudioHere
         : voices.isEmpty
         ? l10n.f47P6VoicesNone
         : same && voices.length >= 2
@@ -100,13 +113,13 @@ class _PodcastVoicesSectionState extends ConsumerState<PodcastVoicesSection> {
       children: [
         CreationSectionLabel(conversation ? l10n.f47P6Voices : l10n.f47P6Voice),
         Text(
-          l10n.f47P6VoicesHint,
+          l10n.f47P6bVoicesHint,
           style: theme.textTheme.bodySmall?.copyWith(
             color: scheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
-        for (final choice in cast)
+        for (final choice in cast) ...[
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: _VoicePicker(
@@ -117,6 +130,14 @@ class _PodcastVoicesSectionState extends ConsumerState<PodcastVoicesSection> {
               onChanged: (id) => _choose(choice.speaker, id),
             ),
           ),
+          if (_toDownload(voices, choice) case final offline?)
+            _DownloadRow(
+              key: ValueKey(
+                'podcast-voice-download-${choice.speaker.storageKey}',
+              ),
+              voice: offline,
+            ),
+        ],
         if (note != null) ...[
           const SizedBox(height: 8),
           Text(
@@ -128,6 +149,52 @@ class _PodcastVoicesSectionState extends ConsumerState<PodcastVoicesSection> {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// La voz elegida de [choice] si es una sin conexión que falta bajar.
+PodcastVoiceOption? _toDownload(
+  List<PodcastVoiceOption>? voices,
+  PodcastVoiceChoice choice,
+) {
+  for (final voice in voices ?? const <PodcastVoiceOption>[]) {
+    if (voice.id == choice.voiceId && !voice.ready && voice.offline != null) {
+      return voice;
+    }
+  }
+  return null;
+}
+
+/// «Daniela falta bajarla», con el botón de bajarla —el de su tarjeta en la
+/// biblioteca—: el audio se genera con ella, y sin ella no hay audio.
+class _DownloadRow extends StatelessWidget {
+  const _DownloadRow({required this.voice, super.key});
+
+  final PodcastVoiceOption voice;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            l10n.f47P6bVoiceToDownload(voice.name),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          VoiceDownloadControls(
+            voice: offlineVoiceProfiles([voice.offline!]).single,
+          ),
+        ],
+      ),
     );
   }
 }

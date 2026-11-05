@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
@@ -7,10 +10,17 @@ import 'package:sinapsis/features/creations/podcast/domain/podcast_options.dart'
 import 'package:sinapsis/features/creations/podcast/podcast_kind.dart';
 import 'package:sinapsis/features/creations/podcast/presentation/podcast_entry.dart';
 import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
+import 'package:sinapsis/features/narration/data/voices/offline_voice_files.dart';
+import 'package:sinapsis/features/narration/domain/audio/speech_audio.dart';
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
+import 'package:sinapsis/features/narration/domain/voices/offline_voice_catalog.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
+import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
+import 'package:sinapsis/features/narration/presentation/providers/speech_audio_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/on_device_harness.dart';
+import '../../../narration/data/audio/speech_audio_fakes.dart';
 import '../../presentation/repasar_harness.dart';
 
 /// F47, paso 6: la tarjeta «Podcast» de Repasar y su hoja —el formato, el
@@ -31,15 +41,33 @@ void main() {
   const sofia = 'device:es-AR:es-ar-x-esd-local';
   const jorge = 'device:es-ES:es-es-x-eed-local';
 
-  setUp(() async {
+  /// Quienes hacen las voces, de mentira: las del teléfono y, en el grupo
+  /// de las sin conexión, las de la biblioteca.
+  late FakeVoiceRenderer device;
+  late FakeVoiceRenderer offline;
+
+  Future<void> create({List<Override> extra = const []}) async {
+    device = FakeVoiceRenderer(prefix: 'device:');
+    offline = FakeVoiceRenderer(prefix: 'offline:');
     harness = await RepasarHarness.create(
       specs: [podcastKindSpec()],
       suggestedTopics: const ['Moisés y Faraón', 'Alianza', 'Plagas', 'Sinaí'],
-      overrides: [narrationVoicesProvider.overrideWith((ref) async => voices)],
+      overrides: [
+        narrationVoicesProvider.overrideWith((ref) async => voices),
+        speechVoiceRenderersProvider.overrideWith(
+          (ref) => [
+            device,
+            if (ref.watch(offlineVoicesAvailableProvider)) offline,
+          ],
+        ),
+        ...extra,
+      ],
     );
     await harness.processed('p-1', 'Éxodo — Comentario');
     await harness.processed('p-2', 'Génesis');
-  });
+  }
+
+  setUp(create);
 
   final tile = find.byKey(const ValueKey('creation-kind-podcast'));
 
@@ -300,6 +328,141 @@ void main() {
     expect(request.kind, StudyCreationKind.podcast);
     expect(request.scope, const CreationScope.document('p-2'));
     expect(request.sourceIds, ['p-2']);
+  });
+
+  group('las voces de la biblioteca (F47, paso 6b)', () {
+    final daniela = OfflineVoiceCatalog.voices.firstWhere(
+      (v) => v.locale == 'es-AR',
+    );
+    final mexico = OfflineVoiceCatalog.voices.firstWhere(
+      (v) => v.locale == 'es-MX',
+    );
+    final danielaId = SpeechVoiceIds.offline(daniela.id);
+    final mexicoId = SpeechVoiceIds.offline(mexico.id);
+    late Directory root;
+
+    setUp(() async {
+      root = Directory.systemTemp.createTempSync('voces');
+      addTearDown(() => root.deleteSync(recursive: true));
+      await create(
+        extra: [
+          offlineVoicesAvailableProvider.overrideWithValue(true),
+          offlineVoiceFilesProvider.overrideWithValue(
+            OfflineVoiceFiles(
+              transfer: FakeModelTransfer(),
+              rootDirectory: () async => root,
+            ),
+          ),
+          offlineSpeechSynthesizerProvider.overrideWithValue(null),
+          installedVoicePackagesProvider.overrideWith(
+            (ref) => Stream.value({daniela.package.id}),
+          ),
+        ],
+      );
+      for (final voice in OfflineVoiceCatalog.voices) {
+        if (voice.package != daniela.package) {
+          offline.missing.add(SpeechVoiceIds.offline(voice.id));
+        }
+      }
+    });
+
+    testWidgets('primero la sin conexión bajada, después las del teléfono, y '
+        'las que falta bajar, con su tamaño; las de otro idioma, no', (
+      tester,
+    ) async {
+      await openSheet(tester);
+
+      // Se eligieron solas, de las que ya pueden generar: Daniela y una del
+      // teléfono.
+      expect(find.text('${daniela.name} · Español (Argentina)'), findsWidgets);
+      await tapInSheet(tester, find.byKey(const ValueKey('podcast-voice-a')));
+      expect(
+        find.byKey(ValueKey('podcast-voice-option-$danielaId')),
+        findsOneWidget,
+      );
+      final toDownload = find.byKey(ValueKey('podcast-voice-option-$mexicoId'));
+      expect(toDownload, findsOneWidget);
+      expect(
+        find.descendant(
+          of: toDownload,
+          matching: find.textContaining(
+            es.f47P6bToDownload('').replaceAll('()', '').trim(),
+          ),
+        ),
+        findsOneWidget,
+      );
+      final english = OfflineVoiceCatalog.voices.firstWhere(
+        (v) => v.language == 'en',
+      );
+      expect(
+        find.byKey(
+          ValueKey(
+            'podcast-voice-option-${SpeechVoiceIds.offline(english.id)}',
+          ),
+        ),
+        findsNothing,
+      );
+
+      // Elegir una que falta bajar la deja, y ofrece bajarla ahí mismo.
+      await tester.tap(toDownload);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('podcast-voice-download-a')),
+        findsOneWidget,
+      );
+      expect(find.text(es.f47P6bVoiceToDownload(mexico.name)), findsOneWidget);
+      expect(find.byKey(Key('voice-download-${mexico.id}')), findsOneWidget);
+
+      await tapInSheet(tester, find.byKey(const Key('creation-generate-now')));
+      expect(lastOptions()['voices'], [
+        // La otra persona sigue con la que tenía: la del teléfono que se le
+        // dio al abrir, porque Daniela era de la primera.
+        {'speaker': 'a', 'voiceId': mexicoId},
+        {'speaker': 'b', 'voiceId': sofia},
+      ]);
+    });
+
+    testWidgets('con una voz que cobra (el enganche del paso 4), antes de '
+        'pedirlo se dice el costo; sin aceptar, no se pide nada', (
+      tester,
+    ) async {
+      offline.prices[danielaId] = const SpeechAudioPrice(
+        per1000Characters: 0.3,
+        currency: 'USD',
+      );
+      await openSheet(tester);
+
+      await tapInSheet(tester, find.byKey(const Key('creation-generate-now')));
+      expect(find.byKey(const Key('speech-audio-cost')), findsOneWidget);
+      expect(find.text(es.f47P6bCostTitle), findsOneWidget);
+      // Medio: 8 min a 150 palabras, de a 6 caracteres, la mitad para cada
+      // voz.
+      expect(find.textContaining('${8 * 150 * 6 ~/ 2}'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('speech-audio-cost-cancel')));
+      await tester.pumpAndSettle();
+      expect(harness.queue.requests, isEmpty);
+
+      await tapInSheet(tester, find.byKey(const Key('creation-generate-now')));
+      await tester.tap(find.byKey(const Key('speech-audio-cost-go')));
+      await tester.pumpAndSettle();
+      expect(harness.queue.requests, hasLength(1));
+    });
+
+    testWidgets('con voces gratis, no se pregunta nada', (tester) async {
+      await openSheet(tester);
+      await tapInSheet(tester, find.byKey(const Key('creation-generate-now')));
+      expect(find.byKey(const Key('speech-audio-cost')), findsNothing);
+      expect(harness.queue.requests, hasLength(1));
+    });
+  });
+
+  testWidgets('donde nadie sabe hacer las voces, se dice que el audio no se '
+      'genera ahí', (tester) async {
+    await create(
+      extra: [speechVoiceRenderersProvider.overrideWith((ref) => const [])],
+    );
+    await openSheet(tester);
+    expect(find.text(es.f47P6bNoAudioHere), findsOneWidget);
   });
 
   for (final theme in [AppThemeChoice.light, AppThemeChoice.dark]) {

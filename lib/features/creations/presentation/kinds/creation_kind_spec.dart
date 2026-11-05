@@ -385,6 +385,17 @@ class CreationReaderSpec {
   contents;
 }
 
+/// Lo que se le confirma a la persona antes de pedir una creación con
+/// [options] en [languageCode] —el costo de una voz de la nube en un podcast
+/// (F47, decisión F)—. Devuelve si se sigue.
+typedef CreationConfirm =
+    Future<bool> Function(
+      BuildContext context,
+      WidgetRef ref,
+      Map<String, Object?> options,
+      String languageCode,
+    );
+
 /// El archivo de una creación, para «Compartir» y «Descargar»: un PDF, un
 /// PNG, un Markdown, un CSV… lo arma el tipo, con su diseño.
 @immutable
@@ -478,6 +489,7 @@ class CreationKindSpec {
     this.eachDocument,
     this.topic,
     this.reader,
+    this.confirmGenerate,
   });
 
   final StudyCreationKind kind;
@@ -546,6 +558,10 @@ class CreationKindSpec {
   /// Si se lee en el marco de lectura, y con qué (F47, paso 1). Sin esto, su
   /// visor va debajo de la barra común de lo creado.
   final CreationReaderSpec? reader;
+
+  /// Lo que se confirma antes de generar, si hace falta; sin esto, se genera
+  /// sin preguntar.
+  final CreationConfirm? confirmGenerate;
 
   /// Lo que la IA escribe por defecto, si el tipo no dice otra cosa.
   static const defaultOutputTokens = 2000;
@@ -620,6 +636,7 @@ class CreationKindSpec {
     CreationEachDocument? eachDocument,
     CreationTopicField? topic,
     CreationReaderSpec? reader,
+    CreationConfirm? confirmGenerate,
   }) => CreationKindSpec(
     kind: kind,
     accent: accent ?? this.accent,
@@ -640,5 +657,6 @@ class CreationKindSpec {
     eachDocument: eachDocument ?? this.eachDocument,
     topic: topic ?? this.topic,
     reader: reader ?? this.reader,
+    confirmGenerate: confirmGenerate ?? this.confirmGenerate,
   );
 }

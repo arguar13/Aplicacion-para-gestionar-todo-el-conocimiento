@@ -12,16 +12,25 @@ import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart'
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast.dart';
+import 'package:sinapsis/features/creations/podcast/domain/podcast_audio.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_json.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_options.dart';
+import 'package:sinapsis/features/creations/podcast/domain/podcast_progress.dart';
 import 'package:sinapsis/features/creations/podcast/podcast_kind.dart';
+import 'package:sinapsis/features/creations/podcast/presentation/podcast_listening.dart';
 import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/narration/domain/audio/speech_audio.dart';
+import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
+import 'package:sinapsis/features/narration/presentation/providers/speech_audio_providers.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/fake_speech_track_player.dart';
 import '../../../../support/processed_rows.dart';
+import '../../../narration/data/audio/speech_audio_fakes.dart';
 import '../../presentation/repasar_harness.dart';
 
 /// F47, paso 6: el podcast guardado en «Lo creado» —su fila, «Hecho con IA»,
@@ -77,8 +86,35 @@ void main() {
     ],
   );
 
+  late FakeSpeechTrackPlayer track;
+  late FakeVoiceRenderer device;
+
+  /// Dónde está, en el teléfono, cada audio de la bóveda: el almacén de
+  /// mentira no tiene disco.
+  late Map<String, String> onDisk;
+  late bool renderers;
+
+  Future<void> create() async {
+    track = FakeSpeechTrackPlayer();
+    device = FakeVoiceRenderer(prefix: 'device:');
+    harness = await RepasarHarness.create(
+      specs: [podcastKindSpec()],
+      overrides: [
+        speechTrackPlayerProvider.overrideWithValue(track),
+        speechVoiceRenderersProvider.overrideWith(
+          (ref) => renderers ? [device] : const [],
+        ),
+        podcastAudioPathProvider.overrideWith(
+          (ref, reference) async => onDisk[reference],
+        ),
+      ],
+    );
+  }
+
   setUp(() async {
-    harness = await RepasarHarness.create(specs: [podcastKindSpec()]);
+    onDisk = {};
+    renderers = true;
+    await create();
   });
 
   /// La fuente src-1 con [sourceText], para que la cita tenga a dónde ir.
@@ -157,8 +193,33 @@ void main() {
     location: '/creations/${creation.id}',
   );
 
-  testWidgets('arriba, de qué es, «Hecho con IA» con su modelo y el botón de '
-      'escuchar apagado, que dice por qué', (tester) async {
+  /// El audio de [content] con las voces de fábrica, en [reference].
+  PodcastAudio audioOf(
+    Podcast content, {
+    String reference = 'originales/x/audio/podcast-ab.m4a',
+    String? fingerprint,
+  }) => PodcastAudio(
+    reference: reference,
+    mimeType: 'audio/mp4',
+    fingerprint:
+        fingerprint ??
+        podcastAudioFingerprint(
+          podcastSpeechPieces(
+            content,
+            PodcastCast.of(const {}, content.format),
+            'es',
+          ),
+        ),
+    duration: const Duration(seconds: 9),
+    starts: const [Duration.zero, Duration(seconds: 3), Duration(seconds: 6)],
+  );
+
+  FilledButton listenButton(WidgetTester tester) =>
+      tester.widget<FilledButton>(find.byKey(const Key('podcast-listen')));
+
+  testWidgets('arriba, de qué es y «Hecho con IA» con su modelo; sin audio, '
+      'el botón de escuchar apagado, que dice por qué, y «Generar el '
+      'audio»', (tester) async {
     final creation = await ready();
     await open(tester, creation);
 
@@ -168,15 +229,185 @@ void main() {
       findsOneWidget,
     );
     expect(find.text(es.f47P6MadeWithAiModel('Gemini')), findsOneWidget);
-    final listen = tester.widget<FilledButton>(
-      find.ancestor(
-        of: find.text(es.f47P6Listen),
-        matching: find.byWidgetPredicate((w) => w is FilledButton),
-      ),
-    );
-    expect(listen.onPressed, isNull);
-    expect(find.text(es.f47P6AudioPending), findsOneWidget);
+    expect(listenButton(tester).onPressed, isNull);
+    expect(find.text(es.f47P6bAudioNone), findsOneWidget);
+    expect(find.text(es.f47P6bGenerateAudio), findsOneWidget);
     expect(find.text(es.f47P6Transcript), findsOneWidget);
+  });
+
+  group('el audio (F47, paso 6b)', () {
+    testWidgets('con el audio de este guion en el teléfono, «Escuchar» lo '
+        'abre en el reproductor anclado; después pausa y sigue', (
+      tester,
+    ) async {
+      final audio = audioOf(podcast);
+      onDisk[audio.reference] = '/telefono/podcast.m4a';
+      final creation = await ready(content: podcast.withAudio(audio));
+      await open(tester, creation);
+
+      expect(find.text(es.f47P6bAudioReady('0:09')), findsOneWidget);
+      expect(find.text(es.f47P6bGenerateAudio), findsNothing);
+      await tester.tap(find.byKey(const Key('podcast-listen')));
+      await tester.pumpAndSettle();
+
+      expect(track.opened, '/telefono/podcast.m4a');
+      final reading = harness.container.read(readAloudControllerProvider);
+      expect(reading.document!.id, podcastReadableId(creation.id));
+      expect(reading.recording!.starts, audio.starts);
+      expect(reading.document!.segments.map((s) => s.spoken), [
+        for (final segment in podcast.segments) segment.text,
+      ]);
+      expect(find.text(es.f47P6bPause), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('podcast-listen')));
+      await tester.pumpAndSettle();
+      expect(track.playing, isFalse);
+      expect(find.text(es.f47P6bResume), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('podcast-listen')));
+      await tester.pumpAndSettle();
+      expect(track.playing, isTrue);
+    });
+
+    testWidgets('la transcripción sigue lo que suena: el tramo, resaltado', (
+      tester,
+    ) async {
+      final audio = audioOf(podcast);
+      onDisk[audio.reference] = '/telefono/podcast.m4a';
+      final creation = await ready(content: podcast.withAudio(audio));
+      await open(tester, creation);
+      await tester.tap(find.byKey(const Key('podcast-listen')));
+      await tester.pumpAndSettle();
+
+      Finder speaking(int index) => find.descendant(
+        of: find.byKey(ValueKey('podcast-segment-$index')),
+        matching: find.byKey(const Key('podcast-segment-speaking')),
+      );
+      expect(speaking(0), findsOneWidget);
+      expect(speaking(1), findsNothing);
+
+      track.advance(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      expect(speaking(0), findsNothing);
+      expect(speaking(1), findsOneWidget);
+    });
+
+    testWidgets('un audio de otra versión del guion no se finge: se dice, '
+        'no se escucha, y se ofrece generarlo de nuevo', (tester) async {
+      final audio = audioOf(podcast, fingerprint: 'de-otro-guion');
+      onDisk[audio.reference] = '/telefono/podcast.m4a';
+      final creation = await ready(content: podcast.withAudio(audio));
+      await open(tester, creation);
+
+      expect(listenButton(tester).onPressed, isNull);
+      expect(find.text(es.f47P6bAudioStale), findsOneWidget);
+      expect(find.text(es.f47P6bRegenerateAudio), findsOneWidget);
+    });
+
+    testWidgets('si el archivo no está en el teléfono, se dice y se ofrece '
+        'generarlo', (tester) async {
+      final creation = await ready(
+        content: podcast.withAudio(audioOf(podcast)),
+      );
+      await open(tester, creation);
+
+      expect(listenButton(tester).onPressed, isNull);
+      expect(find.text(es.f47P6bAudioMissingFile), findsOneWidget);
+      expect(find.text(es.f47P6bGenerateAudio), findsOneWidget);
+    });
+
+    for (final (name, issue, text) in [
+      (
+        'la voz que falta, con su nombre',
+        const PodcastAudioIssue(
+          PodcastAudioProblem.voiceMissing,
+          voiceId: 'offline:vits-piper-es_AR-daniela-high#0',
+        ),
+        (AppLocalizationsEs l) => l.f47P6bAudioVoiceMissing('Daniela'),
+      ),
+      (
+        'una voz que falta, sin saber cuál',
+        const PodcastAudioIssue(PodcastAudioProblem.voiceMissing),
+        (AppLocalizationsEs l) => l.f47P6bAudioVoiceMissingAny,
+      ),
+      (
+        'el motor',
+        const PodcastAudioIssue(PodcastAudioProblem.engine),
+        (AppLocalizationsEs l) => l.f47P6bAudioEngine,
+      ),
+      (
+        'el disco',
+        const PodcastAudioIssue(PodcastAudioProblem.file),
+        (AppLocalizationsEs l) => l.f47P6bAudioFile,
+      ),
+    ]) {
+      testWidgets('si no se pudo generar, dice por qué: $name', (tester) async {
+        final creation = await ready(content: podcast.withAudioIssue(issue));
+        await open(tester, creation);
+        expect(find.text(text(es)), findsOneWidget);
+        expect(find.text(es.f47P6bGenerateAudio), findsOneWidget);
+        expect(
+          find.byKey(const Key('podcast-audio-download')),
+          issue.voiceId == null ? findsNothing : findsOneWidget,
+        );
+      });
+    }
+
+    testWidgets('donde nadie sabe hacer las voces, solo se dice', (
+      tester,
+    ) async {
+      renderers = false;
+      await create();
+      final creation = await ready();
+      await open(tester, creation);
+      expect(find.text(es.f47P6bNoAudioHere), findsOneWidget);
+      expect(find.text(es.f47P6bGenerateAudio), findsNothing);
+    });
+
+    testWidgets('«Generar el audio» deja el guion como lo que falta y la '
+        'vuelve a la cola con «ahora», conservando el título', (tester) async {
+      final creation = await ready();
+      await open(tester, creation);
+      await tester.tap(find.text(es.f47P6bGenerateAudio));
+      await tester.pumpAndSettle();
+
+      expect(harness.queue.calls.last.action, 'retry');
+      expect(harness.queue.calls.last.detail, isTrue);
+      final saved = PodcastProgress.decode(
+        (await harness.creations.checkpoint(
+          creation.id,
+        )).getRight().toNullable(),
+      );
+      expect(saved, isA<PodcastVoiceProgress>());
+      final voice = saved! as PodcastVoiceProgress;
+      expect(voice.keepTitle, isTrue);
+      expect(voice.podcast, podcast);
+      expect(find.text(es.f47P6bAudioQueued), findsOneWidget);
+    });
+
+    testWidgets('con una voz que cobra, antes se dice el costo; sin aceptar, '
+        'no se pide', (tester) async {
+      device.prices['device:es:'] = const SpeechAudioPrice(
+        per1000Characters: 1,
+        currency: 'USD',
+      );
+      final creation = await ready();
+      await open(tester, creation);
+      await tester.tap(find.text(es.f47P6bGenerateAudio));
+      await tester.pumpAndSettle();
+
+      final characters = podcast.segments.fold(0, (n, s) => n + s.text.length);
+      expect(find.textContaining('$characters'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('speech-audio-cost-cancel')));
+      await tester.pumpAndSettle();
+      expect(harness.queue.calls.where((c) => c.action == 'retry'), isEmpty);
+
+      await tester.tap(find.text(es.f47P6bGenerateAudio));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('speech-audio-cost-go')));
+      await tester.pumpAndSettle();
+      expect(harness.queue.calls.last.action, 'retry');
+    });
   });
 
   testWidgets('la transcripción: cada tramo, y quién habla cuando cambia', (
@@ -351,6 +582,15 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(tester.getRect(citation).right, lessThanOrEqualTo(360));
+      // El aviso del audio y su botón, sin cortarse.
+      for (final key in ['podcast-audio-note', 'podcast-audio-generate']) {
+        expect(
+          tester.getRect(find.byKey(Key(key))).right,
+          lessThanOrEqualTo(360),
+          reason: key,
+        );
+      }
+      expect(find.bySemanticsLabel(RegExp(es.f47P6bAudioNone)), findsOneWidget);
       // Cada tramo dice quién habla; cada cita, de dónde es y qué hace.
       expect(
         find.bySemanticsLabel(

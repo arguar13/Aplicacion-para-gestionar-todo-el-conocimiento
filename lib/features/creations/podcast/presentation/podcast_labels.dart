@@ -3,6 +3,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_options.dart';
 import 'package:sinapsis/features/creations/podcast/presentation/providers/podcast_voices.dart';
@@ -39,7 +40,8 @@ String podcastSpeakerName(AppLocalizations l10n, PodcastSpeaker speaker) =>
     };
 
 /// El nombre de [voice], la [index]-ésima de la lista: el suyo si es un
-/// nombre, «Voz 3» si es un código; con su acento.
+/// nombre, «Voz 3» si es un código; con su acento y, si es una sin conexión
+/// que falta bajar, cuánto pesa (F47, paso 6b).
 String podcastVoiceName(
   AppLocalizations l10n,
   PodcastVoiceOption voice,
@@ -48,6 +50,11 @@ String podcastVoiceName(
   final name = voice.nameIsCode
       ? l10n.readAloudVoiceNumber(index + 1)
       : voice.name;
+  final package = voice.offline?.package;
+  if (!voice.ready && package != null) {
+    final size = formatFileSize(package.bytes, l10n.localeName);
+    return '$name · ${voice.accent} · ${l10n.f47P6bToDownload(size)}';
+  }
   return '$name · ${voice.accent}';
 }
 
