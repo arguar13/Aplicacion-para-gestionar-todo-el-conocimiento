@@ -2,6 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:sinapsis/features/creations/report/domain/report.dart';
+import 'package:sinapsis/features/creations/report/domain/report_canonical_text.dart';
+import 'package:sinapsis/features/creations/report/domain/report_export_notes.dart';
 import 'package:sinapsis/features/creations/report/domain/report_keywords.dart';
 import 'package:sinapsis/features/creations/report/domain/report_markdown.dart';
 import 'package:sinapsis/features/creations/report/domain/report_markup.dart';
@@ -22,7 +24,12 @@ typedef ReportFontLoader = Future<ByteData> Function(String asset);
 /// - en el interactivo, las preguntas de cada sección con sus opciones A, B,
 ///   C… —en el mismo orden que el visor— y, en una página aparte al final,
 ///   las respuestas con su explicación, para probarse en papel;
-/// - al pie, el título y «Página 3 de 12».
+/// - al pie, el título y «Página 3 de 12»;
+/// - **las notas de la persona** (F45, paso 8c): las del informe entero al
+///   comienzo, debajo del título, con su título y una raya de color al
+///   costado; las de un pedazo, con su número volado justo después del
+///   pedazo y, al final del texto —antes de las respuestas—, lo que dice cada
+///   una, numeradas en el orden en que aparecen.
 ///
 /// Usa las fuentes libres que viajan con la app (Lora para leer, Inter para
 /// los rótulos), así que las tildes, la ñ, las comillas «» y los guiones
@@ -59,6 +66,7 @@ class ReportPdfExporter {
     ReportKeywords keywords = ReportKeywords.empty,
     bool interactive = true,
     ReportExportLabels labels = const ReportExportLabels(),
+    ReportExportNotes notes = ReportExportNotes.none,
   }) async {
     final load = _fonts ?? rootBundle.load;
     final serif = pw.Font.ttf(await load(_bodyAsset));
@@ -69,6 +77,7 @@ class ReportPdfExporter {
       italic: italic,
       sans: sans,
       keywords: keywords,
+      calls: ReportNoteCalls(notes),
     );
 
     final document = pw.Document(
@@ -116,6 +125,7 @@ class ReportPdfExporter {
         ),
         build: (context) => [
           ...writer.header(report, labels),
+          ...writer.opening(notes),
           for (final (index, section) in report.sections.indexed)
             ...writer.section(
               section,
@@ -124,6 +134,8 @@ class ReportPdfExporter {
               interactive: interactive,
               questionsTitle: labels.questions,
             ),
+          // Después de las secciones: ya se numeraron sus llamadas.
+          ...writer.pieceNotes(notes.piecesTitle),
           if (withAnswers) ...[
             pw.NewPage(),
             ...writer.answerKey(report, labels),
@@ -142,12 +154,17 @@ class _Writer {
     required this.italic,
     required this.sans,
     required this.keywords,
+    required this.calls,
   });
 
   final pw.Font serif;
   final pw.Font italic;
   final pw.Font sans;
   final ReportKeywords keywords;
+
+  /// Las llamadas de las notas sobre pedazos, que se numeran a medida que se
+  /// escriben (F45, paso 8c).
+  final ReportNoteCalls calls;
 
   static const _accent = ReportPdfExporter.accent;
   static const _ink = ReportPdfExporter._ink;
@@ -186,13 +203,18 @@ class _Writer {
     _Ink(
       color: _ink,
       stroke: 0.55,
-      child: pw.Text(report.title, style: text(23, bold: true, lineSpacing: 4)),
+      child: _plain(
+        report.title,
+        text(23, bold: true, lineSpacing: 4),
+        const ReportTextPlace.title(),
+      ),
     ),
     if (report.subtitle.isNotEmpty) ...[
       pw.SizedBox(height: 8),
-      pw.Text(
+      _plain(
         report.subtitle,
-        style: text(12, color: _muted, italics: true, lineSpacing: 3),
+        text(12, color: _muted, italics: true, lineSpacing: 3),
+        const ReportTextPlace.subtitle(),
       ),
     ],
     if (labels.sources.isNotEmpty) ...[
@@ -204,6 +226,71 @@ class _Writer {
     pw.SizedBox(height: 10),
   ];
 
+  /// Las notas del informe entero (F45, paso 8c), debajo del título: su
+  /// título y cada una con una raya del color del informe al costado, con la
+  /// letra de una nota.
+  List<pw.Widget> opening(ReportExportNotes notes) {
+    if (notes.whole.isEmpty) return const [];
+    return [
+      if (notes.title.isNotEmpty) ...[
+        pw.Text(
+          notes.title.toUpperCase(),
+          style: label(8, _accent, spacing: 1),
+        ),
+        pw.SizedBox(height: 5),
+      ],
+      for (final note in notes.whole)
+        pw.Container(
+          margin: const pw.EdgeInsets.only(bottom: 5),
+          padding: const pw.EdgeInsets.only(left: 8),
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(left: pw.BorderSide(color: _accent, width: 2)),
+          ),
+          child: pw.Text(note.trim(), style: text(_noteSize)),
+        ),
+      pw.SizedBox(height: 4),
+      pw.Container(height: 0.6, color: ReportPdfExporter._tint),
+      pw.SizedBox(height: 6),
+    ];
+  }
+
+  /// Lo que dicen las notas sobre pedazos (F45, paso 8c), al final del
+  /// texto, con su número —el de su llamada— y una raya fina arriba, como
+  /// las notas al pie.
+  List<pw.Widget> pieceNotes(String title) {
+    final written = calls.written;
+    if (written.isEmpty) return const [];
+    return [
+      pw.SizedBox(height: 18),
+      pw.Container(width: 120, height: 0.6, color: _muted),
+      pw.SizedBox(height: 6),
+      if (title.isNotEmpty) ...[
+        pw.Text(title.toUpperCase(), style: label(8, _accent, spacing: 1)),
+        pw.SizedBox(height: 4),
+      ],
+      for (final (i, note) in written.indexed)
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(bottom: 3),
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.SizedBox(
+                width: 16,
+                child: pw.Text(
+                  '${i + 1}',
+                  style: text(_noteSize, color: _accent),
+                ),
+              ),
+              pw.Expanded(child: pw.Text(note.trim(), style: text(_noteSize))),
+            ],
+          ),
+        ),
+    ];
+  }
+
+  /// La letra de una nota: la de una nota al pie.
+  static const double _noteSize = 9;
+
   List<pw.Widget> section(
     ReportSection section, {
     required int number,
@@ -211,11 +298,13 @@ class _Writer {
     required bool interactive,
     required String questionsTitle,
   }) {
+    final index = number - 1;
     final blocks = reportBlocksWithKeywords(section.body, keywords);
+    final heading = _heading(number, title, index);
     final content = <pw.Widget>[
-      ..._blocks(blocks),
+      ..._blocks(blocks, index),
       for (final (i, entry) in section.entries.indexed)
-        _entry(entry, first: i == 0 && blocks.isEmpty),
+        _entry(entry, index, i, first: i == 0 && blocks.isEmpty),
       if (interactive && section.questions.isNotEmpty) ...[
         pw.SizedBox(height: 12),
         pw.Text(
@@ -224,7 +313,7 @@ class _Writer {
         ),
         for (final (q, question) in section.questions.indexed) ...[
           pw.SizedBox(height: 6),
-          _question(q + 1, question),
+          _question(q + 1, question, index),
         ],
       ],
     ];
@@ -239,14 +328,10 @@ class _Writer {
       if (keepWithFirst)
         pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            _heading(number, title),
-            pw.SizedBox(height: 8),
-            content.first,
-          ],
+          children: [heading, pw.SizedBox(height: 8), content.first],
         )
       else ...[
-        _heading(number, title),
+        heading,
         pw.SizedBox(height: 8),
       ],
       ...content.skip(keepWithFirst ? 1 : 0),
@@ -257,63 +342,124 @@ class _Writer {
   /// su título.
   static const _keepWithHeading = 700;
 
-  /// Un término del glosario con su definición, juntos.
-  pw.Widget _entry(ReportEntry entry, {required bool first}) => pw.Padding(
-    padding: pw.EdgeInsets.only(top: first ? 0 : 7),
-    child: pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        _Ink(
-          color: _accent,
-          stroke: 0.32,
-          child: pw.Text(
-            entry.term,
-            style: text(11.5, color: _accent, bold: true),
-          ),
+  /// Un término del glosario con su definición, juntos: la entrada [e] de la
+  /// sección [s].
+  pw.Widget _entry(ReportEntry entry, int s, int e, {required bool first}) =>
+      pw.Padding(
+        padding: pw.EdgeInsets.only(top: first ? 0 : 7),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            _Ink(
+              color: _accent,
+              stroke: 0.32,
+              child: _plain(
+                entry.term,
+                text(11.5, color: _accent, bold: true),
+                ReportTextPlace.term(s, e),
+              ),
+            ),
+            if (entry.definition.isNotEmpty) ...[
+              pw.SizedBox(height: 2),
+              _rich(
+                withReportKeywords(
+                  parseReportInlines(entry.definition),
+                  keywords,
+                ),
+                text(_body),
+                ReportTextPlace.definition(s, e),
+              ),
+            ],
+          ],
         ),
-        if (entry.definition.isNotEmpty) ...[
-          pw.SizedBox(height: 2),
-          _rich(
-            withReportKeywords(parseReportInlines(entry.definition), keywords),
-            text(_body),
-          ),
-        ],
-      ],
-    ),
-  );
+      );
 
   /// Una pregunta con sus opciones, en su recuadro: cada una el suyo, así
-  /// una sección con preguntas largas igual se reparte entre páginas.
-  pw.Widget _question(int number, ReportQuestion question) => pw.Container(
-    padding: const pw.EdgeInsets.fromLTRB(12, 9, 12, 10),
-    decoration: const pw.BoxDecoration(
-      color: ReportPdfExporter._panel,
-      borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
-    ),
-    child: pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        _Ink(
-          color: _ink,
-          stroke: 0.25,
-          child: pw.Text(
-            '$number. ${question.question}',
-            style: text(_body, bold: true),
-          ),
-        ),
-        for (final (i, option) in reportOptionOrder(question).indexed) ...[
-          pw.SizedBox(height: 3),
-          pw.Padding(
-            padding: const pw.EdgeInsets.only(left: 14),
-            child: pw.Text(
-              '${reportOptionLetter(i)}.  ${option.text}',
-              style: text(_body - 0.5),
+  /// una sección con preguntas largas igual se reparte entre páginas. Es la
+  /// [number] de la sección [s].
+  pw.Widget _question(int number, ReportQuestion question, int s) {
+    final q = number - 1;
+    return pw.Container(
+      padding: const pw.EdgeInsets.fromLTRB(12, 9, 12, 10),
+      decoration: const pw.BoxDecoration(
+        color: ReportPdfExporter._panel,
+        borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          _Ink(
+            color: _ink,
+            stroke: 0.25,
+            // Lo que se ve, sin las marcas: es todo negrita.
+            child: _plain(
+              reportInlinesText(parseReportInlines(question.question)),
+              text(_body, bold: true),
+              ReportTextPlace.question(s, q),
+              prefix: '$number. ',
             ),
           ),
+          for (final (i, option) in reportOptionOrder(question).indexed) ...[
+            pw.SizedBox(height: 3),
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(left: 14),
+              child: _plain(
+                option.text,
+                text(_body - 0.5),
+                ReportTextPlace.option(s, q, question.options.indexOf(option)),
+                prefix: '${reportOptionLetter(i)}.  ',
+              ),
+            ),
+          ],
         ],
-      ],
-    ),
-  );
+      ),
+    );
+  }
+
+  /// [value] con [style] —detrás de [prefix], si hay— y, después de su
+  /// pedazo, el número volado de cada nota de la parte [place] (F45, paso
+  /// 8c). Sin notas, un texto como siempre.
+  pw.Widget _plain(
+    String value,
+    pw.TextStyle style,
+    ReportTextPlace place, {
+    String prefix = '',
+  }) {
+    final placed = calls.callsAt(place);
+    if (placed.isEmpty) return pw.Text('$prefix$value', style: style);
+    return pw.RichText(
+      overflow: pw.TextOverflow.span,
+      text: pw.TextSpan(
+        style: style,
+        children: [
+          if (prefix.isNotEmpty) pw.TextSpan(text: prefix),
+          for (final piece in reportInlinesWithCalls([
+            ReportInline(value),
+          ], placed))
+            if (piece is ReportInline)
+              pw.TextSpan(text: piece.text)
+            else
+              _call(piece as int, style),
+        ],
+      ),
+    );
+  }
+
+  /// La llamada a la nota [number]: su número volado, chico y del color del
+  /// informe.
+  pw.TextSpan _call(int number, pw.TextStyle base) {
+    final size = base.fontSize ?? _body;
+    return pw.TextSpan(
+      text: '$number',
+      baseline: size * 0.35,
+      style: base.copyWith(
+        fontSize: size * 0.62,
+        color: _accent,
+        font: sans,
+        renderingMode: PdfTextRenderingMode.fill,
+      ),
+    );
+  }
 
   List<pw.Widget> answerKey(Report report, ReportExportLabels labels) => [
     _Ink(
@@ -351,7 +497,7 @@ class _Writer {
     ], text(_body));
   }
 
-  pw.Widget _heading(int number, String title) => pw.Row(
+  pw.Widget _heading(int number, String title, int index) => pw.Row(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
       pw.Container(
@@ -369,16 +515,20 @@ class _Writer {
         child: _Ink(
           color: _ink,
           stroke: 0.4,
-          child: pw.Text(title, style: text(15, bold: true, lineSpacing: 2)),
+          child: _plain(
+            title,
+            text(15, bold: true, lineSpacing: 2),
+            ReportTextPlace.sectionTitle(index),
+          ),
         ),
       ),
     ],
   );
 
-  List<pw.Widget> _blocks(List<ReportBlock> blocks) {
+  List<pw.Widget> _blocks(List<ReportBlock> blocks, int section) {
     final widgets = <pw.Widget>[];
     ReportBlock? previous;
-    for (final block in blocks) {
+    for (final (b, block) in blocks.indexed) {
       final gap = switch ((previous, block)) {
         (null, _) => 0.0,
         (ReportBullet(), ReportBullet()) => 3.0,
@@ -386,21 +536,21 @@ class _Writer {
         _ => 7.0,
       };
       if (gap > 0) widgets.add(pw.SizedBox(height: gap));
-      widgets.add(_block(block));
+      widgets.add(_block(block, ReportTextPlace.block(section, b)));
       previous = block;
     }
     return widgets;
   }
 
-  pw.Widget _block(ReportBlock block) => switch (block) {
-    ReportParagraph() => _rich(block.inlines, text(_body)),
-    ReportSubheading() => _rich(block.inlines, text(12, bold: true)),
+  pw.Widget _block(ReportBlock block, ReportTextPlace place) => switch (block) {
+    ReportParagraph() => _rich(block.inlines, text(_body), place),
+    ReportSubheading() => _rich(block.inlines, text(12, bold: true), place),
     ReportQuote() => pw.Container(
       padding: const pw.EdgeInsets.only(left: 10),
       decoration: const pw.BoxDecoration(
         border: pw.Border(left: pw.BorderSide(color: _accent, width: 2)),
       ),
-      child: _rich(block.inlines, text(_body, italics: true)),
+      child: _rich(block.inlines, text(_body, italics: true), place),
     ),
     ReportBullet(:final level, :final number) => pw.Padding(
       padding: pw.EdgeInsets.only(left: level * 16.0),
@@ -414,7 +564,7 @@ class _Writer {
               style: text(_body, color: _accent),
             ),
           ),
-          pw.Expanded(child: _rich(block.inlines, text(_body))),
+          pw.Expanded(child: _rich(block.inlines, text(_body), place)),
         ],
       ),
     ),
@@ -429,11 +579,26 @@ class _Writer {
   /// «solo relleno» después de una palabra en negrita —todo lo que seguía en
   /// el párrafo salía en negrita—. Cada palabra guarda y repone el estado
   /// del dibujo, así que la negrita termina donde termina.
-  pw.Widget _rich(List<ReportInline> inlines, pw.TextStyle base) {
+  ///
+  /// Con [place], después de su pedazo, el número volado de cada nota de esa
+  /// parte (F45, paso 8c).
+  pw.Widget _rich(
+    List<ReportInline> inlines,
+    pw.TextStyle base, [
+    ReportTextPlace? place,
+  ]) {
     final allBold = base.renderingMode == PdfTextRenderingMode.fillAndStroke;
     final size = base.fontSize ?? _body;
     final spans = <pw.InlineSpan>[];
-    for (final inline in inlines) {
+    final pieces = place == null
+        ? inlines
+        : reportInlinesWithCalls(inlines, calls.callsAt(place));
+    for (final piece in pieces) {
+      if (piece is int) {
+        spans.add(_call(piece, base));
+        continue;
+      }
+      final inline = piece as ReportInline;
       final emphasized = inline.bold || inline.keyword;
       if (allBold || !emphasized) {
         spans.add(

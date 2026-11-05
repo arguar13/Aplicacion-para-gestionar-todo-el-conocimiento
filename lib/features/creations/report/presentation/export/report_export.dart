@@ -8,6 +8,7 @@ import 'package:sinapsis/features/creations/domain/entities/study_creation.dart'
 import 'package:sinapsis/features/creations/presentation/creation_presentation.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
 import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
+import 'package:sinapsis/features/creations/report/domain/report_export_notes.dart';
 import 'package:sinapsis/features/creations/report/domain/report_json.dart';
 import 'package:sinapsis/features/creations/report/domain/report_keywords.dart';
 import 'package:sinapsis/features/creations/report/domain/report_markdown.dart';
@@ -15,6 +16,8 @@ import 'package:sinapsis/features/creations/report/domain/report_template.dart';
 import 'package:sinapsis/features/creations/report/presentation/export/report_pdf_exporter.dart';
 import 'package:sinapsis/features/creations/report/presentation/providers/report_providers.dart';
 import 'package:sinapsis/features/creations/report/presentation/report_labels.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// En qué se descarga un informe.
@@ -80,7 +83,7 @@ final reportPdfExporterProvider = Provider<ReportPdfExporter>(
 /// El archivo de un informe para «Descargar» y «Compartir»
 /// (`CreationKindSpec.exporter`): pregunta en qué formato y lo arma con las
 /// palabras clave que se ven en el visor —si está abierto y se apagaron, no
-/// van—.
+/// van— y con las notas de la persona (F45, paso 8c).
 Future<CreationExportFile?> exportReport(
   BuildContext context,
   WidgetRef ref,
@@ -130,6 +133,18 @@ Future<CreationExportFile> buildReportFile(
     ],
   );
   final interactive = reportFormat == ReportFormat.interactive;
+  // Las notas de la persona (F45, paso 8c): las del informe entero al
+  // comienzo y las de un pedazo, con su llamada.
+  final notes = reportExportNotes(
+    report: report,
+    notes: await _settled(
+      ref,
+      textNotesProvider(TextNoteTarget.creation(creation.id)).future,
+    ),
+    interactive: interactive,
+    title: l10n.f45P8cReportNotes,
+    piecesTitle: l10n.f45P8cReportPieceNotes,
+  );
   final name = sanitizeFileName(
     report.title.isNotEmpty ? report.title : studyCreationTitle(l10n, creation),
   );
@@ -142,6 +157,7 @@ Future<CreationExportFile> buildReportFile(
             keywords: keywords,
             interactive: interactive,
             labels: labels,
+            notes: notes,
           );
       return CreationExportFile(
         fileName: '$name.pdf',
@@ -154,6 +170,7 @@ Future<CreationExportFile> buildReportFile(
         keywords: keywords,
         interactive: interactive,
         labels: labels,
+        notes: notes,
       );
       return CreationExportFile(
         fileName: '$name.md',

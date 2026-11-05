@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:sinapsis/features/creations/report/domain/report.dart';
+import 'package:sinapsis/features/creations/report/domain/report_canonical_text.dart';
+import 'package:sinapsis/features/creations/report/domain/report_export_notes.dart';
 import 'package:sinapsis/features/creations/report/domain/report_keywords.dart';
 import 'package:sinapsis/features/creations/report/domain/report_markup.dart';
 import 'package:sinapsis/features/creations/report/domain/report_order.dart';
@@ -57,51 +59,72 @@ class ReportExportLabels {
 ///   probar uno sin ver la respuesta al lado.
 ///
 /// Las opciones van en el mismo orden que en el visor ([reportOptionOrder]).
+///
+/// **Las notas de la persona** (F45, paso 8c), con [notes]: las del informe
+/// entero, al comienzo —después del título— en una cita, con su título en
+/// negrita; las de un pedazo, como notas al pie —`[^nota-1]` justo después
+/// del pedazo y lo que dice al final del archivo—, numeradas en el orden en
+/// que aparecen.
 String reportToMarkdown(
   Report report, {
   ReportKeywords keywords = ReportKeywords.empty,
   bool interactive = true,
   ReportExportLabels labels = const ReportExportLabels(),
+  ReportExportNotes notes = ReportExportNotes.none,
 }) {
+  final calls = ReportNoteCalls(notes);
+  String plain(ReportTextPlace place, String text) =>
+      _inlines([ReportInline(text)], calls.callsAt(place));
+
   final out = StringBuffer();
   if (labels.kicker.isNotEmpty) out.writeln('*${_escape(labels.kicker)}*\n');
-  out.writeln('# ${_escape(report.title)}');
+  out.writeln('# ${plain(const ReportTextPlace.title(), report.title)}');
   if (report.subtitle.isNotEmpty) {
     out
       ..writeln()
-      ..writeln('*${_escape(report.subtitle)}*');
+      ..writeln(
+        '*${plain(const ReportTextPlace.subtitle(), report.subtitle)}*',
+      );
   }
   if (labels.sources.isNotEmpty) {
     out
       ..writeln()
       ..writeln(_escape(labels.sources));
   }
-
-  for (final (index, section) in report.sections.indexed) {
+  if (notes.whole.isNotEmpty) {
     out
       ..writeln()
-      ..writeln('## ${_escape(labels.sectionTitle(report, index))}');
+      ..writeln(_opening(notes));
+  }
+
+  for (final (index, section) in report.sections.indexed) {
+    final title = labels.sectionTitle(report, index);
+    out
+      ..writeln()
+      ..writeln('## ${plain(ReportTextPlace.sectionTitle(index), title)}');
     final blocks = reportBlocksWithKeywords(section.body, keywords);
     if (blocks.isNotEmpty) out.writeln();
     ReportBlock? previous;
-    for (final block in blocks) {
+    for (final (b, block) in blocks.indexed) {
       // Los ítems de una lista van seguidos; lo demás, con una línea en
       // blanco antes.
       final list = block is ReportBullet && previous is ReportBullet;
       if (previous != null && !list) out.writeln();
-      out.writeln(_block(block));
+      out.writeln(
+        _block(block, calls.callsAt(ReportTextPlace.block(index, b))),
+      );
       previous = block;
     }
     if (section.entries.isNotEmpty) {
       out.writeln();
-      for (final entry in section.entries) {
+      for (final (e, entry) in section.entries.indexed) {
+        final term = plain(ReportTextPlace.term(index, e), entry.term);
         final definition = _inlines(
           withReportKeywords(parseReportInlines(entry.definition), keywords),
+          calls.callsAt(ReportTextPlace.definition(index, e)),
         );
         out.writeln(
-          definition.isEmpty
-              ? '- **${_escape(entry.term)}**'
-              : '- **${_escape(entry.term)}**: $definition',
+          definition.isEmpty ? '- **$term**' : '- **$term**: $definition',
         );
       }
     }
@@ -112,9 +135,17 @@ String reportToMarkdown(
         ..writeln();
       for (final (q, question) in section.questions.indexed) {
         if (q > 0) out.writeln();
-        out.writeln('${q + 1}. ${_escape(question.question)}');
+        final asked = _inlines(
+          parseReportInlines(question.question),
+          calls.callsAt(ReportTextPlace.question(index, q)),
+        );
+        out.writeln('${q + 1}. $asked');
         for (final (i, option) in reportOptionOrder(question).indexed) {
-          out.writeln('   - ${reportOptionLetter(i)}. ${_escape(option.text)}');
+          final text = plain(
+            ReportTextPlace.option(index, q, question.options.indexOf(option)),
+            option.text,
+          );
+          out.writeln('   - ${reportOptionLetter(i)}. $text');
         }
       }
     }
@@ -141,23 +172,59 @@ String reportToMarkdown(
       }
     }
   }
+  if (calls.written.isNotEmpty) {
+    out.writeln();
+    for (final (i, note) in calls.written.indexed) {
+      final lines = note.trim().split(RegExp(r'\r\n|\r|\n'));
+      out.writeln('[^nota-${i + 1}]: ${lines.first}');
+      // Los renglones que siguen, con sangría: siguen siendo de la nota.
+      for (final line in lines.skip(1)) {
+        out.writeln(line.isEmpty ? '' : '    $line');
+      }
+    }
+  }
   return out.toString();
 }
 
-String _block(ReportBlock block) => switch (block) {
-  ReportParagraph() => _inlines(block.inlines),
+/// Las notas del informe entero, en una cita: el título en negrita y cada
+/// nota en una viñeta, con sus renglones.
+String _opening(ReportExportNotes notes) => [
+  if (notes.title.isNotEmpty) ...['> **${_escape(notes.title)}**', '>'],
+  for (final note in notes.whole) ..._quotedItem(note),
+].join('\n');
+
+List<String> _quotedItem(String note) {
+  final lines = note.trim().split(RegExp(r'\r\n|\r|\n'));
+  return [
+    '> - ${lines.first}',
+    for (final line in lines.skip(1))
+      if (line.isEmpty) '>' else '>   $line',
+  ];
+}
+
+String _block(ReportBlock block, List<ReportNoteCall> calls) => switch (block) {
+  ReportParagraph() => _inlines(block.inlines, calls),
   ReportBullet(:final level, :final number) =>
     '${'  ' * level}${number == null ? '-' : '$number.'} '
-        '${_inlines(block.inlines)}',
-  ReportSubheading() => '### ${_inlines(block.inlines)}',
-  ReportQuote() => '> ${_inlines(block.inlines)}',
+        '${_inlines(block.inlines, calls)}',
+  ReportSubheading() => '### ${_inlines(block.inlines, calls)}',
+  ReportQuote() => '> ${_inlines(block.inlines, calls)}',
 };
 
 /// Los pedazos en Markdown: la negrita y las palabras clave con `**`, la
-/// itálica con `*`.
-String _inlines(List<ReportInline> inlines) {
+/// itálica con `*`, y después de su pedazo la llamada de cada una de [calls],
+/// `[^nota-1]` (F45, paso 8c).
+String _inlines(
+  List<ReportInline> inlines, [
+  List<ReportNoteCall> calls = const [],
+]) {
   final out = StringBuffer();
-  for (final inline in inlines) {
+  for (final piece in reportInlinesWithCalls(inlines, calls)) {
+    if (piece is int) {
+      out.write('[^nota-$piece]');
+      continue;
+    }
+    final inline = piece as ReportInline;
     final text = _escape(inline.text);
     final bold = inline.bold || inline.keyword;
     // Los espacios de los bordes quedan afuera de las marcas: «** palabra**»
