@@ -100,7 +100,7 @@ class PdfParser implements DocumentParser {
   }) async {
     await _initialize();
 
-    final document = await _open(source);
+    final document = await openPdfDocument(source);
     try {
       // Cada página ocupa su lugar aunque esté en blanco: el segmento número
       // N del texto es la página N. Descartar las vacías corría todas las
@@ -282,49 +282,55 @@ class PdfParser implements DocumentParser {
       await files.delete(tempPath);
     }
   }
+}
 
-  Future<PdfDocument> _open(DocumentSource source) async {
-    try {
-      // Desde el disco, si está en uno: PDFium lee solo las partes que
-      // necesita, y un libro de cientos de páginas no pasa entero por la
-      // memoria de Dart —ni se copia a la nativa— para sacarle el texto
-      // (F21).
-      final localPath = source.localPath;
-      if (localPath != null) return await PdfDocument.openFile(localPath);
+/// Abre el PDF de [source] con PDFium: desde el disco si está en uno, y si
+/// no —en la web, en memoria— desde sus bytes. Lo usan el que saca el texto
+/// ([PdfParser]) y el que lee los marcadores para el Índice (F46).
+///
+/// Lanza [UnreadableDocumentException] si PDFium no lo puede abrir. Quien lo
+/// abre lo cierra (`PdfDocument.dispose`).
+Future<PdfDocument> openPdfDocument(DocumentSource source) async {
+  try {
+    // Desde el disco, si está en uno: PDFium lee solo las partes que
+    // necesita, y un libro de cientos de páginas no pasa entero por la
+    // memoria de Dart —ni se copia a la nativa— para sacarle el texto
+    // (F21).
+    final localPath = source.localPath;
+    if (localPath != null) return await PdfDocument.openFile(localPath);
 
-      // En la web no hay ruta: se abre desde los bytes.
-      final bytes = await source.readAll();
-      return await PdfDocument.openData(
-        bytes,
-        // Por debajo de este tamaño, `pdfrx_engine` copia los bytes a
-        // memoria nativa de una vez (`FPDF_LoadMemDocument`) — el mismo
-        // camino, simple y bien probado, que usa para abrir un archivo del
-        // disco. Por encima, en cambio, pasa a leer por bloques a través de
-        // un callback de Dart hacia el código nativo
-        // (`FPDF_LoadCustomDocument`), un camino mucho más nuevo y más
-        // frágil: ahí es donde fallan PDFs que PDFium abre sin problema por
-        // cualquier otra vía, sin que el archivo tenga nada de malo. Como
-        // los bytes ya están enteros acá, no hay ningún ahorro de memoria
-        // real en evitar la copia; subir el umbral bien por encima de lo que
-        // pesa un documento típico es forzar el camino robusto sin costo. Se
-        // deja un techo (64 MB) para no intentarlo con un archivo
-        // verdaderamente enorme, donde sí importa no duplicarlo en memoria
-        // nativa de una sola vez.
-        maxSizeToCacheOnMemory: bytes.length <= _maxDirectLoadBytes
-            ? bytes.length
-            : null,
-      );
-      // PDFium informa sus fallos de varias formas —archivo corrupto, cifrado,
-      // versión no soportada— y ninguna tiene un tipo propio en Dart.
-      // ignore: avoid_catches_without_on_clauses
-    } catch (e) {
-      throw UnreadableDocumentException(FileFormat.pdf, '$e');
-    }
+    // En la web no hay ruta: se abre desde los bytes.
+    final bytes = await source.readAll();
+    return await PdfDocument.openData(
+      bytes,
+      // Por debajo de este tamaño, `pdfrx_engine` copia los bytes a
+      // memoria nativa de una vez (`FPDF_LoadMemDocument`) — el mismo
+      // camino, simple y bien probado, que usa para abrir un archivo del
+      // disco. Por encima, en cambio, pasa a leer por bloques a través de
+      // un callback de Dart hacia el código nativo
+      // (`FPDF_LoadCustomDocument`), un camino mucho más nuevo y más
+      // frágil: ahí es donde fallan PDFs que PDFium abre sin problema por
+      // cualquier otra vía, sin que el archivo tenga nada de malo. Como
+      // los bytes ya están enteros acá, no hay ningún ahorro de memoria
+      // real en evitar la copia; subir el umbral bien por encima de lo que
+      // pesa un documento típico es forzar el camino robusto sin costo. Se
+      // deja un techo (64 MB) para no intentarlo con un archivo
+      // verdaderamente enorme, donde sí importa no duplicarlo en memoria
+      // nativa de una sola vez.
+      maxSizeToCacheOnMemory: bytes.length <= _maxDirectLoadBytes
+          ? bytes.length
+          : null,
+    );
+    // PDFium informa sus fallos de varias formas —archivo corrupto, cifrado,
+    // versión no soportada— y ninguna tiene un tipo propio en Dart.
+    // ignore: avoid_catches_without_on_clauses
+  } catch (e) {
+    throw UnreadableDocumentException(FileFormat.pdf, '$e');
   }
 }
 
 /// Hasta acá, se fuerza la carga directa a memoria nativa en vez del camino
-/// de lectura por bloques (ver [PdfParser._open]). 64 MB cubre con margen
+/// de lectura por bloques (ver [openPdfDocument]). 64 MB cubre con margen
 /// cualquier PDF de texto o escaneado a resolución normal — un libro de
 /// varios cientos de páginas escaneadas ronda las decenas de MB, no el
 /// centenar—, así que el camino frágil queda reservado para el caso
