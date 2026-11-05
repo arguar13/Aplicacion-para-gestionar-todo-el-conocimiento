@@ -29,6 +29,7 @@ class VoiceProfile {
     this.age,
     this.needsInternet = false,
     this.mine,
+    this.noRoom = false,
   }) : assert(name != null || number != null, 'una voz sin nombre ni número');
 
   /// Qué voz es, para siempre: lo que se guarda al marcarla favorita.
@@ -66,6 +67,10 @@ class VoiceProfile {
   /// La voz propia, si es una clonada o creada (F47, paso 4): dónde vive, su
   /// consentimiento y su cara elegida.
   final MyVoice? mine;
+
+  /// Una creada en el teléfono que no cabe en el `voices.bin` de las creadas
+  /// (ver [blendSlots]): está, pero no lee hasta que se borre otra.
+  final bool noRoom;
 
   /// Si leer con ella pasa por la nube y gasta cuota (F47, paso 4).
   bool get inCloud => mine?.home == MyVoiceHome.elevenLabs;
@@ -113,23 +118,27 @@ List<VoiceProfile> offlineVoiceProfiles(Iterable<OfflineVoice> voices) => [
 
 /// Las voces de la pestaña Mías, como voces de la biblioteca (F47, paso 4):
 /// con los rasgos que eligió quien las creó, que Filtrar ofrece.
-List<VoiceProfile> myVoiceProfiles(Iterable<MyVoice> voices) => [
-  for (final voice in voices)
-    VoiceProfile(
-      id: voice.narrationVoice.name,
-      voice: voice.narrationVoice,
-      origin: voice.origin,
-      locale: voice.locale,
-      name: voice.name,
-      gender: voice.gender,
-      age: voice.age,
-      timbre: voice.timbre,
-      styles: voice.styles,
-      purposes: voice.purposes,
-      needsInternet: voice.home == MyVoiceHome.elevenLabs,
-      mine: voice,
-    ),
-];
+List<VoiceProfile> myVoiceProfiles(Iterable<MyVoice> voices) {
+  final slots = blendSlots(voices);
+  return [
+    for (final voice in voices)
+      VoiceProfile(
+        id: voice.narrationVoice.name,
+        voice: voice.narrationVoice,
+        origin: voice.origin,
+        locale: voice.locale,
+        name: voice.name,
+        gender: voice.gender,
+        age: voice.age,
+        timbre: voice.timbre,
+        styles: voice.styles,
+        purposes: voice.purposes,
+        needsInternet: voice.home == MyVoiceHome.elevenLabs,
+        mine: voice,
+        noRoom: voice.home == MyVoiceHome.phone && !slots.containsKey(voice.id),
+      ),
+  ];
+}
 
 /// La voz de la biblioteca de una voz del teléfono —la elegida, que puede no
 /// estar en la lista de ahora—, o la de una sin conexión del catálogo. `null`

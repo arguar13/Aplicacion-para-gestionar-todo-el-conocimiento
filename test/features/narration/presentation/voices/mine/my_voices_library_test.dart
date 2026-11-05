@@ -32,7 +32,6 @@ final _created = MyVoice(
     timbre: const [BlendPart(28, 0.6), BlendPart(3, 0.4)],
     prosody: const [BlendPart(28, 1)],
   ),
-  slot: 0,
 );
 
 final _cloned = MyVoice(

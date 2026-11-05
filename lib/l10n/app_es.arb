@@ -15266,5 +15266,11 @@
   "f47P4DeleteOnlyHere": "Borrar solo de este teléfono",
   "@f47P4DeleteOnlyHere": {"description": "F47, paso 4: Botón borrar solo acá."},
   "f47P4Deleted": "Se borró «{name}»",
-  "@f47P4Deleted": {"description": "F47, paso 4: Aviso: voz borrada.", "placeholders": {"name": {"type": "String"}}}
+  "@f47P4Deleted": {"description": "F47, paso 4: Aviso: voz borrada.", "placeholders": {"name": {"type": "String"}}},
+  "f47P4MergePreviewVoices": "{count, plural, =1{1 voz tuya, clonada o creada} other{{count} voces tuyas, clonadas o creadas}}",
+  "@f47P4MergePreviewVoices": {"description": "F47, paso 4: renglón de la vista previa de unir bóvedas: las voces propias que trae la copia.", "placeholders": {"count": {"type": "int"}}},
+  "f47P4MergeDoneVoices": "{count, plural, =1{Llegó 1 voz tuya} other{Llegaron {count} voces tuyas}}",
+  "@f47P4MergeDoneVoices": {"description": "F47, paso 4: renglón del resultado de unir bóvedas: las voces propias que llegaron.", "placeholders": {"count": {"type": "int"}}},
+  "f47P4NoRoomToRead": "No cabe: borrá otra creada en el teléfono para que lea",
+  "@f47P4NoRoomToRead": {"description": "F47, paso 4: una voz creada en el teléfono que no cabe en el voices.bin de las creadas."}
 }

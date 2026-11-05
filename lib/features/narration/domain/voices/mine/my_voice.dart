@@ -154,7 +154,6 @@ class MyVoice {
     this.purposes = const {},
     this.description,
     this.blend,
-    this.slot,
     this.cloudVoiceId,
     this.consent,
     this.recording,
@@ -185,11 +184,11 @@ class MyVoice {
   /// Lo que se escribió para crearla, si se la describió con palabras.
   final String? description;
 
-  /// La mezcla de Kokoro de una creada en el teléfono.
+  /// La mezcla de Kokoro de una creada en el teléfono. Su lugar —su `sid`—
+  /// en el `voices.bin` de las creadas no se guarda: se asigna al armarlo
+  /// ([blendSlots]), así dos voces que llegan de bóvedas distintas nunca
+  /// chocan por el mismo lugar.
   final KokoroBlend? blend;
-
-  /// Su lugar —su `sid`— en el `voices.bin` de las voces creadas.
-  final int? slot;
 
   /// Su id en ElevenLabs, si vive allá.
   final String? cloudVoiceId;
@@ -222,32 +221,27 @@ class MyVoice {
   /// De dónde sale su cara: el id y la cara elegida.
   String get faceKey => faceSeed == 0 ? id : '$id#$faceSeed';
 
-  MyVoice copyWith({
-    String? name,
-    int? faceSeed,
-    String? sampleFile,
-    int? slot,
-  }) => MyVoice(
-    id: id,
-    name: name ?? this.name,
-    origin: origin,
-    home: home,
-    locale: locale,
-    createdAt: createdAt,
-    gender: gender,
-    age: age,
-    timbre: timbre,
-    styles: styles,
-    purposes: purposes,
-    description: description,
-    blend: blend,
-    slot: slot ?? this.slot,
-    cloudVoiceId: cloudVoiceId,
-    consent: consent,
-    recording: recording,
-    sampleFile: sampleFile ?? this.sampleFile,
-    faceSeed: faceSeed ?? this.faceSeed,
-  );
+  MyVoice copyWith({String? name, int? faceSeed, String? sampleFile}) =>
+      MyVoice(
+        id: id,
+        name: name ?? this.name,
+        origin: origin,
+        home: home,
+        locale: locale,
+        createdAt: createdAt,
+        gender: gender,
+        age: age,
+        timbre: timbre,
+        styles: styles,
+        purposes: purposes,
+        description: description,
+        blend: blend,
+        cloudVoiceId: cloudVoiceId,
+        consent: consent,
+        recording: recording,
+        sampleFile: sampleFile ?? this.sampleFile,
+        faceSeed: faceSeed ?? this.faceSeed,
+      );
 
   Map<String, Object?> toJson() => {
     'version': 1,
@@ -264,7 +258,6 @@ class MyVoice {
     'purposes': [for (final purpose in purposes) purpose.name],
     'description': description,
     'blend': blend?.toJson(),
-    'slot': slot,
     'cloudVoiceId': cloudVoiceId,
     'consent': consent?.toJson(),
     'recording': recording?.toJson(),
@@ -293,10 +286,9 @@ class MyVoice {
       return null;
     }
     final blend = KokoroBlend.fromJson(json['blend']);
-    final slot = (json['slot'] as num?)?.toInt();
     final cloudVoiceId = json['cloudVoiceId'];
     final consent = VoiceConsent.fromJson(json['consent']);
-    if (home == MyVoiceHome.phone && (blend == null || slot == null)) {
+    if (home == MyVoiceHome.phone && blend == null) {
       return null;
     }
     if (home == MyVoiceHome.elevenLabs &&
@@ -318,7 +310,6 @@ class MyVoice {
       purposes: _enumSet(VoicePurpose.values, json['purposes']),
       description: json['description'] as String?,
       blend: blend,
-      slot: slot,
       cloudVoiceId: cloudVoiceId as String?,
       consent: consent,
       recording: MyVoiceRecording.fromJson(json['recording']),
@@ -333,14 +324,36 @@ class MyVoice {
       other.id == id &&
       other.name == name &&
       other.faceSeed == faceSeed &&
-      other.sampleFile == sampleFile &&
-      other.slot == slot;
+      other.sampleFile == sampleFile;
 
   @override
-  int get hashCode => Object.hash(id, name, faceSeed, sampleFile, slot);
+  int get hashCode => Object.hash(id, name, faceSeed, sampleFile);
 
   @override
   String toString() => 'MyVoice($id, $name)';
+}
+
+/// El lugar —el `sid`— de cada voz creada en el teléfono en el `voices.bin`
+/// de las creadas, por su id: de la más vieja a la más nueva (y por id, si
+/// nacieron a la vez), hasta [kokoroSpeakerSlots]. Las que no caben no leen
+/// hasta que se borre otra.
+///
+/// Se calcula cada vez y no se guarda en la ficha: al unir dos bóvedas,
+/// las creadas de las dos entran sin pisarse, y el `voices.bin` se arma de
+/// nuevo con todas, porque cambió su firma.
+Map<String, int> blendSlots(Iterable<MyVoice> voices) {
+  final phone =
+      [
+        for (final voice in voices)
+          if (voice.home == MyVoiceHome.phone && voice.blend != null) voice,
+      ]..sort((a, b) {
+        final byAge = a.createdAt.compareTo(b.createdAt);
+        return byAge != 0 ? byAge : a.id.compareTo(b.id);
+      });
+  return {
+    for (final (slot, voice) in phone.take(kokoroSpeakerSlots).indexed)
+      voice.id: slot,
+  };
 }
 
 T? _enumByName<T extends Enum>(List<T> values, Object? name) {

@@ -19,7 +19,6 @@ MyVoice _voice(String id, {DateTime? at}) => MyVoice(
     timbre: const [BlendPart(28, 0.5), BlendPart(3, 0.5)],
     prosody: const [BlendPart(28, 1)],
   ),
-  slot: 0,
 );
 
 void main() {

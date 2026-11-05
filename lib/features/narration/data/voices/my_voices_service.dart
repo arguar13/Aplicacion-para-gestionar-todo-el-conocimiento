@@ -75,18 +75,24 @@ class MyVoicesService {
   // --- Leer con una voz creada en el teléfono ------
 
   /// La voz sin conexión de una creada en el teléfono, para el lector; `null`
-  /// si [voice] no es una, o ya no está.
+  /// si [voice] no es una, ya no está o no cabe en el `voices.bin` de las
+  /// creadas ([blendSlots]).
   Future<OfflineVoice?> offlineVoiceOf(NarrationVoice voice) async {
     final id = myVoiceIdOf(voice);
     if (id == null) return OfflineVoiceCatalog.byId(voice.name);
-    final mine = (await list()).where((v) => v.id == id).firstOrNull;
+    final voices = await list();
+    final mine = voices.where((v) => v.id == id).firstOrNull;
     final blend = mine?.blend;
-    if (mine == null || blend == null || mine.home != MyVoiceHome.phone) {
+    final slot = blendSlots(voices)[id];
+    if (mine == null ||
+        blend == null ||
+        slot == null ||
+        mine.home != MyVoiceHome.phone) {
       return null;
     }
     return OfflineVoice.blend(
       id: mine.id,
-      speakerId: mine.slot!,
+      speakerId: slot,
       name: mine.name,
       locale: blend.locale,
       kokoroPhonemes: blend.phonemes,
@@ -128,11 +134,15 @@ class MyVoicesService {
     return target;
   }
 
-  Future<Map<int, KokoroBlend>> _phoneBlends() async => {
-    for (final voice in await list())
-      if (voice.home == MyVoiceHome.phone && voice.blend != null)
-        voice.slot!: voice.blend!,
-  };
+  /// Cada mezcla en su lugar del `voices.bin` de las creadas.
+  Future<Map<int, KokoroBlend>> _phoneBlends() async {
+    final voices = await list();
+    final slots = blendSlots(voices);
+    return {
+      for (final voice in voices)
+        if (slots[voice.id] case final slot?) slot: voice.blend!,
+    };
+  }
 
   static String _signatureOf(Map<int, KokoroBlend> blends, File source) {
     final slots = blends.keys.toList()..sort();
@@ -188,8 +198,9 @@ class MyVoicesService {
     );
   });
 
-  /// Guarda una voz creada en el teléfono con [blend], en el primer lugar
-  /// libre del `voices.bin` de las creadas.
+  /// Guarda una voz creada en el teléfono con [blend]. Su lugar en el
+  /// `voices.bin` de las creadas se asigna al armarlo ([blendSlots]); si ya
+  /// están todos ocupados, no se crea.
   Future<MyVoice> createOnPhone({
     required String name,
     required KokoroBlend blend,
@@ -197,15 +208,9 @@ class MyVoicesService {
     String? description,
     int faceSeed = 0,
   }) async {
-    final used = {
-      for (final voice in await list())
-        if (voice.home == MyVoiceHome.phone) ?voice.slot,
-    };
-    final slot = List.generate(
-      kokoroSpeakerSlots,
-      (i) => i,
-    ).firstWhere((slot) => !used.contains(slot), orElse: () => -1);
-    if (slot < 0) throw const MyVoiceException(MyVoiceProblem.noRoom);
+    if (blendSlots(await list()).length >= kokoroSpeakerSlots) {
+      throw const MyVoiceException(MyVoiceProblem.noRoom);
+    }
     final voice = MyVoice(
       id: _ids.next(),
       name: name.trim(),
@@ -219,7 +224,6 @@ class MyVoicesService {
       styles: {?design.style},
       description: _clean(description),
       blend: blend,
-      slot: slot,
       faceSeed: faceSeed,
     );
     await _store.save(voice);

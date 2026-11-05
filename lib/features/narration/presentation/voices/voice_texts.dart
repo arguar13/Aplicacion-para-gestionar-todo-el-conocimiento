@@ -134,7 +134,8 @@ String myVoiceOriginLine(
     return [
       origin,
       l10n.f47P4OnPhone,
-      if (!ready) l10n.f47P4NeedsKokoro,
+      if (!ready && voice.noRoom) l10n.f47P4NoRoomToRead,
+      if (!ready && !voice.noRoom) l10n.f47P4NeedsKokoro,
     ].join(' · ');
   }
   return [

@@ -118,8 +118,11 @@ void main() {
       expect(await service.canCreateOnPhone(), isTrue);
     });
 
-    test('cada voz creada toma el primer lugar libre, y uno borrado se '
-        'vuelve a usar', () async {
+    test('cada voz creada lee en el lugar que le toca por antigüedad, y '
+        'borrar una corre a las que siguen', () async {
+      installKokoro();
+      Future<int?> slotOf(MyVoice voice) async =>
+          (await service.offlineVoiceOf(voice.narrationVoice))?.speakerId;
       final a = await service.createOnPhone(
         name: ' Clara ',
         blend: _blend,
@@ -131,8 +134,8 @@ void main() {
         blend: _blend,
         design: _design,
       );
-      expect(a.slot, 0);
-      expect(b.slot, 1);
+      expect(await slotOf(a), 0);
+      expect(await slotOf(b), 1);
       expect(a.name, 'Clara');
       expect(a.origin, VoiceOrigin.created);
       expect(a.home, MyVoiceHome.phone);
@@ -146,7 +149,34 @@ void main() {
         blend: _blend,
         design: _design,
       );
-      expect(c.slot, 0);
+      expect(await slotOf(b), 0);
+      expect(await slotOf(c), 1);
+      expect(await slotOf(a), isNull);
+    });
+
+    test('las que no caben están, pero no leen', () async {
+      installKokoro();
+      for (var i = 0; i <= kokoroSpeakerSlots; i++) {
+        await store.save(
+          MyVoice(
+            id: 'v${i.toString().padLeft(2, '0')}',
+            name: 'V$i',
+            origin: VoiceOrigin.created,
+            home: MyVoiceHome.phone,
+            locale: 'es',
+            createdAt: DateTime.utc(2026, 1, 1, 0, i),
+            blend: _blend,
+          ),
+        );
+      }
+      final voices = await service.list();
+      expect(voices, hasLength(kokoroSpeakerSlots + 1));
+      final newest = voices.last;
+      expect(await service.offlineVoiceOf(newest.narrationVoice), isNull);
+      expect(
+        (await service.offlineVoiceOf(voices.first.narrationVoice))!.speakerId,
+        0,
+      );
     });
 
     test('con todos los lugares ocupados, lo dice', () async {
@@ -160,7 +190,6 @@ void main() {
             locale: 'es',
             createdAt: DateTime.utc(2026),
             blend: _blend,
-            slot: i,
           ),
         );
       }
@@ -188,7 +217,7 @@ void main() {
         );
         final offline = (await service.offlineVoiceOf(voice.narrationVoice))!;
         expect(offline.isBlend, isTrue);
-        expect(offline.speakerId, voice.slot);
+        expect(offline.speakerId, 0);
         expect(offline.pace, 0.95);
         expect(offline.kokoroPhonemes, const KokoroPhonemes.espeak('es'));
 

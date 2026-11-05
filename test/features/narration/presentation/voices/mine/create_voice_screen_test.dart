@@ -157,7 +157,6 @@ void main() {
       expect(voice.origin, VoiceOrigin.created);
       expect(voice.gender, VoiceGender.female);
       expect(voice.styles, {VoiceStyle.calm});
-      expect(voice.slot, 0);
       expect(voice.faceSeed, 1);
       expect(
         voice.blend,

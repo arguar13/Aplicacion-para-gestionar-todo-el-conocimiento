@@ -27,7 +27,6 @@ final _created = MyVoice(
   styles: const {VoiceStyle.calm},
   description: 'mujer serena',
   blend: _blend,
-  slot: 3,
   faceSeed: 2,
 );
 
@@ -73,7 +72,6 @@ void main() {
   test('una ficha a la que le falta lo que la hace leer no es una voz', () {
     final created = _created.toJson();
     expect(MyVoice.fromJson({...created, 'blend': null}), isNull);
-    expect(MyVoice.fromJson({...created, 'slot': null}), isNull);
     final cloned = _cloned.toJson();
     expect(MyVoice.fromJson({...cloned, 'cloudVoiceId': null}), isNull);
     // Una clonada sin consentimiento no se lee nunca.
@@ -174,5 +172,44 @@ void main() {
       favorites: const {},
     );
     expect([for (final v in mine) v.id], ['mia:v1', 'mia:v2']);
+  });
+
+  group('blendSlots', () {
+    MyVoice created(String id, DateTime at) => MyVoice(
+      id: id,
+      name: id,
+      origin: VoiceOrigin.created,
+      home: MyVoiceHome.phone,
+      locale: 'es',
+      createdAt: at,
+      blend: _blend,
+    );
+
+    test('por antigüedad, y por id si nacieron a la vez; las de la nube no '
+        'ocupan lugar', () {
+      final slots = blendSlots([
+        created('c', DateTime.utc(2026, 3)),
+        _cloned,
+        created('b', DateTime.utc(2026)),
+        created('a', DateTime.utc(2026, 3)),
+      ]);
+      expect(slots, {'b': 0, 'a': 1, 'c': 2});
+    });
+
+    test('las que no caben quedan sin lugar, y su tarjeta lo dice', () {
+      final voices = [
+        for (var i = 0; i <= kokoroSpeakerSlots; i++)
+          created(
+            'v${i.toString().padLeft(2, '0')}',
+            DateTime.utc(2026, 1, i + 1),
+          ),
+      ];
+      final slots = blendSlots(voices);
+      expect(slots, hasLength(kokoroSpeakerSlots));
+      expect(slots.containsKey(voices.last.id), isFalse);
+      final profiles = myVoiceProfiles(voices);
+      expect(profiles.last.noRoom, isTrue);
+      expect(profiles.first.noRoom, isFalse);
+    });
   });
 }

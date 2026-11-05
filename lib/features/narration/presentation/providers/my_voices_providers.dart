@@ -163,7 +163,8 @@ final myVoicesProvider = StreamProvider<List<MyVoice>>((ref) async* {
 });
 
 /// Las voces de Mías que pueden leer ya, por su nombre de lector
-/// (`mia:<id>`): las creadas en el teléfono con el paquete de Kokoro bajado,
+/// (`mia:<id>`): las creadas en el teléfono con el paquete de Kokoro bajado y
+/// lugar en el `voices.bin` de las creadas,
 /// y las de ElevenLabs con la nube prendida y su clave.
 final readyMyVoiceNamesProvider = Provider<Set<String>>((ref) {
   final voices = ref.watch(myVoicesProvider).valueOrNull ?? const [];
@@ -175,10 +176,12 @@ final readyMyVoiceNamesProvider = Provider<Set<String>>((ref) {
           ?.contains(OfflineVoiceCatalog.kokoro.id) ??
       false;
   final cloud = ref.watch(voiceCloudSettingsProvider).ready;
+  // Las creadas en el teléfono que caben en el `voices.bin` de las creadas.
+  final slots = blendSlots(voices);
   return {
     for (final voice in voices)
       if (switch (voice.home) {
-        MyVoiceHome.phone => kokoro,
+        MyVoiceHome.phone => kokoro && slots.containsKey(voice.id),
         MyVoiceHome.elevenLabs => cloud,
       })
         voice.narrationVoice.name,
