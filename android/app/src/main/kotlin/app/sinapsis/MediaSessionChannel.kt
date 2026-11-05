@@ -7,7 +7,8 @@ import io.flutter.plugin.common.MethodChannel
 
 /**
  * La tarjeta de lo que suena (F47, paso 2b), del lado de Android: Dart dice
- * qué mostrar (`update`) y cuándo ya no suena nada (`end`); Android le cuenta
+ * qué mostrar (`update`), cuándo ya no suena nada (`end`) y si se ve el título
+ * en la pantalla de bloqueo (`lockScreen`, paso 7a-bis); Android le cuenta
  * lo que se tocó en la tarjeta, los auriculares o el reloj (`command`) y lo
  * que pasó en el teléfono —una llamada, otra app, los auriculares
  * desconectados— (`interruption`). Ver [MediaPlaybackService].
@@ -29,6 +30,15 @@ class MediaSessionChannel(private val context: Context) : MethodChannel.MethodCa
             }
             "end" -> {
                 MediaPlaybackService.end()
+                result.success(null)
+            }
+            // Si se ve el título en la pantalla de bloqueo (F47, paso 7a-bis):
+            // ver [LockScreenPrivacy]. Dart lo manda al abrirse la app y cada
+            // vez que cambia en Ajustes.
+            "lockScreen" -> {
+                MediaPlaybackService.setShowTitleOnLockScreen(
+                    call.argument<Boolean>("showTitle") == true,
+                )
                 result.success(null)
             }
             else -> result.notImplemented()

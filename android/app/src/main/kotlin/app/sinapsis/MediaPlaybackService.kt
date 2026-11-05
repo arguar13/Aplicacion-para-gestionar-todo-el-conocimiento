@@ -1,6 +1,7 @@
 package app.sinapsis
 
 import android.annotation.SuppressLint
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -45,13 +46,23 @@ import android.util.Log
  *
  * Mientras suena, la tarjeta no se puede descartar; en pausa, sí, y
  * descartarla deja de leer. Al terminar, se va sola.
+ *
+ * Con el teléfono bloqueado, de entrada no deja ver qué suena: dice
+ * «Reproduciendo» y el nombre de la app, sin imagen, con los mismos botones
+ * (F47, paso 7a-bis). Ver [LockScreenPrivacy].
  */
 class MediaPlaybackService : Service() {
     private lateinit var session: MediaSession
     private lateinit var audioManager: AudioManager
 
-    /** Lo último que se mostró; `null` antes de la primera vez. */
+    /** Lo último que se mostró —quizá lo genérico—; `null` antes de la primera vez. */
     private var shown: MediaCard? = null
+
+    /** Lo último que pidió Dart, lo de verdad: vuelve al desbloquear. */
+    private var latest: MediaCard? = null
+
+    /** Qué cara tiene la tarjeta ahora: ver [LockScreenPrivacy]. */
+    private var face: LockScreenPrivacy.Face? = null
     private var inForeground = false
 
     private var focusRequest: AudioFocusRequest? = null
@@ -61,6 +72,15 @@ class MediaPlaybackService : Service() {
     private var artFrom: ByteArray? = null
 
     private var wakeLock: PowerManager.WakeLock? = null
+
+    /**
+     * La pantalla que se apaga o se prende y el teléfono que se desbloquea:
+     * la tarjeta cambia de cara (ver [LockScreenPrivacy]). Solo se pueden
+     * escuchar mientras el servicio vive, que es cuando hay tarjeta.
+     */
+    private val lockScreen = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) = refreshPrivacy(force = false)
+    }
 
     private var noisyRegistered = false
     private val noisy = object : BroadcastReceiver() {
@@ -114,6 +134,16 @@ class MediaPlaybackService : Service() {
             setCallback(callback)
             isActive = true
         }
+        val lockFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(lockScreen, lockFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(lockScreen, lockFilter)
+        }
         instance = this
     }
 
@@ -133,15 +163,66 @@ class MediaPlaybackService : Service() {
         return START_NOT_STICKY
     }
 
-    /** Muestra [card]: la sesión, la tarjeta, el primer plano, el foco y los auriculares. */
+    /**
+     * Muestra [card] —o, con el teléfono bloqueado y sin haber elegido ver el
+     * título, lo genérico—: la sesión, la tarjeta, el primer plano, el foco y
+     * los auriculares.
+     */
     fun render(card: MediaCard) {
+        latest = card
+        val next = currentFace()
+        face = next
+        draw(present(card, next), force = false)
+    }
+
+    /**
+     * Vuelve a mirar si el teléfono está bloqueado y si la persona quiere ver
+     * el título, y si cambió la cara de la tarjeta —o [force], porque cambió
+     * la preferencia y con ella la visibilidad de la notificación—, la vuelve
+     * a armar.
+     */
+    fun refreshPrivacy(force: Boolean) {
+        val card = latest ?: return
+        val next = currentFace()
+        if (!force && next == face) return
+        face = next
+        draw(present(card, next), force = true)
+    }
+
+    private fun currentFace(): LockScreenPrivacy.Face =
+        LockScreenPrivacy.face(showTitleOnLockScreen, isLocked())
+
+    /** La pantalla apagada (también la siempre encendida) o el bloqueo a la vista. */
+    private fun isLocked(): Boolean {
+        val power = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        return !power.isInteractive || keyguard.isKeyguardLocked
+    }
+
+    /** [card] tal como se ve con la cara [face]. */
+    private fun present(card: MediaCard, face: LockScreenPrivacy.Face): MediaCard = when (face) {
+        LockScreenPrivacy.Face.FULL -> card
+        LockScreenPrivacy.Face.GENERIC -> generic(card)
+    }
+
+    /** Lo genérico: «Reproduciendo» y el nombre de la app, sin imagen; lo demás igual. */
+    private fun generic(card: MediaCard): MediaCard = card.copy(
+        title = getString(R.string.media_locked_title),
+        subtitle = applicationInfo.loadLabel(packageManager).toString(),
+        artwork = null,
+    )
+
+    /** Lo que hace [render], con lo que ya se decidió mostrar. */
+    private fun draw(card: MediaCard, force: Boolean) {
         val previous = shown
         shown = card
         if (!card.artwork.contentEquals(artFrom)) {
             artFrom = card.artwork
             art = card.artwork?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
         }
-        if (previous == null || !card.looksLike(previous) || card.durationMs != previous.durationMs) {
+        if (force || previous == null || !card.looksLike(previous) ||
+            card.durationMs != previous.durationMs
+        ) {
             session.setMetadata(
                 MediaMetadata.Builder()
                     .putString(MediaMetadata.METADATA_KEY_TITLE, card.title)
@@ -164,7 +245,9 @@ class MediaPlaybackService : Service() {
 
         // La tarjeta se vuelve a armar solo si cambió algo que se ve: la
         // barra la adelanta el sistema con el estado de la sesión.
-        if (previous != null && card.looksLike(previous) && inForeground == card.playing) return
+        if (!force && previous != null && card.looksLike(previous) && inForeground == card.playing) {
+            return
+        }
         val notification = buildNotification(card)
         // Arrancado con `startForegroundService`, pasa a primer plano aunque
         // empiece en pausa —si no, Android corta la app—; en pausa se suelta
@@ -203,6 +286,7 @@ class MediaPlaybackService : Service() {
     }
 
     override fun onDestroy() {
+        unregisterReceiver(lockScreen)
         abandonFocus()
         listenToNoisy(false)
         keepAwake(false)
@@ -247,7 +331,13 @@ class MediaPlaybackService : Service() {
             .build()
     }
 
-    private fun buildNotification(card: MediaCard): Notification {
+    /**
+     * La tarjeta de [card]. Si la persona no eligió ver el título en la
+     * pantalla de bloqueo, va privada y con una versión pública —la
+     * genérica—, que el sistema muestra en su lugar con «ocultar contenido
+     * sensible». [publicVersion] es esa versión.
+     */
+    private fun buildNotification(card: MediaCard, publicVersion: Boolean = false): Notification {
         ensureChannel()
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
@@ -269,7 +359,13 @@ class MediaPlaybackService : Service() {
             .setContentText(card.subtitle)
             .setContentIntent(open)
             .setDeleteIntent(serviceIntent(ACTION_DISMISS))
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setVisibility(
+                if (publicVersion) {
+                    Notification.VISIBILITY_PUBLIC
+                } else {
+                    LockScreenPrivacy.visibility(showTitleOnLockScreen)
+                },
+            )
             .setOngoing(card.playing)
             .setShowWhen(false)
             .setOnlyAlertOnce(true)
@@ -285,7 +381,12 @@ class MediaPlaybackService : Service() {
         if (card.hasNext) {
             builder.addAction(action(android.R.drawable.ic_media_next, R.string.media_next, ACTION_NEXT))
         }
-        art?.let { builder.setLargeIcon(it) }
+        if (!publicVersion) {
+            art?.let { builder.setLargeIcon(it) }
+            if (!showTitleOnLockScreen) {
+                builder.setPublicVersion(buildNotification(generic(card), publicVersion = true))
+            }
+        }
         builder.setStyle(
             Notification.MediaStyle()
                 .setMediaSession(session.sessionToken)
@@ -428,6 +529,20 @@ class MediaPlaybackService : Service() {
         private const val CUSTOM_FORWARD = "forward10"
 
         @Volatile private var instance: MediaPlaybackService? = null
+
+        /**
+         * Si la persona eligió ver el título en la pantalla de bloqueo
+         * (Ajustes › Privacidad). De entrada, no: hasta que Dart lo diga —al
+         * abrirse la app, antes de que suene nada— se oculta.
+         */
+        @Volatile private var showTitleOnLockScreen = false
+
+        /** Cambió la preferencia: la tarjeta que está a la vista cambia ya. */
+        fun setShowTitleOnLockScreen(show: Boolean) {
+            if (show == showTitleOnLockScreen) return
+            showTitleOnLockScreen = show
+            instance?.refreshPrivacy(force = true)
+        }
 
         /** Lo último que pidió Dart, para el servicio que todavía está arrancando. */
         @Volatile private var pending: MediaCard? = null

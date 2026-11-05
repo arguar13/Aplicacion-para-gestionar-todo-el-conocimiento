@@ -8,4 +8,7 @@
     <string name="media_rewind">Retroceder 10 segundos</string>
     <string name="media_forward">Avanzar 10 segundos</string>
     <string name="media_next">Siguiente en la cola</string>
+    <!-- Con el teléfono bloqueado, si no se eligió ver el título (F47, paso
+         7a-bis): en lugar del título; debajo va el nombre de la app. -->
+    <string name="media_locked_title">Reproduciendo</string>
 </resources>

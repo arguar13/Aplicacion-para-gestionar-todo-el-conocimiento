@@ -8,4 +8,7 @@
     <string name="media_rewind">Back 10 seconds</string>
     <string name="media_forward">Forward 10 seconds</string>
     <string name="media_next">Next in queue</string>
+    <!-- With the phone locked, unless the title was chosen to show (F47,
+         paso 7a-bis): instead of the title; the app name goes below. -->
+    <string name="media_locked_title">Playing</string>
 </resources>
