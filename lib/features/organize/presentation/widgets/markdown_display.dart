@@ -191,6 +191,11 @@ class RenderedMarkdown {
   ///
   /// [codeStyle] se suma al código en línea, encima de su letra de ancho
   /// fijo: el chat le pone un fondo apenas marcado, como un rótulo (F42).
+  ///
+  /// [notes] son los pedazos con una nota en el texto (F45, paso 8b): un
+  /// subrayado fino punteado del color de la nota, que no tapa el fondo de
+  /// nada y va encima de cualquier otra línea —es la marca de que ahí hay
+  /// una nota—.
   TextSpan buildSpans(
     ThemeData theme,
     List<(int startOffset, int endOffset)> highlightRanges, {
@@ -199,6 +204,7 @@ class RenderedMarkdown {
     (int startOffset, int endOffset)? activeRange,
     List<PaintedRange> paints = const [],
     List<HandMark> marks = const [],
+    List<NoteMark> notes = const [],
     TextStyle? codeStyle,
     Color playing = playingColor,
   }) {
@@ -252,6 +258,12 @@ class RenderedMarkdown {
           background: playing,
           foreground: Colors.black87,
         ),
+      for (final note in notes)
+        _Layer(
+          rawToRender(note.start),
+          rawToRender(note.end),
+          noteLine: note.color,
+        ),
     ];
     final runs = _paintRuns(layers);
 
@@ -280,6 +292,14 @@ class RenderedMarkdown {
           decorationColor: layer.underline,
           decorationThickness: layer.underline == null ? null : 2.5,
         );
+        if (layer.noteLine case final line?) {
+          style = style?.copyWith(
+            decoration: TextDecoration.underline,
+            decorationStyle: TextDecorationStyle.dotted,
+            decorationColor: line,
+            decorationThickness: 2,
+          );
+        }
       }
       if (segment.style.link) {
         style = style?.copyWith(
@@ -910,6 +930,30 @@ class HandMark {
   int get hashCode => Object.hash(start, end, color, style);
 }
 
+/// Un pedazo con una nota en el texto (F45, paso 8b), en posiciones del
+/// contenido crudo: se pinta con un subrayado fino punteado de [color].
+@immutable
+class NoteMark {
+  const NoteMark(this.start, this.end, {required this.color});
+
+  final int start;
+  final int end;
+  final Color color;
+
+  @override
+  bool operator ==(Object other) =>
+      other is NoteMark &&
+      other.start == start &&
+      other.end == end &&
+      other.color == color;
+
+  @override
+  int get hashCode => Object.hash(start, end, color);
+
+  @override
+  String toString() => 'NoteMark($start, $end, $color)';
+}
+
 /// Una capa ya traducida al texto renderizado: de fondo, o una línea debajo
 /// si trae [underline].
 class _Layer {
@@ -920,6 +964,7 @@ class _Layer {
     this.underline,
     this.foreground,
     this.bold = false,
+    this.noteLine,
   });
 
   final int start;
@@ -928,6 +973,9 @@ class _Layer {
   final Color? underline;
   final Color? foreground;
   final bool bold;
+
+  /// El punteado de una nota en el texto (F45, paso 8b): ver [NoteMark].
+  final Color? noteLine;
 }
 
 /// Un tramo del texto renderizado con las mismas capas encima de punta a

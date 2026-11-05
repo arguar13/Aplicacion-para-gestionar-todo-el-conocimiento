@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
@@ -14,6 +15,8 @@ import 'package:sinapsis/features/reading/presentation/frame/reading_appearance_
 import 'package:sinapsis/features/reading/presentation/frame/reading_contents_sheet.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_more_sheet.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_player_slot.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_notes_list_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Qué se lee en un marco: lo que dicen la hoja de ⋮ y, si el cuerpo no lo
@@ -106,15 +109,43 @@ abstract interface class ReadingZoom {
 
 /// Lo que el cuerpo de un marco le cuenta a la barra: su índice, que arma
 /// mientras se lee —los capítulos de un libro, los documentos de una
-/// extracción—, y su zoom, si es una página. Lo encuentra con
+/// extracción—, su zoom, si es una página, y los textos con notas que
+/// muestra (F45, paso 8b), para «Notas (N)» de ⋮. Lo encuentra con
 /// [ReadingFrameController.maybeOf]; fuera de un marco no hay ninguno, y el
 /// cuerpo se ve igual.
 class ReadingFrameController extends ChangeNotifier {
   List<ReadingOutlineEntry> _outline = const [];
   ReadingZoom? _zoom;
+  List<TextNoteSource> _noteSources = const [];
 
   List<ReadingOutlineEntry> get outline => _outline;
   ReadingZoom? get zoom => _zoom;
+
+  /// Los textos con notas del cuerpo, en su orden; ninguno si el cuerpo no
+  /// tiene un texto que las lleve.
+  List<TextNoteSource> get noteSources => _noteSources;
+
+  /// Los textos con notas que muestra el cuerpo. Avisa solo si cambió alguno
+  /// —un `reveal` nuevo de cada cuadro se toma sin avisar—.
+  set noteSources(List<TextNoteSource> sources) {
+    final same =
+        sources.length == _noteSources.length &&
+        [
+          for (var i = 0; i < sources.length; i++)
+            sources[i].sameTextAs(_noteSources[i]),
+        ].every((same) => same);
+    _noteSources = List.unmodifiable(sources);
+    if (!same) notifyListeners();
+  }
+
+  /// [sources] se fueron —el cuerpo se cerró—: si eran los registrados, ya
+  /// no hay.
+  void dropNoteSources(List<TextNoteSource> sources) {
+    if (identical(sources, _noteSources) ||
+        (sources.isNotEmpty && listEquals(sources, _noteSources))) {
+      noteSources = const [];
+    }
+  }
 
   set outline(List<ReadingOutlineEntry> entries) {
     if (listEquals(entries, _outline)) return;
@@ -136,6 +167,54 @@ class ReadingFrameController extends ChangeNotifier {
   /// El del marco de arriba, o `null` fuera de uno.
   static ReadingFrameController? maybeOf(BuildContext context) =>
       context.getInheritedWidgetOfExactType<_ReadingFrameScope>()?.controller;
+}
+
+/// Le da al marco de arriba los textos con notas de un cuerpo —[sources]—
+/// para «Notas (N)» de ⋮ (F45, paso 8b), después de cada cuadro en que
+/// cambian, y se los saca al irse. Fuera de un marco no hace nada.
+class ReadingNotesOffer extends StatefulWidget {
+  const ReadingNotesOffer({
+    required this.sources,
+    required this.child,
+    super.key,
+  });
+
+  final List<TextNoteSource> sources;
+  final Widget child;
+
+  @override
+  State<ReadingNotesOffer> createState() => _ReadingNotesOfferState();
+}
+
+class _ReadingNotesOfferState extends State<ReadingNotesOffer> {
+  ReadingFrameController? _frame;
+  List<TextNoteSource> _offered = const [];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _frame = ReadingFrameController.maybeOf(context);
+  }
+
+  @override
+  void dispose() {
+    _frame?.dropNoteSources(_offered);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final frame = _frame;
+    if (frame != null) {
+      final sources = widget.sources;
+      // Después del cuadro: avisarle al marco mientras se construye no se
+      // puede.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) frame.noteSources = _offered = sources;
+      });
+    }
+    return widget.child;
+  }
 }
 
 class _ReadingFrameScope extends InheritedWidget {
@@ -233,11 +312,60 @@ class ReadingFrame extends ConsumerStatefulWidget {
 
 class _ReadingFrameState extends ConsumerState<ReadingFrame> {
   final _controller = ReadingFrameController();
+  List<TextNoteSource> _noteSources = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onBodyChanged);
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller
+      ..removeListener(_onBodyChanged)
+      ..dispose();
     super.dispose();
+  }
+
+  /// El cuerpo cambió sus textos con notas: «Notas (N)» cuenta los nuevos.
+  void _onBodyChanged() {
+    final sources = _controller.noteSources;
+    if (identical(sources, _noteSources)) return;
+    final changed =
+        sources.length != _noteSources.length ||
+        [
+          for (var i = 0; i < sources.length; i++)
+            !sources[i].sameTextAs(_noteSources[i]),
+        ].any((changed) => changed);
+    _noteSources = sources;
+    if (!changed || !mounted) return;
+    // Un cuerpo que se va avisa mientras el árbol se desarma: ahí no se
+    // puede volver a armar, y se espera al cuadro siguiente.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      setState(() {});
+    }
+  }
+
+  /// «Notas (N)» (F45, paso 8b): la lista de las notas de lo que se lee, con
+  /// N al día, sobre [host] —el marco, con los colores del modo de lectura—.
+  /// Sin un texto con notas en el cuerpo, no está.
+  ReadingMenuEntry? _notesEntry(BuildContext host, int count) {
+    if (_noteSources.isEmpty) return null;
+    return ReadingMenuEntry(
+      key: const Key('reading-more-notes'),
+      icon: Icons.sticky_note_2_outlined,
+      label: AppLocalizations.of(host)!.f45S8bNotesMenu(count),
+      onSelected: () => unawaited(
+        // Los de ahora: un `reveal` de cada cuadro.
+        showTextNotesList(host, ref, sources: _controller.noteSources),
+      ),
+    );
   }
 
   /// «Añadir a la cola» (F47, paso 2): lo que ofrece el cuerpo suena después
@@ -274,6 +402,13 @@ class _ReadingFrameState extends ConsumerState<ReadingFrame> {
       ReadingAskAiChip(onPressed: _askAi),
       ReadingPodcastChip(scope: widget.podcastScope),
     ];
+    // N de «Notas (N)», al día mientras el marco está abierto.
+    final noteCount = _noteSources.fold(
+      0,
+      (sum, source) =>
+          sum +
+          (ref.watch(textNoteCountProvider(source.target)).valueOrNull ?? 0),
+    );
 
     return Theme(
       data: theme,
@@ -328,6 +463,7 @@ class _ReadingFrameState extends ConsumerState<ReadingFrame> {
                                 ),
                               ]),
                             ReadingMenuGroup([
+                              ?_notesEntry(context, noteCount),
                               _enqueueEntry(AppLocalizations.of(context)!),
                             ]),
                             ...widget.menu,
