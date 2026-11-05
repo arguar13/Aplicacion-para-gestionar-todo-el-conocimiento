@@ -9,6 +9,9 @@ import 'package:sinapsis/core/design/highlight_palette.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note.dart';
+import 'package:sinapsis/features/text_notes/domain/services/text_note_placement.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_note_margin.dart';
 import 'package:sinapsis/features/transform/domain/documents/pdf_page_text.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/domain/services/pdf_study_pages.dart';
@@ -41,9 +44,16 @@ import 'package:sinapsis/features/viewer/presentation/widgets/document_hand_mark
 /// Pintarlo no cuesta rearmar las capas: se ubican solo sus letras, y las
 /// capas de abajo se recortan donde está.
 ///
+/// **Las notas en el texto (F45, paso 8c)** van sobre la página: el pedazo de
+/// cada una, con un subrayado fino punteado del color de la nota, debajo de
+/// las letras —encima de todo lo pintado, sin taparlo—, y el globito al
+/// costado de su renglón ([noteSpots]), como el ícono de nota de Adobe. Una
+/// página escaneada no tiene letras donde ponerlas: lleva el aviso, y sus
+/// notas se ven en «Notas (N)».
+///
 /// Además de pintar, sabe el camino de vuelta: de una selección sobre el PDF
 /// al tramo del texto extraído ([locateSelection]) y de un toque al
-/// resaltado de ahí ([highlightAt]).
+/// resaltado de ahí ([highlightAt]) o a las notas de ahí ([notesAt]).
 ///
 /// Sirve a un visor con controlador ([PdfStudyOverlay.new]) y a la primera
 /// página fija de la vista previa ([PdfStudyOverlay.fixed]), que no tiene
@@ -63,6 +73,18 @@ class PdfStudyOverlay {
   List<PaintedRange> _paints = const [];
   List<Highlight> _highlights = const [];
   String _scannedNotice = '';
+
+  /// Las notas en el texto con lugar, en el orden del texto, y sus tramos.
+  List<PlacedTextNote> _notes = const [];
+  List<TextSlice> _noteRanges = const [];
+
+  /// Dónde va el globito de cada renglón con notas, por página.
+  final Map<int, List<PdfNoteSpot>> _spots = {};
+
+  /// La nota a la que se fue desde «Notas (N)», marcada un momento, y sus
+  /// rectángulos en cada página donde ya se pintó.
+  TextSlice? _flash;
+  final Map<int, List<PdfPaintBox>> _flashBoxes = {};
 
   /// Las capas de abajo hacia arriba —lo estudiado, los resaltados de fondo
   /// y las palabras clave— y, aparte, las líneas de los subrayados.
@@ -93,14 +115,16 @@ class PdfStudyOverlay {
   /// Cambia con cada texto nuevo: lo que llega leído de antes se descarta.
   var _generation = 0;
 
-  /// Lo que se pinta: [paints] sobre [content], el texto extraído del PDF, y
-  /// los [highlights] de la persona. [scannedNotice] es el aviso de una
-  /// página escaneada.
+  /// Lo que se pinta: [paints] sobre [content], el texto extraído del PDF,
+  /// los [highlights] de la persona y sus [notes] en el texto (F45, paso 8c),
+  /// ubicadas en [content] —las que no tienen lugar no van sobre la página—.
+  /// [scannedNotice] es el aviso de una página escaneada.
   void update({
     required String content,
     required List<PaintedRange> paints,
     required String scannedNotice,
     List<Highlight> highlights = const [],
+    List<PlacedTextNote> notes = const [],
   }) {
     var changed = false;
     if (content != _content) {
@@ -111,6 +135,7 @@ class PdfStudyOverlay {
       _pages.clear();
       _loading.clear();
       _readingBoxes.clear();
+      _flashBoxes.clear();
       _generation++;
       changed = true;
     }
@@ -120,11 +145,78 @@ class PdfStudyOverlay {
       _stack();
       changed = true;
     }
+    final placed = [
+      for (final note in notes)
+        if (note.placed) note,
+    ];
+    if (!listEquals(placed, _notes)) {
+      _notes = placed;
+      _noteRanges = [
+        for (final note in placed) (start: note.start!, end: note.end!),
+      ];
+      changed = true;
+    }
     _scannedNotice = scannedNotice;
     if (changed) {
       _boxes.clear();
+      _spots.clear();
       _repaintSoon();
     }
+  }
+
+  /// Marca [range] —la nota a la que se fue— un momento, con el fondo de
+  /// resaltar sobre el papel; `null` lo apaga.
+  void flash(TextSlice? range) {
+    if (range == _flash) return;
+    _flash = range;
+    _flashBoxes.clear();
+    _repaintSoon();
+  }
+
+  /// Dónde van los globitos de [page] (F45, paso 8c): uno por renglón donde
+  /// empieza alguna nota —con todas las que empiezan ahí—, con el rectángulo
+  /// de lo que se ve de su pedazo en ese renglón, en coordenadas del PDF. En
+  /// el orden de la página. Nada mientras la página no se leyó —leerla pide
+  /// volver a dibujar— ni en una página escaneada.
+  List<PdfNoteSpot> noteSpots(PdfPage page) {
+    if (_notes.isEmpty) return const [];
+    final studied = _studied(page);
+    if (studied == null || !studied.onLetters) return const [];
+    return _spots[page.pageNumber] ??= _spotsOf(studied);
+  }
+
+  List<PdfNoteSpot> _spotsOf(PdfStudyPage studied) {
+    final slice = studied.slice;
+    final lines = <({PdfRect line, TextNote note})>[];
+    for (final note in _notes) {
+      final start = note.start!;
+      // El globito va donde empieza su pedazo.
+      if (start < slice.start || start >= slice.end) continue;
+      final boxes = studied.boxes([(start: start, end: note.end!)]);
+      if (boxes.isEmpty) continue;
+      lines.add((line: boxes.first.rect, note: note.note));
+    }
+    // De arriba hacia abajo: la `y` del PDF crece hacia arriba.
+    lines.sort((a, b) => b.line.top.compareTo(a.line.top));
+    final spots = <PdfNoteSpot>[];
+    for (final line in lines) {
+      final last = spots.isEmpty ? null : spots.last;
+      if (last != null && _sameRow(last.line, line.line)) {
+        spots[spots.length - 1] = (
+          line: last.line,
+          notes: [...last.notes, line.note],
+        );
+      } else {
+        spots.add((line: line.line, notes: [line.note]));
+      }
+    }
+    return spots;
+  }
+
+  /// Si [b] está en el renglón de [a]: se pisan al menos la mitad de alto.
+  static bool _sameRow(PdfRect a, PdfRect b) {
+    final overlap = min(a.top, b.top) - max(a.bottom, b.bottom);
+    return overlap >= min(a.height, b.height) / 2;
   }
 
   /// Apila las capas: las oraciones, los resaltados de la persona y las
@@ -193,12 +285,21 @@ class PdfStudyOverlay {
   /// Para [PdfViewerParams.pagePaintCallbacks].
   void paintPage(Canvas canvas, Rect pageRect, PdfPage page) {
     final reading = _reading;
-    if (_fill.isEmpty && _lines.isEmpty && reading == null) return;
+    final flash = _flash;
+    if (_fill.isEmpty &&
+        _lines.isEmpty &&
+        _noteRanges.isEmpty &&
+        reading == null &&
+        flash == null) {
+      return;
+    }
     final studied = _studied(page);
     if (studied == null) return;
 
     if (!studied.onLetters) {
-      if (studied.touches(_fillRanges) || studied.touches(_lineRanges)) {
+      if (studied.touches(_fillRanges) ||
+          studied.touches(_lineRanges) ||
+          studied.touches(_noteRanges)) {
         _paintNotice(canvas, pageRect);
       }
       return;
@@ -206,7 +307,22 @@ class PdfStudyOverlay {
     final boxes = _boxes[page.pageNumber] ??= (
       fill: studied.boxes(_fillRanges),
       lines: studied.boxes(_lineRanges),
+      notes: studied.boxes(_noteRanges),
     );
+    // La nota a la que se fue, con el fondo de resaltar, debajo de todo.
+    if (flash != null && studied.touches([flash])) {
+      final flashBoxes = _flashBoxes[page.pageNumber] ??= studied.boxes([
+        flash,
+      ]);
+      for (final box in flashBoxes) {
+        canvas.drawRect(
+          box.rect.toRectInDocument(page: page, pageRect: pageRect),
+          Paint()
+            ..color = flashColor
+            ..blendMode = BlendMode.multiply,
+        );
+      }
+    }
     final readingBoxes = reading == null || !studied.touches([reading])
         ? const <PdfPaintBox>[]
         : _readingBoxes[page.pageNumber] ??= studied.boxes([reading]);
@@ -229,6 +345,33 @@ class PdfStudyOverlay {
           ..color = _playing
           ..blendMode = BlendMode.multiply,
       );
+    }
+    _paintNoteLines(canvas, pageRect, page, boxes.notes);
+  }
+
+  /// El fondo de la nota a la que se fue: el de resaltar sin color elegido,
+  /// sobre el papel.
+  static final Color flashColor = HighlightPalette.onPaper(null);
+
+  /// El subrayado fino punteado de cada nota (F45, paso 8c), del color de su
+  /// línea sobre el papel, debajo de las letras: puntos cuadrados del grueso
+  /// de la línea, separados por otro tanto. Va encima de todo y no tapa nada.
+  void _paintNoteLines(
+    Canvas canvas,
+    Rect pageRect,
+    PdfPage page,
+    List<PdfPaintBox> boxes,
+  ) {
+    for (final box in boxes) {
+      final rect = box.rect.toRectInDocument(page: page, pageRect: pageRect);
+      final dot = max(1, rect.height * 0.08).toDouble();
+      final paint = Paint()
+        ..color = HighlightPalette.lineOnPaper(_notes[box.paint].note.color)
+        ..blendMode = BlendMode.multiply;
+      final top = rect.bottom + dot * 0.5;
+      for (var x = rect.left; x + dot <= rect.right + 0.01; x += dot * 2) {
+        canvas.drawRect(Rect.fromLTWH(x, top, dot, dot), paint);
+      }
     }
   }
 
@@ -348,6 +491,15 @@ class PdfStudyOverlay {
   Highlight? highlightAt(Offset documentPosition) {
     final offset = offsetAt(documentPosition);
     return offset == null ? null : highlightAtOffset(_highlights, offset);
+  }
+
+  /// Las notas cuyo pedazo está en [documentPosition] —en coordenadas del
+  /// documento—, en el orden del texto (F45, paso 8c); ninguna si ahí no hay
+  /// una letra con nota.
+  List<TextNote> notesAt(Offset documentPosition) {
+    if (_notes.isEmpty) return const [];
+    final offset = offsetAt(documentPosition);
+    return offset == null ? const [] : textNotesAt(_notes, offset);
   }
 
   /// Dónde cae una selección del PDF en el texto extraído (F38): [selection]
@@ -601,6 +753,16 @@ class _Layer {
   final Color color;
 }
 
-/// Los rectángulos de una página: los de fondo y los de las líneas de
-/// subrayado, cada uno con el número de su capa.
-typedef _PageBoxes = ({List<PdfPaintBox> fill, List<PdfPaintBox> lines});
+/// Los rectángulos de una página: los de fondo, los de las líneas de
+/// subrayado y los del punteado de las notas, cada uno con el número de su
+/// capa o de su nota.
+typedef _PageBoxes = ({
+  List<PdfPaintBox> fill,
+  List<PdfPaintBox> lines,
+  List<PdfPaintBox> notes,
+});
+
+/// Un globito sobre la página de un PDF (F45, paso 8c): `line`, el renglón
+/// donde empiezan sus notas —lo que se ve de su pedazo, en coordenadas del
+/// PDF—, y `notes`, las que lleva, en el orden de la página.
+typedef PdfNoteSpot = ({PdfRect line, List<TextNote> notes});

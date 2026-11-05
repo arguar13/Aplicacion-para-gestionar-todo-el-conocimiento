@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,7 +22,14 @@ import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
+import 'package:sinapsis/features/text_notes/presentation/text_note_actions.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_note_margin.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_notes_list_sheet.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
+import 'package:sinapsis/features/viewer/domain/services/pdf_study_pages.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_highlight_toolbar.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_selection.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_drag_selection.dart';
@@ -67,6 +75,14 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// trae cerca de arriba, como quien da vuelta la hoja (ver `ReadAloudBand`).
 /// Si la persona desplaza o hace zoom, la deja tranquila y ofrece «Volver a la
 /// lectura» (ver `ReadAloudFollow`).
+///
+/// **Las notas en el texto (F45, paso 8c)**, también con [text], van sobre la
+/// página: el pedazo de cada una con su subrayado fino punteado y, al costado
+/// de su renglón, en el margen derecho de la página, **el globito** del color
+/// de la nota, como el ícono de nota de Adobe —siguen a la página al hacer
+/// zoom y al desplazarse, y el globito no crece con el zoom—. Tocar el
+/// globito o el pedazo abre la tarjeta de la nota. En «Notas (N)» del marco,
+/// tocar una lleva a su página y a su renglón, lo marca un momento y la abre.
 ///
 /// Sin `Scaffold` propio a propósito: `PdfViewerScreen` lo envuelve para
 /// mostrarlo a pantalla completa. En el detalle del elemento se ve su primera
@@ -124,6 +140,13 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
   (ReadableDocument, Map<ReadScope, List<ReadableSegment>>, ReadableDocument)?
   _offered;
 
+  /// Apaga la nota a la que se fue desde «Notas (N)».
+  Timer? _flashTimer;
+
+  /// Cuántas veces se fue a una nota: ubicarla lleva un rato, y lo que se
+  /// ubicó de una a la que ya no se va no mueve la vista.
+  var _revealed = 0;
+
   @override
   void initState() {
     super.initState();
@@ -154,6 +177,7 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
 
   @override
   void dispose() {
+    _flashTimer?.cancel();
     _frame?.dropZoom(_zoom);
     _zoom.dispose();
     _reading?.close();
@@ -224,6 +248,73 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
       _controller.calcMatrixFor(ReadAloudBand.centerFor(view, line)),
       duration: duration,
     );
+  }
+
+  /// Lleva la vista a la nota `[start, end)` del texto extraído —a su página
+  /// y a su renglón— y la marca un momento (F45, paso 8c): lo que hace tocar
+  /// una nota en «Notas (N)». En una página escaneada, a su página.
+  bool _revealNote(int start, int end) {
+    if (!_controller.isReady) return false;
+    final range = (start: start, end: end);
+    _follow.release();
+    _study.flash(range);
+    _flashTimer?.cancel();
+    _flashTimer = Timer(const Duration(seconds: 2), () => _study.flash(null));
+    unawaited(_goToNote(range, ++_revealed));
+    return true;
+  }
+
+  Future<void> _goToNote(TextSlice range, int revealed) async {
+    final place = await _study.placeOf(range, _controller.pages);
+    if (!mounted ||
+        revealed != _revealed ||
+        place == null ||
+        !_controller.isReady) {
+      return;
+    }
+    final letters = place.rect;
+    if (letters == null) {
+      await _controller.goToPage(
+        pageNumber: place.pageNumber,
+        duration: Duration.zero,
+      );
+      return;
+    }
+    final line = _controller.calcRectForRectInsidePage(
+      pageNumber: place.pageNumber,
+      rect: letters,
+    );
+    await _controller.goTo(
+      _controller.calcMatrixFor(
+        ReadAloudBand.centerFor(_controller.visibleRect, line),
+      ),
+      duration: Duration.zero,
+    );
+  }
+
+  /// Los globitos de las notas de [page] (F45, paso 8c), en el margen derecho
+  /// de la página a la altura del renglón donde empieza cada una: para
+  /// [PdfViewerParams.pageOverlaysBuilder], que los pone sobre la página
+  /// —[pageRect] es dónde está en el visor— y los mueve con ella.
+  List<Widget> _noteOverlays(
+    BuildContext context,
+    Rect pageRect,
+    PdfPage page,
+  ) {
+    final spots = _study.noteSpots(page);
+    if (spots.isEmpty) return const [];
+    return [
+      for (final spot in spots)
+        PdfNoteBubble(
+          spot: spot,
+          lineInPage: spot.line.toRect(
+            page: page,
+            scaledPageSize: pageRect.size,
+          ),
+          pageSize: pageRect.size,
+          onOpen: (notes) => unawaited(openTextNotes(this.context, ref, notes)),
+        ),
+    ];
   }
 
   /// La persona desplazó o hizo zoom: el visor deja de seguir la lectura.
@@ -307,10 +398,20 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
           );
           return true;
         }
-      } else if (_study.highlightAt(details.documentPosition)
-          case final highlight?) {
-        unawaited(openHighlightCard(this.context, ref, highlight));
-        return true;
+      } else {
+        // Una nota en el texto (F45, paso 8c); la de un resaltado de antes,
+        // sola, abre su resaltado, como en el texto.
+        final highlight = _study.highlightAt(details.documentPosition);
+        final noted = _study.notesAt(details.documentPosition);
+        if (noted.isNotEmpty &&
+            !noted.every((note) => note.id == highlight?.id)) {
+          unawaited(openTextNotes(this.context, ref, noted));
+          return true;
+        }
+        if (highlight != null) {
+          unawaited(openHighlightCard(this.context, ref, highlight));
+          return true;
+        }
       }
     }
     return _dragSelection.onGeneralTap(context, controller, details);
@@ -383,6 +484,16 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
                 .watch(renditionHighlightsProvider(text.renditionId))
                 .valueOrNull ??
             const [],
+        notes:
+            ref
+                .watch(
+                  placedTextNotesProvider((
+                    target: textNoteTargetOf(text),
+                    content: text.content,
+                  )),
+                )
+                .valueOrNull ??
+            const [],
       );
     }
     final drag = _dragSelection;
@@ -411,6 +522,8 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
             onInteractionStart: _onInteractionStart,
             onViewerReady: _onViewerReady,
             pagePaintCallbacks: _paintCallbacks,
+            // Los globitos de las notas, sobre cada página (F45, paso 8c).
+            pageOverlaysBuilder: text == null ? null : _noteOverlays,
             // Sin el texto del documento no hay dónde guardar un resaltado:
             // el menú de `pdfrx`, Copiar y Seleccionar todo.
             buildContextMenu: text == null ? null : _buildMenu,
@@ -426,24 +539,97 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
       ),
     );
     if (text == null) return viewer;
-    return ReadableRegion(
-      document: _readable(text),
-      child: Stack(
-        children: [
-          Positioned.fill(child: viewer),
-          Positioned(
-            top: 12,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: ReadAloudBackToReading(
-                sourceKey: text.renditionId,
-                follow: _follow,
-                onPressed: _follow.resume,
+    // Las notas del texto, para «Notas (N)» del marco: tocar una lleva a su
+    // lugar en la página.
+    return ReadingNotesOffer(
+      sources: [
+        TextNoteSource(
+          target: textNoteTargetOf(text),
+          content: text.content,
+          reveal: _revealNote,
+        ),
+      ],
+      child: ReadableRegion(
+        document: _readable(text),
+        child: Stack(
+          children: [
+            Positioned.fill(child: viewer),
+            Positioned(
+              top: 12,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: ReadAloudBackToReading(
+                  sourceKey: text.renditionId,
+                  follow: _follow,
+                  onPressed: _follow.resume,
+                ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// El globito de las notas de un renglón sobre la página de un PDF (F45, paso
+/// 8c), como el ícono de nota de Adobe: en el margen derecho de la página, a
+/// la altura de [lineInPage] —el renglón donde empiezan, en coordenadas de la
+/// página dibujada, de [pageSize]—, del color de la primera, con el número si
+/// son varias. Mide lo mismo con cualquier zoom; se toca en un cuadrado de
+/// [touchSize] que no le quita al visor ni el arrastre ni el zoom
+/// (`PdfOverlayInteractionRegion`). Para el lector de pantalla, lo mismo que
+/// el globito del texto.
+class PdfNoteBubble extends StatelessWidget {
+  const PdfNoteBubble({
+    required this.spot,
+    required this.lineInPage,
+    required this.pageSize,
+    required this.onOpen,
+    super.key,
+  });
+
+  final PdfNoteSpot spot;
+  final Rect lineInPage;
+  final Size pageSize;
+  final ValueChanged<List<TextNote>> onOpen;
+
+  /// Lo que mide el dibujo, como el ícono de nota de un lector de PDF.
+  static const size = 24.0;
+
+  /// Lo que mide donde se toca.
+  static const touchSize = 40.0;
+
+  /// Dónde va, dentro de la página: pegado al borde derecho y centrado en el
+  /// renglón, sin salirse de ella.
+  static Rect placeIn(Size pageSize, Rect line) {
+    final left = math.max(0, pageSize.width - touchSize - 2).toDouble();
+    final top = (line.center.dy - touchSize / 2).clamp(
+      0.0,
+      math.max(0, pageSize.height - touchSize).toDouble(),
+    );
+    return Rect.fromLTWH(left, top, touchSize, touchSize);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final notes = spot.notes;
+    void open() => onOpen(notes);
+    return Positioned.fromRect(
+      rect: placeIn(pageSize, lineInPage),
+      child: TextNoteBubbleSemantics(
+        notes: notes,
+        onTap: open,
+        child: PdfOverlayInteractionRegion(
+          onTap: (_) {
+            open();
+            return true;
+          },
+          child: Center(
+            child: TextNoteBubbleFace(notes: notes, size: size, onPaper: true),
           ),
-        ],
+        ),
       ),
     );
   }

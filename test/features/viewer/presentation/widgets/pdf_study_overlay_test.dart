@@ -8,6 +8,9 @@ import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/domain/services/text_note_placement.dart';
 import 'package:sinapsis/features/transform/domain/documents/pdf_page_text.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_hand_marks.dart';
@@ -960,6 +963,189 @@ void main() {
       );
 
       expect(overlay.pageStart(1, 3), isNull);
+    });
+  });
+
+  group('las notas en el texto (F45, paso 8c)', () {
+    /// Una nota de [color] sobre `[start, end)` del texto extraído.
+    PlacedTextNote placed(
+      String id,
+      int start,
+      int end, {
+      HighlightColor color = HighlightColor.lime,
+    }) => PlacedTextNote(
+      TextNote(
+        id: id,
+        origin: TextNoteOrigin.note,
+        target: const TextNoteTarget.processedText('doc'),
+        excerpt: 'x' * (end - start),
+        note: 'Nota $id',
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+        start: start,
+        end: end,
+        color: color,
+      ),
+      start: start,
+      end: end,
+    );
+
+    Future<_FakePage> shownWith(String text, List<PlacedTextNote> notes) async {
+      final page = addPage(text);
+      overlay.update(
+        content: text,
+        paints: const [],
+        scannedNotice: 'escaneada',
+        notes: notes,
+      );
+      paint(page);
+      await pumpEventQueue();
+      return page;
+    }
+
+    test('el pedazo lleva un punteado fino debajo de las letras, del color de '
+        'la línea de la nota sobre el papel: puntos separados por otro '
+        'tanto, sin pintar las letras', () async {
+      final page = await shownWith('Hola mundo', [
+        placed('a', 5, 10, color: HighlightColor.orange),
+      ]);
+
+      final canvas = paint(page);
+      final line = HighlightPalette.lineOnPaper(HighlightColor.orange);
+      expect(canvas.rects, isNotEmpty);
+      for (final (rect, paint) in canvas.rects) {
+        expect(paint.color.toARGB32(), line.toARGB32());
+        expect(paint.blendMode, BlendMode.multiply);
+        // Debajo del renglón (de y 100 a 90 en el PDF: de 100 a 110 en la
+        // página), del grueso de un punto.
+        expect(rect.top, greaterThanOrEqualTo(110));
+        expect(rect.width, rect.height);
+        expect(rect.left, greaterThanOrEqualTo(50));
+        expect(rect.right, lessThanOrEqualTo(100.01));
+      }
+      final lefts = [for (final (rect, _) in canvas.rects) rect.left];
+      for (var i = 1; i < lefts.length; i++) {
+        expect(
+          lefts[i] - lefts[i - 1],
+          closeTo(canvas.rects[0].$1.width * 2, 0.01),
+        );
+      }
+    });
+
+    test('sin notas no pinta nada, y una nota sin lugar no va sobre la '
+        'página', () async {
+      final page = await shownWith('Hola mundo', [
+        PlacedTextNote(placed('a', 0, 4).note),
+      ]);
+      expect(paint(page).rects, isEmpty);
+      expect(overlay.noteSpots(page), isEmpty);
+    });
+
+    test(
+      'el globito: uno por renglón donde empieza alguna nota —con todas las '
+      'de ahí, en el orden de la página—, a la altura de su pedazo',
+      () async {
+        final page = await shownWith('Hola mundo', [
+          placed('a', 0, 4),
+          placed('b', 5, 10, color: HighlightColor.blue),
+        ]);
+
+        final [spot] = overlay.noteSpots(page);
+        expect([for (final note in spot.notes) note.id], ['a', 'b']);
+        expect(spot.line.top, 100);
+        expect(spot.line.bottom, 90);
+        expect(spot.line.left, 0);
+        expect(spot.line.right, 40);
+      },
+    );
+
+    test('el globito va en la página donde empieza la nota, no en la '
+        'siguiente', () async {
+      final first = addPage('Portada');
+      final second = addPage('Hola mundo');
+      const content = 'Portada${sep}Hola mundo';
+      overlay.update(
+        content: content,
+        paints: const [],
+        scannedNotice: '',
+        notes: [placed('a', 2, 7 + sep.length + 4)],
+      );
+      paint(first);
+      paint(second);
+      await pumpEventQueue();
+
+      expect(
+        [for (final s in overlay.noteSpots(first)) s.notes.single.id],
+        ['a'],
+      );
+      expect(overlay.noteSpots(second), isEmpty);
+      // El punteado, en las dos.
+      expect(paint(first).rects, isNotEmpty);
+      expect(paint(second).rects, isNotEmpty);
+    });
+
+    test(
+      'en una página escaneada: el aviso, sin punteado ni globito',
+      () async {
+        final scanned = addPage('');
+        overlay.update(
+          content: 'texto reconocido',
+          paints: const [],
+          scannedNotice: 'Página escaneada',
+          notes: [placed('a', 0, 5)],
+        );
+        paint(scanned);
+        await pumpEventQueue();
+
+        final canvas = paint(scanned);
+        expect(canvas.rects, isEmpty);
+        expect(canvas.notices, 1);
+        expect(overlay.noteSpots(scanned), isEmpty);
+      },
+    );
+
+    test('antes de leer la página no hay globitos: pedirlos la lee', () async {
+      final page = addPage('Hola mundo');
+      overlay.update(
+        content: 'Hola mundo',
+        paints: const [],
+        scannedNotice: '',
+        notes: [placed('a', 0, 4)],
+      );
+      expect(overlay.noteSpots(page), isEmpty);
+      await pumpEventQueue();
+      expect(page.loads, 1);
+      expect(overlay.noteSpots(page), hasLength(1));
+    });
+
+    test('al cambiar las notas, los globitos se vuelven a armar', () async {
+      final page = await shownWith('Hola mundo', [placed('a', 0, 4)]);
+      expect(overlay.noteSpots(page).single.notes.single.id, 'a');
+      overlay.update(
+        content: 'Hola mundo',
+        paints: const [],
+        scannedNotice: '',
+        notes: [placed('b', 5, 10)],
+      );
+      expect(overlay.noteSpots(page).single.notes.single.id, 'b');
+    });
+
+    test('la nota a la que se fue se marca con el fondo de resaltar sobre el '
+        'papel, y deja de marcarse', () async {
+      final page = await shownWith('Hola mundo', const []);
+      overlay.flash((start: 5, end: 10));
+      // Sin nada más pintado, la página se lee recién ahora.
+      paint(page);
+      await pumpEventQueue();
+      final lit = paint(page).rects;
+      expect(lit, hasLength(1));
+      expect(lit.single.$1, const Rect.fromLTRB(50, 100, 100, 110));
+      expect(
+        lit.single.$2.color.toARGB32(),
+        PdfStudyOverlay.flashColor.toARGB32(),
+      );
+      overlay.flash(null);
+      expect(paint(page).rects, isEmpty);
     });
   });
 }

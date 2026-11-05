@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:sinapsis/core/design/highlight_palette.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/text_notes/domain/entities/text_note.dart';
 import 'package:sinapsis/features/text_notes/domain/services/text_note_placement.dart';
@@ -209,59 +210,117 @@ class TextNoteBubble extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  Widget build(BuildContext context) => TextNoteBubbleSemantics(
+    notes: notes,
+    onTap: onTap,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Center(
+        child: TextNoteBubbleFace(notes: notes, size: size),
+      ),
+    ),
+  );
+}
+
+/// Lo que el lector de pantalla dice de un globito con [notes] —«Nota: …,
+/// sobre "…"» o cuántas hay en el renglón—, un botón que se toca para
+/// abrirlas con [onTap]. Lo de adentro no se lee: es el dibujo.
+class TextNoteBubbleSemantics extends StatelessWidget {
+  const TextNoteBubbleSemantics({
+    required this.notes,
+    required this.onTap,
+    required this.child,
+    super.key,
+  });
+
+  final List<TextNote> notes;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final first = notes.first;
-    final several = notes.length > 1;
-    final line = textNoteLine(context, first.color);
     return Semantics(
       key: Key('text-note-bubble-${first.id}'),
       button: true,
-      label: several
+      label: notes.length > 1
           ? l10n.f45S8bBubbleSeveral(notes.length)
           : textNoteSemantics(l10n, first),
       onTapHint: l10n.f45S8bOpenNote,
       onTap: onTap,
       excludeSemantics: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Center(
-          child: Container(
-            width: size,
-            height: size,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: textNoteFill(context, first.color),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(size / 2),
-                topRight: Radius.circular(size / 2),
-                bottomRight: Radius.circular(size / 2),
-                bottomLeft: Radius.circular(size / 6),
-              ),
-              border: Border.all(color: line, width: 1.5),
-            ),
-            // La letra va oscura sobre un tono de resaltador, también en modo
-            // oscuro.
-            child: several
-                ? Text(
-                    '${notes.length}',
-                    textScaler: TextScaler.noScaling,
-                    style: TextStyle(
-                      fontSize: size * 0.5,
-                      height: 1,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                    ),
-                  )
-                : Icon(
-                    Icons.notes_rounded,
-                    size: size * 0.6,
-                    color: Colors.black87,
-                  ),
-          ),
+      child: child,
+    );
+  }
+}
+
+/// El dibujo de un globito de [size]: redondo con una punta abajo a la
+/// izquierda, como un globo de diálogo, del color de la primera de [notes]
+/// con su borde, y adentro el ícono de una nota o, si son varias, cuántas.
+///
+/// Con [onPaper] —sobre la página de un PDF, que es blanca también en modo
+/// oscuro— lleva los tonos del papel, los mismos de lo resaltado ahí.
+class TextNoteBubbleFace extends StatelessWidget {
+  const TextNoteBubbleFace({
+    required this.notes,
+    required this.size,
+    this.onPaper = false,
+    super.key,
+  });
+
+  final List<TextNote> notes;
+  final double size;
+  final bool onPaper;
+
+  @override
+  Widget build(BuildContext context) {
+    final first = notes.first;
+    final several = notes.length > 1;
+    final fill = onPaper
+        ? HighlightPalette.onPaper(first.color)
+        : textNoteFill(context, first.color);
+    final line = onPaper
+        ? HighlightPalette.lineOnPaper(first.color)
+        : textNoteLine(context, first.color);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(size / 2),
+          topRight: Radius.circular(size / 2),
+          bottomRight: Radius.circular(size / 2),
+          bottomLeft: Radius.circular(size / 6),
         ),
+        border: Border.all(color: line, width: 1.5),
+        boxShadow: onPaper
+            ? const [
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
+                ),
+              ]
+            : null,
       ),
+      // La letra va oscura sobre un tono de resaltador, también en modo
+      // oscuro.
+      child: several
+          ? Text(
+              '${notes.length}',
+              textScaler: TextScaler.noScaling,
+              style: TextStyle(
+                fontSize: size * 0.5,
+                height: 1,
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
+              ),
+            )
+          : Icon(Icons.notes_rounded, size: size * 0.6, color: Colors.black87),
     );
   }
 }
