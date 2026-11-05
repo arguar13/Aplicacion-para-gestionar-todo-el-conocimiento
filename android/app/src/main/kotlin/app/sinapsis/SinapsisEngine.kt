@@ -119,11 +119,12 @@ object SinapsisEngine {
             longWork.invokeMethod("timedOut", mapOf("type" to type))
         }
 
-        // Decodificar un audio para transcribirlo (F22): en un hilo aparte
-        // —un audio de horas tarda—, con el resultado de vuelta en el
-        // principal, que es donde Flutter lo espera. Ver `AudioToPcm`.
+        // Decodificar un audio para transcribirlo (F22) y comprimir el que
+        // genera la app (F47, pasos 5 y 6): en un hilo aparte —un audio de
+        // horas tarda—, con el resultado de vuelta en el principal, que es
+        // donde Flutter lo espera. Ver `AudioToPcm` y `WavToM4a`.
         MethodChannel(messenger, AUDIO_CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method != "toRawPcm") {
+            if (call.method != "toRawPcm" && call.method != "wavToM4a") {
                 result.notImplemented()
                 return@setMethodCallHandler
             }
@@ -135,10 +136,15 @@ object SinapsisEngine {
             }
             audioWorker.execute {
                 try {
-                    val segments = AudioToPcm.decode(input, output).map { it.toMap() }
-                    mainHandler.post { result.success(segments) }
+                    if (call.method == "toRawPcm") {
+                        val segments = AudioToPcm.decode(input, output).map { it.toMap() }
+                        mainHandler.post { result.success(segments) }
+                    } else {
+                        WavToM4a.encode(input, output, call.argument<Int>("bitRate") ?: 64_000)
+                        mainHandler.post { result.success(null) }
+                    }
                 } catch (e: Exception) {
-                    mainHandler.post { result.error("decode", e.message ?: e.toString(), null) }
+                    mainHandler.post { result.error(call.method, e.message ?: e.toString(), null) }
                 }
             }
         }
@@ -171,6 +177,12 @@ object SinapsisEngine {
         val media = MethodChannel(messenger, MediaSessionChannel.CHANNEL)
         media.setMethodCallHandler(MediaSessionChannel(context))
         MediaSessionChannel.install(media)
+
+        // Las voces del teléfono a un archivo, para el audio que genera la
+        // app (F47, pasos 5 y 6), con un motor propio y no el del lector. Ver
+        // `DeviceSpeechChannel`.
+        MethodChannel(messenger, DeviceSpeechChannel.CHANNEL)
+            .setMethodCallHandler(DeviceSpeechChannel(context))
 
         // Dictar en el chat (F42): el reconocedor de voz del sistema. Uno solo
         // atiende los dos canales: el de las preguntas y el de lo que se oye.
