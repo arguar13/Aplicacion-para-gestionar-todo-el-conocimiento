@@ -161,6 +161,14 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
     return false;
   }
 
+  /// Tocar la tarjeta de lo que suena lleva a la pantalla que lo ofreció,
+  /// si no es la de ahora: encima de la de ahora, como el widget «Seguir
+  /// escuchando».
+  void _openLocation(String location) {
+    if (widget.router.state.uri.toString() == location) return;
+    unawaited(widget.router.push<void>(location));
+  }
+
   /// Cuánto tienen que subir los avisos flotantes para quedar por encima del
   /// reproductor: lo que ocupa, menos lo que el andamio de la pantalla ya
   /// esquiva solo —la barra de navegación, o el borde seguro—.
@@ -189,6 +197,7 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
     final lift = _snackBarLift(MediaQuery.of(context));
 
     return ReadAloudMediaSession(
+      onOpenLocation: _openLocation,
       child: Stack(
         children: [
           // Siempre con el mismo `Theme` encima, aunque no haya que subir nada:

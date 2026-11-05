@@ -85,6 +85,7 @@ class ReadableDocument {
     this.scopes = const {},
     this.ownAudio = false,
     this.startAt,
+    this.location,
   });
 
   /// Qué es: lo mismo que se ofrece dos veces —la pantalla se reconstruyó—
@@ -115,6 +116,16 @@ class ReadableDocument {
   /// es una función, y no un lugar fijo. Que sea la misma —el mismo método
   /// del mismo objeto— es parte de ser el mismo documento.
   final ReadablePlace? Function()? startAt;
+
+  /// La dirección de la pantalla que lo ofrece —la del router, la de
+  /// arriba de todo cuando se ofrece—, o `null` si no se sabe: adonde se
+  /// vuelve al tocar la tarjeta de lo que suena y «Seguir escuchando»
+  /// (F47, pasos 1, 2b y 7a). La pone `ReadableRegion` al ofrecerlo.
+  ///
+  /// Una pantalla que se abre encima sin una ruta propia —un visor que se
+  /// empuja con `Navigator.push`— dice la de la pantalla de abajo: se
+  /// vuelve ahí, de donde se lo abrió.
+  final String? location;
 
   /// Desde qué pedazo de [scope] empieza a leer quien no eligió: el primero
   /// que termina después del lugar de [startAt] en su texto. Sin [startAt],
@@ -171,6 +182,7 @@ class ReadableDocument {
     scopes: scopes,
     ownAudio: true,
     startAt: startAt,
+    location: location,
   );
 
   /// Con [scopes] en lugar de los que traía.
@@ -182,6 +194,7 @@ class ReadableDocument {
         scopes: scopes,
         ownAudio: ownAudio,
         startAt: startAt,
+        location: location,
       );
 
   /// Con [startAt] en lugar del que traía.
@@ -193,7 +206,19 @@ class ReadableDocument {
         scopes: scopes,
         ownAudio: ownAudio,
         startAt: startAt,
+        location: location,
       );
+
+  /// Con [location] en lugar de la que traía.
+  ReadableDocument withLocation(String? location) => ReadableDocument(
+    id: id,
+    title: title,
+    segments: segments,
+    scopes: scopes,
+    ownAudio: ownAudio,
+    startAt: startAt,
+    location: location,
+  );
 
   /// Si no hay nada que leer, con ninguna parte.
   bool get isEmpty =>
@@ -206,6 +231,7 @@ class ReadableDocument {
       other.title == title &&
       other.ownAudio == ownAudio &&
       other.startAt == startAt &&
+      other.location == location &&
       listEquals(other.segments, segments) &&
       _sameScopes(other.scopes, scopes);
 
@@ -215,6 +241,7 @@ class ReadableDocument {
     title,
     ownAudio,
     startAt,
+    location,
     Object.hashAll(segments),
     Object.hashAll([
       for (final scope

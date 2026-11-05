@@ -63,6 +63,9 @@ class FakeMediaSource implements MediaSessionSource {
   @override
   ValueListenable<MediaSessionState?> get state => _state;
 
+  @override
+  String? location;
+
   MediaSessionState? get value => _state.value;
   set value(MediaSessionState? value) => _state.value = value;
 

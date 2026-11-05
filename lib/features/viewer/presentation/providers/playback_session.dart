@@ -121,6 +121,11 @@ class PlaybackMediaSource implements MediaSessionSource {
   @override
   ValueListenable<MediaSessionState?> get state => _state;
 
+  /// Un audio o un video no dice su pantalla: es la de arriba de todo
+  /// cuando empieza a sonar, la del reproductor que se tocó.
+  @override
+  String? get location => null;
+
   void _update() {
     final value = _session.controller.value;
     final ended =

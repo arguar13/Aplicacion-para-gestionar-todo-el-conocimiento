@@ -44,6 +44,7 @@ void main() {
   late FakeTextToSpeechService tts;
   late FakeMediaSession platform;
   late ProviderContainer container;
+  late GoRouter router;
 
   /// Las caras que se dibujaron como portada, en orden.
   late List<VoiceFace> drawn;
@@ -72,11 +73,15 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    final router = GoRouter(
+    router = GoRouter(
       routes: [
         GoRoute(
           path: '/',
           builder: (_, _) => const Scaffold(body: Text('Pantalla')),
+        ),
+        GoRoute(
+          path: '/leer',
+          builder: (_, _) => const Scaffold(body: Text('Donde se lee')),
         ),
       ],
     );
@@ -187,6 +192,44 @@ void main() {
     await tester.pumpAndSettle();
     expect(state().document, isNull);
     expect(platform.card, isNull);
+  });
+
+  testWidgets('tocar la tarjeta lleva a la pantalla de lo que suena, si no '
+      'se está ahí; sin su dirección, solo abre el reproductor', (
+    tester,
+  ) async {
+    int depth() => router.routerDelegate.currentConfiguration.matches.length;
+    await pump(tester);
+    await controller().open(document.withLocation('/leer'));
+    await tester.pumpAndSettle();
+    final source = container.read(focusedMediaSourceProvider)!;
+    expect(source.location, '/leer');
+
+    platform.tap(const MediaOpen());
+    await tester.pumpAndSettle();
+    expect(router.state.uri.toString(), '/leer');
+    expect(find.text('Donde se lee'), findsOneWidget);
+    final there = depth();
+
+    platform.tap(const MediaOpen());
+    await tester.pumpAndSettle();
+    expect(depth(), there);
+
+    await controller().open(
+      ReadableDocument(
+        id: 'sin-dirección',
+        title: 'Sin dirección',
+        segments: buildReadableSegments('Algo.', sourceKey: 'sin'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    router.go('/');
+    await tester.pumpAndSettle();
+    controller().minimize();
+    platform.tap(const MediaOpen());
+    await tester.pumpAndSettle();
+    expect(router.state.uri.toString(), '/');
+    expect(state().panel, ReadAloudPanel.expanded);
   });
 
   testWidgets('«siguiente» en la tarjeta pasa a lo de la cola', (tester) async {

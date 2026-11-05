@@ -569,6 +569,20 @@ void main() {
       expect(player, findsOneWidget);
     });
 
+    testWidgets('lo que se lee lleva la dirección de su pantalla, para '
+        'volver a ella desde la tarjeta y «Seguir escuchando»', (tester) async {
+      await pump(tester);
+      expect(
+        currentReadableOf(container.read(readableRegistryProvider))?.location,
+        '/',
+      );
+      await tapKey(tester, 'reading-listen');
+      expect(
+        container.read(readAloudControllerProvider).document?.location,
+        '/',
+      );
+    });
+
     testWidgets('la voz del reproductor abre la biblioteca de voces, como en '
         'el lector flotante (F47, paso 3)', (tester) async {
       await pump(tester);

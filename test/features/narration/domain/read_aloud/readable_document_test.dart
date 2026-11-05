@@ -157,4 +157,18 @@ void main() {
       );
     });
   });
+
+  group('la dirección de su pantalla (F47, paso 1)', () {
+    test('las copias la conservan, y es parte de la igualdad', () {
+      final located = document().withLocation('/leer/1');
+      expect(located.location, '/leer/1');
+      expect(located.withOwnAudio().location, '/leer/1');
+      expect(located.withScopes(const {}).location, '/leer/1');
+      expect(located.withStartAt(null).location, '/leer/1');
+      expect(located, isNot(document()));
+      expect(located, document().withLocation('/leer/1'));
+      expect(located.hashCode, document().withLocation('/leer/1').hashCode);
+      expect(located.withLocation(null), document());
+    });
+  });
 }

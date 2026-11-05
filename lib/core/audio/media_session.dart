@@ -185,6 +185,12 @@ abstract interface class MediaSessionSource {
   /// o terminado—.
   ValueListenable<MediaSessionState?> get state;
 
+  /// Dónde se escucha: la dirección de la pantalla que ofreció lo que
+  /// suena, adonde se vuelve al tocar la tarjeta y desde «Seguir
+  /// escuchando» (F47, pasos 1 y 7a); `null` si no la sabe, y se usa la
+  /// pantalla de arriba de todo.
+  String? get location;
+
   /// Lo que se tocó en la tarjeta.
   void handle(MediaCommand command);
 }

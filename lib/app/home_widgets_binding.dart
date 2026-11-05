@@ -113,11 +113,11 @@ class _HomeWidgetsBindingState extends ConsumerState<HomeWidgetsBinding> {
   /// lector que pasa a otro texto—, eso es lo último que se escuchó, y la
   /// pantalla de ahora es adonde vuelve el widget.
   ///
-  /// La pantalla es la de arriba de todo, también si se abrió encima de otra
-  /// (`push`): `state` es la de la última ruta, no la de la base de la pila.
-  /// Es la que ofreció lo que suena, porque se acaba de tocar «Escuchar» ahí.
-  /// Cuando cada fuente sepa su propia ruta —el marco de lectura (F47, paso 1)
-  /// se la da a lo que lee el lector—, la podrá decir ella.
+  /// La pantalla es la que dice la fuente ([MediaSessionSource.location]):
+  /// el lector, la del documento que lee (F47, paso 1). Si no la dice —un
+  /// audio—, la de arriba de todo, también si se abrió encima de otra
+  /// (`push`): `state` es la de la última ruta, no la de la base de la pila,
+  /// y es la que ofreció lo que suena, porque se acaba de tocar ahí.
   void _onPlaying() {
     final source = _source;
     final state = source?.state.value;
@@ -134,7 +134,7 @@ class _HomeWidgetsBindingState extends ConsumerState<HomeWidgetsBinding> {
           .read(continueListeningProvider.notifier)
           .listened(
             title: state.title,
-            location: widget.router.state.uri.toString(),
+            location: source.location ?? widget.router.state.uri.toString(),
           ),
     );
   }

@@ -22,13 +22,23 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Se registra con el testigo del lector ([readAloudFocusOwner]): la tarjeta
 /// lo muestra mientras el lector tenga el foco de audio de la app.
 class ReadAloudMediaSource implements MediaSessionSource {
-  ReadAloudMediaSource(this._controller);
+  ReadAloudMediaSource(this._controller, {this.onOpen});
 
   final ReadAloudController Function() _controller;
+
+  /// Lleva a la pantalla de [location], al tocar la tarjeta.
+  final void Function(String location)? onOpen;
+
   final _state = ValueNotifier<MediaSessionState?>(null);
+  String? _location;
 
   @override
   ValueListenable<MediaSessionState?> get state => _state;
+
+  /// La de la pantalla que ofreció lo que se lee
+  /// (`ReadableDocument.location`).
+  @override
+  String? get location => _location;
 
   /// Lo que muestra la tarjeta del lector en [reading], con los textos de
   /// [l10n] en [locale] y la cara de la voz como portada ([artwork]): nada si
@@ -40,6 +50,7 @@ class ReadAloudMediaSource implements MediaSessionSource {
     Uint8List? artwork,
   }) {
     final document = reading.document;
+    _location = document?.location;
     if (document == null || reading.finished) {
       _state.value = null;
       return;
@@ -77,9 +88,11 @@ class ReadAloudMediaSource implements MediaSessionSource {
         // La tarjeta se descartó: se deja de leer, como con «Dejar de leer».
         unawaited(controller.close());
       case MediaOpen():
-        // La app vuelve al frente con el reproductor abierto en lo que
-        // suena; la pantalla que lo ofrece sigue la línea sola.
+        // La app vuelve al frente con el reproductor abierto, en la
+        // pantalla de lo que suena, que sigue la línea sola.
         controller.expand();
+        final location = _location;
+        if (location != null) onOpen?.call(location);
     }
   }
 
@@ -97,9 +110,17 @@ final voiceArtworkProvider = Provider<Future<Uint8List?> Function(VoiceFace)>(
 /// paso 2b). Lo monta `ReadAloudOverlay`, por encima de toda pantalla: los
 /// textos de la tarjeta salen de su idioma.
 class ReadAloudMediaSession extends ConsumerStatefulWidget {
-  const ReadAloudMediaSession({required this.child, super.key});
+  const ReadAloudMediaSession({
+    required this.child,
+    this.onOpenLocation,
+    super.key,
+  });
 
   final Widget child;
+
+  /// Lleva a la pantalla de lo que suena al tocar la tarjeta (ver
+  /// [ReadAloudMediaSource.onOpen]).
+  final void Function(String location)? onOpenLocation;
 
   @override
   ConsumerState<ReadAloudMediaSession> createState() =>
@@ -109,6 +130,7 @@ class ReadAloudMediaSession extends ConsumerStatefulWidget {
 class _ReadAloudMediaSessionState extends ConsumerState<ReadAloudMediaSession> {
   late final _source = ReadAloudMediaSource(
     () => ref.read(readAloudControllerProvider.notifier),
+    onOpen: (location) => widget.onOpenLocation?.call(location),
   );
   late final MediaSessionSources _sources = ref.read(
     mediaSessionSourcesProvider.notifier,

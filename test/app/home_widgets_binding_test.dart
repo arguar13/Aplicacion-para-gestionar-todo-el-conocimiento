@@ -187,6 +187,28 @@ void main() {
         expect(widgets.continueListening.last, expected);
       });
 
+      testWidgets('si la fuente dice su pantalla —el lector, la del '
+          'documento que lee—, cuenta esa y no la de arriba', (tester) async {
+        await setUpWith();
+        await pumpApp(tester);
+        final owner = Object();
+        final source = _Source()..location = RoutePaths.review;
+        addTearDown(source.dispose);
+        await openAndRegister(tester, owner, source);
+
+        harness.container.read(audioFocusProvider.notifier).claim(owner);
+        source.sound('El texto');
+        await tester.pumpAndSettle();
+
+        expect(
+          harness.container.read(continueListeningProvider),
+          const ContinueListening(
+            title: 'El texto',
+            location: RoutePaths.review,
+          ),
+        );
+      });
+
       testWidgets('quieto, o sin el foco, no cuenta', (tester) async {
         await setUpWith();
         await pumpApp(tester);
@@ -380,6 +402,9 @@ class _Source implements MediaSessionSource {
 
   @override
   ValueListenable<MediaSessionState?> get state => _state;
+
+  @override
+  String? location;
 
   @override
   void handle(MediaCommand command) {}

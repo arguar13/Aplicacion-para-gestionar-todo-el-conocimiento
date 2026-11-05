@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 
 /// Qué texto se puede leer en voz alta en lo que se ve ahora (F25): las
@@ -66,7 +67,8 @@ ReadableDocument? currentReadableOf(List<ReadableDocument> offered) {
 /// Lo ofrece solo mientras se ve: una pestaña que no es la de ahora o una
 /// pantalla tapada por otra quedan fuera de escena —`TickerMode` apagado—, y
 /// retiran lo suyo hasta volver a verse. Con [document] `null` o vacío no
-/// ofrece nada.
+/// ofrece nada. Lo ofrece con la dirección de la pantalla, si no trae la
+/// suya ([ReadableDocument.location]).
 class ReadableRegion extends ConsumerStatefulWidget {
   const ReadableRegion({
     required this.document,
@@ -106,11 +108,21 @@ class _ReadableRegionState extends ConsumerState<ReadableRegion> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (visible && document != null && !document.isEmpty) {
-        _registry.offer(this, document);
+        _registry.offer(this, _located(document));
       } else {
         _registry.withdraw(this);
       }
     });
+  }
+
+  /// [document] con la dirección de esta pantalla, si no trae la suya: la de
+  /// arriba de todo en el router, que es esta mientras se ve (ver
+  /// [ReadableDocument.location]). Sin router —una prueba suelta—, como vino.
+  ReadableDocument _located(ReadableDocument document) {
+    if (document.location != null) return document;
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return document;
+    return document.withLocation(router.state.uri.toString());
   }
 
   @override
