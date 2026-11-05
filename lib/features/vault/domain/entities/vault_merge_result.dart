@@ -95,6 +95,10 @@ sealed class VaultMergeResult with _$VaultMergeResult {
     /// Las notas en el texto (F45, mejora 19, v49).
     @Default(0) int textNotesAdded,
 
+    /// Las voces propias —clonadas y creadas— que llegaron (F47, paso 4). Sus
+    /// archivos se cuentan además en [filesCopied].
+    @Default(0) int myVoicesAdded,
+
     /// Las pasadas de la IA y lo que la persona dijo que «no era» (F27).
     @Default(0) int aiRunsAdded,
     @Default(0) int aiRejectionsAdded,
@@ -135,6 +139,7 @@ sealed class VaultMergeResult with _$VaultMergeResult {
       processedImagesAdded == 0 &&
       studyCreationsAdded == 0 &&
       textNotesAdded == 0 &&
+      myVoicesAdded == 0 &&
       aiRunsAdded == 0 &&
       aiRejectionsAdded == 0;
 }

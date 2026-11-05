@@ -62,6 +62,11 @@ sealed class VaultMergePreview with _$VaultMergePreview {
     /// de la unión.
     @Default(0) int newTextNotes,
 
+    /// Las voces propias —clonadas y creadas— de la copia que esta bóveda no
+    /// tiene ni borró (F47, paso 4). Sus archivos se cuentan además en
+    /// [newFiles].
+    @Default(0) int newMyVoices,
+
     /// Archivos originales de la copia que esta bóveda no tiene, con cuánto
     /// pesan; y los que la copia dice tener y no trae.
     @Default(0) int newFiles,
@@ -91,5 +96,6 @@ sealed class VaultMergePreview with _$VaultMergePreview {
       newProcessedParts == 0 &&
       newStudyCreations == 0 &&
       newTextNotes == 0 &&
+      newMyVoices == 0 &&
       newFiles == 0;
 }

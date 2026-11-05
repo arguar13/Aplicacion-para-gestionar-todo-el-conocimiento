@@ -27,7 +27,9 @@ class MyVoicesStore {
     : _rootDirectory = rootDirectory;
 
   static const folderName = 'voces-mias';
-  static const _manifest = 'voz.json';
+
+  /// El nombre de la ficha de cada voz.
+  static const manifestName = 'voz.json';
 
   final Future<Directory> Function() _rootDirectory;
   final _changes = StreamController<void>.broadcast();
@@ -58,7 +60,7 @@ class MyVoicesStore {
     final voices = <MyVoice>[];
     for (final entry in folder.listSync()) {
       if (entry is! Directory) continue;
-      final manifest = File(p.join(entry.path, _manifest));
+      final manifest = File(p.join(entry.path, manifestName));
       if (!manifest.existsSync()) continue;
       try {
         final voice = MyVoice.fromJson(jsonDecode(manifest.readAsStringSync()));
@@ -76,9 +78,9 @@ class MyVoicesStore {
   /// Guarda la ficha de [voice] —nueva o cambiada—.
   Future<void> save(MyVoice voice) async {
     final folder = (await folderOf(voice.id))..createSync(recursive: true);
-    File(p.join(folder.path, '$_manifest.escribiendo'))
+    File(p.join(folder.path, '$manifestName.escribiendo'))
       ..writeAsStringSync(jsonEncode(voice.toJson()), flush: true)
-      ..renameSync(p.join(folder.path, _manifest));
+      ..renameSync(p.join(folder.path, manifestName));
     _changes.add(null);
   }
 
@@ -103,11 +105,36 @@ class MyVoicesStore {
     return file.existsSync() ? file : null;
   }
 
-  /// Borra la voz [id]: su ficha, su grabación y su muestra. Nada más.
+  /// Borra la voz [id]: su ficha, su grabación y su muestra, y la anota en
+  /// [deletedFile]. Nada más.
+  ///
+  /// La anotación es lo que impide que unir una copia de la bóveda hecha
+  /// antes de borrarla la traiga de vuelta (ver `MyVoicesMergePlan`): una voz
+  /// borrada no tiene una fila que la recuerde, como un elemento en la
+  /// papelera.
   Future<void> delete(String id) async {
     final folder = await folderOf(id);
+    final deleted = await deletedIds();
+    if (!deleted.contains(id)) {
+      final list = File(p.join((await _folder()).path, deletedFile));
+      list.parent.createSync(recursive: true);
+      File('${list.path}.escribiendo')
+        ..writeAsStringSync(encodeDeletedVoices({...deleted, id}), flush: true)
+        ..renameSync(list.path);
+    }
     if (folder.existsSync()) folder.deleteSync(recursive: true);
     _changes.add(null);
+  }
+
+  /// La lista de las voces borradas, en la carpeta de Mías.
+  static const deletedFile = 'borradas.json';
+
+  /// Los ids de las voces que se borraron en esta bóveda.
+  Future<Set<String>> deletedIds() async {
+    final list = File(p.join((await _folder()).path, deletedFile));
+    return list.existsSync()
+        ? decodeDeletedVoices(list.readAsStringSync())
+        : const {};
   }
 
   static String _safeName(String name) {
@@ -119,4 +146,24 @@ class MyVoicesStore {
   }
 
   Future<void> dispose() => _changes.close();
+}
+
+/// [ids] como se guardan en `borradas.json`: una lista ordenada.
+String encodeDeletedVoices(Set<String> ids) =>
+    jsonEncode({'borradas': ids.toList()..sort()});
+
+/// Los ids de `borradas.json`; vacío si no se entiende —una lista rota no
+/// impide nada, y no borra nada—.
+Set<String> decodeDeletedVoices(String json) {
+  try {
+    final decoded = jsonDecode(json);
+    final ids = decoded is Map ? decoded['borradas'] : null;
+    return {
+      if (ids is List)
+        for (final id in ids)
+          if (id is String && id.isNotEmpty) id,
+    };
+  } on FormatException {
+    return const {};
+  }
 }

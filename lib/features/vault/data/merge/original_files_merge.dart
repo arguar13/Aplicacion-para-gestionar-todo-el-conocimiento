@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/features/creations/data/creation_files.dart';
+import 'package:sinapsis/features/narration/data/voices/my_voices_store.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
+import 'package:sinapsis/features/vault/data/merge/my_voices_merge.dart';
 
 /// Lo que hizo [OriginalFilesMerge].
 class OriginalFilesResult {
@@ -12,6 +14,7 @@ class OriginalFilesResult {
     this.copiedBytes = 0,
     this.missing = 0,
     this.differing = 0,
+    this.myVoicesAdded = 0,
   });
 
   /// Archivos que faltaban acá y se copiaron de la copia, y cuánto pesan.
@@ -21,6 +24,10 @@ class OriginalFilesResult {
   /// Archivos que un elemento de acá referencia y no están ni acá ni en la
   /// copia: el elemento queda con su texto y sin su original.
   final int missing;
+
+  /// Las voces propias que llegaron (F47, paso 4); sus archivos se cuentan
+  /// en [copied].
+  final int myVoicesAdded;
 
   /// Archivos que están en las dos con la misma ruta y distinto peso. Se queda
   /// el de acá: un archivo original no se pisa nunca.
@@ -36,6 +43,9 @@ class OriginalFilesResult {
 /// los de los elementos nuevos y los de un elemento que ya estaba y había
 /// perdido el suyo, y no entra un archivo que ninguna fila usa.
 ///
+/// Además, las voces propias de la carpeta de Mías (F47, paso 4), que ninguna
+/// fila nombra: ver [MyVoicesMergePlan].
+///
 /// Nunca pisa un archivo que ya está. Y lo que copia lo lleva anotado: si la
 /// fusión falla —antes o después de este paso—, [rollback] borra exactamente
 /// eso, y la carpeta de documentos queda como estaba. El disco no tiene
@@ -45,6 +55,10 @@ class OriginalFilesMerge {
 
   final Directory _documents;
   final List<File> _created = [];
+
+  /// La lista de borradas de Mías como estaba antes de sumarle la de la
+  /// copia: `null` si no se tocó; vacío si no existía.
+  String? _deletedBefore;
 
   /// Copia lo que falta. Corre con la copia adjuntada y las filas ya escritas.
   Future<OriginalFilesResult> copy({
@@ -90,16 +104,46 @@ class OriginalFilesMerge {
       copied++;
       bytes += written.lengthSync();
     }
+    // Las voces propias (F47, paso 4): no las nombra ninguna fila.
+    final voices = await MyVoicesMergePlan.of(incoming, _documents);
+    for (final path in voices.files) {
+      final written = await incoming.copyOriginalTo(path, _documents);
+      if (written == null) continue;
+      _created.add(written);
+      copied++;
+      bytes += written.lengthSync();
+    }
+    if (voices.deletedChanged) {
+      final list = MyVoicesMergePlan.deletedListIn(_documents);
+      _deletedBefore = list.existsSync() ? list.readAsStringSync() : '';
+      list.parent.createSync(recursive: true);
+      list.writeAsStringSync(encodeDeletedVoices(voices.deleted), flush: true);
+    }
     return OriginalFilesResult(
       copied: copied,
       copiedBytes: bytes,
       missing: missing,
       differing: differing,
+      myVoicesAdded: voices.newVoices.length,
     );
   }
 
   /// Borra lo que [copy] copió, y las carpetas que quedaron vacías por eso.
   Future<void> rollback() async {
+    final before = _deletedBefore;
+    _deletedBefore = null;
+    if (before != null) {
+      try {
+        final list = MyVoicesMergePlan.deletedListIn(_documents);
+        if (before.isEmpty) {
+          if (list.existsSync()) await list.delete();
+        } else {
+          await list.writeAsString(before, flush: true);
+        }
+        // Como con los archivos: no tapa el error que llevó hasta acá.
+        // ignore: avoid_catches_without_on_clauses
+      } catch (_) {}
+    }
     for (final file in _created) {
       try {
         if (file.existsSync()) await file.delete();

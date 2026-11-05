@@ -3566,7 +3566,7 @@ describiéndola o con controles. Se abre desde la pestaña **Mías** o desde
    conexión, gratis; la de la nube queda en tu cuenta de ElevenLabs y leer
    con ella gasta tus créditos.
 
-En el teléfono caben hasta 54 voces creadas (las que admite el modelo de
+En el teléfono leen hasta 54 voces creadas (las que admite el modelo de
 Kokoro); para crear otra, borrá una. Lo que lee una voz creada se marca **«Voz
 creada»** en el reproductor, y **«En la nube»** si vive en ElevenLabs.
 
@@ -3611,6 +3611,28 @@ se pudo (sin conexión, por ejemplo), acá no se borra y lo dice; **«Borrar
 solo de este teléfono»** la borra igual, sabiendo que queda en tu cuenta de
 ElevenLabs. Si era la elegida para su idioma, ese idioma vuelve a leer con la
 mejor que haya.
+
+### Tus voces en la copia y al unir bóvedas
+
+Tus voces viven en la bóveda, en su propia carpeta —la ficha de cada una, con
+la mezcla o su lugar en ElevenLabs y el permiso con que se clonó, su grabación
+y su muestra—, así que **la copia de seguridad las lleva**. Al **unir** la
+copia de otro teléfono (ver [Copia de seguridad](#copia-de-seguridad)), **también
+llegan**: la vista previa dice cuántas voces tuyas trae, y el resultado
+cuántas llegaron.
+
+- Nunca se pisa una voz de acá: si cambiaste el nombre o la cara de una que
+  está en las dos, se queda como la tenés acá; solo entra lo que le falte.
+- **Una voz que borraste acá no vuelve** con una copia hecha antes de
+  borrarla. Y lo que se borró en el otro teléfono queda anotado acá, para que
+  una unión futura no lo traiga; eso no borra ninguna de las tuyas.
+- Las creadas en el teléfono leen acá en cuanto bajes Kokoro: no hace falta
+  nada más, porque se arman con su ficha. Si con las de los dos teléfonos
+  pasan de 54, las que no caben —las más nuevas— lo dicen («No cabe…») y leen
+  cuando borres otra.
+- Las de la nube leen con **la misma cuenta de ElevenLabs**: cargá esa clave
+  en «La nube para voces». Si la borrás en un teléfono, se borra de tu cuenta,
+  y en el otro deja de leer.
 
 ### Escuchar dentro del documento
 
@@ -5412,6 +5434,8 @@ nada de lo que ya tenés.
    palabras clave de un documento) y las fechas de la línea de tiempo que la
    copia trae y vos no tenés. Si lo único nuevo es una de esas dos cosas, la
    copia igual se puede unir: ya no te dice que "no hace falta".
+   También cuenta **tus voces** clonadas o creadas que la copia trae (ver
+   [Tus voces en la copia y al unir bóvedas](#tus-voces-en-la-copia-y-al-unir-bóvedas)).
 4. Al terminar, ves un resumen final; si quedó algo para revisar a mano
    (porque se cambió en los dos lados a la vez), hay un botón **"Revisar"**
    que te lleva directo a esa pantalla (ver abajo).

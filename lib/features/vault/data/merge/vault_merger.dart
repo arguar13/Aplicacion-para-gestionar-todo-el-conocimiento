@@ -125,6 +125,7 @@ class VaultMerger {
             filesCopiedBytes: copied.copiedBytes,
             filesMissing: copied.missing,
             filesDiffering: copied.differing,
+            myVoicesAdded: copied.myVoicesAdded,
           );
         } finally {
           await gates.removeGuards();

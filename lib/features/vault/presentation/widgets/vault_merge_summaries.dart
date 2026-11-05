@@ -37,6 +37,8 @@ List<String> vaultMergePreviewLines(
     l10n.f43DataMergePreviewCreations(preview.newStudyCreations),
   if (preview.newTextNotes > 0)
     l10n.f45S8MergePreviewTextNotes(preview.newTextNotes),
+  if (preview.newMyVoices > 0)
+    l10n.f47P4MergePreviewVoices(preview.newMyVoices),
   if (preview.newFiles > 0)
     l10n.vaultMergePreviewFiles(
       preview.newFiles,
@@ -56,6 +58,8 @@ List<String> vaultMergeResultLines(
       l10n.vaultMergeDoneUpdated(result.itemsUpdated),
     if (result.conflictsRecorded > 0)
       l10n.vaultMergeDoneConflicts(result.conflictsRecorded),
+    if (result.myVoicesAdded > 0)
+      l10n.f47P4MergeDoneVoices(result.myVoicesAdded),
     if (result.filesCopied > 0) l10n.vaultMergeDoneFiles(result.filesCopied),
   ];
 }

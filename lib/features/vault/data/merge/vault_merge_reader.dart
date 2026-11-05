@@ -9,6 +9,7 @@ import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/entry_merge_planner.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
+import 'package:sinapsis/features/vault/data/merge/my_voices_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/rendition_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/set_union_rules.dart';
 import 'package:sinapsis/features/vault/data/merge/space_merge.dart';
@@ -52,6 +53,7 @@ class VaultMergeReader {
   }
 
   Future<VaultMergePreview> _count(IncomingVault incoming) async {
+    final voices = await MyVoicesMergePlan.of(incoming, _documents);
     // Los elementos, por tipo y según los tenga esta bóveda o no: el
     // identificador es la identidad, así que uno que las dos tienen es el mismo
     // aunque se haya editado en cada una.
@@ -154,8 +156,12 @@ class VaultMergeReader {
         SELECT COUNT(*) FROM $_incoming.conversations c
          WHERE NOT EXISTS (SELECT 1 FROM main.conversations m WHERE m.id = c.id)''',
       ),
-      newFiles: files.missingLocally.length,
-      newFilesBytes: files.missingLocallyBytes,
+      // Los archivos de las voces propias (F47, paso 4) son archivos que la
+      // unión trae como cualquier original: se suman acá, y las voces se
+      // cuentan aparte.
+      newMyVoices: voices.newVoices.length,
+      newFiles: files.missingLocally.length + voices.files.length,
+      newFilesBytes: files.missingLocallyBytes + voices.bytes,
       filesMissingInBackup: files.missingInBackup,
     );
   }

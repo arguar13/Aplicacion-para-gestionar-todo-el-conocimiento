@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -418,6 +419,23 @@ class IncomingVault {
       await out.parent.create(recursive: true);
       await _extract(file, out, durable: true);
       return out;
+    }
+    return null;
+  }
+
+  /// El contenido de un archivo original chico de la copia —una lista, una
+  /// ficha—, como texto; `null` si la copia no lo trae o pesa más de
+  /// [maxBytes] (no es una ficha: no se carga en memoria).
+  Future<String?> readOriginalText(
+    String relativePath, {
+    int maxBytes = 1 << 20,
+  }) async {
+    for (final file in _originals) {
+      if (file.name != relativePath) continue;
+      if (file.size > maxBytes) return null;
+      final bytes = <int>[];
+      await _decompressed(file).forEach(bytes.addAll);
+      return utf8.decode(bytes, allowMalformed: true);
     }
     return null;
   }
