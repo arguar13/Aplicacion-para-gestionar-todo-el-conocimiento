@@ -77,7 +77,9 @@ class PodcastVoiceOption {
 ///
 /// **Las que leen por internet no se ofrecen** (decisiones B y F de F47,
 /// que todo quede en el teléfono): una del teléfono `…-network` mandaría el
-/// guion a quien hace la voz.
+/// guion a quien hace la voz sin preguntar. Las propias de la nube sí: la
+/// persona eligió llevarlas ahí, y antes de generar se dice el costo y que
+/// el texto sale a ElevenLabs, y se aprueba (paso 4).
 ///
 /// **El enganche del paso 4**: las clonadas y las creadas llegan por la
 /// biblioteca con su propio id (con su prefijo), y se ofrecen tal cual; si
@@ -92,7 +94,10 @@ final podcastVoiceOptionsProvider = FutureProvider.autoDispose
       final renderer = ref.watch(speechAudioRendererProvider);
       final options = <PodcastVoiceOption>[];
       for (final voice in library) {
-        if (voice.language != languageCode || voice.needsInternet) continue;
+        if (voice.language != languageCode ||
+            (voice.needsInternet && !voice.inCloud)) {
+          continue;
+        }
         final option = switch (voice.origin) {
           VoiceOrigin.offline => PodcastVoiceOption(
             id: SpeechVoiceIds.offline(voice.offline!.id),

@@ -56,6 +56,11 @@ abstract final class ElevenLabsFacts {
   /// Créditos por carácter leído con [readingModel].
   static const creditsPerCharacter = 1;
 
+  /// En qué se cobra al generar audio (`SpeechAudioPrice.currency`): en
+  /// créditos del plan, no en dinero —lo que vale un crédito depende del
+  /// plan de cada persona—.
+  static const creditsCurrency = 'credits';
+
   /// Lo más que se manda en un pedido de lectura con [readingModel].
   static const maxCharactersPerRequest = 10000;
 

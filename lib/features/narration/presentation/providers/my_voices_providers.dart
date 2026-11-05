@@ -64,10 +64,16 @@ class VoiceCloudSettingsNotifier extends StateNotifier<VoiceCloudSettings> {
   }) : _prefs = prefs,
        _keys = keys,
        super(VoiceCloudSettings(enabled: prefs.getBool(enabledKey) ?? false)) {
-    unawaited(_loadKey());
+    loaded = _loadKey();
+    unawaited(loaded);
   }
 
   static const enabledKey = 'voice_cloud_enabled';
+
+  /// Cuando ya se sabe si hay clave: hasta entonces [VoiceCloudSettings.ready]
+  /// dice que no. Lo espera quien decide algo apenas abre la app —generar un
+  /// audio con una voz de la nube— y no puede tomar ese «no» por cierto.
+  late final Future<void> loaded;
 
   final SharedPreferences _prefs;
   final ElevenLabsKeyStore _keys;

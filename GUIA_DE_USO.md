@@ -3602,6 +3602,13 @@ reproductor en pausa. Lo corto no pregunta, pero igual se marca **«En la
 nube»** en el reproductor. Cambiar la velocidad no vuelve a gastar: el audio
 suena más rápido o más lento.
 
+**Un podcast con tus voces.** Tus voces —las de la nube y las creadas en el
+teléfono— se pueden elegir para el audio de un podcast (ver
+[El podcast](#el-podcast)). Con una de la nube, antes de generar aparece el mismo
+aviso, con lo que lee esa voz en todo el podcast, aunque sea corto: generar
+el audio siempre pregunta. Lo ya generado queda en el podcast y no se vuelve
+a pagar.
+
 ### Borrar una voz tuya
 
 En la tarjeta, **⋮ → «Borrar esta voz»**, y confirmar. Se borra **del
@@ -4403,23 +4410,31 @@ En su hoja elegís:
 - **Elegí las voces:** una, o dos en Conversación, de **tu biblioteca de
   voces** (ver [La biblioteca de voces](#la-biblioteca-de-voces)), solo las
   nativas del idioma del podcast: primero **las sin conexión que ya bajaste**
-  (las de mejor calidad arriba), después **las del teléfono** y al final **las
-  sin conexión que todavía no bajaste**, con su tamaño (*"Daniela · Español
-  (Argentina) · falta bajarla (63 MB)"*). Al abrir la hoja ya quedan elegidas
+  (las de mejor calidad arriba), después **tus voces** —las que clonaste o
+  creaste, ver [Clonar una voz](#clonar-una-voz) y [Crear una
+  voz](#crear-una-voz)—, **las del
+  teléfono** y al final **las sin conexión que todavía no bajaste**, con su
+  tamaño (*"Daniela · Español (Argentina) · falta bajarla (63 MB)"*). Una
+  voz tuya que hoy no puede hablar —la creada en el teléfono sin Kokoro
+  bajado, o la de la nube con la nube apagada— va al final, con las que
+  faltan. Al abrir la hoja ya quedan elegidas
   de las que pueden hablar sin bajar nada —en Conversación, dos distintas si
   hay—, y cambiando el idioma cambian solas. Si elegís una que falta bajar,
   debajo aparece *"Daniela falta bajarla: el audio se genera con ella"* con su
   botón **Bajar** (el mismo de la biblioteca, con su avance, «Pausar» y
-  «Cancelar»). Las que leen por internet no se ofrecen: nada sale del
-  teléfono. Si las dos personas quedan con la misma voz, la hoja lo avisa; si
+  «Cancelar»). Las del teléfono que leen por internet no se ofrecen: nada
+  sale del teléfono sin que lo apruebes. Si las dos personas quedan con la misma voz, la hoja lo avisa; si
   es la única del idioma, solo lo dice. En la web y en Windows, donde la app no
   sabe hacer estas voces, la hoja dice que ahí no se genera el audio: queda el
   guion para leer.
-- **Si alguna voz cobra** (las de la nube, cuando estén: clonadas o creadas
-  con tu cuenta), antes de pedirlo se dice cuánto cuesta, con tu cuenta y por
-  cuántos caracteres, y que el texto se manda a la nube de esa voz: **"Generar
-  igual"** o **Cancelar**. Con voces del teléfono o sin conexión no se
-  pregunta nada: son gratis.
+- **Si alguna voz cobra** —una tuya que vive en ElevenLabs—, antes de
+  pedirlo se pregunta por cada una, con el mismo aviso que antes de leer algo
+  largo en la nube: **"Leer con «Papá» en la nube"**, cuántos caracteres lee
+  ella y cuántos créditos gasta (1 por carácter), que el texto sale a
+  ElevenLabs y lo que te queda del mes. **"Leer en la nube"** o
+  **Cancelar**: con un Cancelar no se genera nada. Lo que ya se generó de un intento anterior no
+  se vuelve a pedir a la nube. Tus voces creadas en el teléfono, las del
+  teléfono y las sin conexión no preguntan nada: son gratis.
 
 **Cómo se escribe:** la IA que elegiste en Ajustes escribe **el guion** (con
 Gemma, todo queda en el teléfono), en segundo plano y con el aviso de siempre

@@ -5,10 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sinapsis/features/narration/data/audio/device_speech_voice_renderer.dart';
+import 'package:sinapsis/features/narration/data/audio/my_speech_voice_renderer.dart';
 import 'package:sinapsis/features/narration/data/audio/offline_speech_voice_renderer.dart';
 import 'package:sinapsis/features/narration/data/audio/speech_audio_encoder.dart';
 import 'package:sinapsis/features/narration/data/audio/speech_audio_renderer.dart';
 import 'package:sinapsis/features/narration/domain/audio/speech_audio.dart';
+import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
 
 /// Si las voces del teléfono pueden quedar en un archivo: en Android, con el
@@ -23,10 +25,10 @@ final deviceSpeechToFileAvailableProvider = Provider<bool>(
 /// 6), cada una con su prefijo de id (`SpeechVoiceIds`): las sin conexión
 /// bajadas y las del teléfono, donde se puede.
 ///
-/// **El enganche del paso 4** (las voces de la nube, clonadas o creadas): se
-/// suman acá con su propio [SpeechVoiceRenderer] —su prefijo, `isReady` con
-/// su cuenta y `priceOf` con lo que cobra—. Con eso, el podcast las acepta,
-/// dice el costo antes de generar y pide confirmación, sin cambiar nada más.
+/// Y las propias (F47, paso 4), `mia:<id>`, donde se ofrecen
+/// ([MySpeechVoiceRenderer]): las creadas en el teléfono, gratis, y las de
+/// ElevenLabs, que cobran; el podcast dice su costo antes de generar y se
+/// aprueba con la puerta de la nube (`speechAudioApprovalProvider`).
 final speechVoiceRenderersProvider = Provider<List<SpeechVoiceRenderer>>((ref) {
   final files = ref.watch(offlineVoiceFilesProvider);
   final synthesizer = ref.watch(offlineSpeechSynthesizerProvider);
@@ -38,6 +40,24 @@ final speechVoiceRenderersProvider = Provider<List<SpeechVoiceRenderer>>((ref) {
       ),
     if (ref.watch(deviceSpeechToFileAvailableProvider))
       const DeviceSpeechVoiceRenderer(),
+    if (ref.watch(myVoicesAvailableProvider))
+      // Lo suyo se lee al usarlo: armar la lista no arma la nube ni el
+      // almacén de las voces si no se genera con una propia.
+      MySpeechVoiceRenderer(
+        service: () => ref.read(myVoicesServiceProvider),
+        cloud: () => ref.read(voiceCloudProvider),
+        synthesizer: synthesizer,
+        known: () => ref.read(myVoicesProvider).valueOrNull ?? const [],
+        // Con las voces, los paquetes y la clave de la nube ya sabidos:
+        // generar puede empezar apenas abre la app, antes de que alguna
+        // pantalla los haya mirado.
+        ready: () async {
+          await ref.read(myVoicesProvider.future);
+          await ref.read(installedVoicePackagesProvider.future);
+          await ref.read(voiceCloudSettingsProvider.notifier).loaded;
+          return ref.read(readyMyVoiceNamesProvider);
+        },
+      ),
   ];
 });
 
