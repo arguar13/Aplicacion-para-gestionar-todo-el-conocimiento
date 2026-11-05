@@ -547,7 +547,8 @@ los pasos 2, 3, 6a y 7a.
 - **El censo de funciones** (`reading_census_test.dart`): las 30 funciones de «Lo que hay hoy»,
   cada una con dónde quedó y una prueba que llega a ella en el marco. Al final se comprueba que
   no quedó ninguna sin alcanzar. La única pendiente son las notas en el texto, cuya interfaz
-  hace F45 8b sobre este marco.
+  hace F45 8b sobre este marco. *(Entraron con F45, paso 8b: «Nota» en la barrita, el globito en
+  el margen y ⋮ «Notas (N)»; el censo queda en 30 de 30.)*
 - **El marco** (`ReadingFrame`), uno solo:
   - la barra: ← y cuatro botones redondos con borde, del mismo tamaño —Contenido, IA, Aa y ⋮—,
     que no crecen con la letra. El título va grande, en el cuerpo;
@@ -632,7 +633,8 @@ los pasos 2, 3, 6a y 7a.
   - un visor que se abre con `Navigator.push`, sin una ruta propia (el original de la
     Biblioteca, la foto, el audio), dice la dirección de la pantalla de abajo. Para volver
     justo a él hace falta darle una ruta;
-  - descargar y exportar el audio (paso 5) y las notas (N) (F45, paso 8b): no están en ⋮;
+  - descargar y exportar el audio (paso 5): no está en ⋮ (las notas (N) ya están, con F45,
+    paso 8b);
   - Favoritos, Marcar como terminado e Imprimir no existen en la app. Necesitan su dato en la
     base (o un paquete de impresión), así que no se inventaron. Hoy, «Imprimir» es el PDF de lo
     creado;

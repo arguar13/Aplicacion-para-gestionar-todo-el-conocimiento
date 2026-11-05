@@ -794,6 +794,127 @@ globitos y «Notas (N)»— es el paso 8b, sobre el marco de lectura de F47 (pas
   - la búsqueda de la Biblioteca encuentra la fuente por una nota, pero el renglón del
     resultado no muestra la nota: muestra el fragmento, como siempre.
 
+### Paso 8b (hecho): las notas en el texto, la interfaz
+
+Sobre el marco de lectura de F47 (paso 1) y los datos del 8a, en todos los
+textos que llevan notas: el original de la Biblioteca y la copia de
+Procesado, el texto de un procesado con su resumen y su síntesis, y lo
+creado. Con esto el censo de funciones del marco queda en 30 de 30.
+
+- **Poner una nota**:
+  - «Nota» de la barrita de la selección escribe ahora una nota en el texto
+    (decisión I), ya no un resaltado con nota: en el libro paginado, en la
+    transcripción (`HighlightableText`), en el PDF y en la página web (la
+    barrita ubica lo elegido en el texto extraído, como un resaltado). En la
+    copia del original de Procesado, que no se resalta, «Nota» está igual;
+  - en el texto de corrido de un procesado y de lo creado
+    (`ExtractViewer`, una `SelectionArea` sobre muchos bloques), «Nota» va en
+    el menú de lo elegido: cada bloque sabe qué tiene elegido por un
+    `SelectionListener`, y la nota va del primero al último elegido de un
+    mismo documento;
+  - la hoja (`writeTextNote`): el pedazo citado, los nueve colores de
+    resaltar —de entrada, el último elegido— y el campo. «Listo» guarda;
+    cerrarla de otro modo con algo escrito también (lo escrito no se pierde);
+    «Cancelar» no guarda nada; en blanco no se guarda nunca, y lo dice;
+  - **la nota sobre el texto entero**, desde «Notas (N)»: sin lugar y sin
+    pedazo, va a «Sin lugar». Pidió un cambio en la base (**esquema v50**):
+    el pedazo vacío vale solo sin lugar, y SQLite cambia una restricción
+    solo rehaciendo `text_notes`, con los conteos de todo como compuerta, cada
+    `row_key` igual y el índice de texto rehecho. No se reubica nunca, y el
+    chat la trae sola, sin un «» vacío.
+- **Verla**:
+  - el pedazo con un subrayado fino punteado del color de la nota
+    (`NoteMark` en `RenderedMarkdown.buildSpans`), que no tapa ningún fondo;
+  - **el globito, en el margen derecho a la altura del primer renglón del
+    pedazo** (`TextNoteMargin`): el margen de la columna de lectura ya
+    estaba (22 en angosto, 36 en ancho), así que el texto no se angosta ni
+    se corre una letra. El globito mide lo que entra en el margen (de 18 a
+    28), no crece con la letra al doble, y con varias notas en un renglón
+    lleva el número y abre la lista de ese renglón. En la transcripción, que
+    no trae margen propio, el margen de 26 aparece recién con la primera
+    nota;
+  - tocar el globito o el pedazo abre la tarjeta: lo que dice, el pedazo, la
+    fecha (escrita o editada), los colores —en el acto—, «Editar» (en blanco
+    no), «Copiar» y «Borrar» con «Deshacer», en el aviso común del paso 1.
+    El pedazo de un resaltado de antes con nota abre su ficha de siempre,
+    que lleva la nota con su estilo.
+- **«Notas (N)» en ⋮ del marco**: N es `textNoteCountProvider`, al día. El
+  cuerpo le da al marco sus textos (`ReadingNotesOffer`, con
+  `TextNoteSource`: de qué texto, el texto que se muestra y cómo ir a un
+  lugar). La lista va en el orden del texto, con «Sin lugar» al final y
+  «Nota sobre el texto entero» abajo; en lo creado de varios documentos, por
+  documento. Tocar una va a su lugar —la página del libro y su renglón, o el
+  bloque del texto de corrido—, lo marca dos segundos y la abre; si lo que
+  se ve no la muestra (el resumen no trae todas las oraciones), la abre.
+  Las de los resaltados de antes van mezcladas, como dice el 8a.
+- **El lector de pantalla**: cada globito y cada nota de la lista son un
+  botón «Nota: …, sobre "…"» (o «Nota: …, sobre el texto entero»; el de un
+  renglón con varias, «3 notas en este renglón»), con «abrir la nota»; los
+  títulos de la lista son encabezados.
+- **Decisión — el PDF, la página web y la foto**: las notas se escriben
+  sobre la forma de texto, que es lo que guarda `source_original`. Sobre la
+  página se ponen con «Nota» al elegir (se ubican en el texto extraído, como
+  los resaltados, y lo que no se ubica —una página escaneada— se avisa y no
+  se hace), pero **el globito no se dibuja sobre la página**: se ven en
+  «Notas (N)», que lo dice arriba, y tocar una la abre. En la foto, ir a una
+  nota desde «Imagen» pasa a «Texto», donde está con su globito. Dibujar el
+  globito sobre la página de un PDF (como el ícono de Adobe, siguiendo al
+  zoom) y dentro de la página web queda abierto (abajo).
+- **Decisión — lo creado**: el texto completo, el resumen y la síntesis de
+  «Lo creado» son una vista viva del texto de cada procesado (decisión E):
+  sus notas son las de ese texto (`processed_text`), las mismas que se ven
+  al leerlo desde Procesado. `creation` queda para lo que tiene texto
+  propio: un informe, que no es un texto de corrido que se elige (secciones,
+  preguntas, opciones), lleva notas sobre el informe entero, en «Notas (N)».
+- **Archivos**: `text_notes/presentation/text_note_actions.dart` (la hoja,
+  la tarjeta, la lista de un renglón), `widgets/text_note_margin.dart` (el
+  globito y el margen), `widgets/text_notes_list_sheet.dart` («Notas (N)»),
+  `reading_frame.dart` (⋮ y `ReadingNotesOffer`), `markdown_display.dart`
+  (`NoteMark`), y en los cuerpos: `document_reader_view.dart`,
+  `extract_viewer.dart`, `highlightable_text.dart`, `original_view.dart`,
+  `image_viewer_screen.dart`, `document_highlight_toolbar.dart`,
+  `report_view.dart`, `hand_highlighting.dart`; la base, en
+  `text_notes.dart`, `app_database.dart` (v50) y el repositorio.
+- **Además**: `synthetic_vault_test` esperaba los triggers de los índices de
+  texto por nombre y no tenía los de `text_note_search` (del 8a): ahora los
+  espera.
+- **Además**: el pedazo de un `Text` dentro de una `SelectionArea` vive
+  adentro de lo que el `Text` arma (el cursor de texto); el texto de corrido
+  lo busca ahí, así que también la línea que suena se acerca justo, y no el
+  bloque entero.
+- **Verificado** (sobre `main` 4120c60d, con el aviso común del paso 1):
+  - analyze en 19, la línea base;
+  - 90 pruebas de las notas —los datos, la migración 49→50, las 12 nuevas
+    de la interfaz—, el censo del marco (30 de 30), el censo de los avisos y
+    la bóveda sintética, en una corrida;
+  - la lectura, los visores y casi todo lo creado (1.800 pruebas; lo
+    creado se cortó en las infografías, que no tocan nada de esto), y el
+    texto de corrido, el informe, `organize`, Procesado, la Biblioteca y el
+    reproductor anclado (1.282). Diez pruebas viejas pedían que «Nota»
+    resaltara con nota (F38): ahora piden la nota en el texto (decisión I),
+    también en la copia de Procesado; sus cuatro archivos, otra vez enteros
+    (173), pasan;
+  - murieron las 28 mutaciones, todas por pruebas que fallan. Entre ellas: el
+    globito sobre el texto, el punteado liso o sin capa, «Cancelar» que
+    guarda, cerrar sin «Listo» que no guarda, «Listo» en blanco sin aviso, el
+    color elegido que no se usa, borrar sin cerrar la tarjeta, «Deshacer» que
+    no devuelve, «Notas (N)» fuera de ⋮ o en 0, la lista que no va al lugar o
+    que mezcla «Sin lugar», el margen de más en el libro y en el texto de
+    corrido, el texto de corrido sin globitos ni «Nota», la transcripción con
+    la «Nota» de antes, el informe sin notas, la migración que no rehace la
+    tabla y el chat con un «» vacío.
+- **Queda abierto:**
+  - el globito sobre la página de un PDF y dentro de la página web: hoy se
+    ven en «Notas (N)». En el PDF hace falta llevar cada nota a los
+    rectángulos de su página (`PdfStudyOverlay` ya lo hace con lo
+    estudiado) y un toque que la encuentre; en la web, el mismo camino que
+    los resaltados, por el puente del `WebView`;
+  - una nota sobre un pedazo del informe: el informe no se elige de
+    corrido; hace falta su texto canónico con las posiciones de cada bloque;
+  - la descarga marcada deja afuera la nota sobre el texto entero (no tiene
+    dónde ir en el texto): podría ir al comienzo, como nota del documento;
+  - no se miró en el emulador ni en el teléfono.
+
 ### Paso 1 (hecho): los avisos
 
 Diecisiete commits, de `5e86957a` a `eddc25e2`, y el de este avance (mejora 1, decisiones A y C;
