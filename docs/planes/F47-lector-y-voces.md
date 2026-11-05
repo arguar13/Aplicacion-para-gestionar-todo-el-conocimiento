@@ -786,6 +786,85 @@ Siete commits, de `7b26d6d8` a `7d82b688`, y el de este avance
     texto;
   - no se miró en el emulador ni en el teléfono.
 
+### Paso 4 (hecho): clonar y crear voces
+
+Nueve commits, de `eab4686a` a `af851c0f`, y el de este avance (decisión C; puntos 4 y 4b).
+
+- **Las voces propias** (`MyVoice`): clonadas o creadas, en el teléfono o en ElevenLabs, en la
+  pestaña Mías de la biblioteca, con su cara, sus rasgos para Filtrar y, las de la nube, su costo
+  y su muestra guardada (oírla no gasta).
+  - **El consentimiento va primero:** de quién es la voz, su nombre, la confirmación y la fecha.
+    Una ficha clonada sin consentimiento no se carga (`fromJson` da `null`), tampoco la que llega
+    al unir bóvedas. La voz de un famoso o de alguien sin permiso no se clona: no hay opción para
+    eso, y la pantalla lleva a «Crear una voz».
+  - `checkRealPerson` avisa si una descripción nombra a una persona real, con una heurística y sin
+    listas de famosos.
+- **Clonar en el teléfono no se ofrece** (`OnDeviceCloning.available = false`), y no por falta de
+  medirlo: el único modelo de ZipVoice publicado para sherpa-onnx 1.13.8 es chino e inglés, y su
+  frente pasa el texto a fonemas con espeak-ng en `en-us` fijo, así que el español sonaría como
+  inglés. Hace falta un modelo con español y un frente que use `es`; con eso se mide en el
+  teléfono, como dice `docs/benchmarks/F47-zipvoice-en-el-telefono.md`. La pantalla lo dice, con
+  el porqué, y ofrece clonar en ElevenLabs.
+- **Crear una voz en el teléfono**, gratis, mezclando las de Kokoro (`KokoroBlend`):
+  - el timbre (las primeras 128 columnas del estilo) y la forma de hablar (las últimas 128) se
+    mezclan aparte, siempre con dos voces o más en el timbre y ninguna por encima del 80 %;
+  - la descripción pone los controles (`interpretVoiceDescription`, en español e inglés), la mezcla
+    queda a la vista, con «Escuchar muestra» y «Otra variante»;
+  - sherpa-onnx termina el proceso si el `voices.bin` no tiene exactamente los hablantes del
+    modelo, así que cada creada ocupa un lugar de una copia del mismo tamaño (`KokoroStyleBank`),
+    escrita en un isolate. El lugar se asigna al armarla (`blendSlots`, de la más vieja a la más
+    nueva, hasta 54), no se guarda en la ficha: así las de dos bóvedas unidas no chocan. La que no
+    cabe está en Mías pero no lee, y su tarjeta lo dice.
+- **La nube para voces** (ElevenLabs, con la cuenta de quien la usa), apagada de entrada; apagada,
+  la clave no sale aunque esté guardada:
+  - clonar (instantánea) y diseñar (tres propuestas), con el costo antes de cada cosa; si guardar
+    acá falla, se borra allá, y borrar empieza por allá («Borrar solo de este teléfono» si allá
+    falla);
+  - HTTP directo, sin paquete nuevo; la clave en el almacén seguro (`xi-api-key`) y cada error por
+    su estado y su código;
+  - leer con una voz de la nube (`CloudTextToSpeechService`): el siguiente tramo se pide mientras
+    suena el de ahora, y la velocidad se cambia en el reproductor, sin volver a pagar;
+  - `CloudReadingGate`: con más de 1.500 caracteres por leer pregunta una vez por documento, parte y
+    voz, con los créditos que quedan; sin pantalla que pregunte, no se gasta.
+- **La grabación** (`VoiceRecorderChannel`, Kotlin): WAV PCM de 16 bits a 44,1 kHz, sin paquete de
+  grabación; `analyzeRecording` mide la duración, la voz, el ruido y la saturación, y dice si
+  conviene repetir. También se puede subir un audio.
+- **En el lector y el reproductor:** una voz propia lee solo si puede (Kokoro bajado, o la nube
+  prendida con su clave) y cambia en el acto si deja de poder; sigue al idioma del texto como las
+  demás; el reproductor dice «Voz clonada» o «En la nube».
+- **En la bóveda:** las voces viven en `originales/voces-mias/<id>/` (`voz.json`, la grabación y la
+  muestra), sin tabla nueva, y viajan en la copia. Unir bóvedas las trae sin pisar nada de acá ni
+  traer las que se borraron acá (`borradas.json`); si la unión falla, se deshace. El `voices.bin`
+  de las creadas no viaja: se arma de nuevo con sus fichas.
+- **En el podcast** (con el enganche del paso 6b): `MySpeechVoiceRenderer`, dueño de `mia:<id>`,
+  genera los tramos con las creadas (Kokoro, a su ritmo) y con las de la nube (el MP3 tal cual, que
+  la pieza común pasa a WAV). Cobra en créditos, uno por carácter; una voz que todavía no se conoce
+  cobra, para preguntar antes de gastar. Antes de generar, cada voz propia que cobra se aprueba con
+  su puerta (`cloudReadingGateProvider.approve`); otra que cobre sigue con el aviso del paso 6b.
+  Un «no» basta.
+  - Carrera arreglada de raíz: la clave de la nube se carga sola al abrir, y generar apenas abierta
+    la app daba la voz de la nube por faltante; ahora se espera a que se sepa (`loaded`).
+- **Ajustes:** «Clonación de voz», «Crear una voz» y «La nube para voces» (el interruptor, la clave
+  y lo gastado), también desde Mías. Todo a 360 dp con la letra al doble, en claro y en oscuro, y
+  con el lector de pantalla.
+- **De paso:** `tool/verify_commit.ps1` exporta también los recursos que declara `pubspec.yaml`;
+  sin `GUIA_DE_USO.md`, `NOVEDADES.md` ni `assets/`, cada commit desde el paso 7a sumaba diez
+  avisos `asset_does_not_exist` y no pasaba la línea base.
+- **Verificado:**
+  - analyze en 19, completo, sobre `4120c60d`;
+  - 1.416 pruebas de la narración, la bóveda y la lectura; 2.552 de Ajustes, la app, los visores,
+    lo creado con el podcast y la Ayuda (23 omitidas, y una que falla también en `main`: el censo
+    de licencias de la Ayuda, por la letra Atkinson del paso 1); 1.328 de `core` con el censo de
+    los avisos y la base;
+  - murieron las 30 mutaciones: 19 del enganche del podcast y 11 de la unión de bóvedas;
+  - `in_app_model_file_transfer_test` («se puede pausar») falló una vez y pasa sola 9 de 9: queda
+    anotada como intermitente;
+  - commit a commit (`verify_commit`): pendiente, con el resto de lo integrado el 5/11.
+- **Queda para después:**
+  - probarlo con una clave real de ElevenLabs en el teléfono;
+  - clonar en el teléfono, cuando haya un ZipVoice con español;
+  - no se miró en el emulador ni en el teléfono.
+
 ### Paso 6a (hecho): el podcast, hasta el guion
 
 Seis commits, de `5e8f3d09` a `547430b3` (decisiones B, E, F y L). La segunda parte —el audio de
