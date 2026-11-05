@@ -37,6 +37,11 @@ sealed class SourceImage with _$SourceImage {
 
     /// El tipo que dijo el servidor, si lo dijo.
     String? mimeType,
+
+    /// De qué dirección se bajó, si se bajó de una página: con ella se la
+    /// encuentra en el texto de la página, bajo su título (F46, decisión E,
+    /// `sourceImageTitles`). `null` en el archivo de la fuente misma.
+    String? originUrl,
   }) = _SourceImage;
 }
 

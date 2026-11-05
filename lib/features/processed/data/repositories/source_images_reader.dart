@@ -64,7 +64,7 @@ class SourceImagesReader {
     if (contentLimit == 0) return images;
     final rows = await _db
         .customSelect(
-          'SELECT relative_path, size_bytes, title, mime_type '
+          'SELECT relative_path, size_bytes, title, mime_type, origin_url '
           'FROM renditions r WHERE $_contentImageSql '
           'ORDER BY COALESCE(r.position, -1), r.created_at, r.id '
           'LIMIT ?3 OFFSET ?4',
@@ -88,6 +88,7 @@ class SourceImagesReader {
           sizeBytes: size ?? 0,
           title: _clean(row.readNullable<String>('title')),
           mimeType: row.readNullable<String>('mime_type'),
+          originUrl: _clean(row.readNullable<String>('origin_url')),
         ),
       );
     }

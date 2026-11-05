@@ -69,6 +69,7 @@ void main() {
     int? size = 100,
     String? title,
     String? mime,
+    String? originUrl,
     RenditionKind kind = RenditionKind.image,
   }) async {
     final path = 'originales/$itemId/contenido/$name';
@@ -86,6 +87,7 @@ void main() {
             sizeBytes: Value(size),
             title: Value(title),
             mimeType: Value(mime),
+            originUrl: Value(originUrl),
           ),
         );
     return path;
@@ -163,6 +165,29 @@ void main() {
       final images = await reader.list('web');
       expect([for (final i in images) i.path], [photo]);
       expect((await reader.summary('web')).count, 1);
+    });
+
+    test('una foto bajada de una página dice de qué dirección vino, para '
+        'encontrarla bajo su título en el texto (F46, decisión E); el '
+        'archivo de la fuente no tiene dirección', () async {
+      final own = await saveSource(
+        'post',
+        kind: SourceKind.socialPost,
+        blobName: 'post.jpg',
+      );
+      await addPhoto(
+        'post',
+        'mapa.jpg',
+        position: 1,
+        originUrl: '  https://ejemplo.org/img/mapa.jpg  ',
+      );
+      await addPhoto('post', 'sin.jpg', position: 2, originUrl: '   ');
+
+      final images = await reader.list('post');
+      expect(images.first.path, own);
+      expect(images.first.originUrl, isNull);
+      expect(images[1].originUrl, 'https://ejemplo.org/img/mapa.jpg');
+      expect(images[2].originUrl, isNull);
     });
 
     test('lo que la base no sabe cuánto pesa se mide en el disco', () async {
