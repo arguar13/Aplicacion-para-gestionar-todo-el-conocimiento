@@ -13,6 +13,7 @@ import 'package:sinapsis/features/text_notes/domain/entities/text_note.dart';
 import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
 import 'package:sinapsis/features/text_notes/domain/repositories/text_note_repository.dart';
 import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
+import 'package:sinapsis/features/viewer/presentation/screens/image_viewer_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../support/library_harness.dart';
@@ -556,6 +557,47 @@ void main() {
   });
 
   group('en una transcripción y en lo creado', () {
+    testWidgets('la foto: sus notas son las del texto que se leyó en ella; '
+        'desde «Imagen», «Notas (N)» —sin ningún aviso de que no se ven— '
+        'pasa a «Texto», donde está con su globito, y la abre', (tester) async {
+      await harness.saveTextSource(
+        'foto',
+        title: 'Una pizarra',
+        text: text,
+        kind: SourceKind.image,
+      );
+      const photo = TextNoteTarget.sourceOriginal(
+        sourceId: 'foto',
+        renditionId: 'rend-foto',
+      );
+      final note = await noteOn(photo, 'Rubicón', note: 'El río');
+      await tester.pumpWidget(
+        harness.wrap(
+          const ImageViewerScreen(
+            path: 'no-esta.png',
+            title: 'Una pizarra',
+            text: (
+              itemId: 'foto',
+              renditionId: 'rend-foto',
+              content: text,
+              markdown: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(Key('text-note-bubble-${note.id}')), findsNothing);
+
+      await openNotesList(tester);
+      expect(find.text(es.f45S8bNotesMenu(1)), findsOneWidget);
+      expect(find.text(es.f45S8bNotesNoPlace), findsNothing);
+      await tester.tap(find.text('El río'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('image-text')), findsOneWidget);
+      expect(find.byKey(Key('text-note-bubble-${note.id}')), findsOneWidget);
+      expect(find.byKey(Key('text-note-card-${note.id}')), findsOneWidget);
+    });
+
     testWidgets('la transcripción de un audio: «Nota» sobre lo elegido, el '
         'punteado, el globito y «Notas (N)»', (tester) async {
       await harness.saveTextSource(

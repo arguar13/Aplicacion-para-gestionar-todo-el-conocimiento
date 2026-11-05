@@ -15283,8 +15283,6 @@
   "@f45S8bNotesNoPlace": {"description": "F45, paso 8b: el título de las notas, al final de la lista, que no tienen un lugar en el texto que se ve: su pedazo ya no está, o son sobre el texto entero."},
   "f45S8bNotesNoPlaceHint": "Su pedazo ya no está en este texto, o son sobre el texto entero. No se pierden.",
   "@f45S8bNotesNoPlaceHint": {"description": "F45, paso 8b: la línea chica debajo de «Sin lugar» en la hoja «Notas (N)»."},
-  "f45S8bNotesOnPage": "En esta vista las notas no se marcan sobre la página: se ponen con «Nota» al elegir texto y se abren desde acá.",
-  "@f45S8bNotesOnPage": {"description": "F45, paso 8b: la línea arriba de la hoja «Notas (N)» cuando el original se ve como página (un PDF, una página web, la imagen de una foto), donde no van los globitos."},
   "f45S8bWholeText": "Sobre el texto entero",
   "@f45S8bWholeText": {"description": "F45, paso 8b: en lugar del pedazo citado, en una nota que se escribió sobre el texto entero, sin elegir nada."},
   "f45S8bNewWholeNote": "Nota sobre el texto entero",

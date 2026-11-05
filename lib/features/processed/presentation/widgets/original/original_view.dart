@@ -15,8 +15,6 @@ import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart'
 import 'package:sinapsis/features/reading/presentation/frame/reading_more_sheet.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
-import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
-import 'package:sinapsis/features/text_notes/presentation/widgets/text_notes_list_sheet.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/mobile_page_width.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_viewer_view.dart';
@@ -221,21 +219,21 @@ class OriginalView extends StatelessWidget {
           OriginalNotice(message: notice),
         Expanded(
           child: switch (format) {
-            OriginalFormat.pdf => _NotesOnPage(
+            // Las notas en el texto (F45, paso 8c) van sobre la página: cada
+            // visor las pone y se las da a «Notas (N)» del marco.
+            OriginalFormat.pdf => PdfViewerView(
+              path: path!,
               text: text,
-              child: PdfViewerView(path: path!, text: text, title: title),
+              title: title,
             ),
-            OriginalFormat.page => _NotesOnPage(
-              text: text,
-              child: MobilePageWidth(
-                child: WebPageViewerView(
-                  path: path!,
-                  url: url,
-                  text: text,
-                  title: title,
-                  readAloud: true,
-                  mobile: true,
-                ),
+            OriginalFormat.page => MobilePageWidth(
+              child: WebPageViewerView(
+                path: path!,
+                url: url,
+                text: text,
+                title: title,
+                readAloud: true,
+                mobile: true,
               ),
             ),
             OriginalFormat.reader when text == null =>
@@ -257,33 +255,6 @@ class OriginalView extends StatelessWidget {
           },
         ),
       ],
-    );
-  }
-}
-
-/// Las notas en el texto de un original que se ve como página —un PDF, una
-/// página web— (F45, paso 8b): se ponen con «Nota» en la barrita de la
-/// selección, que la ubica en el texto extraído como un resaltado, y se ven
-/// en «Notas (N)» de ⋮; sobre la página no van globitos. Sin texto, ninguna.
-class _NotesOnPage extends StatelessWidget {
-  const _NotesOnPage({required this.text, required this.child});
-
-  final StudyText? text;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = this.text;
-    return ReadingNotesOffer(
-      sources: [
-        if (text != null)
-          TextNoteSource(
-            target: textNoteTargetOf(text),
-            content: text.content,
-            onPage: true,
-          ),
-      ],
-      child: child,
     );
   }
 }

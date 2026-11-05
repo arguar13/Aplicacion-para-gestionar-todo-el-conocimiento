@@ -91,7 +91,8 @@ class _ImageWithTextState extends State<_ImageWithText> {
       // El texto se ofrece después de su primer cuadro.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         for (final source in frame?.noteSources ?? const <TextNoteSource>[]) {
-          if (!source.onPage) source.reveal?.call(start, end);
+          // El del texto, no este.
+          if (source.reveal != _revealInText) source.reveal?.call(start, end);
         }
       });
     });
@@ -135,14 +136,15 @@ class _ImageWithTextState extends State<_ImageWithText> {
                   study: widget.text,
                 )
               // La imagen sola lleva el tono de la página: la letra del
-              // texto va con el modo. Sus notas (F45, paso 8b) son las del
-              // texto: desde «Notas (N)», ir a una pasa a «Texto».
+              // texto va con el modo. Sus notas (F45, pasos 8b y 8c) son las
+              // del texto, que se leyó sin saber dónde está cada letra en la
+              // foto: no van sobre la imagen. Desde «Notas (N)», ir a una
+              // pasa a «Texto», donde está con su globito.
               : ReadingNotesOffer(
                   sources: [
                     TextNoteSource(
                       target: textNoteTargetOf(widget.text),
                       content: widget.text.content,
-                      onPage: true,
                       reveal: _revealInText,
                     ),
                   ],

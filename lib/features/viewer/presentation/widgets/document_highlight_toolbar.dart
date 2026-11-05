@@ -42,8 +42,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// colores, tarjeta ni línea de tiempo.
 ///
 /// «Nota» escribe una nota en el texto (F45, paso 8b, decisión I), ya no un
-/// resaltado con nota: sobre la página no va el globito, y se ve en «Notas
-/// (N)» de ⋮.
+/// resaltado con nota: sobre la página de un PDF o dentro de la página web
+/// va con su punteado y su globito (F45, paso 8c), y está en «Notas (N)» de
+/// ⋮.
 Widget documentHighlightToolbar(
   BuildContext context,
   WidgetRef ref, {

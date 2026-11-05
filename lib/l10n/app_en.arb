@@ -16260,8 +16260,6 @@
   "@f45S8bNotesNoPlace": {"description": "F45, step 8b: heading, at the end of the list, of the notes with no place in the text shown: their piece is gone, or they are on the whole text."},
   "f45S8bNotesNoPlaceHint": "Their piece is no longer in this text, or they are on the whole text. They are never lost.",
   "@f45S8bNotesNoPlaceHint": {"description": "F45, step 8b: the small line under «No place» in the «Notes (N)» sheet."},
-  "f45S8bNotesOnPage": "In this view notes are not marked on the page: add them with «Note» when selecting text and open them from here.",
-  "@f45S8bNotesOnPage": {"description": "F45, step 8b: the line on top of the «Notes (N)» sheet when the original is shown as a page (a PDF, a web page, a photo's image), where bubbles do not go."},
   "f45S8bWholeText": "On the whole text",
   "@f45S8bWholeText": {"description": "F45, step 8b: instead of the quoted piece, for a note written on the whole text, without selecting anything."},
   "f45S8bNewWholeNote": "Note on the whole text",

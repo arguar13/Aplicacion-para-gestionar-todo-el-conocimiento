@@ -12,16 +12,16 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// le cuenta al marco para «Notas (N)» —de qué texto son ([target]), el texto
 /// que se muestra ([content]) y cómo llevar la vista a un lugar ([reveal])—.
 ///
-/// - [content] `null`: el texto no está a mano —un informe, que no se elige
-///   de corrido—, y todas sus notas van a «Sin lugar».
+/// - [content] `null`: el texto no está a mano, y todas sus notas van a «Sin
+///   lugar».
 /// - [reveal] lleva la vista a `[start, end)` de [content] y lo marca un
 ///   momento; devuelve si pudo —lo que se ve puede no tenerlo: el resumen no
-///   trae todas las oraciones—. `null` si el cuerpo no puede —una página de
-///   PDF—: tocar una nota la abre.
+///   trae todas las oraciones—. En la página de un PDF y en una página web
+///   (F45, paso 8c), a su lugar sobre la página; en la imagen de una foto, al
+///   texto que se leyó en ella. `null` si el cuerpo no puede: tocar una nota
+///   la abre.
 /// - [title]: con varios textos en el mismo marco —una extracción de varios
 ///   documentos—, el de cada uno, arriba de sus notas.
-/// - [onPage]: el cuerpo muestra la página tal cual —un PDF, una página web,
-///   la imagen de una foto— y no lleva globitos: la lista lo dice.
 @immutable
 class TextNoteSource {
   const TextNoteSource({
@@ -29,14 +29,12 @@ class TextNoteSource {
     this.content,
     this.reveal,
     this.title,
-    this.onPage = false,
   });
 
   final TextNoteTarget target;
   final String? content;
   final bool Function(int start, int end)? reveal;
   final String? title;
-  final bool onPage;
 
   /// Si [other] es el mismo texto, sin mirar [reveal] —una función nueva en
   /// cada cuadro—.
@@ -44,7 +42,6 @@ class TextNoteSource {
       other.target == target &&
       other.content == content &&
       other.title == title &&
-      other.onPage == onPage &&
       (other.reveal == null) == (reveal == null);
 }
 
@@ -135,15 +132,6 @@ class _NotesList extends ConsumerWidget {
           ),
         ),
       ),
-      if (sources.any((source) => source.onPage))
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 4, 24, 4),
-          child: Text(
-            l10n.f45S8bNotesOnPage,
-            key: const Key('text-notes-on-page'),
-            style: theme.textTheme.bodySmall?.copyWith(color: muted),
-          ),
-        ),
       if (!loading && total == 0)
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
