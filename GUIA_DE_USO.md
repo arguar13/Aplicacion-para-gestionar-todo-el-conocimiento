@@ -946,14 +946,42 @@ lugar. Cambiarles el color cambia también el del resaltado, y borrarlas le
 saca la nota pero deja el resaltado. Tocar el pedazo de un resaltado con nota
 abre su ficha de siempre.
 
-**En el PDF, en la página web y en la imagen de una foto**, las notas también
-se ponen con **Nota** al seleccionar: se guardan sobre el texto extraído, como
-los resaltados. Sobre la página no se dibuja el globito; las ves en
-**«Notas (N)»** (la lista lo dice arriba). En una foto, ir a una nota desde la
-imagen pasa a **«Texto»**, donde está con su globito.
+**En un PDF**, las notas se ponen con **Nota** al seleccionar —se guardan
+sobre el texto extraído, como los resaltados— y **se ven sobre la página
+misma**: el pedazo con su punteado y, **en el margen derecho de la página, a la
+altura de su renglón, el globito** de la nota, como el ícono de nota de Adobe.
+Los dos siguen a la página cuando acercás, alejás o te desplazás, y el globito
+no se agranda con el zoom. Tocá el globito o el pedazo y se abre la tarjeta de
+siempre. Desde **«Notas (N)»**, tocar una te lleva a su página y a su
+renglón, lo marca un momento y la abre. Una página escaneada no tiene letras
+donde marcar: lo dice arriba de la página, y sus notas están en **«Notas
+(N)»**, que te lleva a esa página.
 
-**En un informe** (lo creado), que no es un texto de corrido, las notas son
-sobre el informe entero: se escriben y se ven en **«Notas (N)»**.
+**En una página web**, lo mismo, dentro de la página: el punteado en el
+pedazo y el globito **al costado del párrafo**, en un margen angosto que se
+abre a la derecha con la primera nota (la página se corre ese poco, y ninguna
+letra queda tapada). Tocá el globito o el pedazo para abrirla; desde
+**«Notas (N)»**, la página baja hasta su renglón y lo marca un momento.
+
+**En una foto**, el texto se leyó de la imagen sin saber dónde está cada
+letra, así que sobre la imagen no hay dónde marcar las notas: ir a una desde
+**«Notas (N)»** pasa a **«Texto»**, donde está con su globito.
+
+**En un informe** (lo creado) podés poner una nota **sobre cualquier pedazo**:
+de un párrafo, una viñeta, un título, el glosario, una pregunta o una opción,
+y también de varios a la vez. Seleccioná el pedazo y tocá **Nota** en el menú
+de lo seleccionado (va primero, para que en el teléfono no quede escondida en
+«Más»). Se ve igual que en el texto: el punteado y el globito al costado del
+renglón. Tocar el pedazo punteado de una opción abre la nota **sin
+responder** la pregunta; tocá fuera del pedazo para elegirla. Desde **«Notas
+(N)»**, tocar una despliega su sección si estaba plegada, baja hasta ella, la
+marca un momento y la abre. La nota de una pregunta no se ve en el formato
+de lectura, que no muestra las preguntas: está en la lista. Las notas **sobre
+el informe entero** siguen como siempre, en **«Notas (N)»**.
+
+**Al descargar** con **«Mis notas»** (ver [Descargar con lo
+marcado](#descargar-con-lo-marcado)) o un informe, las notas sobre el texto
+entero van **al comienzo**, como notas del documento.
 
 **Lo que es de cada uno:** las notas del original de la Biblioteca son de la
 fuente; las de la copia de Procesado, de la copia; nada de uno aparece en el
@@ -2430,7 +2458,14 @@ como **notas del PDF**, las del ícono que se abre con un toque en cualquier
 lector, en el margen a la altura del renglón, con el pedazo subrayado del color
 de la nota; en el **Word**, el **texto suelto**, el **Markdown**, el **EPUB** y la
 **página web**, como **notas al pie**, numeradas en el orden del texto, con la
-llamada justo después del pedazo. Una nota que ya no encuentra su pedazo (el
+llamada justo después del pedazo. Las notas que escribiste **sobre el texto
+entero** van **al comienzo**, como notas del documento: en el PDF, notas del
+PDF de su color arriba a la izquierda de la primera página, con el título
+**«Notas del documento»**; en el Word y el texto suelto, un bloque con ese
+título y cada nota con la letra de una nota al pie y una raya de su color,
+separado del documento por una raya fina; en el Markdown, una cita con el
+título y una viñeta por nota; en la página web y el EPUB, el mismo bloque
+antes de lo primero que se lee. Una nota que ya no encuentra su pedazo (el
 texto cambió) no tiene dónde ir y no se baja; sigue en la app.
 Lo que todavía no existe aparece apagado y dice por qué, y la hoja arranca con
 lo que estás viendo resaltado. Tocás **Guardar** y elegís dónde, con el
@@ -4451,7 +4486,12 @@ visor), además de la orientación y el detalle.
 la fila en «Lo creado»): elegís **PDF** —A4, para leer o imprimir, con las palabras clave en
 rosa; en el interactivo, las preguntas en cada sección y las respuestas en una
 página aparte al final— o **Markdown** —para Obsidian u otro editor, con las
-palabras clave en negrita—.
+palabras clave en negrita—. Los dos llevan **tus notas**: las del informe
+entero al comienzo, debajo del título, bajo **«Notas del informe»**; las de un
+pedazo, con su número volado justo después del pedazo y lo que dicen al final
+(en el PDF, bajo **«Notas»**, antes de las respuestas; en el Markdown, como
+notas al pie). En el formato de lectura, que no muestra las preguntas, la
+nota de una pregunta va al comienzo con el pedazo que cita.
 
 Cambiar el formato o la plantilla de uno ya hecho es **"Volver a generar con
 otras opciones"**.
