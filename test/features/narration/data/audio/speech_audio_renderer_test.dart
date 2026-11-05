@@ -387,4 +387,27 @@ void main() {
     },
     timeout: const Timeout(Duration(seconds: 30)),
   );
+
+  test('hasWork: hay algo hecho de un intento cortado, y nada sin empezar, '
+      'después de soltarlo ni con una clave que no es una carpeta (F47, '
+      'paso 5)', () async {
+    expect(await renderer.hasWork('podcast-c1'), isFalse);
+    final signal = CancellationSignal();
+    voices.onSay = (voice, _) {
+      if (voice == 'fake:a') signal.cancel();
+    };
+    await expectLater(
+      renderer.render(request, cancellation: signal),
+      throwsA(isA<ProcessingCancelledException>()),
+    );
+    expect(await renderer.hasWork('podcast-c1'), isTrue);
+    expect(await renderer.hasWork('otro'), isFalse);
+    expect(await renderer.hasWork('../podcast-c1'), isFalse);
+    // Una carpeta con solo un tramo a medias no es lo hecho.
+    Directory(p.join(root.path, 'medias')).createSync();
+    File(p.join(root.path, 'medias', 't-x.wav.part')).writeAsBytesSync([1]);
+    expect(await renderer.hasWork('medias'), isFalse);
+    await renderer.discard('podcast-c1');
+    expect(await renderer.hasWork('podcast-c1'), isFalse);
+  }, timeout: const Timeout(Duration(seconds: 30)));
 }

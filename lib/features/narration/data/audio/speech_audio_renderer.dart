@@ -261,6 +261,21 @@ class SpeechAudioRenderer {
     await wav.rename(part.path);
   }
 
+  /// Si del trabajo [workKey] ya hay tramos hechos: un intento anterior que
+  /// se cortó o se canceló, que el próximo retoma sin rehacerlos (F47, paso
+  /// 5: «Seguir descargando»).
+  Future<bool> hasWork(String workKey) async {
+    if (!_validKey.hasMatch(workKey)) return false;
+    final folder = Directory(p.join((await _workRoot()).path, workKey));
+    if (!folder.existsSync()) return false;
+    return folder.listSync().whereType<File>().any(
+      (file) =>
+          p.basename(file.path).startsWith('t-') &&
+          p.extension(file.path) == '.wav' &&
+          _isDone(file),
+    );
+  }
+
   /// Borra la carpeta del trabajo [workKey]: lo que quien pidió ya guardó, o
   /// un trabajo que no se va a retomar. No falla si no estaba.
   Future<void> discard(String workKey) async {

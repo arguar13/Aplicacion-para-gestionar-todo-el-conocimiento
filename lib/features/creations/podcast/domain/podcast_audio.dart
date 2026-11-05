@@ -3,9 +3,6 @@
 /// genera.
 library;
 
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast.dart';
 import 'package:sinapsis/features/creations/podcast/domain/podcast_options.dart';
 import 'package:sinapsis/features/narration/domain/audio/speech_audio.dart';
@@ -41,18 +38,11 @@ List<SpeechAudioPiece> podcastSpeechPieces(
 }
 
 /// La huella de [pieces]: cambia si cambia un texto, una voz o una pausa.
-/// Es lo que dice si un audio guardado es de este guion con estas voces.
-String podcastAudioFingerprint(List<SpeechAudioPiece> pieces) {
-  final digest = sha256.convert(
-    utf8.encode(
-      jsonEncode([
-        for (final piece in pieces)
-          [piece.voiceId, piece.pauseAfter.inMilliseconds, piece.text],
-      ]),
-    ),
-  );
-  return digest.toString().substring(0, 32);
-}
+/// Es lo que dice si un audio guardado es de este guion con estas voces. La
+/// misma de todo audio generado ([speechAudioFingerprint], que comparte con
+/// el de un documento, paso 5): los podcasts de antes siguen siendo suyos.
+String podcastAudioFingerprint(List<SpeechAudioPiece> pieces) =>
+    speechAudioFingerprint(pieces);
 
 /// En qué está el audio de un podcast, para su visor.
 enum PodcastAudioState {

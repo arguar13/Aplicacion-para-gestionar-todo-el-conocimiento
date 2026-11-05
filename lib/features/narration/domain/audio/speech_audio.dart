@@ -7,6 +7,9 @@
 /// podcasts ni de documentos.
 library;
 
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 /// Un tramo de lo que se dice: [text] con la voz [voiceId], y [pauseAfter]
@@ -41,6 +44,22 @@ class SpeechAudioPiece {
   String toString() =>
       'SpeechAudioPiece($voiceId, ${pauseAfter.inMilliseconds} '
       'ms, «$text»)';
+}
+
+/// La huella de [pieces]: cambia si cambia un texto, una voz o una pausa.
+/// Es lo que dice si un audio guardado es de estos tramos con estas voces
+/// —el de un podcast (paso 6b), el de un documento (paso 5)—: un audio de
+/// otra huella quedó viejo, y no se hace pasar por el de ahora.
+String speechAudioFingerprint(List<SpeechAudioPiece> pieces) {
+  final digest = sha256.convert(
+    utf8.encode(
+      jsonEncode([
+        for (final piece in pieces)
+          [piece.voiceId, piece.pauseAfter.inMilliseconds, piece.text],
+      ]),
+    ),
+  );
+  return digest.toString().substring(0, 32);
 }
 
 /// Lo que se pide generar.
