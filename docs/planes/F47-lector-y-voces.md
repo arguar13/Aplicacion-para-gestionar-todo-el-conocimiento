@@ -419,6 +419,10 @@ Lo que no se suma, y por qué (para que quede dicho):
   - **Cambiada en el paso 2 por la alternativa**, a mano con la `MediaSession` de Android y sin
     dependencias nuevas: `audio_service` destruye el motor de Flutter al irse su servicio, y ese
     motor es el mismo de la cola de procesamiento (F29). El porqué, en el Avance del paso 2.
+  - **Precisada el 5/11 por el usuario**: con el teléfono bloqueado la tarjeta no dice qué suena
+    —«Reproduciendo» y el nombre de la app, sin título ni imagen, con los mismos botones—, y un
+    interruptor en Ajustes › Privacidad, «Mostrar el título en la pantalla de bloqueo», lo deja
+    a la vista. De entrada, apagado. Hecho en el paso 7a-bis.
 
 - **K. Los filtros se siguen aplicando al tocarlos, y el botón de abajo cierra el panel con la
   cifra de lo que se va a ver.** Así la cifra dice de antemano si un filtro deja algo, y no se
@@ -1078,11 +1082,22 @@ parte —Ajustes → «Voz y lectura» entera— es el paso 7b.
     `RenderedMarkdown`, que usa toda la app;
   - no se miró en el emulador ni en el teléfono.
 
-### Paso 7a-bis (hecho): «Seguir escuchando» y la bóveda cerrada
+### Paso 7a-bis (hecho): lo que se ve sin abrir la app
 
-Lo que quedó «para decidir con el dueño» en el 7a, decidido el 5/11 (decisión G, precisada): con
-la bóveda cerrada el widget no muestra el título, y un interruptor lo deja a la vista para quien
-lo quiera. De entrada, apagado. Cuatro commits, de `f0f32e25` a `20c0849b`, y el de este avance.
+Dos decisiones del usuario del 5/11, las dos con el mismo criterio —protege de entrada, y un
+interruptor lo deja a la vista para quien lo quiera—:
+
+- **«Seguir escuchando» y la bóveda cerrada** (decisión G, precisada): lo que quedó «para decidir
+  con el dueño» en el 7a. Cuatro commits, de `e1fc0c5a` a `be10dc94`, y el primer avance
+  (`00855ab6`).
+- **La tarjeta de lo que suena en la pantalla de bloqueo** (decisión J, precisada): lo que ese
+  primer avance había dejado anotado para decidir. Cuatro commits más, de `14991dbf` a
+  `e682a8be`, y el de este avance.
+
+Todo sobre `5c8ad18f` (el paso 1, F45 p1 con el aviso común y el 6b del podcast); no se sumó
+ningún aviso.
+
+#### «Seguir escuchando» y la bóveda cerrada
 
 - **El interruptor**, «Mostrar el título con la bóveda cerrada», al pie de Ajustes › Widgets, en
   lugar del aviso de antes (`f47P7WidgetsPrivacy`, borrado). Debajo, a todo el ancho, lo que pasa
@@ -1126,37 +1141,107 @@ lo quiera. De entrada, apagado. Cuatro commits, de `f0f32e25` a `20c0849b`, y el
 - **«Para hoy» no cambia:** con la bóveda cerrada sigue mostrando la cifra. Es un número, no dice
   de qué son las tarjetas; ocultarlo le quitaría al widget su razón de ser sin proteger nada.
   «Guardar rápido» no muestra nada propio.
-- **Archivos:** `home_screen_widgets.dart` (`ContinueListeningDisplay` y `ContinueListeningShown`),
+- **Archivos del widget:** `home_screen_widgets.dart` (`ContinueListeningDisplay` y
+  `ContinueListeningShown`),
   `home_widgets_providers.dart` (el interruptor, el encendido de ahora y lo que se manda),
   `android_home_screen_widgets.dart`, `null_home_screen_widgets.dart`, `home_widgets_binding.dart`
   (solo lo que escucha `initState`; `_onPlaying` no se tocó), `home_widgets_screen.dart`;
   `DeviceBoot.kt` (nuevo), `HomeWidgets.kt`, `HomeWidgetProviders.kt`, `SinapsisEngine.kt`, el
   manifiesto y los textos de los widgets en castellano y en inglés; los `.arb`.
-- **Verificado:**
-  - analyze en 19. En el primer intento de la pantalla quedaban dos de más (`containsSemantics`,
-    obsoleto): se cambió por `isSemantics`, como la prueba de al lado, antes de cerrar el commit;
-  - 967 pruebas de la app (`test/app`), la bóveda, Ajustes y los widgets, y 42 de la Ayuda (la
-    guía empaquetada es la de la raíz), todas en verde. 22 nuevas: 13 de la regla y de lo que se
-    le manda al widget (de entrada oculto; cerrada, el genérico; abierta en este encendido, el
-    título; reiniciado el teléfono o sin saber el encendido, el genérico; el interruptor, al
-    instante y guardado; a la vista por elección, siempre el título), 3 del binding con la
-    bóveda cerrada (abrirla y bloquearla, el interruptor, el toque que pide la clave y después
-    va adonde se escuchó), 1 del orden al guardar, 4 de la pantalla (en claro y en oscuro a
-    360 dp con la letra al doble, prender y apagar, el lector de pantalla) y 2 censos;
-  - **lo que encontró la prueba de la pantalla:** con la explicación como subtítulo del
-    interruptor, a 360 dp con la letra al doble quedaba en una columna de 172 px más alta que la
-    pantalla. Pasó abajo, a todo el ancho, y los textos se acortaron;
-  - la regla de Kotlin no tiene prueba propia: el proyecto no tiene pruebas de JVM y sumarlas era
-    infraestructura nueva. Queda en una función pura, comentada caso por caso, y los censos
-    comprueban que tiene los mismos tres casos que la de Dart, que lee el encendido de
-    `DeviceBoot` y que el receptor escucha el arranque;
-  - no se compiló el APK ni se miró en el emulador ni en el teléfono.
-- **Queda para después:**
-  - **la tarjeta de la notificación de medios** (paso 2) se arma con `VISIBILITY_PUBLIC` y el
-    título de lo que suena (`MediaPlaybackService.kt`): en la pantalla de bloqueo se ve el título
-    aunque la bóveda esté cerrada, y con «ocultar contenido sensible» del teléfono también, porque
-    es pública. Mientras suena, la bóveda está abierta —se escucha desde la app—, pero al apagar
-    la pantalla con algo sonando, el título queda a la vista de quien tome el teléfono. Decidir si
-    pasa a `VISIBILITY_PRIVATE` con una versión pública sin el título, o si sigue igual;
-  - probarlo en el teléfono: reiniciar con el widget puesto y ver que dice «Protegido» antes de
-    abrir la app.
+
+#### La tarjeta de lo que suena en la pantalla de bloqueo
+
+- **De entrada, con el teléfono bloqueado la tarjeta no dice qué suena:** «Reproduciendo» y el
+  nombre de la app, sin título, sin subtítulo y sin imagen. La barra, el tiempo y los botones
+  (−10 s, ▶/⏸, +10 s y «siguiente» si hay cola) siguen iguales y andan: son las mismas acciones.
+  Al desbloquear vuelve todo. Desbloqueado, la tarjeta es la de siempre.
+- **El interruptor**, «Mostrar el título en la pantalla de bloqueo», en una sección nueva de
+  Ajustes, **Privacidad**, justo antes de la Bóveda y solo donde hay tarjeta (Android). Se pensó
+  en «Voz y lectura», pero la tarjeta es de todo lo que suena —el lector, un audio, un video, la
+  voz del chat—, no solo de la lectura, y el paso 7b va a rehacer esa sección; igual quedó en una
+  pieza suelta (`LockScreenTitleTile`) por si se la quiere mover. Debajo, a todo el ancho, lo que
+  pasa en cada caso. Se guarda en las preferencias de la app
+  (`media_session.show_title_on_lock_screen`) y llega a Android al abrirse la app —antes de que
+  suene nada— y cada vez que cambia (`lockScreenTitleSyncProvider`, que mantiene `App`); la
+  tarjeta que está a la vista cambia en el momento. Hasta que llega, Android oculta.
+- **Por dónde se veía el título, y cómo se cerró cada camino** (`LockScreenPrivacy.kt`, la regla
+  en una función pura, y `MediaPlaybackService.kt`):
+  1. **La notificación, con «mostrar todo el contenido»** (lo de fábrica en casi todos los
+     teléfonos): una notificación privada **se muestra entera igual**; `VISIBILITY_PRIVATE` solo
+     oculta con «ocultar contenido sensible». Por eso no alcanzaba con cambiar la visibilidad: con
+     el teléfono bloqueado, la tarjeta misma pasa a lo genérico.
+  2. **La notificación, con «ocultar contenido sensible»:** va con `VISIBILITY_PRIVATE` y una
+     `setPublicVersion(...)` genérica, con los mismos botones, que el sistema muestra en su lugar.
+     Cubre además el instante antes de que el servicio se entere de que se bloqueó.
+  3. **La sesión de medios:** desde Android 11 los controles de medios de la pantalla de bloqueo
+     y de los ajustes rápidos se arman con los **metadatos de la `MediaSession`** —título,
+     artista, imagen—, no con el texto de la notificación; de Android 7 a 10 la pantalla de
+     bloqueo muestra la notificación, pero algunos teléfonos ponen de fondo la imagen de la
+     sesión. Por eso, bloqueado, los metadatos también son los genéricos, sin imagen.
+  - **«Bloqueado»** es la pantalla apagada —también la siempre encendida, que para Android no es
+    interactiva— o el bloqueo a la vista (`!PowerManager.isInteractive ||
+    KeyguardManager.isKeyguardLocked`). El servicio escucha mientras vive `SCREEN_OFF`,
+    `SCREEN_ON` y `USER_PRESENT`: al apagarse la pantalla ya pasa a lo genérico, antes de que
+    nadie la vea; al prenderse dentro del tiempo de gracia del bloqueo, como no hay bloqueo,
+    vuelve; y al desbloquear, vuelve. Si arranca con el teléfono bloqueado —un botón de los
+    auriculares—, arranca genérica.
+  - **Lo que no cubre:** con el interruptor apagado, lo que lee la sesión con el teléfono
+    bloqueado —el auto por Bluetooth, el reloj— también ve «Reproduciendo» (quien lo quiera ver
+    ahí, lo prende); y una app con acceso a las notificaciones del teléfono ve la notificación
+    entera, como en cualquier reproductor: es un permiso que da la persona.
+- **Archivos de la tarjeta:** `LockScreenPrivacy.kt` (nuevo), `MediaPlaybackService.kt`,
+  `MediaSessionChannel.kt` (el método `lockScreen`), `media_strings.xml` en castellano y en inglés;
+  `lock_screen_title.dart` (nuevo: la preferencia y su envío), `media_session.dart`
+  (`showTitleOnLockScreen`), `method_channel_media_session.dart`, `null_media_session.dart`,
+  `app.dart`, `lock_screen_title_tile.dart` (nuevo) y `settings_screen.dart`; los `.arb`.
+
+#### Verificado
+
+- **analyze en 19**, completo, sobre `5c8ad18f`. En el primer intento de la pantalla de los
+  widgets quedaban dos de más (`containsSemantics`, obsoleto): se cambió por `isSemantics`, como
+  la prueba de al lado, antes de cerrar el commit.
+- **1.084 pruebas en verde** de `test/core/audio`, Ajustes, la app (`test/app`, con
+  `home_widgets_binding_test`), los widgets, la bóveda, la Ayuda y el censo de avisos, con
+  `--concurrency=2`. Falla una, el censo de licencias de las letras de la Ayuda, que ya falla en
+  `main` y no es de este paso.
+- **38 pruebas nuevas:**
+  - **del widget, 22:** 13 de la regla y de lo que se le manda (de entrada oculto; cerrada, el
+    genérico; abierta en este encendido, el título; reiniciado el teléfono o sin saber el
+    encendido, el genérico; el interruptor, al instante y guardado; a la vista por elección,
+    siempre el título), 3 del binding con la bóveda cerrada (abrirla y bloquearla, el
+    interruptor, el toque que pide la clave y después va adonde se escuchó), 1 del orden al
+    guardar, 4 de la pantalla (en claro y en oscuro a 360 dp con la letra al doble, prender y
+    apagar, el lector de pantalla) y 2 censos;
+  - **de la tarjeta, 16:** 6 de la preferencia y su envío (de entrada apagada, guardada, llega al
+    abrirse la app y al cambiar, prendida desde antes, nada donde no hay tarjeta, el método del
+    canal), 3 censos del lado de Android y 7 de Ajustes › Privacidad (en claro y en oscuro a
+    360 dp con la letra al doble, prender y apagar, justo antes de la Bóveda, ausente sin
+    tarjeta, el lector de pantalla).
+- **Lo que encontró la prueba de la pantalla de los widgets:** con la explicación como subtítulo
+  del interruptor, a 360 dp con la letra al doble quedaba en una columna de 172 px más alta que
+  la pantalla. Pasó abajo, a todo el ancho, y los textos se acortaron; Privacidad nació igual.
+- **Murieron las 18 mutaciones:** sin «a la vista por elección», el encendido que no se compara,
+  la preferencia del widget prendida de entrada, el encendido mandado con la bóveda cerrada,
+  mandar algo antes de saber si la bóveda quedó abierta, el encendido guardado con el título, la
+  explicación que no cambia, el binding que no manda lo genérico, el widget de Kotlin que se
+  compara consigo mismo, el arranque fuera del manifiesto; la preferencia de la tarjeta prendida
+  de entrada, que no llegue al abrirse la app, el canal que siempre dice «mostrar», Privacidad
+  donde no hay tarjeta, el interruptor que no prende, y en Kotlin la tarjeta sin versión
+  pública, arrancando a la vista y sin enterarse del desbloqueo.
+- **Las reglas de Kotlin** no tienen prueba propia: el proyecto no tiene pruebas de JVM y
+  sumarlas era infraestructura nueva. Quedan en funciones puras, comentadas caso por caso
+  (`HomeWidgets.continueListeningShown` y `LockScreenPrivacy`), y los censos comprueban lo que
+  las une con Dart: los mismos tres casos del widget, el encendido de `DeviceBoot`, el receptor
+  del arranque, el método `lockScreen` del canal y que la tarjeta use la regla, escuche la
+  pantalla, tenga su versión pública y arranque oculta.
+- **El APK de depuración compila** (`dev`, con todo el Kotlin de este paso, sobre `917a11c0`).
+  El rebase sobre `5c8ad18f` unió sin conflicto `SinapsisEngine.kt` (main le sumó la voz del
+  teléfono para el 6b) y no se volvió a compilar. No se miró en el emulador ni en el teléfono.
+
+#### Queda para después
+
+- probarlo en el teléfono: reiniciar con el widget puesto y ver que dice «Protegido» antes de
+  abrir la app; con algo sonando, bloquear y ver «Reproduciendo» en la pantalla de bloqueo, con
+  «mostrar todo el contenido» y con «ocultar contenido sensible», que los botones anden y que al
+  desbloquear vuelva el título; y en un Android 11 o más nuevo, los controles de medios de los
+  ajustes rápidos con el teléfono bloqueado.
