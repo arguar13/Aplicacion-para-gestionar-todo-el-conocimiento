@@ -793,3 +793,101 @@ globitos y «Notas (N)»— es el paso 8b, sobre el marco de lectura de F47 (pas
     F22, a las notas del elemento (no se migra);
   - la búsqueda de la Biblioteca encuentra la fuente por una nota, pero el renglón del
     resultado no muestra la nota: muestra el fragmento, como siempre.
+
+### Paso 1 (hecho): los avisos
+
+Diecisiete commits, de `5e86957a` a `eddc25e2`, y el de este avance (mejora 1, decisiones A y C;
+con F47, paso 2).
+
+- **Un solo aviso para toda la app** (`AppSnackBar`, en `core/design/widgets/app_snack_bar.dart`):
+  - el texto a la izquierda, hasta tres renglones; lo que no entra termina en «…»;
+  - uno o dos botones a la derecha: `action`, el principal, pegado a la ✕ («Deshacer»), y
+    `secondaryAction` a su izquierda («Ver»). Con un botón, el aviso se queda hasta que lo
+    cierren;
+  - **la ✕ en todos**, también en una confirmación corta como «Copiado» (decisión A). El lector
+    de pantalla la anuncia «Cerrar aviso», para no confundirla con la ✕ de una hoja abierta
+    debajo;
+  - si todo entra en un renglón, va en uno; si no, **como una tarjeta**: el texto toma el ancho,
+    la ✕ queda arriba a la derecha, a la altura del primer renglón, y los botones bajan juntos a
+    la derecha. Si ni así entran lado a lado, se apilan, también a la derecha. Nunca queda el
+    hueco en el medio que dejaba el `SnackBar` de Material;
+  - mientras se va, ya no recibe toques: un segundo botón tocado a destiempo no hace nada sobre
+    un aviso cerrado.
+- **Todos los avisos, al aviso común.** Había 183 en `main` (149 `SnackBar(` armados a mano y 34
+  `AppSnackBar(`); se pasaron en cuatro commits por zona, cada uno cambiando solo
+  `showSnackBar(SnackBar(` por `showAppSnackBar(AppSnackBar(`. Los que trajeron los pasos que se
+  integraron mientras tanto (7b, F44 p5, F47 p2, p3, p6a y p1) también: hoy son 186, en 105
+  archivos. Los tres que metían «Ver» dentro del texto, porque el aviso admitía un solo botón,
+  usan los dos botones, con sus mismas claves: «Triado · Ver · Deshacer» en la Bandeja, «Procesado
+  actualizado · Ver · Deshacer» al volver a triar y «Nota guardada en Procesado · Ver ·
+  Deshacer».
+- **La única puerta es `showAppSnackBar`**, que acepta solo un `AppSnackBar`: un aviso armado a
+  mano no compila por ahí. El censo (`test/core/design/snack_bar_census_test.dart`) exige que
+  fuera del aviso común no haya `showSnackBar(`, ni `SnackBar(` o `SnackBar.new`, ni otra clase
+  que herede de `SnackBar`, y que el recorrido encuentre más de 150 avisos.
+- **Lo que flota y lo que está anclado, con los avisos** (`snack_bar_footprint.dart`), en un
+  solo acuerdo:
+  - cada aviso publica lo que ocupa abajo (`SnackBarFootprint`: su alto desde el borde de abajo
+    de la pantalla y su presencia, de 0 a 1) en el anfitrión de la app,
+    `SnackBarFootprintHost`, en el `builder`, por encima del `Navigator`;
+  - **lo que flota encima se corre** con `LiftAboveSnackBar` (decisión C): el botón redondo de
+    leer en voz alta se para arriba del aviso, como un botón flotante de Android, sigue a un
+    toque y no tapa la ✕. Se mueve con la animación del aviso —sube mientras el aviso crece y
+    baja cuando se desvanece— y con «sin animaciones» o el lector de pantalla salta de una vez;
+  - **lo que está anclado debajo sube a los avisos** con `SnackBarFloor`: el reproductor de
+    lectura (F47, paso 2) los pone siempre encima suyo, abierto o achicado. Lo hace con el
+    margen de abajo de un `SnackBarTheme` propio, no del `Theme` de la app.
+- **Un solo mecanismo con el reproductor anclado.** El paso 2 subía los avisos cambiando el
+  `Theme` entero con `resting`, y este paso tenía su propio `floor` en el anfitrión. Quedó uno,
+  `SnackBarFloor`:
+  - cambiar un `SnackBarTheme` reconstruye solo los avisos. El `Theme` entero, cambiado a mitad
+    de un arrastre con la Lectura enfocada, volvía a armar la lista que se arrastraba; por eso
+    el paso 2 usaba `resting`. Con el tema propio se usa `current`, lo que ocupa ahora: el
+    aviso sigue al reproductor también achicado a mitad de un desplazamiento;
+  - `current` incluye la barra de navegación y el borde seguro, que el `Scaffold` ya esquiva:
+    `ReadAloudOverlay` los resta, así que no se suma dos veces;
+  - el aviso acompaña al reproductor con su misma animación (220 ms, la de su `AnimatedSize`);
+    con «sin animaciones», de una vez;
+  - el reproductor no se corre por un aviso: el aviso va siempre encima de él. `resting` queda
+    para lo que no debe moverse a mitad de un arrastre: hoy, el hueco al pie del marco de
+    lectura (`ReadingPlayerSlot`, F47, paso 1).
+- **La sonda del borde** (`TopEdgeProbe`, en el núcleo) mide también al acomodarse, no solo al
+  dibujarse: un aviso llega transparente y todavía no se dibuja, pero ya ocupa su lugar.
+  `ReadAloudClearance` usa la misma.
+- **La GUÍA**: los avisos de abajo en «Cómo te movés por la app», y el lector en voz alta que se
+  corre arriba de un aviso.
+- **Verificado:**
+  - analyze en 19, la línea base, sobre `main` con F47 paso 1;
+  - analyze en 19, la línea base, sobre `main` con F47 paso 1 (`917a11c0`);
+  - antes del último rebase, sobre `main` con F47 pasos 2 y 7a y F45 paso 8a, la suite entera en
+    cuatro tandas: 4.127, 3.773, 3.174 y 3.440. Dos fallas: `pcm_resampler_test`, de tiempos,
+    que pasa sola, y `synthetic_vault_test`, que falla igual en `main` (el paso 8a sumó los
+    disparadores de `text_notes` y esa prueba no los espera);
+  - después del último rebase, con concurrencia 2: 1.149 de `core/design`, la app, la narración,
+    el marco de lectura, los visores, Ajustes y Ayuda, y 2.181 de Procesado, la Biblioteca,
+    Repasar y la Bandeja. Una falla, también de `main`: el censo de licencias de Ayuda no tiene
+    la letra «Atkinson Hyperlegible Next» que empaquetó F47 paso 1;
+  - con la semántica prendida, el aviso que acompaña al reproductor cuando se achica y la
+    Lectura enfocada arrastrando con un aviso a la vista, sin errores;
+  - murieron las 28 mutaciones: 21 del aviso y el censo, y 7 del enganche con el reproductor.
+    Entre ellas: la ✕ solo en los que tienen botón, el segundo botón que se pierde, el hueco en
+    el medio, el renglón que no cuenta el ancho de los botones, el tope de tres renglones, el
+    aviso que se va y sigue recibiendo toques, el lector que no se corre, «sin animaciones»
+    ignorado, la sonda que mide solo al dibujarse, un aviso armado a mano o heredado que el
+    censo no ve, los avisos que suben con `resting`, la barra sumada dos veces y el piso por el
+    `Theme` entero, que vuelve a armar las pantallas. Dos sobrevivieron primero: una era
+    equivalente (el `OverflowBar` ya alinea a la derecha solo) y se cambió por su
+    `alignment`; la otra mostró que faltaba el caso de un texto corto con un botón largo, que
+    se agregó.
+- **Queda para después:**
+  - no se miró en el emulador ni en el teléfono;
+  - con un aviso **fijo** (`SnackBarBehavior.fixed`) a la vista, achicar el reproductor con la
+    semántica prendida hace que Flutter tire `'!child.attached'` en la semántica. Pasa igual con
+    un `SnackBar` de Material puro y sin el piso, así que no es de este paso; la app no tiene
+    avisos fijos (el tema los hace flotantes), pero queda anotado para el reproductor (F47);
+  - el margen abajo de las listas fuera del marco de lectura, para que el reproductor no tape
+    lo último, no va en el anfitrión de los avisos: es lo contrario —el contenido se aparta del
+    reproductor— y usa la otra cifra, `resting`, que no se mueve a mitad de un arrastre. Encaja
+    generalizando `ReadingPlayerSlot` del marco (F47, paso 1) a un relleno al pie de las listas;
+  - envolver el `builder` de `app.dart` con el anfitrión volvió a sangrar ese bloque: solo
+    espacios, pero choca con quien lo toque al mismo tiempo.
