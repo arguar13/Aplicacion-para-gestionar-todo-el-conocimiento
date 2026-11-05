@@ -12,6 +12,7 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/readable_reg
 import 'package:sinapsis/features/reading/presentation/frame/reading_ai_row.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_appearance_sheet.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_audio.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_contents_sheet.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_more_sheet.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_player_slot.dart';
@@ -247,7 +248,10 @@ class _ReadingFrameScope extends InheritedWidget {
 ///   app (F47, paso 2), que no tapa lo último que se lee. Sin el botón
 ///   flotante: el marco lo aparta (`ReadAloudDock`).
 /// - **⋮** lleva, además de [menu], «Resumir» si hay [onSummarize] y
-///   «Añadir a la cola» para lo que ofrece el cuerpo.
+///   «Añadir a la cola» para lo que ofrece el cuerpo; y arriba de todo, el
+///   audio de lo que ofrece el cuerpo (F47, paso 5): «Descargar audio»,
+///   «Exportar audio» y «Borrar el audio descargado» ([readingAudioGroup]),
+///   con la barra que dice cómo va la descarga ([ReadingAudioDownloadBar]).
 ///
 /// Nada de lo que se ve depende de que haya animaciones: la fila aparece y
 /// se va de una con «sin animaciones».
@@ -409,6 +413,15 @@ class _ReadingFrameState extends ConsumerState<ReadingFrame> {
           sum +
           (ref.watch(textNoteCountProvider(source.target)).valueOrNull ?? 0),
     );
+    // El audio descargado de lo que se lee, ya sabido al abrir ⋮.
+    watchReadingAudio(
+      ref,
+      ref.watch(
+        readableRegistryProvider.select(
+          (offered) => currentReadableOf(offered)?.id,
+        ),
+      ),
+    );
 
     return Theme(
       data: theme,
@@ -451,6 +464,7 @@ class _ReadingFrameState extends ConsumerState<ReadingFrame> {
                           context,
                           info: widget.info,
                           groups: [
+                            ?readingAudioGroup(context, ref),
                             if (widget.onSummarize case final summarize?)
                               ReadingMenuGroup([
                                 ReadingMenuEntry(
@@ -494,6 +508,7 @@ class _ReadingFrameState extends ConsumerState<ReadingFrame> {
                         ],
                       ),
                     ),
+                    const ReadingAudioDownloadBar(),
                     const ReadingPlayerSlot(),
                   ],
                 ),

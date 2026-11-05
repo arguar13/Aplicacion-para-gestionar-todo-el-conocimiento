@@ -59,4 +59,26 @@ class SystemCreationSharer {
       ),
     );
   }
+
+  /// Pasa el archivo del teléfono en [path] —el audio descargado de un
+  /// documento (F47, paso 5), que puede pesar decenas de megas— sin traerlo a
+  /// memoria: la hoja lo lee del disco. Con su nombre de verdad, [fileName].
+  Future<void> shareFileAt({
+    required String path,
+    required String fileName,
+    required String mimeType,
+    required String title,
+    Rect? origin,
+  }) async {
+    await _share(
+      ShareParams(
+        files: [XFile(path, mimeType: mimeType, name: fileName)],
+        fileNameOverrides: [fileName],
+        title: title,
+        subject: title,
+        sharePositionOrigin: origin,
+        mailToFallbackEnabled: false,
+      ),
+    );
+  }
 }

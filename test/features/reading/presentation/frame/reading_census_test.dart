@@ -14,7 +14,12 @@ import 'package:sinapsis/features/creations/presentation/widgets/creation_source
 import 'package:sinapsis/features/export/domain/entities/marked_document_format.dart';
 import 'package:sinapsis/features/export/presentation/providers/marked_download_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/transcript_follow_screen.dart';
+import 'package:sinapsis/features/narration/data/audio/document_audio_store.dart';
+import 'package:sinapsis/features/narration/domain/audio/document_audio.dart';
+import 'package:sinapsis/features/narration/domain/audio/speech_audio.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
+import 'package:sinapsis/features/narration/presentation/providers/document_audio_downloads.dart';
+import 'package:sinapsis/features/narration/presentation/providers/document_audio_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_dock.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
@@ -25,6 +30,7 @@ import 'package:sinapsis/features/processed/presentation/widgets/original/origin
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_view.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_cut_screen.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_audio.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
@@ -103,6 +109,10 @@ void main() {
     'A− A+ y la letra': 'Apariencia',
     'El tema de lectura (claro, oscuro, sepia)': 'Apariencia',
     'El lector de pantalla': 'cada botón con su nombre',
+    // Lo que suma ⋮ (F47, paso 5).
+    'Descargar audio, para escucharlo sin conexión':
+        '⋮ «Descargar audio», con la barra de su avance',
+    'Exportar audio': '⋮ «Exportar audio», con la hoja de compartir',
   };
 
   /// Lo que todavía no existe, con quién lo trae: ya nada (F45, paso 8b
@@ -124,8 +134,9 @@ void main() {
     expect(reached.intersection(pending.keys.toSet()), isEmpty);
   });
 
-  test('el censo tiene las 30 funciones de «Lo que hay hoy»', () {
-    expect(census, hasLength(30));
+  test('el censo tiene las 30 funciones de «Lo que hay hoy» y las 2 que '
+      'suma ⋮ en el paso 5 de F47', () {
+    expect(census, hasLength(32));
   });
 
   const text =
@@ -592,6 +603,87 @@ void main() {
     });
   });
 
+  group('el audio de lo que se lee (F47, paso 5)', () {
+    late LibraryHarness harness;
+    late _CensusDownloads downloads;
+
+    setUp(() async {
+      downloads = _CensusDownloads();
+      harness = await LibraryHarness.create(
+        extraOverrides: [
+          documentAudioSupportedProvider.overrideWithValue(true),
+          speechFallbackLocaleProvider.overrideWithValue('es-AR'),
+          documentAudioDownloadsProvider.overrideWith(() => downloads),
+          documentAudioResumableProvider.overrideWith((ref, _) => false),
+          audioFileSharerProvider.overrideWithValue(
+            ({
+              required path,
+              required fileName,
+              required mimeType,
+              required title,
+              origin,
+            }) async {},
+          ),
+        ],
+      );
+    });
+
+    testWidgets('⋮ del texto de un procesado: «Descargar audio» lo pide y, '
+        'descargado, «Exportar audio» lo pasa', (tester) async {
+      await harness.saveTextSource('roma', title: 'Roma', text: text);
+      final id = await harness.processTextAndNotes('roma');
+      await pumpApp(tester, harness);
+      await pushAndSettle(tester, harness, RoutePaths.processedDocument(id));
+      await tester.tap(find.byKey(const Key('processed-read-text')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('reading-frame-more')));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('reading-more-audio-download')),
+          matching: find.text(es.f47P5Download),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('reading-more-audio-download')));
+      await tester.pumpAndSettle();
+      final offered = harness.container.read(currentReadableProvider)!;
+      expect(downloads.requested, [offered.id]);
+      reach('Descargar audio, para escucharlo sin conexión');
+
+      await DocumentAudioStore(harness.files).save(
+        documentId: offered.id,
+        title: offered.title,
+        plan: downloads.planOf(offered),
+        result: SpeechAudioResult(
+          path: 'trabajo/audio.m4a',
+          mimeType: 'audio/mp4',
+          duration: const Duration(seconds: 9),
+          starts: [
+            for (final _ in downloads.planOf(offered).pieces) Duration.zero,
+          ],
+        ),
+        bytes: Stream.value(const [1, 2, 3]),
+        now: DateTime(2026, 11, 5),
+      );
+      harness.container.invalidate(documentAudioProvider(offered.id));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('reading-frame-more')));
+      await tester.pumpAndSettle();
+      expect(find.text(es.f47P5Ready('0:09')), findsOneWidget);
+      expect(
+        tester
+            .widget<ListTile>(
+              find.byKey(const Key('reading-more-audio-export')),
+            )
+            .enabled,
+        isTrue,
+      );
+      reach('Exportar audio');
+    });
+  });
+
   group('lo creado', () {
     late ExtractHarness h;
 
@@ -742,4 +834,18 @@ void main() {
       reach('La página web en vista móvil');
     });
   });
+}
+
+/// Las descargas de audio, sin generar nada: lo pedido queda anotado.
+class _CensusDownloads extends DocumentAudioDownloads {
+  final requested = <String>[];
+
+  @override
+  Future<DocumentAudio?> download(
+    ReadableDocument document,
+    DocumentAudioPlan plan,
+  ) async {
+    requested.add(document.id);
+    return null;
+  }
 }
