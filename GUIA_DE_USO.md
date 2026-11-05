@@ -3372,6 +3372,13 @@ de escucharlo.
    - Es la misma tarjeta para todo lo que suena en la app: el lector, la voz
      del chat, un podcast de Repasar (*"Escuchando a …"*, con su tiempo real)
      y un audio o un video (con su título y su tiempo real).
+   - **Con el teléfono bloqueado, la tarjeta no dice qué suena**: muestra
+     **"Reproduciendo"** y el nombre de la app, sin el título ni la portada,
+     con los mismos botones, que siguen andando. Al desbloquear vuelve todo.
+     Si querés ver el título sin desbloquear, prendé **"Mostrar el título en
+     la pantalla de bloqueo"** en **Ajustes › Privacidad**. Mientras está
+     apagado, lo que se conecta al teléfono con la pantalla bloqueada —el
+     auto o el reloj— también ve **"Reproduciendo"**.
    - En la web y en Windows no hay tarjeta: suena con la app abierta, como
      siempre.
 8. Dentro de un documento abierto, ver
@@ -5124,6 +5131,12 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
 - **Segundo plano** (solo en Android): **"Que siga con la app cerrada"**,
   la ayuda para que el teléfono no frene a Sinapsis cuando la cerrás (ver
   [Que siga con la app cerrada](#que-siga-con-la-app-cerrada)).
+- **Privacidad** (solo en Android): **"Mostrar el título en la pantalla de
+  bloqueo"**, apagado de entrada. Apagado, con el teléfono bloqueado la
+  tarjeta de lo que suena dice **"Reproduciendo"** y el nombre de la app, sin
+  el título ni la imagen, y sus botones siguen andando; al desbloquear vuelve
+  todo. Prendido, se ve qué suena sin desbloquear. Cambia en el momento,
+  también con algo sonando.
 - **Bóveda:** **"Lo que se baja de una página"**, el tope de lo que se baja
   de cada página o publicación (500 MB de fábrica; ver
   [Todo lo que trae una página: el «Contenido»](#todo-lo-que-trae-una-página-el-contenido)),
