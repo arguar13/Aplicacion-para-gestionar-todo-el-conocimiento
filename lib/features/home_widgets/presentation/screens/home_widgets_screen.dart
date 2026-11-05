@@ -15,7 +15,9 @@ final homeWidgetsCanAddProvider = FutureProvider.autoDispose<bool>(
 
 /// Los widgets de la pantalla de inicio (F47, paso 7): qué muestra y qué
 /// hace cada uno, y «Agregar» para ponerlo sin salir de la app —el sistema
-/// pregunta dónde—. Si el teléfono no deja, dice cómo hacerlo a mano.
+/// pregunta dónde—. Si el teléfono no deja, dice cómo hacerlo a mano. Al
+/// final, si «Seguir escuchando» deja ver el título con la bóveda cerrada
+/// (paso 7a-bis).
 class HomeWidgetsScreen extends ConsumerWidget {
   const HomeWidgetsScreen({super.key});
 
@@ -56,27 +58,62 @@ class HomeWidgetsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
           ],
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.lock_open_outlined,
-                size: 18,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  l10n.f47P7WidgetsPrivacy,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
+          const Card(
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: _ShowWhileLockedSwitch(),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// «Mostrar el título con la bóveda cerrada» (F47, paso 7a-bis): si «Seguir
+/// escuchando» deja ver lo último que se escuchó aunque la bóveda esté
+/// cerrada. De entrada, apagado; cambiarlo cambia el widget al instante.
+///
+/// Va acá, junto a los widgets, y no suelto en Ajustes: es cómo se ve uno de
+/// ellos, y quien no los usa no tiene nada que decidir.
+///
+/// La explicación va debajo, a todo el ancho, y no como subtítulo del
+/// interruptor: es larga, y con la letra al doble en un teléfono angosto, al
+/// lado del interruptor quedaba en una columna de pocas letras más alta que
+/// la pantalla.
+class _ShowWhileLockedSwitch extends ConsumerWidget {
+  const _ShowWhileLockedSwitch();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final show = ref.watch(continueListeningShowWhileLockedProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SwitchListTile(
+          key: const Key('home-widgets-show-while-locked'),
+          title: Text(l10n.f47P7WidgetsShowLockedTitle),
+          value: show,
+          onChanged: (value) => unawaited(
+            ref
+                .read(continueListeningShowWhileLockedProvider.notifier)
+                .set(show: value),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Text(
+            show
+                ? l10n.f47P7WidgetsShowLockedOn
+                : l10n.f47P7WidgetsShowLockedOff,
+            key: const Key('home-widgets-show-while-locked-explanation'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

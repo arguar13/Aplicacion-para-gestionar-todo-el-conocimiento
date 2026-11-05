@@ -14739,8 +14739,6 @@
   "@f47P7WidgetAddSemantics": {"description": "F47, paso 7: lo que dice el lector de pantalla del botón «Agregar» de un widget.", "placeholders": {"name": {"type": "String"}}},
   "f47P7WidgetsManualHint": "Para agregarlos a mano: mantené apretada la pantalla de inicio, tocá «Widgets» y buscá {app}.",
   "@f47P7WidgetsManualHint": {"description": "F47, paso 7: cómo poner un widget cuando el teléfono no deja agregarlo desde la app.", "placeholders": {"app": {"type": "String"}}},
-  "f47P7WidgetsPrivacy": "«Seguir escuchando» muestra el título en la pantalla de inicio aunque la bóveda esté cerrada.",
-  "@f47P7WidgetsPrivacy": {"description": "F47, paso 7: aviso de lo que queda a la vista con el widget «Seguir escuchando»."},
   "f47P1FrameContents": "Contenido",
   "@f47P1FrameContents": {"description": "F47, paso 1: botón redondo «Contenido» de la barra del marco de lectura (índice, secciones, fuentes y leer en voz alta)."},
   "f47P1FrameAi": "Fila de IA",
@@ -14930,5 +14928,11 @@
   "f47P6bCostGo": "Generar igual",
   "@f47P6bCostGo": {"description": "F47, paso 6b: el botón que acepta el costo de una voz de la nube."},
   "f47P6bListeningWith": "Escuchando a {voice} · {speed}",
-  "@f47P6bListeningWith": {"description": "F47, paso 6b: debajo del título en la tarjeta de lo que suena, mientras suena un podcast con su audio.", "placeholders": {"voice": {"type": "String", "example": "Daniela"}, "speed": {"type": "String", "example": "1,0×"}}}
+  "@f47P6bListeningWith": {"description": "F47, paso 6b: debajo del título en la tarjeta de lo que suena, mientras suena un podcast con su audio.", "placeholders": {"voice": {"type": "String", "example": "Daniela"}, "speed": {"type": "String", "example": "1,0×"}}},
+  "f47P7WidgetsShowLockedTitle": "Mostrar el título con la bóveda cerrada",
+  "@f47P7WidgetsShowLockedTitle": {"description": "F47, paso 7a-bis: el interruptor de la pantalla de los widgets que deja ver el título de «Seguir escuchando» aunque la bóveda esté cerrada. De entrada, apagado."},
+  "f47P7WidgetsShowLockedOn": "Cualquiera que mire la pantalla de inicio ve lo último que escuchaste.",
+  "@f47P7WidgetsShowLockedOn": {"description": "F47, paso 7a-bis: debajo del interruptor, prendido."},
+  "f47P7WidgetsShowLockedOff": "Con la bóveda cerrada, también al reiniciar el teléfono, «Seguir escuchando» dice «Protegido».",
+  "@f47P7WidgetsShowLockedOff": {"description": "F47, paso 7a-bis: debajo del interruptor, apagado (lo de entrada). «Protegido» es lo que dice el widget: «Protegido: tocá para seguir»."}
 }
