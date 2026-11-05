@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.FlutterShellArgs
@@ -193,19 +192,15 @@ object SinapsisEngine {
         // El encendido del teléfono, para que la bóveda pida la clave una
         // vez por encendido: el contador de arranques del sistema, que sube
         // en uno cada vez que el teléfono arranca. Sin permisos. Antes de
-        // Android 7 no existe: `null`, y la bóveda la pide siempre.
+        // Android 7 no existe: `null`, y la bóveda la pide siempre. Es el
+        // mismo que mira «Seguir escuchando» con la app muerta: ver
+        // [DeviceBoot].
         MethodChannel(messenger, DEVICE_BOOT_CHANNEL).setMethodCallHandler { call, result ->
             if (call.method != "bootCount") {
                 result.notImplemented()
                 return@setMethodCallHandler
             }
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-                result.success(null)
-                return@setMethodCallHandler
-            }
-            result.success(
-                Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT),
-            )
+            result.success(DeviceBoot.count(context))
         }
     }
 

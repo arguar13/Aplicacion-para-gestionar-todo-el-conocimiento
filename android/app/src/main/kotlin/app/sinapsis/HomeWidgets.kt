@@ -35,6 +35,8 @@ object HomeWidgets {
     private const val DUE_TODAY_COUNT = "due_today_count"
     private const val DUE_TODAY_VALID_UNTIL = "due_today_valid_until"
     private const val CONTINUE_LISTENING_TITLE = "continue_listening_title"
+    private const val CONTINUE_LISTENING_SHOW_LOCKED = "continue_listening_show_locked"
+    private const val CONTINUE_LISTENING_OPEN_BOOT = "continue_listening_open_boot"
 
     /**
      * «Para hoy»: la cifra que contó la app, mientras sea de hoy. Pasado el
@@ -75,19 +77,84 @@ object HomeWidgets {
         return views
     }
 
-    /** «Seguir escuchando»: el título de lo último que se escuchó. */
+    /**
+     * «Seguir escuchando»: el título de lo último que se escuchó, o —si la
+     * bóveda no está abierta en este encendido y la persona no eligió dejarlo
+     * a la vista— un texto que no dice qué (F47, paso 7a-bis). Lo decide
+     * [continueListeningShown] con el encendido de ahora, así que vale también
+     * cuando Android lo dibuja con la app muerta: al reiniciar el teléfono, o
+     * al pedírselo la pantalla de inicio.
+     */
     fun continueListeningViews(context: Context, data: SharedPreferences): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.home_widget_continue_listening)
-        val title = data.getString(CONTINUE_LISTENING_TITLE, null)?.takeIf { it.isNotBlank() }
+        val values = data.all
+        val title = values[CONTINUE_LISTENING_TITLE] as? String
+        val shown = continueListeningShown(
+            title = title,
+            showWhileLocked = values[CONTINUE_LISTENING_SHOW_LOCKED] as? Boolean == true,
+            openBoot = values[CONTINUE_LISTENING_OPEN_BOOT] as? String,
+            currentBoot = DeviceBoot.id(context),
+        )
         views.setTextViewText(
             R.id.home_widget_continue_listening_title,
-            title ?: context.getString(R.string.home_widget_continue_empty),
+            when (shown) {
+                ContinueListeningShown.TITLE -> title
+                ContinueListeningShown.PROTECTED ->
+                    context.getString(R.string.home_widget_continue_protected)
+                ContinueListeningShown.NOTHING ->
+                    context.getString(R.string.home_widget_continue_empty)
+            },
         )
         views.setOnClickPendingIntent(
             android.R.id.background,
             openIntent(context, CONTINUE_LISTENING),
         )
         return views
+    }
+
+    /** Lo que se ve en «Seguir escuchando». */
+    enum class ContinueListeningShown {
+        /** «Todavía no escuchaste nada». */
+        NOTHING,
+
+        /** El título de lo último que se escuchó. */
+        TITLE,
+
+        /** «Protegido: tocá para seguir», sin el título. */
+        PROTECTED,
+    }
+
+    /**
+     * Qué muestra «Seguir escuchando» (F47, paso 7a-bis). Una función pura,
+     * sin Android, para que la regla se lea entera en un lugar; es **la misma
+     * de `ContinueListeningDisplay.shownIn`** en Dart, que la prueba (cambiar
+     * una es cambiar las dos):
+     *
+     * - sin [title] —nada escuchado—, [ContinueListeningShown.NOTHING];
+     * - si la persona eligió dejarlo a la vista con la bóveda cerrada
+     *   ([showWhileLocked], Ajustes › Widgets), el título siempre;
+     * - si no, el título solo si la bóveda está abierta en este mismo
+     *   encendido: [openBoot] —el encendido en que Dart dijo que estaba
+     *   abierta— igual a [currentBoot] —el de ahora, ver [DeviceBoot]—. Es el
+     *   criterio de la bóveda: reiniciado el teléfono, ella vuelve a pedir la
+     *   clave y el widget oculta el título, aunque la app no haya vuelto a
+     *   andar;
+     * - en cualquier otro caso —la bóveda cerrada, un encendido que no se
+     *   sabe, lo que dejó una versión anterior sin estas claves—,
+     *   [ContinueListeningShown.PROTECTED]: ante la duda, se oculta.
+     */
+    fun continueListeningShown(
+        title: String?,
+        showWhileLocked: Boolean,
+        openBoot: String?,
+        currentBoot: String?,
+    ): ContinueListeningShown {
+        if (title.isNullOrBlank()) return ContinueListeningShown.NOTHING
+        if (showWhileLocked) return ContinueListeningShown.TITLE
+        if (openBoot != null && currentBoot != null && openBoot == currentBoot) {
+            return ContinueListeningShown.TITLE
+        }
+        return ContinueListeningShown.PROTECTED
     }
 
     /**

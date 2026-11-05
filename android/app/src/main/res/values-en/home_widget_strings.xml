@@ -21,5 +21,8 @@
     <!-- "Keep listening": the last thing listened to. -->
     <string name="home_widget_continue_title">Keep listening</string>
     <string name="home_widget_continue_empty">You haven\'t listened to anything yet</string>
+    <!-- With the vault locked, unless the title was chosen to stay visible
+         (F47, paso 7a-bis): there is something, but it does not say what. -->
+    <string name="home_widget_continue_protected">Protected: tap to continue</string>
     <string name="home_widget_continue_description">The last thing you listened to, to open it again</string>
 </resources>

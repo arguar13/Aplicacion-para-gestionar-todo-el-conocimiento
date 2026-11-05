@@ -108,7 +108,9 @@
         <!-- Los widgets de la pantalla de inicio (F47, paso 7): «Para hoy»,
              «Guardar rápido» y «Seguir escuchando». Exportados porque es la
              pantalla de inicio la que les pide dibujarse; solo responden a
-             eso. Ver `HomeWidgets`. -->
+             eso y, «Seguir escuchando», al arranque del teléfono, que solo
+             lo manda el sistema: se vuelve a dibujar con la bóveda recién
+             cerrada (paso 7a-bis). Ver `HomeWidgets`. -->
         <receiver
             android:name=".DueTodayWidget"
             android:exported="true"
@@ -137,6 +139,7 @@
             android:label="@string/home_widget_continue_title">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

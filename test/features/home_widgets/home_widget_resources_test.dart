@@ -74,9 +74,47 @@ void main() {
       kDueTodayCountKey,
       kDueTodayValidUntilKey,
       kContinueListeningTitleKey,
+      kContinueListeningShowLockedKey,
+      kContinueListeningOpenBootKey,
     ]) {
       expect(widgets, contains('"$key"'), reason: key);
     }
+  });
+
+  test('«abierta en este encendido» se decide con un solo criterio, el de '
+      'la bóveda, en Dart y en Kotlin (paso 7a-bis)', () {
+    // El contador de arranques se lee en un solo lugar...
+    final readers = [
+      for (final file in Directory(kotlin).listSync().whereType<File>())
+        if (file.readAsStringSync().contains('Settings.Global.BOOT_COUNT'))
+          file.uri.pathSegments.last,
+    ];
+    expect(readers, ['DeviceBoot.kt']);
+    // ...que da el encendido a la bóveda, por el canal que lee Dart...
+    expect(read('$kotlin/SinapsisEngine.kt'), contains('DeviceBoot.count('));
+    // ...y al widget, que lo compara con el que le dejó Dart.
+    final widgets = read('$kotlin/HomeWidgets.kt');
+    expect(widgets, contains('currentBoot = DeviceBoot.id(context)'));
+    // La regla de Kotlin tiene los mismos tres casos que la de Dart.
+    for (final shown in ContinueListeningShown.values) {
+      expect(
+        widgets,
+        contains('ContinueListeningShown.${shown.name.toUpperCase()}'),
+      );
+    }
+  });
+
+  test('«Seguir escuchando» se vuelve a dibujar al arrancar el teléfono '
+      '(paso 7a-bis)', () {
+    final manifest = read('android/app/src/main/AndroidManifest.xml');
+    final receiver = RegExp(
+      r'<receiver\s+android:name="\.ContinueListeningWidget"[\s\S]*?</receiver>',
+    ).firstMatch(manifest)!.group(0)!;
+    expect(receiver, contains('android.intent.action.BOOT_COMPLETED'));
+    expect(
+      read('$kotlin/HomeWidgetProviders.kt'),
+      contains('intent.action != Intent.ACTION_BOOT_COMPLETED'),
+    );
   });
 
   test('cada texto de los widgets está en castellano y en inglés', () {
