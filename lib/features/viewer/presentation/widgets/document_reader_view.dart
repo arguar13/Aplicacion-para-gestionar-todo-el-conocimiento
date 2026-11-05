@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +25,12 @@ import 'package:sinapsis/features/study/domain/services/study_readable.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_readable_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/domain/services/text_note_placement.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
+import 'package:sinapsis/features/text_notes/presentation/text_note_actions.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_note_margin.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_notes_list_sheet.dart';
 import 'package:sinapsis/features/viewer/domain/services/reader_pagination.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -87,6 +95,14 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// ya resaltado abre su ficha. Entre las capas, lo que subrayó la persona va
 /// encima de las oraciones y debajo de las palabras clave. Sin [study] —un
 /// adjunto, que no es el texto de ningún elemento—, el menú de siempre.
+///
+/// **Las notas en el texto (F45, paso 8b).** Con [study], «Nota» de la
+/// barrita escribe una nota sobre lo elegido —también en la copia del
+/// original de Procesado, que no se resalta—; el pedazo queda con un
+/// subrayado punteado de su color y, en el margen derecho a la altura de su
+/// renglón, su globito (`TextNoteMargin`). Tocar el globito o el pedazo la
+/// abre. En el marco, el libro le da a «Notas (N)» su texto y cómo ir a una:
+/// a su página, a su renglón, marcado un momento.
 class DocumentReaderView extends ConsumerStatefulWidget {
   const DocumentReaderView({
     required this.title,
@@ -184,6 +200,17 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
   ReadingFrameController? _frame;
   var _outlined = false;
 
+  /// De qué texto son las notas de este libro, o `null` si no las lleva —un
+  /// adjunto—.
+  late final TextNoteTarget? _notesTarget = switch (widget.study) {
+    final study? => textNoteTargetOf(study),
+    null => null,
+  };
+
+  /// La nota a la que se fue desde «Notas (N)», marcada un momento.
+  final _noteFlash = ValueNotifier<(int, int)?>(null);
+  Timer? _noteFlashTimer;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -253,9 +280,25 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
 
   @override
   void dispose() {
+    _noteFlashTimer?.cancel();
+    _noteFlash.dispose();
     _controller.dispose();
     _follow.dispose();
     super.dispose();
+  }
+
+  /// Lleva el libro a `[start, end)` —su página, y ahí su renglón— y lo
+  /// marca un momento: lo que hace tocar una nota en «Notas (N)».
+  bool _revealNote(int start, int end) {
+    if (_pages.isEmpty || !_controller.hasClients) return false;
+    final page = _pageAt(start);
+    if (page != _pageIndex) _controller.jumpToPage(page);
+    _noteFlashTimer?.cancel();
+    _noteFlash.value = (start, end);
+    _noteFlashTimer = Timer(const Duration(seconds: 2), () {
+      _noteFlash.value = null;
+    });
+    return true;
   }
 
   ReadableDocument? _offer(
@@ -383,14 +426,41 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
       final study? => ref.watch(studyReadScopesProvider(study)),
       null => const <ReadScope, List<ReadableSegment>>{},
     };
+    final notes = switch (_notesTarget) {
+      final target? =>
+        ref
+                .watch(
+                  placedTextNotesProvider((
+                    target: target,
+                    content: widget.content,
+                  )),
+                )
+                .valueOrNull ??
+            const <PlacedTextNote>[],
+      null => const <PlacedTextNote>[],
+    };
 
     return ReadableRegion(
       document: _offer(ref.watch(readableTextProvider(_readableText)), studied),
-      child: _buildReader(l10n, appearance),
+      child: ReadingNotesOffer(
+        sources: [
+          if (_notesTarget case final target?)
+            TextNoteSource(
+              target: target,
+              content: widget.content,
+              reveal: _revealNote,
+            ),
+        ],
+        child: _buildReader(l10n, appearance, notes),
+      ),
     );
   }
 
-  Widget _buildReader(AppLocalizations l10n, ReadingAppearance appearance) {
+  Widget _buildReader(
+    AppLocalizations l10n,
+    ReadingAppearance appearance,
+    List<PlacedTextNote> notes,
+  ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -399,7 +469,7 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
         Expanded(
           child: Stack(
             children: [
-              Positioned.fill(child: _buildPages(appearance)),
+              Positioned.fill(child: _buildPages(appearance, notes)),
               // Arriba de la página.
               Positioned(
                 top: 20,
@@ -448,7 +518,7 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
     );
   }
 
-  Widget _buildPages(ReadingAppearance appearance) {
+  Widget _buildPages(ReadingAppearance appearance, List<PlacedTextNote> notes) {
     return PageView.builder(
       controller: _controller,
       itemCount: _pageCount,
@@ -461,6 +531,9 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
         sourceKey: _sourceKey,
         follow: _follow,
         onScrolledByHand: () => _onPageScrolledByHand(index),
+        notesTarget: _notesTarget,
+        notes: notes,
+        noteFlash: _noteFlash,
         study: switch (widget.study) {
           final study? => (
             itemId: study.itemId,
@@ -493,6 +566,9 @@ class _ReaderPage extends ConsumerStatefulWidget {
     required this.follow,
     required this.onScrolledByHand,
     required this.study,
+    this.notesTarget,
+    this.notes = const [],
+    this.noteFlash,
   });
 
   final String content;
@@ -517,6 +593,16 @@ class _ReaderPage extends ConsumerStatefulWidget {
   final ({String itemId, String renditionId, String content, bool markdown})?
   study;
 
+  /// De qué texto son las notas, o `null` si no las lleva.
+  final TextNoteTarget? notesTarget;
+
+  /// Las notas del texto entero, en sus lugares del texto entero.
+  final List<PlacedTextNote> notes;
+
+  /// La nota a la que se fue, marcada un momento: si cae en esta página, la
+  /// página la acerca.
+  final ValueListenable<(int, int)?>? noteFlash;
+
   @override
   ConsumerState<_ReaderPage> createState() => _ReaderPageState();
 }
@@ -539,8 +625,11 @@ class _ReaderPageState extends ConsumerState<_ReaderPage> {
   void initState() {
     super.initState();
     widget.follow.addListener(_onFollowChanged);
-    // Recién armada —se dio vuelta hasta acá—, con lo que suena adentro.
+    widget.noteFlash?.addListener(_onNoteFlash);
+    // Recién armada —se dio vuelta hasta acá—, con lo que suena adentro o
+    // con la nota a la que se fue desde «Notas (N)».
     _revealSoon(ref.read(readAloudSpanProvider(_span)));
+    _revealFlashSoon();
   }
 
   @override
@@ -550,13 +639,67 @@ class _ReaderPageState extends ConsumerState<_ReaderPage> {
       oldWidget.follow.removeListener(_onFollowChanged);
       widget.follow.addListener(_onFollowChanged);
     }
+    if (oldWidget.noteFlash != widget.noteFlash) {
+      oldWidget.noteFlash?.removeListener(_onNoteFlash);
+      widget.noteFlash?.addListener(_onNoteFlash);
+    }
   }
 
   @override
   void dispose() {
     widget.follow.removeListener(_onFollowChanged);
+    widget.noteFlash?.removeListener(_onNoteFlash);
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// Lo marcado desde «Notas (N)», en posiciones de esta página, o `null` si
+  /// no empieza acá.
+  (int, int)? get _flashInPage {
+    final flash = widget.noteFlash?.value;
+    if (flash == null) return null;
+    final from = widget.start;
+    final to = from + widget.content.length;
+    if (flash.$1 < from || flash.$1 >= to) return null;
+    return (flash.$1 - from, math.min(flash.$2, to) - from);
+  }
+
+  /// Se fue a una nota, o se dejó de marcar: se vuelve a pintar y, si está
+  /// en esta página, se la acerca.
+  void _onNoteFlash() {
+    if (!mounted) return;
+    setState(() {});
+    _revealFlashSoon();
+  }
+
+  /// Después del cuadro, deja el renglón de la nota marcada en la franja
+  /// cómoda de la vista, de un salto.
+  void _revealFlashSoon() {
+    if (_flashInPage == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final flash = _flashInPage;
+      final rendered = _rendered;
+      final editable = _editable();
+      if (!mounted || flash == null || rendered == null || editable == null) {
+        return;
+      }
+      final line = firstLineOf(
+        editable,
+        rendered.rawToRender(flash.$1),
+        rendered.rawToRender(flash.$2),
+      );
+      final viewport = RenderAbstractViewport.maybeOf(editable);
+      if (line == null || viewport == null || !_scroll.hasClients) return;
+      final local = editable.globalToLocal(line.topLeft) & line.size;
+      final position = _scroll.position;
+      final atTop = viewport.getOffsetToReveal(editable, 0, rect: local).offset;
+      position.jumpTo(
+        (atTop - position.viewportDimension * ReadAloudBand.landing).clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+      );
+    });
   }
 
   void _onFollowChanged() {
@@ -676,14 +819,38 @@ class _ReaderPageState extends ConsumerState<_ReaderPage> {
     final rendered = _rendered = markdown
         ? RenderedMarkdown.parse(content)
         : RenderedMarkdown.plain(content);
+    final pageEnd = pageStart + content.length;
+    // Las notas en el texto (F45, paso 8b): el punteado de lo que cae en la
+    // página y, en el margen, el globito de las que empiezan acá.
+    final notesTarget = widget.notesTarget;
+    final noteMarks = textNoteMarks(
+      context,
+      widget.notes,
+      from: pageStart,
+      to: pageEnd,
+    );
+    final startingHere = [
+      for (final placed in widget.notes)
+        if (placed.placed &&
+            placed.start! >= pageStart &&
+            placed.start! < pageEnd)
+          placed,
+    ];
+    final flash = _flashInPage;
+    final columnPadding = readingColumnPadding(context);
 
     // La columna de lectura del marco (F47, paso 1): de ancho cómodo, con los
-    // márgenes de un libro y sin la tarjeta de papel de antes.
+    // márgenes de un libro y sin la tarjeta de papel de antes. Con notas, el
+    // margen derecho es el de sus globitos: el mismo ancho, nada se corre.
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: readingColumnWidth),
         child: Padding(
-          padding: readingColumnPadding(context).copyWith(top: 16, bottom: 16),
+          padding: columnPadding.copyWith(
+            top: 16,
+            bottom: 16,
+            right: notesTarget == null ? null : 0,
+          ),
           child: NotificationListener<UserScrollNotification>(
             onNotification: (notification) {
               if (notification.depth == 0 &&
@@ -696,185 +863,230 @@ class _ReaderPageState extends ConsumerState<_ReaderPage> {
             // corrido; las hojas se pasan con el `PageView` (F45, mejora 13).
             child: SingleChildScrollView(
               controller: _scroll,
-              child: SelectableText.rich(
-                key: _textKey,
-                rendered.buildSpans(
-                  theme,
-                  const [],
-                  baseStyle: appearance.bodyStyle(theme),
-                  activeRange: reading,
-                  playing: appearance.highlight.color,
-                  paints: paints,
-                  marks: marks,
-                ),
-                // Eligiendo palabras clave, tocar una la agrega o la saca; si
-                // no, tocar algo ya resaltado abre su ficha.
-                onSelectionChanged: study == null
-                    ? null
-                    : (selection, cause) {
-                        if (cause != SelectionChangedCause.tap ||
-                            !selection.isCollapsed ||
-                            selection.baseOffset < 0) {
-                          return;
-                        }
-                        final offset =
-                            pageStart +
-                            rendered.renderToRaw(selection.baseOffset);
-                        if (ref
-                            .read(studyViewProvider(study.renditionId))
-                            .picking) {
-                          unawaited(
-                            pickStudyAt(
-                              ref,
-                              context,
-                              renditionId: study.renditionId,
-                              content: study.content,
-                              markdown: study.markdown,
-                              offset: offset,
-                            ),
-                          );
-                        } else if (highlightAt(highlights, offset)
-                            case final highlight?) {
-                          unawaited(openHighlightCard(context, ref, highlight));
-                        }
-                      },
-                contextMenuBuilder: (menuContext, editable) {
-                  final selection = editable.textEditingValue.selection;
-                  // La selección, en posiciones de [content] —la página— y en
-                  // las del texto entero, que es donde se guarda todo.
-                  (int, int) pageRange() => (
-                    rendered.renderToRaw(selection.start),
-                    rendered.renderToRaw(selection.end, isEnd: true),
-                  );
-                  (int, int) textRange() {
-                    final (start, end) = pageRange();
-                    return (pageStart + start, pageStart + end);
-                  }
-
-                  // "Leer en voz alta" lee las líneas que toca la selección, en
-                  // las posiciones del texto entero.
-                  void readAloud() {
-                    final (start, end) = pageRange();
-                    final (from, to) = textRange();
-                    unawaited(
-                      readSelectionAloud(
-                        ref,
-                        text: content.substring(start, end),
-                        sourceKey: widget.sourceKey,
-                        start: from,
-                        end: to,
-                      ),
-                    );
-                  }
-
-                  // Sin el texto de un elemento al que atar un resaltado, el
-                  // menú de la app de siempre.
-                  if (study == null) {
-                    return buildSelectionMenu(
-                      menuContext,
-                      editable,
-                      onReadAloud: readAloud,
-                    );
-                  }
-                  // Las acciones usan el contexto de la página: el del menú ya
-                  // no existe cuando termina un diálogo.
-                  return buildHighlightMenu(
-                    menuContext,
-                    ref,
-                    editable,
-                    readOnly: isReadOnlyStudyKey(study.renditionId),
-                    onHighlight: (color, style) {
-                      final (start, end) = textRange();
-                      unawaited(
-                        saveHandHighlight(
-                          context,
-                          ref,
-                          renditionId: study.renditionId,
-                          content: study.content,
-                          start: start,
-                          end: end,
-                          color: color,
-                          style: style,
-                        ),
-                      );
-                    },
-                    onReadAloud: readAloud,
-                    onNote: () {
-                      final (start, end) = textRange();
-                      unawaited(
-                        saveHandHighlightWithNote(
-                          context,
-                          ref,
-                          renditionId: study.renditionId,
-                          content: study.content,
-                          start: start,
-                          end: end,
-                        ),
-                      );
-                    },
-                    onExtract: () {
-                      final (start, end) = textRange();
-                      unawaited(
-                        extractRangeAsNote(
-                          context,
-                          ref,
-                          itemId: study.itemId,
-                          renditionId: study.renditionId,
-                          content: study.content,
-                          start: start,
-                          end: end,
-                        ),
-                      );
-                    },
-                    onCreateFlashcard: () {
-                      final (start, end) = textRange();
-                      unawaited(
-                        createFlashcardFromRange(
-                          context,
-                          ref,
-                          itemId: study.itemId,
-                          content: study.content,
-                          start: start,
-                          end: end,
-                        ),
-                      );
-                    },
-                    onAddToTimeline: () {
-                      final (start, end) = textRange();
-                      unawaited(
-                        addRangeToTimeline(
-                          context,
-                          ref,
-                          itemId: study.itemId,
-                          renditionId: study.renditionId,
-                          content: study.content,
-                          start: start,
-                          end: end,
-                        ),
-                      );
-                    },
-                    // Mientras se corta del original para Procesado (F41).
-                    onToProcessed: cuttingForProcessed(ref, study.itemId)
-                        ? () {
-                            final (start, end) = textRange();
-                            cutRangeToProcessed(
-                              context,
-                              ref,
-                              itemId: study.itemId,
-                              renditionId: study.renditionId,
-                              content: study.content,
-                              start: start,
-                              end: end,
+              child: _withNoteMargin(
+                gutter: columnPadding.right,
+                notes: startingHere,
+                rendered: rendered,
+                text: SelectableText.rich(
+                  key: _textKey,
+                  rendered.buildSpans(
+                    theme,
+                    [?flash],
+                    baseStyle: appearance.bodyStyle(theme),
+                    activeRange: reading,
+                    playing: appearance.highlight.color,
+                    paints: paints,
+                    marks: marks,
+                    notes: noteMarks,
+                  ),
+                  // Eligiendo palabras clave, tocar una la agrega o la saca; si
+                  // no, tocar algo ya resaltado abre su ficha.
+                  onSelectionChanged: study == null
+                      ? null
+                      : (selection, cause) {
+                          if (cause != SelectionChangedCause.tap ||
+                              !selection.isCollapsed ||
+                              selection.baseOffset < 0) {
+                            return;
+                          }
+                          final offset =
+                              pageStart +
+                              rendered.renderToRaw(selection.baseOffset);
+                          final highlight = highlightAt(highlights, offset);
+                          final noted = textNotesAt(widget.notes, offset);
+                          if (ref
+                              .read(studyViewProvider(study.renditionId))
+                              .picking) {
+                            unawaited(
+                              pickStudyAt(
+                                ref,
+                                context,
+                                renditionId: study.renditionId,
+                                content: study.content,
+                                markdown: study.markdown,
+                                offset: offset,
+                              ),
+                            );
+                          } else if (noted.isNotEmpty &&
+                              !noted.every(
+                                (note) => note.id == highlight?.id,
+                              )) {
+                            // Una nota en el texto (F45, paso 8b). La de un
+                            // resaltado de antes, sola, abre su resaltado, que
+                            // la lleva con su estilo.
+                            unawaited(openTextNotes(context, ref, noted));
+                          } else if (highlight != null) {
+                            unawaited(
+                              openHighlightCard(context, ref, highlight),
                             );
                           }
-                        : null,
-                  );
-                },
+                        },
+                  contextMenuBuilder: (menuContext, editable) {
+                    final selection = editable.textEditingValue.selection;
+                    // La selección, en posiciones de [content] —la página— y en
+                    // las del texto entero, que es donde se guarda todo.
+                    (int, int) pageRange() => (
+                      rendered.renderToRaw(selection.start),
+                      rendered.renderToRaw(selection.end, isEnd: true),
+                    );
+                    (int, int) textRange() {
+                      final (start, end) = pageRange();
+                      return (pageStart + start, pageStart + end);
+                    }
+
+                    // "Leer en voz alta" lee las líneas que toca la
+                    // selección, en las posiciones del texto entero.
+                    void readAloud() {
+                      final (start, end) = pageRange();
+                      final (from, to) = textRange();
+                      unawaited(
+                        readSelectionAloud(
+                          ref,
+                          text: content.substring(start, end),
+                          sourceKey: widget.sourceKey,
+                          start: from,
+                          end: to,
+                        ),
+                      );
+                    }
+
+                    // Sin el texto de un elemento al que atar un resaltado,
+                    // el menú de la app de siempre.
+                    if (study == null) {
+                      return buildSelectionMenu(
+                        menuContext,
+                        editable,
+                        onReadAloud: readAloud,
+                      );
+                    }
+                    // Las acciones usan el contexto de la página: el del
+                    // menú ya no existe cuando termina un diálogo.
+                    return buildHighlightMenu(
+                      menuContext,
+                      ref,
+                      editable,
+                      readOnly: isReadOnlyStudyKey(study.renditionId),
+                      onHighlight: (color, style) {
+                        final (start, end) = textRange();
+                        unawaited(
+                          saveHandHighlight(
+                            context,
+                            ref,
+                            renditionId: study.renditionId,
+                            content: study.content,
+                            start: start,
+                            end: end,
+                            color: color,
+                            style: style,
+                          ),
+                        );
+                      },
+                      onReadAloud: readAloud,
+                      // Una nota en el texto (F45, paso 8b), también en la
+                      // copia de Procesado.
+                      onNote: notesTarget == null
+                          ? null
+                          : () {
+                              final (start, end) = textRange();
+                              unawaited(
+                                writeTextNote(
+                                  context,
+                                  ref,
+                                  target: notesTarget,
+                                  start: start,
+                                  end: end,
+                                  excerpt: study.content.substring(start, end),
+                                ),
+                              );
+                            },
+                      onExtract: () {
+                        final (start, end) = textRange();
+                        unawaited(
+                          extractRangeAsNote(
+                            context,
+                            ref,
+                            itemId: study.itemId,
+                            renditionId: study.renditionId,
+                            content: study.content,
+                            start: start,
+                            end: end,
+                          ),
+                        );
+                      },
+                      onCreateFlashcard: () {
+                        final (start, end) = textRange();
+                        unawaited(
+                          createFlashcardFromRange(
+                            context,
+                            ref,
+                            itemId: study.itemId,
+                            content: study.content,
+                            start: start,
+                            end: end,
+                          ),
+                        );
+                      },
+                      onAddToTimeline: () {
+                        final (start, end) = textRange();
+                        unawaited(
+                          addRangeToTimeline(
+                            context,
+                            ref,
+                            itemId: study.itemId,
+                            renditionId: study.renditionId,
+                            content: study.content,
+                            start: start,
+                            end: end,
+                          ),
+                        );
+                      },
+                      // Mientras se corta del original para Procesado (F41).
+                      onToProcessed: cuttingForProcessed(ref, study.itemId)
+                          ? () {
+                              final (start, end) = textRange();
+                              cutRangeToProcessed(
+                                context,
+                                ref,
+                                itemId: study.itemId,
+                                renditionId: study.renditionId,
+                                content: study.content,
+                                start: start,
+                                end: end,
+                              );
+                            }
+                          : null,
+                    );
+                  },
+                ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// [text] con el margen de los globitos de [notes] —las que empiezan en
+  /// esta página—, o tal cual si el texto no lleva notas.
+  Widget _withNoteMargin({
+    required double gutter,
+    required List<PlacedTextNote> notes,
+    required RenderedMarkdown rendered,
+    required Widget text,
+  }) {
+    if (widget.notesTarget == null) return text;
+    final pageStart = widget.start;
+    final pageEnd = pageStart + widget.content.length;
+    return TextNoteMargin(
+      gutter: gutter,
+      notes: notes,
+      lineOf: (placed) => firstLineOf(
+        _editable(),
+        rendered.rawToRender(placed.start! - pageStart),
+        rendered.rawToRender(math.min(placed.end!, pageEnd) - pageStart),
+      ),
+      onOpen: (notes) => unawaited(openTextNotes(context, ref, notes)),
+      child: text,
     );
   }
 }

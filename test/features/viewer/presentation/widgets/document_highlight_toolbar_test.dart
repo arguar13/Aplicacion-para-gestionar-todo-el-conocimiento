@@ -29,6 +29,8 @@ import 'package:sinapsis/features/processed/domain/services/processed_identity.d
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_triage_providers.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_highlight_toolbar.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_selection.dart';
@@ -36,6 +38,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/fake_extract_note.dart';
+import '../../../../support/memory_text_notes.dart';
 import '../../../../support/read_aloud_test_support.dart';
 
 class _MockOrganizeRepository extends Mock implements OrganizeRepository {}
@@ -107,6 +110,7 @@ void main() {
   late _FakeSelection selection;
   late _MockOrganizeRepository repository;
   late _MockCaptureItemUseCase capture;
+  late MemoryTextNotes notes;
   late ProviderContainer container;
 
   setUpAll(() {
@@ -120,6 +124,7 @@ void main() {
     );
     repository = _MockOrganizeRepository();
     capture = _MockCaptureItemUseCase();
+    notes = MemoryTextNotes();
   });
 
   Future<void> pump(
@@ -135,6 +140,7 @@ void main() {
         organizeRepositoryProvider.overrideWithValue(repository),
         captureItemUseCaseProvider.overrideWithValue(capture),
         extractNoteToProcessedProvider.overrideWithValue(extractNote),
+        textNoteRepositoryProvider.overrideWithValue(notes),
       ],
     );
     addTearDown(container.dispose);
@@ -280,26 +286,39 @@ void main() {
       expect(selection.clears, 1);
     });
 
-    testWidgets('Nota pide la nota y resalta con ella, con el último color', (
-      tester,
-    ) async {
+    testWidgets('Nota escribe una nota en el texto (F45, paso 8b, decisión I) '
+        'sobre el tramo del texto extraído, con el último color, y no '
+        'resalta', (tester) async {
       await pump(tester, lastColor: HighlightColor.orange);
 
       await tap(tester, find.byTooltip(es.highlightAddNote));
-      await tester.enterText(find.byType(TextField), 'ojo');
-      await tap(tester, find.text(es.detailSave));
+      await tester.enterText(find.byKey(const Key('text-note-field')), 'ojo');
+      await tap(tester, find.byKey(const Key('text-note-done')));
 
-      expect(selection.asked, [
-        (color: HighlightColor.orange, style: HighlightStyle.fill, note: 'ojo'),
-      ]);
+      final [note] = notes.created;
+      expect(
+        note.target,
+        const TextNoteTarget.sourceOriginal(
+          sourceId: 'item-1',
+          renditionId: 'r1',
+        ),
+      );
+      expect((note.start, note.end), (38, 50));
+      expect(note.excerpt, content.substring(38, 50));
+      expect(note.note, 'ojo');
+      expect(note.color, HighlightColor.orange);
+      expect(selection.asked, isEmpty);
+      expect(selection.clears, 1);
     });
 
-    testWidgets('Nota cancelada no resalta nada', (tester) async {
+    testWidgets('Nota cancelada no pone nada ni resalta', (tester) async {
       await pump(tester);
 
       await tap(tester, find.byTooltip(es.highlightAddNote));
-      await tap(tester, find.text(es.commonCancel));
+      await tester.enterText(find.byKey(const Key('text-note-field')), 'no');
+      await tap(tester, find.byKey(const Key('text-note-cancel')));
 
+      expect(notes.created, isEmpty);
       expect(selection.asked, isEmpty);
     });
 
@@ -509,15 +528,16 @@ void main() {
       markdown: false,
     );
 
-    testWidgets('es de solo lectura: sin colores, Subrayar, Nota, Hacer '
-        'tarjeta ni línea de tiempo, que no tienen dónde caer; Copiar, '
-        'Escuchar y Extraer como nota sí', (tester) async {
+    testWidgets('es de solo lectura: sin colores, Subrayar, Hacer tarjeta ni '
+        'línea de tiempo, que no tienen dónde caer; Copiar, Escuchar, Extraer '
+        'como nota y Nota —una nota en el texto de la copia, F45, paso 8b— '
+        'sí', (tester) async {
       await pump(tester, study: copy);
 
       expect(find.byType(HighlightColorDot), findsNothing);
       expect(find.byKey(const Key('highlight-underline')), findsNothing);
+      expect(find.byTooltip(es.highlightAddNote), findsOneWidget);
       for (final tooltip in [
-        es.highlightAddNote,
         es.flashcardsFromSelection,
         es.highlightAddToTimeline,
       ]) {

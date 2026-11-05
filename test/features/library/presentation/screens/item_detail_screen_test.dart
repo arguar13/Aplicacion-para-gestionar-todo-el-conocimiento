@@ -2135,7 +2135,8 @@ void main() {
       expect(span.style?.decoration, isNot(TextDecoration.underline));
     });
 
-    testWidgets('resaltar deja el fragmento marcado y en la lista', (
+    testWidgets('«Nota» escribe una nota en el texto (F45, paso 8b, decisión '
+        'I): el fragmento queda con su globito, sin resaltarlo', (
       tester,
     ) async {
       final id = await captureAndGetId('Palabra clave del artículo entero.');
@@ -2144,35 +2145,46 @@ void main() {
       await selectFirstWord(tester);
       await tapNote(tester);
 
-      await tester.enterText(find.byType(TextField), 'me interesa esto');
-      await tester.tap(find.text(es.detailSave));
+      await tester.enterText(
+        find.byKey(const Key('text-note-field')),
+        'me interesa esto',
+      );
+      await tester.tap(find.byKey(const Key('text-note-done')));
       await tester.pumpAndSettle();
 
-      expect(find.text(es.detailHighlightsTitle), findsOneWidget);
-      expect(find.text('me interesa esto'), findsOneWidget);
-      // La barrita desaparece: la selección se limpia al confirmar, para no
-      // dejar picando un botón que apunta a un resaltado que ya se hizo.
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>).value.startsWith(
+                'text-note-bubble-',
+              ),
+        ),
+        findsOneWidget,
+      );
+      // Es una nota, no un resaltado.
+      expect(find.text(es.detailHighlightsTitle), findsNothing);
+      // La barrita desaparece: la selección se limpia al confirmar.
       expect(find.byType(HighlightToolbar), findsNothing);
     });
 
-    testWidgets('resaltar sin escribir nada también funciona', (tester) async {
-      // Resaltar sin explicar por qué es perfectamente legítimo: no toda
-      // selección necesita una justificación.
+    testWidgets('una nota en blanco no se guarda: lo dice', (tester) async {
       final id = await captureAndGetId('Palabra clave del artículo entero.');
 
       await pumpDetail(tester, id);
       await selectFirstWord(tester);
       await tapNote(tester);
 
-      await tester.tap(find.text(es.detailSave));
+      await tester.tap(find.byKey(const Key('text-note-done')));
       await tester.pumpAndSettle();
 
-      expect(find.text(es.detailHighlightsTitle), findsOneWidget);
+      expect(find.text(es.f45S8bEditorBlank), findsOneWidget);
+      await tester.tap(find.byKey(const Key('text-note-cancel')));
+      await tester.pumpAndSettle();
+      expect(find.text(es.detailHighlightsTitle), findsNothing);
     });
 
-    testWidgets('cancelar el diálogo de nota no crea el resaltado', (
-      tester,
-    ) async {
+    testWidgets('cancelar la nota no crea nada', (tester) async {
       final id = await captureAndGetId('Palabra clave del artículo entero.');
 
       await pumpDetail(tester, id);

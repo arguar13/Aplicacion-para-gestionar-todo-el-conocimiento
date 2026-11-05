@@ -598,8 +598,9 @@ List<HandMark> handMarks(
 ///
 /// Con [readOnly] —la copia del original de un documento procesado, ver
 /// `isReadOnlyStudyKey`— la barrita queda con lo que ahí se puede hacer:
-/// copiar, escuchar y «Extraer como nota». Sin colores, sin nota, sin tarjeta
-/// y sin línea de tiempo: no hay forma de texto donde caigan.
+/// copiar, escuchar, «Extraer como nota» y, si se la pasa, «Nota» —una nota
+/// en el texto de la copia (F45, paso 8b)—. Sin colores, sin tarjeta y sin
+/// línea de tiempo: no hay forma de texto donde caigan.
 Widget buildHighlightMenu(
   BuildContext context,
   WidgetRef ref,
@@ -654,7 +655,9 @@ Widget buildHighlightMenu(
           },
     onCopy: copy == null ? null : closing(copy),
     onReadAloud: closingOrNull(onReadAloud),
-    onNote: readOnly ? null : closingOrNull(onNote),
+    // Una nota en el texto (F45, paso 8b) va también sobre lo que no se
+    // resalta: quien la ofrece sabe si su texto la lleva.
+    onNote: closingOrNull(onNote),
     onExtract: closingOrNull(onExtract),
     onCreateFlashcard: readOnly ? null : closingOrNull(onCreateFlashcard),
     onAddToTimeline: readOnly ? null : closingOrNull(onAddToTimeline),

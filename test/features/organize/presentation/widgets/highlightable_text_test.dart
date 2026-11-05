@@ -29,10 +29,13 @@ import 'package:sinapsis/features/organize/presentation/widgets/highlightable_te
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_en.dart';
 
 import '../../../../support/fake_extract_note.dart';
+import '../../../../support/memory_text_notes.dart';
 import '../../../../support/read_aloud_test_support.dart';
 
 class _MockOrganizeRepository extends Mock implements OrganizeRepository {}
@@ -83,6 +86,7 @@ void main() {
 
   /// Lo que se guardó con `createHighlight`, en orden.
   late List<Map<Symbol, dynamic>> created;
+  late MemoryTextNotes textNotes;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -90,6 +94,7 @@ void main() {
     repository = _MockOrganizeRepository();
     captureUseCase = _MockCaptureItemUseCase();
     created = [];
+    textNotes = MemoryTextNotes();
     when(
       () => repository.watchHighlightsForRendition(any()),
     ).thenAnswer((_) => Stream.value(const []));
@@ -127,6 +132,7 @@ void main() {
           captureItemUseCaseProvider.overrideWithValue(captureUseCase),
           extractNoteToProcessedProvider.overrideWithValue(extractNote),
           sharedPreferencesProvider.overrideWithValue(prefs),
+          textNoteRepositoryProvider.overrideWithValue(textNotes),
           ...overrides,
         ],
         child: MaterialApp(
@@ -308,9 +314,8 @@ void main() {
       );
     });
 
-    testWidgets('Nota pide la nota y resalta con el último color', (
-      tester,
-    ) async {
+    testWidgets('Nota escribe una nota en el texto (F45, paso 8b, decisión I) '
+        'con el último color, y no resalta', (tester) async {
       await pumpText(tester);
       await select(tester, 0, 9);
       await tester.tap(color(HighlightColor.orange));
@@ -319,41 +324,55 @@ void main() {
       await select(tester, 10, 14);
       await tester.tap(find.byTooltip(en.highlightAddNote));
       await tester.pumpAndSettle();
-      expect(created, hasLength(1), reason: 'todavía falta la nota');
-      await tester.enterText(find.byType(TextField), 'por qué');
-      await tester.tap(find.text('Save'));
+      await tester.enterText(
+        find.byKey(const Key('text-note-field')),
+        'por qué',
+      );
+      await tester.tap(find.byKey(const Key('text-note-done')));
       await tester.pumpAndSettle();
 
-      expect(created, hasLength(2));
-      expect(created.last[#note], 'por qué');
-      expect(created.last[#color], HighlightColor.orange);
-      expect(created.last[#style], HighlightStyle.fill);
-      expect(created.last[#excerpt], 'bien');
+      expect(created, hasLength(1), reason: 'solo el resaltado de antes');
+      final [note] = textNotes.created;
+      expect(
+        note.target,
+        const TextNoteTarget.sourceOriginal(
+          sourceId: 'item-1',
+          renditionId: 'rendition-1',
+        ),
+      );
+      expect(note.note, 'por qué');
+      expect(note.color, HighlightColor.orange);
+      expect(note.excerpt, 'bien');
+      expect((note.start, note.end), (10, 14));
     });
 
-    testWidgets('cancelar la nota no resalta nada', (tester) async {
+    testWidgets('cancelar la nota no pone nada', (tester) async {
       await pumpText(tester);
       await select(tester, 0, 9);
 
       await tester.tap(find.byTooltip(en.highlightAddNote));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Cancel'));
+      await tester.tap(find.byKey(const Key('text-note-cancel')));
       await tester.pumpAndSettle();
 
       expect(created, isEmpty);
+      expect(textNotes.created, isEmpty);
     });
 
-    testWidgets('una nota en blanco resalta igual, sin nota', (tester) async {
+    testWidgets('una nota en blanco no se guarda: lo dice, y no resalta', (
+      tester,
+    ) async {
       await pumpText(tester);
       await select(tester, 0, 9);
 
       await tester.tap(find.byTooltip(en.highlightAddNote));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Save'));
+      await tester.tap(find.byKey(const Key('text-note-done')));
       await tester.pumpAndSettle();
 
-      expect(created, hasLength(1));
-      expect(created.single[#note], isNull);
+      expect(find.text(en.f45S8bEditorBlank), findsOneWidget);
+      expect(created, isEmpty);
+      expect(textNotes.created, isEmpty);
     });
 
     testWidgets('Copiar deja lo seleccionado en el portapapeles', (

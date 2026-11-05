@@ -19,7 +19,14 @@ import 'package:sinapsis/features/organize/presentation/providers/organize_provi
 import 'package:sinapsis/features/organize/presentation/widgets/highlight_note_dialog.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/domain/services/text_note_placement.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
+import 'package:sinapsis/features/text_notes/presentation/text_note_actions.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_note_margin.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_notes_list_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Lo que la vista de lectura necesita de un [HighlightableText] desde afuera:
@@ -354,6 +361,28 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
     );
   }
 
+  /// De qué texto son las notas de este (F45, paso 8b): el original de la
+  /// fuente, o la copia de Procesado.
+  TextNoteTarget get _notesTarget => textNoteTargetOf((
+    itemId: widget.itemId,
+    renditionId: widget.renditionId,
+    content: widget.content,
+    markdown: widget.markdown,
+  ));
+
+  /// «Nota»: una nota en el texto sobre la selección (F45, paso 8b).
+  Future<void> _noteSelection(TextSelection selection) {
+    final (start, end) = _rawRange(selection);
+    return writeTextNote(
+      context,
+      ref,
+      target: _notesTarget,
+      start: start,
+      end: end,
+      excerpt: widget.content.substring(start, end),
+    );
+  }
+
   /// La barrita de resaltado —ver [buildHighlightMenu]—, con lo que este
   /// texto agrega: leer lo seleccionado en voz alta, ponerle una nota,
   /// extraerlo como nota o hacer una tarjeta. Flutter la posiciona sola junto
@@ -369,7 +398,7 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
       onHighlight: (color, style) =>
           unawaited(_highlightRange(selection, color, style)),
       onReadAloud: () => unawaited(_readSelectionAloud(selection)),
-      onNote: () => unawaited(_highlightSelection(selection)),
+      onNote: () => unawaited(_noteSelection(selection)),
       onExtract: () => unawaited(_extractSelection(selection)),
       onCreateFlashcard: () =>
           unawaited(_createFlashcardFromSelection(selection)),
@@ -451,47 +480,97 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
     // Lo que lee el lector flotante (F25): solo este texto se redibuja
     // cuando cambia la línea, y solo si es suya.
     final readAloud = ref.watch(readAloudHighlightProvider(widget.renditionId));
+    // Las notas en el texto (F45, paso 8b): el punteado y, si alguna tiene
+    // lugar, el margen de sus globitos.
+    final notesTarget = _notesTarget;
+    final notes =
+        ref
+            .watch(
+              placedTextNotesProvider((
+                target: notesTarget,
+                content: widget.content,
+              )),
+            )
+            .valueOrNull ??
+        const <PlacedTextNote>[];
+    final placedNotes = [
+      for (final placed in notes)
+        if (placed.placed) placed,
+    ];
+
+    final text = SelectableText.rich(
+      key: _textKey,
+      _rendered.buildSpans(
+        theme,
+        [?_flash],
+        baseStyle: widget.baseStyle,
+        playing: widget.playingColor,
+        marks: handMarks(context, validHighlights, to: widget.content.length),
+        notes: textNoteMarks(context, placedNotes, to: widget.content.length),
+        activeRange:
+            readAloud ??
+            switch (widget.playing) {
+              final playing? => (playing.start, playing.end),
+              null => null,
+            },
+        paints: widget.paints,
+      ),
+      contextMenuBuilder: _buildContextMenu,
+      onSelectionChanged: (selection, cause) {
+        widget.controller?._setSelection(selection);
+        final tapped =
+            cause == SelectionChangedCause.tap &&
+            selection.isCollapsed &&
+            selection.baseOffset >= 0;
+        if (!tapped) return;
+        final offset = _rendered.renderToRaw(selection.baseOffset);
+        widget.onTapOffset?.call(offset);
+        // Eligiendo palabras clave, un toque es para elegirlas, no para
+        // abrir la ficha de lo que haya debajo.
+        if (ref.read(studyViewProvider(widget.renditionId)).picking) return;
+        final highlight = highlightAt(validHighlights, offset);
+        final noted = textNotesAt(placedNotes, offset);
+        if (noted.isNotEmpty &&
+            !noted.every((note) => note.id == highlight?.id)) {
+          // Una nota en el texto; la de un resaltado de antes, sola, abre su
+          // resaltado.
+          unawaited(openTextNotes(context, ref, noted));
+        } else if (highlight != null) {
+          unawaited(openHighlightCard(context, ref, highlight));
+        }
+      },
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SelectableText.rich(
-          key: _textKey,
-          _rendered.buildSpans(
-            theme,
-            [?_flash],
-            baseStyle: widget.baseStyle,
-            playing: widget.playingColor,
-            marks: handMarks(
-              context,
-              validHighlights,
-              to: widget.content.length,
+        ReadingNotesOffer(
+          sources: [
+            TextNoteSource(
+              target: notesTarget,
+              content: widget.content,
+              reveal: (start, end) {
+                _jumpTo(start, end);
+                return true;
+              },
             ),
-            activeRange:
-                readAloud ??
-                switch (widget.playing) {
-                  final playing? => (playing.start, playing.end),
-                  null => null,
-                },
-            paints: widget.paints,
-          ),
-          contextMenuBuilder: _buildContextMenu,
-          onSelectionChanged: (selection, cause) {
-            widget.controller?._setSelection(selection);
-            final tapped =
-                cause == SelectionChangedCause.tap &&
-                selection.isCollapsed &&
-                selection.baseOffset >= 0;
-            if (!tapped) return;
-            final offset = _rendered.renderToRaw(selection.baseOffset);
-            widget.onTapOffset?.call(offset);
-            // Eligiendo palabras clave, un toque es para elegirlas, no para
-            // abrir la ficha de lo que haya debajo.
-            if (ref.read(studyViewProvider(widget.renditionId)).picking) return;
-            if (highlightAt(validHighlights, offset) case final highlight?) {
-              unawaited(openHighlightCard(context, ref, highlight));
-            }
-          },
+          ],
+          // El margen, solo con globitos: un texto sin notas se ve como
+          // siempre, de ancho entero.
+          child: placedNotes.isEmpty
+              ? text
+              : TextNoteMargin(
+                  gutter: _noteGutter,
+                  notes: placedNotes,
+                  lineOf: (placed) => firstLineOf(
+                    _editable(),
+                    _rendered.rawToRender(placed.start!),
+                    _rendered.rawToRender(placed.end!),
+                  ),
+                  onOpen: (notes) =>
+                      unawaited(openTextNotes(context, ref, notes)),
+                  child: text,
+                ),
         ),
         if (highlights.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -541,6 +620,27 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
         ],
       ],
     );
+  }
+
+  /// El margen de los globitos de las notas en el texto: lo justo para uno
+  /// chico, que no tape la última letra del renglón.
+  static const _noteGutter = 26.0;
+
+  /// El texto que se ve, para saber dónde queda cada letra.
+  RenderEditable? _editable() {
+    RenderEditable? found;
+    void visit(RenderObject object) {
+      if (found != null) return;
+      if (object is RenderEditable) {
+        found = object;
+      } else {
+        object.visitChildren(visit);
+      }
+    }
+
+    final root = _textKey.currentContext?.findRenderObject();
+    if (root != null) visit(root);
+    return found;
   }
 
   /// Copia la cita del resaltado: la de su fuente, con la página o el minuto

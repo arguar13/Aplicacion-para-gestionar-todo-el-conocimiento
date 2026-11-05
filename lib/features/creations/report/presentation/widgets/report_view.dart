@@ -10,6 +10,9 @@ import 'package:sinapsis/features/creations/report/presentation/report_labels.da
 import 'package:sinapsis/features/creations/report/presentation/widgets/report_index_sheet.dart';
 import 'package:sinapsis/features/creations/report/presentation/widgets/report_section_card.dart';
 import 'package:sinapsis/features/creations/report/presentation/widgets/report_text.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_notes_list_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Lo más ancho que se lee un informe: una línea más larga cansa la vista.
@@ -93,7 +96,7 @@ class _ReportViewState extends ConsumerState<ReportView> {
     final keywordsOn = reading.keywords ?? byDefault;
     final painted = keywordsOn ? keywords : ReportKeywords.empty;
 
-    return SingleChildScrollView(
+    final view = SingleChildScrollView(
       key: const Key('report-view'),
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
       child: Center(
@@ -146,6 +149,13 @@ class _ReportViewState extends ConsumerState<ReportView> {
           ),
         ),
       ),
+    );
+    // Las notas de lo creado (F45, paso 8b): un informe no es un texto de
+    // corrido que se elige —son secciones, preguntas y opciones—, así que
+    // sus notas son sobre el informe entero, en «Notas (N)» de ⋮.
+    return ReadingNotesOffer(
+      sources: [TextNoteSource(target: TextNoteTarget.creation(id))],
+      child: view,
     );
   }
 }

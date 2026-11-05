@@ -79,7 +79,9 @@ void main() {
     'Desde una tarjeta, ir al pasaje': 'el marco de la fuente, en el pasaje',
     // Editar.
     'Editar lo procesado': '⋮ «Editar el texto»',
-    'Las notas en el texto': 'F45, paso 8 (todavía no existen)',
+    'Las notas en el texto':
+        '«Nota» en la barrita, el globito en el margen y ⋮ «Notas (N)» '
+        '(F45, paso 8b)',
     // Bajar.
     '«Descargar con lo marcado»': '⋮ del original de Procesado',
     'Exportar lo creado': '⋮ «Descargar» y «Compartir»',
@@ -103,8 +105,9 @@ void main() {
     'El lector de pantalla': 'cada botón con su nombre',
   };
 
-  /// Lo que todavía no existe, con quién lo trae.
-  const pending = {'Las notas en el texto': 'F45, paso 8'};
+  /// Lo que todavía no existe, con quién lo trae: ya nada (F45, paso 8b
+  /// trajo las notas en el texto).
+  const pending = <String, String>{};
 
   final reached = <String>{};
   void reach(String name) {
@@ -398,6 +401,34 @@ void main() {
       reach('Copiar, Escuchar, Nota y resaltar a mano');
       expect(find.byTooltip(es.highlightAddToTimeline), findsOneWidget);
       reach('«A la línea de tiempo»');
+
+      // «Nota» pone una nota en el texto, con su globito, y ⋮ la cuenta en
+      // «Notas (N)» (F45, paso 8b).
+      await tester.tap(find.byTooltip(es.highlightAddNote));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('text-note-field')),
+        'Del censo',
+      );
+      await tester.tap(find.byKey(const Key('text-note-done')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>).value.startsWith(
+                'text-note-bubble-',
+              ),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('reading-frame-more')));
+      await tester.pumpAndSettle();
+      expect(find.text(es.f45S8bNotesMenu(1)), findsOneWidget);
+      await tester.tap(find.byKey(const Key('reading-more-notes')));
+      await tester.pumpAndSettle();
+      expect(find.text('Del censo'), findsOneWidget);
+      reach('Las notas en el texto');
     });
 
     testWidgets('las palabras clave, en rosa, sobre el texto extraído', (

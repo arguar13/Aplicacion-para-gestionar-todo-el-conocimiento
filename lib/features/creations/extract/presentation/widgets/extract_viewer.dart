@@ -24,6 +24,12 @@ import 'package:sinapsis/features/study/presentation/providers/study_keywords_fi
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/study/presentation/widgets/study_progress_strip.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/domain/services/text_note_placement.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
+import 'package:sinapsis/features/text_notes/presentation/text_note_actions.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_note_margin.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_notes_list_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El cuerpo de texto de corrido del marco de lectura (F47, paso 1): el de
@@ -124,6 +130,65 @@ abstract interface class _Revealable {
 
   /// Dónde está [segment] dentro de [revealBox].
   Rect revealRect(ReadableSegment segment);
+
+  /// Dónde está `[start, end)` del texto propio dentro de [revealBox].
+  Rect rangeRect(int start, int end);
+
+  /// Lo elegido en este pedazo, en posiciones del texto propio, o `null`.
+  ({int start, int end})? get selectedRange;
+}
+
+/// Las notas en el texto de un documento (F45, paso 8b): todas, en sus
+/// lugares del texto propio, y cuáles llevan su globito en cada bloque —en
+/// el primero que muestra algo de su pedazo—.
+@immutable
+class _SectionNotes {
+  const _SectionNotes(this.target, this.placed, this.bubblesByBlock);
+
+  static const none = _SectionNotes(null, [], {});
+
+  final TextNoteTarget? target;
+  final List<PlacedTextNote> placed;
+  final Map<int, List<PlacedTextNote>> bubblesByBlock;
+
+  /// Las que tocan [block], para su punteado y para tocarlas.
+  List<PlacedTextNote> touching(ExtractBlock block) => [
+    for (final note in placed)
+      if (note.placed && note.start! < block.end && note.end! > block.start)
+        note,
+  ];
+}
+
+/// Si `[start, end)` toca lo que se ve de [block]: alguno de sus tramos.
+bool _blockShows(ExtractBlock block, int start, int end) =>
+    block.pieces.any((piece) => piece.start < end && piece.end > start);
+
+/// El primer bloque de [blocks] que termina después de [offset].
+int _firstBlockEndingAfter(List<ExtractBlock> blocks, int offset) {
+  var low = 0;
+  var high = blocks.length;
+  while (low < high) {
+    final middle = (low + high) >> 1;
+    if (blocks[middle].end <= offset) {
+      low = middle + 1;
+    } else {
+      high = middle;
+    }
+  }
+  return low;
+}
+
+/// El primer bloque de [blocks] que muestra algo de `[start, end)`, o
+/// `null`: en el resumen, lo que no es del resumen no se ve.
+int? _blockShowing(List<ExtractBlock> blocks, int start, int end) {
+  for (
+    var b = _firstBlockEndingAfter(blocks, start);
+    b < blocks.length && blocks[b].start < end;
+    b++
+  ) {
+    if (_blockShows(blocks[b], start, end)) return b;
+  }
+  return null;
 }
 
 class _ExtractViewerState extends ConsumerState<ExtractViewer> {
@@ -155,6 +220,14 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
   ReadingFrameController? _frame;
   List<String> _outlined = const [];
 
+  /// Las notas en el texto de cada documento (F45, paso 8b).
+  List<_SectionNotes> _notes = const [];
+
+  /// La nota a la que se fue desde «Notas (N)», marcada un momento: de qué
+  /// documento y su tramo.
+  ({int section, int start, int end})? _noteFlash;
+  Timer? _noteFlashTimer;
+
   String get _readableId => widget.read.readableId;
 
   @override
@@ -180,11 +253,161 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
 
   @override
   void dispose() {
+    _noteFlashTimer?.cancel();
     _follow
       ..removeListener(_onFollowChanged)
       ..dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// Las notas de cada documento listo, con el globito de cada una en el
+  /// primer bloque que muestra su pedazo.
+  List<_SectionNotes> _watchNotes(List<ExtractSection> sections) => [
+    for (final section in sections)
+      switch (section.own) {
+        final own? when section.status == ExtractSectionStatus.ready => () {
+          final target = textNoteTargetOf(own.asStudyText);
+          final placed =
+              ref
+                  .watch(
+                    placedTextNotesProvider((
+                      target: target,
+                      content: own.content,
+                    )),
+                  )
+                  .valueOrNull ??
+              const <PlacedTextNote>[];
+          final bubbles = <int, List<PlacedTextNote>>{};
+          for (final note in placed) {
+            if (!note.placed) continue;
+            final block = _blockShowing(section.blocks, note.start!, note.end!);
+            if (block != null) (bubbles[block] ??= []).add(note);
+          }
+          return _SectionNotes(target, placed, bubbles);
+        }(),
+        _ => _SectionNotes.none,
+      },
+  ];
+
+  /// Lo que se le da al marco para «Notas (N)»: un texto por documento listo.
+  List<TextNoteSource> _noteSources(AppLocalizations l10n) => [
+    for (var i = 0; i < _sections.length; i++)
+      if (_notes[i].target case final target?)
+        TextNoteSource(
+          target: target,
+          content: _sections[i].own!.content,
+          title: _sections[i].title.trim().isEmpty
+              ? l10n.f43TextUntitled
+              : _sections[i].title,
+          reveal: (start, end) => _revealNote(i, start, end),
+        ),
+  ];
+
+  /// Lleva la vista a `[start, end)` del documento [section] y lo marca un
+  /// momento: lo que hace tocar una nota en «Notas (N)». `false` si lo que
+  /// se ve no lo muestra —en el resumen, una oración que no es del resumen—.
+  bool _revealNote(int section, int start, int end) {
+    if (section >= _sections.length) return false;
+    final block = _blockShowing(_sections[section].blocks, start, end);
+    if (block == null) return false;
+    _noteFlashTimer?.cancel();
+    setState(() => _noteFlash = (section: section, start: start, end: end));
+    _noteFlashTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _noteFlash = null);
+    });
+    _follow.release();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _goToRange(_firstBlockRow[section] + block, start, end),
+    );
+    return true;
+  }
+
+  /// Deja `[start, end)` de la fila [row] en la franja cómoda de la vista,
+  /// de un salto. Si la fila todavía no se armó —está lejos—, salta a donde
+  /// se calcula que está y vuelve a mirar en el cuadro siguiente.
+  void _goToRange(int row, int start, int end, {int attempt = 0}) {
+    if (!mounted || !_scroll.hasClients) return;
+    final position = _scroll.position;
+    final target = _built[row];
+    final box = target?.revealBox;
+    final viewport = box == null ? null : RenderAbstractViewport.maybeOf(box);
+    if (target == null || box == null || viewport == null) {
+      if (attempt >= 8) return;
+      position.jumpTo(
+        _estimatedOffset(
+          row,
+        ).clamp(position.minScrollExtent, position.maxScrollExtent),
+      );
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _goToRange(row, start, end, attempt: attempt + 1),
+      );
+      return;
+    }
+    final line = target.rangeRect(start, end);
+    final atTop = viewport.getOffsetToReveal(box, 0, rect: line).offset;
+    position.jumpTo(
+      (atTop - position.viewportDimension * ReadAloudBand.landing).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
+  }
+
+  /// Lo elegido, para «Nota»: el documento del primer bloque con algo
+  /// elegido y, en él, de la primera letra elegida a la última. `null` sin
+  /// nada elegido en el texto de un documento.
+  ({int section, int start, int end})? _selectedForNote() {
+    int? section;
+    int? start;
+    int? end;
+    final rows = _built.keys.toList()..sort();
+    for (final row in rows) {
+      final kind = row < _rows.length ? _rows[row] : null;
+      if (kind is! _BlockRow) continue;
+      final range = _built[row]?.selectedRange;
+      if (range == null) continue;
+      if (section != null && kind.section != section) break;
+      section ??= kind.section;
+      start ??= range.start;
+      end = range.end;
+    }
+    if (section == null || start == null || end == null || end <= start) {
+      return null;
+    }
+    return (section: section, start: start, end: end);
+  }
+
+  /// El menú de lo elegido: el de siempre y, sobre el texto de un documento,
+  /// «Nota» (F45, paso 8b).
+  Widget _selectionMenu(BuildContext context, SelectableRegionState region) {
+    final l10n = AppLocalizations.of(context)!;
+    final chosen = _selectedForNote();
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: region.contextMenuAnchors,
+      buttonItems: [
+        ...region.contextMenuButtonItems,
+        if (chosen != null && _notes[chosen.section].target != null)
+          ContextMenuButtonItem(
+            label: l10n.highlightAddNote,
+            onPressed: () {
+              ContextMenuController.removeAny();
+              region.clearSelection();
+              final content = _sections[chosen.section].own!.content;
+              unawaited(
+                writeTextNote(
+                  this.context,
+                  ref,
+                  target: _notes[chosen.section].target!,
+                  start: chosen.start,
+                  end: chosen.end,
+                  excerpt: content.substring(chosen.start, chosen.end),
+                ),
+              );
+            },
+          ),
+      ],
+    );
   }
 
   /// Lo que se escucha de esta extracción: el mismo objeto mientras no
@@ -475,6 +698,7 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
     }
     _layout(sections);
     _outline(l10n);
+    _notes = _watchNotes(sections);
 
     final document = _readable(ref.watch(extractSegmentsProvider(read)));
     // Lo que cambia mientras se escucha —se marcó algo, se editó— se le pasa
@@ -511,6 +735,7 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
         return false;
       },
       child: SelectionArea(
+        contextMenuBuilder: _selectionMenu,
         // La física de la plataforma: el texto se lee de corrido, no se pasan
         // hojas (F45, mejora 13).
         child: ListView.builder(
@@ -528,7 +753,9 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
       child: Stack(
         key: Key('extract-viewer-${read.kind.storageKey}'),
         children: [
-          Positioned.fill(child: list),
+          Positioned.fill(
+            child: ReadingNotesOffer(sources: _noteSources(l10n), child: list),
+          ),
           Positioned(
             top: 12,
             left: 0,
@@ -577,29 +804,52 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
         row: index,
         section: _sections[section],
         block: _sections[section].blocks[block],
+        notes: _notes[section],
+        bubbles: _notes[section].bubblesByBlock[block] ?? const [],
+        flash: switch (_noteFlash) {
+          final flash? when flash.section == section => (
+            flash.start,
+            flash.end,
+          ),
+          _ => null,
+        },
         onBuilt: _register,
         onGone: _unregister,
       ),
     };
-    return _Column(child: child);
+    // El texto de un documento con notas lleva en el margen derecho sus
+    // globitos: el bloque lo pone él mismo, con el mismo ancho.
+    return _Column(
+      noteMargin: row is _BlockRow && _notes[row.section].target != null,
+      child: child,
+    );
   }
 }
 
 /// La columna de lectura: de ancho cómodo, centrada, con los márgenes
 /// generosos de un libro. Sin la tarjeta de papel de antes (F47, paso 1): el
-/// marco es la página, con los colores del modo de lectura.
+/// marco es la página, con los colores del modo de lectura. Con
+/// [noteMargin], el margen derecho lo pone el bloque, con los globitos de
+/// sus notas (F45, paso 8b).
 class _Column extends StatelessWidget {
-  const _Column({required this.child});
+  const _Column({required this.child, this.noteMargin = false});
 
   final Widget child;
+  final bool noteMargin;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: readingColumnWidth),
-      child: Padding(padding: readingColumnPadding(context), child: child),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final padding = readingColumnPadding(context);
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: readingColumnWidth),
+        child: Padding(
+          padding: noteMargin ? padding.copyWith(right: 0) : padding,
+          child: child,
+        ),
+      ),
+    );
+  }
 }
 
 /// El título de un documento: qué se lee, en el color del tipo, el título
@@ -646,6 +896,14 @@ class _SectionHeaderState extends ConsumerState<_SectionHeader>
   @override
   Rect revealRect(ReadableSegment segment) =>
       Offset.zero & (revealBox?.size ?? Size.zero);
+
+  @override
+  Rect rangeRect(int start, int end) =>
+      Offset.zero & (revealBox?.size ?? Size.zero);
+
+  /// El título no es del texto: no lleva notas.
+  @override
+  ({int start, int end})? get selectedRange => null;
 
   @override
   void initState() {
@@ -743,6 +1001,9 @@ class _BlockView extends ConsumerStatefulWidget {
     required this.block,
     required this.onBuilt,
     required this.onGone,
+    this.notes = _SectionNotes.none,
+    this.bubbles = const [],
+    this.flash,
     super.key,
   });
 
@@ -751,6 +1012,17 @@ class _BlockView extends ConsumerStatefulWidget {
   final ExtractBlock block;
   final void Function(int row, _Revealable target) onBuilt;
   final void Function(int row, _Revealable target) onGone;
+
+  /// Las notas en el texto del documento (F45, paso 8b): se pinta el
+  /// punteado de las que tocan este bloque.
+  final _SectionNotes notes;
+
+  /// Las notas cuyo globito va en este bloque.
+  final List<PlacedTextNote> bubbles;
+
+  /// La nota a la que se fue, marcada un momento, en posiciones del texto
+  /// propio.
+  final (int, int)? flash;
 
   @override
   ConsumerState<_BlockView> createState() => _BlockViewState();
@@ -764,17 +1036,75 @@ class _BlockViewState extends ConsumerState<_BlockView> implements _Revealable {
   List<int> _renderStarts = const [];
   List<RenderedMarkdown> _rendered = const [];
 
+  /// El párrafo que se dibuja. Dentro de una `SelectionArea`, un `Text`
+  /// envuelve su párrafo —con el cursor de texto, por ejemplo—, así que se lo
+  /// busca adentro: lo de arriba no sabe dónde está cada letra.
   @override
-  RenderBox? get revealBox =>
-      _text.currentContext?.findRenderObject() as RenderBox?;
+  RenderBox? get revealBox {
+    RenderParagraph? found;
+    void visit(RenderObject object) {
+      if (found != null) return;
+      if (object is RenderParagraph) {
+        found = object;
+      } else {
+        object.visitChildren(visit);
+      }
+    }
+
+    final root = _text.currentContext?.findRenderObject();
+    if (root != null) visit(root);
+    return found ?? root as RenderBox?;
+  }
 
   @override
-  Rect revealRect(ReadableSegment segment) {
+  Rect revealRect(ReadableSegment segment) =>
+      rangeRect(segment.start, segment.end);
+
+  /// Lo elegido en este bloque, que la selección de la lista le cuenta.
+  final _selection = SelectionListenerNotifier();
+
+  @override
+  ({int start, int end})? get selectedRange {
+    if (!_selection.registered) return null;
+    final details = _selection.selection;
+    final range = details.range;
+    if (details.status != SelectionStatus.uncollapsed || range == null) {
+      return null;
+    }
+    final start = math.min(range.startOffset, range.endOffset);
+    final end = math.max(range.startOffset, range.endOffset);
+    final rawStart = _toRaw(start);
+    final rawEnd = _toRaw(end, isEnd: true);
+    return rawEnd > rawStart ? (start: rawStart, end: rawEnd) : null;
+  }
+
+  /// La posición del texto propio que se ve en [renderOffset]: la inversa de
+  /// [_toRender]. Entre dos tramos —el espacio que los une— cae al final del
+  /// de antes o al comienzo del de después, según [isEnd].
+  int _toRaw(int renderOffset, {bool isEnd = false}) {
+    final pieces = widget.block.pieces;
+    for (var i = 0; i < _rendered.length && i < pieces.length; i++) {
+      final from = _renderStarts[i];
+      final to = from + _rendered[i].displayText.length;
+      final inside = isEnd
+          ? renderOffset > from && renderOffset <= to
+          : renderOffset >= from && renderOffset < to;
+      if (inside) {
+        return pieces[i].start +
+            _rendered[i].renderToRaw(renderOffset - from, isEnd: isEnd);
+      }
+      if (renderOffset < from) return pieces[i].start;
+    }
+    return pieces.last.end;
+  }
+
+  @override
+  Rect rangeRect(int segmentStart, int segmentEnd) {
     final box = revealBox;
     if (box is! RenderParagraph) return Offset.zero & (box?.size ?? Size.zero);
     final block = widget.block;
-    final start = math.max(segment.start, block.start);
-    final end = math.min(segment.end, block.end);
+    final start = math.max(segmentStart, block.start);
+    final end = math.min(segmentEnd, block.end);
     if (end <= start) return Offset.zero & box.size;
     final boxes = box.getBoxesForSelection(
       TextSelection(baseOffset: _toRender(start), extentOffset: _toRender(end)),
@@ -819,6 +1149,7 @@ class _BlockViewState extends ConsumerState<_BlockView> implements _Revealable {
   @override
   void dispose() {
     widget.onGone(widget.row, this);
+    _selection.dispose();
     super.dispose();
   }
 
@@ -844,6 +1175,8 @@ class _BlockViewState extends ConsumerState<_BlockView> implements _Revealable {
       block.end,
     );
     final base = appearance.bodyStyle(theme);
+    final touching = widget.notes.touching(block);
+    final flash = widget.flash;
 
     final starts = <int>[];
     final rendered = <RenderedMarkdown>[];
@@ -886,7 +1219,23 @@ class _BlockViewState extends ConsumerState<_BlockView> implements _Revealable {
             ),
       ];
       children.add(
-        markdown.buildSpans(theme, const [], baseStyle: base, paints: paints),
+        markdown.buildSpans(
+          theme,
+          [
+            // La nota a la que se fue desde «Notas (N)», un momento.
+            if (flash != null)
+              if (_clip(flash.$1, flash.$2, piece) case (final s, final e))
+                (s, e),
+          ],
+          baseStyle: base,
+          paints: paints,
+          notes: textNoteMarks(
+            context,
+            touching,
+            from: piece.start,
+            to: piece.end,
+          ),
+        ),
       );
       starts.add(at);
       rendered.add(markdown);
@@ -895,13 +1244,56 @@ class _BlockViewState extends ConsumerState<_BlockView> implements _Revealable {
     _renderStarts = starts;
     _rendered = rendered;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+    // Lo elegido de este bloque, para «Nota» del menú de la selección.
+    Widget text = SelectionListener(
+      selectionNotifier: _selection,
       child: Text.rich(
         TextSpan(style: base, children: children),
         key: _text,
       ),
     );
+    // Tocar un pedazo con nota la abre (F45, paso 8b). Solo en un bloque que
+    // tiene alguna: en los demás, un toque es de la selección. El envoltorio
+    // está siempre —sin nada que hacer, no compite por el toque—: que
+    // aparezca con la primera nota cambiaría el árbol y la selección del
+    // bloque se armaría de nuevo.
+    text = GestureDetector(
+      onTapUp: touching.isEmpty
+          ? null
+          : (details) => _openNotesAt(details.globalPosition, touching),
+      child: text,
+    );
+    if (widget.notes.target != null) {
+      text = TextNoteMargin(
+        gutter: readingColumnPadding(context).right,
+        notes: widget.bubbles,
+        lineOf: (placed) {
+          // Desde lo primero que se ve de su pedazo en este bloque.
+          final first = block.pieces.firstWhere(
+            (piece) => piece.end > placed.start!,
+            orElse: () => block.pieces.last,
+          );
+          return firstLineOf(
+            revealBox,
+            _toRender(math.max(placed.start!, first.start)),
+            _toRender(math.min(placed.end!, block.end)),
+          );
+        },
+        onOpen: (notes) => unawaited(openTextNotes(context, ref, notes)),
+        child: text,
+      );
+    }
+
+    return Padding(padding: const EdgeInsets.only(bottom: 16), child: text);
+  }
+
+  /// Abre las notas cuyo pedazo está donde se tocó, si hay.
+  void _openNotesAt(Offset global, List<PlacedTextNote> touching) {
+    final box = revealBox;
+    if (box is! RenderParagraph) return;
+    final position = box.getPositionForOffset(box.globalToLocal(global));
+    final noted = textNotesAt(touching, _toRaw(position.offset));
+    if (noted.isNotEmpty) unawaited(openTextNotes(context, ref, noted));
   }
 
   /// `[start, end)` recortado a [piece] y contado desde su comienzo, o

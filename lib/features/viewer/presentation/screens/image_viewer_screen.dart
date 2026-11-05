@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/presentation/widgets/text_notes_list_sheet.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/image_viewer_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -80,6 +82,22 @@ class _ImageWithText extends StatefulWidget {
 class _ImageWithTextState extends State<_ImageWithText> {
   var _showText = false;
 
+  /// Ir a una nota desde la imagen: pasa a «Texto» y, ya armado el texto,
+  /// le pide a él que la muestre.
+  bool _revealInText(int start, int end) {
+    final frame = ReadingFrameController.maybeOf(context);
+    setState(() => _showText = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // El texto se ofrece después de su primer cuadro.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (final source in frame?.noteSources ?? const <TextNoteSource>[]) {
+          if (!source.onPage) source.reveal?.call(start, end);
+        }
+      });
+    });
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -117,10 +135,21 @@ class _ImageWithTextState extends State<_ImageWithText> {
                   study: widget.text,
                 )
               // La imagen sola lleva el tono de la página: la letra del
-              // texto va con el modo.
-              : ReadingPageTone(
-                  bodyKind: ReadingBodyKind.page,
-                  child: ImageViewerView(path: widget.path),
+              // texto va con el modo. Sus notas (F45, paso 8b) son las del
+              // texto: desde «Notas (N)», ir a una pasa a «Texto».
+              : ReadingNotesOffer(
+                  sources: [
+                    TextNoteSource(
+                      target: textNoteTargetOf(widget.text),
+                      content: widget.text.content,
+                      onPage: true,
+                      reveal: _revealInText,
+                    ),
+                  ],
+                  child: ReadingPageTone(
+                    bodyKind: ReadingBodyKind.page,
+                    child: ImageViewerView(path: widget.path),
+                  ),
                 ),
         ),
       ],

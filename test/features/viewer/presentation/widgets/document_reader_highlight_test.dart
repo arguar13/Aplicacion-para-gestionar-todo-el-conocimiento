@@ -32,6 +32,8 @@ import 'package:sinapsis/features/processed/presentation/providers/processed_pro
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
 import 'package:sinapsis/features/timeline/presentation/providers/dated_event_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -39,6 +41,7 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/fake_extract_note.dart';
 import '../../../../support/memory_study_repository.dart';
+import '../../../../support/memory_text_notes.dart';
 import '../../../../support/read_aloud_test_support.dart';
 import '../../../../support/recording_dated_events.dart';
 
@@ -76,6 +79,7 @@ void main() {
   late _MockCaptureItemUseCase captureUseCase;
   late ProviderContainer container;
   late List<Map<Symbol, dynamic>> created;
+  late MemoryTextNotes notes;
 
   setUpAll(() {
     registerFallbackValue(RelationKind.relatedTo);
@@ -122,6 +126,7 @@ void main() {
         organizeRepositoryProvider.overrideWithValue(repository),
         captureItemUseCaseProvider.overrideWithValue(captureUseCase),
         extractNoteToProcessedProvider.overrideWithValue(extractNote),
+        textNoteRepositoryProvider.overrideWithValue(notes),
         ...extra,
       ],
     );
@@ -200,6 +205,7 @@ void main() {
     repository = _MockOrganizeRepository();
     captureUseCase = _MockCaptureItemUseCase();
     created = [];
+    notes = MemoryTextNotes();
     when(
       () => repository.createHighlight(
         renditionId: any(named: 'renditionId'),
@@ -280,19 +286,30 @@ void main() {
       expect(created.last[#excerpt], 'industrial');
     });
 
-    testWidgets('Nota resalta con la nota que se escribe', (tester) async {
+    testWidgets('Nota escribe una nota en el texto (F45, paso 8b, decisión I), '
+        'con las posiciones del texto entero, y no resalta', (tester) async {
       await pumpReader(tester);
       await nextPage(tester);
       await select(tester, 3, 13);
 
       await tester.tap(find.byTooltip(es.highlightAddNote));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'clave');
-      await tester.tap(find.text(es.detailSave));
+      await tester.enterText(find.byKey(const Key('text-note-field')), 'clave');
+      await tester.tap(find.byKey(const Key('text-note-done')));
       await tester.pumpAndSettle();
 
-      expect(created.single[#note], 'clave');
-      expect(created.single[#startOffset], twoStart + 3);
+      final [note] = notes.created;
+      expect(
+        note.target,
+        const TextNoteTarget.sourceOriginal(
+          sourceId: 'item-1',
+          renditionId: 'r1',
+        ),
+      );
+      expect(note.note, 'clave');
+      expect((note.start, note.end), (twoStart + 3, twoStart + 13));
+      expect(note.excerpt, 'revolución');
+      expect(created, isEmpty);
     });
 
     testWidgets('Extraer como nota la vincula al elemento, con el lugar del '
@@ -638,8 +655,9 @@ void main() {
   });
 
   testWidgets('sobre la copia del original de un procesado la barrita es de '
-      'solo lectura: Copiar y Extraer como nota, sin colores, nota, tarjeta ni '
-      'línea de tiempo (F41, decisión K)', (tester) async {
+      'solo lectura: Copiar, Extraer como nota y Nota —una nota en el texto de '
+      'la copia, F45, paso 8b—, sin colores, tarjeta ni línea de tiempo (F41, '
+      'decisión K)', (tester) async {
     await pumpReader(
       tester,
       renditionId: processedOriginalStudyKeyFor('procesado'),
@@ -650,8 +668,8 @@ void main() {
     expect(find.byType(HighlightToolbar), findsOneWidget);
     expect(find.byType(HighlightColorDot), findsNothing);
     expect(find.byKey(const Key('highlight-underline')), findsNothing);
+    expect(find.byTooltip(es.highlightAddNote), findsOneWidget);
     for (final tooltip in [
-      es.highlightAddNote,
       es.flashcardsFromSelection,
       es.highlightAddToTimeline,
     ]) {

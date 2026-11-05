@@ -11,6 +11,8 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_selecti
 import 'package:sinapsis/features/organize/presentation/hand_highlighting.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
+import 'package:sinapsis/features/text_notes/presentation/text_note_actions.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/domain/services/pdf_study_pages.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_selection.dart';
@@ -35,8 +37,13 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// Sobre la copia del original de un documento procesado (F41,
 /// `isReadOnlyStudyKey`) no hay texto extraído donde guardar nada: quedan
-/// Copiar, Escuchar y «Extraer como nota» —a las notas del procesado,
-/// decisión J—, sin colores, nota, tarjeta ni línea de tiempo.
+/// Copiar, Escuchar, «Nota» —una nota en el texto de la copia, F45, paso
+/// 8b— y «Extraer como nota» —a las notas del procesado, decisión J—, sin
+/// colores, tarjeta ni línea de tiempo.
+///
+/// «Nota» escribe una nota en el texto (F45, paso 8b, decisión I), ya no un
+/// resaltado con nota: sobre la página no va el globito, y se ve en «Notas
+/// (N)» de ⋮.
 Widget documentHighlightToolbar(
   BuildContext context,
   WidgetRef ref, {
@@ -79,21 +86,22 @@ Widget documentHighlightToolbar(
       await selection.clear();
       await readSelectionAloud(ref, text: selected);
     }()),
-    onNote: readOnly
-        ? null
-        : () => unawaited(() async {
-            if (await _located(context, selection) == null) return;
-            final excerpt = await selection.text();
-            if (!context.mounted) return;
-            final note = await askHighlightNote(context, excerpt: excerpt);
-            if (note == null || !context.mounted) return;
-            await highlightAndReport(
-              context,
-              selection,
-              color: ref.read(lastHighlightColorProvider),
-              note: note.text,
-            );
-          }()),
+    // Una nota en el texto (F45, paso 8b), sobre el pedazo del texto
+    // extraído donde cae lo elegido —también en la copia de Procesado—.
+    onNote: () => unawaited(() async {
+      final range = await _located(context, selection);
+      if (range == null || !context.mounted) return;
+      await selection.clear();
+      if (!context.mounted) return;
+      await writeTextNote(
+        context,
+        ref,
+        target: textNoteTargetOf(text),
+        start: range.start,
+        end: range.end,
+        excerpt: text.content.substring(range.start, range.end),
+      );
+    }()),
     onExtract: () => unawaited(() async {
       final range = await _located(context, selection);
       if (range == null || !context.mounted) return;
