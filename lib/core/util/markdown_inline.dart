@@ -65,6 +65,125 @@ final markdownInlinePattern = RegExp(
   unicode: true,
 );
 
+/// Qué construcción encontró [markdownInlinePattern] (F46, paso 5e): cada
+/// alternativa del patrón, con si lo que se lee de ella se vuelve a leer como
+/// Markdown —lo de adentro de un enlace o de una negrita— o va tal cual —el
+/// código, el texto alternativo de una imagen, un `[[Título]]`—.
+enum MarkdownInline {
+  code(nested: false),
+  image(nested: false),
+  link(nested: true),
+  wikiLink(nested: false),
+  htmlLink(nested: true),
+  htmlImage(nested: false),
+  superscript(nested: true),
+  subscript(nested: true),
+  bold(nested: true),
+  italic(nested: true);
+
+  const MarkdownInline({required this.nested});
+
+  /// Si lo que se lee de ella se lee a su vez como Markdown.
+  final bool nested;
+}
+
+/// Lo que se lee de una construcción: cuál es y su tramo `[start, end)` en el
+/// texto donde se la buscó. Vacío (`start == end`) si no se lee nada: una
+/// imagen sin texto alternativo.
+typedef MarkdownInlineText = ({MarkdownInline kind, int start, int end});
+
+/// Lo que se lee de [match], una coincidencia de [markdownInlinePattern]
+/// (F46, paso 5e). **Un solo lugar dice qué se lee de cada construcción**: el
+/// lector (`RenderedMarkdown`) muestra este tramo con su formato, y
+/// `markdownPlainText` lo deja como texto llano para el chat y para el
+/// modelo. Si fueran dos reglas, lo que viaja al chat diría otra cosa que lo
+/// que se ve.
+///
+/// - un enlace, su texto; una imagen, su texto alternativo —nada si no tiene:
+///   es decorativa, como dice un `alt=""`—;
+/// - `[[Título]]`, el título;
+/// - el código, lo de adentro de su cerca, sin el espacio que la separa de
+///   unas comillas invertidas de adentro;
+/// - el HTML en línea, lo de adentro de sus etiquetas. El texto alternativo
+///   de un `<img>` está escapado como atributo: se lee solo si no tiene nada
+///   escapado, porque lo que se ve tiene que ser un pedazo del crudo —así los
+///   resaltados caen donde corresponden—;
+/// - el énfasis, lo de adentro de sus marcas.
+MarkdownInlineText markdownInlineText(RegExpMatch match) {
+  MarkdownInlineText inside(MarkdownInline kind, String group, int open) {
+    final start = match.start + open;
+    return (
+      kind: kind,
+      start: start,
+      end: start + match.namedGroup(group)!.length,
+    );
+  }
+
+  MarkdownInlineText nothing(MarkdownInline kind) =>
+      (kind: kind, start: match.end, end: match.end);
+
+  if (match.namedGroup('code') != null) {
+    final fence = match.namedGroup('fence')!.length;
+    var start = match.start + fence;
+    var end = match.end - fence;
+    final text = match.input.substring(start, end);
+    if (text.length > 2 &&
+        text.startsWith(' ') &&
+        text.endsWith(' ') &&
+        text.trim().isNotEmpty) {
+      start++;
+      end--;
+    }
+    return (kind: MarkdownInline.code, start: start, end: end);
+  }
+  if (match.namedGroup('image') != null) {
+    return match.namedGroup('alt')!.trim().isEmpty
+        ? nothing(MarkdownInline.image)
+        : inside(MarkdownInline.image, 'alt', 2);
+  }
+  if (match.namedGroup('mdLink') != null) {
+    return inside(MarkdownInline.link, 'linkText', 1);
+  }
+  if (match.namedGroup('wiki') != null) {
+    return inside(MarkdownInline.wikiLink, 'wiki', 2);
+  }
+  if (match.namedGroup('htmlLink') case final open?) {
+    return inside(MarkdownInline.htmlLink, 'htmlLinkText', open.length);
+  }
+  if (match.namedGroup('htmlImage') case final tag?) {
+    final alt = _altAttribute.firstMatch(tag);
+    final value = alt == null ? null : alt[1] ?? alt[2] ?? alt[3];
+    if (value == null || value.trim().isEmpty || value.contains('&')) {
+      return nothing(MarkdownInline.htmlImage);
+    }
+    final start = match.start + alt!.start + alt[0]!.indexOf(value);
+    return (
+      kind: MarkdownInline.htmlImage,
+      start: start,
+      end: start + value.length,
+    );
+  }
+  if (match.namedGroup('script') case final script?) {
+    return inside(
+      script == 'sup' ? MarkdownInline.superscript : MarkdownInline.subscript,
+      'scriptText',
+      5,
+    );
+  }
+  if (match.namedGroup('bold') != null) {
+    return inside(MarkdownInline.bold, 'bold', 2);
+  }
+  return inside(
+    MarkdownInline.italic,
+    match.namedGroup('star') != null ? 'star' : 'under',
+    1,
+  );
+}
+
+final _altAttribute = RegExp(
+  r'''\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))''',
+);
+
 /// Un tramo `[start, end)` de un texto.
 typedef MarkdownSpan = ({int start, int end});
 

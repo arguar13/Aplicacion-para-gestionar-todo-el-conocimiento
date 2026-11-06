@@ -586,10 +586,6 @@ class RenderedMarkdown {
   // `markdownInlinePattern` (F46, paso 5b): es la misma regla con que se
   // corta el texto en páginas y en bloques sin partir ninguna.
 
-  static final _altAttribute = RegExp(
-    r'''\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))''',
-  );
-
   /// Lee el tramo [start]–[end] de [raw] —una línea, o el texto de una marca
   /// que ya se abrió— y agrega sus segmentos con [baseStyle] como estilo de
   /// partida.
@@ -626,140 +622,39 @@ class RenderedMarkdown {
       );
     }
 
-    /// Lo de adentro de una marca: se quita lo de los bordes y se lee lo del
-    /// medio con [style].
-    void inner(
-      RegExpMatch match,
-      String group,
-      _RunStyle style, {
-      required int openLength,
-    }) {
-      final content = match.namedGroup(group)!;
-      final contentStart = match.start + openLength;
-      remove(match.start, contentStart);
-      _parseInline(
-        raw,
-        start + contentStart,
-        start + contentStart + content.length,
-        style,
-        segments,
-      );
-      remove(contentStart + content.length, match.end);
-    }
-
     for (final match in markdownInlinePattern.allMatches(body)) {
       keep(cursor, match.start, baseStyle);
 
-      if (match.namedGroup('code') != null) {
-        // La cerca que se agregó para que el código entre con sus comillas
-        // invertidas, y el espacio que la separa de ellas, no son texto.
-        final fence = match.namedGroup('fence')!.length;
-        var from = match.start + fence;
-        var to = match.end - fence;
-        final text = body.substring(from, to);
-        if (text.length > 2 &&
-            text.startsWith(' ') &&
-            text.endsWith(' ') &&
-            text.trim().isNotEmpty) {
-          from++;
-          to--;
-        }
-        remove(match.start, from);
-        keep(from, to, baseStyle.copyWith(code: true));
-        remove(to, match.end);
-      } else if (match.namedGroup('image') != null) {
-        // Una imagen se lee como su texto alternativo. Una sin texto
-        // alternativo es decorativa —eso dice un `alt=""` en HTML—: no se
-        // ve nada. La imagen misma está en el «Contenido» del elemento.
-        final alt = match.namedGroup('alt')!;
-        if (alt.trim().isEmpty) {
-          remove(match.start, match.end);
-        } else {
-          final altStart = match.start + 2;
-          remove(match.start, altStart);
-          keep(
-            altStart,
-            altStart + alt.length,
-            baseStyle.copyWith(media: true),
-          );
-          remove(altStart + alt.length, match.end);
-        }
-      } else if (match.namedGroup('mdLink') != null) {
-        // Un enlace a otra página se lee como su texto, sin la dirección.
-        final text = match.namedGroup('linkText')!;
-        final textStart = match.start + 1;
-        remove(match.start, textStart);
+      // Qué se lee de cada construcción lo dice `markdownInlineText` (F46,
+      // paso 5e), el mismo con que `markdownPlainText` arma lo que viaja al
+      // chat: acá se quita lo de alrededor y se le da su formato.
+      final read = markdownInlineText(match);
+      final style = switch (read.kind) {
+        MarkdownInline.code => baseStyle.copyWith(code: true),
+        // El texto alternativo de una imagen (F30): la descripción de algo
+        // que no está. La imagen misma está en el «Contenido» del elemento.
+        MarkdownInline.image ||
+        MarkdownInline.htmlImage => baseStyle.copyWith(media: true),
+        MarkdownInline.wikiLink => const _RunStyle(link: true),
+        MarkdownInline.superscript => baseStyle.copyWith(script: 1),
+        MarkdownInline.subscript => baseStyle.copyWith(script: -1),
+        MarkdownInline.bold => baseStyle.copyWith(bold: true),
+        MarkdownInline.italic => baseStyle.copyWith(italic: true),
+        MarkdownInline.link || MarkdownInline.htmlLink => baseStyle,
+      };
+      remove(match.start, read.start);
+      if (read.kind.nested) {
         _parseInline(
           raw,
-          start + textStart,
-          start + textStart + text.length,
-          baseStyle,
+          start + read.start,
+          start + read.end,
+          style,
           segments,
         );
-        remove(textStart + text.length, match.end);
-      } else if (match.namedGroup('wiki') != null) {
-        final title = match.namedGroup('wiki')!;
-        final titleStart = match.start + 2;
-        remove(match.start, titleStart);
-        keep(
-          titleStart,
-          titleStart + title.length,
-          const _RunStyle(link: true),
-        );
-        remove(titleStart + title.length, match.end);
-      } else if (match.namedGroup('htmlLink') != null) {
-        final open = match.namedGroup('htmlLink')!;
-        final text = match.namedGroup('htmlLinkText')!;
-        final textStart = match.start + open.length;
-        remove(match.start, textStart);
-        _parseInline(
-          raw,
-          start + textStart,
-          start + textStart + text.length,
-          baseStyle,
-          segments,
-        );
-        remove(textStart + text.length, match.end);
-      } else if (match.namedGroup('htmlImage') != null) {
-        // El texto alternativo de un `<img>` está escapado como atributo:
-        // no se puede mostrar un pedazo del crudo sin cambiarle caracteres,
-        // y lo que se ve tiene que ser un pedazo del crudo para que los
-        // resaltados caigan donde corresponde. Se ve el tramo del atributo
-        // solo si no tiene nada escapado; si no, la imagen no se ve.
-        final tag = match.namedGroup('htmlImage')!;
-        final alt = _altAttribute.firstMatch(tag);
-        final value = alt == null ? null : alt[1] ?? alt[2] ?? alt[3];
-        if (value == null || value.trim().isEmpty || value.contains('&')) {
-          remove(match.start, match.end);
-        } else {
-          final valueStart = match.start + alt!.start + alt[0]!.indexOf(value);
-          remove(match.start, valueStart);
-          keep(
-            valueStart,
-            valueStart + value.length,
-            baseStyle.copyWith(media: true),
-          );
-          remove(valueStart + value.length, match.end);
-        }
-      } else if (match.namedGroup('script') != null) {
-        inner(
-          match,
-          'scriptText',
-          baseStyle.copyWith(
-            script: match.namedGroup('script') == 'sup' ? 1 : -1,
-          ),
-          openLength: 5,
-        );
-      } else if (match.namedGroup('bold') != null) {
-        inner(match, 'bold', baseStyle.copyWith(bold: true), openLength: 2);
       } else {
-        inner(
-          match,
-          match.namedGroup('star') != null ? 'star' : 'under',
-          baseStyle.copyWith(italic: true),
-          openLength: 1,
-        );
+        keep(read.start, read.end, style);
       }
+      remove(read.end, match.end);
 
       cursor = match.end;
     }
