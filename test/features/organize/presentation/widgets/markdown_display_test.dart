@@ -481,6 +481,22 @@ void main() {
       expectSlicesOfRaw(raw);
     });
 
+    test('cada construcción con su formato: el superíndice arriba, el '
+        'subíndice abajo y el código de ancho fijo (F46, paso 5e)', () {
+      final span = RenderedMarkdown.parse(
+        '10<sup>6</sup> y H<sub>2</sub>O con `x`',
+      ).buildSpans(ThemeData.light(), const []);
+      TextStyle? styleOf(String text) => span.children!
+          .cast<TextSpan>()
+          .firstWhere((s) => s.text == text)
+          .style;
+
+      expect(styleOf('6')?.fontFeatures, [const FontFeature.superscripts()]);
+      expect(styleOf('2')?.fontFeatures, [const FontFeature.subscripts()]);
+      expect(styleOf('x')?.fontFamily, 'monospace');
+      expect(styleOf(' y H')?.fontFamily, isNot('monospace'));
+    });
+
     test('el código en línea se ve sin sus comillas y sin interpretar', () {
       const raw = 'Usá `a_*b*_c` o `` `x` ``.';
       expect(RenderedMarkdown.parse(raw).displayText, 'Usá a_*b*_c o `x`.');

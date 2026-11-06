@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/util/markdown_inline.dart';
 import 'package:sinapsis/core/util/markdown_plain_text.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 
@@ -77,6 +78,39 @@ void main() {
         ),
         'el CO2, el m2, un sitio y un mapa o .',
       );
+      // El texto alternativo escapado no se lee: lo que se ve tiene que ser un
+      // pedazo del crudo, y «a &amp; b» no lo es.
+      expect(markdownPlainText('x <img src="b.png" alt="a &amp; b"> y'), 'x y');
+    });
+
+    test('qué es cada construcción y qué tramo se lee de ella '
+        '(`markdownInlineText`)', () {
+      MarkdownInlineText read(String text) =>
+          markdownInlineText(markdownInlinePattern.firstMatch(text)!);
+
+      expect(read('CO<sub>2</sub>'), (
+        kind: MarkdownInline.subscript,
+        start: 7,
+        end: 8,
+      ));
+      expect(read('m<sup>2</sup>').kind, MarkdownInline.superscript);
+      expect(read('`x`').kind, MarkdownInline.code);
+      expect(read('[[La loba]]').kind, MarkdownInline.wikiLink);
+      expect(read('[a](b)').kind, MarkdownInline.link);
+      expect(read('**a**').kind, MarkdownInline.bold);
+      expect(read('_a_').kind, MarkdownInline.italic);
+      // Una imagen sin texto alternativo —o con uno de espacios— no deja
+      // nada: ni siquiera el espacio.
+      expect(read('![ ](https://x.org/a.jpg)'), (
+        kind: MarkdownInline.image,
+        start: 25,
+        end: 25,
+      ));
+      expect(read('![un mapa](a.jpg)'), (
+        kind: MarkdownInline.image,
+        start: 2,
+        end: 9,
+      ));
     });
 
     test('combinadas, cada una adentro de la otra', () {
@@ -129,6 +163,15 @@ void main() {
       expect(markdownPlainText('### Siglo XX\n\nEn 1905'), 'Siglo XX\nEn 1905');
     });
 
+    test('un título corta el párrafo de arriba aunque no haya un renglón en '
+        'blanco entre los dos', () {
+      expect(markdownPlainBlocks('Un párrafo\n## Título\nSu texto').toList(), [
+        'Un párrafo',
+        'Título',
+        'Su texto',
+      ]);
+    });
+
     test('un párrafo en varios renglones es un bloque', () {
       expect(
         markdownPlainBlocks('La república\ncayó.\n\nOtro párrafo.').toList(),
@@ -167,6 +210,10 @@ void main() {
         ['Antes.', 'final x = [y](z);\n**no**', 'Después.'],
       );
       expect(markdownPlainBlocks('~~~\nsin cerrar').toList(), ['sin cerrar']);
+      // Con los fines de renglón de Windows, el código no se queda con ellos.
+      expect(markdownPlainBlocks('```\r\nx = 1\r\ny\r\n```\r\n').toList(), [
+        'x = 1\ny',
+      ]);
     });
 
     test('las filas de una tabla, con sus celdas separadas por una coma', () {
@@ -253,6 +300,12 @@ void main() {
       expect(
         readablePassage('a' * 150, markdown: false, maxChars: 100),
         '${'a' * 100}…',
+      );
+      // Si el último espacio queda lejos del tope, no se tira casi todo para
+      // terminar en una palabra entera.
+      expect(
+        readablePassage('aa ${'b' * 150}', markdown: false, maxChars: 100),
+        'aa ${'b' * 97}…',
       );
     });
 
