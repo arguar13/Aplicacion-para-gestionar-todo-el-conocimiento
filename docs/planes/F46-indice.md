@@ -1374,3 +1374,80 @@ después, las mismas salvo `creations` fuera de `extract`: 3.884 pasan, 0 fallas
 trabarse —también con `uiautomator dump`— y que «Ver la página» abre la entera; que «Abrir en el
 original» de un documento pasado con «Pasar todo» abre el PDF en su página y la página web en su
 título; y la tarjeta de lo que falta y el texto de Fotosíntesis sin huecos, en el teléfono.
+
+### Paso 5d (hecho): el aviso sin hueco
+
+**Qué se vio** (emulador, 427 dp de ancho a 3x): el aviso de la Biblioteca de ejemplo, «Biblioteca
+de ejemplo: cargados 76 · con error 4» con **«Ver qué falló»**, mostraba un renglón de texto, un
+hueco grande y recién abajo a la derecha el botón, con más aire abajo que arriba. `uiautomator`
+medía el aviso en 345 px (115 dp con los márgenes de afuera del `SnackBar`: la tarjeta, 100), la ✕
+en [1079,2214][1223,2358] y el botón debajo de ella, en [895,2358][1223,2502].
+
+**Causa**: el texto entraba en un renglón al lado de la ✕, pero no al lado del botón y la ✕, y el
+aviso se armaba «como tarjeta» con la ✕ arriba a la derecha —centrada con el primer renglón, con
+su caja de 48 para el dedo, de 0 a 48— y los botones en un renglón propio en
+`max(fin del texto + 4, fin de la ✕)`: con un renglón de texto (de 14 a 34), la ✕ ganaba y los
+botones bajaban a 48, con 4 más abajo de ellos. El hueco era la caja de la ✕.
+
+**Qué se hizo** (`cba0717e`): con botones, si no entra todo en un renglón, el texto toma el ancho
+entero arriba (menos 16 de cada lado) y, justo debajo, van los botones y la ✕ en un renglón pegado
+a la derecha —en un idioma que se escribe al revés, a la izquierda—, centrados entre sí, como el
+`SnackBar` de Material 3 con un botón largo pero sin su aire de más: el renglón empieza donde
+termina el texto y el aviso donde termina el renglón, porque los botones y la ✕ ya traen su aire
+adentro, el mismo arriba y abajo de su letra. Con un renglón y un botón, el aviso mide
+14 + el renglón + 48: 82 en el teléfono (antes 100), 76 con la letra de las pruebas.
+
+- **Si los botones no entran juntos al lado de la ✕** (dos botones con la letra grande), se apilan
+  a la derecha en el orden en que se leen y la ✕ queda **al lado del último**, el principal,
+  centrada con él. Se eligió así porque deja al principal pegado a la ✕ como en cualquier renglón
+  —«Ver», «Deshacer», ✕—, y la ✕ queda abajo a la derecha, en el mismo lugar en todo aviso con
+  botones; arriba de ella no hay nada, porque los botones apilados terminan donde empieza la ✕.
+- **Sin botones**, no cambia: el texto al lado de la ✕, que queda arriba a la derecha, centrada
+  con el primer renglón. **En un renglón**, tampoco: todo centrado, 48 de alto.
+- Los botones dejan de ir en un `OverflowBar` y pasan a ser dos lugares del acomodo
+  (`secondaryAction` y `action`): para centrar la ✕ con el último botón apilado hay que saber
+  dónde queda cada uno. Las cajas de 48 nunca se enciman: los botones van a la izquierda de la ✕ y
+  debajo del texto.
+- **Intrínsecas, medida en seco y línea base**: con botones, lo más angosto es la palabra más larga
+  con el ancho entero o el botón más angosto apilado al lado de la ✕; lo más ancho, todo en un
+  renglón; el alto sale de la misma cuenta que el acomodo. El acomodo no tenía **línea base en
+  seco** (`computeDryBaseline`) y ahora la tiene: la del texto, medida con el ancho que le toca. El
+  toque y el dibujo recorren las partes donde quedaron; la huella que publica (`SnackBarFootprint`)
+  la mide `TopEdgeProbe` sobre el borde de arriba del aviso, así que lo que flota se corre lo justo,
+  más bajo que antes.
+
+**Archivos**: `lib/core/design/widgets/app_snack_bar.dart` (el comentario de la clase dice el
+acomodo nuevo y el porqué), `test/core/design/widgets/app_snack_bar_test.dart`, la GUÍA y la
+decisión del aviso único en `docs/arquitectura.md` (`8a337aeb`).
+
+**Pruebas** (todas con fakes): cambian cinco que fijaban la ✕ arriba en la tarjeta con botones —el
+texto «hasta la ✕», la ✕ «a la altura del primer renglón», los botones «4 arriba del borde» y
+«debajo de la ✕»—, que ahora dicen que la ✕ va en el renglón del último botón, pegada a él, y que
+no hay aire de más arriba ni abajo del renglón. Se suman 113: a 360, 412 y 427 de ancho, con la
+letra a 1, 1,3 y 2, con un botón corto, uno largo o dos, texto de uno y de tres renglones, de
+izquierda a derecha y al revés (108), que nada se encime, que las cajas de 48 estén enteras y
+adentro, que la ✕ esté al final y en la fila del último botón, que los botones vayan juntos con 4
+entre ellos o apilados, y que la medida en seco, las intrínsecas y la línea base digan lo que se
+ve; y el alto justo con un renglón y un botón (76), el caso en un renglón que no cambia (48), el
+aviso sin botones, los toques en el borde entre la ✕ y el botón, y el aviso de la Biblioteca de
+ejemplo a 427. El archivo pasa de 17 a 130 pruebas.
+
+**Mutaciones** (`tool/mutar.py`): 19 de 20 muertas —aire entre el texto y el renglón o debajo de
+él; el texto sin el ancho entero; la ✕ arriba en la tarjeta; siempre apilados o nunca; la ✕ con el
+primer botón apilado; aire debajo de los apilados; los apilados contra el borde o sin bajar; sin
+espacio entre botones; el último despegado de la ✕; el renglón sin centrar; los botones al revés;
+las tres del mínimo de ancho; el espacio fuera del ancho del renglón; y la línea base en seco sin
+el corrimiento del texto—. Sobrevivió una, equivalente: la línea base en seco medida con el ancho
+del aviso en vez del del texto da lo mismo para un texto, cuyo primer renglón no depende del ancho;
+se deja el ancho del texto porque es el que de verdad le toca.
+
+**Sobre `main`**: rebasado sobre `28aa3caa` (el paso 5c) sin conflictos.
+
+**Analizador**: 19 avisos, la línea base. **Pruebas**, con `--concurrency=2`, sobre la rama
+rebasada: `test/core/design` (con el censo de los avisos y la huella) y los archivos de pruebas que
+muestran un aviso —Biblioteca de ejemplo, Bandeja, Repasar, el lector en voz alta, la IA y los
+demás—: 986 pasan, 0 fallas.
+
+**Queda para la sesión principal**: mirarlo en el emulador con una APK nueva —el aviso de la
+Biblioteca de ejemplo a 427 dp debería medir 82 dp de tarjeta, con «Ver qué falló» y la ✕ juntos
+justo debajo del texto—.
