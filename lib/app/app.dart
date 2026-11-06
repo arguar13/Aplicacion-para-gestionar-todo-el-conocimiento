@@ -22,6 +22,7 @@ import 'package:sinapsis/features/chat/presentation/providers/model_memory_provi
 import 'package:sinapsis/features/keep_working/presentation/widgets/keep_working_offer_listener.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/cloud_reading_gate.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_headings_providers.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/triage/processed_tidy_notice_listener.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/features/transform/presentation/widgets/video_text_notice_listener.dart';
@@ -74,6 +75,10 @@ class _AppState extends ConsumerState<App> {
       if (_storedTextRepairStarted || current is! VaultUnlocked) return;
       _storedTextRepairStarted = true;
       unawaited(repairUtf8MojibakeOnce(ref.read));
+      // El relleno del Índice (F46): lo que quedó sin indexar —lo que ya
+      // estaba procesado al actualizar, lo que trajo una unión— y las imágenes
+      // sin título, en segundo plano. Desde acá mira la base solo.
+      ref.read(processedHeadingsBackfillKeeperProvider);
     }, fireImmediately: true);
   }
 
