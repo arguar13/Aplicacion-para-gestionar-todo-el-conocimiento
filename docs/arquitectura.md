@@ -7320,11 +7320,10 @@ decisión 93.
   `SnackBarFootprintHost`, en el `builder` de la app, por encima del `Navigator`:
   - **lo que flota se corre** (`LiftAboveSnackBar`, decisión C): el botón redondo del lector se
     para arriba del aviso, con su misma animación, en lugar de esconderse;
-  - **lo anclado sube a los avisos** (`SnackBarFloor`): el reproductor de F47 los pone siempre
-    encima suyo, con el margen de un `SnackBarTheme` propio y la cifra `current` de lo que ocupa.
-    Cambiar el `Theme` entero a mitad de un arrastre, con la Lectura enfocada, volvía a armar la
-    lista que se arrastraba; un `SnackBarTheme` reconstruye solo los avisos. `ReadAloudOverlay`
-    resta la barra y el borde seguro, que el `Scaffold` ya esquiva, para no sumarlos dos veces;
+  - **lo anclado no necesita nada de acá**: el reproductor de F47 subía los avisos con
+    `SnackBarFloor`; desde F46, paso 5g, las pantallas le dejan su lugar como al teclado
+    (`ReadAloudRoom`) y cada `Scaffold` pone sus avisos encima de él, así que `SnackBarFloor` se
+    borró;
   - la sonda del borde (`TopEdgeProbe`) mide también al acomodarse: un aviso llega transparente y
     ya ocupa su lugar antes de dibujarse.
 - **Triar con la IA de turno, comprobada palabra por palabra** (paso 2, decisión B, elegida por el
@@ -7760,8 +7759,8 @@ abrir la app). Plan, con sus decisiones A a L y el «Avance» de cada paso:
   lectores —el de «Lo creado», «Leer como libro», el PDF y la página web—, cada uno con su
   reproductor. Ahora hay uno, `ReadingFrame` (`lib/features/reading/presentation/frame/`): ← y
   cuatro botones redondos del mismo tamaño que no crecen con la letra —Contenido, IA, Aa y ⋮—, la
-  fila de IA que se recuerda, el cuerpo en una columna de ancho cómodo y, abajo, «Escuchar» o el
-  lugar del reproductor (`ReadingPlayerSlot`). Lo único que cambia es el cuerpo: el PDF, la página web
+  fila de IA que se recuerda, el cuerpo en una columna de ancho cómodo y, abajo, «Escuchar»
+  (`ReadingPlayerSlot`; sonando, el marco le deja su lugar al reproductor como cualquier pantalla). Lo único que cambia es el cuerpo: el PDF, la página web
   en vista móvil, el libro paginado, la foto con «Imagen · Texto», el audio o el video con su
   transcripción, o el texto de corrido. El texto, el resumen y la síntesis de un procesado se abren
   en el mismo lector que «Lo creado», sin crear nada en «Lo creado» (F45, decisión F).
@@ -7787,10 +7786,16 @@ abrir la app). Plan, con sus decisiones A a L y el «Avance» de cada paso:
   que monta `ReadAloudOverlay`, abierto o achicado, con la cola, Repetir, el temporizador y la cara de
   la voz. El dominio es puro: `ReadingTimeline` (el tiempo por las palabras, 150 por minuto a 1×;
   ±10 s salta a la oración más cercana y siempre mueve), `ReadingQueue` y `SleepTimer`; la velocidad
-  va de 0,5× a 3,0× de a una décima, sin candados. Lo que ocupa se publica con dos cifras
-  (`readAloudPlayerExtentProvider`): `current`, lo de ahora, para que los avisos vayan siempre encima
-  (decisión 91), y `resting`, la forma elegida sin el achicarse pasajero de la Lectura enfocada, para
-  lo que no debe moverse a mitad de un arrastre.
+  va de 0,5× a 3,0× de a una décima, sin candados. **Las pantallas le dejan su lugar como al teclado**
+  (F46, paso 5g, `read_aloud_room.dart`): `ReadAloudOverlay` le da al `Navigator` el alto del
+  reproductor —con el borde seguro, al pie— como `MediaQueryData.viewInsets`, y `NavigationBarScope`
+  se lo da al `Scaffold` de las pestañas encima de la barra; cada `Scaffold` achica su cuerpo, así que
+  listas, botones flotantes y avisos lo esquivan sin que ninguna pantalla haga nada. Sigue a la
+  forma elegida, no al achicarse de la Lectura enfocada; con el teclado manda el más alto; los
+  diálogos y paneles no lo ven, y sin reproductor `MediaQuery` queda igual. Si la barra de
+  navegación se ve lo dice ella (`navigationBarShownProvider`), no la configuración de `go_router`,
+  que no ve un `Navigator.push`. Antes lo publicaba `readAloudPlayerExtentProvider` y solo el marco y
+  el podcast le reservaban lugar a mano.
 - **La sesión de medios, escrita a mano y sin dependencias nuevas** (decisión J, cambiada en el
   paso 2). `audio_service` busca el motor de Flutter por su propio nombre y lo destruye cuando su
   servicio se va y no hay actividad; el motor de la app es el del proceso (F29, decisión 62), así que

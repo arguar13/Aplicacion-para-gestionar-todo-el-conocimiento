@@ -3741,8 +3741,20 @@ de escucharlo.
    botón redondo no aparece: lo que suena se maneja desde el reproductor.
 2. Abajo, a lo ancho, aparece **el reproductor de lectura**, como el de una
    app de música: encima de la barra de navegación, y en las pantallas sin
-   barra, abajo del todo. Sigue ahí, y sonando, aunque cambies de pestaña o
-   abras otra pantalla. **Abierto** tiene:
+   barra, abajo del todo —también en las que se abren encima de las
+   pestañas, como **Clonación de voz**: ahí no hay barra, y el reproductor
+   baja al pie apenas se abren y vuelve arriba de la barra al cerrarlas—.
+   Siempre en ese lugar: en el chat, el campo para escribir queda arriba
+   de él. Sigue ahí, y sonando, aunque cambies de pestaña o abras otra
+   pantalla. **Las pantallas le dejan su lugar**, como al teclado: el
+   final de una lista —el último renglón de Ajustes, «Bloquear bóveda»— se
+   sube por encima de él, el botón flotante —«Nuevo cuaderno»— queda
+   entero arriba, y lo que va centrado —la tarjeta de la Bandeja— se centra
+   en lo que queda a la vista. Achicado, deja más lugar; al cerrarlo, la
+   pantalla vuelve a ocupar todo. Mientras escribís el reproductor se hace
+   a un lado y manda el teclado; con un diálogo o un panel abierto, también
+   se hace a un lado y el panel empieza desde abajo de todo. **Abierto**
+   tiene:
    - **El título**, que se desliza si no entra (dos veces, y después queda
      quieto; con las animaciones apagadas en el teléfono no se mueve), y
      debajo con qué voz y a qué velocidad lee: «Leyendo con la voz del
@@ -3803,7 +3815,10 @@ de escucharlo.
      lectura se pausa, y mañana sigue donde quedó.
 5. **Lectura enfocada** (Ajustes → Voz y lectura): con el interruptor prendido,
    el reproductor abierto **se achica solo mientras te desplazás** por
-   cualquier pantalla y vuelve a abrirse al soltar. Viene apagada.
+   cualquier pantalla y vuelve a abrirse al soltar. Lo que desplazás no
+   cambia de alto por eso: la pantalla le sigue dejando el lugar del
+   reproductor abierto, y los avisos se quedan donde estaban, encima de él.
+   Viene apagada.
 6. **Los avisos de abajo van por encima del reproductor**: nunca te tapa un
    aviso ni su ✕.
 7. **Con la app minimizada, otra app abierta o la pantalla apagada, sigue
