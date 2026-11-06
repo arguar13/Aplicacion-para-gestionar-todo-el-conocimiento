@@ -156,8 +156,14 @@ Future<void> showIndexDocumentActions(
 }
 
 /// «Abrir en el original»: un PDF en la página de [entry], una página web en
-/// su título, lo demás desde el comienzo. Sin copia del original, apagada y
-/// diciendo por qué.
+/// su título, lo demás desde el comienzo.
+///
+/// Abre la copia del original que guardó Procesado y, sin ella —«Pasar todo»
+/// pasa solo el texto—, el original de su fuente en la Biblioteca, en el mismo
+/// lugar y con el mismo visor que su detalle (F46, paso 5c); una fuente cuyo
+/// original no se lee en un visor —un audio, un video— abre su ficha, que lo
+/// muestra. Apagada, y diciendo por qué, solo sin copia y sin fuente —o con
+/// la fuente en la papelera—.
 ReadingMenuEntry _openOriginalEntry(
   BuildContext context,
   WidgetRef ref,
@@ -167,45 +173,92 @@ ReadingMenuEntry _openOriginalEntry(
   String? documentId,
 ]) {
   final id = entry?.documentId ?? documentId!;
-  final original = facts.original;
-  final pdfPage = entry?.pdfPage;
-  final heading = entry != null && !entry.isWholeText && entry.title.isNotEmpty
+  final copy = facts.original;
+  final source = facts.source;
+  final library = copy == null && source != null && !source.inTrash
+      ? source
+      : null;
+  final original = copy ?? library?.original;
+  final pdfPage = original == IndexOriginalKind.pdf ? entry?.pdfPage : null;
+  final heading =
+      original == IndexOriginalKind.webPage &&
+          entry != null &&
+          !entry.isWholeText &&
+          entry.title.isNotEmpty
       ? entry
       : null;
-  final detail = switch (original) {
-    null => l10n.f46P4NoOriginal,
-    IndexOriginalKind.pdf when pdfPage != null => l10n.f46P4OriginalPdfPage(
-      pdfPage,
-    ),
-    IndexOriginalKind.webPage when heading != null => l10n.f46P4OriginalHeading,
-    _ => l10n.f46P4OriginalStart,
-  };
-  return ReadingMenuEntry(
-    key: const Key('index-action-open-original'),
-    icon: Icons.description_outlined,
-    label: l10n.f46P4OpenOriginal,
-    detail: detail,
-    onSelected: original == null
-        ? null
+
+  final String detail;
+  final VoidCallback? open;
+  if (copy != null) {
+    detail = pdfPage != null
+        ? l10n.f46P4OriginalPdfPage(pdfPage)
+        : heading != null
+        ? l10n.f46P4OriginalHeading
+        : l10n.f46P4OriginalStart;
+    open = () => unawaited(
+      _openOriginal(
+        context,
+        ref,
+        id,
+        heading,
+        (occurrence) => RoutePaths.processedOriginal(
+          id,
+          page: pdfPage,
+          heading: heading?.title,
+          occurrence: occurrence,
+        ),
+      ),
+    );
+  } else if (library != null) {
+    detail = library.original == null
+        ? l10n.f46P5cSourceItem
+        : pdfPage != null
+        ? l10n.f46P5cSourcePdfPage(pdfPage)
+        : heading != null
+        ? l10n.f46P5cSourceHeading
+        : l10n.f46P5cSourceStart;
+    open = library.original == null
+        ? () => unawaited(context.push(RoutePaths.itemDetail(library.itemId)))
         : () => unawaited(
             _openOriginal(
               context,
               ref,
               id,
-              page: original == IndexOriginalKind.pdf ? pdfPage : null,
-              heading: original == IndexOriginalKind.webPage ? heading : null,
+              heading,
+              (occurrence) => RoutePaths.libraryOriginal(
+                library.itemId,
+                page: pdfPage,
+                heading: heading?.title,
+                occurrence: occurrence,
+              ),
             ),
-          ),
+          );
+  } else {
+    detail = source != null && source.inTrash
+        ? l10n.f46P5cSourceInTrash
+        : l10n.f46P4NoOriginal;
+    open = null;
+  }
+  return ReadingMenuEntry(
+    key: const Key('index-action-open-original'),
+    icon: Icons.description_outlined,
+    label: l10n.f46P4OpenOriginal,
+    detail: detail,
+    onSelected: open,
   );
 }
 
+/// Abre la dirección que arma [location] con cuántos títulos iguales a
+/// [heading] vienen antes en el documento [documentId] —el segundo
+/// «Referencias» es el segundo de la página—; sin [heading], cero.
 Future<void> _openOriginal(
   BuildContext context,
   WidgetRef ref,
-  String documentId, {
-  int? page,
+  String documentId,
   IndexEntry? heading,
-}) async {
+  String Function(int occurrence) location,
+) async {
   var occurrence = 0;
   if (heading != null) {
     final entries = await ref
@@ -215,16 +268,7 @@ Future<void> _openOriginal(
     occurrence = indexHeadingOccurrence(entries, heading);
   }
   if (!context.mounted) return;
-  unawaited(
-    context.push(
-      RoutePaths.processedOriginal(
-        documentId,
-        page: page,
-        heading: heading?.title,
-        occurrence: occurrence,
-      ),
-    ),
-  );
+  unawaited(context.push(location(occurrence)));
 }
 
 /// «Preguntar al chat»: una conversación nueva sobre el capítulo, con su

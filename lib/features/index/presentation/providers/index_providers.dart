@@ -7,7 +7,9 @@ import 'package:sinapsis/features/index/data/repositories/processed_index_docume
 import 'package:sinapsis/features/index/domain/entities/index_tree.dart';
 import 'package:sinapsis/features/index/domain/repositories/index_document_access.dart';
 import 'package:sinapsis/features/index/domain/repositories/index_repository.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
+import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 
 /// Lo que la pantalla del Índice (F46) lee y escribe.
 final indexRepositoryProvider = Provider<IndexRepository>(
@@ -18,9 +20,14 @@ final indexRepositoryProvider = Provider<IndexRepository>(
 );
 
 /// Lo que el Índice lee de un documento procesado para lo que se hace con una
-/// entrada (F46, paso 4): su título, su copia del original y su texto.
+/// entrada (F46, paso 4): su título, su copia del original, su fuente en la
+/// Biblioteca (paso 5c) y su texto.
 final indexDocumentAccessProvider = Provider<IndexDocumentAccess>(
-  (ref) => ProcessedIndexDocumentAccess(ref.watch(processedRepositoryProvider)),
+  (ref) => ProcessedIndexDocumentAccess(
+    ref.watch(processedRepositoryProvider),
+    library: ref.watch(libraryRepositoryProvider),
+    viewers: ref.watch(fileViewerResolverProvider),
+  ),
 );
 
 // Lo que lee la pantalla, de a lo que se ve (F46, paso 3). Todos se sueltan

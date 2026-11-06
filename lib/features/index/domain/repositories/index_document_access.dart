@@ -11,6 +11,22 @@ enum IndexOriginalKind {
   other,
 }
 
+/// La fuente de un documento procesado en la Biblioteca (F46, paso 5c): con
+/// ella, «Abrir en el original» abre el original de la Biblioteca cuando
+/// Procesado no guardó su propia copia —«Pasar todo» pasa solo el texto—.
+typedef IndexLibrarySource = ({
+  /// El elemento de la Biblioteca.
+  String itemId,
+
+  /// Qué original tiene, para abrirlo en su visor en el lugar de la entrada;
+  /// `null` si no tiene uno que se lea ahí —un audio, un video, un YouTube,
+  /// una nota—: entonces se abre su ficha, que lo muestra.
+  IndexOriginalKind? original,
+
+  /// Si está en la papelera: así no se abre, se restaura primero.
+  bool inTrash,
+});
+
 /// Lo que se sabe de un documento al hacer algo con una de sus entradas.
 typedef IndexDocumentFacts = ({
   /// El título del documento, de donde ya está.
@@ -18,6 +34,9 @@ typedef IndexDocumentFacts = ({
 
   /// Su copia del original; `null` si no guardó ninguna.
   IndexOriginalKind? original,
+
+  /// Su fuente en la Biblioteca, o `null` si ya no está (F46, paso 5c).
+  IndexLibrarySource? source,
 });
 
 /// Lo que el Índice necesita de un documento procesado para lo que se hace
@@ -25,8 +44,8 @@ typedef IndexDocumentFacts = ({
 /// por ella—, leído recién cuando se lo pide: el Índice no carga nada de esto
 /// mientras se lo recorre.
 abstract interface class IndexDocumentAccess {
-  /// El título de [documentId] y qué copia del original guarda, o `null` si
-  /// el documento ya no está.
+  /// El título de [documentId], qué copia del original guarda y su fuente en
+  /// la Biblioteca, o `null` si el documento ya no está.
   Future<IndexDocumentFacts?> factsOf(String documentId);
 
   /// El texto propio de [documentId] —sus páginas de «Texto» una detrás de la

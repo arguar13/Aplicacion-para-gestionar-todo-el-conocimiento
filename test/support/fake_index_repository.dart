@@ -199,8 +199,9 @@ class FakeIndexRepository implements IndexRepository {
 }
 
 /// Un [IndexDocumentAccess] de prueba (F46, paso 4): lo que se sabe de cada
-/// documento —su título y su copia del original— y su texto, como lo diría
-/// Procesado. Un documento que no está en [facts] ya no existe.
+/// documento —su título, su copia del original y su fuente en la Biblioteca
+/// (paso 5c)— y su texto, como lo diría Procesado. Un documento que no está
+/// en [facts] ya no existe.
 class FakeIndexDocumentAccess implements IndexDocumentAccess {
   final facts = <String, IndexDocumentFacts>{};
   final texts = <String, String>{};

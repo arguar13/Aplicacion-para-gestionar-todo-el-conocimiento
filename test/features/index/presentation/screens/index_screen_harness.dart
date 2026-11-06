@@ -25,7 +25,8 @@ import '../../../../support/fake_index_repository.dart';
 final kIndexTestNow = DateTime(2026, 11, 5, 10);
 
 /// La pantalla del Índice (F46, paso 3) sobre [repository], con un router
-/// mínimo: el Índice, el lector único —que solo dice qué abrió— y Procesado.
+/// mínimo: el Índice, el lector único —que solo dice qué abrió—, Procesado y
+/// la Biblioteca.
 ///
 /// El panel de la derecha de una pantalla ancha dice qué tiene abierto y
 /// ofrece cerrarlo: el lector entero lo prueba `index_screen_vault_test`.
@@ -84,6 +85,28 @@ class IndexScreenHarness {
                 appBar: AppBar(),
                 body: Text('original ${state.uri}'),
               ),
+            ),
+          ],
+        ),
+        // La Biblioteca: la ficha de una fuente y su original, que abre «Abrir
+        // en el original» sin copia en Procesado (F46, paso 5c).
+        GoRoute(
+          path: RoutePaths.library,
+          builder: (context, state) => const Scaffold(body: Text('Biblioteca')),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (context, state) =>
+                  Scaffold(appBar: AppBar(), body: Text('ficha ${state.uri}')),
+              routes: [
+                GoRoute(
+                  path: 'original',
+                  builder: (context, state) => Scaffold(
+                    appBar: AppBar(),
+                    body: Text('biblioteca ${state.uri}'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

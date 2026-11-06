@@ -27,6 +27,24 @@ abstract final class RoutePaths {
 
   static String itemDetail(String id) => '$library/$id';
 
+  /// El original de un elemento de la Biblioteca en su visor, a pantalla
+  /// completa: el mismo que abre «Ver la página» o «Leer como libro» desde su
+  /// detalle. Con [page], un PDF se abre en esa página; con [heading], una
+  /// página web en ese título —el [occurrence] de los iguales—: «Abrir en el
+  /// original» desde un capítulo del Índice cuando Procesado no guardó su
+  /// propia copia (F46, paso 5c).
+  static String libraryOriginal(
+    String id, {
+    int? page,
+    String? heading,
+    int occurrence = 0,
+  }) => _originalAt(
+    '$library/$id/original',
+    page: page,
+    heading: heading,
+    occurrence: occurrence,
+  );
+
   /// El Explorador: lo ya procesado, organizado en carpetas.
   static const explorer = '/explorer';
 
@@ -69,6 +87,20 @@ abstract final class RoutePaths {
     int? page,
     String? heading,
     int occurrence = 0,
+  }) => _originalAt(
+    '$processed/$id/original',
+    page: page,
+    heading: heading,
+    occurrence: occurrence,
+  );
+
+  /// [path] con el lugar en que se abre un original: la página de un PDF o el
+  /// título de una página web.
+  static String _originalAt(
+    String path, {
+    required int? page,
+    required String? heading,
+    required int occurrence,
   }) {
     final query = {
       'page': ?page?.toString(),
@@ -77,7 +109,7 @@ abstract final class RoutePaths {
     };
     // Sin lugar, la dirección de siempre, sin un `?` colgando.
     return Uri(
-      path: '$processed/$id/original',
+      path: path,
       queryParameters: query.isEmpty ? null : query,
     ).toString();
   }
@@ -331,6 +363,7 @@ abstract final class RouteNames {
   static const index = 'index';
   static const processedDocument = 'processed-document';
   static const processedOriginal = 'processed-original';
+  static const libraryOriginal = 'library-original';
   static const capture = 'capture';
   static const transcriptionModel = 'transcription-model';
   static const vaultBackup = 'vault-backup';

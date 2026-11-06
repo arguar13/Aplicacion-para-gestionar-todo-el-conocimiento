@@ -32,7 +32,16 @@ void main() {
 
   /// Tres documentos sin tema: un libro de texto, un PDF con marcadores y una
   /// página web con dos «Referencias»; uno con «Texto completo» y una galería.
-  void library({IndexOriginalKind? historia = IndexOriginalKind.other}) {
+  ///
+  /// Sin copia del original en Procesado —[historia], [atlas] o [web] en
+  /// `null`—, cada uno puede tener su fuente en la Biblioteca en [sources]
+  /// (F46, paso 5c).
+  void library({
+    IndexOriginalKind? historia = IndexOriginalKind.other,
+    IndexOriginalKind? atlas = IndexOriginalKind.pdf,
+    IndexOriginalKind? web = IndexOriginalKind.webPage,
+    Map<String, IndexLibrarySource> sources = const {},
+  }) {
     repo.documents.addAll([
       indexDocument('historia', 'Historia de Roma', chapters: 3, images: 1),
       indexDocument('atlas', 'Atlas', chapters: 2),
@@ -65,10 +74,18 @@ void main() {
     ], firstKey: 30);
     repo.entries['suelto'] = [indexWholeText('suelto', 40)];
     harness.documents.facts.addAll({
-      'historia': (title: 'Historia de Roma', original: historia),
-      'atlas': (title: 'Atlas', original: IndexOriginalKind.pdf),
-      'web': (title: 'Roma en la web', original: IndexOriginalKind.webPage),
-      'suelto': (title: 'Apuntes sueltos', original: null),
+      'historia': (
+        title: 'Historia de Roma',
+        original: historia,
+        source: sources['historia'],
+      ),
+      'atlas': (title: 'Atlas', original: atlas, source: sources['atlas']),
+      'web': (title: 'Roma en la web', original: web, source: sources['web']),
+      'suelto': (
+        title: 'Apuntes sueltos',
+        original: null,
+        source: sources['suelto'],
+      ),
     });
     // Cada capítulo empieza en i * 100: «Rómulo» en 100, «La República» en
     // 200.
@@ -223,9 +240,8 @@ void main() {
       );
     });
 
-    testWidgets('sin copia del original, apagado y diciendo por qué', (
-      tester,
-    ) async {
+    testWidgets('sin copia del original ni fuente, apagado y diciendo por '
+        'qué', (tester) async {
       library(historia: null);
       await harness.pump(tester);
       await unfold(tester, 'historia');
@@ -236,6 +252,168 @@ void main() {
         detailOf(tester, 'index-action-open-original'),
         es.f46P4NoOriginal,
       );
+    });
+
+    group('sin copia en Procesado, el original de la Biblioteca (paso 5c)', () {
+      IndexLibrarySource source(
+        String itemId,
+        IndexOriginalKind? original, {
+        bool inTrash = false,
+      }) => (itemId: itemId, original: original, inTrash: inTrash);
+
+      testWidgets('un PDF: en la página del marcador, en la Biblioteca', (
+        tester,
+      ) async {
+        library(
+          atlas: null,
+          sources: {'atlas': source('fuente-atlas', IndexOriginalKind.pdf)},
+        );
+        await harness.pump(tester);
+        await unfold(tester, 'atlas');
+        await holdOn(tester, 'El Lacio');
+        expect(tile(tester, 'index-action-open-original').enabled, isTrue);
+        expect(
+          detailOf(tester, 'index-action-open-original'),
+          es.f46P5cSourcePdfPage(11),
+        );
+
+        await choose(tester, 'index-action-open-original');
+        expect(
+          find.text('biblioteca /library/fuente-atlas/original?page=11'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('una página web: en su título, el segundo de los iguales', (
+        tester,
+      ) async {
+        library(
+          web: null,
+          sources: {'web': source('fuente-web', IndexOriginalKind.webPage)},
+        );
+        await harness.pump(tester);
+        await unfold(tester, 'web');
+        await tester.longPress(indexEntry('Referencias').last);
+        await tester.pumpAndSettle();
+        expect(
+          detailOf(tester, 'index-action-open-original'),
+          es.f46P5cSourceHeading,
+        );
+
+        await choose(tester, 'index-action-open-original');
+        expect(
+          find.text(
+            'biblioteca /library/fuente-web/original?heading=Referencias&nth=1',
+          ),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('un Word o un EPUB: su original, desde el comienzo', (
+        tester,
+      ) async {
+        library(
+          historia: null,
+          sources: {
+            'historia': source('fuente-historia', IndexOriginalKind.other),
+          },
+        );
+        await harness.pump(tester);
+        await unfold(tester, 'historia');
+        await holdOn(tester, 'Rómulo');
+        expect(
+          detailOf(tester, 'index-action-open-original'),
+          es.f46P5cSourceStart,
+        );
+
+        await choose(tester, 'index-action-open-original');
+        expect(
+          find.text('biblioteca /library/fuente-historia/original'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('una fuente sin un original que se lea —un audio—: su '
+          'ficha', (tester) async {
+        library(
+          historia: null,
+          sources: {'historia': source('fuente-audio', null)},
+        );
+        await harness.pump(tester);
+        await unfold(tester, 'historia');
+        await holdOn(tester, 'Rómulo');
+        expect(
+          detailOf(tester, 'index-action-open-original'),
+          es.f46P5cSourceItem,
+        );
+
+        await choose(tester, 'index-action-open-original');
+        expect(find.text('ficha /library/fuente-audio'), findsOneWidget);
+      });
+
+      testWidgets('con la fuente en la papelera, apagado y diciendo por qué', (
+        tester,
+      ) async {
+        library(
+          historia: null,
+          sources: {
+            'historia': source(
+              'fuente-historia',
+              IndexOriginalKind.other,
+              inTrash: true,
+            ),
+          },
+        );
+        await harness.pump(tester);
+        await unfold(tester, 'historia');
+        await holdOn(tester, 'Rómulo');
+
+        expect(tile(tester, 'index-action-open-original').enabled, isFalse);
+        expect(
+          detailOf(tester, 'index-action-open-original'),
+          es.f46P5cSourceInTrash,
+        );
+      });
+
+      testWidgets('con copia en Procesado, la copia: la fuente no se usa', (
+        tester,
+      ) async {
+        library(
+          sources: {'atlas': source('fuente-atlas', IndexOriginalKind.pdf)},
+        );
+        await harness.pump(tester);
+        await unfold(tester, 'atlas');
+        await holdOn(tester, 'El Lacio');
+        expect(
+          detailOf(tester, 'index-action-open-original'),
+          es.f46P4OriginalPdfPage(11),
+        );
+        await choose(tester, 'index-action-open-original');
+        expect(
+          find.text('original /processed/atlas/original?page=11'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('la hoja del documento: el original de la Biblioteca desde '
+          'el comienzo', (tester) async {
+        library(
+          atlas: null,
+          sources: {'atlas': source('fuente-atlas', IndexOriginalKind.pdf)},
+        );
+        await harness.pump(tester);
+        await tester.longPress(documentRow('atlas'));
+        await tester.pumpAndSettle();
+        expect(
+          detailOf(tester, 'index-action-open-original'),
+          es.f46P5cSourceStart,
+        );
+        await choose(tester, 'index-action-open-original');
+        expect(
+          find.text('biblioteca /library/fuente-atlas/original'),
+          findsOneWidget,
+        );
+      });
     });
 
     testWidgets('«Preguntar al chat»: una conversación nueva con el capítulo, '

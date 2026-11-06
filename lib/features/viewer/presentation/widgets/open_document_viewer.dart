@@ -9,6 +9,7 @@ import 'package:sinapsis/features/processed/presentation/widgets/original/origin
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_view.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
+import 'package:sinapsis/features/viewer/domain/services/archived_page_heading.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/image_viewer_screen.dart';
@@ -68,21 +69,10 @@ Future<bool> openDocumentViewer(
         MediaPlayerScreen(path: path, title: item.title, isVideo: isVideo),
       );
 
-    case PdfResolvedViewer(:final path, :final text):
-      return _pushOriginal(context, item, OriginalFormat.pdf, path, text);
-
-    case WebPageResolvedViewer(:final path, :final url, :final text):
-      return _pushOriginal(
-        context,
-        item,
-        OriginalFormat.page,
-        path,
-        text,
-        url: url,
-      );
-
-    case TextResolvedViewer(:final study?):
-      return _pushOriginal(context, item, OriginalFormat.reader, null, study);
+    case PdfResolvedViewer() ||
+        WebPageResolvedViewer() ||
+        TextResolvedViewer(study: _?):
+      return _push(context, libraryOriginalScreenOf(item, resolved)!);
 
     // Un texto que no es el que se estudia —su forma principal no es la de
     // estudiar—: el lector sin nada que marcar.
@@ -108,21 +98,30 @@ Future<bool> openDocumentViewer(
   }
 }
 
-/// El original de [item] en su visor, con sus fichas si tiene [text].
+/// El original de [item] en su visor según [resolved] —un PDF, una página
+/// web, o un Word, un EPUB o un texto con su texto para estudiar—, con sus
+/// fichas si tiene texto; `null` si lo que trae no es un original que se lea
+/// así —una foto, un audio, un YouTube—.
 ///
 /// Es el mismo marco de lectura que el original de Procesado (F47, paso 1):
 /// las fichas en la fila de IA marcan la fuente. De la Biblioteca nada se
 /// borra: ⋮ no lleva nada en rojo.
-bool _pushOriginal(
-  BuildContext context,
+///
+/// **En un lugar** (F46, paso 5c: «Abrir en el original» desde un capítulo
+/// del Índice, sin copia en Procesado): un PDF, en la página [page]; una
+/// página web, en el título [heading]. Un libro, desde el comienzo.
+Widget? libraryOriginalScreenOf(
   KnowledgeItem item,
-  OriginalFormat format,
-  String? path,
-  StudyText? text, {
-  String? url,
-}) => _push(
-  context,
-  OriginalScreen(
+  ResolvedViewer resolved, {
+  int? page,
+  ArchivedHeading? heading,
+}) {
+  Widget original(
+    OriginalFormat format,
+    String? path,
+    StudyText? text, {
+    String? url,
+  }) => OriginalScreen(
     title: item.title,
     format: format,
     study: text == null ? null : OriginalStudy.source(text),
@@ -132,9 +131,31 @@ bool _pushOriginal(
       url: url,
       title: item.title,
       text: text,
+      initialPage: format == OriginalFormat.pdf ? page : null,
+      heading: format == OriginalFormat.page ? heading : null,
     ),
-  ),
-);
+  );
+
+  return switch (resolved) {
+    PdfResolvedViewer(:final path, :final text) => original(
+      OriginalFormat.pdf,
+      path,
+      text,
+    ),
+    WebPageResolvedViewer(:final path, :final url, :final text) => original(
+      OriginalFormat.page,
+      path,
+      text,
+      url: url,
+    ),
+    TextResolvedViewer(:final study?) => original(
+      OriginalFormat.reader,
+      null,
+      study,
+    ),
+    _ => null,
+  };
+}
 
 bool _push(BuildContext context, Widget screen) {
   unawaited(

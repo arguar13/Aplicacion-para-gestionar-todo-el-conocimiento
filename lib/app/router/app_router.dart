@@ -67,6 +67,8 @@ import 'package:sinapsis/features/vault/presentation/screens/merge_conflicts_scr
 import 'package:sinapsis/features/vault/presentation/screens/unlock_vault_screen.dart';
 import 'package:sinapsis/features/vault/presentation/screens/vault_backup_screen.dart';
 import 'package:sinapsis/features/vault/presentation/screens/vault_compaction_screen.dart';
+import 'package:sinapsis/features/viewer/domain/services/archived_page_heading.dart';
+import 'package:sinapsis/features/viewer/presentation/screens/library_original_screen.dart';
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_category_screen.dart';
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_screen.dart';
 
@@ -396,6 +398,23 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     ),
                     builder: (context, state) =>
                         ItemDetailScreen(itemId: state.pathParameters['id']!),
+                    routes: [
+                      // Su original en un lugar (F46, paso 5c): lo que abre
+                      // «Abrir en el original» desde el Índice sin copia en
+                      // Procesado. En la raíz, como el detalle.
+                      GoRoute(
+                        parentNavigatorKey: rootNavigatorKey,
+                        path: 'original',
+                        name: RouteNames.libraryOriginal,
+                        builder: (context, state) => LibraryOriginalScreen(
+                          itemId: state.pathParameters['id']!,
+                          page: _originalPageOf(state.uri.queryParameters),
+                          heading: _originalHeadingOf(
+                            state.uri.queryParameters,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -525,21 +544,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                         name: RouteNames.processedOriginal,
                         builder: (context, state) => ProcessedOriginalScreen(
                           documentId: state.pathParameters['id']!,
-                          page: int.tryParse(
-                            state.uri.queryParameters['page'] ?? '',
+                          page: _originalPageOf(state.uri.queryParameters),
+                          heading: _originalHeadingOf(
+                            state.uri.queryParameters,
                           ),
-                          heading:
-                              switch (state.uri.queryParameters['heading']) {
-                                final title? when title.isNotEmpty => (
-                                  title: title,
-                                  occurrence:
-                                      int.tryParse(
-                                        state.uri.queryParameters['nth'] ?? '',
-                                      ) ??
-                                      0,
-                                ),
-                                _ => null,
-                              },
                         ),
                       ),
                     ],
@@ -609,6 +617,21 @@ String? _redirect({
     VaultUnlocked() => null,
   };
 }
+
+/// La página de un PDF en que se abre un original (`?page=`), o `null`.
+int? _originalPageOf(Map<String, String> query) =>
+    int.tryParse(query['page'] ?? '');
+
+/// El título de una página web en que se abre un original (`?heading=` y el
+/// `nth` de los iguales), o `null`: ver `RoutePaths.processedOriginal`.
+ArchivedHeading? _originalHeadingOf(Map<String, String> query) =>
+    switch (query['heading']) {
+      final title? when title.isNotEmpty => (
+        title: title,
+        occurrence: int.tryParse(query['nth'] ?? '') ?? 0,
+      ),
+      _ => null,
+    };
 
 /// Las tarjetas de una práctica suelta (`?cards=a,b,c`, «Repasar estas» de
 /// las difíciles), o `null` si no la pide.
