@@ -622,6 +622,14 @@ los pasos 2, 3, 6a y 7a.
     letra elegida que no se guarda, la página oscura sin invertir el negro, un capítulo de
     Contenido que no salta a su página, lo ofrecido sin su dirección y tocar la tarjeta que apila
     la misma pantalla otra vez.
+  - commit a commit (`verify_commit`, el 6/11): 3 dan 19 y 13 no compilan. Son pasos
+    intermedios de los rebases, ya subidos, y no se reescribe la historia: `145e4bb1`,
+    `2b7fbe83`, `35126640`, `7cce46b6` y `20f9b511` piden `documentId`,
+    `readerFontScaleNotifierProvider` o `readable`, que llegaron después; `f6bdb0a6`,
+    `9407a86a`, `5be55c82`, `71f62821`, `1b8e63c3` y `09a92e99` importan
+    `read_aloud_voice_sheet.dart`, que ya no existe; `11c0a200`, `195a1893` y `7c4d2e8b` usan
+    `ReadAloudPlayer`, que reemplazó el reproductor anclado. Desde `15656602` compila de nuevo,
+    y la punta da 19.
 - **Queda para después:**
   - **el margen abajo fuera del marco.** En el marco, el reproductor no tapa nada. En las listas
     de las demás pantallas (la Biblioteca, Procesado, Repasar) todavía puede tapar el último
@@ -862,7 +870,7 @@ Nueve commits, de `eab4686a` a `af851c0f`, y el de este avance (decisión C; pun
   - murieron las 30 mutaciones: 19 del enganche del podcast y 11 de la unión de bóvedas;
   - `in_app_model_file_transfer_test` («se puede pausar») falló una vez y pasa sola 9 de 9: queda
     anotada como intermitente;
-  - commit a commit (`verify_commit`): pendiente, con el resto de lo integrado el 5/11.
+  - commit a commit (`verify_commit`, el 6/11): los seis commits de código dan 19.
 - **Queda para después:**
   - probarlo con una clave real de ElevenLabs en el teléfono;
   - clonar en el teléfono, cuando haya un ZipVoice con español;
@@ -983,6 +991,7 @@ Cinco commits, de `6c358383` a `15d47ed0`, y el de este avance (punto 6 del plan
     donde no se puede, exportar uno viejo, el costo sin preguntar, borrar sin dejar de sonar,
     «Cancelar» que no cancela y el podcast que exporta un audio de otra versión;
   - no se compiló el APK (el Kotlin suma un tipo de trabajo y sus dos textos, nada más).
+  - commit a commit (`verify_commit`, el 6/11): los cuatro commits de código dan 19.
 - **Queda para después:**
   - medir en el teléfono cuánto tarda en generarse el audio de un documento largo con cada voz
     (sobre todo Kokoro y las del teléfono) y cuánto pesa;
@@ -1198,6 +1207,10 @@ Diez commits, de `33e6a5c0` a `73bf31d5`, y el de este avance (decisiones B, E, 
     otra versión sin decir y la transcripción que no se sigue;
   - el APK de depuración (`dev`) compiló con el Kotlin nuevo (`WavToM4a.kt` y
     `DeviceSpeechChannel.kt`), sin avisos en ellos; no se instaló en ningún teléfono.
+  - commit a commit (`verify_commit`, el 6/11): 7 dan 19. `833aed60` y `3e7ac17c` dan avisos
+    de estilo en `creation_queue_checkpoint_test.dart` y `study_creation_checkpoint_test.dart`
+    (el orden de los imports, un `dart:async` de más y tipos sin anotar), que arregló
+    `4e9971f3`. Ya subidos, no se reescriben; la punta da 19.
 - **Queda para después:**
   - medir en el teléfono cuánto tarda en generarse un podcast con cada voz (sobre todo Kokoro y
     las del teléfono) y cuánto pesa, y oír si las pausas recortadas suenan naturales;
@@ -1283,6 +1296,7 @@ parte —Ajustes → «Voz y lectura» entera— es el paso 7b.
   - el APK de depuración compila.
 - **Para decidir con el dueño:** «Seguir escuchando» guarda el título sin cifrar y lo muestra en la
   pantalla de inicio aunque la bóveda esté cerrada. La pantalla de los widgets lo avisa.
+  - commit a commit (`verify_commit`, el 6/11): los cinco commits de código dan 19.
 - **Queda para después:**
   - **el paso 7b**, «Voz y lectura» entera: la biblioteca con la voz de ahora, clonar y crear,
     la nube para voces (ElevenLabs), la velocidad por defecto, la tipografía y el resaltado de
@@ -1448,6 +1462,7 @@ ningún aviso.
 - **El APK de depuración compila** (`dev`, con todo el Kotlin de este paso, sobre `917a11c0`).
   El rebase sobre `5c8ad18f` unió sin conflicto `SinapsisEngine.kt` (main le sumó la voz del
   teléfono para el 6b) y no se volvió a compilar. No se miró en el emulador ni en el teléfono.
+- **Commit a commit** (`verify_commit`, el 6/11): los seis commits de código dan 19.
 
 #### Queda para después
 

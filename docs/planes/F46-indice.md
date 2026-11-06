@@ -365,7 +365,8 @@ puras y probadas, listas para que el paso 2 las guarde: no hay esquema nuevo ni 
   el pie, un año que se va del nombre y los hijos de un marcador a su misma profundidad;
 - las 886 pruebas de `test/features/processed` y de los lectores de documentos
   (`test/features/transform/data/documents`), con PDFium, y después de los últimos cambios las
-  326 de `processed/domain/services` y `processed/data`.
+  326 de `processed/domain/services` y `processed/data`;
+- commit a commit (`verify_commit`, el 6/11): los once commits de código dan 19.
 
 **Queda abierto:**
 

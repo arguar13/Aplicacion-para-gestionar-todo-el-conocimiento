@@ -1058,6 +1058,7 @@ v50.
     Markdown antes del encabezado, la página web con el bloque al final, el
     PDF sin título, el EPUB en el último capítulo, la llamada que cambia de
     número y la nota de una pregunta que se pierde.
+  - commit a commit (`verify_commit`, el 6/11): los ocho commits de código dan 19.
 - **Queda abierto:**
   - no se miró en el emulador ni en el teléfono: el globito sobre el PDF
     (`pageOverlaysBuilder` y el toque por `PdfOverlayInteractionRegion`) y
@@ -1155,6 +1156,12 @@ con F47, paso 2).
     equivalente (el `OverflowBar` ya alinea a la derecha solo) y se cambió por su
     `alignment`; la otra mostró que faltaba el caso de un texto corto con un botón largo, que
     se agregó.
+  - commit a commit (`verify_commit`, el 6/11): 5 dan 19 y 11 dan 21 o 23, sin errores. De
+    `5e86957a` a `22c5d437`, un TODO fuera del estilo de Flutter y `containsSemantics`, ya
+    obsoleto, en la prueba del aviso (los arregló `bb68c1d5`); de `8e084070` a `d090fde3`,
+    además, el import de `app_snack_bar.dart` sin usar en `map_canvas_view.dart` y
+    `map_board_pane.dart` (lo arregló `fa08c528`). Ya subidos, no se reescriben; la punta da
+    19.
 - **Queda para después:**
   - no se miró en el emulador ni en el teléfono;
   - con un aviso **fijo** (`SnackBarBehavior.fixed`) a la vista, achicar el reproductor con la
