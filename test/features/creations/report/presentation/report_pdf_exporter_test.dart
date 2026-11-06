@@ -3,11 +3,15 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pdfrx_engine/pdfrx_engine.dart';
+import 'package:sinapsis/core/pdf/pdf_bold.dart';
+import 'package:sinapsis/features/creations/report/domain/report_canonical_text.dart';
+import 'package:sinapsis/features/creations/report/domain/report_export_notes.dart';
 import 'package:sinapsis/features/creations/report/domain/report_keywords.dart';
 import 'package:sinapsis/features/creations/report/domain/report_markdown.dart';
 import 'package:sinapsis/features/creations/report/presentation/export/report_pdf_exporter.dart';
 
 import '../../../../support/pdf_annotations.dart';
+import '../../../../support/pdf_text_modes.dart';
 import '../support/sample_reports.dart';
 
 /// Las fuentes de la app, leídas del disco: lo mismo que da `rootBundle`.
@@ -34,6 +38,114 @@ void main() {
       ))!.lengthInBytes,
       greaterThan(100000),
     );
+  });
+
+  // Sin PDFium: el flujo de dibujo mismo, como lo lee un lector de PDF.
+  group('la negrita (F46, paso 5f)', () {
+    const exporter = ReportPdfExporter(fonts: _fromDisk);
+    final keywords = ReportKeywords(const ['Sinaí', 'Alianza']);
+
+    /// Las palabras de todas las páginas, y el modo con que sale cada vez
+    /// [text]: «0» solo relleno, «2» en negrita.
+    String modesOf(List<PdfShownWord> words, String text) => [
+      for (final word in words)
+        if (word.text == text) '${word.mode}',
+    ].join();
+
+    test('cada tramo en negrita va aislado y lo que sigue sale solo '
+        'relleno', () async {
+      final words = pdfShownWords(
+        await exporter.export(report: sampleReport(), keywords: keywords),
+      ).expand((page) => page).toList();
+      for (final word in words.where((word) => word.mode != 0)) {
+        expect(word.mode, 2, reason: word.text);
+        expect(word.depth, greaterThan(0), reason: word.text);
+        expect(word.stroke, word.fill, reason: word.text);
+        expect(
+          word.width,
+          closeTo(word.size * pdfBoldWeight, 0.001),
+          reason: word.text,
+        );
+      }
+      // El título, los de las secciones, el subtítulo, las preguntas, las
+      // negritas del texto, las palabras clave y las respuestas.
+      for (final bold in [
+        'liberación',
+        'Introducción',
+        'Conclusión',
+        'plagas',
+        '¿Quién',
+        'Éxodo',
+        'Sinaí',
+        'Respuestas',
+        'Moisés',
+      ]) {
+        expect(modesOf(words, bold), contains('2'), reason: bold);
+      }
+      // Lo que va justo después de un título y el texto de siempre.
+      for (final plain in [
+        'De',
+        'esclavitud',
+        'libro',
+        'cuenta',
+        'Aarón',
+        'Josué',
+        'Dejá',
+        'endurece',
+        'corazón',
+        'PROBARTE',
+        'Página',
+      ]) {
+        expect(modesOf(words, plain), matches(RegExp(r'^0+$')), reason: plain);
+      }
+    });
+
+    test('la llamada de una nota en un título o un subtítulo en negrita no '
+        'va en negrita', () async {
+      final report = sampleReport();
+      final words = pdfShownWords(
+        await exporter.export(
+          report: report,
+          notes: ReportExportNotes(
+            pieces: [
+              ReportPieceNote(
+                place: const ReportTextPlace.title(),
+                at: report.title.length,
+                note: 'Ver el capítulo 19',
+              ),
+              // «### Las plagas», el primer bloque de la segunda sección.
+              const ReportPieceNote(
+                place: ReportTextPlace.block(1, 0),
+                at: 'Las plagas'.length,
+                note: 'Diez',
+              ),
+            ],
+          ),
+        ),
+      ).expand((page) => page).toList();
+      // Primero va el pie —el título en chico, sin negrita— y después el
+      // título: su última palabra, en negrita y aislada, y enseguida la
+      // llamada, solo rellena.
+      expect(modesOf(words, 'alianza'), startsWith('02'));
+      final last = words.indexWhere(
+        (word) => word.text == 'alianza' && word.mode == 2,
+      );
+      expect(words[last].depth, greaterThan(0));
+      expect(words[last + 1].text, '1');
+      expect(words[last + 1].mode, 0);
+      expect(words[last + 2].text, 'De');
+      expect(modesOf(words, 'De'), matches(RegExp(r'^0+$')));
+      // El subtítulo: «Las plagas» en negrita, la llamada «2» no.
+      // La última vez que dice «plagas»: antes va la viñeta «Las plagas y
+      // la salida.».
+      final plagues = words.lastIndexWhere((word) => word.text == 'plagas');
+      expect(words[plagues - 1].text, 'Las');
+      expect(words[plagues - 1].mode, 2);
+      expect(words[plagues].mode, 2);
+      expect(words[plagues].depth, greaterThan(0));
+      expect(words[plagues + 1].text, '2');
+      expect(words[plagues + 1].mode, 0);
+    });
   });
 }
 

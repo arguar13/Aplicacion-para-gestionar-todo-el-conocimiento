@@ -4,10 +4,12 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pdfrx_engine/pdfrx_engine.dart';
+import 'package:sinapsis/core/pdf/pdf_bold.dart';
 import 'package:sinapsis/features/index/domain/services/index_print.dart';
 import 'package:sinapsis/features/index/presentation/export/index_pdf_exporter.dart';
 
 import '../../../../support/pdf_annotations.dart';
+import '../../../../support/pdf_text_modes.dart';
 
 /// Las letras de la app, leídas del disco: lo mismo que da `rootBundle`.
 Future<ByteData> _fromDisk(String asset) async =>
@@ -62,6 +64,108 @@ void main() {
       () => const IndexPdfExporter().export(_print, page: _page),
     );
     expect(bytes!.sublist(0, 5), '%PDF-'.codeUnits);
+  });
+
+  // Sin PDFium: el flujo de dibujo mismo, como lo lee un lector de PDF.
+  group('la negrita (F46, paso 5f)', () {
+    Future<Uint8List> inline(
+      Future<Uint8List> Function(IndexPdfJob) build,
+      IndexPdfJob job,
+    ) => build(job);
+    final exporter = IndexPdfExporter(fonts: _fromDisk, worker: inline);
+
+    test(
+      'va en el título, el tema, el documento y los capítulos de primer '
+      'nivel, y nada más: lo que sigue a un título sale solo relleno',
+      () async {
+        final words = pdfShownWords(
+          await exporter.export(_print, page: _page),
+        ).single;
+        expect(
+          [
+            for (final word in words)
+              if (word.mode != 0) word.text,
+          ],
+          [
+            'Índice',
+            'ROMA',
+            'Historia',
+            'de',
+            'Roma',
+            '1',
+            'Aníbal',
+            'en',
+            'los',
+            'Alpes',
+          ],
+        );
+        // Cada tramo en negrita, aislado: entre guardar y reponer el estado del
+        // dibujo, así el modo no queda puesto en lo que viene.
+        for (final word in words.where((word) => word.mode != 0)) {
+          expect(word.mode, 2, reason: word.text);
+          expect(word.depth, greaterThan(0), reason: word.text);
+          // El trazo, del color de la letra —el tema iba con trazo negro— y
+          // del grosor de su tamaño.
+          expect(word.stroke, word.fill, reason: word.text);
+          expect(
+            word.width,
+            closeTo(word.size * pdfBoldWeight, 0.001),
+            reason: word.text,
+          );
+        }
+        String modeOf(String text) => words
+            .where((word) => word.text == text)
+            .map((w) => '${w.mode}')
+            .join();
+        // El subtítulo, lo que dice un documento, un capítulo de segundo nivel,
+        // el texto completo, una imagen, las páginas y el pie.
+        for (final plain in [
+          'Por',
+          'noviembre',
+          'también',
+          'Cartago',
+          'Cannas:',
+          '«el',
+          'Texto',
+          'completo',
+          'Foro',
+          'p.',
+          '47',
+          'img.',
+          'Página',
+        ]) {
+          expect(modeOf(plain), matches(RegExp(r'^0+$')), reason: plain);
+        }
+      },
+    );
+
+    test('en todas las páginas de un índice largo, solo los capítulos de '
+        'primer nivel', () async {
+      final long = IndexPrint(
+        title: 'Índice',
+        subtitle: 'Todo',
+        lines: [
+          for (var i = 1; i <= 120; i++)
+            IndexPrintLine(
+              kind: IndexPrintKind.chapter,
+              title: 'Capítulo $i',
+              level: 1 + i % 2,
+              page: 'pág. $i',
+            ),
+        ],
+      );
+      final pages = pdfShownWords(await exporter.export(long, page: _page));
+      expect(pages.length, greaterThan(1));
+      final bold = [
+        for (final page in pages)
+          for (final word in page)
+            if (word.mode != 0) word.text,
+      ];
+      expect(bold, [
+        'Índice',
+        for (var i = 2; i <= 120; i += 2) ...['Capítulo', '$i'],
+      ]);
+    });
   });
 }
 

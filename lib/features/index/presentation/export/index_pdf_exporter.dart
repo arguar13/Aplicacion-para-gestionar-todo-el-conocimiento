@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:sinapsis/core/pdf/pdf_bold.dart';
 import 'package:sinapsis/features/index/domain/services/index_print.dart';
 
 /// Quien lee una fuente de la app: `rootBundle.load` en la app; las pruebas
@@ -105,29 +106,24 @@ Future<Uint8List> _build(IndexPdfJob job) async {
   final sans = pw.Font.ttf(job.fonts.sans);
   final print = job.print;
 
-  pw.TextStyle sansStyle(
-    double size,
-    PdfColor color, {
-    double spacing = 0,
-    bool bold = false,
-  }) => pw.TextStyle(
-    font: sans,
-    fontSize: size,
-    color: color,
-    letterSpacing: spacing,
-    renderingMode: bold ? PdfTextRenderingMode.fillAndStroke : null,
-  );
+  // La negrita no va en el estilo: se dibuja aislada con [PdfBold], así no
+  // sigue en lo que viene después en la página (F46, paso 5f).
+  pw.TextStyle sansStyle(double size, PdfColor color, {double spacing = 0}) =>
+      pw.TextStyle(
+        font: sans,
+        fontSize: size,
+        color: color,
+        letterSpacing: spacing,
+      );
   pw.TextStyle serifStyle(
     double size, {
     PdfColor color = _ink,
-    bool bold = false,
     bool italics = false,
   }) => pw.TextStyle(
     font: italics ? italic : serif,
     fontSize: size,
     color: color,
     lineSpacing: 2,
-    renderingMode: bold ? PdfTextRenderingMode.fillAndStroke : null,
   );
 
   final document = pw.Document(
@@ -146,15 +142,17 @@ Future<Uint8List> _build(IndexPdfJob job) async {
   pw.Widget entry(IndexPrintLine line) {
     final level1 = line.level <= 1 && line.kind == IndexPrintKind.chapter;
     final color = line.context || line.level >= 3 ? _muted : _ink;
-    final style = switch (line.kind) {
-      IndexPrintKind.wholeText => serifStyle(10, color: _muted, italics: true),
-      _ when level1 => serifStyle(10.5, color: color, bold: true),
-      _ => serifStyle(10, color: color),
+    final text = line.number == null
+        ? line.title
+        : '${line.number}  ${line.title}';
+    final title = switch (line.kind) {
+      IndexPrintKind.wholeText => pw.Text(
+        text,
+        style: serifStyle(10, color: _muted, italics: true),
+      ),
+      _ when level1 => PdfBold.text(text, serifStyle(10.5, color: color)),
+      _ => pw.Text(text, style: serifStyle(10, color: color)),
     };
-    final title = pw.Text(
-      line.number == null ? line.title : '${line.number}  ${line.title}',
-      style: style,
-    );
     final page = line.page;
     final indent = (line.level - 1).clamp(0, 12) * _levelIndent;
     return pw.Padding(
@@ -234,9 +232,9 @@ Future<Uint8List> _build(IndexPdfJob job) async {
       decoration: const pw.BoxDecoration(
         border: pw.Border(bottom: pw.BorderSide(color: _accent, width: 0.8)),
       ),
-      child: pw.Text(
+      child: PdfBold.text(
         line.title.toUpperCase(),
-        style: sansStyle(9, _accent, spacing: 1.4, bold: true),
+        sansStyle(9, _accent, spacing: 1.4),
       ),
     ),
     IndexPrintKind.document => pw.Padding(
@@ -244,7 +242,7 @@ Future<Uint8List> _build(IndexPdfJob job) async {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(line.title, style: serifStyle(12.5, bold: true)),
+          PdfBold.text(line.title, serifStyle(12.5)),
           if (line.note case final note?)
             pw.Padding(
               padding: const pw.EdgeInsets.only(top: 1),
@@ -276,7 +274,7 @@ Future<Uint8List> _build(IndexPdfJob job) async {
         ),
       ),
       build: (context) => [
-        pw.Text(print.title, style: serifStyle(26, bold: true)),
+        PdfBold.text(print.title, serifStyle(26)),
         pw.SizedBox(height: 4),
         pw.Text(print.subtitle, style: sansStyle(9, _muted)),
         pw.SizedBox(height: 6),

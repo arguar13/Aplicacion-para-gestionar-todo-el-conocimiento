@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:sinapsis/core/pdf/pdf_bold.dart';
 import 'package:sinapsis/features/creations/report/domain/report.dart';
 import 'package:sinapsis/features/creations/report/domain/report_canonical_text.dart';
 import 'package:sinapsis/features/creations/report/domain/report_export_notes.dart';
@@ -36,7 +37,7 @@ typedef ReportFontLoader = Future<ByteData> Function(String asset);
 /// largos salen bien —las de fábrica del PDF solo tienen Latin-1—. Los
 /// archivos son variables y el PDF toma su cara normal: la negrita se dibuja
 /// con el trazo del mismo contorno, como hacen los lectores de PDF con una
-/// fuente sin su negrita.
+/// fuente sin su negrita, y siempre aislada ([PdfBold], [pdfBoldWords]).
 class ReportPdfExporter {
   const ReportPdfExporter({ReportFontLoader? fonts}) : _fonts = fonts;
 
@@ -179,10 +180,12 @@ class _Writer {
         letterSpacing: spacing,
       );
 
+  /// La letra para leer. La negrita no va en el estilo: se dibuja aislada
+  /// ([_plain] y [_rich] con `bold`, [PdfBold]), así no sigue en lo que viene
+  /// después en la página (F46, paso 5f).
   pw.TextStyle text(
     double size, {
     PdfColor color = _ink,
-    bool bold = false,
     bool italics = false,
     double lineSpacing = 3.2,
   }) => pw.TextStyle(
@@ -190,7 +193,6 @@ class _Writer {
     fontSize: size,
     color: color,
     lineSpacing: lineSpacing,
-    renderingMode: bold ? PdfTextRenderingMode.fillAndStroke : null,
   );
 
   List<pw.Widget> header(Report report, ReportExportLabels labels) => [
@@ -200,14 +202,11 @@ class _Writer {
         style: label(8.5, _accent, spacing: 1.1),
       ),
     pw.SizedBox(height: 8),
-    _Ink(
-      color: _ink,
-      stroke: 0.55,
-      child: _plain(
-        report.title,
-        text(23, bold: true, lineSpacing: 4),
-        const ReportTextPlace.title(),
-      ),
+    _plain(
+      report.title,
+      text(23, lineSpacing: 4),
+      const ReportTextPlace.title(),
+      bold: true,
     ),
     if (report.subtitle.isNotEmpty) ...[
       pw.SizedBox(height: 8),
@@ -350,14 +349,11 @@ class _Writer {
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            _Ink(
-              color: _accent,
-              stroke: 0.32,
-              child: _plain(
-                entry.term,
-                text(11.5, color: _accent, bold: true),
-                ReportTextPlace.term(s, e),
-              ),
+            _plain(
+              entry.term,
+              text(11.5, color: _accent),
+              ReportTextPlace.term(s, e),
+              bold: true,
             ),
             if (entry.definition.isNotEmpty) ...[
               pw.SizedBox(height: 2),
@@ -388,16 +384,13 @@ class _Writer {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          _Ink(
-            color: _ink,
-            stroke: 0.25,
-            // Lo que se ve, sin las marcas: es todo negrita.
-            child: _plain(
-              reportInlinesText(parseReportInlines(question.question)),
-              text(_body, bold: true),
-              ReportTextPlace.question(s, q),
-              prefix: '$number. ',
-            ),
+          // Lo que se ve, sin las marcas: es todo negrita.
+          _plain(
+            reportInlinesText(parseReportInlines(question.question)),
+            text(_body),
+            ReportTextPlace.question(s, q),
+            prefix: '$number. ',
+            bold: true,
           ),
           for (final (i, option) in reportOptionOrder(question).indexed) ...[
             pw.SizedBox(height: 3),
@@ -416,28 +409,39 @@ class _Writer {
     );
   }
 
-  /// [value] con [style] —detrás de [prefix], si hay— y, después de su
-  /// pedazo, el número volado de cada nota de la parte [place] (F45, paso
-  /// 8c). Sin notas, un texto como siempre.
+  /// [value] con [style] —detrás de [prefix], si hay—, en negrita con
+  /// [bold], y, después de su pedazo, el número volado de cada nota de la
+  /// parte [place] (F45, paso 8c). Sin notas, un texto como siempre: en
+  /// negrita, aislado entero ([PdfBold]). Con notas, la llamada no va en
+  /// negrita: el texto va palabra por palabra ([pdfBoldWords]) y la llamada,
+  /// al lado, solo rellena.
   pw.Widget _plain(
     String value,
     pw.TextStyle style,
     ReportTextPlace place, {
     String prefix = '',
+    bool bold = false,
   }) {
     final placed = calls.callsAt(place);
-    if (placed.isEmpty) return pw.Text('$prefix$value', style: style);
+    if (placed.isEmpty) {
+      return bold
+          ? PdfBold.text('$prefix$value', style)
+          : pw.Text('$prefix$value', style: style);
+    }
+    List<pw.InlineSpan> said(String text) => bold
+        ? pdfBoldWords(text, style: style, font: style.font ?? serif)
+        : [pw.TextSpan(text: text)];
     return pw.RichText(
       overflow: pw.TextOverflow.span,
       text: pw.TextSpan(
         style: style,
         children: [
-          if (prefix.isNotEmpty) pw.TextSpan(text: prefix),
+          if (prefix.isNotEmpty) ...said(prefix),
           for (final piece in reportInlinesWithCalls([
             ReportInline(value),
           ], placed))
             if (piece is ReportInline)
-              pw.TextSpan(text: piece.text)
+              ...said(piece.text)
             else
               _call(piece as int, style),
         ],
@@ -452,33 +456,20 @@ class _Writer {
     return pw.TextSpan(
       text: '$number',
       baseline: size * 0.35,
-      style: base.copyWith(
-        fontSize: size * 0.62,
-        color: _accent,
-        font: sans,
-        renderingMode: PdfTextRenderingMode.fill,
-      ),
+      style: base.copyWith(fontSize: size * 0.62, color: _accent, font: sans),
     );
   }
 
   List<pw.Widget> answerKey(Report report, ReportExportLabels labels) => [
-    _Ink(
-      color: _ink,
-      stroke: 0.45,
-      child: pw.Text(labels.answerKey, style: text(18, bold: true)),
-    ),
+    PdfBold.text(labels.answerKey, text(18)),
     pw.SizedBox(height: 6),
     pw.Container(height: 1.2, color: _accent),
     for (final (index, section) in report.sections.indexed)
       if (section.questions.isNotEmpty) ...[
         pw.SizedBox(height: 12),
-        _Ink(
-          color: _accent,
-          stroke: 0.3,
-          child: pw.Text(
-            '${index + 1}. ${labels.sectionTitle(report, index)}',
-            style: text(11.5, color: _accent, bold: true),
-          ),
+        PdfBold.text(
+          '${index + 1}. ${labels.sectionTitle(report, index)}',
+          text(11.5, color: _accent),
         ),
         for (final (q, question) in section.questions.indexed) ...[
           pw.SizedBox(height: 5),
@@ -512,14 +503,11 @@ class _Writer {
       ),
       pw.SizedBox(width: 9),
       pw.Expanded(
-        child: _Ink(
-          color: _ink,
-          stroke: 0.4,
-          child: _plain(
-            title,
-            text(15, bold: true, lineSpacing: 2),
-            ReportTextPlace.sectionTitle(index),
-          ),
+        child: _plain(
+          title,
+          text(15, lineSpacing: 2),
+          ReportTextPlace.sectionTitle(index),
+          bold: true,
         ),
       ),
     ],
@@ -544,7 +532,7 @@ class _Writer {
 
   pw.Widget _block(ReportBlock block, ReportTextPlace place) => switch (block) {
     ReportParagraph() => _rich(block.inlines, text(_body), place),
-    ReportSubheading() => _rich(block.inlines, text(12, bold: true), place),
+    ReportSubheading() => _rich(block.inlines, text(12), place, true),
     ReportQuote() => pw.Container(
       padding: const pw.EdgeInsets.only(left: 10),
       decoration: const pw.BoxDecoration(
@@ -570,15 +558,16 @@ class _Writer {
     ),
   };
 
-  /// Un párrafo con sus negritas, itálicas y palabras clave en rosa.
+  /// Un párrafo con sus negritas, itálicas y palabras clave en rosa; con
+  /// [bold], todo en negrita —un subtítulo—.
   ///
-  /// Un texto entero en negrita —un subtítulo— va con el trazo puesto para
-  /// el párrafo entero ([_Ink]). Dentro de un párrafo normal, cada palabra en
-  /// negrita se dibuja sola ([_StrokedWord]): el modo de trazo del PDF queda
-  /// puesto hasta que alguien lo cambia, y el paquete `pdf` no lo vuelve a
-  /// «solo relleno» después de una palabra en negrita —todo lo que seguía en
-  /// el párrafo salía en negrita—. Cada palabra guarda y repone el estado
-  /// del dibujo, así que la negrita termina donde termina.
+  /// La negrita se dibuja siempre aislada (F46, paso 5f): el modo de trazo
+  /// del PDF queda puesto hasta que alguien lo cambia, y el paquete `pdf` no
+  /// lo vuelve a «solo relleno» —todo lo que seguía salía en negrita—. Un
+  /// párrafo entero en negrita va aislado entero ([PdfBold]); dentro de uno
+  /// que no lo es —o de uno en negrita con la llamada de una nota, que no
+  /// va en negrita—, cada palabra en negrita se dibuja sola
+  /// ([pdfBoldWords]).
   ///
   /// Con [place], después de su pedazo, el número volado de cada nota de esa
   /// parte (F45, paso 8c).
@@ -586,54 +575,46 @@ class _Writer {
     List<ReportInline> inlines,
     pw.TextStyle base, [
     ReportTextPlace? place,
+    bool bold = false,
   ]) {
-    final allBold = base.renderingMode == PdfTextRenderingMode.fillAndStroke;
     final size = base.fontSize ?? _body;
     final spans = <pw.InlineSpan>[];
     final pieces = place == null
         ? inlines
         : reportInlinesWithCalls(inlines, calls.callsAt(place));
+    final whole = bold && pieces.every((piece) => piece is ReportInline);
     for (final piece in pieces) {
       if (piece is int) {
         spans.add(_call(piece, base));
         continue;
       }
       final inline = piece as ReportInline;
-      final emphasized = inline.bold || inline.keyword;
-      if (allBold || !emphasized) {
+      final emphasized = bold || inline.bold || inline.keyword;
+      if (whole || !emphasized) {
         spans.add(
           pw.TextSpan(text: inline.text, style: _styleOf(inline, base)),
         );
         continue;
       }
-      final font = inline.italic ? italic : (base.font ?? serif);
-      for (final piece in RegExp(r'\S+|\s+').allMatches(inline.text)) {
-        final word = piece[0]!;
-        if (word.trim().isEmpty) {
-          spans.add(pw.TextSpan(text: word, style: base));
-          continue;
-        }
-        spans.add(
-          pw.WidgetSpan(
-            child: _StrokedWord(
-              word,
-              font: font,
-              size: size,
-              color: inline.keyword ? _ink : (base.color ?? _ink),
-              background: inline.keyword ? ReportPdfExporter.keyword : null,
-            ),
+      spans.addAll(
+        pdfBoldWords(
+          inline.text,
+          style: base.copyWith(
+            color: inline.keyword ? _ink : (base.color ?? _ink),
           ),
-        );
-      }
+          font: inline.italic ? italic : (base.font ?? serif),
+          background: inline.keyword ? ReportPdfExporter.keyword : null,
+        ),
+      );
     }
     final paragraph = pw.RichText(
       overflow: pw.TextOverflow.span,
       text: pw.TextSpan(style: base, children: spans),
     );
-    if (!allBold) return paragraph;
-    return _Ink(
+    if (!whole) return paragraph;
+    return PdfBold(
       color: base.color ?? _ink,
-      stroke: size * 0.035,
+      stroke: pdfBoldStroke(size),
       child: paragraph,
     );
   }
@@ -650,86 +631,5 @@ class _Writer {
       );
     }
     return style;
-  }
-}
-
-/// Una palabra en negrita dentro de un párrafo: su contorno relleno y con
-/// trazo, entre «guardar» y «reponer» el estado del dibujo, para que la
-/// negrita no siga en lo que viene; con [background], el rosa de una
-/// palabra clave detrás. Se apoya en la línea de base del párrafo.
-class _StrokedWord extends pw.Widget {
-  _StrokedWord(
-    this.text, {
-    required this.font,
-    required this.size,
-    required this.color,
-    this.background,
-  });
-
-  final String text;
-  final pw.Font font;
-  final double size;
-  final PdfColor color;
-  final PdfColor? background;
-
-  @override
-  void layout(
-    pw.Context context,
-    pw.BoxConstraints constraints, {
-    bool parentUsesSize = false,
-  }) {
-    final pdfFont = font.getFont(context);
-    final metrics = pdfFont.stringMetrics(text) * size;
-    box = PdfRect(0, 0, metrics.advanceWidth, pdfFont.ascent * size);
-  }
-
-  @override
-  void paint(pw.Context context) {
-    super.paint(context);
-    final pdfFont = font.getFont(context);
-    final at = box!;
-    final canvas = context.canvas..saveContext();
-    if (background != null) {
-      final descent = pdfFont.descent * size;
-      canvas
-        ..setFillColor(background)
-        ..drawRect(at.left, at.bottom + descent, at.width, at.height - descent)
-        ..fillPath();
-    }
-    canvas
-      ..setFillColor(color)
-      ..setStrokeColor(color)
-      ..setLineWidth(size * 0.035)
-      ..drawString(
-        pdfFont,
-        size,
-        text,
-        at.left,
-        at.bottom,
-        mode: PdfTextRenderingMode.fillAndStroke,
-      )
-      ..restoreContext();
-  }
-}
-
-/// Deja puesto el trazo con que se dibuja la negrita de lo de adentro: su
-/// color —el de la tinta— y su grosor. Lo que no es negrita se dibuja solo
-/// relleno y no lo usa.
-class _Ink extends pw.SingleChildWidget {
-  _Ink({required pw.Widget child, required this.color, required this.stroke})
-    : super(child: child);
-
-  final PdfColor color;
-  final double stroke;
-
-  @override
-  void paint(pw.Context context) {
-    super.paint(context);
-    context.canvas
-      ..saveContext()
-      ..setStrokeColor(color)
-      ..setLineWidth(stroke);
-    paintChild(context);
-    context.canvas.restoreContext();
   }
 }

@@ -265,7 +265,12 @@ derivados:
   de intercambio por defecto: lo leen Obsidian, Logseq, Notion y cualquier
   editor de texto.
 - **PDF** vía [`pdf`](https://pub.dev/packages/pdf) (Apache-2.0, Dart puro),
-  para leer o imprimir fuera de la app.
+  para leer o imprimir fuera de la app. La negrita de los PDF con las letras
+  variables de la app (el Índice, un informe) se dibuja con el trazo del
+  contorno y **siempre aislada**, con `PdfBold` y `pdfBoldWords`
+  (`lib/core/pdf/pdf_bold.dart`): el paquete deja puesto el modo de trazo y
+  no lo vuelve a «solo relleno», así que ningún estilo lo lleva suelto (F46,
+  paso 5f).
 - **Texto plano**, cuando solo importa el contenido.
 - **HTML original**, la copia de la página tal como estaba: recursos
   incrustados como data URI en un solo archivo, al modo de SingleFile.
