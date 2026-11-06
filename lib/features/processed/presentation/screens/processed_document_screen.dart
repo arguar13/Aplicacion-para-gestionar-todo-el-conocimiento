@@ -66,7 +66,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   queda lo que no crea nada: «Descargar con lo marcado» y «Borrar la copia
 ///   del original».
 /// - **Escuchar**: el botón flotante lee el documento entero, como en el
-///   detalle de un elemento —desde la página que se editó por última vez—;
+///   detalle de un elemento, desde la primera página del texto: el lugar que
+///   pregunta (`processedTextPageProvider`) es `autoDispose` y solo lo mira la
+///   edición del texto (`ProcessedTextPages`), que tapa esta pantalla y le
+///   retira el botón mientras está abierta, así que acá vale siempre 0 (un
+///   resto de F41, cuando el texto se leía de a una página en el documento);
 ///   cada sección se escucha en su lector, con «Escuchar».
 ///
 /// Nunca trae el texto entero a la pantalla: el texto se pide de a una página
@@ -152,8 +156,11 @@ class _DocumentBody extends ConsumerStatefulWidget {
 class _DocumentBodyState extends ConsumerState<_DocumentBody> {
   ProcessedReadable? _readable;
 
-  /// Por dónde empieza a leer quien no eligió: la página del texto que se
-  /// mira. Un método y no una función nueva en cada construcción: el lector
+  /// Por dónde empieza a leer quien no eligió: la página de
+  /// [processedTextPageProvider], que desde esta pantalla es siempre la
+  /// primera —ese lugar es `autoDispose` y solo lo mira la edición del texto,
+  /// que tapa esta pantalla mientras está abierta—. Un método y no una función
+  /// nueva en cada construcción: el lector
   /// reconoce el documento por, entre otras cosas, este lugar
   /// (`ReadableDocument.startAt`).
   ReadablePlace? _startAt() {
