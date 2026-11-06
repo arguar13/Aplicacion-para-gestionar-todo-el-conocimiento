@@ -145,8 +145,8 @@ class IndexProgressLine extends ConsumerWidget {
 }
 
 /// Lo que se abre al costado del Índice: el texto de [opening] en el lector
-/// único, con ✕ para cerrarlo. El paso 4 le pasa al lector el lugar de la
-/// entrada ([IndexOpening.entry]).
+/// único, justo en el título de la entrada ([IndexOpening.place]), con ✕ para
+/// cerrarlo.
 typedef IndexReaderBuilder =
     Widget Function(IndexOpening opening, VoidCallback onClose);
 
@@ -154,10 +154,13 @@ typedef IndexReaderBuilder =
 /// cambian por uno que no necesita el lector entero.
 final indexReaderBuilderProvider = Provider<IndexReaderBuilder>(
   (ref) =>
+      // La clave es la del documento: otra entrada del mismo documento no
+      // rearma el lector, lo lleva al lugar nuevo.
       (opening, onClose) => ProcessedReaderScreen(
         key: ValueKey('index-reader-${opening.documentId}'),
         kind: StudyCreationKind.fullText,
         documentIds: [opening.documentId],
+        place: opening.place,
         onClose: onClose,
       ),
 );

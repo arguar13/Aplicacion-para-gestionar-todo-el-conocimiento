@@ -5,6 +5,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
+import 'package:sinapsis/features/creations/extract/domain/extract_place.dart';
 import 'package:sinapsis/features/index/domain/entities/index_tree.dart';
 import 'package:sinapsis/features/index/presentation/providers/index_view.dart';
 import 'package:sinapsis/features/index/presentation/widgets/index_leader_line.dart';
@@ -97,8 +98,10 @@ void main() {
     return inside;
   }
 
-  String readerFor(String documentId) =>
-      RoutePaths.extractReading(StudyCreationKind.fullText, [documentId]);
+  String readerFor(String documentId, {ExtractPlace? at}) =>
+      RoutePaths.extractReading(StudyCreationKind.fullText, [
+        documentId,
+      ], at: at);
 
   /// Despliega [documentId]: lo busca bajando por la lista —la lista
   /// dibuja de a lo que entra— y lo toca.
@@ -240,6 +243,12 @@ void main() {
         indexEntry(es.f46P3WholeText),
       );
       expect(whole.page, isNull);
+
+      // Abre el texto entero desde el comienzo, sin un lugar que resaltar
+      // (F46, paso 4).
+      await tester.tap(indexEntry(es.f46P3WholeText));
+      await tester.pumpAndSettle();
+      expect(find.text('lector ${readerFor('suelto')}'), findsOneWidget);
     });
 
     testWidgets('plegar un tema esconde sus documentos y deja de leerlos', (
@@ -612,10 +621,9 @@ void main() {
   });
 
   group('lo que abre una entrada', () {
-    testWidgets('en un teléfono, el texto del documento en el lector único; '
-        '«atrás» vuelve al Índice como estaba, con la entrada marcada', (
-      tester,
-    ) async {
+    testWidgets('en un teléfono, el texto del documento en el lector único, '
+        'justo en el título de la entrada (F46, paso 4); «atrás» vuelve al '
+        'Índice como estaba, con la entrada marcada', (tester) async {
       library();
       final semantics = tester.ensureSemantics();
       await harness.pump(tester);
@@ -623,7 +631,12 @@ void main() {
 
       await tester.tap(indexEntry('La República'));
       await tester.pumpAndSettle();
-      expect(find.text('lector ${readerFor('historia')}'), findsOneWidget);
+      // «La República» es el segundo capítulo: su título, de 100 a 112.
+      const title = ExtractPlace(documentId: 'historia', start: 100, end: 112);
+      expect(
+        find.text('lector ${readerFor('historia', at: title)}'),
+        findsOneWidget,
+      );
 
       harness.router.pop();
       await tester.pumpAndSettle();
