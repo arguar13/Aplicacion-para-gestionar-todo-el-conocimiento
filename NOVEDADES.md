@@ -42,6 +42,13 @@ figura solo lo que ya está hecho. Cómo se usa cada cosa, en la **Guía de uso*
   lo contienen, y lo buscado resaltado.
 - **El tema y el documento fijos arriba** mientras se recorren, **«Nuevo»** en lo de la última
   semana, lo que llega con un brillo suave y, en una pantalla ancha, el documento al costado.
+- **Ir al lugar exacto**: tocar un capítulo abre el texto justo en ese título, que se resalta
+  un momento, y «atrás» vuelve al Índice como estaba.
+- **Mantener apretada una entrada**: «Abrir en el original» —el PDF en su página, la página web
+  en su título—, «Preguntar al chat» con el texto del capítulo, «Copiar el título» y, en una
+  imagen, «Renombrar».
+- **«Descargar el índice»** en ⋮: lo que se está mirando, con sus niveles y su numeración, en un
+  PDF listo para imprimir —con los puntos y las páginas— o en Markdown.
 
 ## F45 · Pulido del 30/10 (octubre y noviembre de 2026)
 

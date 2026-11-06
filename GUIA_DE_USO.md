@@ -2753,23 +2753,76 @@ dejaste, con lo mismo desplegado y en el mismo lugar.
 
 ### Tocar una entrada
 
-- **Un capítulo** (o «Texto completo»): abre **el texto del documento en el
-  [marco de lectura](#el-marco-de-lectura-un-solo-lector-para-todo)**, desde
-  el comienzo. **"Atrás"** te devuelve al Índice donde estabas, con esa
-  entrada marcada. (Ir justo a ese título, y lo que se hace manteniendo
-  apretada una entrada, todavía no está.)
+- **Un capítulo**: abre **el texto del documento en el
+  [marco de lectura](#el-marco-de-lectura-un-solo-lector-para-todo)** **justo
+  en ese título**, que se resalta un momento para que lo veas de un vistazo.
+  **"Atrás"** te devuelve al Índice donde estabas —con lo mismo desplegado, en
+  el mismo lugar de la lista y con esa entrada marcada—. Si después escuchás
+  el texto y salís, **"Seguir escuchando"** te devuelve a la lectura, no a ese
+  capítulo.
+- **"Texto completo"** abre el texto desde el comienzo. Un marcador de un PDF
+  que no se pudo ubicar en el texto, también: el capítulo está, pero no se
+  sabe dónde cae.
 - **Una imagen**: la abre a pantalla completa en su galería, justo en ella.
 
 **En una pantalla ancha** (la computadora, una tableta apaisada) el Índice va
 a la izquierda y **el documento a la derecha**: tocar un capítulo lo abre al
-lado, sin dejar el Índice. Arriba a la izquierda del documento hay una **✕**
-para cerrarlo. Si desde ahí abrís otra parte —el resumen, la síntesis—, se
-abre encima, y "atrás" vuelve a los dos paneles; si lo mandás a la papelera,
-el panel se cierra y el documento sale del Índice.
+lado, justo en ese título, sin dejar el Índice. Tocar otro capítulo del mismo
+documento lleva ahí al mismo lector, y volver a tocar uno —después de haber
+leído más abajo— te devuelve a su título. Arriba a la izquierda del documento
+hay una **✕** para cerrarlo. Si desde ahí abrís otra parte —el resumen, la
+síntesis—, se abre encima, y "atrás" vuelve a los dos paneles; si lo mandás a
+la papelera, el panel se cierra y el documento sale del Índice.
+
+### Mantener apretada una entrada
+
+Mantené apretado un capítulo, una imagen o un documento (con el mouse, el
+**clic derecho**) y se abre la hoja de siempre, con su título arriba y lo que
+es —*"Capítulo de nivel 2 · pág. 3 · Historia de Roma"*—:
+
+- **"Abrir en el original"**: la copia del original que guardó el documento.
+  Un **PDF** se abre **en la página de ese capítulo**; una **página web**, **en
+  ese título**, que se resalta un momento (si la página tiene dos iguales
+  —dos «Referencias»—, en el que corresponde). Un Word o un EPUB se abren
+  desde el comienzo. Si el documento no guardó una copia de su original, la
+  opción está apagada y lo dice.
+- **"Preguntar al chat"**: abre el chat con una conversación nueva y deja
+  escrito el capítulo, su documento y **su texto** —desde su título hasta el
+  capítulo siguiente de su nivel, con sus secciones adentro; si es muy largo,
+  su comienzo—. Abajo escribís lo que quieras preguntar.
+- **"Copiar el título"**, con su número si estás numerando.
+- En una **imagen**, **"Renombrar"**: le cambiás el título, y el Índice lo
+  muestra en el acto.
+
+En un **documento**, la hoja ofrece además **"Abrir el texto"** desde el
+comienzo, y "Preguntar al chat" deja escrito *"Sobre «…»: "* para que sigas.
+
+### Descargar el índice
+
+En **⋮**, **"Descargar el índice"** baja **lo que estás mirando**: por tema o
+por documento (en el orden elegido), **hasta el nivel** de "Niveles" —con lo
+que abriste o cerraste a mano adentro de un documento—, con la numeración si
+está prendida, o, si estás buscando, **lo que coincide**. La hoja dice arriba
+qué se va a bajar. Los temas o documentos que plegaste en la pantalla igual
+van: plegar es para recorrer; lo que dice cuánto se baja son los niveles,
+como en Word.
+
+- **En PDF**: un A4 listo para imprimir, con la tipografía del Índice —los
+  temas en versalitas, los documentos en letra de libro— y **la línea de
+  puntos hasta la página** de cada capítulo, alineada de un renglón al otro.
+  Al pie, *"Página 3 de 12"*. Es texto de verdad: se puede buscar y copiar, y
+  las tildes y la ñ salen bien.
+- **En Markdown**: texto con títulos y listas, para editarlo o pegarlo en
+  otro lado.
+
+Se guarda donde elijas, con el selector de siempre, como *"Índice
+2026-11-06.pdf"*, y un aviso abajo te dice que se guardó. Si cancelás el
+selector, no pasa nada.
 
 **Con el teclado:** **Ctrl+F** (⌘F en una Mac) va al buscador, y ahí **Esc**
 borra lo buscado. **Tab** recorre los temas, los documentos y los capítulos;
-**→** despliega y **←** pliega el que tenés marcado, y **Enter** lo abre.
+**→** despliega y **←** pliega el que tenés marcado, **Enter** lo abre y la
+**tecla de menú** (o **Mayús+F10**) abre lo mismo que mantenerlo apretado.
 
 ### Lo que cambia en vivo
 
@@ -2791,7 +2844,8 @@ ofrece **"Ir a Procesado"**.
 **Para todos:** se lee bien en el tema claro y en el oscuro, y con la letra
 del teléfono al doble. El lector de pantalla dice de cada fila qué es, su
 nivel, su página y si está desplegada: *"Capítulo de nivel 2: Las guerras
-púnicas, página 3 del texto"*.
+púnicas, página 3 del texto"*; y cada fila tiene la acción **"Más
+opciones"**, que abre lo mismo que mantenerla apretada.
 
 ---
 
