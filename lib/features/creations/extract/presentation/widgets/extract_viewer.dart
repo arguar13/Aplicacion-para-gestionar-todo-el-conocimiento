@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/adaptive_button_bar.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/extract/domain/extract_place.dart';
@@ -1501,9 +1502,9 @@ class _MissingCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          // En un renglón si entran; si no, uno debajo del otro y del mismo
+          // ancho, sin el hueco que dejaba un `Wrap` (F46, paso 5c).
+          AdaptiveButtonBar(
             children: [
               FilledButton.icon(
                 key: Key('extract-mark-${section.documentId}'),

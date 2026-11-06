@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/design/app_theme_choice.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/design/widgets/adaptive_button_bar.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
@@ -465,6 +466,61 @@ void main() {
   });
 
   group('cómo se ve', () {
+    // La tarjeta de lo que falta, con sus dos botones: en un renglón si
+    // entran y, si no, uno debajo del otro, alineados y del mismo ancho, sin
+    // el hueco que dejaba un `Wrap` (F46, paso 5c).
+    for (final width in [360.0, 412.0]) {
+      for (final scale in [1.0, 1.3, 2.0]) {
+        testWidgets('a $width dp con la letra a $scale, los botones de lo que '
+            'falta van prolijos', (tester) async {
+          h.modelReady = false;
+          final id = await h.document('roma', title: 'Roma', text: roma);
+          final creation = await h.creation(StudyCreationKind.summary, [id]);
+          await h.open(
+            tester,
+            creation,
+            size: Size(width, 1400),
+            textScale: scale,
+          );
+          expect(tester.takeException(), isNull);
+
+          final card = tester.getRect(find.byKey(Key('extract-missing-$id')));
+          final mark = tester.getRect(find.byKey(Key('extract-mark-$id')));
+          final open = tester.getRect(find.byKey(Key('extract-open-$id')));
+          // Sin el margen de abajo de la tarjeta (18), y adentro de su borde
+          // y su relleno.
+          final inner = Rect.fromLTRB(
+            card.left,
+            card.top,
+            card.right,
+            card.bottom - 18,
+          ).deflate(16 + 1.5);
+          expect(mark.left, closeTo(inner.left, 0.01));
+          if (open.top > mark.top) {
+            // Apilados: la misma izquierda, el mismo ancho —el de la
+            // tarjeta—, y 8 entre los dos.
+            expect(open.left, closeTo(mark.left, 0.01));
+            expect(mark.width, closeTo(inner.width, 0.01));
+            expect(open.width, closeTo(inner.width, 0.01));
+            expect(open.top - mark.bottom, closeTo(8, 0.01));
+          } else {
+            // Juntos: 8 entre los dos y centrados en alto.
+            expect(open.left - mark.right, closeTo(8, 0.01));
+            expect(open.center.dy, closeTo(mark.center.dy, 0.01));
+          }
+          // Abajo, el relleno de la tarjeta y nada más.
+          final bar = tester.getRect(
+            find.descendant(
+              of: find.byKey(Key('extract-missing-$id')),
+              matching: find.byType(AdaptiveButtonBar),
+            ),
+          );
+          expect(bar.bottom, closeTo(inner.bottom, 0.01));
+          expect(open.bottom, lessThanOrEqualTo(bar.bottom + 0.01));
+        });
+      }
+    }
+
     for (final theme in AppThemeChoice.values) {
       testWidgets('en 360 dp con la letra al doble, en ${theme.name}, con '
           'el reproductor abierto y lo que falta: sin desbordes', (
