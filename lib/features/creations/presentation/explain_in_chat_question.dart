@@ -6,6 +6,7 @@
 library;
 
 import 'package:flutter/foundation.dart';
+import 'package:sinapsis/core/util/markdown_plain_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Lo más largo que viaja del pasaje de la fuente: alcanza para ubicar la
@@ -200,19 +201,25 @@ String explainInChatQuestion(AppLocalizations l10n, ExplainSubject subject) {
 }
 
 /// El pasaje de [text] entre [start] y [end] —las posiciones de la tarjeta en
-/// su fuente—, en una sola línea y con [kExplainPassageChars] como mucho.
-/// Vacío si el tramo no cae en el texto (el texto se rehízo después).
-String explainPassage(String text, int start, int end) {
-  if (start < 0 || end <= start || start >= text.length) return '';
-  final piece = _clean(text.substring(start, end.clamp(start, text.length)));
-  if (piece.length <= kExplainPassageChars) return piece;
-  final cut = piece.substring(0, kExplainPassageChars);
-  // Se corta en la última palabra entera, si hay una cerca.
-  final space = cut.lastIndexOf(' ');
-  final kept = space > kExplainPassageChars * 0.8
-      ? cut.substring(0, space)
-      : cut;
-  return '${kept.trimRight()}…';
+/// su fuente— **como se lee** (`readablePassage`): en una sola línea, con
+/// [kExplainPassageChars] letras legibles como mucho y, con [markdown] —una
+/// página web, un Word, un EPUB—, sin enlaces con su dirección, sin fotos, sin
+/// marcas ni llamadas a notas al pie (F46, paso 5e). Vacío si el tramo no cae
+/// en el texto (el texto se rehízo después).
+String explainPassage(
+  String text,
+  int start,
+  int end, {
+  required bool markdown,
+}) {
+  if (end <= start) return '';
+  return readablePassage(
+    text,
+    start: start,
+    end: end,
+    markdown: markdown,
+    maxChars: kExplainPassageChars,
+  );
 }
 
 /// La letra de la opción [index]: A, B, C…

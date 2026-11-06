@@ -3,6 +3,8 @@ import 'package:sinapsis/features/creations/presentation/explain_in_chat_questio
 import 'package:sinapsis/l10n/generated/app_localizations_en.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../support/wikipedia_fixtures.dart';
+
 /// La pregunta de «Explicar» (F43, M15): antes de responder no dice cuál es
 /// la correcta; después, por qué es esa y por qué la elegida no; con la
 /// fuente, su título y su pasaje.
@@ -224,22 +226,57 @@ void main() {
   group('el pasaje', () {
     test('el tramo, en una línea', () {
       expect(
-        explainPassage('Una fuente\n\nCon un texto.', 4, 20),
+        explainPassage('Una fuente\n\nCon un texto.', 4, 20, markdown: false),
         'fuente Con un t',
       );
     });
 
     test('fuera del texto, nada', () {
-      expect(explainPassage('corto', 10, 20), '');
-      expect(explainPassage('corto', 3, 2), '');
-      expect(explainPassage('corto', -1, 2), '');
+      expect(explainPassage('corto', 10, 20, markdown: true), '');
+      expect(explainPassage('corto', 3, 2, markdown: true), '');
+      expect(explainPassage('corto', -1, 2, markdown: true), '');
     });
 
     test('uno largo se corta en una palabra entera, con «…»', () {
       final text = List.filled(400, 'palabra').join(' ');
-      final passage = explainPassage(text, 0, text.length);
+      final passage = explainPassage(text, 0, text.length, markdown: true);
       expect(passage.length, lessThanOrEqualTo(kExplainPassageChars + 1));
       expect(passage, endsWith('palabra…'));
     });
+
+    // F46, paso 5e: el de una página web se cortaba del Markdown crudo, con
+    // los enlaces y sus direcciones adentro.
+    test('de una página web, como se lee: sin direcciones ni marcas, y cada '
+        'bloque una oración', () {
+      const blackman = 'https://es.wikipedia.org/wiki/Frederick_Frost_Blackman';
+      const text =
+          '### Siglo XX\n\nEn 1905, [Frederick Frost Blackman]($blackman) '
+          '**midió**.<sup>[[4]](#cite_note-4)</sup>';
+      expect(
+        explainPassage(text, 0, text.length, markdown: true),
+        'Siglo XX. En 1905, Frederick Frost Blackman midió.',
+      );
+    });
+
+    test(
+      'en el recorte real de Fotosíntesis, el tope cuenta lo que se lee',
+      () {
+        final markdown = wikipediaFotosintesis();
+        final start = markdown.indexOf('En 1905');
+        final passage = explainPassage(
+          markdown,
+          start,
+          markdown.indexOf('## El cloroplasto'),
+          markdown: true,
+        );
+
+        expect(passage, startsWith('En 1905, Frederick Frost Blackman midió'));
+        for (final raw in ['](', 'http', '![', '\n']) {
+          expect(passage, isNot(contains(raw)), reason: raw);
+        }
+        expect(passage.length, greaterThan(kExplainPassageChars * 0.8));
+        expect(passage.length, lessThanOrEqualTo(kExplainPassageChars + 1));
+      },
+    );
   });
 }

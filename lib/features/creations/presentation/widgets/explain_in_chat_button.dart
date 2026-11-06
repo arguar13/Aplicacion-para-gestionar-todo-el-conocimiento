@@ -9,6 +9,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
 import 'package:sinapsis/features/creations/presentation/explain_in_chat_question.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
@@ -40,7 +41,14 @@ class ExplainSourceReader {
         : null;
     return (
       title: item.title,
-      passage: text == null ? '' : explainPassage(text, start!, end!),
+      passage: text == null
+          ? ''
+          : explainPassage(
+              text,
+              start!,
+              end!,
+              markdown: extractedTextIsMarkdown(item.source),
+            ),
     );
   }
 }

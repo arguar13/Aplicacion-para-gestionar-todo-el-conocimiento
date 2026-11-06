@@ -8,6 +8,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
+import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_handoff.dart';
 import 'package:sinapsis/features/citations/presentation/fragment_citation.dart';
@@ -670,6 +671,7 @@ void main() {
           extractableRendition(item)!.content,
           4,
           12,
+          markdown: extractedTextIsMarkdown(item.source),
         );
         final handoffs = <ChatHandoff>[];
         harness.container.listen(chatHandoffProvider, (_, next) {
