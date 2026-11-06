@@ -146,6 +146,17 @@ WHERE h.document_id = ?1
 ORDER BY h.position, h.row_key
 ''';
 
+/// Las entradas de varios documentos —[count] claves—, para «Descargar el
+/// índice» (F46, paso 4): una búsqueda por documento en
+/// `idx_processed_headings_document`, sin recorrer la tabla. El orden de cada
+/// documento lo pone quien llama, como en [indexEntriesSql].
+String indexEntriesOfSql(int count) =>
+    '''
+SELECT ${indexEntryColumnsSql('h')}
+FROM processed_headings h
+WHERE h.document_id IN (${List.filled(count, '?').join(', ')})
+''';
+
 /// Las entradas cuyo título tiene lo buscado —`?1`, una consulta de FTS5
 /// (`buildSearchQuery`)—, de los documentos vivos, las que mejor coinciden
 /// primero, y como mucho `?2`. Del índice de texto a cada entrada, a su

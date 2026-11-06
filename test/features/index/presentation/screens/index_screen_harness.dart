@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -6,12 +9,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
+import 'package:sinapsis/features/index/presentation/export/index_pdf_exporter.dart';
+import 'package:sinapsis/features/index/presentation/index_download.dart';
 import 'package:sinapsis/features/index/presentation/providers/index_providers.dart';
 import 'package:sinapsis/features/index/presentation/screens/index_screen.dart';
 import 'package:sinapsis/features/index/presentation/widgets/index_leader_line.dart';
 import 'package:sinapsis/features/index/presentation/widgets/index_panels.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
+import '../../../../support/fake_file_saver.dart';
 import '../../../../support/fake_index_repository.dart';
 
 /// El momento de las pruebas del Índice: «Nuevo» se mide contra esto.
@@ -30,6 +37,9 @@ class IndexScreenHarness {
   /// Lo que se sabe de cada documento para el toque largo (F46, paso 4).
   final documents = FakeIndexDocumentAccess();
 
+  /// Lo que se guardó con «Descargar el índice»; se cambia antes de
+  /// [pump] para probar un selector que se cancela.
+  FakeFileSaver saver = FakeFileSaver();
   late GoRouter router;
   late ProviderContainer container;
 
@@ -88,6 +98,16 @@ class IndexScreenHarness {
       overrides: [
         indexRepositoryProvider.overrideWithValue(repository),
         indexDocumentAccessProvider.overrideWithValue(documents),
+        fileSaverProvider.overrideWithValue(saver),
+        // El PDF del índice, en el mismo hilo —con el reloj de mentira no hay
+        // otro— y con las letras de la app leídas del disco.
+        indexPdfExporterProvider.overrideWithValue(
+          IndexPdfExporter(
+            fonts: (asset) async =>
+                ByteData.sublistView(File(asset).readAsBytesSync()),
+            worker: (build, job) => build(job),
+          ),
+        ),
         sharedPreferencesProvider.overrideWithValue(preferences),
         clockProvider.overrideWithValue(() => kIndexTestNow),
         indexReaderBuilderProvider.overrideWithValue(

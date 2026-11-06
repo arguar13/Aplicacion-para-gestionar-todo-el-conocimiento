@@ -9,6 +9,7 @@ import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/index/domain/entities/index_tree.dart';
+import 'package:sinapsis/features/index/presentation/index_download.dart';
 import 'package:sinapsis/features/index/presentation/index_opening.dart';
 import 'package:sinapsis/features/index/presentation/providers/index_providers.dart';
 import 'package:sinapsis/features/index/presentation/providers/index_view.dart';
@@ -274,7 +275,7 @@ class _SortButton extends ConsumerWidget {
   }
 }
 
-/// ⋮: la numeración de los capítulos. El paso 4 suma «Descargar el índice».
+/// ⋮: la numeración de los capítulos y «Descargar el índice» (F46, paso 4).
 class _MoreButton extends ConsumerWidget {
   const _MoreButton();
 
@@ -291,6 +292,17 @@ class _MoreButton extends ConsumerWidget {
           checked: numbered,
           onTap: ref.read(indexViewProvider.notifier).toggleNumbering,
           child: Text(l10n.f46P3Numbering),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<void>(
+          key: const Key('index-download'),
+          // Después de cerrarse el menú: la hoja se abre desde la barra.
+          onTap: () => unawaited(showIndexDownload(context, ref)),
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.download_outlined),
+            title: Text(l10n.f46P4Download),
+          ),
         ),
       ],
     );

@@ -174,6 +174,18 @@ class FakeIndexRepository implements IndexRepository {
       });
 
   @override
+  Future<Either<Failure, Map<String, List<IndexEntry>>>> readEntries(
+    List<String> documentIds,
+  ) async {
+    calls.add('readEntries:${documentIds.length}');
+    return right({
+      for (final id in documentIds)
+        if (entries[id] case final list? when list.isNotEmpty)
+          id: List.unmodifiable(list),
+    });
+  }
+
+  @override
   Stream<IndexProgress> watchProgress() => _watch('progress', () => progress);
 
   @override

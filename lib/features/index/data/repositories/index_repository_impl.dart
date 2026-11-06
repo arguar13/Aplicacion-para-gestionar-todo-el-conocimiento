@@ -120,15 +120,50 @@ class IndexRepositoryImpl implements IndexRepository {
           ]))
             _entryFrom(row),
         ];
-        // Los capítulos —o «Texto completo»— primero y las imágenes después,
-        // cada clase en el orden en que vino: el del índice.
-        return [
-          for (final entry in entries)
-            if (!entry.isImage) entry,
-          for (final entry in entries)
-            if (entry.isImage) entry,
-        ];
+        return _chaptersThenImages(entries);
       });
+
+  @override
+  Future<Either<Failure, Map<String, List<IndexEntry>>>> readEntries(
+    List<String> documentIds,
+  ) => _guard('readEntries', () async {
+    final byDocument = <String, List<IndexEntry>>{};
+    final ids = documentIds.toSet().toList();
+    // De a tandas: SQLite acepta un número limitado de variables.
+    for (var from = 0; from < ids.length; from += _entriesBatch) {
+      final batch = ids.sublist(
+        from,
+        (from + _entriesBatch).clamp(0, ids.length),
+      );
+      for (final row in await _select(indexEntriesOfSql(batch.length), [
+        for (final id in batch) Variable.withString(id),
+      ])) {
+        final entry = _entryFrom(row);
+        (byDocument[entry.documentId] ??= []).add(entry);
+      }
+    }
+    return right({
+      for (final MapEntry(:key, :value) in byDocument.entries)
+        key: _chaptersThenImages(
+          value..sort((a, b) {
+            final byPosition = a.position.compareTo(b.position);
+            return byPosition != 0 ? byPosition : a.key.compareTo(b.key);
+          }),
+        ),
+    });
+  });
+
+  /// Cuántos documentos van en cada lectura de [readEntries].
+  static const _entriesBatch = 500;
+
+  /// Los capítulos —o «Texto completo»— primero y las imágenes después, cada
+  /// clase en el orden en que vino: el del índice.
+  List<IndexEntry> _chaptersThenImages(List<IndexEntry> entries) => [
+    for (final entry in entries)
+      if (!entry.isImage) entry,
+    for (final entry in entries)
+      if (entry.isImage) entry,
+  ];
 
   List<IndexDocument> _documentsFrom(List<QueryRow> rows) => [
     for (final row in rows)

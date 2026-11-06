@@ -233,6 +233,53 @@ void main() {
     );
   });
 
+  test('«Descargar el índice» (F46, paso 4): las entradas de muchos documentos '
+      'en una pasada, por el índice de cada uno, en el mismo orden que de a '
+      'uno, y creciendo como lo que lee', () async {
+    final steps = await plan(indexEntriesOfSql(3), [
+      for (final id in ['doc-1', 'doc-2', 'doc-3']) Variable.withString(id),
+    ]);
+    expectIndexed('entradas de varios documentos', steps);
+    expect(
+      steps.any((s) => s.contains('idx_processed_headings_document')),
+      isTrue,
+      reason: '$steps',
+    );
+
+    final one = await repository.watchEntries('doc-1').first;
+    final read = (await repository.readEntries([
+      'doc-1',
+      'doc-2',
+      'doc-1',
+    ])).getOrElse((f) => throw StateError('$f'));
+    expect(read.keys, unorderedEquals(['doc-1', 'doc-2']));
+    expect(read['doc-1'], one);
+    // Uno repetido en dos tandas —el primero y, pasadas las 500, otra vez—
+    // se lee una sola vez.
+    final across = (await repository.readEntries([
+      for (var i = 1; i <= 600; i++) 'doc-$i',
+      'doc-1',
+    ])).getOrElse((f) => throw StateError('$f'));
+    expect(across['doc-1'], one);
+
+    // Ocho veces más documentos —y de entradas— cuestan como mucho unas
+    // dieciséis veces más: lo que lee, no el cuadrado (64).
+    List<String> ids(int n) => [for (var i = 1; i <= n; i++) 'doc-$i'];
+    // De a tandas, pero todos: más que una tanda no deja a nadie afuera.
+    final many = (await repository.readEntries(
+      ids(800),
+    )).getOrElse((f) => throw StateError('$f'));
+    expect(many, hasLength(800));
+    final small = await timed(() => repository.readEntries(ids(100)));
+    final large = await timed(() => repository.readEntries(ids(800)));
+    final growth = large / small;
+    _say(
+      'entradas de 100 documentos: $small ms; de 800: $large ms '
+      '(×${growth.toStringAsFixed(2)})',
+    );
+    expect(growth, lessThan(16));
+  });
+
   test('la búsqueda va por el índice de texto y trae a cada uno con sus '
       'padres', () async {
     expectIndexed(

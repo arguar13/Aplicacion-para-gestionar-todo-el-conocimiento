@@ -33,6 +33,14 @@ abstract interface class IndexRepository {
   /// uno con sus padres. Como mucho [limit].
   Stream<List<IndexSearchHit>> watchSearch(String query, {int limit = 200});
 
+  /// Las entradas de cada uno de [documentIds], de una vez y sin quedarse
+  /// mirando: lo que lleva «Descargar el índice» (F46, paso 4), que necesita
+  /// todos los documentos que se ven y no uno por uno. En el mismo orden que
+  /// [watchEntries]; un documento sin entradas no está.
+  Future<Either<Failure, Map<String, List<IndexEntry>>>> readEntries(
+    List<String> documentIds,
+  );
+
   /// Cómo va el relleno.
   Stream<IndexProgress> watchProgress();
 
