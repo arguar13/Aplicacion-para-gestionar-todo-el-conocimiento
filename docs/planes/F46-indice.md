@@ -383,3 +383,208 @@ puras y probadas, listas para que el paso 2 las guarde: no hay esquema nuevo ni 
 - **Un HTML de bloque en medio de un párrafo** (`<div>` sin un renglón en blanco antes) se lee
   como parte del párrafo: CommonMark lo cortaría. La extracción de la app no lo escribe así.
 - No se miró en el emulador ni en el teléfono: no hay nada que se vea.
+
+### Paso 2 (hecho): los datos
+
+Seis commits, de `a96061f5` a `6efc9f43`, y el de este avance (decisión F, y la E en la
+base). El Índice tiene sus datos: el esquema v51, la escritura
+con el texto, el relleno de lo que ya estaba y las consultas que va a leer la pantalla. No hay
+nada que se vea: la pantalla es del paso 3.
+
+- **El esquema v51** (`processed_headings`, `processed_images.title`):
+  - `processed_headings`, una fila por entrada: `row_key` (la clave del índice de texto),
+    `document_id` (se va con el documento), `origin` (`IndexEntryOrigin`: `bookmark`,
+    `textHeading`, `aiTitle`, `wholeText` —los cuatro de `ProcessedHeadingOrigin`, con el mismo
+    nombre— e `image`), `level`, `position` (el `order` del paso 1; en una imagen, su lugar en
+    la galería), `title`, `text_start`, `text_end` y `text_page` (los tres juntos o ninguno),
+    `pdf_page` e `image_id` (se va con la imagen);
+  - sus reglas, en la base: el tramo y su página juntos; páginas desde 1; una imagen sin nada
+    del texto y con nivel 1; un capítulo siempre con título; «Texto completo» sin título y en
+    el nivel 1;
+  - `idx_processed_headings_document` (documento, lugar, origen, nivel): las entradas de un
+    documento en su orden, sus cuentas, su estado y los padres de lo que se busca salen del
+    índice, sin volver a la tabla;
+  - `processed_heading_search`, un FTS5 de contenido externo sobre el título, sin mayúsculas ni
+    acentos (`remove_diacritics 2`), como `processed_part_search`: no hace falta guardar el
+    título dos veces, plegado;
+  - `processed_images.title`: el título de la imagen. `null` es «todavía sin titular» y vacío es
+    «la fuente no dice nada» (la pantalla dice «Imagen 3»); nunca con espacios en los bordes. Lo
+    encuentra el índice parcial `idx_processed_images_untitled`, vacío pasado el relleno;
+  - la migración 50→51 solo agrega, con los conteos de todo lo demás como compuerta: la tabla
+    nace vacía y las imágenes, sin titular. Leer títulos y limpiar nombres es Dart, y no tiene
+    por qué demorar la apertura: lo hace el relleno.
+- **Lo que la base hace sola** (`processed_heading_triggers.dart`):
+  - cualquier escritura que cambie lo que produce los títulos de un documento —una página de
+    «Texto» (su texto, su orden, su lugar o su ancla) o la copia de su original— **suelta sus
+    entradas de texto en la misma sentencia**. Así «sin indexar» es exactamente «tiene texto y
+    ninguna entrada de texto», y nunca se ven capítulos de un texto que ya no es ese, venga la
+    escritura de donde venga: el repositorio, la unión de bóvedas, la papelera del contenido o
+    la reubicación de las anclas;
+  - cada imagen ya titulada tiene su entrada, que sigue su título y su lugar y se va con ella.
+- **La escritura con el texto** (`ProcessedHeadingsIndexer`):
+  - el repositorio de Procesado la llama en la misma transacción que guarda o rehace el texto:
+    al triar, deshacer, corregir, quitar o devolver una página. Rehace solo las de ese
+    documento, y solo si quedó sin indexar;
+  - **el PDF se lee antes de la transacción** (`prepare`): el de la copia del original —también
+    la que está por entrar al triar, o la que vuelve al deshacer— o, si no tiene, el de su
+    fuente, que solo se lee. Lo leído se recuerda por archivo (los originales no se reescriben:
+    otro archivo es otra ruta), así que corregir una página de un libro no lo vuelve a abrir;
+  - un PDF que no se puede leer vale sin marcadores (los títulos de la IA). Una falla que no es
+    del archivo, o PDFium que no responde en 20 s, no se recuerda: el documento queda para el
+    relleno;
+  - si el lector falla, el texto se guarda igual y el documento queda sin indexar. Un documento
+    con texto siempre termina con al menos una entrada: un texto en blanco tiene su «Texto
+    completo» aunque el lector no devuelva nada;
+  - lo que devuelve el lector pasa por `settleHeadings`: los `assert` de `ProcessedHeading` no
+    corren en la app, y la base nunca recibe algo que rompa sus reglas.
+- **El título de las imágenes al triar**: `applyProcessedImagesPlan` guarda el de
+  `sourceImageTitles` —el título de la fuente como pie de foto de su propio archivo, el texto
+  alternativo y, si su texto es Markdown, el título bajo el que está—. La galería muestra el
+  suyo; la papelera del contenido lo guarda (`imageTitle`) y lo devuelve, también renombrado.
+- **El relleno** (`ProcessedHeadingsBackfill` y `ProcessedHeadingsBackfillKeeper`):
+  - titula las imágenes sin titular (`processedImageTitle` con su texto alternativo y su
+    archivo) y después indexa los documentos sin indexar, los vivos y los más recientes primero,
+    uno por transacción y devolviéndole el turno a la interfaz entre uno y otro;
+  - **el punto de retome es la base misma**: lo que falta es lo que la base dice que falta, sin
+    un cursor aparte que pueda mentir —una copia restaurada, una unión—. Es idempotente;
+  - lo que falla se saltea en ese relleno, sin vueltas sin fin, y se reintenta al abrir la app;
+  - `rebuildAll` borra el Índice entero y lo deja para rehacer: las entradas de las imágenes
+    vuelven en el acto, y los documentos, en la pasada siguiente. De la Biblioteca no toca nada;
+  - lo hace correr `ProcessedHeadingsBackfillKeeper`, que se lee al abrirse la bóveda
+    (`SinapsisApp`) y mira la base: corre cuando algo queda sin indexar sin que nadie lo rehaga
+    —lo que trae la unión, lo que devuelve la papelera del contenido—.
+- **Las consultas** (`IndexRepository`, `index_query_sql.dart`), todas streams en vivo y sin lo
+  de la papelera:
+  - `watchTopics`: los temas con cuántos documentos del Índice tienen —con texto o con
+    imágenes— y «Sin tema» al final, en una lectura;
+  - `watchDocumentsOf(tema)` y `watchDocuments(orden)`: cada fila con su título, tipo, fecha
+    («Nuevo»), cuántos capítulos e imágenes, si ya está indexado y todos sus temas
+    (`IndexDocument.alsoIn`, decisión D);
+  - `watchEntries(documento)`: sus capítulos —o «Texto completo»— y después sus imágenes;
+  - `watchSearch(texto)`: por el índice de texto, las mejores coincidencias en el orden del
+    Índice, cada una con su documento, sus temas y los capítulos que la contienen (una cadena
+    recursiva que va hacia atrás por el índice);
+  - `watchProgress`: cuántos documentos hay, cuántos están indexados y cuántas imágenes falta
+    titular;
+  - `renameImage`: cambia el título de una imagen y su entrada, y toca el documento;
+  - de la A a la Z sin mayúsculas ni acentos, con la ñ después de la n (`indexSortKey`).
+
+**Decisiones, con su porqué:**
+
+- **Una tabla para todas las entradas, también las imágenes.** El árbol, las cuentas y la
+  búsqueda van por un solo lugar. El título de la imagen vive en `processed_images` y su
+  entrada lo copia por un trigger: no hay dos que escribir.
+- **Los triggers que sueltan y el indexador que rehace.** Escribir los títulos es Dart y no se
+  puede hacer desde un trigger; soltarlos, sí. Con los dos, lo que escribe el repositorio queda
+  al día en su transacción, y lo que escribe cualquier otro camino queda «sin indexar» —nunca
+  viejo— hasta que el relleno lo rehace, enseguida.
+- **La unión no copia las entradas**: son derivadas, y las de la copia valen para su texto y su
+  PDF. Lo que entra queda sin indexar y se rehace acá. El título de las imágenes sí viaja, con
+  ellas (de una que las dos tienen queda el de acá, como su lugar).
+- **`null` y vacío en el título de una imagen**: «sin titular» es lo único que el relleno tiene
+  que hacer; «no dice nada» es un resultado, que no se vuelve a calcular.
+- **El indexador va en Procesado** (`features/processed/data/services/`), junto al lector del
+  paso 1; el Índice (`features/index/`) tiene las consultas y lo que lee la pantalla. Así no hay
+  un ciclo entre las dos.
+
+**Los puertos para el paso 1, conectados:**
+
+- `HeadingsExtractor.headingsOf(ProcessedHeadingsSource) → Future<List<ProcessedHeading>>`
+  (`processed/domain/services/headings/headings_extractor.dart`): no lee la base ni archivos;
+  en la app es `ReadingHeadingsExtractor`, que corre `readProcessedHeadings` con
+  `runProcessedWork`. Las pruebas usan `FakeHeadingsExtractor`.
+- `PdfOutlineReader` (`pdfOutlineReaderProvider`): lo llama `prepare`, antes de la transacción.
+  Las pruebas, y `LibraryHarness`, usan `FakePdfOutlineReader`: el PDFium de la app espera un
+  plugin que en una prueba no existe, y colgaba las de pantalla que tocan un PDF.
+- Las imágenes usan las funciones puras del paso 1 directamente: `sourceImageTitles` al triar
+  y `processedImageTitle` en el relleno.
+
+**Los censos:**
+
+- `VaultCounts.processedHeadingTables`, y un censo nuevo (`vault_counts_census_test.dart`): toda
+  tabla del esquema está en un grupo de `VaultCounts` o dice por qué no.
+- La unión: `kProcessedImageColumns` con `title` (su censo de columnas), y en las guardas
+  (`MergeGates._referencing`) `processed_headings`. Un censo nuevo
+  (`merge_references_census_test.dart`) exige que toda tabla con claves foráneas esté ahí o
+  diga por qué no: mostró que la unión escribía `item_spaces`, `flashcard_options` y
+  `content_trash` sin que las guardas las miraran, y ahora las miran.
+- `MergeGates._neverShrink` no la tiene, a propósito: es derivada y se rehace.
+- La copia de seguridad copia la base entera; la bóveda sintética aparta y devuelve sus
+  triggers (`synthetic_vault_test`); el borrado en cascada se la lleva con el documento o con
+  la imagen, con su índice de texto.
+- `repoint_item_references_v18` no aplica: la tabla nace en v51 y no cuelga de `item`.
+- `IndexEntryOrigin` y `ProcessedHeadingOrigin` tienen los mismos nombres
+  (`index_entry_origin_test.dart`).
+
+**Archivos:**
+
+- Nuevos: `tables/processed_headings.dart`, `processed_heading_triggers.dart` e
+  `index_entry_origin.dart` (en `core`); `headings_extractor.dart` y `settle_headings.dart` (en
+  `processed/domain/services/headings/`); `processed_headings_indexer.dart`,
+  `processed_headings_backfill.dart` y `processed_headings_backfill_keeper.dart` (en
+  `processed/data/services/`); `processed_headings_providers.dart`; y en `features/index/`:
+  `index_tree.dart`, `index_repository.dart`, `index_order.dart`, `index_query_sql.dart`,
+  `index_repository_impl.dart` e `index_providers.dart`. El esquema `drift_schema_v51.json` y
+  `schema_v51.dart`.
+- Cambian: `app_database.dart` (v51), `search_index.dart`, `vault_counts.dart`,
+  `processed_images.dart`, `processed_images_store.dart`, `processed_repository_impl.dart`,
+  `processed_providers.dart`, `set_union_merge.dart`, `merge_gates.dart` y `app.dart`.
+
+**Verificado:**
+
+- analyze en 19 en cada uno de los seis commits, cada uno armado y analizado por su cuenta;
+- 87 pruebas nuevas: la migración 50→51 (que llega al esquema de v51, que no cambia ningún
+  conteo y que deja todo sin indexar y sin titular), los triggers uno por uno, el indexador
+  (con el texto, el PDF leído antes y recordado, uno ilegible, una falla pasajera, la copia que
+  entra al triar, el de la fuente), el relleno (idempotente, se retoma, saltea lo que falla,
+  los vivos y recientes primero, borrar y rehacer, la Biblioteca intacta, lo que llega tarde),
+  el título de las imágenes al triar, en la galería y en la papelera, la unión, las consultas y
+  los censos;
+- **la misma transacción**, probada desde otra conexión a la misma base en un archivo: mientras
+  el lector trabaja, afuera todavía se ven el texto viejo y sus tres entradas; al terminar, el
+  texto nuevo y sus entradas, juntos;
+- **la escala, en la PC** (`index_scale_test.dart`): 2.000 documentos con 150 capítulos cada
+  uno —300.990 entradas con las imágenes—, 1.000 imágenes y una Biblioteca de 6.000 fuentes con
+  sus temas, armada en 3,4 s. Los temas con sus cuentas, 6 ms; los documentos de un tema, 7 ms;
+  los 1.990 documentos vivos con sus cuentas, 65 ms; las entradas de uno, 3 ms; una búsqueda
+  rara, 1 ms; una común, con las 200 mejores y sus padres, 38 ms; cómo va el relleno, 4 ms. El
+  `EXPLAIN QUERY PLAN` de cada consulta —también las del relleno— no tiene ningún `SCAN` de
+  `processed_headings`, `processed_parts`, `item`, `item_spaces` ni `processed_images`: solo
+  `processed_documents` (`SCAN d`, miles de filas), el índice de texto, la cadena de padres y
+  el índice parcial de las imágenes sin titular;
+- la suite entera por carpetas, con `--concurrency=2`: 15.151 pruebas. Una de
+  `in_app_model_file_transfer_test` (una descarga que se pausa) falló una vez bajo carga y pasa
+  sola; las de PDFium se saltean sin `PDFIUM_PATH`;
+- murieron las 38 mutaciones, todas por pruebas que fallan: la omisión de cada censo
+  (`VaultCounts`, la columna en la unión, las guardas, la papelera del contenido), la
+  migración sin la columna o sin sus índices, cada trigger que suelta o que lleva la imagen,
+  el indexador (rehacer lo indexado, indexar un PDF no leído, no leer la copia que entra,
+  recordar una falla pasajera, olvidar un PDF ilegible, «Texto completo»), el repositorio (no
+  leer el PDF antes, no rehacer al quitar una página, las imágenes sin titular), el relleno,
+  las consultas (la papelera, los padres, «Sin tema», lo de solo notas) y el saneo. Dos
+  sobrevivieron la primera vez y mostraron lo que faltaba: el relleno leía las imágenes sin
+  titular afuera de la transacción que las titulaba —ahora es una sola, y una renombrada en el
+  medio no se pisa—, y nada probaba lo que llega justo cuando una pasada termina, que ahora
+  tiene su prueba. Tres estaban mal armadas (la sangría, después de formatear) y murieron al
+  corregirlas.
+
+**Queda abierto:**
+
+- **La pantalla** (paso 3) se arma sobre un falso de los datos: al integrar, se conecta a
+  `IndexRepository` (`indexRepositoryProvider`), con sus entidades (`index_tree.dart`).
+- **«Por documento» con todo** cuesta 65 ms en la PC con 300.000 entradas, y el teléfono es
+  varias veces más lento: si la pantalla lo nota, pedirlo de a tramos o mostrar las cuentas
+  después. Lo demás está en milisegundos.
+- **Una versión nueva del lector del paso 1 no reindexa sola** lo que ya está: hace falta
+  `rebuildAll` o una migración que suelte las entradas de texto, y el relleno hace el resto.
+- **El título de una imagen que las dos bóvedas tienen**: en la unión queda el de acá, como su
+  lugar en la galería. Un renombre hecho en el otro dispositivo no llega.
+- **La búsqueda es de capítulos e imágenes**: los títulos de los documentos los filtra la
+  pantalla sobre la lista que ya tiene.
+- **Una migración futura que rehaga** `processed_parts`, `processed_originals` o
+  `processed_images` tiene que volver a crear sus triggers (`_createProcessedHeadingIndex`),
+  como v50 hizo con los de `text_notes`.
+- **Un documento sin copia del original** toma los marcadores del PDF de su fuente, que solo
+  se lee; si la fuente se borra de verdad, valen los títulos de la IA.
+- No se midió en el emulador ni en el teléfono: no hay nada que se vea. La cola del relleno
+  se mide con la pantalla, en el cierre (paso 5).
