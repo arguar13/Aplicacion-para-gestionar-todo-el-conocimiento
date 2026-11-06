@@ -244,10 +244,22 @@ void main() {
     );
   }
 
+  /// Si todavía no hay nada vinculado: cuatro documentos sueltos.
+  var noLinks = false;
+
   /// Tres documentos vinculados —a con b, b con c— y uno suelto; con un corte
-  /// por fuerza, solo el primer vínculo.
+  /// por fuerza, solo el primer vínculo. Con [noLinks], nada vinculado.
   LinkGraph linkGraph(MapLinksRequest request) {
     final cut = request.strength != LinkStrengthFilter.all;
+    if (noLinks) {
+      return LinkGraph(
+        items: const [],
+        edges: const [],
+        linkedCount: 0,
+        unlinkedCount: 4,
+        focusId: request.focusId,
+      );
+    }
     return LinkGraph(
       items: [
         const TopicItemNode(id: 'a', title: 'Documento a', isNote: false),
@@ -372,6 +384,7 @@ void main() {
     studied.clear();
     layouts = 0;
     linkRequests.clear();
+    noLinks = false;
     handle = null;
     tensionsOpened = 0;
     modelDownloads = 0;
@@ -1513,11 +1526,19 @@ void main() {
     testWidgets('sin temas, el lienzo lo dice y lleva a los vínculos', (
       tester,
     ) async {
-      container.read(mapLayersProvider.notifier).set(MapLayer.links, on: false);
+      container.read(mapLayersProvider.notifier)
+        ..set(MapLayer.links, on: false)
+        ..set(MapLayer.tensions, on: true);
       await pump(tester, snapshot(empty: true));
 
       final empty = find.byKey(const ValueKey('map-no-topics'));
       expect(empty, findsOneWidget);
+      // Sin nada que tocar, nada de lo que acompaña al dibujo (F46, paso 5f):
+      // ni la ayuda para tocar una comunidad, ni verlo como lista, ni lo que
+      // dice una capa prendida.
+      expect(find.text(es.f44S4CanvasHint), findsNothing);
+      expect(find.byKey(const ValueKey('map-as-list')), findsNothing);
+      expect(find.byKey(const ValueKey('map-tensions')), findsNothing);
       // Lo vinculado es una capa (F44, paso 5), no una pestaña: el vacío lo
       // dice así, y su botón la prende.
       expect(
@@ -1528,6 +1549,41 @@ void main() {
 
       expect(node('item:a'), findsOneWidget);
       expect(container.read(mapLayersProvider), contains(MapLayer.links));
+      // Con lo vinculado a la vista, vuelve lo que lo acompaña.
+      expect(find.byKey(const ValueKey('map-as-list')), findsOneWidget);
+      expect(find.byKey(const ValueKey('map-links-summary')), findsOneWidget);
+      expect(find.byKey(const ValueKey('map-tensions')), findsOneWidget);
+    });
+
+    testWidgets('sin nada vinculado, el vacío de los vínculos va solo: sin '
+        'resumen, ni fuerza, ni cuántos quedaron sueltos (F46, paso 5f)', (
+      tester,
+    ) async {
+      noLinks = true;
+      await pump(tester);
+      await seeAllLinks(tester);
+
+      expect(find.byKey(const ValueKey('map-links-empty')), findsOneWidget);
+      expect(find.byKey(const ValueKey('map-links-summary')), findsNothing);
+      expect(find.byKey(const ValueKey('map-links-strength')), findsNothing);
+      expect(find.byKey(const ValueKey('map-links-unlinked')), findsNothing);
+      expect(find.byKey(const ValueKey('map-as-list')), findsNothing);
+    });
+
+    testWidgets('si se vacía mientras se mira como lista, se va también lo de '
+        'la lista: sus capas y de dónde parte (F46, paso 5f)', (tester) async {
+      await pump(tester);
+      await tapAndSettle(tester, find.byKey(const ValueKey('map-as-list')));
+      expect(find.byKey(const ValueKey('map-layers-list')), findsOneWidget);
+      expect(find.byType(MapTreeRootRow), findsOneWidget);
+
+      await tester.pumpWidget(app(snapshot(empty: true, sequence: 2)));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('map-no-topics')), findsOneWidget);
+      expect(find.byKey(const ValueKey('map-layers-list')), findsNothing);
+      expect(find.byType(MapTreeRootRow), findsNothing);
+      expect(find.text(es.f44S4CanvasHint), findsNothing);
     });
   });
 

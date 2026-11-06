@@ -1660,31 +1660,46 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
   bool get _showsDocuments => _links || _altitude == MapAltitude.documents;
 
+  /// Si hay algo a la vista que tocar: los temas del mapa o, con los vínculos
+  /// prendidos, lo vinculado que ya llegó. Sin eso, el cuerpo es un vacío
+  /// —«Todavía no hay etiquetas», «Todavía no vinculaste nada»— o la espera
+  /// de los vínculos, y nada de lo que acompaña al dibujo tiene sentido: la
+  /// ayuda para tocarlo, el grado, la raíz del árbol, lo vinculado y su
+  /// fuerza, las notas de lo que no entró y de las capas, verlo como lista y
+  /// sus capas (F46, paso 5f).
+  bool get _hasContent {
+    if (!_links) return _graph.nodes.isNotEmpty;
+    final graph = _linkGraph;
+    return graph != null && graph.items.isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final graph = _linkGraph;
     final noTopics = !_links && _graph.nodes.isEmpty;
+    final hasContent = _hasContent;
 
     final actions = [
-      IconButton(
-        key: const ValueKey('map-as-list'),
-        tooltip: _asList ? l10n.f44S2AsCanvas : l10n.f44S2AsList,
-        isSelected: _asList,
-        icon: const Icon(Icons.view_list_outlined),
-        selectedIcon: const Icon(Icons.hub_outlined),
-        onPressed: () {
-          setState(() {
-            _asList = !_asList;
-            _offerExport(widget.exportHandle);
-            _rebuildTree();
-          });
-          _syncLayers();
-        },
-      ),
+      if (hasContent)
+        IconButton(
+          key: const ValueKey('map-as-list'),
+          tooltip: _asList ? l10n.f44S2AsCanvas : l10n.f44S2AsList,
+          isSelected: _asList,
+          icon: const Icon(Icons.view_list_outlined),
+          selectedIcon: const Icon(Icons.hub_outlined),
+          onPressed: () {
+            setState(() {
+              _asList = !_asList;
+              _offerExport(widget.exportHandle);
+              _rebuildTree();
+            });
+            _syncLayers();
+          },
+        ),
       // Visto como lista, las capas se eligen arriba: abajo no hay dibujo.
-      if (_asList)
+      if (_asList && hasContent)
         IconButton(
           key: const ValueKey('map-layers-list'),
           tooltip: l10n.f44S5LayersTooltip(_layers.layers.length),
@@ -1752,7 +1767,9 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
 
     final selected = _selected;
     final facts = selected == null || noTopics ? null : _factsOf(selected);
-    final footnotes = facts == null ? _footnotes(l10n) : const <Widget>[];
+    final footnotes = facts == null && hasContent
+        ? _footnotes(l10n)
+        : const <Widget>[];
     // Lo de arriba y lo de abajo nunca le quitan al lienzo más de lo justo:
     // con la letra al doble en un celular, se desplazan en su lugar.
     return LayoutBuilder(
@@ -1769,7 +1786,10 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: [header, ..._contextRows(l10n, theme)],
+                children: [
+                  header,
+                  if (hasContent) ..._contextRows(l10n, theme),
+                ],
               ),
             ),
           ),
@@ -1814,7 +1834,8 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
   }
 
   /// Lo que se elige según lo que se mira: el «Grado» en los temas, la fuerza
-  /// de los vínculos, de dónde parte el árbol.
+  /// de los vínculos, de dónde parte el árbol. Solo con algo que tocar
+  /// ([_hasContent]).
   List<Widget> _contextRows(AppLocalizations l10n, ThemeData theme) {
     final graph = _linkGraph;
     return [
@@ -1853,7 +1874,7 @@ class _MapCanvasViewState extends ConsumerState<MapCanvasView>
               ),
             ),
           ),
-      if (_links && graph != null && graph.items.isNotEmpty) ...[
+      if (_links && graph != null) ...[
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
           child: Text(
