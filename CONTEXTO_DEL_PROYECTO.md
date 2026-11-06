@@ -3,8 +3,8 @@
 Este documento es para quien empieza de cero, sin ningún recuerdo de sesiones anteriores
 (una persona o una sesión nueva de Claude Code). Leyéndolo entero entendés qué es la app, cómo
 está hecha, cómo se trabaja en este repositorio, qué reglas puso el dueño y en qué estado quedó
-todo. Fecha del estado descrito: **2026-11-06** (F44, F45 y F47 cerradas en sus documentos; F46,
-el Índice, en construcción).
+todo. Fecha del estado descrito: **2026-11-06** (F44, F45, F46 y F47 construidas y cerradas, con la
+suite entera del cierre conjunto).
 
 Documentos hermanos, de más general a más fino:
 
@@ -12,7 +12,7 @@ Documentos hermanos, de más general a más fino:
 |---|---|
 | `README.md` | Presentación del producto (el problema, qué acepta, qué reemplaza). Su sección «Estado» quedó vieja: no la tomes como el estado real. |
 | `GUIA_DE_USO.md` | Manual de usuario, paso a paso, de **cada** función. Es la fuente de «qué hace la app hoy». |
-| `docs/arquitectura.md` | Principios y **las decisiones técnicas numeradas, hasta la 93** (el porqué de cada cosa, con cifras medidas; la 92, de F46, se escribe en su cierre). Es la historia técnica real. |
+| `docs/arquitectura.md` | Principios y **las decisiones técnicas numeradas, hasta la 93** (el porqué de cada cosa, con cifras medidas). Es la historia técnica real. |
 | `docs/planes/F13…F47-*.md` | Los planes grandes que el dueño aprobó (F13 en adelante). |
 | `lib/features/README.md` | Convención de capas de cada módulo. |
 | `CONTEXTO_DEL_PROYECTO.md` | Este: la puerta de entrada. |
@@ -92,7 +92,7 @@ lib/
                                design/, gemma/, audio/, network/, storage/, telemetry/, util/
   features/<nombre>/           un módulo por función, cada uno con data/ domain/ presentation/
   l10n/                        .arb y generados
-test/                          espejo de lib/ (+ support/ con arneses; ~15.200 pruebas)
+test/                          espejo de lib/ (+ support/ con arneses; ~15.400 pruebas)
 tool/                          scripts de trabajo (ver sección 6)
 drift_schemas/                 un schema_vN.dart por versión del esquema
 docs/                          arquitectura.md, planes/, benchmarks/
@@ -112,8 +112,8 @@ y exploración), `explorer`, `notebooks`, `inbox`, `suggestions`, `duplicates`, 
 (el modelo de lenguaje elegido, las cuentas y la cuota en la nube), `keep_working`
 (trabajo con la app cerrada), `content_trash`, `trash`, `vault` (clave, copia, fusión),
 `settings`, `health`, `dev_seed` (biblioteca de ejemplo), `create_hub` (el «Crear» de un documento,
-F45), `text_notes` (las notas en el texto, F45), `home_widgets` (los widgets de Android, F47) y
-`help` (la guía y las novedades dentro de la app, F47).
+F45), `text_notes` (las notas en el texto, F45), `index` (el Índice, F46), `home_widgets` (los
+widgets de Android, F47) y `help` (la guía y las novedades dentro de la app, F47).
 
 ## 4. Historia: qué se construyó, en orden
 
@@ -314,6 +314,25 @@ desde F13):
     una página web, con «Notas (N)», en la búsqueda, en el chat y en las descargas.
   - **El diseño**: 28 plantillas y 20 diseños de diapositiva, 30 estilos de infografía con 16
     composiciones y gráficos nuevos, y «Personalizar», sin migrar lo guardado.
+- **F46** — **el Índice: todo lo procesado con sus capítulos, como el índice automático de Word**
+  (decisión 92, esquema v51). Se construyó después de F47, para nacer con su lector único.
+  - **Un destino propio en Estudiar**, debajo de Procesado: por tema o por documento, «Niveles:
+    1 · 2 · 3 · Todo», la numeración y la línea de puntos hasta la página —la real en un PDF—, con
+    «Buscá un capítulo», que conserva la jerarquía, el tema y el documento fijos arriba, «Nuevo» y,
+    en una pantalla ancha, el lector único al costado.
+  - **Los capítulos salen solo del texto y de las imágenes**: los títulos de un Markdown, los
+    marcadores de un PDF ubicados en su texto, los títulos que dejó la IA al ordenarlo al triar, o
+    «Texto completo»; y cada imagen con su título (`processed_images.title`). Nunca del resumen ni
+    de la síntesis, y nada se le pide a la IA para armarlo.
+  - **Una tabla derivada**, `processed_headings`, con su FTS5: se escribe con el texto en la misma
+    transacción (`ProcessedHeadingsIndexer`, con el PDF leído antes), los triggers la sueltan cuando
+    algo cambia por cualquier camino y el relleno (`ProcessedHeadingsBackfill`) rehace lo que falta,
+    con la base misma como punto de retome. Se puede borrar y rehacer entero (`rebuildAll`).
+  - **Ir al lugar exacto**: el lector único se abre en el título (`ExtractPlace`), el original en su
+    página o en su título; mantener apretado ofrece el original, el chat con el texto del capítulo,
+    copiar y renombrar una imagen; y «Descargar el índice» en PDF o Markdown.
+  - **Escala**: con 2.000 documentos y 300.990 entradas, cada consulta en milisegundos en la PC y sin
+    recorrer las tablas grandes (`EXPLAIN QUERY PLAN`); la pantalla, medida por crecimiento.
 - **F47** — **un solo lector para todo, las voces y el podcast** (decisión 93), sin cambios de
   esquema; la única dependencia nueva es `home_widget`.
   - **El marco de lectura** (`ReadingFrame`) para el original, el texto, el resumen, la síntesis y
@@ -387,22 +406,24 @@ desde F13):
 > procesado. La APK se instala solo si el dueño la pide.
 >
 > **F44 (el Mapa) está construida** (2026-11-06): `docs/planes/F44-mapa.md`, decisión 90, sin
-> cambios de esquema. Cerrada en sus documentos; queda para el cierre conjunto con F46 (paso 5):
-> - la suite entera;
+> cambios de esquema. Cerrada en sus documentos y con la suite entera del cierre conjunto con F46
+> (paso 5); queda, para la sesión principal:
 > - la medición en el emulador de los gestos del lienzo con las capas prendidas, contra la de F18;
 > - mirar en el teléfono la hoja de las capas, el «≈» y la ficha con la letra al doble;
 > - la APK, si el dueño la pide.
 >
 > **F45 (el pulido del 30/10) está construida** (2026-11-06):
 > `docs/planes/F45-pulido-del-30-10.md`, decisión 91, esquemas v49 y v50. Cerrada en sus
-> documentos; la suite entera y la APK van en el cierre conjunto con F46 (paso 5). Falta mirarla en
+> documentos y con la suite entera del cierre conjunto con F46 (paso 5); la APK, si el dueño la
+> pide. Falta mirarla en
 > el teléfono: el globito de las notas sobre un PDF real y dentro de la `WebView`, el video del
 > árabe con sus pistas, la tarjeta de triar y su barra con la letra al doble, y los avisos con el
 > reproductor.
 >
 > **F47 (un solo lector y las voces) está construida** (2026-11-06):
 > `docs/planes/F47-lector-y-voces.md`, decisión 93, sin cambios de esquema. Cerrada en sus
-> documentos; la suite entera y la APK van en el cierre conjunto con F46 (paso 5). Falta, en el
+> documentos y con la suite entera del cierre conjunto con F46 (paso 5); la APK, si el dueño la
+> pide. Falta, en el
 > teléfono y si el dueño la pide, la prueba con sus voces:
 > - cuánto tarda cada voz sin conexión en generar una oración (sobre todo Kokoro), y cuánto tardan
 >   y pesan el audio de un documento largo y un podcast;
@@ -411,10 +432,16 @@ desde F13):
 >   con «ocultar contenido sensible», y los auriculares;
 > - el widget «Seguir escuchando» después de reiniciar el teléfono.
 >
-> La 92 de `docs/arquitectura.md` queda para F46 (el Índice), que se escribe en su cierre.
+> **F46 (el Índice) está construida** (2026-11-06): `docs/planes/F46-indice.md`, decisión 92,
+> esquema v51. Cerrada con la suite entera, junto con F44, F45 y F47. Queda para la sesión
+> principal:
+> - la medición en el emulador con una bóveda grande: abrir el Índice, desplegar un libro, buscar y
+>   la cola del relleno;
+> - la página web del original que se desplaza hasta su título en la `WebView` real;
+> - la APK, si el dueño la pide.
 
 
-- La última corrida de la suite entera fue la del cierre de F43 («docs: cierre de F43»): **13.142 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre). Desde entonces, F44, F45 y F47 se verificaron paso a paso, por carpetas y con sus mutaciones (cada «Avance» de su plan dice qué y cuántas), y **la suite entera se corre en el cierre de F46 (paso 5), junto con las de F44, F45 y F47**.
+- La última corrida de la suite entera fue la del cierre conjunto de F44, F45, F46 y F47 (F46, paso 5, el 2026-11-06): **15.430 pruebas pasan, 0 fallas, 47 omitidas** (las 47, pruebas de rendimiento que corren solo con `--dart-define=BENCH=true`), con `--concurrency=2`, en siete tandas de carpetas y con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; 86 minutos en total. Ninguna falla, tampoco intermitente: no hubo nada que repetir. Las cifras por tanda están en el Avance del paso 5 de `docs/planes/F46-indice.md`.
   **Analizador: 19 avisos.** Es la línea base de `tool/verify_commit.ps1` y **no puede crecer**.
 - Hay cinco archivos con cambios de solo formato que no son de este trabajo y no se commitean:
   - `lib/core/database/tables/suggestions.dart`
@@ -530,7 +557,7 @@ Instalar encima conserva datos y modelos **solo si la app ya estaba instalada** 
 5. **Actualizar `GUIA_DE_USO.md`** con cada cambio visible para el usuario, y revisarla completa al
    cerrar una fase.
 6. **Los planes grandes** van en `docs/planes/` y el dueño aprueba escribiendo «aprobado» en el chat.
-   Las decisiones técnicas se numeran en `docs/arquitectura.md` (hoy llegan a la 93; la 92 es de F46). Lo que el
+   Las decisiones técnicas se numeran en `docs/arquitectura.md` (hoy llegan a la 93). Lo que el
    dueño debe leer va dentro del workspace con enlace relativo.
 7. **Limpieza al terminar:** borrar compilaciones y temporales viejos (`build/` pesa ~4 GB), medir el
    espacio antes y después, apagar Gradle/emulador/pruebas propios (`./gradlew --stop` en `android/`).
