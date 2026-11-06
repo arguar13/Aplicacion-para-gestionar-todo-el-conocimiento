@@ -35,6 +35,7 @@ import 'package:sinapsis/features/help/presentation/screens/user_guide_screen.da
 import 'package:sinapsis/features/help/presentation/screens/whats_new_screen.dart';
 import 'package:sinapsis/features/home_widgets/presentation/screens/home_widgets_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
+import 'package:sinapsis/features/index/presentation/screens/index_screen.dart';
 import 'package:sinapsis/features/keep_working/presentation/screens/keep_working_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
@@ -526,6 +527,19 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     ],
                   ),
                 ],
+              ),
+            ],
+          ),
+          // El Índice (F46), mismo criterio: se ve en «Estudiar» justo debajo
+          // de Procesado (decisión A), pero va al final para no correr
+          // ninguna rama. Lo que abre —el lector único, una imagen— va
+          // encima, en la raíz, como desde Procesado.
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.index,
+                name: RouteNames.index,
+                builder: (context, state) => const IndexScreen(),
               ),
             ],
           ),

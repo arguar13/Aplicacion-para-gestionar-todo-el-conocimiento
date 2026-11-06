@@ -79,6 +79,7 @@ void main() {
           ShellBranch.notebooks => RoutePaths.notebooks,
           ShellBranch.timeline => RoutePaths.timeline,
           ShellBranch.processed => RoutePaths.processed,
+          ShellBranch.processedIndex => RoutePaths.index,
         },
     ]);
   });
@@ -109,6 +110,21 @@ void main() {
     // En la raíz: se abre desde pantallas que están encima del shell.
     expect(document.parentNavigatorKey, isNotNull);
     expect(topLevel().where((r) => r.path == RoutePaths.processed), isEmpty);
+  });
+
+  test('el Índice (F46) es una rama de la barra, sin rutas propias encima: '
+      'lo que abre —el lector único, una imagen— ya está en la raíz', () {
+    final branch = shell().branches[ShellBranch.processedIndex.index];
+    final index = branch.routes.single as GoRoute;
+
+    expect(index.path, RoutePaths.index);
+    expect(index.name, RouteNames.index);
+    expect(index.routes, isEmpty);
+    expect(topLevel().where((r) => r.path == RoutePaths.index), isEmpty);
+    expect(
+      topLevel().where((r) => r.path == RoutePaths.extractReadingPattern),
+      hasLength(1),
+    );
   });
 
   test('el material de un tema (el Explorador de antes) ya no es una rama de '

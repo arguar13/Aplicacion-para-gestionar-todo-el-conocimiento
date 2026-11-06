@@ -79,8 +79,8 @@ class NavStepGroup {
 /// compara las dos listas (`app_router_branches_test.dart`).
 ///
 /// Con nombre y no con números sueltos: el Atlas, los cuadernos, la línea de
-/// tiempo (F40) y Procesado (F41) se sumaron al final para no correr las de
-/// arriba, y el Explorador salió de la barra
+/// tiempo (F40), Procesado (F41) y el Índice (F46) se sumaron al final para
+/// no correr las de arriba, y el Explorador salió de la barra
 /// (F36) —ahora se abre desde el Atlas y el Mapa—, así que sacar o sumar una
 /// rama corre las demás, y un número escrito a mano en otro lado quedaría
 /// apuntando a otra pantalla. Por lo mismo, mudar un destino de paso (F43:
@@ -97,12 +97,16 @@ enum ShellBranch {
   notebooks,
   timeline,
   processed,
+
+  /// El Índice (F46). No `index`, que es el lugar de cada valor de un enum.
+  processedIndex,
 }
 
 /// Arma la lista de destinos principales, en el orden de uso en que se ven
-/// (F34, F43): biblioteca; bandeja de entrada y atlas; procesado, cuadernos,
-/// línea de tiempo, mapa y repaso; chat; ajustes. Cada uno sabe su rama
-/// ([NavDestinationSpec.branchIndex]) y su paso ([NavDestinationSpec.step]).
+/// (F34, F43, F46): biblioteca; bandeja de entrada y atlas; procesado,
+/// índice, cuadernos, línea de tiempo, mapa y repaso; chat; ajustes. Cada uno
+/// sabe su rama ([NavDestinationSpec.branchIndex]) y su paso
+/// ([NavDestinationSpec.step]).
 ///
 /// El riel de escritorio los muestra todos, en este orden; la barra del
 /// celular, agrupados por paso ([buildNavStepGroups]), cada uno en su lugar
@@ -168,6 +172,18 @@ List<NavDestinationSpec> buildNavDestinations({
       selectedIcon: const Icon(Icons.summarize),
       label: l10n.navProcessed,
       hint: l10n.navProcessedHint,
+    ),
+    // Justo debajo de Procesado (F46, decisión A): lo procesado con sus
+    // capítulos, como el índice de un libro. La lista numerada, que no usa
+    // ningún otro destino; sin variante rellena, como la línea de tiempo: el
+    // riel marca el elegido con su cápsula.
+    NavDestinationSpec(
+      branchIndex: ShellBranch.processedIndex.index,
+      step: NavStep.study,
+      icon: const Icon(Icons.format_list_numbered),
+      selectedIcon: const Icon(Icons.format_list_numbered),
+      label: l10n.f46P3NavIndex,
+      hint: l10n.f46P3NavIndexHint,
     ),
     // Debajo de Procesado (F43): un cuaderno junta un grupo de documentos
     // procesados para estudiarlos —y preguntarle al chat— solo sobre ellos.

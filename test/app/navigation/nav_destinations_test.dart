@@ -70,6 +70,7 @@ void main() {
         at([ShellBranch.inbox, ShellBranch.atlas]),
         at([
           ShellBranch.processed,
+          ShellBranch.processedIndex,
           ShellBranch.notebooks,
           ShellBranch.timeline,
           ShellBranch.graph,
@@ -104,6 +105,7 @@ void main() {
         es.navInbox,
         es.navAtlas,
         es.navProcessed,
+        es.f46P3NavIndex,
         es.navNotebooks,
         es.navTimeline,
         es.navMap,
@@ -136,6 +138,7 @@ void main() {
         'notebooks',
         'timeline',
         'processed',
+        'processedIndex',
       ],
     );
   });
@@ -210,14 +213,15 @@ void main() {
     );
   });
 
-  test('«Estudiar» abre Procesado, Cuadernos, Línea de tiempo, Mapa y '
-      'Repasar, en ese orden y con para qué sirve cada uno', () {
+  test('«Estudiar» abre Procesado, el Índice, Cuadernos, Línea de tiempo, '
+      'Mapa y Repasar, en ese orden y con para qué sirve cada uno', () {
     final study = stepOf(groups(), NavStep.study);
 
     expect(
       [for (final d in study.destinations) (d.label, d.hint)],
       [
         (es.navProcessed, es.navProcessedHint),
+        (es.f46P3NavIndex, es.f46P3NavIndexHint),
         (es.navNotebooks, es.navNotebooksHint),
         (es.navTimeline, es.navTimelineHint),
         (es.navMap, es.navMapHint),
@@ -253,9 +257,10 @@ void main() {
     expect(timeline.label, es.navTimeline);
   });
 
-  test('las ramas de la línea de tiempo y de Procesado están al final: '
-      'sumarlas no corrió el índice de ninguna de las de antes', () {
-    expect(ShellBranch.processed.index, ShellBranch.values.length - 1);
+  test('las ramas de la línea de tiempo, de Procesado y del Índice están al '
+      'final: sumarlas no corrió el índice de ninguna de las de antes', () {
+    expect(ShellBranch.processedIndex.index, ShellBranch.values.length - 1);
+    expect(ShellBranch.processed.index, ShellBranch.processedIndex.index - 1);
     expect(ShellBranch.timeline.index, ShellBranch.processed.index - 1);
     expect(ShellBranch.notebooks.index, ShellBranch.timeline.index - 1);
   });
@@ -277,8 +282,28 @@ void main() {
     }
   });
 
-  test('los cuadernos van segundos en «Estudiar», debajo de Procesado', () {
-    final notebooks = stepOf(groups(), NavStep.study).destinations[1];
+  test('el Índice (F46, decisión A) va justo debajo de Procesado, con su '
+      'línea y la lista numerada, que no usa otro destino', () {
+    final index = stepOf(groups(), NavStep.study).destinations[1];
+
+    expect(index.branchIndex, ShellBranch.processedIndex.index);
+    expect(index.label, 'Índice');
+    expect(
+      index.hint,
+      'Los capítulos de todo lo procesado, como el índice de un libro',
+    );
+    expect(iconOf(index.icon), Icons.format_list_numbered);
+    expect(iconOf(index.selectedIcon), Icons.format_list_numbered);
+
+    for (final other in destinations()) {
+      if (other.branchIndex == ShellBranch.processedIndex.index) continue;
+      expect(iconOf(other.icon), isNot(Icons.format_list_numbered));
+      expect(iconOf(other.selectedIcon), isNot(Icons.format_list_numbered));
+    }
+  });
+
+  test('los cuadernos van terceros en «Estudiar», debajo del Índice', () {
+    final notebooks = stepOf(groups(), NavStep.study).destinations[2];
 
     expect(notebooks.branchIndex, ShellBranch.notebooks.index);
     expect(notebooks.label, es.navNotebooks);
@@ -356,6 +381,7 @@ void main() {
       [for (final d in study.destinations) d.branchIndex],
       at([
         ShellBranch.processed,
+        ShellBranch.processedIndex,
         ShellBranch.notebooks,
         ShellBranch.timeline,
         ShellBranch.graph,
@@ -375,6 +401,7 @@ void main() {
         ShellBranch.library.index: es.navLibraryHint,
         ShellBranch.inbox.index: es.navInboxHint,
         ShellBranch.processed.index: es.navProcessedHint,
+        ShellBranch.processedIndex.index: es.f46P3NavIndexHint,
         ShellBranch.timeline.index: es.navTimelineHint,
         ShellBranch.atlas.index: es.navAtlasHint,
         ShellBranch.graph.index: es.navMapHint,

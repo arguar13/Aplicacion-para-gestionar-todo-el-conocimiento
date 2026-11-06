@@ -19,6 +19,7 @@ import 'package:sinapsis/features/flashcards/presentation/providers/study_provid
 import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
+import 'package:sinapsis/features/index/presentation/screens/index_screen.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/unsorted_items_screen.dart';
@@ -45,6 +46,7 @@ void main() {
   // Las ramas por nombre: su número es su lugar en el árbol de rutas.
   final inbox = ShellBranch.inbox.index;
   final processed = ShellBranch.processed.index;
+  final index = ShellBranch.processedIndex.index;
   final timeline = ShellBranch.timeline.index;
   final atlas = ShellBranch.atlas.index;
   final graph = ShellBranch.graph.index;
@@ -189,6 +191,7 @@ void main() {
       (step: 'organize', branch: inbox, screen: InboxScreen, barIndex: 1),
       (step: 'organize', branch: atlas, screen: AtlasScreen, barIndex: 1),
       (step: 'study', branch: processed, screen: ProcessedScreen, barIndex: 2),
+      (step: 'study', branch: index, screen: IndexScreen, barIndex: 2),
       (step: 'study', branch: notebooks, screen: NotebooksScreen, barIndex: 2),
       (step: 'study', branch: timeline, screen: TimelineScreen, barIndex: 2),
       (step: 'study', branch: graph, screen: MapScreen, barIndex: 2),
@@ -225,8 +228,9 @@ void main() {
     );
 
     testWidgets(
-      '«Estudiar» (F43) abre su lista: Procesado, Cuadernos, Línea de tiempo, '
-      'Mapa y Repasar, en ese orden y con para qué sirve cada uno',
+      '«Estudiar» (F43) abre su lista: Procesado, el Índice (F46), Cuadernos, '
+      'Línea de tiempo, Mapa y Repasar, en ese orden y con para qué sirve '
+      'cada uno',
       (tester) async {
         setLogicalWidth(tester, 400);
 
@@ -241,12 +245,21 @@ void main() {
           findsOneWidget,
         );
         expect(sheetItemKeys(tester), [
-          for (final branch in [processed, notebooks, timeline, graph, review])
+          for (final branch in [
+            processed,
+            index,
+            notebooks,
+            timeline,
+            graph,
+            review,
+          ])
             'nav-step-item-$branch',
         ]);
         for (final text in [
           es.navProcessed,
           es.navProcessedHint,
+          es.f46P3NavIndex,
+          es.f46P3NavIndexHint,
           es.navNotebooks,
           es.navNotebooksHint,
           es.navTimeline,
@@ -430,13 +443,21 @@ void main() {
       await tester.pumpAndSettle();
 
       final selected = {
-        for (final branch in [processed, notebooks, timeline, graph, review])
+        for (final branch in [
+          processed,
+          index,
+          notebooks,
+          timeline,
+          graph,
+          review,
+        ])
           branch: tester
               .widget<ListTile>(find.byKey(ValueKey('nav-step-item-$branch')))
               .selected,
       };
       expect(selected, {
         processed: false,
+        index: false,
         notebooks: false,
         timeline: true,
         graph: false,
@@ -503,8 +524,8 @@ void main() {
       expect(find.byType(NavigationBar), findsNothing);
     });
 
-    testWidgets('el riel muestra los diez destinos en el orden de la barra '
-        '(F43): Organizar, Estudiar y después el chat', (tester) async {
+    testWidgets('el riel muestra los once destinos en el orden de la barra '
+        '(F43, F46): Organizar, Estudiar y después el chat', (tester) async {
       setLogicalWidth(tester, 1200);
 
       await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
@@ -519,6 +540,7 @@ void main() {
         es.navInbox,
         es.navAtlas,
         es.navProcessed,
+        es.f46P3NavIndex,
         es.navNotebooks,
         es.navTimeline,
         es.navMap,
@@ -556,7 +578,7 @@ void main() {
 
       expect(find.byType(TimelineScreen), findsOneWidget);
       final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
-      expect(rail.selectedIndex, 5);
+      expect(rail.selectedIndex, 6);
     });
 
     testWidgets('en el riel, tocar Procesado (F41) lo abre, después del Atlas, '
@@ -572,6 +594,26 @@ void main() {
       expect(find.byType(ProcessedScreen), findsOneWidget);
       final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
       expect(rail.selectedIndex, 3);
+    });
+
+    testWidgets('en el riel, tocar el Índice (F46) lo abre, justo debajo de '
+        'Procesado, y lo marca', (tester) async {
+      setLogicalWidth(tester, 1200);
+
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationRail),
+          matching: find.byIcon(Icons.format_list_numbered),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(IndexScreen), findsOneWidget);
+      final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+      expect(rail.selectedIndex, 4);
     });
 
     testWidgets('en el riel, tocar Repasar lo abre, antes del chat, y lo '
@@ -591,7 +633,7 @@ void main() {
 
       expect(find.byType(ReviewEntryScreen), findsOneWidget);
       final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
-      expect(rail.selectedIndex, 7);
+      expect(rail.selectedIndex, 8);
     });
 
     testWidgets('justo en el punto de quiebre ya es el riel, no la barra', (
