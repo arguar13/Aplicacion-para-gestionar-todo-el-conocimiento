@@ -62,6 +62,11 @@ abstract final class RoutePaths {
   /// visor y con lo elegido marcado encima.
   static String processedOriginal(String id) => '$processed/$id/original';
 
+  /// «Índice» (F46): lo procesado con sus capítulos, como el índice
+  /// automático de Word. Un destino de navegación principal, en «Estudiar»
+  /// justo debajo de Procesado (decisión A).
+  static const index = '/index';
+
   /// Guardar algo nuevo.
   static const capture = '/capture';
 
@@ -297,6 +302,7 @@ abstract final class RouteNames {
   static const notebookDetail = 'notebook-detail';
   static const inbox = 'inbox';
   static const processed = 'processed';
+  static const index = 'index';
   static const processedDocument = 'processed-document';
   static const processedOriginal = 'processed-original';
   static const capture = 'capture';
