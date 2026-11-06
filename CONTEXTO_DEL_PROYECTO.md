@@ -62,7 +62,7 @@ jerárquico. *Cuaderno* = un subconjunto con nombre, fijo o por consulta.
 - **Flutter / Dart** (SDK ≥ 3.8). **Android primero**; Windows y web también andan; iOS pospuesto a
   propósito.
 - **Riverpod** (estado), **go_router** (navegación), **freezed** (entidades), **drift** sobre
-  **SQLite con FTS5** (base local; **esquema v42**), **dio** (red), `l10n` con `.arb` en español e
+  **SQLite con FTS5** (base local; **esquema v51**), **dio** (red), `l10n` con `.arb` en español e
   inglés (`lib/l10n/app_es.arb`, `app_en.arb`).
 - **Modelo de lenguaje (F32, decisión 74):** **uno solo, el elegido** en Ajustes → «IA y modelos» →
   «Modelo de lenguaje»: **Gemini** en la nube (de fábrica, capa gratuita, varias cuentas con claves
@@ -92,7 +92,7 @@ lib/
                                design/, gemma/, audio/, network/, storage/, telemetry/, util/
   features/<nombre>/           un módulo por función, cada uno con data/ domain/ presentation/
   l10n/                        .arb y generados
-test/                          espejo de lib/ (+ support/ con arneses; ~7.800 pruebas)
+test/                          espejo de lib/ (+ support/ con arneses; ~15.200 pruebas)
 tool/                          scripts de trabajo (ver sección 6)
 drift_schemas/                 un schema_vN.dart por versión del esquema
 docs/                          arquitectura.md, planes/, benchmarks/
@@ -496,7 +496,8 @@ suite completa; push; borrar la copia con `git worktree remove -f -f` y `git bra
 agente corrige algo dentro de un commit intermedio, va en **ese** commit
 (`git cherry-pick -n` + `git checkout <fix> -- <archivos>` + `git commit -C`). Si un agente se corta
 por límite de uso, `SendMessage` al mismo agente lo reanuda (si no dejó commits, su copia
-desaparece y hay que relanzar). **Todos los agentes con Sonnet 5.5** (`model: "sonnet"` explícito).
+desaparece y hay que relanzar). **Todos los agentes con Opus 5.5** (`model: "opus"` explícito, desde el 27/10), de a dos como
+máximo (desde el 5/11).
 
 **Instalar en el teléfono** (solo cuando el dueño lo pide):
 
@@ -525,7 +526,7 @@ Instalar encima conserva datos y modelos **solo si la app ya estaba instalada** 
    **verificar que la mutación se aplicó de verdad** (una mutación mal armada ya dejó pasar pruebas
    sin probar nada).
 4. **Cada avance se commitea y se sube** (`git push origin main`); mensajes de commit en español,
-   con el pie `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
+   con el pie `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 5. **Actualizar `GUIA_DE_USO.md`** con cada cambio visible para el usuario, y revisarla completa al
    cerrar una fase.
 6. **Los planes grandes** van en `docs/planes/` y el dueño aprueba escribiendo «aprobado» en el chat.
