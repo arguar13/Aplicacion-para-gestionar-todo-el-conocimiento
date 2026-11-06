@@ -3,8 +3,8 @@
 > **Estado: APROBADO** (2026-10-29, «Aprobado» en el chat), con las decisiones A a G como están.
 > Se construye apenas se integren las mejoras M10 a M18 de F43: el Resumen usa las piezas de
 > gráficos de M17. **Construida** el 2026-11-06: los cinco pasos y el cierre de sus documentos, con
-> la decisión 90. La suite entera, la medición en el emulador y la APK van en el cierre conjunto con
-> F46 (paso 5).
+> la decisión 90, y la suite entera en el cierre conjunto con F46 (paso 5). La medición en el
+> emulador y la APK quedan para la sesión principal.
 >
 > Pedido del dueño, el 29/10, con cuatro capturas del Mapa (Grafo, Esquema, Vínculos y Tablero):
 > *"las tres pestañas de mapa «Vínculos», «Esquema» y «Grafo» dicen más o menos lo mismo? Se podría
@@ -570,8 +570,14 @@ avance (con los de F45 y F47, que cierran a la vez).
   - el vacío sin temas (`mapEmptyMessage`) dice «Lo que vinculaste ya está en «Vínculos».»: hoy es
     la capa «Vínculos» y su «Ver todo lo vinculado»; el botón del vacío, «Ver los vínculos», lleva
     bien.
-- **Queda para el cierre conjunto con F46 (paso 5):**
-  - la suite entera, junto con las de F45, F46 y F47;
+- **Resultado del cierre conjunto con F46 (paso 5, el 2026-11-06):** la suite entera, con
+  `--concurrency=2`, en siete tandas de carpetas y con PDFium real: **15.430 pruebas pasan, 0
+  fallas, 47 omitidas** (las de rendimiento de `test/benchmark`, que piden `BENCH=true`), sin
+  ninguna falla suelta que repetir. Las cifras por tanda, en el Avance del paso 5 de
+  `docs/planes/F46-indice.md`.
+  Los dos textos de arriba se corrigieron ahí (`687f2faf`): `mapExportUnavailable` dice «Se exporta
+  desde la pestaña Mapa» y `mapEmptyMessage`, «Lo que vinculaste ya se ve con la capa «Vínculos»».
+- **Queda para la sesión principal:**
   - la medición en el emulador de los gestos del lienzo con las capas prendidas, contra la de F18
     (`integration_test/map_benchmark_test.dart`): la burbuja suma un nodo de lejos y Parecidos
     compara en otro isolate;

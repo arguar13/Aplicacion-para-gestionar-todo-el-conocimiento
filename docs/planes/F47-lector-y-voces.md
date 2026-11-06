@@ -14,8 +14,8 @@
 > Cambian las decisiones B, C y F, y se suma la L. **Aprobado** por el dueño el 30/10 («aprobado»).
 >
 > **Construida** el 2026-11-06: los pasos 0 a 7b y el cierre de sus documentos, con la decisión
-> 93. La suite entera, la APK y la prueba con tus voces en el teléfono van en el cierre conjunto con
-> F46 (paso 5), la prueba solo si la pedís.
+> 93, y la suite entera en el cierre conjunto con F46 (paso 5). La APK y la prueba con tus voces en
+> el teléfono quedan para la sesión principal, la prueba solo si la pedís.
 
 Pedido del 30/10. La guía de diseño son las capturas 3 a 17 (la app Listen AI). Hay que conservar
 todo lo que la app ya hace.
@@ -1612,9 +1612,14 @@ El cierre de los documentos, sin código, en los mismos commits que cierran F44 
   curso».
 - **`CONTEXTO_DEL_PROYECTO.md`** (`ed13a097`): F47 en la historia y en el estado, con la prueba con
   tus voces que queda para el teléfono.
-- **Queda para el cierre conjunto con F46 (paso 5):** la suite entera, junto con las de F44, F45 y
-  F46; la APK; y, si la pedís, la prueba con tus voces en el teléfono —cuánto tarda cada voz en
-  generar una oración (sobre todo Kokoro) y si la pausa se nota, el audio de un documento largo y un
+- **Resultado del cierre conjunto con F46 (paso 5, el 2026-11-06):** la suite entera, con
+  `--concurrency=2`, en siete tandas de carpetas y con PDFium real: **15.430 pruebas pasan, 0
+  fallas, 47 omitidas** (las de rendimiento de `test/benchmark`, que piden `BENCH=true`), sin
+  ninguna falla suelta que repetir. Las cifras por tanda, en el Avance del paso 5 de
+  `docs/planes/F46-indice.md`.
+- **Queda para la sesión principal:** la APK; y, si la pedís, la prueba con tus voces en el
+  teléfono —cuánto tarda cada voz en generar una oración (sobre todo Kokoro) y si la pausa se
+  nota, el audio de un documento largo y un
   podcast, ElevenLabs con una clave real, la tarjeta en la pantalla de bloqueo con sus dos ajustes
   de Android, los auriculares y «Seguir escuchando» después de reiniciar—.
 - **Sigue abierto** (de los Avances de cada paso): «Varias voces en un mismo documento»; el margen

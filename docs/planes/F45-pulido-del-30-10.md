@@ -21,8 +21,8 @@
 > lector y el original ya unificados).
 >
 > **Construida** el 2026-11-06: los pasos 1 a 5, 7b, 7c y 8a a 8c, y el cierre de sus documentos,
-> con la decisión 91; el 7a se hizo en F47, paso 1. La suite entera y la APK van en el cierre
-> conjunto con F46 (paso 5).
+> con la decisión 91; el 7a se hizo en F47, paso 1. La suite entera, en el cierre conjunto con F46
+> (paso 5); la APK, si el dueño la pide.
 
 ## Las once mejoras
 
@@ -1218,8 +1218,13 @@ El cierre de los documentos, sin código, en los mismos commits que cierran F44 
   (`ProcessedTextPages`, en `processed_section_edit_screen.dart`), así que en el documento vale
   siempre 0 y la lectura empieza por la primera página. Es un resto de F41, cuando el texto se leía
   de a una página dentro del documento; la GUÍA dice lo que pasa de verdad.
-- **Queda para el cierre conjunto con F46 (paso 5):** la suite entera, junto con las de F44, F46 y
-  F47, y la APK, si el dueño la pide.
+- **Resultado del cierre conjunto con F46 (paso 5, el 2026-11-06):** la suite entera, con
+  `--concurrency=2`, en siete tandas de carpetas y con PDFium real: **15.430 pruebas pasan, 0
+  fallas, 47 omitidas** (las de rendimiento de `test/benchmark`, que piden `BENCH=true`), sin
+  ninguna falla suelta que repetir. Las cifras por tanda, en el Avance del paso 5 de
+  `docs/planes/F46-indice.md`.
+  El comentario de `ProcessedDocumentScreen` se corrigió ahí (`8ef2c0ec`), sin cambiar lo que hace.
+  Queda la APK, si el dueño la pide.
 - **Sigue abierto** (de los Avances de cada paso): nada se miró en el emulador ni en el teléfono —el
   globito sobre un PDF real y dentro de la `WebView`, el video del árabe con sus pistas—; la barra
   de la Bandeja desborda en 400 dp con la letra al doble; no hay deshacer para lo que ordenó la IA;
