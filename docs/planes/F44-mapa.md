@@ -2,7 +2,9 @@
 
 > **Estado: APROBADO** (2026-10-29, «Aprobado» en el chat), con las decisiones A a G como están.
 > Se construye apenas se integren las mejoras M10 a M18 de F43: el Resumen usa las piezas de
-> gráficos de M17.
+> gráficos de M17. **Construida** el 2026-11-06: los cinco pasos y el cierre de sus documentos, con
+> la decisión 90. La suite entera, la medición en el emulador y la APK van en el cierre conjunto con
+> F46 (paso 5).
 >
 > Pedido del dueño, el 29/10, con cuatro capturas del Mapa (Grafo, Esquema, Vínculos y Tablero):
 > *"las tres pestañas de mapa «Vínculos», «Esquema» y «Grafo» dicen más o menos lo mismo? Se podría
@@ -535,3 +537,45 @@ stagearon en su versión intermedia.
   - mirar en el teléfono la hoja de las capas y el «≈» con la letra al doble;
   - la burbuja dibuja los 200 documentos sin tema más nuevos: buscar uno más viejo vuela a ella, pero
     no lo encuentra dibujado.
+
+### Paso 6 (hecho): el cierre
+
+El cierre de los documentos, sin código, en siete commits de `4c133c02` a `ed13a097` y el de este
+avance (con los de F45 y F47, que cierran a la vez).
+
+- **La decisión 90 en `docs/arquitectura.md`** (`4c133c02`), con F44 en «Construido»: el pedido;
+  por qué tres vistas pasan a ser un lienzo; el motor que sabe más sin tocar la base (los puentes y
+  la «única unión» contada en uniones, el nombre de dos temas, el índice, la burbuja y lo nuevo);
+  «Para estudiar» fuera del motor, a propósito; las piezas del lienzo y dónde está cada una; el
+  canal único de pedidos; la ficha que no recalcula; «Centrar aquí»; las capas que no vuelven a
+  acomodar ni a leer; «Parecidos» con sus topes y su confirmación; la búsqueda en memoria; los topes
+  de F18; exportar; el lector de pantalla; las invariantes, las trampas que costaron
+  (`df894aea`, `11f7eff2`, la mutación de «Parecidos» y los commits intermedios del paso 5), lo
+  descartado y lo que no quedó probado.
+- **La GUÍA, «El Mapa» reescrita de punta a punta** (`6e293b9b`), según lo que hace hoy: las dos
+  pestañas y qué pasó con las cuatro de antes; lo de arriba con la búsqueda; el Resumen con sus
+  cifras y sus nueve tarjetas; el lienzo con sus alturas, sus topes (60, 300 y 200) y las líneas que
+  dicen lo que no se dibujó, las migas, los botones de arriba y Red · Radial · Árbol; la ficha y el
+  foco; las capas con lo vinculado; vincular; guardar como imagen; y «Lo que conviene saber», con la
+  burbuja de los 200 sin tema más nuevos y qué hacer con uno más viejo. Los enlaces internos de la
+  guía siguen apuntando a títulos que existen (193, comprobados).
+- **`NOVEDADES.md`** (`85ececdd`): F44 deja de estar «en curso», con las capas y la búsqueda.
+- **`CONTEXTO_DEL_PROYECTO.md`** (`ed13a097`): F44 en la historia y en el estado, con lo que queda.
+- **Lo que se encontró en el código y no cuadra** (anotado, sin tocarlo: este paso es solo de
+  documentos):
+  - el botón de exportar, apagado en el Resumen, dice como ayuda `mapExportUnavailable`, «Se puede
+    exportar desde el esquema y desde el grafo.» (en inglés, «…from the outline and from the
+    graph.»): nombra las pestañas que ya no existen. Debería decir que se exporta desde la pestaña
+    Mapa;
+  - el vacío sin temas (`mapEmptyMessage`) dice «Lo que vinculaste ya está en «Vínculos».»: hoy es
+    la capa «Vínculos» y su «Ver todo lo vinculado»; el botón del vacío, «Ver los vínculos», lleva
+    bien.
+- **Queda para el cierre conjunto con F46 (paso 5):**
+  - la suite entera, junto con las de F45, F46 y F47;
+  - la medición en el emulador de los gestos del lienzo con las capas prendidas, contra la de F18
+    (`integration_test/map_benchmark_test.dart`): la burbuja suma un nodo de lejos y Parecidos
+    compara en otro isolate;
+  - la APK, si el dueño la pide.
+- **Sigue abierto:** mirar en el teléfono la hoja de las capas, el «≈» y la ficha con la letra al
+  doble; y la burbuja, que dibuja los 200 documentos sin tema más nuevos, así que buscar uno más
+  viejo vuela a ella pero no lo encuentra dibujado.
