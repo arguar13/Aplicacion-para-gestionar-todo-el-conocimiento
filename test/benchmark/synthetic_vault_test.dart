@@ -125,6 +125,8 @@ void main() {
         // Las notas en el texto y las de los resaltados de antes (F45, paso
         // 8a): su índice también se aparta durante la carga.
         ...textNoteSearchTriggerNames,
+        // Las entradas del Índice (F46, paso 2): su índice de texto también.
+        ...processedHeadingSearchTriggerNames,
       },
     );
 

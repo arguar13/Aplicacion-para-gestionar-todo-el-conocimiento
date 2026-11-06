@@ -188,6 +188,10 @@ const kProcessedImageColumns = [
   'source_file_path',
   'source_file_size',
   'copied_at',
+  // Su título (F46, v51): entra con la imagen —y con él, su entrada del
+  // Índice, que escribe la base—. De una que las dos tienen queda el de acá,
+  // como su lugar.
+  'title',
 ];
 
 const kFlashcardColumns = [

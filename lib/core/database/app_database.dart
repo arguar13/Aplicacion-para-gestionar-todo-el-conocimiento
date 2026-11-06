@@ -8,6 +8,7 @@ import 'package:sinapsis/core/database/migrations/repoint_item_references_v18.da
 import 'package:sinapsis/core/database/migrations/seed_author_category_v22.dart';
 import 'package:sinapsis/core/database/migrations/seed_system_property_categories_v9.dart';
 import 'package:sinapsis/core/database/pre_migration_backup.dart';
+import 'package:sinapsis/core/database/processed_heading_triggers.dart';
 import 'package:sinapsis/core/database/reference_triggers.dart';
 import 'package:sinapsis/core/database/schema_too_old_exception.dart';
 import 'package:sinapsis/core/database/search_index.dart';
@@ -35,6 +36,7 @@ import 'package:sinapsis/core/database/tables/note_templates.dart';
 import 'package:sinapsis/core/database/tables/notebook_items.dart';
 import 'package:sinapsis/core/database/tables/notebooks.dart';
 import 'package:sinapsis/core/database/tables/processed_documents.dart';
+import 'package:sinapsis/core/database/tables/processed_headings.dart';
 import 'package:sinapsis/core/database/tables/processed_images.dart';
 import 'package:sinapsis/core/database/tables/processing_checkpoints.dart';
 import 'package:sinapsis/core/database/tables/properties.dart';
@@ -69,6 +71,7 @@ import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
+import 'package:sinapsis/core/domain/entities/index_entry_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
@@ -149,6 +152,7 @@ part 'app_database.g.dart';
     ProcessedImages,
     StudyCreations,
     TextNotes,
+    ProcessedHeadings,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -193,7 +197,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 50;
+  static const currentSchemaVersion = 51;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -210,6 +214,7 @@ class AppDatabase extends _$AppDatabase {
       await _createChunkSearchIndex();
       await _createProcessedPartSearchIndex();
       await _createTextNoteSearchIndex();
+      await _createProcessedHeadingIndex();
       await _createVocabularyHierarchyTriggers();
       await _createReferenceTriggers();
       await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
@@ -1446,6 +1451,52 @@ class AppDatabase extends _$AppDatabase {
           await _rebuildTextNoteSearchIndex();
           await _requireSameCounts(before, step: 'v50', tables: tables);
         }
+
+        // El Índice (F46, paso 2, decisión F): `processed_headings` —los
+        // capítulos de cada documento procesado, su «Texto completo» y sus
+        // imágenes—, con su índice de texto y los triggers que la mantienen
+        // al día, y el título de cada imagen (`processed_images.title`,
+        // decisión E). Solo se agrega: la tabla nace vacía y las imágenes que
+        // ya estaban, sin título. Los dos se llenan después, por tandas y en
+        // segundo plano (`ProcessedHeadingsBackfill`), porque leer los títulos
+        // de un texto o los marcadores de un PDF —y limpiar el nombre de un
+        // archivo— es cosa de Dart, no de SQL, y no tiene por qué demorar la
+        // apertura. Los conteos de todo lo
+        // demás son compuerta. La columna puede existir ya: el paso v47 crea
+        // `processed_images` con su definición de hoy.
+        if (from < 51) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+            ...VaultCounts.studyTables,
+            ...VaultCounts.itemSpaceTables,
+            ...VaultCounts.datedEventTables,
+            ...VaultCounts.processedTables,
+            ...VaultCounts.processedImageTables,
+            ...VaultCounts.studyCreationTables,
+            ...VaultCounts.textNoteTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          if (!await _columnExists(
+            'processed_images',
+            processedImages.title.name,
+          )) {
+            await migrator.addColumn(processedImages, processedImages.title);
+          }
+          await migrator.createTable(processedHeadings);
+          await migrator.createIndex(idxProcessedHeadingsDocument);
+          await _createProcessedHeadingIndex();
+          await _requireSameCounts(before, step: 'v51', tables: tables);
+        }
       });
     },
     beforeOpen: (details) async {
@@ -1607,6 +1658,23 @@ class AppDatabase extends _$AppDatabase {
     for (final trigger in textNoteSearchTriggers) {
       await customStatement(trigger);
     }
+  }
+
+  /// Crea lo que mantiene el Índice (F46, v51) al día y drift no modela: el
+  /// índice de texto de sus entradas y sus triggers, los que sueltan las
+  /// entradas de texto de un documento cuando cambia lo que las produce, los
+  /// que llevan cada imagen con título a su entrada y el índice de las
+  /// imágenes sin título. Ver `processed_heading_triggers.dart`.
+  Future<void> _createProcessedHeadingIndex() async {
+    await customStatement(createProcessedHeadingSearchTable);
+    for (final trigger in [
+      ...processedHeadingSearchTriggers,
+      ...processedHeadingStaleTriggers,
+      ...processedImageHeadingTriggers,
+    ]) {
+      await customStatement(trigger);
+    }
+    await customStatement(createUntitledProcessedImagesIndex);
   }
 
   /// Suelta el índice de texto de las notas y lo vuelve a crear y a llenar: las

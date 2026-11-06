@@ -136,6 +136,17 @@ class VaultCounts {
   /// todavía no existía cuando corrían.
   static const textNoteTables = <String>['text_notes'];
 
+  /// Las entradas del Índice (F46, v51): los capítulos de cada documento
+  /// procesado y sus imágenes. Aparte por lo mismo que las anteriores: los
+  /// pasos hasta v51 cuentan las otras listas, y esta tabla todavía no existía
+  /// cuando corrían.
+  ///
+  /// Es derivada —se rehace entera desde Procesado (decisión F)—, como los
+  /// chunks; se cuenta igual en las migraciones, para que un paso que no la
+  /// toca tampoco la pierda. La unión de bóvedas no la copia ni la cuida de
+  /// achicarse: la rehace cada base (ver `MergeGates`).
+  static const processedHeadingTables = <String>['processed_headings'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

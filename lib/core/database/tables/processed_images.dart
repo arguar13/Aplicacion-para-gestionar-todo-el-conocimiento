@@ -52,6 +52,26 @@ class ProcessedImages extends Table {
 
   DateTimeColumn get copiedAt => dateTime()();
 
+  /// Su título (F46, v51, decisión E), el de su entrada en el Índice: lo que
+  /// dice de ella la fuente —su pie de foto, su texto alternativo, el título
+  /// bajo el que está— o, si no dice nada, el nombre de su archivo, limpio
+  /// («Mapa del Imperio romano», no `mapa_imperio-romano_02.jpg`): ver
+  /// `processedImageTitle`. Se pone al triar y se puede renombrar.
+  ///
+  /// - Vacío si nada dice nada —un `IMG_2034.jpg` sin texto alternativo—: la
+  ///   pantalla la nombra por su lugar («Imagen 3»).
+  /// - `null` si todavía no se la tituló: una imagen de antes de v51, o una
+  ///   que vuelve de la papelera soltada antes, hasta que el relleno del
+  ///   Índice (`ProcessedHeadingsBackfill`) le pone su título.
+  ///
+  /// Nunca con espacios en los bordes: un título en blanco es vacío.
+  TextColumn get title =>
+      text().nullable()
+      // La restricción se refiere a la propia columna: es el modo de drift de
+      // escribir un `CHECK`, y el analizador lo toma por una recursión.
+      // ignore: recursive_getters
+      .check(title.trim().equalsExp(title))();
+
   @override
   Set<Column<Object>> get primaryKey => {renditionId};
 

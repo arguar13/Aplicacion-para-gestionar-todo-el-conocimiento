@@ -513,3 +513,61 @@ SELECT -ROW_NUMBER() OVER (ORDER BY h.id), h.note, h.id, 'highlight',
   FROM highlights h JOIN renditions r ON r.id = h.rendition_id
  WHERE ${_highlightHasNote('h')}''',
 ];
+
+/// El índice de texto de las ENTRADAS DEL ÍNDICE (F46, v51): el título de cada
+/// capítulo de un documento procesado y de cada imagen («Buscá un capítulo»).
+///
+/// Como `processed_part_search`: un FTS5 de contenido externo que guarda solo
+/// el índice invertido y vuelve a `processed_headings` por su clave entera
+/// (`row_key`). Sin mayúsculas ni acentos —«nicea» encuentra «Nicea» y
+/// «concilio» encuentra «Concilió»— por el tokenizador, como los demás: no
+/// hace falta guardar el título dos veces, plegado. «Texto completo» tiene el
+/// título vacío y no aporta ninguna palabra.
+const createProcessedHeadingSearchTable = '''
+CREATE VIRTUAL TABLE IF NOT EXISTS processed_heading_search USING fts5(
+  title,
+  content = 'processed_headings',
+  content_rowid = 'row_key',
+  tokenize = "unicode61 remove_diacritics 2"
+)''';
+
+/// Triggers que mantienen `processed_heading_search` al día: cualquier
+/// escritura sobre `processed_headings` —también el borrado en cascada de un
+/// documento o de una imagen—, como los de [processedPartSearchTriggers].
+const processedHeadingSearchTriggers = <String>[
+  '''
+CREATE TRIGGER IF NOT EXISTS processed_headings_search_ai
+AFTER INSERT ON processed_headings BEGIN
+  INSERT INTO processed_heading_search (rowid, title)
+  VALUES (NEW.row_key, NEW.title);
+END''',
+
+  '''
+CREATE TRIGGER IF NOT EXISTS processed_headings_search_ad
+AFTER DELETE ON processed_headings BEGIN
+  INSERT INTO processed_heading_search (processed_heading_search, rowid, title)
+  VALUES ('delete', OLD.row_key, OLD.title);
+END''',
+
+  '''
+CREATE TRIGGER IF NOT EXISTS processed_headings_search_au
+AFTER UPDATE OF title ON processed_headings BEGIN
+  INSERT INTO processed_heading_search (processed_heading_search, rowid, title)
+  VALUES ('delete', OLD.row_key, OLD.title);
+  INSERT INTO processed_heading_search (rowid, title)
+  VALUES (NEW.row_key, NEW.title);
+END''',
+];
+
+/// Los nombres de [processedHeadingSearchTriggers].
+const processedHeadingSearchTriggerNames = [
+  'processed_headings_search_ai',
+  'processed_headings_search_ad',
+  'processed_headings_search_au',
+];
+
+/// Reconstruye `processed_heading_search` desde las entradas, como
+/// [rebuildProcessedPartSearch].
+const rebuildProcessedHeadingSearch =
+    'INSERT INTO processed_heading_search (processed_heading_search) '
+    "VALUES ('rebuild')";
