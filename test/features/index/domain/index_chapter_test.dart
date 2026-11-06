@@ -237,6 +237,20 @@ void main() {
       );
     });
 
+    test('el renglón del título se compara como se lee: un título que es un '
+        'enlace también es el título', () {
+      expect(
+        indexChapterPassage(
+          '## [Siglo XX](https://es.wikipedia.org/wiki/Siglo_XX)\nEn 1905.',
+          0,
+          null,
+          markdown: true,
+          title: 'Siglo XX',
+        ),
+        'En 1905.',
+      );
+    });
+
     test('si el tramo no empieza con su título, no se saca nada', () {
       // El título de la IA de un PDF no es un renglón del texto.
       expect(
@@ -248,6 +262,17 @@ void main() {
           title: 'Orígenes',
         ),
         'La fotosíntesis es antigua. Y sigue.',
+      );
+      // Ni uno que termina con el título sin ser un número delante.
+      expect(
+        indexChapterPassage(
+          'Todo el siglo XX\nTexto.',
+          0,
+          null,
+          markdown: false,
+          title: 'Siglo XX',
+        ),
+        'Todo el siglo XX Texto.',
       );
       // Ni un renglón que dice más que el título.
       expect(

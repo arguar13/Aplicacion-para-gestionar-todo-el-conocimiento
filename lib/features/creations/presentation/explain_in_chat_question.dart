@@ -211,16 +211,13 @@ String explainPassage(
   int start,
   int end, {
   required bool markdown,
-}) {
-  if (end <= start) return '';
-  return readablePassage(
-    text,
-    start: start,
-    end: end,
-    markdown: markdown,
-    maxChars: kExplainPassageChars,
-  );
-}
+}) => readablePassage(
+  text,
+  start: start,
+  end: end,
+  markdown: markdown,
+  maxChars: kExplainPassageChars,
+);
 
 /// La letra de la opción [index]: A, B, C…
 String _letter(int index) => String.fromCharCode(65 + index);

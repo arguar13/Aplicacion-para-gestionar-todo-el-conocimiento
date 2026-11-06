@@ -77,7 +77,6 @@ String indexChapterPassage(
       from = firstEnd;
     }
   }
-  if (from >= stop) return '';
   return readablePassage(
     text,
     start: from,
@@ -92,7 +91,6 @@ String indexChapterPassage(
 /// «1.2 Desarrollo»— no lo cambia: el Índice lo muestra aparte.
 bool _isTitleLine(String line, String title, bool markdown) {
   final key = headingKey(title);
-  if (key.isEmpty) return false;
   final read = headingKey(markdown ? markdownPlainText(line) : line);
   return read == key || (read.endsWith(' $key') && _numbered.hasMatch(read));
 }
