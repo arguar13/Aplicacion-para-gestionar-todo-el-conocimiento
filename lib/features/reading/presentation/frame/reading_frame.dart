@@ -268,6 +268,7 @@ class ReadingFrame extends ConsumerStatefulWidget {
     this.contents = const [],
     this.menu = const [],
     this.podcastScope,
+    this.leading,
     super.key,
   });
 
@@ -309,6 +310,11 @@ class ReadingFrame extends ConsumerStatefulWidget {
   /// procesado que se lee, el recorte de lo creado—; `null` si no es de lo
   /// procesado, y la ficha queda apagada diciendo por qué.
   final CreationScope? podcastScope;
+
+  /// Lo que va a la izquierda de la barra en lugar de ←: el ✕ de un marco
+  /// abierto al costado de otra pantalla (el Índice en una pantalla ancha,
+  /// F46), que no tiene adónde volver.
+  final Widget? leading;
 
   @override
   ConsumerState<ReadingFrame> createState() => _ReadingFrameState();
@@ -438,6 +444,7 @@ class _ReadingFrameState extends ConsumerState<ReadingFrame> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     ReadingFrameBar(
+                      leading: widget.leading,
                       aiOpen: aiOpen,
                       onContents: () => unawaited(
                         showReadingContents(
@@ -521,7 +528,7 @@ class _ReadingFrameState extends ConsumerState<ReadingFrame> {
   }
 }
 
-/// La barra del marco: ← y los cuatro botones redondos.
+/// La barra del marco: ← —o [leading]— y los cuatro botones redondos.
 class ReadingFrameBar extends StatelessWidget {
   const ReadingFrameBar({
     required this.aiOpen,
@@ -529,8 +536,12 @@ class ReadingFrameBar extends StatelessWidget {
     required this.onAi,
     required this.onAppearance,
     required this.onMore,
+    this.leading,
     super.key,
   });
+
+  /// En lugar de ←; ver [ReadingFrame.leading].
+  final Widget? leading;
 
   final bool aiOpen;
   final VoidCallback onContents;
@@ -545,7 +556,7 @@ class ReadingFrameBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
       child: Row(
         children: [
-          const BackButton(key: Key('reading-frame-back')),
+          leading ?? const BackButton(key: Key('reading-frame-back')),
           const Spacer(),
           ReadingRoundButton(
             key: const Key('reading-frame-contents'),

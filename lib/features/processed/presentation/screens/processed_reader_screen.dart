@@ -68,15 +68,27 @@ StudyCreationKind? extractKindOfSection(ProcessedSection section) =>
 /// Con varios documentos —lo que abre una ficha de la fila de IA de una
 /// creación con varias fuentes— van uno debajo del otro, cada uno con su
 /// título, y ⋮ queda con lo de todos.
+///
+/// **Al costado** ([onClose]; el Índice en una pantalla ancha, F46): no es
+/// una pantalla a la que se llegó, sino un panel de otra. Lleva ✕ en lugar
+/// de ←, otra parte del documento —el resumen, la síntesis— se abre encima
+/// en lugar de reemplazarlo, y mandarlo a la papelera lo cierra.
 class ProcessedReaderScreen extends ConsumerWidget {
   const ProcessedReaderScreen({
     required this.kind,
     required this.documentIds,
+    this.onClose,
     super.key,
   });
 
   final StudyCreationKind kind;
   final List<String> documentIds;
+
+  /// Cerrar el panel, si está abierto al costado de otra pantalla; `null` en
+  /// la pantalla propia del lector.
+  final VoidCallback? onClose;
+
+  bool get _beside => onClose != null;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -130,6 +142,15 @@ class ProcessedReaderScreen extends ConsumerWidget {
       ],
       menu: document == null ? const [] : _menuOf(context, ref, l10n, document),
       podcastScope: single ? CreationScope.document(documentIds.single) : null,
+      leading: switch (onClose) {
+        final close? => IconButton(
+          key: const Key('processed-reader-close'),
+          icon: const Icon(Icons.close),
+          tooltip: l10n.f46P3PaneClose,
+          onPressed: close,
+        ),
+        null => null,
+      },
     );
   }
 
@@ -168,11 +189,19 @@ class ProcessedReaderScreen extends ConsumerWidget {
             label: other.label(l10n),
             detail: other.countLabel(l10n, counts[other]!),
             // Una lectura en lugar de la otra: «atrás» vuelve al documento.
-            onSelected: () => context.pushReplacement(
-              RoutePaths.extractReading(extractKindOfSection(other)!, [
-                document.id,
-              ]),
-            ),
+            // Al costado no hay lectura que reemplazar —la pantalla es la de
+            // al lado—: se abre encima, y «atrás» vuelve a los dos paneles.
+            onSelected: () {
+              final location = RoutePaths.extractReading(
+                extractKindOfSection(other)!,
+                [document.id],
+              );
+              if (_beside) {
+                unawaited(context.push(location));
+              } else {
+                context.pushReplacement(location);
+              }
+            },
           ),
       ReadingOutlineEntry(
         key: const Key('processed-reader-open-original'),
@@ -254,10 +283,16 @@ class ProcessedReaderScreen extends ConsumerWidget {
     ];
   }
 
-  /// A la papelera, con «Deshacer», y de vuelta al documento.
+  /// A la papelera, con «Deshacer», y de vuelta al documento —o, al
+  /// costado, se cierra el panel—.
   Future<void> _trash(BuildContext context, WidgetRef ref, String id) async {
     final navigator = Navigator.of(context);
     final moved = await moveToTrashWithUndo(context, ref, [id]);
-    if (moved && navigator.canPop()) navigator.pop();
+    if (!moved) return;
+    if (onClose case final close?) {
+      close();
+    } else if (navigator.canPop()) {
+      navigator.pop();
+    }
   }
 }
