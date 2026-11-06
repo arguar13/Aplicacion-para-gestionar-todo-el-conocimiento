@@ -10,6 +10,7 @@ import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/transform/domain/archive/page_images.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_alignment.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_fidelity.dart';
+import 'package:sinapsis/features/viewer/domain/services/archived_page_heading.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_mobile.dart';
 
 /// Los colores de resaltador, como `0xAARRGGBB`, y la línea del resumen
@@ -55,10 +56,21 @@ String showableArchivedPage(String html, {ArchivedPageStudy? study}) =>
 ///
 /// Con [mobile], además, como en un navegador del teléfono —ver
 /// `makeArchivedPageMobile`—: lo de Procesado (F45, paso 4).
-({String html, ArchivedPageAlignment? alignment}) showArchivedPage(
+///
+/// Con [heading] (F46, paso 4: un capítulo del Índice), la página se abre en
+/// ese título y lo resalta un momento con [headingFlash] —sin deslizarse con
+/// [still]—: ver `markArchivedHeading`. Para eso lleva su programa chico, y la
+/// página, sin los suyos, como con [study].
+///
+/// `scripted` ([ArchivedPageShown]) dice si la copia lleva un programa de la
+/// app: el visor solo prende JavaScript entonces.
+ArchivedPageShown showArchivedPage(
   String html, {
   ArchivedPageStudy? study,
   bool mobile = false,
+  ArchivedHeading? heading,
+  int headingFlash = 0,
+  bool still = false,
 }) {
   final document = html_parser.parse(html);
   showArchivedImages(document);
@@ -71,8 +83,36 @@ String showableArchivedPage(String html, {ArchivedPageStudy? study}) =>
     if (body != null) alignment = _PageCounter(body, study.content).alignment();
     _inject(document, study.colors);
   }
-  return (html: document.outerHtml, alignment: alignment);
+  // Después de contar el texto: lo que se agrega acá no es de la página.
+  final marked = heading != null && markArchivedHeading(document, heading);
+  if (marked) {
+    if (study == null) _neutralize(document);
+    injectArchivedHeadingReveal(
+      document,
+      flash: headingFlash,
+      landing: _headingLanding,
+      still: still,
+    );
+  }
+  return (
+    html: document.outerHtml,
+    alignment: alignment,
+    scripted: study != null || marked,
+  );
 }
+
+/// Lo que arma [showArchivedPage]: la copia que se muestra, cómo se
+/// corresponde su texto con el extraído —con un estudio— y si lleva un
+/// programa de la app.
+typedef ArchivedPageShown = ({
+  String html,
+  ArchivedPageAlignment? alignment,
+  bool scripted,
+});
+
+/// A qué altura de lo que se ve queda el título al que se fue: cerca de
+/// arriba, con aire para leer lo que había antes.
+const _headingLanding = 0.12;
 
 /// Cómo se corresponden el texto de [html] y el extraído [content] (F38),
 /// sin armar la copia que se muestra.

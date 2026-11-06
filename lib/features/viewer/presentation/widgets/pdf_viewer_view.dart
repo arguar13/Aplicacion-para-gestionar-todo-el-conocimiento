@@ -92,10 +92,15 @@ class PdfViewerView extends ConsumerStatefulWidget {
     required this.path,
     this.text,
     this.title = '',
+    this.initialPage,
     super.key,
   });
 
   final String path;
+
+  /// La página en que se abre, desde 1: «Abrir en el original» desde un
+  /// capítulo del Índice (F46, paso 4). `null`, la primera.
+  final int? initialPage;
 
   /// El nombre del documento: lo que muestra el lector flotante.
   final String title;
@@ -506,6 +511,8 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
         child: PdfViewer.file(
           widget.path,
           controller: _controller,
+          // Una página que el PDF no tiene la acota `pdfrx` a la última.
+          initialPageNumber: math.max(1, widget.initialPage ?? 1),
           params: PdfViewerParams(
             // Un fondo neutro entre página y página, para que se distinga
             // dónde termina una y empieza la otra al scrollear — lo mismo

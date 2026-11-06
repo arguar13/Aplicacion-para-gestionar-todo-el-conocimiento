@@ -15,6 +15,7 @@ import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart'
 import 'package:sinapsis/features/reading/presentation/frame/reading_more_sheet.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/viewer/domain/services/archived_page_heading.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/mobile_page_width.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_viewer_view.dart';
@@ -174,6 +175,8 @@ class OriginalView extends StatelessWidget {
     this.text,
     this.study,
     this.notice,
+    this.initialPage,
+    this.heading,
     super.key,
   }) : assert(
          study == null || text != null,
@@ -205,6 +208,12 @@ class OriginalView extends StatelessWidget {
   /// Por qué no hay marcas, si hay algo que decir.
   final String? notice;
 
+  /// Dónde se abre (F46, paso 4: «Abrir en el original» desde un capítulo del
+  /// Índice): un PDF, en [initialPage]; una página web, en el título
+  /// [heading]. Lo demás, desde el comienzo.
+  final int? initialPage;
+  final ArchivedHeading? heading;
+
   @override
   Widget build(BuildContext context) {
     final study = this.study;
@@ -225,6 +234,7 @@ class OriginalView extends StatelessWidget {
               path: path!,
               text: text,
               title: title,
+              initialPage: initialPage,
             ),
             OriginalFormat.page => MobilePageWidth(
               child: WebPageViewerView(
@@ -234,6 +244,7 @@ class OriginalView extends StatelessWidget {
                 title: title,
                 readAloud: true,
                 mobile: true,
+                heading: heading,
               ),
             ),
             OriginalFormat.reader when text == null =>

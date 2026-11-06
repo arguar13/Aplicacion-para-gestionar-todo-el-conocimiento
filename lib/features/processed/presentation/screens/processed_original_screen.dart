@@ -22,6 +22,7 @@ import 'package:sinapsis/features/processed/presentation/widgets/processed_secti
 import 'package:sinapsis/features/reading/presentation/frame/reading_contents_sheet.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_more_sheet.dart';
+import 'package:sinapsis/features/viewer/domain/services/archived_page_heading.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La copia del original de un documento procesado (F41, decisión H), en el
@@ -56,10 +57,25 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// se pinta nada y una línea dice por qué; un PDF o una página se ven igual, y
 /// un Word, un EPUB o un texto —que el lector muestra por su texto— se abren
 /// con otra app.
+///
+/// **En un lugar** (F46, paso 4: «Abrir en el original» desde un capítulo del
+/// Índice): un PDF, en la página [page]; una página web, en el título
+/// [heading], que se resalta un momento.
 class ProcessedOriginalScreen extends ConsumerWidget {
-  const ProcessedOriginalScreen({required this.documentId, super.key});
+  const ProcessedOriginalScreen({
+    required this.documentId,
+    this.page,
+    this.heading,
+    super.key,
+  });
 
   final String documentId;
+
+  /// La página del PDF en que se abre, desde 1.
+  final int? page;
+
+  /// El título de la página web en que se abre.
+  final ArchivedHeading? heading;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -112,6 +128,8 @@ class ProcessedOriginalScreen extends ConsumerWidget {
         title: title,
         text: text,
         notice: text == null ? l10n.processedOriginalUnmarked : null,
+        initialPage: page,
+        heading: heading,
       );
     }
 

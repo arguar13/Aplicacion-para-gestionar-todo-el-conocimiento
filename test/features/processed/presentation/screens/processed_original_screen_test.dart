@@ -266,6 +266,48 @@ void main() {
     );
   });
 
+  testWidgets('«Abrir en el original» desde un capítulo del Índice (F46, paso '
+      '4): la dirección lleva la página y el título, y la página archivada se '
+      'abre en ese título', (tester) async {
+    await harness.saveTextSource(
+      'pagina',
+      title: 'Una página',
+      originalName: 'pagina.html',
+    );
+    final id = await harness.process('pagina', {
+      ProcessedSection.text: SectionEdit.add(const SectionInput.fromSource()),
+    }, original: add);
+    await pumpApp(tester, harness);
+    await pushAndSettle(
+      tester,
+      harness,
+      RoutePaths.processedOriginal(
+        id,
+        page: 47,
+        heading: 'Las guerras púnicas',
+        occurrence: 1,
+      ),
+    );
+
+    final screen = tester.widget<ProcessedOriginalScreen>(
+      find.byType(ProcessedOriginalScreen),
+    );
+    expect(screen.page, 47);
+    expect(screen.heading, (title: 'Las guerras púnicas', occurrence: 1));
+    expect(
+      tester.widget<WebPageViewerView>(find.byType(WebPageViewerView)).heading,
+      (title: 'Las guerras púnicas', occurrence: 1),
+    );
+
+    // Sin lugar, desde arriba.
+    await pushAndSettle(tester, harness, RoutePaths.processedOriginal(id));
+    final plain = tester.widget<ProcessedOriginalScreen>(
+      find.byType(ProcessedOriginalScreen).last,
+    );
+    expect(plain.page, isNull);
+    expect(plain.heading, isNull);
+  });
+
   testWidgets('en el documento, la página archivada también se ve como en el '
       'teléfono, dentro de su tarjeta', (tester) async {
     await harness.saveTextSource(

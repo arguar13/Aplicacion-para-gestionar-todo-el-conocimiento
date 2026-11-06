@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pdfrx/pdfrx.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
@@ -61,7 +62,11 @@ void main() {
     addTearDown(container.dispose);
   });
 
-  Future<void> pump(WidgetTester tester, {bool withText = true}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    bool withText = true,
+    int? initialPage,
+  }) async {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -78,6 +83,7 @@ void main() {
               path: '/no/existe/documento.pdf',
               title: 'Un PDF',
               text: withText ? text : null,
+              initialPage: initialPage,
             ),
           ),
         ),
@@ -118,6 +124,22 @@ void main() {
     expect(document.startIndexOf(ReadScope.all), 0);
     expect(find.text(es.readAloudBackToReading), findsOneWidget);
     expect(find.byType(PdfViewerView), findsOneWidget);
+  });
+
+  testWidgets('«Abrir en el original» desde un capítulo del Índice (F46, paso '
+      '4): el PDF se abre en la página del capítulo; sin ella, en la '
+      'primera', (tester) async {
+    await pump(tester, initialPage: 47);
+    expect(
+      tester.widget<PdfViewer>(find.byType(PdfViewer)).initialPageNumber,
+      47,
+    );
+
+    await pump(tester);
+    expect(
+      tester.widget<PdfViewer>(find.byType(PdfViewer)).initialPageNumber,
+      1,
+    );
   });
 
   testWidgets('con su texto, las fichas donde se marca la fuente, en la fila '

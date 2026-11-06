@@ -525,6 +525,21 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                         name: RouteNames.processedOriginal,
                         builder: (context, state) => ProcessedOriginalScreen(
                           documentId: state.pathParameters['id']!,
+                          page: int.tryParse(
+                            state.uri.queryParameters['page'] ?? '',
+                          ),
+                          heading:
+                              switch (state.uri.queryParameters['heading']) {
+                                final title? when title.isNotEmpty => (
+                                  title: title,
+                                  occurrence:
+                                      int.tryParse(
+                                        state.uri.queryParameters['nth'] ?? '',
+                                      ) ??
+                                      0,
+                                ),
+                                _ => null,
+                              },
                         ),
                       ),
                     ],

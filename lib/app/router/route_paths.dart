@@ -61,7 +61,26 @@ abstract final class RoutePaths {
 
   /// La copia del original de un documento procesado (decisión H), en su
   /// visor y con lo elegido marcado encima.
-  static String processedOriginal(String id) => '$processed/$id/original';
+  /// Con [page], un PDF se abre en esa página; con [heading], una página web
+  /// en ese título —el [occurrence] de los iguales—: «Abrir en el original»
+  /// desde un capítulo del Índice (F46, paso 4).
+  static String processedOriginal(
+    String id, {
+    int? page,
+    String? heading,
+    int occurrence = 0,
+  }) {
+    final query = {
+      'page': ?page?.toString(),
+      'heading': ?heading,
+      if (heading != null && occurrence > 0) 'nth': '$occurrence',
+    };
+    // Sin lugar, la dirección de siempre, sin un `?` colgando.
+    return Uri(
+      path: '$processed/$id/original',
+      queryParameters: query.isEmpty ? null : query,
+    ).toString();
+  }
 
   /// «Índice» (F46): lo procesado con sus capítulos, como el índice
   /// automático de Word. Un destino de navegación principal, en «Estudiar»

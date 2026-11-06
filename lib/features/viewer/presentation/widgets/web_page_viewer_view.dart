@@ -37,6 +37,7 @@ import 'package:sinapsis/features/text_notes/presentation/providers/text_note_pr
 import 'package:sinapsis/features/text_notes/presentation/text_note_actions.dart';
 import 'package:sinapsis/features/text_notes/presentation/widgets/text_notes_list_sheet.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_alignment.dart';
+import 'package:sinapsis/features/viewer/domain/services/archived_page_heading.dart';
 import 'package:sinapsis/features/viewer/domain/services/archived_page_study.dart';
 import 'package:sinapsis/features/viewer/domain/services/document_highlighter.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_hand_marks.dart';
@@ -146,10 +147,16 @@ class WebPageViewerView extends ConsumerStatefulWidget {
     this.title = '',
     this.readAloud = false,
     this.mobile = false,
+    this.heading,
     super.key,
   });
 
   final String path;
+
+  /// El título al que va al abrirse, y que resalta un momento: «Abrir en el
+  /// original» desde un capítulo del Índice (F46, paso 4). `null`, desde
+  /// arriba.
+  final ArchivedHeading? heading;
 
   /// La dirección de la página: una foto que no quedó guardada adentro del
   /// archivo se busca ahí, si hay conexión.
@@ -338,12 +345,28 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
         ? null
         : (content: text.content, colors: _colors());
     final mobile = widget.mobile;
+    final heading = widget.heading;
+    final flash = PdfStudyOverlay.flashColor.toARGB32();
+    final still = _still;
     // Una página archivada pesa megas: se arma fuera del hilo de la pantalla.
     final shown = await Isolate.run(
-      () => showArchivedPage(html, study: study, mobile: mobile),
+      () => showArchivedPage(
+        html,
+        study: study,
+        mobile: mobile,
+        heading: heading,
+        headingFlash: flash,
+        still: still,
+      ),
     );
     if (!mounted) return;
-    if (study != null) await _prepareStudy();
+    if (study != null) {
+      await _prepareStudy();
+    } else if (shown.scripted) {
+      // Solo el programa chico que lleva al título: la página va sin los
+      // suyos (`showArchivedPage`).
+      await _controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+    }
     _alignment = shown.alignment;
     _updateStudy(force: true);
     _updateMarks(force: true);
