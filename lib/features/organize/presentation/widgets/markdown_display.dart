@@ -387,6 +387,7 @@ class RenderedMarkdown {
 
   static List<_Segment> _parse(String raw) {
     final segments = <_Segment>[];
+    final lines = <_Line>[];
     var lineStart = 0;
 
     while (lineStart <= raw.length) {
@@ -394,17 +395,103 @@ class RenderedMarkdown {
       final hasNewline = lineEnd != -1;
       if (!hasNewline) lineEnd = raw.length;
 
+      final first = segments.length;
       _parseLine(raw, lineStart, lineEnd, segments);
+      final end = segments.length;
+      final _LineKind kind;
+      if (raw.substring(lineStart, lineEnd).trim().isEmpty) {
+        kind = _LineKind.blank;
+      } else if (segments
+          .sublist(first, end)
+          .any((s) => s.kept && s.text.trim().isNotEmpty)) {
+        kind = _LineKind.text;
+      } else {
+        kind = _LineKind.vanished;
+      }
 
-      if (!hasNewline) break;
-      segments.add(
-        _Segment.kept(rawStart: lineEnd, text: '\n', style: const _RunStyle()),
+      if (hasNewline) {
+        segments.add(
+          _Segment.kept(
+            rawStart: lineEnd,
+            text: '\n',
+            style: const _RunStyle(),
+          ),
+        );
+      }
+      lines.add(
+        _Line(
+          first: first,
+          end: end,
+          newline: hasNewline ? end : null,
+          kind: kind,
+        ),
       );
+      if (!hasNewline) break;
       lineStart = lineEnd + 1;
     }
 
+    _collapseVanished(segments, lines);
     _assignRenderOffsets(segments);
     return segments;
+  }
+
+  /// Saca el lugar que ocupaban los renglones que no muestran nada (F46, paso
+  /// 5c): el de una imagen sin texto alternativo —decorativa, como dice un
+  /// `alt=""`; en una página de Wikipedia, cada foto de la página—, que se
+  /// leía como un renglón vacío entre dos más. Entre dos párrafos quedaba un
+  /// hueco de tres renglones donde iba la foto.
+  ///
+  /// Cada tramo seguido de renglones vacíos y de renglones que desaparecen,
+  /// con al menos uno de los que desaparecen, se ve como se vería sin ellos:
+  /// si tenía algún renglón vacío, un solo corte de párrafo; si no —la imagen
+  /// sola entre dos renglones de texto—, ninguno. Al comienzo del texto, nada.
+  /// Lo que se quita no se pierde: sigue en el crudo, con su lugar, y cada
+  /// tramo que se ve sigue siendo el mismo pedazo del crudo —los resaltados
+  /// caen donde caían—. Los renglones vacíos que no tocan una imagen quedan
+  /// como estaban.
+  static void _collapseVanished(List<_Segment> segments, List<_Line> lines) {
+    void hide(int index) {
+      final segment = segments[index];
+      if (!segment.kept) return;
+      segments[index] = _Segment.removed(
+        rawStart: segment.rawStart,
+        rawEnd: segment.rawEnd,
+      );
+    }
+
+    var i = 0;
+    while (i < lines.length) {
+      if (lines[i].kind == _LineKind.text) {
+        i++;
+        continue;
+      }
+      var j = i;
+      var vanished = false;
+      var blank = false;
+      while (j < lines.length && lines[j].kind != _LineKind.text) {
+        vanished |= lines[j].kind == _LineKind.vanished;
+        blank |= lines[j].kind == _LineKind.blank;
+        j++;
+      }
+      if (vanished) {
+        // El corte de párrafo que queda es el último del tramo, el que lleva
+        // al texto de abajo: el renglón de arriba conserva el suyo.
+        final keep = blank && i > 0 && j < lines.length
+            ? lines[j - 1].newline
+            : null;
+        for (var k = i; k < j; k++) {
+          final line = lines[k];
+          if (line.kind == _LineKind.vanished) {
+            for (var s = line.first; s < line.end; s++) {
+              hide(s);
+            }
+          }
+          final newline = line.newline;
+          if (newline != null && newline != keep) hide(newline);
+        }
+      }
+      i = j;
+    }
   }
 
   static void _assignRenderOffsets(List<_Segment> segments) {
@@ -683,6 +770,26 @@ class RenderedMarkdown {
 
 /// Un tramo del contenido crudo, con lo que muestra en pantalla —si muestra
 /// algo— y el estilo con el que se dibuja.
+/// Qué muestra un renglón del crudo: nada porque está vacío, texto, o nada
+/// aunque tenga algo —una imagen sin texto alternativo—.
+enum _LineKind { blank, text, vanished }
+
+/// Un renglón del crudo y sus segmentos: `[first, end)` los suyos y, si
+/// termina en un fin de línea, el de ese fin.
+class _Line {
+  const _Line({
+    required this.first,
+    required this.end,
+    required this.newline,
+    required this.kind,
+  });
+
+  final int first;
+  final int end;
+  final int? newline;
+  final _LineKind kind;
+}
+
 class _Segment {
   _Segment.kept({
     required this.rawStart,

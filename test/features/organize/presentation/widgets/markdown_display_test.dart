@@ -336,6 +336,72 @@ void main() {
       expect(rendered.displayText.trim(), 'El Coliseo es un anfiteatro.');
     });
 
+    group('una imagen sin texto alternativo no deja un hueco (F46, paso '
+        '5c)', () {
+      test('la de Fotosíntesis: entre dos párrafos, un solo corte', () {
+        const raw =
+            'véase [Fotosíntesis (película)](<https://x.org/F_(p)>).\n\n'
+            '[![](https://thumb.wikimedia.org/a.png?utm=1)]'
+            '(https://es.wikipedia.org/wiki/Archivo:a.png)\n\n'
+            'Representación esquemática de la fotosíntesis vegetal.\n\n'
+            '[![](https://thumb.wikimedia.org/b.png)](https://x.org/b)\n\n'
+            'Diagrama simplificado.';
+        final rendered = RenderedMarkdown.parse(raw);
+
+        expect(
+          rendered.displayText,
+          'véase Fotosíntesis (película).\n\n'
+          'Representación esquemática de la fotosíntesis vegetal.\n\n'
+          'Diagrama simplificado.',
+        );
+        expectSlicesOfRaw(raw);
+      });
+
+      test('sola entre dos renglones, ninguno de más', () {
+        const raw = 'Arriba.\n![](https://x.org/a.png)\nAbajo.';
+        expect(RenderedMarkdown.parse(raw).displayText, 'Arriba.\nAbajo.');
+        expectSlicesOfRaw(raw);
+      });
+
+      test('varias seguidas, y al comienzo del texto, nada', () {
+        const raw =
+            '![](https://x.org/a.png)\n\n![](https://x.org/b.png)\n\n'
+            'Texto.\n\n![](https://x.org/c.png)\n![](https://x.org/d.png)\n\n'
+            'Más.';
+        expect(RenderedMarkdown.parse(raw).displayText, 'Texto.\n\nMás.');
+        expectSlicesOfRaw(raw);
+      });
+
+      test('los espacios que la rodean en su renglón se van con ella', () {
+        const raw = 'Arriba.\n\n  ![](https://x.org/a.png) \n\nAbajo.';
+        expect(RenderedMarkdown.parse(raw).displayText, 'Arriba.\n\nAbajo.');
+        expectSlicesOfRaw(raw);
+      });
+
+      test('una con texto alternativo se lee, con sus cortes', () {
+        const raw = 'Arriba.\n\n![Un esquema](https://x.org/a.png)\n\nAbajo.';
+        expect(
+          RenderedMarkdown.parse(raw).displayText,
+          'Arriba.\n\nUn esquema\n\nAbajo.',
+        );
+      });
+
+      test('los renglones vacíos sin imagen quedan como estaban', () {
+        const raw = 'Arriba.\n\n\n\nAbajo.';
+        expect(RenderedMarkdown.parse(raw).displayText, raw);
+      });
+
+      test('un resaltado guardado cae donde caía', () {
+        const raw = 'Uno.\n\n![](https://x.org/a.png)\n\nDos tres.';
+        final rendered = RenderedMarkdown.parse(raw);
+        final start = raw.indexOf('tres');
+        final at = rendered.rawToRender(start);
+
+        expect(rendered.displayText.substring(at, at + 4), 'tres');
+        expect(rendered.renderToRaw(at), start);
+      });
+    });
+
     test('un enlace se lee como su texto', () {
       const raw =
           'Fundada por [Rómulo](https://es.wikipedia.org/wiki/R%C3%B3mulo) '
