@@ -19,6 +19,10 @@
 > **Tercera tanda del 30/10 (mejoras 17 a 19): APROBADA** (2026-10-30, con la decisión I como está). Pedido del dueño con dos capturas
 > más y las notas en el texto. Entra como los pasos 7c (en la ola 2) y 8 (en la ola 3, sobre el
 > lector y el original ya unificados).
+>
+> **Construida** el 2026-11-06: los pasos 1 a 5, 7b, 7c y 8a a 8c, y el cierre de sus documentos,
+> con la decisión 91; el 7a se hizo en F47, paso 1. La suite entera y la APK van en el cierre
+> conjunto con F46 (paso 5).
 
 ## Las once mejoras
 
@@ -1174,3 +1178,51 @@ con F47, paso 2).
     generalizando `ReadingPlayerSlot` del marco (F47, paso 1) a un relleno al pie de las listas;
   - envolver el `builder` de `app.dart` con el anfitrión volvió a sangrar ese bloque: solo
     espacios, pero choca con quien lo toque al mismo tiempo.
+
+### Paso 6 (hecho): el cierre
+
+El cierre de los documentos, sin código, en los mismos commits que cierran F44 y F47 (de
+`4c133c02` a `ed13a097`) y el de este avance.
+
+- **La decisión 91 en `docs/arquitectura.md`** (`26c195e0`), con F45 en «Construido» (esquemas v49
+  y v50): el pedido en sus cuatro tandas; el aviso único con su única puerta y su censo; el acuerdo
+  de lo que flota y lo anclado con los avisos (`SnackBarFootprint`, `LiftAboveSnackBar`,
+  `SnackBarFloor`, `TopEdgeProbe`); triar con la IA comprobada palabra por palabra
+  (`checkTidiedText`, `TidyMargins`, `ProcessedTidyQueue`); el idioma de un video cerrado camino
+  por camino y su red (`checkVideoText`); el «Volver a extraer» que llega al documento
+  (`ProcessedTextRefresh`); la Biblioteca solo con el original; la web de Procesado como en el
+  teléfono; un solo original (`OriginalStudy`, `OriginalView`) y un solo «Crear» (`create_hub`);
+  «N sin tema» y la tarjeta «Bandeja»; las notas en una tabla propia, con su v50 y cómo se ven en
+  cada cuerpo; el diseño sin migrar; las invariantes, las trampas que costaron, lo descartado y lo
+  que no quedó probado. Las mejoras 12 y 13 remiten a la decisión 93, porque se hicieron en F47.
+- **La GUÍA, repasada** (`a4facc47`). Cada paso había escrito la suya; el repaso entero encontró y
+  corrigió lo que había quedado viejo:
+  - «Cómo te movés por la app» y «Escuchar» decían que el reproductor se corre con un aviso: el
+    botón redondo se corre, pero el reproductor se queda y **el aviso va encima de él** (paso 1);
+  - las secciones de un documento procesado describían el texto «de a una página» en el documento
+    mismo y un «Escuchar» propio en el resumen y la síntesis: hoy el texto, el resumen y la síntesis
+    son un renglón que abre el lector, se editan desde su ⋮ (ahí va el texto de a una página), y se
+    copian con «Copiar todo»;
+  - el botón redondo también está en un documento de Procesado, y lee el documento entero desde el
+    comienzo del texto;
+  - la sección «Repasar» de Ajustes no figuraba en la lista de Ajustes: ahora sí, con su enlace.
+
+  Los enlaces internos siguen apuntando a títulos que existen.
+- **`NOVEDADES.md`** (`85ececdd`): F45 deja de estar «en curso», con el aviso único, triar, las
+  notas en cualquier texto y la tarjeta «Bandeja» con «Triar ahora».
+- **`CONTEXTO_DEL_PROYECTO.md`** (`ed13a097`): F45 en la historia y en el estado, con lo que queda
+  por mirar en el teléfono.
+- **Lo que se encontró en el código y no cuadra** (anotado, sin tocarlo): el comentario de
+  `ProcessedDocumentScreen` dice que el botón redondo lee «desde la página que se editó por última
+  vez», pero `processedTextPageProvider` es `autoDispose` y solo lo mira la edición del texto
+  (`ProcessedTextPages`, en `processed_section_edit_screen.dart`), así que en el documento vale
+  siempre 0 y la lectura empieza por la primera página. Es un resto de F41, cuando el texto se leía
+  de a una página dentro del documento; la GUÍA dice lo que pasa de verdad.
+- **Queda para el cierre conjunto con F46 (paso 5):** la suite entera, junto con las de F44, F46 y
+  F47, y la APK, si el dueño la pide.
+- **Sigue abierto** (de los Avances de cada paso): nada se miró en el emulador ni en el teléfono —el
+  globito sobre un PDF real y dentro de la `WebView`, el video del árabe con sus pistas—; la barra
+  de la Bandeja desborda en 400 dp con la letra al doble; no hay deshacer para lo que ordenó la IA;
+  organizar y buscar fechas no tienen «Cancelar»; un idioma latino equivocado guardado como elegible
+  se toma como elección; las notas sobre la imagen de una foto, el PDF girado y la página con
+  columnas de escritorio.
