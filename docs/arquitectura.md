@@ -7632,9 +7632,29 @@ F47), en dos olas: los títulos, los datos y la pantalla (pasos 1 a 3), e ir al 
   texto— va por un puerto chico (`IndexDocumentAccess`; en la app, `ProcessedIndexDocumentAccess`,
   sobre `ProcessedRepository`) y se lee recién al abrir la hoja, no mientras se recorre. «Preguntar al
   chat» deja a medio escribir (`askInChat`, sin mandar) el capítulo con sus secciones
-  (`indexChapterSpan`), cortado a 2.000 caracteres (`indexChapterPassage`); una imagen ofrece
-  «Renombrar» (`IndexRepository.renameImage`) y «Copiar el título», y no el chat: no tiene texto que
-  llevar.
+  (`indexChapterSpan`), como se lee, sin el renglón de su propio título y cortado a 2.000 letras
+  legibles (`indexChapterPassage`, paso 5e); una imagen ofrece «Renombrar»
+  (`IndexRepository.renameImage`) y «Copiar el título», y no el chat: no tiene texto que llevar.
+- **Lo en línea del Markdown, una sola regla** (pasos 5b y 5e; `lib/core/util/markdown_inline.dart`
+  y `markdown_plain_text.dart`). Qué es una construcción en línea lo dice `markdownInlinePattern` y
+  qué se lee de cada una, `markdownInlineText` (un `MarkdownInline` y el tramo que se lee, en
+  posiciones del texto): los usan `RenderedMarkdown`, que muestra ese tramo con su formato; los que
+  cortan en páginas y bloques sin partir una construcción (`markdownSafeCut`); y `markdownPlainText`
+  / `markdownPlainBlocks`, que pasan un texto a lo que se lee —lo en línea como el lector, sin las
+  llamadas a notas al pie (`markdownFootnoteCall`), y los bloques en renglones: sin `#`, viñetas,
+  `>`, separadores, cercas ni filas separadoras de tabla—. **Todo texto de un documento que viaja al
+  chat o a un modelo sale por ahí**: el pasaje de «Preguntar al chat» y el de «Explicar»
+  (`readablePassage`, que además hace de cada bloque una oración y cuenta el tope en letras
+  legibles), y las oraciones y palabras clave de Estudiar (`studyPlainText`, también el extracto
+  descargado). Solo con Markdown: el texto de un PDF o una transcripción va tal cual, porque un
+  `*` o un renglón sin punto ahí no son marcas. Una prueba compara, renglón por renglón y sobre los
+  recortes reales de Wikipedia, lo que da `markdownPlainText` con lo que muestra el lector; si una
+  regla nueva difiere entre los dos, falla. Quedan aparte a propósito la lectura en voz alta
+  (`readable_segments.dart`: corta por oraciones con sus posiciones y no dice el texto alternativo
+  de una foto), el título de un capítulo (`plainHeadingText`: lee escapes, entidades y `~~` porque
+  de él sale la clave con que se comparan los títulos ya indexados) y lo que se copia de una
+  respuesta del chat (`chatAnswerPlainText`, que conserva viñetas y números para pegarlo; lo en
+  línea ya es el del lector).
 - **«Descargar el índice» dice lo mismo que la pantalla** (`index_download.dart`). Los renglones salen
   de lo mismo que se dibuja (`indexPrintTree`, sobre `indexOutline`; `indexPrintSearch`, sobre
   `groupIndexSearch`; en `index_print.dart`). El PDF (`IndexPdfExporter`, armado con `compute`: A4 con
