@@ -294,7 +294,13 @@ Future<void> _askAboutEntry(
   final span = indexChapterSpan(entries, entry);
   final passage = text == null || span == null
       ? ''
-      : indexChapterPassage(text, span.start, span.end);
+      : indexChapterPassage(
+          text.content,
+          span.start,
+          span.end,
+          markdown: text.markdown,
+          title: entry.isWholeText ? null : entry.title,
+        );
   if (passage.isEmpty) {
     _say(messenger, l10n.f46P4AskChatNoText);
     return;

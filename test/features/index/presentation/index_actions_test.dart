@@ -88,9 +88,13 @@ void main() {
       ),
     });
     // Cada capítulo empieza en i * 100: «Rómulo» en 100, «La República» en
-    // 200.
+    // 200. Su texto es Markdown, como el de una página web: empieza con su
+    // título y lleva un enlace con su dirección (F46, paso 5e).
     harness.documents.texts['historia'] =
-        '${'M' * 100}${'Rómulo fundó Roma.'.padRight(100)}La República.';
+        '${'M' * 99}\n'
+        '${'## Rómulo\n[Rómulo](https://es.wikipedia.org/wiki/R%C3%B3mulo) '
+            'fundó **Roma**.'.padRight(100)}'
+        'La República.';
     harness.documents.texts['suelto'] = 'Unos apuntes sin títulos.';
   }
 
@@ -417,8 +421,10 @@ void main() {
     });
 
     testWidgets('«Preguntar al chat»: una conversación nueva con el capítulo, '
-        'su documento y su texto hasta el siguiente de su nivel, a medio '
-        'escribir', (tester) async {
+        'su documento y su texto hasta el siguiente de su nivel —como se lee, '
+        'sin su título ni la dirección del enlace—, a medio escribir', (
+      tester,
+    ) async {
       library();
       await harness.pump(tester);
       await unfold(tester, 'historia');
@@ -438,6 +444,32 @@ void main() {
           'Rómulo',
           'Historia de Roma',
           'Rómulo fundó Roma.',
+        ),
+      );
+    });
+
+    testWidgets('el de un PDF, que no es Markdown, va tal cual, sin el renglón '
+        'de su título', (tester) async {
+      library();
+      harness.documents.texts['atlas'] =
+          '${'M' * 99}\nEl Lacio\nUn **llano** [1] al sur.';
+      harness.documents.plainTexts.add('atlas');
+      await harness.pump(tester);
+      await unfold(tester, 'atlas');
+      ChatHandoff? handoff;
+      harness.container.listen(
+        chatHandoffProvider,
+        (_, next) => handoff ??= next,
+      );
+      await holdOn(tester, 'El Lacio');
+      await choose(tester, 'index-action-ask-chat');
+
+      expect(
+        handoff?.question,
+        es.f46P4AskDraftChapter(
+          'El Lacio',
+          'Atlas',
+          'Un **llano** [1] al sur.',
         ),
       );
     });

@@ -66,8 +66,11 @@ class ProcessedIndexDocumentAccess implements IndexDocumentAccess {
   }
 
   @override
-  Future<String?> textOf(String documentId) async =>
-      (await _processed.studyTextOf(
-        documentId,
-      )).match((_) => null, (text) => text?.content);
+  Future<IndexDocumentText?> textOf(String documentId) async =>
+      (await _processed.studyTextOf(documentId)).match(
+        (_) => null,
+        (text) => text == null
+            ? null
+            : (content: text.content, markdown: text.markdown),
+      );
 }

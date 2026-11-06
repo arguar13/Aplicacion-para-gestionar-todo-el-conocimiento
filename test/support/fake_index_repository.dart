@@ -206,6 +206,10 @@ class FakeIndexDocumentAccess implements IndexDocumentAccess {
   final facts = <String, IndexDocumentFacts>{};
   final texts = <String, String>{};
 
+  /// Los documentos de [texts] cuyo texto no es Markdown —un PDF—; los demás
+  /// lo son, como una página web.
+  final plainTexts = <String>{};
+
   /// Cada documento por el que se preguntó, en orden.
   final asked = <String>[];
 
@@ -216,7 +220,14 @@ class FakeIndexDocumentAccess implements IndexDocumentAccess {
   }
 
   @override
-  Future<String?> textOf(String documentId) async => texts[documentId];
+  Future<IndexDocumentText?> textOf(String documentId) async =>
+      switch (texts[documentId]) {
+        final content? => (
+          content: content,
+          markdown: !plainTexts.contains(documentId),
+        ),
+        null => null,
+      };
 }
 
 /// Un documento del Índice para las pruebas, con lo que importa de entrada.

@@ -1,4 +1,5 @@
 import 'package:sinapsis/core/domain/entities/index_entry_origin.dart';
+import 'package:sinapsis/core/util/markdown_plain_text.dart';
 import 'package:sinapsis/features/index/domain/entities/index_tree.dart';
 import 'package:sinapsis/features/processed/domain/services/headings/heading_text.dart';
 
@@ -47,24 +48,57 @@ int indexHeadingOccurrence(List<IndexEntry> entries, IndexEntry entry) {
   return 0;
 }
 
-/// [text] entre [start] y [end] —el tramo de un capítulo—, en una sola línea
-/// y con [kIndexChapterPassageChars] como mucho, cortado en una palabra entera
-/// y con «…» si sigue. Vacío si el tramo ya no cae en el texto.
-String indexChapterPassage(String text, int start, int? end) {
+/// El pasaje para el chat del tramo [start]–[end] de [text] —el de un
+/// capítulo—: **como se lee** (`readablePassage`), en una sola línea y con
+/// [kIndexChapterPassageChars] letras legibles como mucho, cortado en una
+/// palabra entera y con «…» si sigue. Vacío si el tramo ya no cae en el texto.
+///
+/// - Con [markdown] —una página web, un Word, un EPUB—, sin enlaces con su
+///   dirección, sin fotos, sin `**` ni `#` y sin las llamadas a notas al pie;
+///   cada bloque es una oración (F46, paso 5e).
+/// - Con [title], el renglón del propio título del capítulo —con el que
+///   empieza el tramo— queda afuera: el borrador del chat ya lo nombra, y
+///   pegado al párrafo se leía «Siglo XX En 1905». Si el tramo no empieza con
+///   él —el título de la IA de un PDF, que no es un renglón—, no se saca nada.
+String indexChapterPassage(
+  String text,
+  int start,
+  int? end, {
+  required bool markdown,
+  String? title,
+}) {
   if (start < 0 || start >= text.length) return '';
   final stop = (end ?? text.length).clamp(start, text.length);
-  final piece = text
-      .substring(start, stop)
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-  if (piece.length <= kIndexChapterPassageChars) return piece;
-  final cut = piece.substring(0, kIndexChapterPassageChars);
-  final space = cut.lastIndexOf(' ');
-  final kept = space > kIndexChapterPassageChars * 0.8
-      ? cut.substring(0, space)
-      : cut;
-  return '${kept.trimRight()}…';
+  var from = start;
+  if (title != null) {
+    final lineEnd = text.indexOf('\n', start);
+    final firstEnd = lineEnd == -1 || lineEnd > stop ? stop : lineEnd;
+    if (_isTitleLine(text.substring(start, firstEnd), title, markdown)) {
+      from = firstEnd;
+    }
+  }
+  if (from >= stop) return '';
+  return readablePassage(
+    text,
+    start: from,
+    end: stop,
+    markdown: markdown,
+    maxChars: kIndexChapterPassageChars,
+  );
 }
+
+/// Si [line] es el título [title]: comparados como se comparan dos títulos
+/// (`headingKey`), con [line] como se lee. Un número delante —«3. Siglo XX»,
+/// «1.2 Desarrollo»— no lo cambia: el Índice lo muestra aparte.
+bool _isTitleLine(String line, String title, bool markdown) {
+  final key = headingKey(title);
+  if (key.isEmpty) return false;
+  final read = headingKey(markdown ? markdownPlainText(line) : line);
+  return read == key || (read.endsWith(' $key') && _numbered.hasMatch(read));
+}
+
+/// Un título que empieza con su número: «3 siglo xx», «1 2 desarrollo».
+final _numbered = RegExp(r'^\d+(?: \d+)* ');
 
 bool _isChapter(IndexEntry entry) =>
     entry.origin != IndexEntryOrigin.image &&

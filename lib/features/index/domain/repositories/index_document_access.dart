@@ -39,6 +39,10 @@ typedef IndexDocumentFacts = ({
   IndexLibrarySource? source,
 });
 
+/// El texto propio de un documento y si es Markdown (ver
+/// [IndexDocumentAccess.textOf]).
+typedef IndexDocumentText = ({String content, bool markdown});
+
 /// Lo que el Índice necesita de un documento procesado para lo que se hace
 /// con una entrada (F46, paso 4) —abrirla en el original, preguntarle al chat
 /// por ella—, leído recién cuando se lo pide: el Índice no carga nada de esto
@@ -49,7 +53,8 @@ abstract interface class IndexDocumentAccess {
   Future<IndexDocumentFacts?> factsOf(String documentId);
 
   /// El texto propio de [documentId] —sus páginas de «Texto» una detrás de la
-  /// otra, el mismo con que el Índice ubica cada capítulo—, o `null` si no
-  /// tiene o no se pudo leer.
-  Future<String?> textOf(String documentId);
+  /// otra, el mismo con que el Índice ubica cada capítulo— y si es Markdown,
+  /// como el de su fuente (F46, paso 5e: el pasaje que viaja al chat se lee
+  /// como se lee el texto); `null` si no tiene o no se pudo leer.
+  Future<IndexDocumentText?> textOf(String documentId);
 }

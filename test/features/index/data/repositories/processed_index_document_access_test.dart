@@ -1,13 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/index/data/repositories/processed_index_document_access.dart';
 import 'package:sinapsis/features/index/domain/repositories/index_document_access.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_original.dart';
+import 'package:sinapsis/features/processed/domain/entities/processed_study_text.dart';
 import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_study_layout.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/domain/services/file_viewer_resolver.dart';
 
@@ -98,6 +102,38 @@ void main() {
       expect(facts?.source, isNull);
     });
   });
+
+  group('su texto (F46, paso 5e)', () {
+    test('con si es Markdown, como el de su fuente: el pasaje para el chat se '
+        'lee como se lee el texto', () async {
+      processed.text = const ProcessedStudyText(
+        key: 'k',
+        documentId: 'doc',
+        content: '## Siglo XX',
+        markdown: true,
+        layout: ProcessedStudyLayout.source('r'),
+      );
+      expect(await access.textOf('doc'), (
+        content: '## Siglo XX',
+        markdown: true,
+      ));
+
+      processed.text = const ProcessedStudyText(
+        key: 'k',
+        documentId: 'doc',
+        content: 'Un PDF.',
+        markdown: false,
+        layout: ProcessedStudyLayout.source('r'),
+      );
+      expect(await access.textOf('doc'), (content: 'Un PDF.', markdown: false));
+    });
+
+    test('sin texto, o si no se pudo leer, nada', () async {
+      expect(await access.textOf('doc'), isNull);
+      processed.failText = true;
+      expect(await access.textOf('doc'), isNull);
+    });
+  });
 }
 
 ProcessedSourceLink _link({bool inTrash = false}) => ProcessedSourceLink(
@@ -130,6 +166,15 @@ KnowledgeItem _item() {
 class _Processed extends Fake implements ProcessedRepository {
   ProcessedDocument? document;
   RenditionKind? original;
+  ProcessedStudyText? text;
+  bool failText = false;
+
+  @override
+  Future<Either<Failure, ProcessedStudyText?>> studyTextOf(
+    String documentId,
+  ) async => failText
+      ? left(const Failure.unexpected(message: 'no se pudo'))
+      : right(text);
 
   @override
   Stream<ProcessedDocument?> watchDocument(String documentId) =>
