@@ -25,7 +25,7 @@ import 'package:sinapsis/core/util/markdown_inline.dart';
 /// viaja, y en un párrafo de Wikipedia hay una cada pocas oraciones. Son ruido
 /// para el modelo y letras de menos en el tope del pasaje.
 final markdownFootnoteCall = RegExp(
-  r'\[(?:\d{1,4}|[a-z]|(?:nota|n\.)[  ]?\d{1,4}|cita requerida)\]',
+  r'\[(?:\d{1,4}|[a-z]|(?:nota|n\.)[ \u00a0]?\d{1,4}|cita requerida)\]',
   caseSensitive: false,
 );
 
