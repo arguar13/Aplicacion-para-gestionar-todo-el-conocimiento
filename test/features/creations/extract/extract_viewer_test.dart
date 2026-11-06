@@ -10,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_dock.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_original_study_providers.dart';
@@ -419,6 +420,205 @@ void main() {
       expect(line.top, greaterThanOrEqualTo(list.top));
       expect(line.bottom, lessThan(list.top + list.height * 0.7));
       expect(paintedWith(tester, yellow).join(), startsWith('Párrafo 55 dice'));
+    });
+
+    group('«Escuchar» empieza por lo que se ve (F46, paso 5f)', () {
+      /// Un texto completo de 60 párrafos —una oración cada uno—, abierto en
+      /// un teléfono.
+      Future<void> openLong(WidgetTester tester) async {
+        final id = await h.document(
+          'larga',
+          title: 'Larga',
+          text: [
+            for (var i = 0; i < 60; i++)
+              'Párrafo $i dice algo largo sobre Roma, con texto.',
+          ].join('\n\n'),
+        );
+        final creation = await h.creation(StudyCreationKind.fullText, [id]);
+        await h.open(tester, creation, size: const Size(400, 800));
+      }
+
+      final list = find.byKey(const Key('extract-viewer-list'));
+
+      /// El número de la oración «[word] N» que está en la primera línea a la
+      /// vista, arriba de la lista, aunque la línea esté cortada.
+      int shownAtTop(WidgetTester tester, [String word = 'Párrafo']) {
+        final top = tester.getRect(list).top;
+        final texts = find.descendant(
+          of: list,
+          matching: find.byType(RichText),
+        );
+        for (final element in texts.evaluate()) {
+          final paragraph = element.renderObject! as RenderParagraph;
+          final origin = paragraph.localToGlobal(Offset.zero);
+          if (origin.dy + paragraph.size.height <= top) continue;
+          final dy = (top - origin.dy).clamp(0.0, paragraph.size.height);
+          final at = paragraph.getPositionForOffset(Offset(0, dy)).offset;
+          // La primera oración que termina después de esa línea —como
+          // `ReadableDocument.startIndexOf`—: si la línea de arriba es la
+          // vacía entre dos párrafos, la del siguiente.
+          final sentences = RegExp(
+            '$word (\\d+)[^.]*\\.',
+          ).allMatches(paragraph.text.toPlainText()).where((m) => m.end > at);
+          if (sentences.isEmpty) continue;
+          return int.parse(sentences.first[1]!);
+        }
+        fail('no se ve ninguna oración');
+      }
+
+      /// Baja la lista [dy], como con el dedo.
+      Future<void> scrollBy(WidgetTester tester, double dy) async {
+        final scroll = tester.widget<ListView>(list).controller!;
+        scroll.jumpTo(scroll.offset + dy);
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('desplazado hasta la mitad, lee desde el párrafo de '
+          'arriba, no desde el comienzo', (tester) async {
+        await openLong(tester);
+        await scrollBy(tester, 2400);
+        final shown = shownAtTop(tester);
+        expect(shown, greaterThan(10));
+
+        await tester.tap(find.byKey(const Key('reading-listen')));
+        await tester.pumpAndSettle();
+
+        expect(h.tts.spoken.first, startsWith('Párrafo $shown dice'));
+        expect(
+          h.container.read(readAloudControllerProvider).segmentIndex,
+          shown,
+        );
+      });
+
+      testWidgets('en un párrafo largo cortado arriba, desde la oración de la '
+          'línea de arriba, no desde el comienzo del párrafo', (tester) async {
+        final id = await h.document(
+          'un-parrafo',
+          title: 'Un párrafo',
+          text: [
+            for (var i = 0; i < 80; i++)
+              'Oración $i del mismo párrafo larguísimo sobre Roma.',
+          ].join(' '),
+        );
+        final creation = await h.creation(StudyCreationKind.fullText, [id]);
+        await h.open(tester, creation, size: const Size(400, 800));
+        await scrollBy(tester, 2000);
+
+        // La oración de la primera línea que se ve, entera o cortada.
+        final shown = shownAtTop(tester, 'Oración');
+        expect(shown, greaterThan(10));
+
+        await tester.tap(find.byKey(const Key('reading-listen')));
+        await tester.pumpAndSettle();
+
+        expect(h.tts.spoken.first, startsWith('Oración $shown del'));
+      });
+
+      testWidgets('con varios documentos, pasado el título del segundo, desde '
+          'su línea de arriba y no desde su título', (tester) async {
+        final a = await h.document(
+          'corto',
+          title: 'Corto',
+          text: 'Párrafo 0 dice poco.',
+        );
+        final b = await h.document(
+          'largo',
+          title: 'Largo',
+          text: [
+            for (var i = 0; i < 80; i++)
+              'Oración $i del mismo párrafo larguísimo sobre Roma.',
+          ].join(' '),
+        );
+        final creation = await h.creation(StudyCreationKind.fullText, [a, b]);
+        await h.open(tester, creation, size: const Size(400, 800));
+        // El título del segundo queda arriba, fuera de la vista pero todavía
+        // armado: la vista empieza un poco más abajo, en su texto.
+        final header = tester.getRect(
+          find.byKey(ValueKey('extract-header-$b')),
+        );
+        await scrollBy(tester, header.bottom - tester.getRect(list).top + 120);
+        expect(
+          tester.any(
+            find.byKey(ValueKey('extract-header-$b'), skipOffstage: false),
+          ),
+          isTrue,
+        );
+        final shown = shownAtTop(tester, 'Oración');
+
+        await tester.tap(find.byKey(const Key('reading-listen')));
+        await tester.pumpAndSettle();
+
+        expect(h.tts.spoken.first, startsWith('Oración $shown del'));
+      });
+
+      testWidgets('en el resumen, que muestra solo lo marcado, desde la '
+          'oración marcada de arriba', (tester) async {
+        final sentences = [
+          for (var i = 0; i < 80; i++)
+            'Oración $i del mismo párrafo larguísimo sobre Roma.',
+        ];
+        final id = await h.document(
+          'marcado',
+          title: 'Marcado',
+          text: sentences.join(' '),
+        );
+        // La mitad, salteada: entre lo que se ve hay texto que no se ve.
+        for (var i = 0; i < 80; i += 2) {
+          await h.mark(id, sentences[i]);
+        }
+        final creation = await h.creation(StudyCreationKind.summary, [id]);
+        await h.open(tester, creation, size: const Size(400, 800));
+        await scrollBy(tester, 1500);
+        final shown = shownAtTop(tester, 'Oración');
+        expect(shown, greaterThan(10));
+
+        await tester.tap(find.byKey(const Key('reading-listen')));
+        await tester.pumpAndSettle();
+
+        expect(h.tts.spoken.first, startsWith('Oración $shown del'));
+      });
+
+      testWidgets('arriba de todo, desde el comienzo', (tester) async {
+        await openLong(tester);
+
+        await tester.tap(find.byKey(const Key('reading-listen')));
+        await tester.pumpAndSettle();
+
+        expect(h.tts.spoken.first, startsWith('Párrafo 0 dice'));
+      });
+
+      testWidgets('con el reproductor abierto y en pausa, ofrecerlo otra vez '
+          'sigue donde iba; cerrado, «Escuchar» lee desde lo que se ve', (
+        tester,
+      ) async {
+        await openLong(tester);
+        await tester.tap(find.byKey(const Key('reading-listen')));
+        await tester.pumpAndSettle();
+        final controller = h.container.read(
+          readAloudControllerProvider.notifier,
+        );
+        await controller.pause();
+        await tester.pumpAndSettle();
+        // La lista ya no sigue la lectura: la persona se fue a otro lado.
+        await scrollBy(tester, 2400);
+        final shown = shownAtTop(tester);
+        expect(shown, greaterThan(10));
+
+        await controller.open(h.container.read(currentReadableProvider)!);
+        await tester.pumpAndSettle();
+        expect(h.container.read(readAloudControllerProvider).segmentIndex, 0);
+
+        await controller.close();
+        await tester.pumpAndSettle();
+        final after = shownAtTop(tester);
+        await tester.tap(find.byKey(const Key('reading-listen')));
+        await tester.pumpAndSettle();
+        expect(
+          h.container.read(readAloudControllerProvider).segmentIndex,
+          after,
+        );
+        expect(h.tts.spoken.last, startsWith('Párrafo $after dice'));
+      });
     });
   });
 

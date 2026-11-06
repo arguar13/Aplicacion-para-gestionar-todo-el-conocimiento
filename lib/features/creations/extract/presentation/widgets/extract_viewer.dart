@@ -152,6 +152,11 @@ abstract interface class _Revealable {
 
   /// Lo elegido en este pedazo, en posiciones del texto propio, o `null`.
   ({int start, int end})? get selectedRange;
+
+  /// La posición del texto propio con que empieza la línea que está [dy]
+  /// más abajo del borde de arriba de [revealBox], o `null` si no es texto
+  /// propio —un título— o todavía no se armó.
+  int? textOffsetAt(double dy);
 }
 
 /// Las notas en el texto de un documento (F45, paso 8b): todas, en sus
@@ -465,8 +470,48 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
       id: _readableId,
       title: widget.title,
       segments: segments,
+      startAt: _placeInView,
       location: widget.location,
     );
+  }
+
+  /// Por dónde va la vista —ver [ReadableDocument.startAt]—: lo primero que
+  /// se ve arriba de la lista. El título de un documento, si se lee —con
+  /// varios—, o la línea de su texto que está arriba de todo; un aviso no se
+  /// lee y se sigue de largo. Un método de este objeto, el mismo en cada
+  /// cuadro: el lector reconoce el documento también por él. Sin la lista
+  /// armada —se cerró la pantalla—, `null`: desde el principio.
+  ReadablePlace? _placeInView() {
+    if (!mounted || !_scroll.hasClients) return null;
+    final top = _scroll.position.pixels;
+    for (final row in _built.keys.toList()..sort()) {
+      if (row >= _rows.length) continue;
+      final target = _built[row]!;
+      final box = target.revealBox;
+      final viewport = box == null ? null : RenderAbstractViewport.maybeOf(box);
+      if (box == null || viewport == null || !box.hasSize) continue;
+      final start = viewport.getOffsetToReveal(box, 0).offset;
+      if (start + box.size.height <= top) continue;
+      final kind = _rows[row];
+      if (kind is _HeaderRow) {
+        final key = extractTitleKey(_sections[kind.section].documentId);
+        final spoken = _documentSegments ?? const <ReadableSegment>[];
+        if (spoken.any((segment) => segment.sourceKey == key)) {
+          return (sourceKey: key, offset: 0);
+        }
+      } else if (kind is _BlockRow) {
+        final section = _sections[kind.section];
+        final key = section.sourceKey;
+        if (key == null) continue;
+        return (
+          sourceKey: key,
+          offset:
+              target.textOffsetAt(top - start) ??
+              section.blocks[kind.block].start,
+        );
+      }
+    }
+    return null;
   }
 
   void _onFollowChanged() {
@@ -952,6 +997,9 @@ class _SectionHeaderState extends ConsumerState<_SectionHeader>
   ({int start, int end})? get selectedRange => null;
 
   @override
+  int? textOffsetAt(double dy) => null;
+
+  @override
   void initState() {
     super.initState();
     widget.onBuilt(widget.row, this);
@@ -1105,6 +1153,16 @@ class _BlockViewState extends ConsumerState<_BlockView> implements _Revealable {
   @override
   Rect revealRect(ReadableSegment segment) =>
       rangeRect(segment.start, segment.end);
+
+  @override
+  int? textOffsetAt(double dy) {
+    final box = revealBox;
+    if (box is! RenderParagraph || _rendered.isEmpty) return null;
+    final line = box.getPositionForOffset(
+      Offset(0, dy.clamp(0, box.size.height)),
+    );
+    return _toRaw(line.offset);
+  }
 
   /// Lo elegido en este bloque, que la selección de la lista le cuenta.
   final _selection = SelectionListenerNotifier();
