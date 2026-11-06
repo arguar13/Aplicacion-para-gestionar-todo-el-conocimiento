@@ -23,10 +23,22 @@ const kSnackBarMaxLines = 3;
 /// Se acomoda como una tarjeta:
 /// - si el texto entra en un renglón al lado de los botones y la ✕, va todo
 ///   en ese renglón;
-/// - si no, el texto toma el ancho, la ✕ queda arriba a la derecha y los
-///   botones bajan juntos a un renglón propio, alineados a la derecha. Nunca
-///   queda un hueco en el medio, como dejaba el `SnackBar` de Material con
-///   un botón largo.
+/// - si no, y hay botones, el texto toma el ancho entero arriba, y abajo va
+///   un renglón con los botones y la ✕ al final, pegados a la derecha y
+///   centrados entre sí, como el `SnackBar` de Material 3 con un botón largo
+///   pero sin su hueco: el renglón empieza donde termina el texto y el aviso
+///   donde termina el renglón, porque los botones y la ✕ ya traen su aire
+///   adentro, el mismo arriba y abajo de su letra (F46, paso 5d). Si los
+///   botones no entran juntos al lado de la ✕, se apilan a la derecha y la ✕
+///   queda al lado del último, el principal: pegada a él como en un renglón,
+///   y abajo a la derecha como siempre que hay botones;
+/// - si no, y no hay botones, el texto toma el ancho menos la ✕, que queda
+///   arriba a la derecha, centrada con el primer renglón.
+///
+/// Hasta el paso 5d, la ✕ quedaba arriba a la derecha también con botones, y
+/// con su caja de 48 para el dedo empujaba el renglón de los botones: un
+/// texto de un renglón (de 14 a 34) dejaba los botones en 48, con un hueco
+/// grande entre los dos y más aire abajo que arriba.
 ///
 /// Con un botón, el aviso se queda hasta que lo cierren (`persist`), salvo
 /// que se pida lo contrario. Mientras se ve, publica lo que ocupa abajo
@@ -53,7 +65,8 @@ class AppSnackBar extends SnackBar {
   }) : super(
          content: _NoticeBody(
            message: content,
-           actions: [?secondaryAction, ?action],
+           secondaryAction: secondaryAction,
+           action: action,
          ),
          // Los márgenes de adentro, la ✕ y los botones los pone el aviso: los
          // de Material dejaban el hueco. Tampoco su ✕, aunque la pida el tema:
@@ -77,13 +90,19 @@ extension AppSnackBarMessenger on ScaffoldMessengerState {
 /// Lo de adentro del aviso: el texto, los botones y la ✕, acomodados por
 /// [_NoticeLayout], y la huella que publica mientras se ve.
 class _NoticeBody extends StatefulWidget {
-  const _NoticeBody({required this.message, required this.actions});
+  const _NoticeBody({
+    required this.message,
+    required this.secondaryAction,
+    required this.action,
+  });
 
   final Widget message;
 
-  /// En el orden en que se leen: el secundario primero —«Ver»— y el
-  /// principal pegado a la ✕ —«Deshacer»—.
-  final List<SnackBarAction> actions;
+  /// Los botones se leen en este orden: el secundario primero —«Ver»— y el
+  /// principal pegado a la ✕ —«Deshacer»—. Si hay uno solo, va pegado a la
+  /// ✕, sea cual sea.
+  final SnackBarAction? secondaryAction;
+  final SnackBarAction? action;
 
   @override
   State<_NoticeBody> createState() => _NoticeBodyState();
@@ -216,7 +235,6 @@ class _NoticeBodyState extends State<_NoticeBody> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final actions = widget.actions;
     return IgnorePointer(
       ignoring: _leaving,
       child: TopEdgeProbe(
@@ -228,14 +246,8 @@ class _NoticeBodyState extends State<_NoticeBody> {
             overflow: TextOverflow.ellipsis,
             child: widget.message,
           ),
-          actions: actions.isEmpty
-              ? null
-              : OverflowBar(
-                  spacing: _NoticeLayout.actionsSpacing,
-                  alignment: MainAxisAlignment.end,
-                  overflowAlignment: OverflowBarAlignment.end,
-                  children: actions,
-                ),
+          secondaryAction: widget.secondaryAction,
+          action: widget.action,
           // La ✕ de Material, con su color sobre el aviso en cada tema; el
           // nombre dice qué cierra, para no confundirse con la ✕ de una hoja
           // que esté abierta debajo.
@@ -259,26 +271,26 @@ class _NoticeBodyState extends State<_NoticeBody> {
   }
 }
 
-enum _NoticeSlot { message, actions, close }
+enum _NoticeSlot { message, secondaryAction, action, close }
 
 /// Acomoda el texto, los botones y la ✕ del aviso: en un renglón si el texto
 /// entra entero al lado de los botones y la ✕; si no, como una tarjeta, con
-/// la ✕ arriba a la derecha y los botones abajo, juntos y a la derecha.
+/// el texto arriba y, debajo, los botones y la ✕ en un renglón a la derecha;
+/// sin botones, con la ✕ arriba a la derecha.
 class _NoticeLayout
     extends SlottedMultiChildRenderObjectWidget<_NoticeSlot, RenderBox> {
   const _NoticeLayout({
     required this.textDirection,
     required this.message,
-    required this.actions,
+    required this.secondaryAction,
+    required this.action,
     required this.close,
   });
 
-  /// Entre un botón y el otro: cada uno ya trae su aire adentro.
-  static const actionsSpacing = 4.0;
-
   final TextDirection textDirection;
   final Widget message;
-  final Widget? actions;
+  final Widget? secondaryAction;
+  final Widget? action;
   final Widget close;
 
   @override
@@ -287,7 +299,8 @@ class _NoticeLayout
   @override
   Widget? childForSlot(_NoticeSlot slot) => switch (slot) {
     _NoticeSlot.message => message,
-    _NoticeSlot.actions => actions,
+    _NoticeSlot.secondaryAction => secondaryAction,
+    _NoticeSlot.action => action,
     _NoticeSlot.close => close,
   };
 
@@ -304,11 +317,14 @@ class _NoticeLayout
   }
 }
 
-/// Dónde va cada parte del aviso, y su tamaño.
+/// Dónde va cada parte del aviso, y su tamaño. `buttons` va en el orden de
+/// `_RenderNoticeLayout._buttons`; `messageWidth` es el ancho que se le dio al
+/// texto, para medir su línea base en seco.
 typedef _NoticeGeometry = ({
   Size size,
   Offset message,
-  Offset? actions,
+  double messageWidth,
+  List<Offset> buttons,
   Offset close,
 });
 
@@ -317,7 +333,8 @@ class _RenderNoticeLayout extends RenderBox
   _RenderNoticeLayout({required TextDirection textDirection})
     : _textDirection = textDirection;
 
-  /// Del borde al texto, como el `SnackBar` flotante de Material.
+  /// Del borde al texto, como el `SnackBar` flotante de Material; en una
+  /// tarjeta, también del texto al otro borde.
   static const _start = 16.0;
 
   /// Arriba y abajo del texto: con un renglón, el aviso mide 48, como el de
@@ -330,8 +347,9 @@ class _RenderNoticeLayout extends RenderBox
   /// Entre el texto y los botones o la ✕, en un renglón.
   static const _gap = 8.0;
 
-  /// Entre el texto y los botones que bajan, y debajo de ellos.
-  static const _below = 4.0;
+  /// Entre un botón y el otro, uno al lado del otro: cada uno ya trae su
+  /// aire adentro. Apilados no llevan nada: sus cajas de 48 ya los separan.
+  static const _buttonSpacing = 4.0;
 
   TextDirection get textDirection => _textDirection;
   TextDirection _textDirection;
@@ -342,129 +360,215 @@ class _RenderNoticeLayout extends RenderBox
   }
 
   RenderBox get _message => childForSlot(_NoticeSlot.message)!;
-  RenderBox? get _actions => childForSlot(_NoticeSlot.actions);
   RenderBox get _close => childForSlot(_NoticeSlot.close)!;
 
-  /// En el orden en que se dibujan. Mientras se arma, puede faltar alguno.
+  /// Los botones, en el orden en que se leen: el último va pegado a la ✕.
+  List<RenderBox> get _buttons => [
+    ?childForSlot(_NoticeSlot.secondaryAction),
+    ?childForSlot(_NoticeSlot.action),
+  ];
+
+  /// En el orden en que se dibujan y se leen. Mientras se arma, puede faltar
+  /// alguno.
   @override
   Iterable<RenderBox> get children => [
     for (final slot in _NoticeSlot.values) ?childForSlot(slot),
   ];
+
+  /// Lo que ocupan los botones uno al lado del otro.
+  static double _rowWidth(Iterable<double> widths) => widths.isEmpty
+      ? 0
+      : widths.reduce((a, b) => a + b) + _buttonSpacing * (widths.length - 1);
 
   /// Lo que pide todo en un renglón, con el texto entero.
   double _inlineWidth() =>
       _start +
       _message.getMaxIntrinsicWidth(double.infinity) +
       _gap +
-      (_actions?.getMaxIntrinsicWidth(double.infinity) ?? 0) +
+      _rowWidth([
+        for (final button in _buttons)
+          button.getMaxIntrinsicWidth(double.infinity),
+      ]) +
       _close.getMaxIntrinsicWidth(double.infinity) +
       _end;
+
+  /// Dónde empieza cada botón si van uno al lado del otro y el último termina
+  /// en [end].
+  static List<double> _rowStarts(double end, List<Size> sizes) {
+    final starts = List<double>.filled(sizes.length, 0);
+    var x = end;
+    for (var i = sizes.length - 1; i >= 0; i--) {
+      starts[i] = x - sizes[i].width;
+      x = starts[i] - _buttonSpacing;
+    }
+    return starts;
+  }
 
   _NoticeGeometry _compute(
     BoxConstraints constraints,
     ChildLayouter layoutChild,
   ) {
     final message = _message;
-    final actions = _actions;
+    final buttons = _buttons;
     final closeSize = layoutChild(_close, const BoxConstraints());
     final inlineWidth = _inlineWidth();
     final width = constraints.maxWidth.isFinite
         ? constraints.maxWidth
         : inlineWidth;
+    final closeX = width - _end - closeSize.width;
 
     if (inlineWidth <= width) {
       // En un solo renglón: el texto se lleva lo que sobra, y los botones y
       // la ✕ quedan pegados a la derecha, centrados con él.
-      final actionsSize = actions == null
-          ? Size.zero
-          : layoutChild(
-              actions,
-              BoxConstraints(
-                maxWidth: actions.getMaxIntrinsicWidth(double.infinity),
-              ),
-            );
-      final closeX = width - _end - closeSize.width;
-      final actionsX = closeX - actionsSize.width;
+      final buttonSizes = [
+        for (final button in buttons)
+          layoutChild(
+            button,
+            BoxConstraints(
+              maxWidth: button.getMaxIntrinsicWidth(double.infinity),
+            ),
+          ),
+      ];
+      final buttonXs = _rowStarts(closeX, buttonSizes);
+      final messageWidth = math.max<double>(
+        0,
+        (buttonXs.firstOrNull ?? closeX) - _gap - _start,
+      );
       final messageSize = layoutChild(
         message,
-        BoxConstraints(maxWidth: math.max(0, actionsX - _gap - _start)),
+        BoxConstraints(maxWidth: messageWidth),
       );
       final height = constraints.constrainHeight(
-        math.max(
+        [
           messageSize.height + 2 * _textVertical,
-          math.max(closeSize.height, actionsSize.height),
-        ),
+          closeSize.height,
+          for (final size in buttonSizes) size.height,
+        ].reduce(math.max),
       );
       double centered(Size size) => (height - size.height) / 2;
       return (
         size: Size(width, height),
         message: Offset(_start, centered(messageSize)),
-        actions: actions == null
-            ? null
-            : Offset(actionsX, centered(actionsSize)),
+        messageWidth: messageWidth,
+        buttons: [
+          for (var i = 0; i < buttons.length; i++)
+            Offset(buttonXs[i], centered(buttonSizes[i])),
+        ],
         close: Offset(closeX, centered(closeSize)),
       );
     }
 
-    // Como una tarjeta: el texto toma el ancho menos la ✕, que queda arriba a
-    // la derecha, centrada con el primer renglón.
-    final closeX = width - _end - closeSize.width;
-    final messageSize = layoutChild(
-      message,
-      BoxConstraints(maxWidth: math.max(0, closeX - _start)),
-    );
-    final firstLine = math.min(
-      messageSize.height,
-      message.getMinIntrinsicHeight(
-        message.getMaxIntrinsicWidth(double.infinity),
-      ),
-    );
-    final closeY = math.max<double>(
-      0,
-      _textVertical + firstLine / 2 - closeSize.height / 2,
-    );
-    final messageBottom = _textVertical + messageSize.height;
-    final closeBottom = closeY + closeSize.height;
-
-    if (actions == null) {
+    if (buttons.isEmpty) {
+      // Sin botones, el texto toma el ancho menos la ✕, que queda arriba a la
+      // derecha, centrada con el primer renglón: abajo no hay renglón que la
+      // lleve.
+      final messageWidth = math.max<double>(0, closeX - _start);
+      final messageSize = layoutChild(
+        message,
+        BoxConstraints(maxWidth: messageWidth),
+      );
+      final firstLine = math.min(
+        messageSize.height,
+        message.getMinIntrinsicHeight(
+          message.getMaxIntrinsicWidth(double.infinity),
+        ),
+      );
+      final closeY = math.max<double>(
+        0,
+        _textVertical + firstLine / 2 - closeSize.height / 2,
+      );
       return (
         size: constraints.constrain(
-          Size(width, math.max(messageBottom + _textVertical, closeBottom)),
+          Size(
+            width,
+            math.max(
+              _textVertical + messageSize.height + _textVertical,
+              closeY + closeSize.height,
+            ),
+          ),
         ),
         message: const Offset(_start, _textVertical),
-        actions: null,
+        messageWidth: messageWidth,
+        buttons: const [],
         close: Offset(closeX, closeY),
       );
     }
 
-    // Los botones, juntos en su renglón, a la derecha, debajo del texto y de
-    // la ✕. Si ni así entran, se apilan, también a la derecha.
-    final actionsSize = layoutChild(
-      actions,
-      BoxConstraints(maxWidth: math.max(0, width - _start - _end)),
+    // Como una tarjeta: el texto toma el ancho entero, y debajo, sin aire de
+    // más —los botones y la ✕ ya lo traen adentro, el mismo arriba y abajo de
+    // su letra—, los botones y la ✕ en un renglón, pegados a la derecha.
+    final messageWidth = math.max<double>(0, width - 2 * _start);
+    final messageSize = layoutChild(
+      message,
+      BoxConstraints(maxWidth: messageWidth),
     );
-    final actionsY = math.max(messageBottom + _below, closeBottom);
+    final rowTop = _textVertical + messageSize.height;
+    final room = math.max<double>(0, closeX - _start);
+    final buttonSizes = [
+      for (final button in buttons)
+        layoutChild(button, BoxConstraints(maxWidth: room)),
+    ];
+
+    if (_rowWidth([for (final size in buttonSizes) size.width]) <= room) {
+      // Todos en el renglón, centrados entre sí.
+      final rowHeight = [
+        closeSize.height,
+        for (final size in buttonSizes) size.height,
+      ].reduce(math.max);
+      final buttonXs = _rowStarts(closeX, buttonSizes);
+      double centered(Size size) => rowTop + (rowHeight - size.height) / 2;
+      return (
+        size: constraints.constrain(Size(width, rowTop + rowHeight)),
+        message: const Offset(_start, _textVertical),
+        messageWidth: messageWidth,
+        buttons: [
+          for (var i = 0; i < buttons.length; i++)
+            Offset(buttonXs[i], centered(buttonSizes[i])),
+        ],
+        close: Offset(closeX, centered(closeSize)),
+      );
+    }
+
+    // Los botones no entran juntos al lado de la ✕: se apilan, en el orden en
+    // que se leen y pegados a la ✕, que queda al lado del último —el
+    // principal, como en un renglón—, centrada con él. Si la ✕ fuera más alta
+    // que ese botón, no sube más allá del texto.
+    final buttonOffsets = <Offset>[];
+    var y = rowTop;
+    for (final size in buttonSizes) {
+      buttonOffsets.add(Offset(closeX - size.width, y));
+      y += size.height;
+    }
+    final last = buttonSizes.last;
+    final closeY = math.max(rowTop, y - last.height / 2 - closeSize.height / 2);
     return (
       size: constraints.constrain(
-        Size(width, actionsY + actionsSize.height + _below),
+        Size(width, math.max(y, closeY + closeSize.height)),
       ),
       message: const Offset(_start, _textVertical),
-      actions: Offset(width - _end - actionsSize.width, actionsY),
+      messageWidth: messageWidth,
+      buttons: buttonOffsets,
       close: Offset(closeX, closeY),
     );
   }
 
   @override
   double computeMinIntrinsicWidth(double height) {
-    final actions = _actions;
+    final buttons = _buttons;
+    final message = _message.getMinIntrinsicWidth(double.infinity);
+    final close = _close.getMinIntrinsicWidth(double.infinity);
+    // Sin botones, el texto va al lado de la ✕; con botones, toma el ancho
+    // entero, y debajo cada botón, apilado, va al lado de la ✕.
+    if (buttons.isEmpty) return _start + message + close + _end;
     return math.max(
+      _start + message + _start,
       _start +
-          _message.getMinIntrinsicWidth(double.infinity) +
-          _close.getMinIntrinsicWidth(double.infinity) +
+          [
+            for (final button in buttons)
+              button.getMinIntrinsicWidth(double.infinity),
+          ].reduce(math.max) +
+          close +
           _end,
-      actions == null
-          ? 0
-          : _start + actions.getMinIntrinsicWidth(double.infinity) + _end,
     );
   }
 
@@ -485,6 +589,21 @@ class _RenderNoticeLayout extends RenderBox
   Size computeDryLayout(covariant BoxConstraints constraints) =>
       _compute(constraints, ChildLayoutHelper.dryLayoutChild).size;
 
+  /// La del texto, como la de verdad: medida en seco con el ancho que le toca.
+  @override
+  double? computeDryBaseline(
+    covariant BoxConstraints constraints,
+    TextBaseline baseline,
+  ) {
+    final geometry = _compute(constraints, ChildLayoutHelper.dryLayoutChild);
+    final distance = _message.getDryBaseline(
+      BoxConstraints(maxWidth: geometry.messageWidth),
+      baseline,
+    );
+    if (distance == null) return null;
+    return distance + geometry.message.dy;
+  }
+
   @override
   double? computeDistanceToActualBaseline(TextBaseline baseline) {
     final message = _message;
@@ -498,7 +617,10 @@ class _RenderNoticeLayout extends RenderBox
     final geometry = _compute(constraints, ChildLayoutHelper.layoutChild);
     size = geometry.size;
     _place(_message, geometry.message);
-    if (_actions case final actions?) _place(actions, geometry.actions!);
+    final buttons = _buttons;
+    for (var i = 0; i < buttons.length; i++) {
+      _place(buttons[i], geometry.buttons[i]);
+    }
     _place(_close, geometry.close);
   }
 
