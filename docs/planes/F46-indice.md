@@ -1582,3 +1582,166 @@ direcciones también le comen ventana; los dos guardan posiciones en el crudo (l
 salta a su pasaje, y «Ver en el documento» busca el de la creación), así que pasarlos a lo que se
 lee pide traducir esas posiciones y queda para otro paso. Para la sesión principal: mirar en el
 emulador el borrador de «Siglo XX» y el de «Explicar» de una tarjeta de una página web.
+
+### Paso 5g (hecho): el lugar del reproductor de «leer en voz alta»
+
+**Qué se vio** (emulador, 1280x2856 px, unos 2,86 px por dp):
+
+- **H.** En Ajustes › «Clonación de voz», el mini reproductor quedaba a la altura de cuando hay
+  barra de pestañas (y=2448 px): tapaba el botón «Empezar» y abajo dejaba un hueco vacío, donde no
+  había barra.
+- **K.** Con el reproductor achicado, en **Ajustes** el último renglón, «Bloquear bóveda», quedaba
+  debajo de él y no había forma de subirlo; en **Estudiar › Cuadernos**, vacío, el botón flotante
+  «Nuevo cuaderno» quedaba casi entero debajo y solo asomaba un borde; en la **bienvenida del
+  chat**, el reproductor —parado sobre el campo— tapaba a medias «Cargar una clave» de la tarjeta
+  de Gemini; y en **Organizar › Bandeja**, la tarjeta de triar quedaba centrada en todo el cuerpo,
+  sin contar el reproductor, con mucho aire arriba y poco abajo.
+
+**Las causas**, una sola raíz: la geometría del reproductor anclado, que va por encima de todo
+(`ReadAloudOverlay`, en el `builder` de la app):
+
+- **H**: `_shellOnTop()` decidía si había barra mirando la configuración de `go_router`
+  (`matches.last is ShellRouteMatch`), y `go_router` no se entera de una pantalla abierta con
+  `Navigator.of(context, rootNavigator: true).push(...)`: para él seguía arriba la pestaña.
+- **K**: casi ninguna pantalla sabía que el reproductor existía. Solo el marco de lectura
+  (`ReadingPlayerSlot`) y el podcast leían su alto (`readAloudPlayerExtentProvider`) y le
+  reservaban lugar a mano; el resto —listas con su propio margen, botones flotantes, lo centrado—
+  quedaba debajo.
+
+**Los arreglos**:
+
+- **H (`dd3d3680`): si la barra de navegación se ve lo dice la barra misma.** `NavigationBarScope`
+  (`lib/app/navigation/navigation_bar_scope.dart`) envuelve el `Scaffold` de las pestañas
+  (`AdaptiveScaffold`, en el celular) y avisa en `navigationBarShownProvider` mientras su ruta es
+  la de arriba (`ModalRoute.isCurrent`) o lo de arriba es un diálogo, un panel o un menú —que se
+  llevan el foco: `popupRouteHasFocus`, el mismo criterio con que el lector ya se hacía a un lado—;
+  y no se ve si su ruta quedó fuera de escena (`TickerMode`), aunque arriba haya un diálogo. Se
+  descartó mirar la animación de la ruta de abajo (`secondaryAnimation`): no se mueve con una
+  pantalla a pantalla completa (`fullscreenDialog`), que es justo «Clonación de voz». Se entera en
+  el momento en que se abre otra pantalla encima —la abra el router o un `Navigator.push`— y vuelve
+  apenas se empieza a cerrar. Una pantalla abierta dentro de una pestaña, en el navegador de la
+  rama, no la tapa; en una pantalla ancha, con el riel, no hay barra abajo, y el lector ya no mira
+  el ancho por su cuenta. El alto de la barra sale de un solo lugar (`navigationBarHeightOf`).
+  Las pantallas de la lista, caso por caso: las que usan `rootNavigator: true` —«Clonación de voz»
+  (y su `pushReplacement` a sí misma, que sigue en el navegador de la raíz), «Crear una voz», la
+  presentación a pantalla completa— tapan la barra, y antes el lector no se enteraba (el panel de
+  conversaciones del chat también va a la raíz, pero es una ruta emergente: deja ver la barra y
+  el lector se hace a un lado); las demás usan `Navigator.of(context)` y van al navegador de quien las
+  abre: desde una pestaña, al de la rama, con la barra a la vista —«Lo que puede hacer la IA» y
+  «Las imágenes en el teléfono» desde Ajustes, el valor de un vocabulario—, y desde una pantalla que
+  ya tapa las pestañas —el detalle de un elemento, Capturar, un procesado abierto encima—, sobre
+  ella, sin barra. Antes las dos maneras daban «hay barra» si debajo había una pestaña; ahora lo
+  resuelve la barra en todos los casos, sin una lista que mantener.
+- **K (`a301815c`): las pantallas le dejan su lugar al reproductor como al teclado.**
+  `ReadAloudRoom` (`read_aloud_room.dart`) le pasa a las pantallas el alto del reproductor como
+  algo que tapa el pie de la ventana, por `MediaQueryData.viewInsets`, lo mismo que el teclado:
+  cada `Scaffold` achica su cuerpo hasta el borde de arriba del reproductor. Con eso el final de
+  una lista se sube por encima de él aunque la lista tenga su propio margen —Ajustes—, el botón
+  flotante y los avisos quedan arriba, y lo centrado se centra en lo que queda a la vista, sin que
+  ninguna pantalla haga nada. Se evaluó la idea de pasarlo por `padding`/`viewPadding`: alcanza a
+  `SafeArea`, a las listas sin margen y al botón flotante, pero no a una lista con su propio margen
+  como la de Ajustes ni a lo centrado, que habría que tocar pantalla por pantalla.
+  - **Al pie** (una pantalla sin barra): `ReadAloudOverlay` le da al `Navigator`
+    `mediaWithRoomAtBottom`, el alto del reproductor más el borde seguro de abajo, que el
+    reproductor lleva debajo; el borde entra de a poco con los primeros píxeles, así lo que lo
+    respeta no salta al aparecer o irse el reproductor.
+  - **Encima de la barra**: `NavigationBarScope` le da al `Scaffold` de las pestañas
+    `mediaWithRoomAboveBar` —la barra, su borde y el reproductor—; el cuerpo se achica hasta arriba
+    del reproductor y la barra queda donde está, debajo. Lo toma de `ReadAloudRoom`, no del
+    `MediaQuery` de arriba: así no cambia mientras se abre o se cierra otra pantalla encima de las
+    pestañas, ni con un panel abierto. `AdaptiveScaffold` mira el teclado de verdad
+    (`ReadAloudRoom.outerOf`) para irse con él, no el lugar del reproductor.
+  - **Con el teclado** manda el más alto de los dos, no la suma: el reproductor se hace a un lado y
+    el teclado lo tapa; al cerrarse, el contenido baja hasta donde vuelve el reproductor, sin saltar.
+  - **Los diálogos y paneles no lo ven**: abiertos encima, el reproductor se hace a un lado y el
+    `MediaQuery` de arriba del `Navigator` —que también ven ellos— suelta su lugar en el acto; un
+    panel empieza desde el pie. Las pestañas lo conservan: ahí no lo ve nadie más.
+  - **Con la Lectura enfocada, el lugar sigue a la forma elegida** (`resting`), no a la de cada
+    momento (`current`): el reproductor se achica mientras se desplaza, pero lo que se arrastra no
+    cambia de alto a mitad del arrastre, y los avisos se quedan donde estaban, encima de él. El
+    lugar cambia, con el mismo andar que el reproductor (220 ms), al abrirlo, cerrarlo, achicarlo
+    o agrandarlo.
+  - **El reproductor va siempre en el mismo lugar**: encima de la barra o al pie. Lo que se le pide
+    esquivar (`ReadAloudClearance`: el campo del chat, el mini reproductor del audio, los controles
+    de página, el aviso de un enlace roto) lo sigue esquivando el botón redondo; el reproductor ya
+    no se para encima, porque la pantalla le deja su lugar debajo y eso queda arriba de él. En el
+    chat, el campo va arriba del reproductor y la bienvenida no queda tapada.
+  - **Sin reproductor, nada cambia**: `MediaQuery` es el mismo de siempre.
+  - **Lo que reservaba a mano, ya no**: el marco de lectura (`ReadingPlayerSlot`, sonando, ya no
+    ocupa nada: quedaría doble) y el podcast. Se borraron `readAloudPlayerExtentProvider` y
+    `SnackBarFloor`, que subía los avisos sobre el reproductor: ahora los pone encima el `Scaffold`.
+    El reproductor mide solo su forma, sin el borde seguro, que depende de dónde se pare.
+  - **Las dos barras con botón al pie de una pantalla** (`Scaffold.bottomNavigationBar`: «Elegir
+    temas» de lo que no tiene tema y «Guardar» de las preguntas de un cuestionario) usan
+    `BottomActionBar`, que se para encima de lo que tape el pie: un `Scaffold` deja su barra de abajo
+    debajo del teclado, y también la dejaría debajo del reproductor.
+
+**Archivos**: `lib/app/navigation/navigation_bar_scope.dart` (nuevo), `adaptive_scaffold.dart`,
+`lib/features/narration/presentation/read_aloud/read_aloud_room.dart` (nuevo, con `HeightProbe`,
+que viene de `read_aloud_player_extent.dart`, borrado), `read_aloud_overlay.dart`,
+`read_aloud_anchored_player.dart`, `read_aloud_clearance.dart`,
+`lib/core/design/widgets/bottom_action_bar.dart` (nuevo), `snack_bar_footprint.dart`,
+`reading_player_slot.dart`, `podcast_viewer.dart`, `quiz_review_screen.dart`,
+`unsorted_items_screen.dart` y `app.dart`; la GUÍA y `docs/arquitectura.md`.
+
+**Pruebas** (todas con fakes; `--concurrency=1`, de a una tanda por vez):
+
+- **H**, siete nuevas: en `read_aloud_overlay_test.dart`, una pantalla abierta encima con
+  `Navigator.push` a pantalla completa tapa la barra en el momento —antes de terminar de abrirse,
+  el reproductor ya va al pie— y vuelve apenas se empieza a cerrar; una abierta dentro de la
+  pestaña no la tapa; un diálogo tampoco —el reproductor se hace a un lado y vuelve arriba de la
+  barra—; sin barra no hay nada que avisar. En `adaptive_scaffold_test.dart`, con el router de
+  verdad: la barra se ve, la tapa un `Navigator.push` a pantalla completa como «Clonación de voz»
+  y vuelve al cerrarlo; la lista de un paso no la tapa; en una pantalla ancha no hay barra. Y una
+  más con el K: un diálogo sobre una pantalla que tapa a las pestañas no las destapa.
+- **K**, diecisiete nuevas: en una pestaña y en una pantalla abierta con `Navigator.push`, el
+  final de una lista larga con su propio margen se sube por encima del reproductor; sin
+  reproductor la lista llega hasta la barra y `MediaQuery` es el de siempre; el botón flotante
+  queda entero arriba en una pestaña —con la barra debajo del reproductor— y en una pantalla
+  abierta encima, y vuelve a su lugar al cerrarlo; con el borde seguro, al pie y encima de la
+  barra; con el teclado manda el teclado, al pie y en una pestaña; un panel no ve el lugar ni en
+  sus primeros cuadros y empieza desde el pie; en una pantalla ancha la lista termina arriba del
+  reproductor; achicado, el lugar es el del achicado. Con la app de verdad
+  (`adaptive_scaffold_test.dart`, el lector encima como en `App`): en Ajustes, «Bloquear bóveda»
+  se sube por encima del reproductor; en Cuadernos vacío, «Nuevo cuaderno» queda entero arriba;
+  y en una pantalla ancha, con el riel —que también se achica—, lo último de Ajustes también. Y
+  `bottom_action_bar_test.dart`: el botón va encima del borde seguro y encima de lo que tapa el
+  pie, sin sumar el borde que quedó debajo.
+- **Cambian** seis que fijaban la geometría vieja: el reproductor ya no se para sobre lo que
+  esquiva el botón (ahora, eso queda arriba de él); en vez del alto publicado, el cuerpo de la
+  pestaña termina donde empieza el reproductor; con la Lectura enfocada la lista que se arrastra
+  no cambia de alto y el aviso se queda donde estaba, encima del reproductor achicado; y en el
+  marco, lo que se lee termina donde empieza el reproductor, abierto o achicado, sin lugar
+  reservado aparte. **Se borran** las cuatro de `SnackBarFloor`.
+- La tanda relacionada —`test/features/narration`, `test/app`, `test/core/design`,
+  `test/features/reading`, el podcast, el extracto, las pantallas de tarjetas, lo que no tiene
+  tema y el chat que lee en voz alta— pasa entera: 1.486 pruebas, y después de las pruebas de las
+  mutaciones, las 506 de las carpetas tocadas (el lector, la navegación, el marco y los widgets del diseño).
+
+**Mutaciones** (`tool/mutar.py`): 24 de 24 muertas. **H** (5): un panel encima tapa la barra; la
+barra se ve con otra pantalla encima; sin mirar si su ruta está en escena; el lector no lee lo que
+dice la barra; el andamio no avisa. **K** (19): sin el borde seguro debajo del reproductor; el
+teclado y el lugar se suman, al pie y encima de la barra; el borde seguro sigue contando debajo de
+lo tapado; encima de la barra sin su borde; la barra sin lugar o con el del `MediaQuery` de arriba;
+el teclado de la barra con el lugar del reproductor (la barra se iba); los paneles ven el lugar, o
+se les va despacio; el lugar sigue al abierto estando achicado, queda sin lector, sigue a lo de
+cada momento con la Lectura enfocada o salta en vez de acompañar; el reproductor se para sobre lo
+que esquiva el botón; el alto medido con el borde seguro; el marco reserva su lugar aparte; y la
+barra con botón no sube o pierde el borde seguro. Equivalentes, no se mutaron: la salida temprana
+sin lugar de `mediaWithRoomAtBottom` y `mediaWithRoomAboveBar` (con 0 dan el mismo `MediaQuery`,
+o uno que el `Scaffold` acomoda igual: es para no armar uno nuevo), y que `NavigationBarScope`
+se retire al desmontarse (antes de irse ya avisa que no se ve, porque su ruta deja de ser la de
+arriba; el retiro es por si algún día no fuera así).
+
+**Sobre `main`**: rebasado sobre `8aa95914` (el paso 5e); el único choque fue este Avance, al final del
+plan, que va después del 5e.
+
+**Analizador**: 19 avisos, la línea base.
+
+**Queda para mirar en el emulador** (con una APK nueva): «Clonación de voz» con algo sonando —el
+reproductor al pie apenas se abre, sin tapar «Empezar», y de vuelta arriba de la barra al
+cerrarla—; Ajustes con el reproductor achicado y abierto, hasta «Bloquear bóveda»; Cuadernos vacío,
+con «Nuevo cuaderno» entero arriba; la bienvenida del chat, con el campo arriba del reproductor;
+la Bandeja, con la tarjeta centrada en lo que queda; el teclado en el chat con algo sonando; un
+panel (la velocidad, la cola) abierto desde el reproductor en una pantalla sin barra; y la
+Lectura enfocada desplazando una lista larga, que no debería cambiar de alto.
