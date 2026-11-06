@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
+import 'package:sinapsis/core/design/widgets/bottom_action_bar.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -152,16 +153,15 @@ class _UnsortedItemsScreenState extends ConsumerState<UnsortedItemsScreen> {
       // verse apagado, y un FAB no tiene estado deshabilitado.
       bottomNavigationBar: list.isEmpty
           ? null
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: FilledButton.icon(
-                  onPressed: count == 0 || _saving
-                      ? null
-                      : () => _chooseSpaces(list),
-                  icon: const Icon(Icons.folder_outlined),
-                  label: Text(l10n.unsortedChoose(count)),
-                ),
+          // A la vista arriba del reproductor de lectura (F46, paso 5g).
+          : BottomActionBar(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: FilledButton.icon(
+                onPressed: count == 0 || _saving
+                    ? null
+                    : () => _chooseSpaces(list),
+                icon: const Icon(Icons.folder_outlined),
+                label: Text(l10n.unsortedChoose(count)),
               ),
             ),
     );

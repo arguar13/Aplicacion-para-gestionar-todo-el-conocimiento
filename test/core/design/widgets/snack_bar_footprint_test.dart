@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
@@ -18,14 +17,7 @@ void main() {
 
   /// La app con algo que flota abajo a la derecha, parado a [bottom] del
   /// borde, por encima de las pantallas: como el lector flotante.
-  ///
-  /// [floor] es lo anclado abajo —el reproductor de lectura—: los avisos van
-  /// encima.
-  Future<void> pump(
-    WidgetTester tester, {
-    double bottom = 16,
-    ValueListenable<double>? floor,
-  }) async {
+  Future<void> pump(WidgetTester tester, {double bottom = 16}) async {
     tester.view
       ..physicalSize = phone
       ..devicePixelRatio = 1;
@@ -43,12 +35,7 @@ void main() {
           child: SnackBarFootprintHost(
             child: Stack(
               children: [
-                // Como el lector: lo anclado sube los avisos de las pantallas.
-                ValueListenableBuilder<double>(
-                  valueListenable: floor ?? ValueNotifier(0),
-                  builder: (context, floor, _) =>
-                      SnackBarFloor(floor: floor, child: child!),
-                ),
+                child!,
                 Positioned(
                   right: 16,
                   bottom: bottom,
@@ -68,20 +55,14 @@ void main() {
         home: Scaffold(
           body: Builder(
             builder: (context) => Center(
-              child: _ThemedProbe(
-                child: TextButton(
-                  onPressed: () =>
-                      ScaffoldMessenger.of(context).showAppSnackBar(
-                        AppSnackBar(
-                          content: const Text('Movido a la papelera'),
-                          action: SnackBarAction(
-                            label: 'Deshacer',
-                            onPressed: () {},
-                          ),
-                        ),
-                      ),
-                  child: const Text('abrir'),
+              child: TextButton(
+                onPressed: () => ScaffoldMessenger.of(context).showAppSnackBar(
+                  AppSnackBar(
+                    content: const Text('Movido a la papelera'),
+                    action: SnackBarAction(label: 'Deshacer', onPressed: () {}),
+                  ),
                 ),
+                child: const Text('abrir'),
               ),
             ),
           ),
@@ -209,89 +190,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('el aviso va encima de lo anclado abajo, y lo sigue si '
-      'cambia con el aviso a la vista', (tester) async {
-    final floor = ValueNotifier<double>(100);
-    addTearDown(floor.dispose);
-    await pump(tester, floor: floor);
-    await tester.tap(find.text('abrir'));
-    await tester.pumpAndSettle();
-
-    // El margen de abajo de siempre, más lo anclado.
-    expect(card(tester).bottom, phone.height - 10 - 100);
-    expect(floatingBottom(tester), closeTo(card(tester).top - 12, 0.5));
-
-    // El reproductor se agranda: el aviso sube, y lo que flota con él.
-    floor.value = 180;
-    await tester.pumpAndSettle();
-    expect(card(tester).bottom, phone.height - 10 - 180);
-    expect(floatingBottom(tester), closeTo(card(tester).top - 12, 0.5));
-
-    // Sin nada anclado, vuelve a su lugar de siempre.
-    floor.value = 0;
-    await tester.pumpAndSettle();
-    expect(card(tester).bottom, phone.height - 10);
-  });
-
-  testWidgets('el aviso acompaña a lo anclado cuando cambia de alto, sin '
-      'saltar', (tester) async {
-    final floor = ValueNotifier<double>(100);
-    addTearDown(floor.dispose);
-    await pump(tester, floor: floor);
-    await tester.tap(find.text('abrir'));
-    await tester.pumpAndSettle();
-
-    floor.value = 40;
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 80));
-    final halfway = card(tester).bottom;
-    expect(halfway, greaterThan(phone.height - 10 - 100));
-    expect(halfway, lessThan(phone.height - 10 - 40));
-    // Y lo que flota sobre el aviso lo sigue en cada cuadro.
-    await tester.pump();
-    expect(floatingBottom(tester), closeTo(card(tester).top - 12, 0.5));
-
-    await tester.pumpAndSettle();
-    expect(card(tester).bottom, phone.height - 10 - 40);
-  });
-
-  testWidgets('con «sin animaciones», el aviso cambia de lugar de una vez', (
-    tester,
-  ) async {
-    tester.platformDispatcher.accessibilityFeaturesTestValue =
-        const FakeAccessibilityFeatures(disableAnimations: true);
-    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
-    final floor = ValueNotifier<double>(100);
-    addTearDown(floor.dispose);
-    await pump(tester, floor: floor);
-    await tester.tap(find.text('abrir'));
-    await tester.pumpAndSettle();
-
-    floor.value = 40;
-    await tester.pump();
-    expect(card(tester).bottom, phone.height - 10 - 40);
-  });
-
-  testWidgets('subir los avisos no vuelve a armar las pantallas', (
-    tester,
-  ) async {
-    final floor = ValueNotifier<double>(100);
-    addTearDown(floor.dispose);
-    await pump(tester, floor: floor);
-    await tester.tap(find.text('abrir'));
-    await tester.pumpAndSettle();
-    final builds = _ThemedProbe.builds;
-
-    floor.value = 180;
-    await tester.pumpAndSettle();
-
-    // Solo el aviso depende de su tema: la pantalla, que lee el `Theme`, no
-    // se reconstruye. Cambiar el `Theme` entero a mitad de un desplazamiento
-    // volvía a armar la lista que se arrastraba.
-    expect(_ThemedProbe.builds, builds);
-    expect(card(tester).bottom, phone.height - 10 - 180);
-  });
-
   testWidgets('lo que ya está por encima del aviso no se mueve', (
     tester,
   ) async {
@@ -371,20 +269,4 @@ void main() {
       expect(notified, 4);
     });
   });
-}
-
-/// Una pantalla que lee el `Theme` y cuenta cuántas veces se arma.
-class _ThemedProbe extends StatelessWidget {
-  const _ThemedProbe({required this.child});
-
-  static int builds = 0;
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    Theme.of(context);
-    builds++;
-    return child;
-  }
 }

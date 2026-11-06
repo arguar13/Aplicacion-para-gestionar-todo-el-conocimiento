@@ -16,7 +16,6 @@ import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player_extent.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_contents_sheet.dart';
@@ -527,12 +526,12 @@ void main() {
     final floating = find.byKey(const Key('read-aloud-button'));
     final slot = find.byKey(const Key('reading-player-slot'));
 
-    /// Lo que ocupa el reproductor anclado según el lector flotante.
-    double resting() => container.read(readAloudPlayerExtentProvider).resting;
+    final content = find.byType(_Body);
 
     testWidgets('sin nada sonando, «Escuchar»; sonando, el reproductor '
         'anclado de toda la app, abierto o achicado, con su lugar libre abajo '
-        'para no tapar lo último que se lee. Nunca el botón flotante', (
+        'para no tapar lo último que se lee —una sola vez: el marco no lo '
+        'reserva aparte (F46, paso 5g)—. Nunca el botón flotante', (
       tester,
     ) async {
       await pump(tester);
@@ -548,22 +547,17 @@ void main() {
       expect(floating, findsNothing);
       // Uno solo: el del lector flotante, no uno del marco.
       expect(find.descendant(of: slot, matching: player), findsNothing);
-      expect(resting(), greaterThan(0));
-      expect(tester.getSize(slot).height, resting());
-      expect(
-        tester.getTopLeft(player).dy,
-        greaterThanOrEqualTo(tester.getTopLeft(slot).dy),
-      );
+      // Lo que se lee termina donde empieza el reproductor: ni tapado, ni
+      // con un hueco del doble.
+      expect(tester.getSize(slot).height, 0);
+      expect(tester.getRect(content).bottom, tester.getRect(player).top);
 
       await tapKey(tester, 'read-aloud-minimize');
       final collapsed = find.byKey(const Key('read-aloud-collapsed'));
       expect(collapsed, findsOneWidget);
       expect(floating, findsNothing);
-      expect(tester.getSize(slot).height, resting());
-      expect(
-        tester.getTopLeft(collapsed).dy,
-        greaterThanOrEqualTo(tester.getTopLeft(slot).dy),
-      );
+      expect(tester.getSize(slot).height, 0);
+      expect(tester.getRect(content).bottom, tester.getRect(collapsed).top);
 
       await tapKey(tester, 'read-aloud-expand');
       expect(player, findsOneWidget);

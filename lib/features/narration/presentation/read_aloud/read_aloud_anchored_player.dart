@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/reading_queue.dart';
 import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player_extent.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_room.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_speed_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_voice_face.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_kind_badges.dart';
@@ -48,9 +48,10 @@ class ReadAloudAnchoredPlayer extends ConsumerWidget {
   final VoidCallback onVoice;
   final VoidCallback onQueue;
 
-  /// El alto que ocupa, con el borde seguro de abajo si lo lleva, cada vez
-  /// que cambia: el de su forma de ahora, no el de mientras se anima —ver
-  /// `readAloudPlayerExtentProvider`—.
+  /// El alto que ocupa, sin el borde seguro de abajo, cada vez que cambia: el
+  /// de su forma de ahora, no el de mientras se anima. Con eso las pantallas
+  /// le dejan su lugar (`ReadAloudRoom`), que suma el borde seguro si va al
+  /// pie.
   final ValueChanged<double>? onHeight;
 
   @override
@@ -58,8 +59,6 @@ class ReadAloudAnchoredPlayer extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final still = MediaQuery.disableAnimationsOf(context);
     final onHeight = this.onHeight;
-    // El borde seguro lo agrega `SafeArea`, afuera de lo que se mide.
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
     final form = expanded
         ? _OpenPlayer(
             key: const Key('read-aloud-player'),
@@ -73,13 +72,11 @@ class ReadAloudAnchoredPlayer extends ConsumerWidget {
             title: title,
           );
     // Se mide lo de adentro, que ya tiene su alto final: `AnimatedSize` anima
-    // el de afuera.
+    // el de afuera. El borde seguro lo agrega `SafeArea`, afuera de lo que se
+    // mide: cambia según dónde se pare, y la forma no.
     final measured = onHeight == null
         ? form
-        : HeightProbe(
-            onHeight: (height) => onHeight(height + bottomInset),
-            child: form,
-          );
+        : HeightProbe(onHeight: onHeight, child: form);
 
     return Material(
       color: scheme.surfaceContainerHigh,

@@ -20,7 +20,7 @@ import 'package:sinapsis/features/narration/presentation/providers/narration_pro
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player_extent.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_room.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_voice_face.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_face_view.dart';
@@ -483,8 +483,10 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('con la Lectura enfocada, el aviso sigue al reproductor '
-        'mientras te desplazás, sin errores', (tester) async {
+    testWidgets('con la Lectura enfocada, el aviso queda encima del '
+        'reproductor mientras te desplazás, sin saltar ni errores', (
+      tester,
+    ) async {
       final semantics = tester.ensureSemantics();
       await pump(
         tester,
@@ -517,10 +519,8 @@ void main() {
       );
       await tester.tap(find.text('avisar'));
       await tester.pumpAndSettle();
-      expect(
-        notice(tester).bottom,
-        closeTo(tester.getRect(player).top - 10, 0.5),
-      );
+      final above = notice(tester).bottom;
+      expect(above, closeTo(tester.getRect(player).top - 10, 0.5));
 
       final gesture = await tester.startGesture(
         tester.getCenter(find.text('Fila 2')),
@@ -533,11 +533,14 @@ void main() {
         await gesture.moveBy(const Offset(0, -10));
         await tester.pump(const Duration(milliseconds: 30));
       }
-      // Achicado a mitad del arrastre, y el aviso encima de él.
+      // Achicado a mitad del arrastre, y el aviso encima de él, donde
+      // estaba: el lugar del reproductor sigue a la forma elegida, no a la
+      // de cada momento (F46, paso 5g).
       expect(collapsed, findsOneWidget);
+      expect(notice(tester).bottom, above);
       expect(
         notice(tester).bottom,
-        closeTo(tester.getRect(collapsed).top - 10, 0.5),
+        lessThanOrEqualTo(tester.getRect(collapsed).top),
       );
 
       await gesture.up();
@@ -741,29 +744,37 @@ void main() {
       expect(tester.getRect(player).bottom, _phone.height);
     });
 
-    testWidgets('se para encima de lo que pide esquivar', (tester) async {
+    testWidgets('lo que pide esquivar al botón queda arriba de él: la '
+        'pantalla le deja su lugar debajo (F46, paso 5g)', (tester) async {
       await pump(
         tester,
         initial: _reading,
         screen: const Scaffold(
           body: Align(
             alignment: Alignment.bottomCenter,
-            child: ReadAloudClearance(child: SizedBox(height: 100)),
+            child: ReadAloudClearance(
+              child: SizedBox(key: Key('campo'), height: 100),
+            ),
           ),
         ),
       );
 
-      expect(tester.getRect(player).bottom, _phone.height - 100);
+      expect(tester.getRect(player).bottom, _phone.height);
+      expect(
+        tester.getRect(find.byKey(const Key('campo'))).bottom,
+        tester.getRect(player).top,
+      );
     });
 
-    testWidgets('publica cuánto ocupa, y los avisos van por encima de él', (
-      tester,
-    ) async {
+    testWidgets('las pestañas le dejan su lugar, y los avisos van por '
+        'encima de él', (tester) async {
       final router = await pump(tester, initial: _reading, withBar: true);
-      final extent = container.read(readAloudPlayerExtentProvider);
       final top = tester.getRect(player).top;
-      expect(extent.current, _phone.height - top);
-      expect(extent.resting, extent.current);
+      // El cuerpo de la pestaña termina donde empieza el reproductor.
+      expect(
+        tester.getRect(find.text('Pantalla')).center.dy,
+        closeTo(top / 2, 0.5),
+      );
 
       final context = router.routerDelegate.navigatorKey.currentContext!;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -787,8 +798,8 @@ void main() {
       await reader.close();
       await tester.pumpAndSettle();
       expect(
-        container.read(readAloudPlayerExtentProvider),
-        const PlayerExtent(),
+        tester.getRect(find.text('Pantalla')).center.dy,
+        (_phone.height - 80) / 2,
       );
     });
 
@@ -807,6 +818,7 @@ void main() {
         ),
       );
       expect(player, findsOneWidget);
+      final list = tester.getSize(find.byType(ListView));
 
       final gesture = await tester.startGesture(
         tester.getCenter(find.text('Fila 2')),
@@ -817,11 +829,10 @@ void main() {
       await tester.pump();
       expect(player, findsNothing);
       expect(collapsed, findsOneWidget);
-      // Es solo lo que se ve: lo elegido sigue siendo abierto. Lo que ocupa
-      // ahora es menos que en reposo, y con eso se acomodan los avisos.
+      // Es solo lo que se ve: lo elegido sigue siendo abierto, y su lugar
+      // también: la lista que se arrastra no cambia de alto (F46, paso 5g).
       expect(reader.state.panel, ReadAloudPanel.expanded);
-      final extent = container.read(readAloudPlayerExtentProvider);
-      expect(extent.current, lessThan(extent.resting));
+      expect(tester.getSize(find.byType(ListView)), list);
 
       await gesture.up();
       await tester.pumpAndSettle();
@@ -955,6 +966,23 @@ void main() {
       expect(tester.getRect(player).bottom, _phone.height - bar);
     });
 
+    testWidgets('un diálogo abierto sobre una pantalla que tapa a las '
+        'pestañas no las destapa', (tester) async {
+      await pump(tester, initial: _reading, withBar: true, screen: tab);
+      await tester.tap(find.text('encima'));
+      await tester.pumpAndSettle();
+
+      unawaited(
+        showDialog<void>(
+          context: tester.element(find.text('Encima')),
+          builder: (_) => const AlertDialog(content: Text('Diálogo')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Diálogo'), findsOneWidget);
+      expect(container.read(navigationBarShownProvider), isFalse);
+    });
+
     testWidgets('sin barra no hay nada que avisar: el reproductor va al pie', (
       tester,
     ) async {
@@ -962,6 +990,236 @@ void main() {
 
       expect(container.read(navigationBarShownProvider), isFalse);
       expect(tester.getRect(player).bottom, _phone.height);
+    });
+  });
+
+  group('las pantallas le dejan su lugar al reproductor (F46, paso 5g)', () {
+    const bar = 80.0;
+    final last = find.widgetWithText(ListTile, 'Bloquear bóveda');
+    final fab = find.byType(FloatingActionButton);
+    final body = find.byKey(const Key('cuerpo'));
+
+    /// Una lista larga con su propio margen, que no mira `MediaQuery`: como
+    /// la de Ajustes, que termina en «Bloquear bóveda».
+    Widget longList() => Scaffold(
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          for (var i = 0; i < 40; i++) ListTile(title: Text('Fila $i')),
+          const ListTile(title: Text('Bloquear bóveda')),
+        ],
+      ),
+    );
+
+    /// Cuadernos sin cuadernos: el botón flotante, y un cuerpo que respeta
+    /// el borde seguro.
+    Widget fabScreen() => Scaffold(
+      body: const SafeArea(child: SizedBox.expand(key: Key('cuerpo'))),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {},
+        icon: const Icon(Icons.add),
+        label: const Text('Nuevo cuaderno'),
+      ),
+    );
+
+    /// Una pestaña que abre [screen] encima de todo, con `Navigator.push`.
+    Widget opener(Widget Function() screen) => Scaffold(
+      body: Builder(
+        builder: (context) => TextButton(
+          onPressed: () => Navigator.of(
+            context,
+            rootNavigator: true,
+          ).push(MaterialPageRoute<void>(builder: (_) => screen())),
+          child: const Text('abrir'),
+        ),
+      ),
+    );
+
+    Future<void> scrollToEnd(WidgetTester tester) async {
+      await tester.drag(find.byType(ListView).last, const Offset(0, -6000));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('en una pestaña, el final de una lista larga se sube por '
+        'encima del reproductor', (tester) async {
+      await pump(tester, initial: _reading, withBar: true, screen: longList());
+      await scrollToEnd(tester);
+
+      final top = tester.getRect(player).top;
+      expect(top, lessThan(_phone.height - bar));
+      expect(tester.getRect(last).bottom, top - 16);
+    });
+
+    testWidgets('en una pantalla abierta encima con Navigator.push, también', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        initial: _reading,
+        withBar: true,
+        screen: opener(longList),
+      );
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      await scrollToEnd(tester);
+
+      expect(tester.getRect(player).bottom, _phone.height);
+      expect(tester.getRect(last).bottom, tester.getRect(player).top - 16);
+    });
+
+    testWidgets('sin reproductor nada cambia: la lista llega hasta la barra', (
+      tester,
+    ) async {
+      final router = await pump(tester, withBar: true, screen: longList());
+      await scrollToEnd(tester);
+
+      expect(tester.getRect(last).bottom, _phone.height - bar - 16);
+      final navigator = router.routerDelegate.navigatorKey.currentContext!;
+      expect(ReadAloudRoom.heightOf(navigator), 0);
+      expect(MediaQuery.of(navigator), ReadAloudRoom.outerOf(navigator));
+    });
+
+    testWidgets('el botón flotante queda entero arriba de él en una pantalla '
+        'abierta encima, y vuelve a su lugar al cerrarlo', (tester) async {
+      await pump(
+        tester,
+        initial: _reading,
+        withBar: true,
+        screen: opener(fabScreen),
+      );
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(fab).bottom, tester.getRect(player).top - 16);
+
+      await reader.close();
+      await tester.pumpAndSettle();
+      expect(tester.getRect(fab).bottom, _phone.height - 16);
+    });
+
+    testWidgets('en una pestaña, el botón flotante también, y la barra queda '
+        'debajo del reproductor', (tester) async {
+      await pump(tester, initial: _reading, withBar: true, screen: fabScreen());
+
+      expect(tester.getRect(fab).bottom, tester.getRect(player).top - 16);
+      expect(tester.getRect(body).bottom, tester.getRect(player).top);
+      expect(
+        tester.getRect(find.byType(NavigationBar)).top,
+        tester.getRect(player).bottom,
+      );
+    });
+
+    testWidgets('con el borde seguro de abajo, el reproductor al pie lo lleva '
+        'debajo, y el botón flotante queda arriba de los dos', (tester) async {
+      tester.view
+        ..padding = const FakeViewPadding(bottom: 24)
+        ..viewPadding = const FakeViewPadding(bottom: 24);
+      await pump(tester, initial: _reading, screen: fabScreen());
+
+      // Lo que se ve del reproductor, con el borde seguro debajo, en su
+      // mismo fondo.
+      final shown = tester.getRect(player);
+      expect(shown.bottom, _phone.height - 24);
+      expect(tester.getRect(fab).bottom, shown.top - 16);
+      expect(tester.getRect(body).bottom, shown.top);
+    });
+
+    testWidgets('en la pestaña, con el borde seguro, el cuerpo termina donde '
+        'empieza el reproductor, encima de la barra y su borde', (
+      tester,
+    ) async {
+      tester.view
+        ..padding = const FakeViewPadding(bottom: 24)
+        ..viewPadding = const FakeViewPadding(bottom: 24);
+      await pump(tester, initial: _reading, withBar: true, screen: fabScreen());
+
+      final shown = tester.getRect(player);
+      expect(shown.bottom, _phone.height - bar - 24);
+      expect(tester.getRect(body).bottom, shown.top);
+      expect(tester.getRect(fab).bottom, shown.top - 16);
+    });
+
+    testWidgets('mientras se escribe manda el teclado: el lugar no se suma, y '
+        'al cerrarlo vuelve el del reproductor', (tester) async {
+      addTearDown(tester.view.resetViewInsets);
+      await pump(tester, initial: _reading, screen: fabScreen());
+      final top = tester.getRect(player).top;
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+      expect(player, findsNothing);
+      expect(tester.getRect(body).bottom, _phone.height - 300);
+
+      tester.view.resetViewInsets();
+      await tester.pumpAndSettle();
+      expect(tester.getRect(body).bottom, top);
+    });
+
+    testWidgets('mientras se escribe en una pestaña, tampoco', (tester) async {
+      addTearDown(tester.view.resetViewInsets);
+      await pump(tester, initial: _reading, withBar: true, screen: fabScreen());
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(body).bottom, _phone.height - 300);
+    });
+
+    testWidgets('un panel abierto encima no lo ve: el reproductor se hace a un '
+        'lado, y el panel empieza desde el pie', (tester) async {
+      double? sheetInsets;
+      await pump(
+        tester,
+        initial: _reading,
+        screen: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                builder: (sheet) {
+                  sheetInsets = MediaQuery.viewInsetsOf(sheet).bottom;
+                  return const SizedBox(height: 200, child: Text('Panel'));
+                },
+              ),
+              child: const Text('panel'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('panel'));
+      // Desde sus primeros cuadros, no cuando el lugar termine de irse.
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(sheetInsets, 0);
+      await tester.pumpAndSettle();
+      expect(find.text('Panel'), findsOneWidget);
+      expect(player, findsNothing);
+      expect(sheetInsets, 0);
+      expect(tester.getRect(find.byType(BottomSheet)).bottom, _phone.height);
+    });
+
+    testWidgets('en una pantalla ancha, sin barra, el reproductor va al pie y '
+        'la lista termina arriba de él', (tester) async {
+      await pump(tester, initial: _reading, screen: longList());
+      tester.view.physicalSize = const Size(900, 700);
+      await tester.pumpAndSettle();
+      await scrollToEnd(tester);
+
+      expect(tester.getRect(player).width, 640);
+      expect(tester.getRect(player).bottom, 700);
+      expect(tester.getRect(last).bottom, tester.getRect(player).top - 16);
+    });
+
+    testWidgets('achicado, el lugar es el del reproductor achicado', (
+      tester,
+    ) async {
+      await pump(tester, initial: _reading, withBar: true, screen: fabScreen());
+      final open = tester.getRect(body).bottom;
+
+      reader.minimize();
+      await tester.pumpAndSettle();
+      expect(tester.getRect(body).bottom, tester.getRect(collapsed).top);
+      expect(tester.getRect(body).bottom, greaterThan(open));
     });
   });
 

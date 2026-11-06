@@ -8,7 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/navigation/navigation_bar_scope.dart';
 import 'package:sinapsis/core/audio/media_session_hub.dart';
-import 'package:sinapsis/core/design/widgets/snack_bar_footprint.dart';
+import 'package:sinapsis/core/design/widgets/snack_bar_footprint.dart'
+    show LiftAboveSnackBar;
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_anchored_player.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_audio_focus.dart';
@@ -17,8 +18,8 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_c
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_dock.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_media_session.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player_extent.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_queue_sheet.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_room.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_speed_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_voice_face.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
@@ -33,21 +34,26 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/readable_reg
 /// el reproductor deja pasar los toques a la pantalla de abajo.
 ///
 /// El botón aparece solo donde hay algo que leer —ver
-/// `currentReadableProvider`— y no se está leyendo nada. El reproductor queda
+/// `currentReadableProvider`— y no se está leyendo nada, encima de la barra
+/// de navegación si la hay y de lo que se le pida esquivar —ver
+/// `ReadAloudClearance`—. El reproductor queda siempre en el mismo lugar:
 /// encima de la barra de navegación cuando la hay, como el de un reproductor
-/// de música, y encima de lo que se le pida esquivar —ver
-/// `ReadAloudClearance`—. Los dos se hacen a un lado mientras se escribe —con
-/// el teclado abierto— y mientras hay un diálogo o un panel abierto encima,
-/// incluidos los suyos.
+/// de música, y si no, al pie. Los dos se hacen a un lado mientras se
+/// escribe —con el teclado abierto— y mientras hay un diálogo o un panel
+/// abierto encima, incluidos los suyos.
 ///
-/// **Los avisos van por encima del reproductor**: cuánto ocupa se publica en
-/// `readAloudPlayerExtentProvider`, y los avisos suben eso con
-/// `SnackBarFloor` (F45, paso 1), abierto o achicado, así que nunca tapa un
-/// aviso ni su ✕. El botón redondo, en cambio, flota sobre los avisos: se
-/// corre arriba de uno mientras se ve (`LiftAboveSnackBar`, decisión C).
+/// **Las pantallas le dejan su lugar** (F46, paso 5g): lo reciben como algo
+/// que tapa el pie de la ventana, igual que el teclado —ver
+/// `ReadAloudRoom`—, y cada `Scaffold` achica su cuerpo hasta su borde de
+/// arriba. Así no tapa el final de una lista, ni el botón flotante, ni lo
+/// que se esquivaba —el campo del chat queda arriba de él—, y **los avisos
+/// van por encima del reproductor**, abierto o achicado, sin tapar su ✕. El
+/// botón redondo, en cambio, flota sobre los avisos: se corre arriba de uno
+/// mientras se ve (`LiftAboveSnackBar`, decisión C).
 ///
 /// Con la **Lectura enfocada** (Ajustes), el reproductor abierto se achica
-/// solo mientras se desplaza cualquier pantalla, y vuelve al soltar.
+/// solo mientras se desplaza cualquier pantalla, y vuelve al soltar; su
+/// lugar no cambia por eso.
 ///
 /// Y mantiene viva **la tarjeta de lo que suena** (F47, paso 2b) —ver
 /// `mediaSessionHubProvider`—, con el lector en ella: con la app minimizada o
@@ -55,7 +61,7 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/readable_reg
 ///
 /// En el marco de lectura (F47, paso 1) no va el botón: el marco trae
 /// «Escuchar» abajo (`ReadAloudDock`). El reproductor sí, el mismo de toda la
-/// app, y el marco le deja su lugar.
+/// app, con su lugar como en cualquier pantalla.
 class ReadAloudOverlay extends ConsumerStatefulWidget {
   const ReadAloudOverlay({
     required this.router,
@@ -81,6 +87,13 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
 
   /// Si la persona está desplazando una pantalla, para la Lectura enfocada.
   var _scrolling = false;
+
+  /// El alto del reproductor abierto (`true`) y achicado (`false`), sin el
+  /// borde seguro de abajo, de la última vez que se vio cada uno.
+  final _heights = <bool, double>{};
+
+  /// El lugar que se le deja al reproductor: ver [ReadAloudRoom].
+  var _room = 0.0;
 
   @override
   void initState() {
@@ -122,27 +135,27 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
     return false;
   }
 
+  void _measured(double height, {required bool expanded}) {
+    if (_heights[expanded] != height && mounted) {
+      setState(() => _heights[expanded] = height);
+    }
+  }
+
+  /// El lugar del reproductor: el alto de la forma que se eligió —abierta o
+  /// achicada—, no el de cada momento, así la Lectura enfocada no cambia el
+  /// alto de lo que se está desplazando. Mientras no se midió esa forma, el
+  /// de antes.
+  double _roomFor(ReadAloudPanel panel) {
+    if (panel == ReadAloudPanel.hidden) return 0;
+    return _heights[panel == ReadAloudPanel.expanded] ?? _room;
+  }
+
   /// Tocar la tarjeta de lo que suena lleva a la pantalla que lo ofreció,
   /// si no es la de ahora: encima de la de ahora, como el widget «Seguir
   /// escuchando».
   void _openLocation(String location) {
     if (widget.router.state.uri.toString() == location) return;
     unawaited(widget.router.push<void>(location));
-  }
-
-  /// Cuánto tienen que subir los avisos para quedar por encima del
-  /// reproductor: lo que ocupa ahora —también achicado por la Lectura
-  /// enfocada—, menos lo que el andamio de la pantalla ya esquiva solo —la
-  /// barra de navegación, o el borde seguro—, que `current` incluye.
-  double _snackBarLift(MediaQueryData media, {required bool onShell}) {
-    final extent = ref.watch(
-      readAloudPlayerExtentProvider.select((extent) => extent.current),
-    );
-    if (extent == 0) return 0;
-    final avoided = onShell
-        ? navigationBarHeightOf(context) + media.padding.bottom
-        : media.padding.bottom;
-    return math.max(0, extent - avoided);
   }
 
   @override
@@ -156,16 +169,40 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
     // pantalla ancha no la hay —va el riel al costado—, y tampoco en una
     // pantalla abierta encima de las pestañas.
     final onShell = ref.watch(navigationBarShownProvider);
-    final lift = _snackBarLift(MediaQuery.of(context), onShell: onShell);
+    final panel = ref.watch(readAloudControllerProvider.select((s) => s.panel));
+    _room = _roomFor(panel);
+    final media = MediaQuery.of(context);
+    final still = MediaQuery.disableAnimationsOf(context);
 
     return ReadAloudMediaSession(
       onOpenLocation: _openLocation,
       child: Stack(
         children: [
-          // Con el mismo andar que el reproductor, que cambia de alto con
-          // `AnimatedSize` (`ReadAloudAnchoredPlayer`).
-          SnackBarFloor(
-            floor: lift,
+          // Las pantallas le dejan su lugar al reproductor (F46, paso 5g),
+          // con su mismo andar: cambia de alto con `AnimatedSize`
+          // (`ReadAloudAnchoredPlayer`). La de las pestañas lo toma de
+          // `ReadAloudRoom` —encima de su barra—, aunque haya algo abierto
+          // encima: ahí no lo ve nadie más. Las demás, del `MediaQuery` de
+          // arriba del `Navigator`, que también ven los diálogos y los
+          // paneles: con uno abierto el reproductor se hace a un lado, y su
+          // lugar se va con él en el acto —un panel no tiene por qué
+          // empezar más alto—.
+          _AnimatedRoom(
+            room: _room,
+            still: still,
+            builder: (context, room, child) => _AnimatedRoom(
+              room: _popupOnTop ? 0 : _room,
+              still: still || _popupOnTop,
+              child: child!,
+              builder: (context, ownRoom, child) => ReadAloudRoom(
+                height: room,
+                outer: media,
+                child: MediaQuery(
+                  data: mediaWithRoomAtBottom(media, ownRoom),
+                  child: child!,
+                ),
+              ),
+            ),
             child: NotificationListener<UserScrollNotification>(
               onNotification: _onUserScroll,
               child: widget.child,
@@ -180,6 +217,7 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
                 onShell: onShell,
                 popupOnTop: _popupOnTop,
                 scrolling: _scrolling,
+                onHeight: _measured,
               ),
             ),
           ),
@@ -195,12 +233,17 @@ class _ReadAloudLayer extends ConsumerStatefulWidget {
     required this.onShell,
     required this.popupOnTop,
     required this.scrolling,
+    required this.onHeight,
   });
 
   final GlobalKey<NavigatorState> navigatorKey;
   final bool onShell;
   final bool popupOnTop;
   final bool scrolling;
+
+  /// El alto del reproductor abierto (`true`) o achicado, cada vez que
+  /// cambia.
+  final void Function(double height, {required bool expanded}) onHeight;
 
   @override
   ConsumerState<_ReadAloudLayer> createState() => _ReadAloudLayerState();
@@ -210,10 +253,6 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
   /// El título de lo último que se leyó: el reproductor lo sigue mostrando
   /// mientras se va, aunque el lector ya se haya cerrado.
   String _title = '';
-
-  /// El alto del reproductor abierto (`true`) y achicado (`false`), de la
-  /// última vez que se vio cada uno.
-  final _heights = <bool, double>{};
 
   /// La separación del botón redondo con lo que tiene abajo, y del borde
   /// derecho.
@@ -249,15 +288,13 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
   }
 
   /// Desde dónde se para el reproductor: encima de la barra de navegación si
-  /// la hay —que ya incluye el borde seguro de abajo—, y de lo que pida
-  /// esquivar. Sin nada debajo, desde el borde, con su propio borde seguro.
-  double _playerBottom(MediaQueryData media, double? clearance) {
-    final bar = widget.onShell
-        ? navigationBarHeightOf(context) + media.padding.bottom
-        : 0.0;
-    if (clearance == null) return bar;
-    return math.max(bar, media.size.height - clearance);
-  }
+  /// la hay —que ya incluye el borde seguro de abajo—. Sin barra, desde el
+  /// borde, con su propio borde seguro. Lo que pide esquivar al botón
+  /// redondo, el reproductor no lo esquiva: la pantalla le deja su lugar
+  /// debajo (`ReadAloudRoom`), y eso queda arriba de él.
+  double _playerBottom(MediaQueryData media) => widget.onShell
+      ? navigationBarHeightOf(context) + media.padding.bottom
+      : 0.0;
 
   /// Desde dónde se para el botón redondo: lo mismo, con su separación.
   double _buttonBottom(MediaQueryData media, double? clearance) {
@@ -265,26 +302,6 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
     final base = media.padding.bottom + bar + _gap;
     if (clearance == null) return base;
     return math.max(base, media.size.height - clearance + _clearanceGap);
-  }
-
-  /// Publica cuánto ocupa el reproductor, fuera de la construcción.
-  void _publishExtent(PlayerExtent extent) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _extent.report(extent);
-    });
-  }
-
-  late final ReadAloudPlayerExtent _extent = ref.read(
-    readAloudPlayerExtentProvider.notifier,
-  );
-
-  @override
-  void dispose() {
-    final extent = _extent;
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => extent.report(const PlayerExtent()),
-    );
-    super.dispose();
   }
 
   @override
@@ -315,18 +332,8 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
     // cambiar lo que se eligió: al soltar, vuelve como estaba.
     final expanded =
         panel == ReadAloudPanel.expanded && !(focused && widget.scrolling);
-    final playerBottom = _playerBottom(media, clearance);
+    final playerBottom = _playerBottom(media);
     final buttonBottom = _buttonBottom(media, clearance);
-    final height = _heights[expanded] ?? 0;
-    final restingHeight = _heights[panel == ReadAloudPanel.expanded] ?? height;
-    _publishExtent(
-      showPlayer
-          ? PlayerExtent(
-              current: playerBottom + height,
-              resting: playerBottom + restingHeight,
-            )
-          : const PlayerExtent(),
-    );
 
     return Stack(
       children: [
@@ -367,11 +374,8 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
                     onSpeed: () => _openSheet(const ReadAloudSpeedSheet()),
                     onVoice: _openVoices,
                     onQueue: () => _openSheet(const ReadAloudQueueSheet()),
-                    onHeight: (height) {
-                      if (height != _heights[expanded] && mounted) {
-                        setState(() => _heights[expanded] = height);
-                      }
-                    },
+                    onHeight: (height) =>
+                        widget.onHeight(height, expanded: expanded),
                   ),
                 ),
               ),
@@ -381,6 +385,66 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
       ],
     );
   }
+}
+
+/// Lleva [room] a su nuevo valor con el andar del reproductor —o de una vez,
+/// con [still]— y le pasa el de cada cuadro a [builder].
+class _AnimatedRoom extends StatefulWidget {
+  const _AnimatedRoom({
+    required this.room,
+    required this.still,
+    required this.builder,
+    required this.child,
+  });
+
+  final double room;
+  final bool still;
+  final ValueWidgetBuilder<double> builder;
+  final Widget child;
+
+  @override
+  State<_AnimatedRoom> createState() => _AnimatedRoomState();
+}
+
+class _AnimatedRoomState extends State<_AnimatedRoom>
+    with SingleTickerProviderStateMixin {
+  /// El de `AnimatedSize` en `ReadAloudAnchoredPlayer`.
+  late final _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+  );
+  late final _curve = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+  );
+  late Animation<double> _room = AlwaysStoppedAnimation(widget.room);
+
+  @override
+  void didUpdateWidget(_AnimatedRoom oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.room == oldWidget.room) return;
+    if (widget.still) {
+      _controller.stop();
+      _room = AlwaysStoppedAnimation(widget.room);
+      return;
+    }
+    _room = Tween(begin: _room.value, end: widget.room).animate(_curve);
+    unawaited(_controller.forward(from: 0));
+  }
+
+  @override
+  void dispose() {
+    _curve.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _controller,
+    child: widget.child,
+    builder: (context, child) => widget.builder(context, _room.value, child),
+  );
 }
 
 enum _RevealStyle {

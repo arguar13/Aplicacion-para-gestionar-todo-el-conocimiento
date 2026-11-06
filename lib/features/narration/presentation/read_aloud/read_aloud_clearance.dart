@@ -5,9 +5,12 @@ import 'package:sinapsis/core/design/widgets/top_edge_probe.dart';
 
 /// Lo que el lector flotante tiene que esquivar abajo (F25): el mini
 /// reproductor del audio, la caja para escribir del chat... Cada uno avisa
-/// dónde empieza —su borde de arriba, en la pantalla— y el botón redondo y
-/// el reproductor de lectura se paran encima del más alto, como un botón
-/// flotante sobre un aviso.
+/// dónde empieza —su borde de arriba, en la pantalla— y el botón redondo se
+/// para encima del más alto, como un botón flotante sobre un aviso.
+///
+/// El reproductor de lectura no: va siempre encima de la barra de navegación
+/// o al pie, y la pantalla le deja su lugar debajo (`ReadAloudRoom`, F46,
+/// paso 5g), así que esto queda arriba de él.
 ///
 /// El estado es ese borde, o `null` si no hay nada que esquivar.
 class ReadAloudClearances extends Notifier<double?> {

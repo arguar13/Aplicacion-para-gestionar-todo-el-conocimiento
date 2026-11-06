@@ -19,7 +19,6 @@ import 'package:sinapsis/features/narration/presentation/providers/speech_audio_
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_anchored_player.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_follow.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player_extent.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_card.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
@@ -166,10 +165,6 @@ class _PodcastViewerState extends ConsumerState<PodcastViewer> {
             s.document?.id == _readableId && s.panel != ReadAloudPanel.hidden,
       ),
     );
-    // Lo de abajo no queda tapado por el reproductor anclado.
-    final below = ref.watch(
-      readAloudPlayerExtentProvider.select((extent) => extent.resting),
-    );
     final audio = ref.watch(_listenableProvider(creation));
     final readable = audio.valueOrNull;
     // Todos los tramos armados —un guion son decenas, no miles—: así se
@@ -186,7 +181,9 @@ class _PodcastViewerState extends ConsumerState<PodcastViewer> {
       child: SingleChildScrollView(
         key: const Key('podcast-viewer'),
         controller: _scroll,
-        padding: EdgeInsets.fromLTRB(16, 16, 16, 32 + below),
+        // Lo de abajo no queda tapado por el reproductor anclado: la
+        // pantalla le deja su lugar (`ReadAloudRoom`).
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(

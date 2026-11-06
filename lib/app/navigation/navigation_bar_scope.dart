@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_room.dart';
 
 /// El alto de `NavigationBar` sin el borde seguro de abajo: el del tema, o el
 /// de Material 3 si el tema no pone otro.
@@ -50,6 +51,14 @@ bool popupRouteHasFocus() {
 /// Envuelve a la pantalla que tiene la barra de navegación abajo —el
 /// `Scaffold` de las pestañas, `AdaptiveScaffold`— y avisa en
 /// [navigationBarShownProvider] mientras esa barra se ve (F46, paso 5g).
+///
+/// Y le deja al reproductor de lectura su lugar **encima de la barra**
+/// (`mediaWithRoomAboveBar`): el `Scaffold` achica su cuerpo —las pestañas—
+/// hasta el borde de arriba del reproductor, y la barra queda donde está,
+/// debajo de él. El lugar lo toma de `ReadAloudRoom`, no del `MediaQuery` de
+/// arriba —el de una pantalla sin barra, con el reproductor al pie—: así no
+/// cambia mientras hay un diálogo o un panel abierto encima, que no lo ven,
+/// ni mientras se abre o se cierra otra pantalla encima de las pestañas.
 ///
 /// Se ve mientras su ruta es la de arriba, o mientras lo de arriba es un
 /// diálogo, un panel de abajo o un menú, que la dejan ver. La tapa cualquier
@@ -130,5 +139,12 @@ class _NavigationBarScopeState extends ConsumerState<NavigationBarScope> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) => MediaQuery(
+    data: mediaWithRoomAboveBar(
+      ReadAloudRoom.outerOf(context),
+      ReadAloudRoom.heightOf(context),
+      barHeight: navigationBarHeightOf(context),
+    ),
+    child: widget.child,
+  );
 }

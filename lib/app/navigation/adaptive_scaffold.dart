@@ -12,6 +12,7 @@ import 'package:sinapsis/features/flashcards/presentation/widgets/study_day_watc
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/unsorted_task.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_room.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Bajo este ancho, `NavigationBar` abajo; en o por encima, `NavigationRail`
@@ -144,11 +145,13 @@ class AdaptiveScaffold extends ConsumerWidget {
   }
 
   /// Si el teclado tapa la barra de abajo entera: su alto de Material 3 más el
-  /// borde del sistema que todavía quede a la vista.
+  /// borde del sistema que todavía quede a la vista. El teclado de verdad: el
+  /// lugar del reproductor de lectura también llega como algo que tapa el pie
+  /// (`ReadAloudRoom`), y por él la barra no se va.
   static bool _keyboardCoversBar(BuildContext context) {
-    final bar =
-        navigationBarHeightOf(context) + MediaQuery.paddingOf(context).bottom;
-    return MediaQuery.viewInsetsOf(context).bottom >= bar;
+    final media = ReadAloudRoom.outerOf(context);
+    final bar = navigationBarHeightOf(context) + media.padding.bottom;
+    return media.viewInsets.bottom >= bar;
   }
 
   /// La lista de un paso: sus destinos de arriba abajo en orden de uso, cada

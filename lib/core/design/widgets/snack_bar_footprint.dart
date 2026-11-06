@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -95,9 +93,11 @@ class SnackBarFootprints extends ChangeNotifier
 /// lo que flota por encima de todas, como el lector en voz alta. Sin
 /// anfitrión, el aviso no publica nada y nada se corre.
 ///
-/// Es la mitad de un acuerdo: lo que flota **sobre** un aviso se corre por él
-/// ([LiftAboveSnackBar]); lo que está anclado **debajo** de los avisos los
-/// sube a ellos ([SnackBarFloor]).
+/// Lo que flota **sobre** un aviso se corre por él ([LiftAboveSnackBar]). Lo
+/// que está anclado **debajo** de los avisos —el reproductor de lectura— no
+/// necesita nada de acá: las pantallas le dejan su lugar como al teclado
+/// (`ReadAloudRoom`, F46, paso 5g), y cada `Scaffold` pone sus avisos por
+/// encima de él.
 class SnackBarFootprintHost extends StatefulWidget {
   const SnackBarFootprintHost({required this.child, super.key});
 
@@ -125,68 +125,6 @@ class _SnackBarFootprintHostState extends State<SnackBarFootprintHost> {
   Widget build(BuildContext context) =>
       _SnackBarFootprintScope(footprints: _footprints, child: widget.child);
 }
-
-/// Sube los avisos de [child] [floor] por encima de donde los apoya el
-/// `Scaffold` (F45, paso 1, con F47, paso 2): lo que está anclado abajo —el
-/// reproductor de lectura sobre la barra de navegación— nunca tapa un aviso
-/// ni su ✕, abierto o achicado.
-///
-/// Lo hace con el margen de abajo del tema de los avisos
-/// (`SnackBarThemeData.insetPadding`), en un `SnackBarTheme` propio y no en el
-/// `Theme` de la app: cambiarlo reconstruye solo los avisos, no las
-/// pantallas. Por eso [floor] puede seguir a lo anclado en cada cambio —lo
-/// que ocupa ahora—, también mientras se desplaza una lista: cambiar el
-/// `Theme` entero a mitad de un arrastre volvía a armar la lista que se
-/// arrastraba, y Flutter tiraba un error de semántica.
-///
-/// El aviso que se está viendo acompaña el cambio con la misma animación que
-/// lo anclado ([duration], [curve]); con «sin animaciones», de una vez. Lo
-/// que flota sobre el aviso sigue a su nuevo borde ([LiftAboveSnackBar]).
-class SnackBarFloor extends StatelessWidget {
-  const SnackBarFloor({
-    required this.floor,
-    required this.child,
-    this.duration = const Duration(milliseconds: 220),
-    this.curve = Curves.easeOutCubic,
-    super.key,
-  });
-
-  /// Cuánto ocupa lo anclado abajo **por encima de donde el `Scaffold` apoya
-  /// los avisos**: sin la barra de navegación ni el borde seguro, que el
-  /// `Scaffold` ya esquiva solo. 0, nada.
-  final double floor;
-
-  final Duration duration;
-  final Curve curve;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = SnackBarTheme.of(context);
-    // El margen de Material 3 para un aviso flotante, si el tema no pone otro.
-    final inset = theme.insetPadding ?? _kSnackBarInset;
-    // Siempre el mismo `SnackBarTheme` encima, aunque no haya nada anclado:
-    // ponerlo y sacarlo volvería a armar lo de abajo.
-    return TweenAnimationBuilder<double>(
-      tween: Tween(end: math.max(0, floor)),
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : duration,
-      curve: curve,
-      child: child,
-      builder: (context, floor, child) => SnackBarTheme(
-        data: theme.copyWith(
-          insetPadding: inset.copyWith(bottom: inset.bottom + floor),
-        ),
-        child: child!,
-      ),
-    );
-  }
-}
-
-/// El margen de afuera de un aviso flotante en Material 3, cuando el tema no
-/// pone otro (`_SnackbarDefaultsM3.insetPadding`).
-const _kSnackBarInset = EdgeInsets.fromLTRB(15, 5, 15, 10);
 
 /// Pasa las huellas sin reconstruir a nadie cuando cambian: quien las usa las
 /// escucha (ver [LiftAboveSnackBar]).

@@ -15,6 +15,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/design/widgets/snack_bar_footprint.dart';
 import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
@@ -27,7 +28,10 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/unsorted_items_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
 import 'package:sinapsis/features/notebooks/presentation/screens/notebooks_screen.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
@@ -850,4 +854,129 @@ void main() {
       expect(container.read(navigationBarShownProvider), isFalse);
     });
   });
+
+  group('las pestañas le dejan su lugar al reproductor (F46, paso 5g)', () {
+    /// La app con el lector en voz alta encima, como en `App`, leyendo.
+    Widget buildReadingApp(ProviderContainer container) =>
+        UncontrolledProviderScope(
+          container: container,
+          child: Consumer(
+            builder: (context, ref, _) {
+              final router = ref.watch(goRouterProvider);
+              return MaterialApp.router(
+                locale: const Locale('es'),
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                routerConfig: router,
+                builder: (context, child) => SnackBarFootprintHost(
+                  child: ReadAloudOverlay(router: router, child: child!),
+                ),
+              );
+            },
+          ),
+        );
+
+    ProviderContainer readingContainer() => buildUnlockedContainer(
+      overrides: [
+        readAloudControllerProvider.overrideWith(_Reading.new),
+        narrationVoicesProvider.overrideWith((ref) async => const []),
+      ],
+    );
+
+    final player = find.byKey(const Key('read-aloud-player'));
+
+    testWidgets('en Ajustes, «Bloquear bóveda», lo último, se sube por encima '
+        'del reproductor', (tester) async {
+      setLogicalWidth(tester, 400);
+      await tester.pumpWidget(buildReadingApp(readingContainer()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav-step-settings')));
+      await tester.pumpAndSettle();
+
+      await tester.dragUntilVisible(
+        find.text(es.lockVaultTooltip),
+        find.byType(ListView).last,
+        const Offset(0, -300),
+      );
+      await tester.drag(find.byType(ListView).last, const Offset(0, -3000));
+      await tester.pumpAndSettle();
+
+      final last = tester.getRect(
+        find.ancestor(
+          of: find.text(es.lockVaultTooltip),
+          matching: find.byType(ListTile),
+        ),
+      );
+      expect(last.bottom, lessThanOrEqualTo(tester.getRect(player).top));
+      expect(
+        tester.getRect(player).bottom,
+        tester.getRect(find.byType(NavigationBar)).top,
+      );
+    });
+
+    testWidgets('en Cuadernos, sin cuadernos, «Nuevo cuaderno» queda entero '
+        'arriba del reproductor', (tester) async {
+      setLogicalWidth(tester, 400);
+      await tester.pumpWidget(buildReadingApp(readingContainer()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav-step-study')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('nav-step-item-$notebooks')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getRect(find.byKey(const Key('notebook-new'))).bottom,
+        lessThanOrEqualTo(tester.getRect(player).top - 16),
+      );
+    });
+
+    testWidgets('en una pantalla ancha, con el riel, lo último de Ajustes '
+        'también', (tester) async {
+      setLogicalWidth(tester, 1200);
+      await tester.pumpWidget(buildReadingApp(readingContainer()));
+      await tester.pumpAndSettle();
+      // El riel también le deja su lugar: Ajustes, abajo de todo, se busca
+      // desplazándolo.
+      await tester.ensureVisible(find.text(es.navSettings).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.navSettings).last);
+      await tester.pumpAndSettle();
+
+      await tester.dragUntilVisible(
+        find.text(es.lockVaultTooltip),
+        find.byType(ListView).last,
+        const Offset(0, -300),
+      );
+      await tester.drag(find.byType(ListView).last, const Offset(0, -3000));
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(player).bottom, 800);
+      expect(
+        tester.getRect(find.text(es.lockVaultTooltip)).bottom,
+        lessThanOrEqualTo(tester.getRect(player).top),
+      );
+    });
+  });
+}
+
+/// Leyendo algo, con el reproductor abierto: lo que importa acá es dónde
+/// queda, no lo que suena.
+class _Reading extends ReadAloudController {
+  @override
+  ReadAloudState build() => const ReadAloudState(
+    document: ReadableDocument(
+      id: 'algo',
+      title: 'Algo para escuchar',
+      segments: [
+        ReadableSegment(
+          sourceKey: 'texto',
+          start: 0,
+          end: 10,
+          spoken: '0123456789',
+        ),
+      ],
+    ),
+    playing: true,
+    panel: ReadAloudPanel.expanded,
+  );
 }

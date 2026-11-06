@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_player_extent.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -15,10 +14,10 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// - **sin nada sonando**, «Escuchar», que lee lo que se ve —el mismo
 ///   documento que ofrecía el botón flotante, que en el marco no va—;
-/// - **sonando**, abierto o achicado, deja libre lo que ocupa el reproductor
-///   anclado (`readAloudPlayerExtentProvider`, su `resting`: el de la forma
-///   elegida, sin el achicarse pasajero de la Lectura enfocada), así no tapa
-///   lo último que se lee.
+/// - **sonando**, nada: el marco le deja su lugar al reproductor anclado como
+///   cualquier pantalla (`ReadAloudRoom`, F46, paso 5g) —su `Scaffold` se
+///   achica hasta arriba de él—, así no tapa lo último que se lee. Antes este
+///   lugar lo reservaba a mano; ahora quedaría doble.
 ///
 /// Respeta el borde seguro de abajo.
 class ReadingPlayerSlot extends ConsumerWidget {
@@ -28,10 +27,7 @@ class ReadingPlayerSlot extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final panel = ref.watch(readAloudControllerProvider.select((s) => s.panel));
     if (panel != ReadAloudPanel.hidden) {
-      final reserved = ref.watch(
-        readAloudPlayerExtentProvider.select((extent) => extent.resting),
-      );
-      return SizedBox(key: const Key('reading-player-slot'), height: reserved);
+      return const SizedBox.shrink(key: Key('reading-player-slot'));
     }
 
     final offered = ref.watch(
