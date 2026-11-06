@@ -1244,3 +1244,133 @@ búsqueda binaria que no mira dónde empieza (se cuelga); y el tope sin corte se
   Índice, todos.
 - No se volvió a mirar en el emulador: hace falta una APK nueva y volver a cargar los artículos
   (los de la biblioteca de ejemplo ya cargados conservan su texto viejo).
+
+### Paso 5c (hecho): el original desde el Índice, la página web que trababa y los avisos
+
+Tres cosas que se vieron en el emulador con la biblioteca de ejemplo, en seis commits, de
+`f86c8efd` al de este avance. Sin el emulador ni el teléfono: las pruebas son con fakes y las
+mediciones, en la PC.
+
+- **«Abrir en el original» del Índice, apagado sin necesidad** (`f86c8efd`). Con un documento
+  procesado al «Pasar todo» —que pasa solo el texto—, Procesado no guarda su copia del original y
+  la entrada quedaba apagada con «Este documento no guardó una copia de su original», aunque el
+  documento conoce su fuente en la Biblioteca y las otras pantallas ya ofrecen «Ver el original en
+  la Biblioteca». **La causa**: el puerto chico del Índice (`IndexDocumentAccess`) solo sabía de la
+  copia de Procesado. Ahora `IndexDocumentFacts` lleva además la fuente (`IndexLibrarySource`: el
+  elemento, qué original tiene y si está en la papelera), que `ProcessedIndexDocumentAccess` lee
+  recién al abrir la hoja: el elemento por `LibraryRepository.watchById` y qué original tiene con el
+  mismo `FileViewerResolver` que elige el visor de su ficha —así ofrece abrir en un lugar exactamente
+  lo que ese visor sabe abrir en un lugar—. La copia de Procesado sigue ganando; sin ella:
+  - un PDF se abre **en la página del marcador**, una página web **en el título del capítulo** (el
+    que corresponde de los iguales) y un Word, un EPUB o un texto con su texto para estudiar, desde
+    el comienzo, en la ruta nueva **`/library/:id/original`** (`RoutePaths.libraryOriginal`, con el
+    mismo `?page=`, `?heading=` y `nth` que `processedOriginal`; las dos leen el lugar con
+    `_originalPageOf` y `_originalHeadingOf`). La pantalla, `LibraryOriginalScreen`, es **la misma**
+    que abre «Ver la página» o «Leer como libro» desde la ficha: `openDocumentViewer` la arma ahora
+    con `libraryOriginalScreenOf`, que además pasa la página y el título a `OriginalView`. Si el
+    elemento ya no está, lo dice;
+  - una fuente cuyo original no se lee en un visor —un audio, un video, un YouTube, una foto— abre
+    **su ficha**, que lo muestra;
+  - apagada, diciendo por qué, solo sin copia y sin fuente, o con la fuente en la papelera
+    («restaurala para abrir el original»). De la Biblioteca nada se borra ni se toca: solo se abre.
+
+  Textos nuevos en los dos `.arb`, a la par y con sus descripciones: `f46P5cSourcePdfPage`,
+  `f46P5cSourceHeading`, `f46P5cSourceStart`, `f46P5cSourceItem` y `f46P5cSourceInTrash`;
+  `f46P4NoOriginal` dice ahora la verdad completa («No guardó una copia del original y su fuente ya
+  no está en la Biblioteca») y las descripciones de `f46P4OpenOriginal` y `f46P4NoOriginal`, los dos
+  caminos. **Pruebas**: siete en `index_actions_test` (PDF, página web con el segundo de los iguales,
+  Word, audio a su ficha, papelera, la copia que gana y la hoja del documento) con la Biblioteca en
+  el router de prueba; `processed_index_document_access_test` (diez: qué original de la fuente
+  según su visor, la papelera sin mirar el visor, el elemento que ya no está) y
+  `library_original_screen_test` (la dirección con el título llega al `WebPageViewerView`, la de la
+  página, y el elemento que no está o sin original). **Mutaciones**: 13 de 13 muertas.
+
+- **La página web de Fotosíntesis que trababa la app** (`10e48bf9`). Abrir en la Biblioteca el
+  elemento «Fotosíntesis» —la página de Wikipedia archivada, 2,2 MB, embebida en su ficha con «Ver
+  la página» encima— dio «Sinapsis Dev isn't responding». **Lo que se encontró**: el trabajo pesado
+  de Dart ya corría en otro hilo (`showArchivedPage` dentro de `Isolate.run`); lo que quedaba en el
+  hilo de la pantalla era leer y decodificar el archivo entero y mandarlo al otro hilo. Y, sobre
+  todo, **la ficha le daba al `WebView` la página entera** —2.273.665 caracteres, 28 fotos adentro
+  del archivo, 3.173 elementos— solo para mostrar su comienzo debajo de «Ver la página». El `WebView`
+  recibe esa página (`loadHtmlString`), la navega, la dibuja y arma su árbol de accesibilidad **en
+  el hilo principal de Android**, que es el único que puede dar un «no responde»: un hilo de Dart
+  ocupado no lo da. En el emulador se recorrió además la pantalla con `uiautomator dump`, que pide
+  ese árbol entero. No se pudo comprobar en el emulador cuál de esas tareas del `WebView` se pasó
+  de los cinco segundos (este paso no lo usa); lo que se arregló de raíz es que la ficha ya no le
+  da la página entera:
+  - **la vista previa es el comienzo de la página** (`cutArchivedPagePreview`, con
+    `showArchivedPage(previewLetters:)`): lo de antes del artículo —el encabezado, los menús— y las
+    primeras 2.000 letras del artículo (`main`, `article` o `#mw-content-text`; si no hay, el
+    `<body>`), donde **cada foto vale 800 letras** —lo que ocupa, unos diez renglones, y no lo que
+    pesa—. Lo que sigue se saca; los estilos que estaban más abajo se mudan al `<head>`. Se corta
+    **después de contar el texto** de la página entera: lo que queda está en el mismo lugar del
+    texto corrido, así que lo estudiado, los resaltados y las notas se pintan igual en lo que se ve,
+    y el programa de la app se agrega al final de lo que quedó. La vista previa no va a ningún
+    título. La piden la ficha de la Biblioteca (`EmbeddedFileViewer`) y la tarjeta del original de
+    un documento procesado (`ProcessedOriginalSection`) con `WebPageViewerView(preview: true)`; a
+    pantalla completa, la página entera, como siempre;
+  - **el archivo se lee en el otro hilo**: el visor manda un `ArchivedPageJob` (la ruta, no el
+    texto; `archivedPageJobOf`) y `buildArchivedPage` lo lee y lo arma allá, desde una función de
+    primer nivel para que al otro hilo viaje solo el pedido y nunca el visor.
+
+  **Mediciones (PC, `flutter test`, el HTML real sacado del emulador y su Markdown, cuatro rondas)**:
+  antes, el hilo de la pantalla leía y decodificaba el archivo en 12–22 ms y el `WebView` de la
+  ficha recibía 2.273.665 caracteres, 28 fotos y 3.173 elementos, armados en 388–681 ms en el otro
+  hilo; después, el hilo de la pantalla no lee nada y el `WebView` recibe **643.877 caracteres (el
+  28 %), 6 fotos y 1.050 elementos (el 33 %)**, armados en 398–440 ms en el otro hilo (el texto se
+  sigue contando entero, para que lo estudiado caiga en su lugar). **Pruebas**: seis en
+  `archived_page_study_test` (lo que queda y lo que se va con sus fotos, el estilo mudado, que lo
+  que queda sea el comienzo del texto de la página entera y el alineamiento el mismo, la foto que
+  vale diez renglones, sin título, la página corta entera y sin artículo marcado),
+  `web_page_job_test` (el pedido a pantalla completa y en la ficha) y la vista previa pedida en la
+  ficha y en la tarjeta de Procesado, y no a pantalla completa. **Mutaciones**: 11 de 11 muertas.
+
+- **El aviso con hueco** (`ae057a7f`). En el lector, la tarjeta «Todavía no tiene palabras clave»
+  —la de lo que falta en cada resultado de Extraer, `_MissingCard`, la misma para el resumen, la
+  síntesis y las palabras clave— ponía «Marcar con IA» y «Abrir el documento» en un `Wrap`: cuando
+  no entraban, cada uno con su ancho, pegados a la izquierda y con un hueco grande a la derecha.
+  Ahora van en un **`AdaptiveButtonBar`** (`lib/core/design/widgets/adaptive_button_bar.dart`), un
+  `RenderBox` propio: si la suma de sus anchos naturales y el espacio entra, en un renglón, con 8
+  entre ellos y centrados en alto (de derecha a izquierda, el primero a la derecha); si no,
+  apilados, con 8 entre ellos y **todos del ancho entero**. **Pruebas**: el widget a 360 y 412 dp
+  con la letra a 1,0, 1,3 y 2,0, justo al límite, de derecha a izquierda, alturas distintas y el
+  toque; y la tarjeta de verdad en el lector, en los mismos seis casos, midiendo posiciones.
+
+- **Los huecos en el texto** (`09e10ac8`). Entre «véase Fotosíntesis (película).» y
+  «Representación esquemática…» no había cajas reservadas ni fotos que no cargaban: el texto
+  procesado trae cada foto de la página como un renglón propio —`[![](https://thumb.wikimedia…)](…)`,
+  sin texto alternativo— y `RenderedMarkdown` la leía como nada **pero dejaba sus fines de línea**:
+  entre dos párrafos, tres renglones vacíos. El 429 de Wikimedia no tiene que ver: el lector no
+  baja esas fotos. **De raíz, en el renderizador** (`_collapseVanished`): cada tramo seguido de
+  renglones vacíos y de renglones que no muestran nada, con al menos uno de estos, se ve como sin
+  ellos —un solo corte de párrafo si había un renglón vacío, ninguno si la foto estaba sola entre
+  dos renglones, nada al comienzo del texto—. Lo que se quita sigue en el crudo con su lugar: cada
+  tramo que se ve es el mismo pedazo del crudo y los resaltados caen donde caían. Los renglones
+  vacíos que no tocan una foto quedan como estaban; una foto con texto alternativo se sigue
+  leyendo. **Pruebas**: siete en `markdown_display_test` (Fotosíntesis, la foto sola entre dos
+  renglones, varias seguidas y al comienzo, los espacios de su renglón, la que tiene texto
+  alternativo, los renglones vacíos sin foto y un resaltado guardado). **Medición (PC)**: el texto
+  de Fotosíntesis tiene 17 renglones de foto sin texto alternativo; con el renderizador de antes, lo
+  que se veía tenía 17 huecos de tres renglones vacíos o más, y ahora ninguno.
+
+  **Mutaciones** de los dos: 8 de 8 muertas en la barra y la tarjeta, y 6 de 6 en el
+  renderizador; una de estas —que el renglón de la foto se quede con los espacios que la rodean—
+  sobrevivió en la primera vuelta, y la mató la prueba de los espacios, que se agregó por eso.
+
+- **La GUÍA** (`ad4df27f`) dice lo nuevo de «Abrir en el original» del Índice, que la ficha
+  muestra el comienzo de una página web y la entera se abre con «Ver la página», cómo van los
+  botones de lo que falta y que una foto sin descripción no deja un espacio en blanco en el texto.
+
+**Sobre `main`**: los commits se rebasaron sobre `32e3d23c` (el paso 5b, que movió la regla de lo
+en línea de `RenderedMarkdown` a `markdownInlinePattern`), sin conflictos: el arreglo de los huecos
+está en el armado de los renglones, no en esa regla.
+
+**Analizador**: 19 avisos, la línea base (todos `comment_references` previos). **Pruebas**, con
+fakes y `--concurrency=2`: antes del rebase, `test/features/index`, `viewer`, `processed`,
+`creations`, `organize`, `library` y `reading`, `test/app` y `test/core`: 5.836 pasan, 0 fallas;
+después, las mismas salvo `creations` fuera de `extract`: 3.884 pasan, 0 fallas.
+
+**Queda para la sesión principal**: mirar en el emulador que la ficha de «Fotosíntesis» abre sin
+trabarse —también con `uiautomator dump`— y que «Ver la página» abre la entera; que «Abrir en el
+original» de un documento pasado con «Pasar todo» abre el PDF en su página y la página web en su
+título; y la tarjeta de lo que falta y el texto de Fotosíntesis sin huecos, en el teléfono.
