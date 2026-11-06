@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/core/util/markdown_plain_text.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
 import 'package:sinapsis/features/creations/extract/domain/extract_text.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
@@ -152,11 +153,10 @@ final _close = String.fromCharCode(0xE001);
 /// oración que empieza un renglón.
 final _linePrefix = RegExp(r'^\s*(?:#{1,6}\s+|>\s?|[-*+]\s+|\d{1,9}[.)]\s+)');
 
-/// Sin enlaces, sin `**`, `__` ni acentos graves: como `studyPlainText`.
-String _plain(String raw) => raw
-    .replaceAllMapped(RegExp(r'\[\[([^\]]+)\]\]'), (m) => m[1]!)
-    .replaceAllMapped(RegExp(r'!?\[([^\]]*)\]\([^)]*\)'), (m) => m[1]!)
-    .replaceAll(RegExp(r'\*\*|__|`'), '');
+/// Lo que se lee, como `studyPlainText`: es `markdownPlainText` (F46, paso
+/// 5e). Las señales de las palabras clave son letras más para él —de uso
+/// privado, ninguna es una marca de Markdown—, así que quedan donde estaban.
+String _plain(String raw) => markdownPlainText(raw);
 
 /// Si la palabra clave `[start, end)` de [raw] se puede poner en negrita sin
 /// romper el Markdown: en un renglón, sin marcas adentro ni pegadas.

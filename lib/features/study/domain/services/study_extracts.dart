@@ -1,4 +1,5 @@
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
+import 'package:sinapsis/core/util/markdown_plain_text.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
 import 'package:sinapsis/features/study/domain/services/study_words.dart';
 
@@ -62,12 +63,13 @@ List<String> studyKeywordsExtract(String content, DocumentStudy study) => [
   for (final part in studyKeywordParts(content, study)) part.word,
 ];
 
-/// [raw] en un solo renglón y sin marcado: un `[[Título]]` o un
-/// `[texto](dirección)` quedan en su texto, y se van `**`, `__` y los
-/// acentos graves. Lo que se lee, para el modelo o para copiar.
-String studyPlainText(String raw) => raw
-    .replaceAllMapped(RegExp(r'\[\[([^\]]+)\]\]'), (m) => m[1]!)
-    .replaceAllMapped(RegExp(r'!?\[([^\]]*)\]\([^)]*\)'), (m) => m[1]!)
-    .replaceAll(RegExp(r'\*\*|__|`'), '')
-    .replaceAll(RegExp(r'\s+'), ' ')
-    .trim();
+/// [raw] en un solo renglón y sin marcado: lo que se lee, para el modelo o
+/// para copiar. Es `markdownPlainText`, la misma regla con que viaja al chat
+/// el pasaje de un capítulo (F46, paso 5e): un enlace o un `[[Título]]` en su
+/// texto, una imagen en su texto alternativo, sin énfasis, sin código, sin
+/// HTML en línea y sin llamadas a notas al pie. Antes tenía su propia regla,
+/// que dejaba la cursiva con sus `*` y una nota de Wikipedia como `[[1]](…)`.
+String studyPlainText(String raw) =>
+    markdownPlainText(raw).replaceAll(_spaces, ' ').trim();
+
+final _spaces = RegExp(r'\s+');

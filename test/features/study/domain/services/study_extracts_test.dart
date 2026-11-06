@@ -193,4 +193,15 @@ void main() {
       'Un dato y Roma, código y x.',
     );
   });
+
+  test('el texto sin marcado es el que viaja al chat (F46, paso 5e): sin '
+      'cursiva, sin fotos, sin notas al pie de Wikipedia', () {
+    expect(
+      studyPlainText(
+        'Una *idea* ![](https://x.org/a.jpg) con su '
+        'nota.<sup>[[3]](#cite_note-3)</sup>',
+      ),
+      'Una idea con su nota.',
+    );
+  });
 }
