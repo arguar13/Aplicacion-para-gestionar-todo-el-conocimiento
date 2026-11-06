@@ -26,6 +26,10 @@ class IndexScreenHarness {
   IndexScreenHarness(this.repository);
 
   final FakeIndexRepository repository;
+
+  /// Lo que se sabe de cada documento para el toque largo (F46, paso 4).
+  final documents = FakeIndexDocumentAccess();
+
   late GoRouter router;
   late ProviderContainer container;
 
@@ -63,6 +67,19 @@ class IndexScreenHarness {
         GoRoute(
           path: RoutePaths.processed,
           builder: (context, state) => const Scaffold(body: Text('Procesado')),
+          routes: [
+            GoRoute(
+              path: ':id/original',
+              builder: (context, state) => Scaffold(
+                appBar: AppBar(),
+                body: Text('original ${state.uri}'),
+              ),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: RoutePaths.chat,
+          builder: (context, state) => const Scaffold(body: Text('chat')),
         ),
       ],
     );
@@ -70,6 +87,7 @@ class IndexScreenHarness {
     container = ProviderContainer(
       overrides: [
         indexRepositoryProvider.overrideWithValue(repository),
+        indexDocumentAccessProvider.overrideWithValue(documents),
         sharedPreferencesProvider.overrideWithValue(preferences),
         clockProvider.overrideWithValue(() => kIndexTestNow),
         indexReaderBuilderProvider.overrideWithValue(

@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/index_entry_origin.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/index/domain/entities/index_tree.dart';
+import 'package:sinapsis/features/index/domain/repositories/index_document_access.dart';
 import 'package:sinapsis/features/index/domain/repositories/index_repository.dart';
 import 'package:sinapsis/features/index/domain/services/index_match.dart';
 import 'package:sinapsis/features/index/domain/services/index_order.dart';
@@ -183,6 +184,26 @@ class FakeIndexRepository implements IndexRepository {
     renamed[imageId] = title;
     return right(unit);
   }
+}
+
+/// Un [IndexDocumentAccess] de prueba (F46, paso 4): lo que se sabe de cada
+/// documento —su título y su copia del original— y su texto, como lo diría
+/// Procesado. Un documento que no está en [facts] ya no existe.
+class FakeIndexDocumentAccess implements IndexDocumentAccess {
+  final facts = <String, IndexDocumentFacts>{};
+  final texts = <String, String>{};
+
+  /// Cada documento por el que se preguntó, en orden.
+  final asked = <String>[];
+
+  @override
+  Future<IndexDocumentFacts?> factsOf(String documentId) async {
+    asked.add(documentId);
+    return facts[documentId];
+  }
+
+  @override
+  Future<String?> textOf(String documentId) async => texts[documentId];
 }
 
 /// Un documento del Índice para las pruebas, con lo que importa de entrada.

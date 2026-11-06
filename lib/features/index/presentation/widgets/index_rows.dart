@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +9,7 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/index/domain/entities/index_tree.dart';
 import 'package:sinapsis/features/index/domain/services/index_match.dart';
 import 'package:sinapsis/features/index/domain/services/index_outline.dart';
+import 'package:sinapsis/features/index/presentation/index_actions.dart';
 import 'package:sinapsis/features/index/presentation/index_opening.dart';
 import 'package:sinapsis/features/index/presentation/providers/index_providers.dart';
 import 'package:sinapsis/features/index/presentation/widgets/index_leader_line.dart';
@@ -178,6 +181,25 @@ class _FoldKeys extends StatelessWidget {
   }
 }
 
+/// Lo que se hace con una fila desde el teclado (F46, paso 4): la tecla de
+/// menú o Mayús+F10 abren lo mismo que mantenerla apretada, como en el menú
+/// contextual de cualquier programa.
+class _MenuKeys extends StatelessWidget {
+  const _MenuKeys({required this.onMenu, required this.child});
+
+  final VoidCallback onMenu;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => CallbackShortcuts(
+    bindings: {
+      const SingleActivator(LogicalKeyboardKey.contextMenu): onMenu,
+      const SingleActivator(LogicalKeyboardKey.f10, shift: true): onMenu,
+    },
+    child: child,
+  );
+}
+
 /// Un tema: su color, su nombre en versalitas y cuántos documentos tiene. Se
 /// pliega y se despliega con un toque, y queda fijo arriba mientras se
 /// recorren sus documentos.
@@ -345,6 +367,10 @@ class IndexDocumentPlace {
 ///
 /// [unfolded] `null` es una fila que no se pliega —la de un documento que
 /// coincide con lo buscado—: tocarla hace [onTap] y no muestra ⌄.
+///
+/// Mantenerla apretada —o el clic derecho, la tecla de menú, la acción del
+/// lector de pantalla— abre lo que se hace con el documento
+/// (`showIndexDocumentActions`).
 class IndexDocumentRow extends ConsumerWidget {
   const IndexDocumentRow({
     required this.document,
@@ -416,6 +442,8 @@ class IndexDocumentRow extends ConsumerWidget {
       ?topicsLine,
     ].join(', ');
 
+    void menu() => unawaited(showIndexDocumentActions(context, ref, document));
+
     final row = Semantics(
       container: true,
       button: true,
@@ -424,9 +452,16 @@ class IndexDocumentRow extends ConsumerWidget {
       selected: selected,
       label: semantics,
       onTap: onTap,
+      onLongPress: menu,
+      onLongPressHint: l10n.f46P4MoreActions,
+      customSemanticsActions: {
+        CustomSemanticsAction(label: l10n.f46P4MoreActions): menu,
+      },
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
+        onLongPress: menu,
+        onSecondaryTap: menu,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: kIndexRowMinHeight + 8),
           child: Padding(
@@ -555,7 +590,7 @@ class IndexDocumentRow extends ConsumerWidget {
         child: _FoldKeys(
           unfolded: unfolded ?? true,
           onToggle: unfolded == null ? null : onTap,
-          child: row,
+          child: _MenuKeys(onMenu: menu, child: row),
         ),
       ),
     );
@@ -568,6 +603,9 @@ class IndexDocumentRow extends ConsumerWidget {
 ///
 /// Tocarla la abre ([onOpen]); su ⌄, si tiene capítulos adentro, la pliega o
 /// la despliega ([onToggle]), y también las flechas ← y → del teclado.
+/// Mantenerla apretada —o el clic derecho, la tecla de menú, la acción del
+/// lector de pantalla— abre lo que se hace con ella
+/// (`showIndexEntryActions`).
 ///
 /// [matched] es para la búsqueda: `true` en lo que coincide —resaltado—,
 /// `false` en un capítulo que se ve porque contiene a una coincidencia, más
@@ -625,6 +663,9 @@ class IndexEntryRow extends ConsumerWidget {
     );
     final indent = kIndexEntryInset + (level - 1) * kIndexLevelIndent;
     final toggle = onToggle;
+    void menu() => unawaited(
+      showIndexEntryActions(context, ref, entry, number: row.number),
+    );
 
     final content = Row(
       children: [
@@ -697,41 +738,48 @@ class IndexEntryRow extends ConsumerWidget {
         child: _FoldKeys(
           unfolded: row.unfolded,
           onToggle: row.hasChildren ? toggle : null,
-          child: Semantics(
-            container: true,
-            button: true,
-            selected: selected,
-            expanded: row.hasChildren && toggle != null ? row.unfolded : null,
-            label: indexEntrySemantics(l10n, entry, number: row.number),
-            onTap: onOpen,
-            customSemanticsActions: row.hasChildren && toggle != null
-                ? {
-                    CustomSemanticsAction(
-                      label: row.unfolded ? l10n.f46P3Fold : l10n.f46P3Unfold,
-                    ): toggle,
-                  }
-                : null,
-            excludeSemantics: true,
-            child: InkWell(
+          child: _MenuKeys(
+            onMenu: menu,
+            child: Semantics(
+              container: true,
+              button: true,
+              selected: selected,
+              expanded: row.hasChildren && toggle != null ? row.unfolded : null,
+              label: indexEntrySemantics(l10n, entry, number: row.number),
               onTap: onOpen,
-              child: CustomPaint(
-                painter: _LevelGuides(
-                  levels: level - 1,
-                  color: colors.outlineVariant,
-                  textDirection: Directionality.of(context),
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    minHeight: kIndexRowMinHeight,
+              onLongPress: menu,
+              onLongPressHint: l10n.f46P4MoreActions,
+              customSemanticsActions: {
+                if (row.hasChildren && toggle != null)
+                  CustomSemanticsAction(
+                    label: row.unfolded ? l10n.f46P3Fold : l10n.f46P3Unfold,
+                  ): toggle,
+                CustomSemanticsAction(label: l10n.f46P4MoreActions): menu,
+              },
+              excludeSemantics: true,
+              child: InkWell(
+                onTap: onOpen,
+                onLongPress: menu,
+                onSecondaryTap: menu,
+                child: CustomPaint(
+                  painter: _LevelGuides(
+                    levels: level - 1,
+                    color: colors.outlineVariant,
+                    textDirection: Directionality.of(context),
                   ),
-                  child: Padding(
-                    padding: EdgeInsetsDirectional.fromSTEB(
-                      indent - 14,
-                      6,
-                      16,
-                      6,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: kIndexRowMinHeight,
                     ),
-                    child: content,
+                    child: Padding(
+                      padding: EdgeInsetsDirectional.fromSTEB(
+                        indent - 14,
+                        6,
+                        16,
+                        6,
+                      ),
+                      child: content,
+                    ),
                   ),
                 ),
               ),
