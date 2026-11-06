@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
+import 'package:sinapsis/features/creations/extract/domain/extract_place.dart';
 import 'package:sinapsis/features/creations/extract/domain/extract_text.dart';
 import 'package:sinapsis/features/creations/extract/presentation/extract_marking.dart';
 import 'package:sinapsis/features/creations/extract/presentation/providers/extract_providers.dart';
@@ -65,6 +66,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///   extra de `ReadingScrollPhysics` es para pasar hojas de un PDF; en un
 ///   texto de corrido, un arrastre corto bajaba muchísimo de una vez.
 ///
+/// - **Un lugar** ([place]; un capítulo del Índice, F46, paso 4): al abrirse
+///   —o al pedirse otro, con el lector ya abierto al costado del Índice— va
+///   justo ahí y lo resalta un momento, por el mismo camino que una nota de
+///   «Notas (N)».
+///
 /// Un libro entero son miles de bloques: la lista arma solo los que se ven, y
 /// lo que suena reconstruye solo el bloque donde está.
 class ExtractViewer extends ConsumerStatefulWidget {
@@ -72,6 +78,8 @@ class ExtractViewer extends ConsumerStatefulWidget {
     required this.read,
     required this.title,
     this.kicker,
+    this.place,
+    this.location,
     super.key,
   });
 
@@ -83,6 +91,13 @@ class ExtractViewer extends ConsumerStatefulWidget {
   /// Lo que va arriba del título de cada documento —«TEXTO · 6 PÁGINAS»—;
   /// sin esto, el tipo y cuánto tiene lo marcado, como en «Lo creado».
   final String Function(ExtractSection section)? kicker;
+
+  /// Adónde ir al abrirse; `null`, desde el comienzo.
+  final ExtractPlace? place;
+
+  /// La dirección a la que vuelve «Seguir escuchando»
+  /// ([ReadableDocument.location]); `null` es la de la pantalla.
+  final String? location;
 
   @override
   ConsumerState<ExtractViewer> createState() => _ExtractViewerState();
@@ -223,10 +238,15 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
   /// Las notas en el texto de cada documento (F45, paso 8b).
   List<_SectionNotes> _notes = const [];
 
-  /// La nota a la que se fue desde «Notas (N)», marcada un momento: de qué
-  /// documento y su tramo.
-  ({int section, int start, int end})? _noteFlash;
-  Timer? _noteFlashTimer;
+  /// Lo que se marca un momento —la nota a la que se fue desde «Notas (N)»,
+  /// el capítulo que se abrió desde el Índice—: de qué documento y su tramo.
+  ({int section, int start, int end})? _flash;
+  Timer? _flashTimer;
+
+  /// El último lugar al que se fue ([ExtractViewer.place]): cada uno, una
+  /// sola vez, aunque la lista se vuelva a armar —se marcó algo, se editó una
+  /// página—.
+  ExtractPlace? _placed;
 
   String get _readableId => widget.read.readableId;
 
@@ -253,7 +273,7 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
 
   @override
   void dispose() {
-    _noteFlashTimer?.cancel();
+    _flashTimer?.cancel();
     _follow
       ..removeListener(_onFollowChanged)
       ..dispose();
@@ -300,27 +320,49 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
           title: _sections[i].title.trim().isEmpty
               ? l10n.f43TextUntitled
               : _sections[i].title,
-          reveal: (start, end) => _revealNote(i, start, end),
+          reveal: (start, end) => _revealRange(i, start, end),
         ),
   ];
 
   /// Lleva la vista a `[start, end)` del documento [section] y lo marca un
-  /// momento: lo que hace tocar una nota en «Notas (N)». `false` si lo que
-  /// se ve no lo muestra —en el resumen, una oración que no es del resumen—.
-  bool _revealNote(int section, int start, int end) {
+  /// momento: lo que hace tocar una nota en «Notas (N)» y abrir un capítulo
+  /// del Índice. `false` si lo que se ve no lo muestra —en el resumen, una
+  /// oración que no es del resumen—.
+  bool _revealRange(int section, int start, int end) {
     if (section >= _sections.length) return false;
     final block = _blockShowing(_sections[section].blocks, start, end);
     if (block == null) return false;
-    _noteFlashTimer?.cancel();
-    setState(() => _noteFlash = (section: section, start: start, end: end));
-    _noteFlashTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _noteFlash = null);
+    _flashTimer?.cancel();
+    setState(() => _flash = (section: section, start: start, end: end));
+    _flashTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _flash = null);
     });
     _follow.release();
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _goToRange(_firstBlockRow[section] + block, start, end),
     );
     return true;
+  }
+
+  /// Va a [ExtractViewer.place], si es uno nuevo y su documento ya se puede
+  /// mostrar: después del cuadro, cuando la lista ya tiene sus filas. Un
+  /// documento que todavía se lee espera a estar listo; uno que no está, o
+  /// un lugar que ya no cae en el texto, deja la lectura desde el comienzo.
+  void _goToPlace() {
+    final place = widget.place;
+    if (place == null || place == _placed) return;
+    final section = _sections.indexWhere(
+      (s) => s.documentId == place.documentId,
+    );
+    if (section >= 0 &&
+        _sections[section].status == ExtractSectionStatus.loading) {
+      return;
+    }
+    _placed = place;
+    if (section < 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _revealRange(section, place.start, place.end);
+    });
   }
 
   /// Deja `[start, end)` de la fila [row] en la franja cómoda de la vista,
@@ -422,6 +464,7 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
       id: _readableId,
       title: widget.title,
       segments: segments,
+      location: widget.location,
     );
   }
 
@@ -700,6 +743,7 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
     _layout(sections);
     _outline(l10n);
     _notes = _watchNotes(sections);
+    _goToPlace();
 
     final document = _readable(ref.watch(extractSegmentsProvider(read)));
     // Lo que cambia mientras se escucha —se marcó algo, se editó— se le pasa
@@ -807,7 +851,7 @@ class _ExtractViewerState extends ConsumerState<ExtractViewer> {
         block: _sections[section].blocks[block],
         notes: _notes[section],
         bubbles: _notes[section].bubblesByBlock[block] ?? const [],
-        flash: switch (_noteFlash) {
+        flash: switch (_flash) {
           final flash? when flash.section == section => (
             flash.start,
             flash.end,
@@ -1021,8 +1065,8 @@ class _BlockView extends ConsumerStatefulWidget {
   /// Las notas cuyo globito va en este bloque.
   final List<PlacedTextNote> bubbles;
 
-  /// La nota a la que se fue, marcada un momento, en posiciones del texto
-  /// propio.
+  /// Lo que se marca un momento —la nota a la que se fue, el capítulo que se
+  /// abrió desde el Índice—, en posiciones del texto propio.
   final (int, int)? flash;
 
   @override
@@ -1223,7 +1267,8 @@ class _BlockViewState extends ConsumerState<_BlockView> implements _Revealable {
         markdown.buildSpans(
           theme,
           [
-            // La nota a la que se fue desde «Notas (N)», un momento.
+            // La nota a la que se fue desde «Notas (N)» o el capítulo que se
+            // abrió desde el Índice, un momento.
             if (flash != null)
               if (_clip(flash.$1, flash.$2, piece) case (final s, final e))
                 (s, e),

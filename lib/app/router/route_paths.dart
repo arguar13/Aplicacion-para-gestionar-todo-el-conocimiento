@@ -4,6 +4,7 @@
 library;
 
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
+import 'package:sinapsis/features/creations/extract/domain/extract_place.dart';
 
 /// La ruta de «Importar de Anki» (F31, decisión 73).
 const kRouteAnkiImport = '/settings/anki-import';
@@ -211,9 +212,15 @@ abstract final class RoutePaths {
   /// en orden, en la consulta.
   static const extractReadingPattern = '/read/:kind';
 
-  static String extractReading(StudyCreationKind kind, List<String> ids) => Uri(
+  /// Con [at], el lector se abre en ese lugar del texto y lo resalta un
+  /// momento: el título de un capítulo del Índice (F46, paso 4).
+  static String extractReading(
+    StudyCreationKind kind,
+    List<String> ids, {
+    ExtractPlace? at,
+  }) => Uri(
     path: '/read/${kind.storageKey}',
-    queryParameters: {'docs': ids.join(',')},
+    queryParameters: {'docs': ids.join(','), 'at': ?at?.query},
   ).toString();
 
   /// El historial de repasos de F17, D8: curva de retención, calendario de

@@ -18,6 +18,7 @@ import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.da
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
+import 'package:sinapsis/features/creations/extract/domain/extract_place.dart';
 import 'package:sinapsis/features/creations/presentation/screens/creation_viewer_screen.dart';
 import 'package:sinapsis/features/duplicates/presentation/screens/possible_duplicates_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
@@ -324,6 +325,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             ))
               if (id.isNotEmpty) id,
           ],
+          // El título de un capítulo del Índice (F46, paso 4).
+          place: ExtractPlace.parse(state.uri.queryParameters['at']),
         ),
       ),
       GoRoute(

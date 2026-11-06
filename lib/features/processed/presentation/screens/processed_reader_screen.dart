@@ -8,6 +8,7 @@ import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
+import 'package:sinapsis/features/creations/extract/domain/extract_place.dart';
 import 'package:sinapsis/features/creations/extract/presentation/providers/extract_providers.dart';
 import 'package:sinapsis/features/creations/extract/presentation/widgets/extract_study_chips.dart';
 import 'package:sinapsis/features/creations/extract/presentation/widgets/extract_viewer.dart';
@@ -73,16 +74,23 @@ StudyCreationKind? extractKindOfSection(ProcessedSection section) =>
 /// una pantalla a la que se llegó, sino un panel de otra. Lleva ✕ en lugar
 /// de ←, otra parte del documento —el resumen, la síntesis— se abre encima
 /// en lugar de reemplazarlo, y mandarlo a la papelera lo cierra.
+///
+/// **En un lugar** ([place]; un capítulo del Índice, F46, paso 4): se abre
+/// justo en ese título, que se resalta un momento.
 class ProcessedReaderScreen extends ConsumerWidget {
   const ProcessedReaderScreen({
     required this.kind,
     required this.documentIds,
     this.onClose,
+    this.place,
     super.key,
   });
 
   final StudyCreationKind kind;
   final List<String> documentIds;
+
+  /// Adónde va al abrirse; `null`, desde el comienzo.
+  final ExtractPlace? place;
 
   /// Cerrar el panel, si está abierto al costado de otra pantalla; `null` en
   /// la pantalla propia del lector.
@@ -124,6 +132,13 @@ class ProcessedReaderScreen extends ConsumerWidget {
       body: ExtractViewer(
         read: read,
         title: title,
+        place: place,
+        // «Seguir escuchando» vuelve a esta lectura, no a este capítulo: la
+        // dirección de la pantalla sin su lugar. Al costado, la de la pantalla
+        // de abajo, que es adonde se vuelve.
+        location: place == null || _beside
+            ? null
+            : RoutePaths.extractReading(kind, documentIds),
         kicker: section == ProcessedSection.text
             ? (extract) => _textKicker(l10n, ref, extract.documentId)
             : null,
