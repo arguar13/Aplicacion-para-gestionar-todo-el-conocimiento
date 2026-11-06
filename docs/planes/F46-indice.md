@@ -1,6 +1,10 @@
 # F46 — El Índice: lo procesado, con sus capítulos, como el índice automático de Word
 
-> **Estado: APROBADO** (2026-10-30, «Aprobado» en el chat), con las decisiones A a F como están. Pedido del dueño, el 30/10: *"agregar en la pestaña de Estudiar,
+> **Estado: CONSTRUIDO** el 2026-11-06: los cinco pasos, con la decisión 92 y la suite entera en el
+> cierre conjunto con F44, F45 y F47 (15.430 pruebas pasan, 0 fallas). La medición en el emulador y
+> la APK quedan para la sesión principal.
+>
+> **Aprobado** el 2026-10-30 («Aprobado» en el chat), con las decisiones A a F como están. Pedido del dueño, el 30/10: *"agregar en la pestaña de Estudiar,
 > debajo de la sección de Procesado, una nueva sección llamada Índice … algo parecido a cuando yo
 > hago en Word … un índice dinámico"*. Ajustes del mismo día:
 >
@@ -452,7 +456,8 @@ nada que se vea: la pantalla es del paso 3.
   - `rebuildAll` borra el Índice entero y lo deja para rehacer: las entradas de las imágenes
     vuelven en el acto, y los documentos, en la pasada siguiente. De la Biblioteca no toca nada;
   - lo hace correr `ProcessedHeadingsBackfillKeeper`, que se lee al abrirse la bóveda
-    (`SinapsisApp`) y mira la base: corre cuando algo queda sin indexar sin que nadie lo rehaga
+    (`App`, en `lib/app/app.dart`) y mira la base: corre cuando algo queda sin indexar sin que
+    nadie lo rehaga
     —lo que trae la unión, lo que devuelve la papelera del contenido—.
 - **Las consultas** (`IndexRepository`, `index_query_sql.dart`), todas streams en vivo y sin lo
   de la papelera:
@@ -996,3 +1001,113 @@ espera a soltar antes de dar su valor— no terminaba nunca. Ya no lo devuelve.
   hilo, pero con todas sus entradas en memoria: si en el teléfono pesa, armarlo de a tandas.
 - **«Preguntar al chat» en una imagen**: no está; una imagen no tiene texto que llevar.
 - No se miró en el emulador ni en el teléfono: es del paso 5.
+
+### Paso 5 (hecho): el cierre
+
+El cierre de F46 y el cierre conjunto de F44, F45 y F47, en nueve commits, de `687f2faf` al de
+este avance. Sin el emulador, el teléfono ni la APK, que son de la sesión principal.
+
+- **La decisión 92 en `docs/arquitectura.md`** (`e01512c5`), entre la 91 y la 93, con F46 en
+  «Construido» (esquema v51): el pedido con sus ajustes del 30/10; de dónde sale cada entrada y por
+  qué solo del texto y de las imágenes; la tabla derivada con su FTS5, sus reglas y el título de cada
+  imagen; los triggers que sueltan y el indexador que rehace en la misma transacción, con el PDF leído
+  antes; el relleno que se retoma por la base misma; las consultas que no recorren nada; la pantalla
+  que nunca trae todo; ir al lugar exacto, el toque largo y la descarga; los censos; las invariantes;
+  las trampas para lo que venga —las migraciones que rehagan `processed_parts`,
+  `processed_originals` o `processed_images` tienen que volver a crear los triggers, un lector de
+  títulos nuevo necesita `rebuildAll`, el renombre de una imagen no viaja en la unión de bóvedas— y
+  las que costaron; lo descartado y lo no probado. Cada clase y cada archivo citados se buscaron en el
+  código.
+- **Los tres arreglos que dejó anotados el cierre de F44 y F45, y uno más:**
+  - `mapExportUnavailable` (`687f2faf`), la ayuda del botón de exportar, apagado en el Resumen,
+    decía «Se puede exportar desde el esquema y desde el grafo»: esas pestañas no existen desde F44.
+    Ahora dice «Se exporta desde la pestaña Mapa» («You can export from the Map tab»), que es lo que
+    hace `map_screen.dart`: el menú se prende solo con `MapTab.map`. La prueba del botón apagado
+    pide, además del texto, que nombre la pestaña Mapa y que no nombre el esquema ni el grafo;
+  - `mapEmptyMessage` (el mismo commit), el Mapa sin temas, decía «Lo que vinculaste ya está en
+    «Vínculos»», como si fuera una pestaña: ahora «Lo que vinculaste ya se ve con la capa
+    «Vínculos»», que es lo que prende su botón «Ver los vínculos» (`_setLinks`, con
+    `MapLayer.links`). La prueba del lienzo vacío apaga la capa antes, mira el mensaje y comprueba
+    que el botón la prende. Las descripciones de los dos textos en los `.arb` también decían lo
+    viejo, y se corrigieron;
+  - el comentario de `ProcessedDocumentScreen` (`8ef2c0ec`) decía que el botón redondo lee «desde
+    la página que se editó por última vez». No es así: `processedTextPageProvider` es `autoDispose`
+    y solo lo mira la edición del texto (`ProcessedTextPages`), que tapa el documento y le retira el
+    botón mientras está abierta (`ReadableRegion` se aparta cuando su pantalla queda tapada), así
+    que desde el documento vale siempre 0 y la lectura empieza por la primera página. El comentario
+    de la clase y el de `_startAt` lo dicen así; el comportamiento no cambió.
+  - Y uno que encontró este cierre: el Avance del paso 2 y el comentario de
+    `processedHeadingsBackfillKeeperProvider` decían que el guardián del relleno se lee en
+    `SinapsisApp`, una clase que no existe: es `App` (`lib/app/app.dart`), al abrirse la bóveda
+    (`f4b4f638`).
+- **La GUÍA, «El Índice» repasada entera** (`d75440ca`) contra el código de los pasos 3 y 4:
+  - una sección nueva, «De dónde salen los capítulos»: los títulos del texto con la página del texto,
+    los marcadores de un PDF con la del PDF, los que dejó la IA al ordenar un PDF sin marcadores,
+    «Texto completo» y el título de cada imagen, con el nombre del archivo limpio y «Imagen 3» solo
+    cuando nada dice nada (antes decía que sin título de la fuente era «Imagen 3»);
+  - «Por tema» decía «el árbol de tus temas»: los temas no tienen padre y van de la A a la Z, como en
+    el Atlas;
+  - mantener apretado describía las mismas opciones para todo: ahora dice qué ofrece un capítulo,
+    «Texto completo», una imagen (solo «Renombrar» y «Copiar el título»: no tiene texto que llevar al
+    chat) y un documento, y que un marcador sin lugar en el texto avisa que no tiene texto;
+  - tocar lo encontrado lo abre en su título, «Titulando N imágenes» en la línea del relleno, el
+    relleno que sigue donde iba si se cierra la app, y lo editado o vuelto a extraer que se vuelve a
+    leer solo.
+
+  Los enlaces internos de la guía son 196 y todos apuntan a títulos que existen (comprobado con un
+  script que arma cada ancla como GitHub).
+- **`NOVEDADES.md`** (`a0620859`): F46 deja de estar «en curso», con los capítulos de verdad y
+  nunca inventados, lo ya procesado que se suma solo, y el teclado y el lector de pantalla.
+- **`CONTEXTO_DEL_PROYECTO.md`** (`70c9ae83`): F46 en la historia, en el estado y en los módulos
+  (`index`), la decisión 92 en su lugar y las cifras de la suite de este cierre.
+- **La suite entera** (`flutter test --concurrency=2 --timeout 150s`, con `PDFIUM_PATH` apuntando a
+  `.pdfium/win-x64/bin/pdfium.dll`, así que corren también las de PDFium real), en siete tandas de
+  carpetas, una detrás de la otra y sin nada pesado al lado, sobre el árbol con los arreglos de este
+  paso:
+
+  | Tanda | Carpetas | Pasan | Fallan | Omitidas | Tiempo |
+  |---|---|---:|---:|---:|---:|
+  | 1 | `test/core`, `test/app`, `test/benchmark`, `test/support` y `widget_test.dart` | 1.519 | 0 | 47 | 5 min 25 s |
+  | 2 | `test/features/creations` | 2.008 | 0 | 0 | 16 min 48 s |
+  | 3 | `narration` y `vault` | 1.363 | 0 | 0 | 7 min 45 s |
+  | 4 | `processed`, `flashcards` y `transform` | 2.343 | 0 | 0 | 13 min 33 s |
+  | 5 | `map`, `ai_organize`, `chat` y `ai_models` | 2.138 | 0 | 0 | 11 min 9 s |
+  | 6 | `export`, `timeline`, `library`, `viewer` y `reference` | 2.461 | 0 | 0 | 11 min 15 s |
+  | 7 | las otras 32 carpetas de `test/features` (`index`, `study`, `inbox`, `help`…) | 3.598 | 0 | 0 | 20 min 26 s |
+  | **Total** | las 47 carpetas de `test/features` y las de afuera | **15.430** | **0** | **47** | **86 min** |
+
+  Las 47 omitidas son todas pruebas de rendimiento de `test/benchmark`, que corren solo
+  con `--dart-define=BENCH=true` (`Skip: se corre con --dart-define=BENCH=true`): ninguna de PDFium
+  quedó afuera.
+
+  **Ninguna falla, tampoco suelta**: las siete tandas terminaron con `All tests passed!` y salida 0,
+  y no hubo nada que repetir ni que anotar como intermitente. Tampoco se cayeron la descarga que se
+  pausa de `in_app_model_file_transfer_test`, que falló una vez bajo carga en el paso 2, ni las de
+  memoria de la copia y la compactación.
+- **Los cierres de F44, F45 y F47** (`9c2911f1`): cada uno tiene ahora su línea con este resultado,
+  los arreglos que había dejado anotados, ya hechos, y en su estado lo que queda para la sesión
+  principal (la medición en el emulador, la APK y la prueba con tus voces).
+- **`flutter analyze`**: 19, la línea base, en el árbol con todo. Se corrió dos veces: con los
+  arreglos de los `.arb`, sus pruebas y el comentario de `ProcessedDocumentScreen` (el árbol de
+  `8ef2c0ec`; el de `687f2faf` es el mismo salvo ese comentario), y al final, con el de
+  `processedHeadingsBackfillKeeperProvider` (`f4b4f638`). Los otros seis commits son de documentos.
+  Las pruebas que miran los textos corregidos —`map_screen_test.dart` y
+  `map_canvas_view_test.dart`, 148— pasaron solas antes de la suite. No se cambió lógica, así que no
+  hubo mutaciones que correr.
+- **Sobre `main`**: los nueve commits se rebasaron sobre `main` local, que mientras tanto sumó
+  `296a1857` (los subtítulos de una página web como títulos, sin su «[editar]»). Ese commit no
+  estaba en el árbol de la suite: después del rebase se corrieron sus dos carpetas,
+  `test/features/organize` y `test/features/transform`, con PDFium real: 1.146 pasan, 0 fallas.
+
+**Queda para la sesión principal** (no se hace sin el emulador ni el teléfono):
+
+- la medición en el emulador con una bóveda grande: abrir el Índice, desplegar un libro, buscar y la
+  cola del relleno; y la de F44, los gestos del lienzo con las capas prendidas contra la de F18;
+- la página web del original que se desplaza de verdad hasta su título en la `WebView`;
+- la APK al teléfono, si el dueño la pide, con lo que cada plan dejó para mirar ahí (F44, F45 y F47).
+
+**Sigue abierto** (de los Avances de cada paso y de la decisión 92): lo que la IA no deja con su
+forma; un PDF sin sus rayas de página; un Word o un EPUB en el original desde el comienzo; un título
+que la página web escribe distinto; los grupos de los temas, que con miles convendría hacer
+perezosos; el PDF de un índice enorme en memoria; la búsqueda que no numera; y el renombre de una
+imagen, que no viaja en la unión de bóvedas.
