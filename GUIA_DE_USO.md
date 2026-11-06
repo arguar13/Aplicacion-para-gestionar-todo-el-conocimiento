@@ -2875,7 +2875,10 @@ como en Word.
   temas en versalitas, los documentos en letra de libro— y **la línea de
   puntos hasta la página** de cada capítulo, alineada de un renglón al otro.
   Al pie, *"Página 3 de 12"*. Es texto de verdad: se puede buscar y copiar, y
-  las tildes y la ñ salen bien.
+  las tildes y la ñ salen bien. **En negrita van solo** el título, los temas,
+  los documentos y los capítulos de primer nivel; lo demás —lo que se bajó,
+  lo que dice cada documento, los capítulos de adentro, las páginas— va en
+  letra común.
 - **En Markdown**: texto con títulos y listas, para editarlo o pegarlo en
   otro lado.
 
@@ -3096,7 +3099,10 @@ adónde lleva.
   principales** ("Cristianismo · Tomás de Aquino"); en su ficha están todos.
   Los temas sin ninguna unión van juntos en uno ("Temas aislados") y, si son
   muchas, las comunidades más chicas en otro ("Otras comunidades"). Arriba
-  del lienzo, una línea te recuerda cómo se entra.
+  del lienzo, una línea te recuerda cómo se entra. **Sin nada que tocar**
+  —todavía no hay temas o etiquetas, o con los vínculos prendidos todavía no
+  vinculaste nada— el Mapa muestra solo ese vacío y su botón: ni esa línea,
+  ni **"Ver como lista"**, ni lo que dicen las capas abajo.
 - **Tocás dos veces una comunidad** —o **"Entrar"** en su ficha, o te
   acercás con dos dedos— y sus temas **salen de la burbuja**: nacen donde
   estaba y se acomodan alrededor. Un solo toque abre su ficha (ver
@@ -3876,7 +3882,13 @@ voces**. Ocupa casi toda la pantalla y tiene tres pestañas:
   va a haber. Es del teléfono Android: en la computadora y en la web lo
   explica.
 
-Arriba dice qué voz **lee ahora**.
+Arriba dice qué voz **lee ahora**, con el mismo nombre que el reproductor:
+el suyo («Daniela»), o el de su acento si el teléfono solo le da un código
+(«Español (Estados Unidos)»). Si no elegiste ninguna para lo que se lee
+—queda marcada **«La voz del sistema»**— y la app tomó una sola, lo dice:
+*«Lee ahora: Español (Estados Unidos), porque no elegiste ninguna»*. El
+**«Voz 2»** de una voz con código es solo el de la lista: la segunda de su
+acento.
 
 **Cada voz es una tarjeta** con su **cara** —un círculo de colores con sus
 iniciales y una onda; nunca la foto de una persona, y la misma voz tiene
@@ -4683,8 +4695,12 @@ detalles, volver a crear y, en rojo, la papelera; ✎ le cambia el nombre. El
 **informe** también se lee en el marco, con su índice en **Contenido** y el
 PDF —para leer o imprimir— o el Markdown en **⋮ → Descargar**.
 
-- **Escuchar**, abajo: lee lo que se ve, en su orden (con varios documentos,
-  primero el título de cada uno), con el **reproductor anclado** de toda la app
+- **Escuchar**, abajo: lee **desde lo que se ve** —la línea de arriba de la
+  pantalla, aunque hayas bajado hasta la mitad; también en el texto completo
+  que abre el Índice—, en su orden (con varios documentos, primero el título
+  de cada uno). Con el reproductor abierto o en pausa, volver a ofrecer lo
+  mismo sigue donde iba; si lo cerraste y te moviste, **Escuchar** arranca
+  donde estás. Suena con el **reproductor anclado** de toda la app
   —reproducir o pausar, ±10 s, la **barra de avance** (arrastrala y soltá
   donde quieras seguir), la cola, la **velocidad** y la **voz**; ver
   [Escuchar](#escuchar-el-lector-en-voz-alta)—. Lo que suena va **en
@@ -4853,7 +4869,9 @@ palabras clave en negrita—. Los dos llevan **tus notas**: las del informe
 entero al comienzo, debajo del título, bajo **«Notas del informe»**; las de un
 pedazo, con su número volado justo después del pedazo y lo que dicen al final
 (en el PDF, bajo **«Notas»**, antes de las respuestas; en el Markdown, como
-notas al pie). En el formato de lectura, que no muestra las preguntas, la
+notas al pie). En el PDF, la negrita termina donde termina: lo que sigue a un
+título va en letra común, y el número de una nota en un título no va en
+negrita. En el formato de lectura, que no muestra las preguntas, la
 nota de una pregunta va al comienzo con el pedazo que cita.
 
 Cambiar el formato o la plantilla de uno ya hecho es **"Volver a generar con
@@ -5855,13 +5873,16 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
 - **Voz y lectura:** todo lo de escuchar y leer, en este orden.
   - **Con qué voz se lee:**
     - **«Biblioteca de voces»**, con la cara y el nombre de la voz que lee
-      ahora («Lee ahora: Daniela», o «la voz del teléfono»); tocala para
+      ahora, como la nombra el reproductor («Lee ahora: Daniela», «…,
+      porque no elegiste ninguna», o «la voz del teléfono»); tocala para
       abrir la biblioteca (ver
       [La biblioteca de voces](#la-biblioteca-de-voces));
     - **«Voces por idioma»**, la voz elegida para cada idioma, con **✕**
       para volver a la del teléfono;
     - en Android, **«Voces descargadas»**, con cuántas voces sin conexión
-      tenés y lo que ocupan entre todas («N voces · tamaño»).
+      tenés y lo que ocupan entre todas («N voces · tamaño»). Si no bajaste
+      ninguna, la hoja lo dice y trae el botón **«Biblioteca de voces»**,
+      que es donde se bajan (el mismo de «Voces por idioma»).
       Adentro, lo que ocupa cada paquete y **«Borrar»** (pide confirmar; la
       podés volver a bajar, y mientras tanto ese idioma se lee con la del
       teléfono; si borrás Kokoro, las voces que creaste en el teléfono no
