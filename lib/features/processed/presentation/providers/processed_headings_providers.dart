@@ -37,7 +37,7 @@ final processedHeadingsBackfillProvider = Provider<ProcessedHeadingsBackfill>(
 );
 
 /// Hace correr el relleno mientras viva: se lee una vez, al abrirse la bóveda
-/// (`SinapsisApp`), y desde ahí mira la base solo.
+/// (`App`, en `lib/app/app.dart`), y desde ahí mira la base solo.
 final processedHeadingsBackfillKeeperProvider =
     Provider<ProcessedHeadingsBackfillKeeper>((ref) {
       final keeper = ProcessedHeadingsBackfillKeeper(
