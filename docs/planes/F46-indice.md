@@ -1451,3 +1451,134 @@ demás—: 986 pasan, 0 fallas.
 **Queda para la sesión principal**: mirarlo en el emulador con una APK nueva —el aviso de la
 Biblioteca de ejemplo a 427 dp debería medir 82 dp de tarjeta, con «Ver qué falló» y la ✕ juntos
 justo debajo del texto—.
+
+### Paso 5e (hecho): lo que viaja al chat, como se lee
+
+**El defecto** (visto en el emulador). En el Índice, «Preguntar al chat» sobre el capítulo «Siglo XX»
+de «Fotosíntesis» —una página de Wikipedia— dejaba en el campo del chat *«Sobre el capítulo «Siglo
+XX» de «Fotosíntesis»: «Siglo XX En 1905, [Frederick Frost Blackman](https://es.wikipedia.org/wiki/…)
+… la síntesis de [glucosa](https://es.wikipedia.org/wiki/Glucosa) procedía de la…»»*. Tres cosas:
+el Markdown viajaba crudo —enlaces con su dirección, fotos `![…](…)` con direcciones larguísimas,
+`**`, `#` y las notas al pie `[[1]](…)`—, que veía la persona y recibía el modelo, y las
+direcciones se comían el tope de 2.000; el tramo empezaba en el propio título y lo pegaba al
+párrafo («Siglo XX En 1905»); y «Explicar» de las tarjetas tenía el mismo defecto.
+
+**La causa**: `indexChapterPassage` y `explainPassage` cortaban del texto crudo y solo juntaban los
+espacios. El texto propio de una página web es el Markdown que escribe `htmlToMarkdown`, y lo que
+se ve en el lector es otra cosa: `RenderedMarkdown` lo interpreta. Ninguno de los dos caminos al
+chat pasaba por esa interpretación, y había cuatro maneras sueltas de pasar Markdown a texto llano,
+cada una con su regla (`studyPlainText`, el `_plain` del extracto, `_stripMarkdown` de la voz y
+`plainHeadingText`).
+
+**Lo que se hizo, de raíz** (doce commits, de `4b6b6e19` al de este avance, rebasados sobre el
+paso 5d sin conflictos):
+
+- **Qué se lee de cada construcción, en un solo lugar** (`markdownInlineText`, en
+  `lib/core/util/markdown_inline.dart`). Junto al patrón del paso 5b: para una coincidencia de
+  `markdownInlinePattern`, cuál es (`MarkdownInline`: código, imagen, enlace, `[[Título]]`, enlace e
+  imagen de HTML, superíndice, subíndice, negrita, cursiva, y si lo de adentro se vuelve a leer) y
+  el tramo que se lee. `RenderedMarkdown._parseInline` lo usa ahora: le da el formato y quita lo de
+  alrededor, sin decidir él qué se ve. El comportamiento del lector no cambió: sus pruebas de antes pasan sin
+  tocarlas.
+- **Lo que se lee de un texto en Markdown** (`markdownPlainText` y `markdownPlainBlocks`, en
+  `lib/core/util/markdown_plain_text.dart`). Lo en línea con `markdownInlineText`, como el lector;
+  y los bloques: un párrafo —sus renglones hasta uno en blanco— es un bloque; un título, un
+  elemento de lista y una fila de tabla, uno cada uno, sin `#` ni viñeta (el número de una lista
+  numerada queda: es parte de lo que se lee) y con las celdas separadas por coma, como las lee la
+  voz; la cita sin `>`; el separador y la fila separadora de una tabla, nada; un bloque de código
+  entre cercas, tal cual. Lee de a un renglón y recién cuando se pide el bloque siguiente: el
+  comienzo de un capítulo largo no recorre el libro.
+- **Las notas al pie se van** (`markdownFootnoteCall`: `[1]`, `[a]`, `[n. 1]`, `[nota 3]`,
+  `[cita requerida]`, en enlace o sueltas). Sin la nota, que no viaja, no dicen nada; en un párrafo
+  de Wikipedia hay una cada pocas oraciones, y son letras de menos en el tope. Adentro del código no
+  se tocan. El lector las sigue mostrando: en la pantalla llevan a la nota.
+- **El pasaje que viaja al chat** (`readablePassage`, en el mismo archivo). Con Markdown, cada
+  bloque es una oración —uno que no termina en un signo recibe un punto: «Siglo XX. En 1905…»—,
+  todo en un renglón, y **recién después** el tope y el corte en una palabra entera con «…»: el
+  tope cuenta letras que se leen. Sin Markdown —un PDF, una transcripción—, tal cual y en un
+  renglón: ahí un renglón sin punto es casi siempre una oración que sigue abajo, y un `*` no es una
+  marca.
+- **«Preguntar al chat» del Índice** (`indexChapterPassage`). El puerto del Índice
+  (`IndexDocumentAccess.textOf`) devuelve ahora el texto **y si es Markdown**
+  (`IndexDocumentText`), como lo sabe `ProcessedStudyText.markdown`; `_askAboutEntry` le pasa además
+  el título del capítulo, y el renglón con que empieza el tramo queda afuera si es ese título
+  —comparado con `headingKey`, sobre el renglón como se lee, y también con su número delante
+  («3. Siglo XX», «1.2 Desarrollo»)—. Si el tramo no empieza con él —el título de la IA de un PDF,
+  que no es un renglón—, no se saca nada. Un capítulo que es solo su título no tiene texto: se avisa
+  como siempre.
+- **«Explicar»** (`explainPassage`, `explain_in_chat_button.dart`). El mismo pasaje legible, con
+  `markdown: extractedTextIsMarkdown(item.source)`, la regla con que la app ya decide si el texto de
+  un elemento es Markdown, y su tope de 600.
+- **Estudiar y el extracto delegan** (`studyPlainText`, el `_plain` de `extract_markdown.dart`). Las
+  oraciones del resumen y de la síntesis y las palabras clave que van al modelo, que se copian y que
+  se descargan salen ahora de `markdownPlainText`: antes dejaban la cursiva con sus `*`, una foto
+  enlazada a medias y la nota `[[1]](…)` entera.
+
+**Lo que no se cambió, y por qué:**
+
+- `chatAnswerPlainText` (lo que se copia de una respuesta): ya usa el lector para lo en línea, y
+  sus bloques los conserva a propósito —viñetas, números, «———», `|`— porque es para pegar.
+- `_stripMarkdown` de la lectura en voz alta: corta por oraciones con sus posiciones en el crudo,
+  no dice el texto alternativo de una foto (no se pronuncia) y lee `[[a|b]]` y escapes; son otras
+  reglas, y cambiarlas mueve los ±10 s y el resaltado de lo que suena.
+- `plainHeadingText`: de él sale `headingKey`, la clave de los títulos ya indexados; lee escapes,
+  entidades, `~~` y `[^1]`. Cambiarlo cambiaría los títulos del Índice sin reindexar.
+- Los otros caminos al chat no llevan texto de un documento: `askAiAbout` (`reading_frame.dart`) y
+  el del documento del Índice, solo el título; el del Mapa (`map_screen.dart`), la pregunta armada
+  con los nombres de los temas; el del mapa mental (`mind_map_actions.dart`), las etiquetas de las
+  ideas, que escribió el modelo.
+
+**Cifras** (PC, el recorte real de Fotosíntesis pasado a Markdown como lo guarda la app):
+
+| Capítulo | Crudo | Antes: viajaba | Antes: legible | Ahora |
+|---|---|---|---|---|
+| «Siglo XX» | 1.249 | 1.245 (con «### Siglo XX» y una dirección) | 1.183 | 1.174, entero, empieza en «En 1905» |
+| «Historia del estudio» | 6.017 | 1.993, cortado (15 direcciones) | 1.217 | 1.996 legibles, cortado |
+
+En el capítulo largo, antes el 39 % del tope eran direcciones; ahora entran 1.996 letras que se
+leen, un 64 % más de texto. (El recorte es más corto que la página real: en el emulador, «Siglo
+XX» traía además fotos y notas, que ahora no ocupan nada; lo prueba un caso armado con una foto de
+Wikipedia y sesenta notas.)
+
+**Pruebas**, todas con fakes: `markdown_plain_text_test` (cada construcción, combinadas, los
+renglones, la foto sin texto alternativo entre palabras, las notas en enlace, sueltas y adentro del
+código, «2 * 3 * 4» y «var_uno_dos», cada bloque, el tramo pedido con fines de renglón de Windows,
+el pasaje y su tope) y **la que ata las dos reglas**: renglón por renglón, sobre los recortes de
+Fotosíntesis y Edad Media, el párrafo real con sus notas y un renglón de cada construcción,
+`markdownPlainText` da lo mismo que `RenderedMarkdown.displayText` sin las notas
+(`test/support/wikipedia_fixtures.dart` arma el Markdown de un recorte como lo hacía la prueba del
+extractor del 5b). `index_chapter_test`: «Siglo XX» empieza con «En 1905», sin «](», «http», «![»,
+«#», `**` ni renglones; «Historia del estudio» lleva más del 90 % del tope en letras legibles; la
+foto y las notas; el subtítulo de adentro como oración; el título con número; el renglón que no es
+el título; el capítulo de solo su título. `explain_in_chat_question_test` (la página web y el recorte
+real), `processed_index_document_access_test` (el texto con si es Markdown, y sin texto),
+`index_actions_test` (el borrador del capítulo de una página sin su título ni la dirección del
+enlace, y el de un PDF tal cual) y `study_extracts_test`.
+
+**Mutaciones** (`tool/mutar.py`): 69 armadas sobre `markdown_plain_text.dart`, `markdown_inline.dart`,
+el lector, `index_chapter.dart`, `index_actions.dart`, `processed_index_document_access.dart`,
+`explainPassage` y `studyPlainText`. En la primera vuelta murieron 56 y sobrevivieron 13: diez por
+pruebas que faltaban —el título que corta un párrafo sin renglón en blanco, el código con fines
+de renglón de Windows, el corte con el último espacio lejos del tope, la imagen con un texto
+alternativo de espacios, el `<img>` con el suyo escapado y el subíndice (las dos últimas no las
+podía ver la prueba que compara con el lector, porque las dos reglas son la misma), el formato del
+subíndice y del código en el lector, el renglón que termina en el título sin ser su número y el
+título que es un enlace—, que se agregaron y las mataron en la segunda vuelta; y tres eran guardas
+que no cambiaban nada (el capítulo de solo su título, el título sin letras y el tramo al revés de
+«Explicar», que `readablePassage` ya deja vacíos), que se sacaron. **66 de 66 muertas.**
+
+**Analizador**: 19 avisos, la línea base. **Pruebas**, con fakes y `--concurrency=2`, antes del
+rebase: `test/features/study`, `organize`, `flashcards`, `habit`, `chat`, `processed` y
+`creations`, 4.679 pasan y 0 fallas; `test/features/index`, `test/core/util` y las de «Explicar» y
+Estudiar después de los últimos cambios, 344 pasan y 0 fallas; y `test/core` entero, en la primera
+tanda, sin fallas. En esa primera tanda falló una de Estudiar —«una oración que queda vacía sin
+marcado no cuenta», con `**__**`—: la regla común muestra `__` como el lector, y `studyPlainText`
+ahora deja vacío lo que no tiene ni una letra ni un número (`490d8dd4`).
+
+**Queda abierto**: el material de las creaciones (`CreationMaterialBuilder`) y los pasajes del chat
+que salen de la búsqueda en la bóveda (`chat_passages.dart`) le siguen llegando al modelo en
+Markdown crudo. No es el mismo defecto que se ve —no lo lee la persona en el campo— pero las
+direcciones también le comen ventana; los dos guardan posiciones en el crudo (la cita del chat
+salta a su pasaje, y «Ver en el documento» busca el de la creación), así que pasarlos a lo que se
+lee pide traducir esas posiciones y queda para otro paso. Para la sesión principal: mirar en el
+emulador el borrador de «Siglo XX» y el de «Explicar» de una tarjeta de una página web.
