@@ -36,6 +36,14 @@ typedef ProcessedRange = ({int start, int end});
 /// caracteres donde menos rompen (`splitIntoParts`), sin los tramos de
 /// [excluded] —ordenados y sin solaparse—.
 ///
+/// **Sin partir un enlace (F46, paso 5b).** Cada página se muestra, se
+/// edita y se ordena con la IA por su cuenta: un corte en medio de un
+/// `[texto](dirección)` dejaba media construcción cruda en cada una. Se corta
+/// con `markdown: true`, que nunca parte una construcción en línea; una más
+/// larga que una página —un enlace con una dirección enorme— va entera, y esa
+/// página se pasa de [kProcessedTextPageChars] lo que haga falta. Un texto
+/// que no es Markdown no tiene construcciones y se pagina como siempre.
+///
 /// Sin [excluded], las páginas una detrás de la otra son [text] entero, sin
 /// perder ni repetir nada. Con [excluded], son exactamente el resto: se pagina
 /// el texto entero y de cada página se saca lo que cae en un tramo excluido.
@@ -47,7 +55,11 @@ List<TextPart> processedTextPages(
   String text, {
   List<ProcessedRange> excluded = const [],
 }) {
-  final pages = splitIntoParts(text, maxChars: kProcessedTextPageChars);
+  final pages = splitIntoParts(
+    text,
+    maxChars: kProcessedTextPageChars,
+    markdown: true,
+  );
   if (excluded.isEmpty) return pages;
   final kept = <TextPart>[];
   var next = 0;

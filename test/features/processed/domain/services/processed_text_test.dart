@@ -9,6 +9,8 @@ String _isolateName(int _) => Isolate.current.debugName ?? '';
 
 /// Las páginas del texto de un documento procesado, las palabras y el hilo
 /// en que se hace lo pesado (F41).
+const _purple = 'Bacteria_p%C3%BArpura_del_azufre';
+
 void main() {
   String randomText(Random random, int length) {
     const pieces = ['palabra', ' ', '. ', '\n\n', 'ñandú', '\n', 'x'];
@@ -69,6 +71,25 @@ void main() {
             text.substring(cuts[1], cuts[2]) +
             text.substring(cuts[3]);
         expect(kept.toString(), rest);
+      }
+    });
+
+    test('ninguna página parte un enlace (F46, paso 5b): cada una se muestra '
+        'y se edita sola', () {
+      // Un párrafo de Wikipedia sin cortes de párrafo cerca del tope: la
+      // página se cortaba en el espacio de «bacterias purpúreas».
+      const link =
+          '[bacterias purpúreas](https://es.wikipedia.org/wiki/$_purple)';
+      final before = 'x ' * ((kProcessedTextPageChars - 12) ~/ 2);
+      final text = '$before$link y [verdes del azufre](https://x.org/v). Fin.';
+
+      final pages = processedTextPages(text);
+
+      expect(pages.map((p) => p.text).join(), text);
+      expect(pages.where((p) => p.text.contains(link)), hasLength(1));
+      for (final page in pages) {
+        expect(page.text, isNot(endsWith('[bacterias ')));
+        expect(page.text, isNot(startsWith('purpúreas]')));
       }
     });
 

@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
+import 'package:sinapsis/core/util/markdown_inline.dart';
 
 /// Convierte el Markdown crudo de una rendition en algo que se ve con
 /// formato de verdad —títulos, **negrita**, *cursiva*, viñetas— sin perder
@@ -494,47 +495,9 @@ class RenderedMarkdown {
     _parseInline(raw, lineStart, lineEnd, const _RunStyle(), segments);
   }
 
-  // Cada posición del texto solo puede matchear una alternativa —la primera
-  // que encaje, de izquierda a derecha entre las alternativas—, así que el
-  // orden importa:
-  //
-  // - El código en línea va primero: lo de adentro es literal, ni un `*`
-  //   ni un `[` se interpretan.
-  // - La imagen y el enlace de Markdown (F30) antes que `[[Título]]`: un
-  //   `[[1]](…)` —la nota al pie de Wikipedia— es un enlace cuyo texto es
-  //   "[1]", y `[[Título]]` nunca va seguido de `(`.
-  // - `[[Título]]` antes que el énfasis: nunca termina interpretado como dos
-  //   pares de corchetes sueltos ni con un `*` colado adentro. Un título
-  //   no lleva corchetes: un "[" suelto del texto seguido de un enlace
-  //   —"César [[Tito](…), hijo…]"— no puede abrir un `[[…]]` que se cierre
-  //   en la nota al pie de más adelante y se lleve el párrafo entero.
-  // - El HTML en línea que escribe `htmlToMarkdown` donde Markdown no
-  //   alcanza: `<a href>`, `<img>`, `<sup>` y `<sub>`.
-  //
-  // Las reglas de CommonMark que importan para no comerse texto (F22): el
-  // énfasis no empieza ni termina con un espacio —"2 * 3 * 4" no es
-  // cursiva—, y el guion bajo no marca nada adentro de una palabra
-  // —"var_uno_dos" de una página web o un EPUB se ve tal cual—.
-  static const _destination =
-      r'(?:<[^<>\n]*>|(?:[^\s()<>]|\([^\s()<>]*\))*)'
-      r'(?:[ \t]+"[^"\n]*")?';
-  static final _inlinePattern = RegExp(
-    r'(?<code>(?<fence>`+)(?!`)(?<codeText>.+?)(?<!`)\k<fence>(?!`))'
-    r'|(?<image>!\[(?<alt>[^\[\]\n]*)\]\('
-    '$_destination'
-    r'\))'
-    r'|(?<mdLink>\[(?<linkText>(?:[^\[\]\n]|\[[^\[\]\n]*\])+)\]\('
-    '$_destination'
-    r'\))'
-    r'|\[\[(?<wiki>[^\[\]\n]+)\]\]'
-    r'|(?<htmlLink><a\s[^>]*>)(?<htmlLinkText>.*?)</a\s*>'
-    r'|(?<htmlImage><img\s[^>]*?/?>)'
-    r'|<(?<script>sup|sub)>(?<scriptText>.*?)</\k<script>>'
-    r'|\*\*(?<bold>\S(?:.*?\S)?)\*\*'
-    r'|\*(?<star>\S(?:.*?\S)?)\*'
-    r'|(?<![\p{L}\p{N}])_(?<under>\S(?:.*?\S)?)_(?![\p{L}\p{N}])',
-    unicode: true,
-  );
+  // Qué es una construcción en línea, y en qué orden se prueban, lo dice
+  // `markdownInlinePattern` (F46, paso 5b): es la misma regla con que se
+  // corta el texto en páginas y en bloques sin partir ninguna.
 
   static final _altAttribute = RegExp(
     r'''\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))''',
@@ -597,7 +560,7 @@ class RenderedMarkdown {
       remove(contentStart + content.length, match.end);
     }
 
-    for (final match in _inlinePattern.allMatches(body)) {
+    for (final match in markdownInlinePattern.allMatches(body)) {
       keep(cursor, match.start, baseStyle);
 
       if (match.namedGroup('code') != null) {

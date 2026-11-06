@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:sinapsis/core/util/markdown_inline.dart';
 
 /// Corta el contenido de un documento en páginas para el modo de lectura,
 /// para que `DocumentReaderScreen` nunca tenga que ponerle formato ni
@@ -133,6 +134,17 @@ void _paginateByParagraph(
 /// de ese tamaño, en el espacio más cercano hacia atrás para no partir una
 /// palabra al medio — salvo que no haya ningún espacio en todo el tramo, un
 /// caso patológico donde cortar a lo bruto es preferible a no cortar nunca.
+///
+/// **Nunca adentro de una construcción en línea (F46, paso 5b).** Cada
+/// tramo se dibuja solo, así que un corte en medio de un enlace dejaba a la
+/// vista `[bacterias` en un bloque y `purpúreas](https://…)` en el
+/// siguiente: un párrafo de Wikipedia, con las direcciones de sus enlaces,
+/// pasa fácil los 1.200 caracteres de un bloque. Si el espacio elegido cae
+/// adentro de un enlace, una imagen, un énfasis o un código, se corta justo
+/// antes de esa construcción; si la construcción empieza donde empieza el
+/// tramo —un enlace más largo que una página—, justo después, y ese tramo
+/// sale más largo (ver `markdownSafeCut`). El texto que no es Markdown no
+/// tiene construcciones y se corta como siempre.
 void _hardSplit(
   String content,
   ({int start, int end}) paragraph,
@@ -146,6 +158,9 @@ void _hardSplit(
     if (end < paragraph.end) {
       final lastSpace = content.lastIndexOf(' ', end);
       if (lastSpace > start) end = lastSpace;
+      // Desde [start], donde nada quedó abierto: el comienzo del párrafo o
+      // el corte de la vuelta anterior, que ya pasó por acá.
+      end = markdownSafeCut(content, end, from: start);
     }
     if (_trim(content, start, end) case final piece?) pages.add(piece);
     start = end;
