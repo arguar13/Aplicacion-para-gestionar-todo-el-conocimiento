@@ -3,7 +3,8 @@
 Este documento es para quien empieza de cero, sin ningún recuerdo de sesiones anteriores
 (una persona o una sesión nueva de Claude Code). Leyéndolo entero entendés qué es la app, cómo
 está hecha, cómo se trabaja en este repositorio, qué reglas puso el dueño y en qué estado quedó
-todo. Fecha del estado descrito: **2026-10-23** (`origin/main` = el cierre de F38).
+todo. Fecha del estado descrito: **2026-11-06** (F44, F45 y F47 cerradas en sus documentos; F46,
+el Índice, en construcción).
 
 Documentos hermanos, de más general a más fino:
 
@@ -11,8 +12,8 @@ Documentos hermanos, de más general a más fino:
 |---|---|
 | `README.md` | Presentación del producto (el problema, qué acepta, qué reemplaza). Su sección «Estado» quedó vieja: no la tomes como el estado real. |
 | `GUIA_DE_USO.md` | Manual de usuario, paso a paso, de **cada** función. Es la fuente de «qué hace la app hoy». |
-| `docs/arquitectura.md` | Principios y **77 decisiones técnicas numeradas** (el porqué de cada cosa, con cifras medidas). Es la historia técnica real. |
-| `docs/planes/F13…F34-*.md` | Los planes grandes que el dueño aprobó (F13 en adelante). |
+| `docs/arquitectura.md` | Principios y **las decisiones técnicas numeradas, hasta la 93** (el porqué de cada cosa, con cifras medidas; la 92, de F46, se escribe en su cierre). Es la historia técnica real. |
+| `docs/planes/F13…F47-*.md` | Los planes grandes que el dueño aprobó (F13 en adelante). |
 | `lib/features/README.md` | Convención de capas de cada módulo. |
 | `CONTEXTO_DEL_PROYECTO.md` | Este: la puerta de entrada. |
 
@@ -110,13 +111,15 @@ y exploración), `explorer`, `notebooks`, `inbox`, `suggestions`, `duplicates`, 
 `anki_import`, `export`, `study_reminder`, `ai_organize` (la IA que organiza sola), `ai_models`
 (el modelo de lenguaje elegido, las cuentas y la cuota en la nube), `keep_working`
 (trabajo con la app cerrada), `content_trash`, `trash`, `vault` (clave, copia, fusión),
-`settings`, `health`, `dev_seed` (biblioteca de ejemplo).
+`settings`, `health`, `dev_seed` (biblioteca de ejemplo), `create_hub` (el «Crear» de un documento,
+F45), `text_notes` (las notas en el texto, F45), `home_widgets` (los widgets de Android, F47) y
+`help` (la guía y las novedades dentro de la app, F47).
 
 ## 4. Historia: qué se construyó, en orden
 
 Las primeras ocho fases armaron la base (captura, transformaciones, documentos, organización,
 grafo, chat con RAG, flashcards SM-2, exportar, OCR/Whisper, web, Windows). Desde ahí el trabajo
-se numera **F1…F38**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
+se numera **F1…F47**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
 desde F13):
 
 - **F1–F11** — un solo modelo de datos Fuente/Nota, vocabulario controlado, Bandeja de entrada,
@@ -273,6 +276,65 @@ desde F13):
     - el original se ve incrustado y se marca ahí mismo, con IA o a mano;
     - «Estudiar el documento» salió de Procesado;
     - Procesado y Cuadernos muestran «En Repasar», y desde los visores se vuelve a las fuentes.
+- **F44** — **el Mapa: dos pestañas y un solo lienzo inteligente** (decisión 90), sin cambios de
+  esquema.
+  - **Resumen · Mapa**, en lugar de Tablero, Grafo, Esquema y Vínculos, que dibujaban lo mismo a
+    tres alturas sin hablarse.
+  - **El lienzo**: tres alturas (comunidades → temas → documentos) con la animación de salir de la
+    burbuja, las migas, Red · Radial · Árbol con el despliegue del Esquema, el minimapa, ⊕ ⊖ ⛶,
+    «Ver como lista» y exportar en PNG o SVG. Los topes de F18 (60, 300 y 200) no subieron.
+  - **El motor sabe más** (`MapInsights`, en el mismo isolate): los puentes, el nombre de cada
+    comunidad por sus dos temas, el índice de búsqueda, la burbuja «Sin tema» y lo nuevo de 7 y 30
+    días. «Para estudiar» va aparte, para que repasar no recalcule el mapa.
+  - **La ficha** de cada nodo, que no recalcula nada, con Entrar, «Centrar aquí» y su «Grado»,
+    Abrir, «Preguntar al chat» y «Estudiar».
+  - **Las capas** Vínculos, Sin tema, Contradicciones, Parecidos (los vectores del teléfono:
+    propone, nunca vincula sola) y Estudio, que no vuelven a acomodar ni a leer; y **⚲ Buscar**,
+    que vuela hasta el nodo y lo marca con un pulso.
+  - **El Resumen**: cuatro cifras con su cambio de 30 días y nueve tarjetas que llevan al Mapa.
+- **F45** — **el pulido del 30/10** (decisión 91, esquemas v49 y v50).
+  - **Un solo aviso** (`AppSnackBar`, por la única puerta `showAppSnackBar`, con su censo): uno o
+    dos botones y siempre la ✕; lo que flota se corre y el reproductor anclado los lleva encima.
+  - **Triar**: «¿Qué va a Procesado?» con el original primero y las imágenes plegadas, y el texto
+    extraído ordenado por la IA de turno, comprobado palabra por palabra (`checkTidiedText`); la
+    tarjeta de triar y su barra, rehechas.
+  - **La Biblioteca, solo con el original**: salen «Leer · Copiar · Más» y «Estudiar el
+    documento» (el texto sigue guardado), «Ampliar» va al centro de la foto y lo de «Más» pasa a
+    «El texto de la fuente», en Procesado.
+  - **El idioma de un video, de raíz**: la pista original y no la doblada, el idioma guardado que
+    no fija a Whisper sin motivo y una red que no guarda un texto en otro idioma; «Volver a
+    extraer» lo ya guardado, que llega solo al documento procesado.
+  - **Procesado**: las tres fichas en una fila, la página web como en el teléfono, un solo
+    original para Procesado y la Biblioteca (`OriginalStudy`) con las marcas adentro, y un solo
+    «Crear» (`create_hub`) con IA o a mano, cancelable sin dejar nada a medias.
+  - **«N sin tema»** en el panel de estado y en Organizar, y la tarjeta «Bandeja» de cada fuente,
+    que tría ahí mismo.
+  - **Las notas en el texto** (`text_notes`, v49; la nota sobre el texto entero, v50): en los
+    originales, el texto, el resumen, la síntesis y lo creado, sobre la página de un PDF y dentro de
+    una página web, con «Notas (N)», en la búsqueda, en el chat y en las descargas.
+  - **El diseño**: 28 plantillas y 20 diseños de diapositiva, 30 estilos de infografía con 16
+    composiciones y gráficos nuevos, y «Personalizar», sin migrar lo guardado.
+- **F47** — **un solo lector para todo, las voces y el podcast** (decisión 93), sin cambios de
+  esquema; la única dependencia nueva es `home_widget`.
+  - **El marco de lectura** (`ReadingFrame`) para el original, el texto, el resumen, la síntesis y
+    lo creado, con Contenido, la fila de IA, Apariencia (cinco letras, el tamaño, el color de lo que
+    suena y el modo) y ⋮, y un censo de 32 funciones, todas alcanzadas.
+  - **El reproductor anclado**, uno solo en toda la app, con la cola, Repetir, el temporizador y la
+    velocidad de 0,5× a 3×; **en segundo plano**, con una sesión de medios escrita a mano (sin
+    `audio_service`, que habría matado el motor de la cola de F29) y la tarjeta de la pantalla de
+    bloqueo que de entrada no dice qué suena.
+  - **La biblioteca de voces**: las del teléfono y las de Piper y Kokoro sin conexión, a pedido,
+    con su huella; la voz sigue al idioma del texto.
+  - **Tus voces**: clonar con el consentimiento guardado (en ElevenLabs; en el teléfono no hay
+    todavía un modelo con español) y crear mezclando voces de Kokoro o en la nube, con el costo a la
+    vista y la nube apagada de entrada.
+  - **El audio**: una pieza común que genera en el teléfono, retomable por tramo, en M4A; descargar
+    y exportar el audio de un documento; y **el podcast**, una creación más de «Lo creado», con el
+    guion comprobado contra el material y una o dos voces.
+  - **Ajustes › «Voz y lectura»** entera, **Privacidad**, la **Ayuda** (la guía y las novedades
+    dentro de la app) y **tres widgets** de Android, con «Seguir escuchando» protegido con la
+    bóveda cerrada.
+  - **Repasar sin el lector** en las tarjetas y el pie **«Ver N resultados»** en los filtros.
 
 ## 5. Estado actual
 
@@ -323,9 +385,36 @@ desde F13):
 > v45, v46 y v47. Falta mirarla en el teléfono: el PDF y la página web sobre la copia del original
 > y en modo cortar, las fotos de verdad en la grilla y la galería, y la IA real organizando lo
 > procesado. La APK se instala solo si el dueño la pide.
+>
+> **F44 (el Mapa) está construida** (2026-11-06): `docs/planes/F44-mapa.md`, decisión 90, sin
+> cambios de esquema. Cerrada en sus documentos; queda para el cierre conjunto con F46 (paso 5):
+> - la suite entera;
+> - la medición en el emulador de los gestos del lienzo con las capas prendidas, contra la de F18;
+> - mirar en el teléfono la hoja de las capas, el «≈» y la ficha con la letra al doble;
+> - la APK, si el dueño la pide.
+>
+> **F45 (el pulido del 30/10) está construida** (2026-11-06):
+> `docs/planes/F45-pulido-del-30-10.md`, decisión 91, esquemas v49 y v50. Cerrada en sus
+> documentos; la suite entera y la APK van en el cierre conjunto con F46 (paso 5). Falta mirarla en
+> el teléfono: el globito de las notas sobre un PDF real y dentro de la `WebView`, el video del
+> árabe con sus pistas, la tarjeta de triar y su barra con la letra al doble, y los avisos con el
+> reproductor.
+>
+> **F47 (un solo lector y las voces) está construida** (2026-11-06):
+> `docs/planes/F47-lector-y-voces.md`, decisión 93, sin cambios de esquema. Cerrada en sus
+> documentos; la suite entera y la APK van en el cierre conjunto con F46 (paso 5). Falta, en el
+> teléfono y si el dueño la pide, la prueba con sus voces:
+> - cuánto tarda cada voz sin conexión en generar una oración (sobre todo Kokoro), y cuánto tardan
+>   y pesan el audio de un documento largo y un podcast;
+> - ElevenLabs con una clave real;
+> - la tarjeta en la notificación y en la pantalla de bloqueo, con «mostrar todo el contenido» y
+>   con «ocultar contenido sensible», y los auriculares;
+> - el widget «Seguir escuchando» después de reiniciar el teléfono.
+>
+> La 92 de `docs/arquitectura.md` queda para F46 (el Índice), que se escribe en su cierre.
 
 
-- `origin/main` = el commit «docs: cierre de F43». **Suite: 13.142 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre).
+- La última corrida de la suite entera fue la del cierre de F43 («docs: cierre de F43»): **13.142 pruebas pasan, 0 fallas, 46 omitidas** (con `PDFIUM_PATH` apuntando a `.pdfium/win-x64/bin/pdfium.dll`, que corre también las de PDFium real; las omitidas son de siempre). Desde entonces, F44, F45 y F47 se verificaron paso a paso, por carpetas y con sus mutaciones (cada «Avance» de su plan dice qué y cuántas), y **la suite entera se corre en el cierre de F46 (paso 5), junto con las de F44, F45 y F47**.
   **Analizador: 19 avisos.** Es la línea base de `tool/verify_commit.ps1` y **no puede crecer**.
 - Hay cinco archivos con cambios de solo formato que no son de este trabajo y no se commitean:
   - `lib/core/database/tables/suggestions.dart`
@@ -440,7 +529,7 @@ Instalar encima conserva datos y modelos **solo si la app ya estaba instalada** 
 5. **Actualizar `GUIA_DE_USO.md`** con cada cambio visible para el usuario, y revisarla completa al
    cerrar una fase.
 6. **Los planes grandes** van en `docs/planes/` y el dueño aprueba escribiendo «aprobado» en el chat.
-   Las decisiones técnicas se numeran en `docs/arquitectura.md` (hoy llegan a la 73). Lo que el
+   Las decisiones técnicas se numeran en `docs/arquitectura.md` (hoy llegan a la 93; la 92 es de F46). Lo que el
    dueño debe leer va dentro del workspace con enlace relativo.
 7. **Limpieza al terminar:** borrar compilaciones y temporales viejos (`build/` pesa ~4 GB), medir el
    espacio antes y después, apagar Gradle/emulador/pruebas propios (`./gradlew --stop` en `android/`).
