@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:html/parser.dart' as html_parser;
 import 'package:sinapsis/features/transform/data/clients/reader_mode_article_extractor.dart';
 import 'package:sinapsis/features/transform/data/documents/html_to_markdown.dart';
 
@@ -184,6 +185,151 @@ void main() {
       );
 
       expect(markdown, isNot(contains('editar')));
+    });
+  });
+
+  group('el id que es el ancla del título no pesa (F46, paso 5b)', () {
+    // Wikipedia le pone a cada título de `id` su mismo texto
+    // («Alta_Edad_Media_(siglos_V_al_X)»), y Readability juzga el `id` por
+    // sus pedazos: «media», «social». En Edad Media se iban 8 de 61.
+    final page = File(
+      'test/fixtures/web/wikipedia_edad_media_recorte.html',
+    ).readAsStringSync();
+    final wiki = Uri.parse('https://es.wikipedia.org/wiki/Edad_Media');
+
+    test('los capítulos que dicen «Media» o «social» quedan', () {
+      final markdown = htmlToMarkdown(
+        extractor.extract(page, baseUri: wiki)!.contentHtml,
+      );
+      final headings = [
+        for (final line in markdown.split('\n'))
+          // Wikipedia une «siglo» y «XIX» con un espacio que no se corta.
+          if (line.startsWith('#')) line.replaceAll('\u00a0', ' '),
+      ];
+
+      expect(headings, [
+        '## Es impropio hablar de *Edad Media* en otras civilizaciones',
+        '## El inicio de la Edad Media',
+        '## Alta Edad Media (siglos V al X)',
+        '### Los reinos germanorromanos (siglos V al VIII)',
+        '## Plena Edad Media (siglos XI al XIII)',
+        '### La expansión del sistema feudal',
+        '#### Dinamismo interno: económico, social, tecnológico e intelectual',
+        '#### La universidad',
+        '#### Sacramentos y cohesión social. Minorías religiosas',
+      ]);
+    });
+
+    test('lo que la página nombra como comentarios o para compartir se sigue '
+        'yendo: ese id no es el título', () {
+      const blog = '''
+<!DOCTYPE html>
+<html lang="es">
+<head><title>Napas y lluvia | Bitácora</title></head>
+<body>
+  <article>
+    <p>El proyecto empezó con una meta modesta: medir cuánto tarda en llegar el agua de lluvia a las napas de una cuenca chica, con instrumentos que cualquiera pudiera armar.</p>
+    <h2 id="La_meta_del_proyecto,_paso_a_paso">La meta del proyecto, paso a paso</h2>
+    <p>Primero se eligieron los puntos de medición, después se calibraron los sensores y, por último, se juntaron tres años de datos, con sus huecos y sus correcciones.</p>
+    <h2 id="share">Compartí esta nota</h2>
+    <h2 id="comments">Comments</h2>
+    <p>Los resultados, publicados con sus planillas, muestran que la demora depende más del suelo que de la cantidad de lluvia, contra lo que se esperaba al empezar.</p>
+  </article>
+</body>
+</html>
+''';
+      final article = extractor.extract(blog, baseUri: baseUri)!;
+
+      expect(
+        article.textContent,
+        contains('La meta del proyecto, paso a paso'),
+      );
+      expect(article.textContent, isNot(contains('Compartí esta nota')));
+      expect(article.textContent, isNot(contains('Comments')));
+    });
+  });
+
+  group('unweightTitleAnchors: la regla sola', () {
+    String? idAfter(String heading, {String selector = 'h2'}) {
+      final document = html_parser.parse('<body>$heading</body>');
+      unweightTitleAnchors(document);
+      return document.querySelector(selector)!.attributes['id'];
+    }
+
+    test('el texto del título escrito como ancla se va', () {
+      expect(
+        idAfter(
+          '<h2 id="Alta_Edad_Media_(siglos_V_al_X)">Alta Edad Media '
+          '(siglos V al X)</h2>',
+        ),
+        isNull,
+      );
+      // Al estilo de GitHub y de los índices: minúscula, guiones, sin acentos.
+      expect(
+        idAfter(
+          '<h2 id="cohesion-social-y-minorias">Cohesión social y '
+          'minorías</h2>',
+        ),
+        isNull,
+      );
+      // Con dirección (`%C3%B3`) y con el número de un título repetido.
+      expect(
+        idAfter('<h2 id="Cohesi%C3%B3n_social">Cohesión social</h2>'),
+        isNull,
+      );
+      expect(idAfter('<h2 id="Redes_sociales_2">Redes sociales</h2>'), isNull);
+    });
+
+    test('también el ancla vieja de MediaWiki que el título lleva adentro', () {
+      expect(
+        idAfter(
+          '<h2 id="Cohesión_social"><span id="Cohesi.C3.B3n_social" '
+          'typeof="mw:FallbackId"></span>Cohesión social</h2>',
+          selector: 'span',
+        ),
+        isNull,
+      );
+    });
+
+    test('un id que no es el texto del título se queda', () {
+      expect(idAfter('<h2 id="comments">3 comentarios</h2>'), 'comments');
+      expect(
+        idAfter('<h2 id="related-media">Más sobre esto</h2>'),
+        'related-media',
+      );
+      // Parecido no es igual: le sobra una palabra.
+      expect(
+        idAfter('<h2 id="Edad_Media_tardia">Edad Media</h2>'),
+        'Edad_Media_tardia',
+      );
+    });
+
+    test('un título que es solo una palabra de estructura conserva su id: '
+        'no hay cómo saber si es el ancla o el nombre', () {
+      expect(idAfter('<h2 id="comments">Comments</h2>'), 'comments');
+      expect(idAfter('<h2 id="Media">Media</h2>'), 'Media');
+      expect(idAfter('<h2 id="tags">Tags</h2>'), 'tags');
+      // Una palabra que solo contiene una de esas no es una de esas.
+      expect(idAfter('<h2 id="Metafísica">Metafísica</h2>'), isNull);
+    });
+
+    test('un id mal escrito como dirección no rompe nada', () {
+      // Un `%` sin sus dos cifras, y bytes que no son UTF-8.
+      expect(idAfter('<h2 id="100%_seguro">100% seguro</h2>'), isNull);
+      expect(idAfter('<h2 id="Caf%FF">Café</h2>'), 'Caf%FF');
+    });
+
+    test('la clase no se toca: sigue pesando como siempre', () {
+      final document = html_parser.parse(
+        '<body><h2 id="Comentarios_de_lectores" '
+        'class="comments-title">Comentarios de lectores</h2></body>',
+      );
+      unweightTitleAnchors(document);
+
+      expect(
+        document.querySelector('h2')!.attributes['class'],
+        'comments-title',
+      );
     });
   });
 
