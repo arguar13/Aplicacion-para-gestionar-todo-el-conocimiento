@@ -7470,6 +7470,237 @@ decisión 93.
     tire `'!child.attached'`. Pasa igual con un `SnackBar` de Material puro; la app no tiene avisos
     fijos.
 
+### 93. F47: un solo lector para todo, el reproductor anclado y en segundo plano, la biblioteca de voces en el teléfono, las voces propias, el audio de un documento y el podcast
+
+**Pedido** (2026-10-30), con las capturas 3 a 17 de una app de lectura en voz alta como guía de
+diseño, no para copiarla: un solo lector para todo texto, un reproductor anclado, escuchar en
+segundo plano, una biblioteca de voces, un podcast a medida y lo que le falta a Ajustes, sin perder
+nada de lo que la app ya hace. Después de aprobarlo, el dueño lo precisó: *todo en el teléfono y sin
+gastos, por defecto*; la nube solo si se elige y solo para clonar y crear voces (ElevenLabs), con el
+costo a la vista; clonar la voz de quien se elija **con su permiso**, crear una voz describiéndola, y
+cada idioma con sus voces nativas. El 5/11 precisó dos más (las decisiones G y J: lo que se ve sin
+abrir la app). Plan, con sus decisiones A a L y el «Avance» de cada paso:
+`docs/planes/F47-lector-y-voces.md`. Va después de F45 y antes de F46 (decisión I), para que el
+Índice naciera con el marco nuevo.
+
+- **Un solo marco de lectura, que reemplaza a los cuatro** (paso 1, decisión A). Había cuatro
+  lectores —el de «Lo creado», «Leer como libro», el PDF y la página web—, cada uno con su
+  reproductor. Ahora hay uno, `ReadingFrame` (`lib/features/reading/presentation/frame/`): ← y
+  cuatro botones redondos del mismo tamaño que no crecen con la letra —Contenido, IA, Aa y ⋮—, la
+  fila de IA que se recuerda, el cuerpo en una columna de ancho cómodo y, abajo, «Escuchar» o el
+  lugar del reproductor (`ReadingPlayerSlot`). Lo único que cambia es el cuerpo: el PDF, la página web
+  en vista móvil, el libro paginado, la foto con «Imagen · Texto», el audio o el video con su
+  transcripción, o el texto de corrido. El texto, el resumen y la síntesis de un procesado se abren
+  en el mismo lector que «Lo creado», sin crear nada en «Lo creado» (F45, decisión F).
+- **Nada se pierde, y lo dice un censo** (`reading_census_test.dart`): cada función de «Lo que hay
+  hoy» con dónde quedó y una prueba que llega a ella en el marco. Empezó en 30 y quedó en 32 de 32 con
+  las notas en el texto (F45, paso 8b) y el audio (paso 5). Favoritos, «Marcar como terminado» e
+  «Imprimir» no existían en la app y **no se inventaron**: necesitan su dato en la base.
+- **La Apariencia, una para todos los lectores**: cinco letras que viajan con la app (Lora, la de
+  entrada; Source Sans 3, Inter, Nunito y Atkinson Hyperlegible Next, que se sumó con su licencia OFL
+  y se baja con `tool/fetch_reading_fonts.sh`), el tamaño de 80 % a 160 % (la preferencia que tenían
+  A− A+), el color de lo que suena, el modo (Sistema · Claro · Oscuro · Sepia) y, en un PDF o una
+  foto, el zoom y el tono de la página: «Oscura» invierte el papel sin cambiar los colores de lo
+  marcado. Ajustes la abre sin un documento detrás (`ReadingAppearanceSheet.saved`): la misma hoja,
+  no una copia.
+- **El desplazamiento** (mejora 13 de F45): una prueba que mide un mismo gesto confirmó la causa
+  —`ReadingScrollPhysics` multiplicaba por 1,5 el impulso, pensado para pasar hojas—. El texto de
+  corrido usa la física de la plataforma, y el impulso extra queda solo en el PDF.
+- **Salió lo que quedó repetido**: la barra de «Lo creado» para lo que se lee (`ExtractListenButton`,
+  `ExtractReadingSheet`), sus reproductores propios (`ExtractPlayer`, `ExtractListenPlayer`), A− A+
+  (`ReaderFontScaleNotifier`), la tarjeta de papel y el texto desplegable de Procesado. En el marco no
+  va el botón redondo (`ReadAloudDock`).
+- **Un solo reproductor, anclado, en toda la app** (paso 2, decisión H). `ReadAloudAnchoredPlayer`,
+  que monta `ReadAloudOverlay`, abierto o achicado, con la cola, Repetir, el temporizador y la cara de
+  la voz. El dominio es puro: `ReadingTimeline` (el tiempo por las palabras, 150 por minuto a 1×;
+  ±10 s salta a la oración más cercana y siempre mueve), `ReadingQueue` y `SleepTimer`; la velocidad
+  va de 0,5× a 3,0× de a una décima, sin candados. Lo que ocupa se publica con dos cifras
+  (`readAloudPlayerExtentProvider`): `current`, lo de ahora, para que los avisos vayan siempre encima
+  (decisión 91), y `resting`, la forma elegida sin el achicarse pasajero de la Lectura enfocada, para
+  lo que no debe moverse a mitad de un arrastre.
+- **La sesión de medios, escrita a mano y sin dependencias nuevas** (decisión J, cambiada en el
+  paso 2). `audio_service` busca el motor de Flutter por su propio nombre y lo destruye cuando su
+  servicio se va y no hay actividad; el motor de la app es el del proceso (F29, decisión 62), así que
+  cerrar la app desde «recientes» habría matado la cola de procesamiento. Se hizo la alternativa de la
+  misma decisión: `MediaSession` y `Notification.MediaStyle` de Android (`MediaSessionChannel.kt`,
+  `MediaPlaybackService.kt`), con un servicio de tipo «reproducción de medios»
+  (`FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `WAKE_LOCK`), aparte del de procesar. El contrato vive en
+  `lib/core/audio/media_session.dart` (`MediaSessionState`, los comandos, las interrupciones y
+  `MediaSessionSource`, lo que implementa cada cosa que suena); `MediaSessionHub` muestra la que tiene
+  el foco de audio de la app y manda solo lo que cambia; la barra la adelanta el teléfono y se
+  corrige si se aparta más de 2 s. La portada es la cara de la voz, dibujada una vez por voz como
+  PNG. Cada cosa que suena dice su dirección (`ReadableDocument.location`, tomada de la ruta de
+  arriba del router): la tarjeta y «Seguir escuchando» vuelven a esa pantalla.
+- **Lo que se ve con el teléfono bloqueado, protegido de entrada** (decisión J, precisada el 5/11;
+  paso 7a-bis). Bloqueado, la tarjeta dice «Reproduciendo» y el nombre de la app, sin título ni
+  imagen, con los mismos botones. Había tres caminos por los que se veía el título, y cada uno se
+  cerró (`LockScreenPrivacy.kt`, con la regla en una función pura):
+  - la notificación con «mostrar todo el contenido», lo de fábrica: una notificación privada **se
+    muestra entera igual**, así que no alcanzaba con `VISIBILITY_PRIVATE`; bloqueado, la tarjeta
+    misma pasa a lo genérico;
+  - con «ocultar contenido sensible», va además una `setPublicVersion(...)` genérica;
+  - desde Android 11 los controles de medios se arman con los **metadatos de la `MediaSession`**, no
+    con la notificación: bloqueado, también son genéricos.
+
+  «Bloqueado» es `!PowerManager.isInteractive || KeyguardManager.isKeyguardLocked`, escuchando
+  `SCREEN_OFF`, `SCREEN_ON` y `USER_PRESENT`. El interruptor va en Ajustes › **Privacidad** y no en
+  «Voz y lectura»: la tarjeta es de todo lo que suena, no solo de la lectura.
+- **La biblioteca de voces, toda en el teléfono y gratis** (paso 3, decisiones B, D y L). El
+  catálogo (`OfflineVoiceCatalog`) se relevó de la versión `tts-models` de sherpa-onnx el 30/10:
+  26 paquetes de Piper con 28 voces (español de Argentina, España y México, inglés, portugués,
+  francés, italiano y alemán) y Kokoro multilingüe v1.0 en 8 bits (132 MB, 28 voces), cada paquete
+  con su tamaño y su huella SHA-256, que se comprueban al bajarlo. **Lo que no se pudo confirmar no se
+  puso** —el género de las de Piper cuyo modelo no lo dice, el tono, el timbre, la edad, para qué es
+  ideal—, y quedaron afuera GLaDOS (imita un personaje), las de Kokoro con nota D o F, las de japonés
+  y las versiones livianas de Piper sin medir. El motor es `sherpa_onnx` 1.13.8, que la app ya tenía
+  por Whisper, en un isolate con hasta dos voces armadas; cada tramo es un WAV, y el siguiente se
+  genera mientras suena el de ahora. Nada se baja sin pedirlo, y el `.tar.bz2` se abre en un isolate
+  sin escribir fuera de su carpeta. **La voz sigue al idioma del texto**, pedazo por pedazo, con una
+  elegida por idioma en las preferencias, sin tabla nueva. Cada voz tiene una cara propia y
+  abstracta (`VoiceFaceView`), nunca la foto de una persona: diría que esa voz es suya. Las voces de
+  Gemini y OpenAI no leen: costarían, y no hacen falta.
+- **Las voces propias, con el consentimiento primero** (paso 4, decisión C). `MyVoice`, clonada o
+  creada, en el teléfono o en ElevenLabs:
+  - una clonada sin consentimiento (de quién es, su nombre, la confirmación y la fecha) **no se carga**
+    (`fromJson` da `null`), tampoco la que llega al unir bóvedas; la voz de un famoso o de alguien sin
+    permiso no tiene opción: la pantalla lleva a crear una. `checkRealPerson` avisa si una
+    descripción nombra a una persona real, con una heurística y sin listas de famosos;
+  - **clonar en el teléfono no se ofrece** (`OnDeviceCloning.available = false`), y no por no
+    medirlo: el único ZipVoice publicado para sherpa-onnx 1.13.8 es chino e inglés y pasa el texto a
+    fonemas con espeak-ng en `en-us` fijo, así que el español sonaría como inglés
+    (`docs/benchmarks/F47-zipvoice-en-el-telefono.md`);
+  - **crear en el teléfono** mezcla voces de Kokoro (`KokoroBlend`): el timbre —las primeras 128
+    columnas del estilo— y la forma de hablar —las últimas 128— por separado, siempre con dos voces o
+    más y ninguna por encima del 80 %;
+  - **la nube** (ElevenLabs, con la cuenta de quien la usa) va apagada de entrada, y apagada la clave
+    no sale aunque esté guardada. HTTP directo, sin paquete nuevo; la clave en el almacén seguro
+    (`xi-api-key`). Con más de 1.500 caracteres por leer, `CloudReadingGate` pregunta una vez por
+    documento, parte y voz, con los créditos que quedan; sin una pantalla que pregunte, no se gasta;
+  - la grabación es propia (`VoiceRecorderChannel.kt`: WAV de 16 bits a 44,1 kHz, sin paquete de
+    grabación), y `analyzeRecording` dice si conviene repetirla;
+  - las voces viven en `originales/voces-mias/<id>/`, sin tabla, y viajan en la copia y en la unión,
+    que no trae lo que se borró acá (`borradas.json`).
+- **Una pieza común para generar audio en el teléfono** (paso 6b; `SpeechAudioRenderer`, en
+  `lib/features/narration/data/audio/`). De una lista de tramos (`SpeechAudioPiece`) a un archivo:
+  cada tramo lo hace quien sabe hacer su voz, por el prefijo del id (`offline:`, `device:`, `mia:`);
+  es **retomable por tramo** —cada uno en su WAV, nombrado por su texto, su voz y la versión de la
+  voz, escrito aparte y renombrado al terminar—; antes de generar nada se fija que estén todas las
+  voces; el armado corre en otro isolate (recorta el silencio de cada motor a 40 ms, lleva todo a
+  24 kHz mono y pone exactamente la pausa pedida) y el resultado es **M4A (AAC-LC, 64 kb/s, mono)**,
+  con el codificador del sistema leyendo el WAV de a pedazos (`WavToM4a.kt`): un podcast de 15
+  minutos son unos 7 MB en vez de 43. Las voces del teléfono generan con un `TextToSpeech` propio
+  (`DeviceSpeechChannel.kt`), con su propia cola: generar no corta lo que se escucha.
+- **El podcast es una creación más de «Lo creado»** (pasos 6a y 6b, decisión E). El tipo `podcast`
+  entra en `study_creations`, cuyo tipo es texto: el esquema no cambia, y usa la cola de F43 tal cual.
+  El guion lo escribe la IA de turno **por vueltas**, retomables una por una (`PodcastScriptProgress`;
+  el avance guardado de una creación, `StudyCreationRepository.checkpoint`, es un JSON entre sus
+  archivos, sin esquema nuevo). La duración se mide en palabras y nunca pasa de 1,5 palabras de
+  podcast por palabra leída: si el material no da, no se rellena. Cada tramo se comprueba contra el
+  material —una cita vale solo si está entera en lo que leyó esa vuelta, y su documento sale de
+  dónde se la encontró, no de lo que dice la IA; el tramo de datos sin cita o con una cifra que el
+  material no tiene se quita, con su porqué—. El audio es una etapa más de la misma creación
+  (`ServicePodcastVoicer`), queda en `originales/<creación>/audio/` y el contenido lo nombra con
+  `audio_ref`; si la voz no se pudo, el guion queda con su motivo (`audioIssue`). Se escucha en el
+  mismo reproductor, con un `RecordedSpeech` (el archivo, cuánto dura y dónde empieza cada tramo)
+  que suena con `SpeechTrackPlayer` sobre ExoPlayer: la velocidad cambia sin cambiar el tono, y la
+  transcripción se sigue con el amarillo de siempre.
+- **El audio de un documento, sin esquema nuevo** (paso 5). `DocumentAudioPlan` arma un tramo por
+  pedazo con **la voz con que el lector lo diría ahora** (`ReadAloudController.voicesFor`, la misma
+  elección del lector: la del idioma de cada pedazo) y sus pausas (350 ms dentro de un texto, 900 al
+  pasar a otro). Se guarda en `originales/audio-documentos/<clave>/` con su ficha `audio.json`: el
+  audio es de un documento *como lo lee el lector* —un original, un procesado, un resumen, lo
+  creado—, no de una fila, y no hay a qué atarlo con una clave ajena. Las descargas
+  (`DocumentAudioDownloads`) van de a una, con el servicio en primer plano
+  (`LongWorkOwner.speechAudio`), cancelables y retomables por su clave de trabajo. El lector suena
+  desde el audio **solo si la huella es la de este texto con estas voces** (`speechAudioFingerprint`,
+  común con el podcast): nunca suena un audio que no es el de lo que se ve. «Exportar audio» pasa el
+  archivo a la hoja de compartir desde el disco (`SystemCreationSharer.shareFileAt`).
+- **Ajustes, Ayuda y los widgets** (pasos 7a, 7a-bis y 7b):
+  - **«Voz y lectura»** en tres grupos —con qué voz se lee, las voces propias con «La nube para
+    voces», cómo se escucha y se lee—, con la voz de ahora con su cara. **Una sola velocidad**: la
+    que se elige en el reproductor (`narration_speed`) es la de Ajustes, y abre la misma hoja;
+  - **la guía y las novedades dentro de la app**: `GUIA_DE_USO.md` y `NOVEDADES.md` se empaquetan
+    desde la raíz, sin copias, y una prueba comprueba que lo empaquetado es el archivo; la guía se
+    parte por sus «##», con un censo de cada «##» y «###». El armado de bloques de Markdown salió del
+    chat a `MarkdownBlockStyle` y `MarkdownBlockView`. La versión sale de `package_info_plus`, que ya
+    venía por `sentry_flutter` y se declaró directo en la misma 9.0.1; las licencias muestran las
+    ocho letras empaquetadas, con un censo;
+  - **tres widgets de Android con `home_widget` 0.10.0** (decisión G), la única dependencia nueva de
+    F47. Sus toques van por un canal propio (`app.sinapsis/home_widgets`) con un pedido pendiente,
+    como el aviso diario: `home_widget` perdería el toque que abre una actividad nueva sobre un Dart
+    que ya andaba, porque el motor sobrevive a la actividad (F29);
+  - **«Seguir escuchando» con la bóveda cerrada dice «Protegido»** (decisión G, precisada el 5/11),
+    también con la app muerta después de reiniciar: Dart le deja al widget en qué encendido del
+    teléfono está abierta la bóveda, y el widget lo compara cada vez que se dibuja. El criterio es el
+    de la bóveda, sin copia: el contador de arranques de Android, leído en un solo lugar
+    (`DeviceBoot.kt`, con un censo). La regla es una función pura de cada lado
+    (`ContinueListeningDisplay.shownIn` y `HomeWidgets.continueListeningShown`), y ante la duda
+    oculta. Al guardar, primero va lo que restringe y el título al final.
+- **Los dos arreglos de antes** (paso 0, decisión K): la tarjeta de Repasar dejó de declararse texto
+  para leer (`ReadableRegion`, decisión 58 corregida), y el marco común de los filtros
+  (`ListFiltersSheet`) lleva el pie «Ver N resultados», contado en la base sin traer documentos. El
+  Mapa y la Línea de tiempo no lo llevan: filtran un dibujo, no una lista.
+- **Invariantes que no se tocan:**
+  - todo suena y se genera en el teléfono, sin gastos, salvo una voz de ElevenLabs que la persona
+    eligió, siempre con el costo dicho antes (decisiones B y F);
+  - una voz real se clona solo con el consentimiento guardado junto a ella; ninguna voz imita a
+    alguien sin su permiso;
+  - un solo reproductor y una sola tarjeta de lo que suena para toda la app; un audio descargado
+    suena solo si es el de lo que se ve;
+  - lo que se ve sin abrir la app —la pantalla de bloqueo, el widget— protege de entrada;
+  - el audio generado vive en la bóveda; de la Biblioteca nada se borra.
+- **Trampas que costaron:**
+  - a `flutter_tts` se le pedía siempre la mitad de la velocidad, lo justo solo en Android: en la
+    web 1× sonaba a la mitad y en Windows 2× sonaba a 1,5×. `flutterTtsRate` traduce la escala de
+    cada plataforma solo adentro de `FlutterTtsService`, y las voces sin conexión reciben el
+    multiplicador tal cual;
+  - sherpa-onnx termina el proceso si el `voices.bin` de Kokoro no tiene exactamente los hablantes
+    del modelo: cada voz creada ocupa un lugar de una copia del mismo tamaño (`KokoroStyleBank`), y
+    el lugar se asigna al armarla (`blendSlots`, hasta 54), no se guarda en la ficha, para que las
+    de dos bóvedas unidas no choquen;
+  - `audio_decoder.convertToM4a`, que la app ya traía, decodifica el archivo entero a memoria: con el
+    audio de un documento de una hora, un `OutOfMemoryError` —que no es una `Exception`— tumbaría el
+    proceso con la cola adentro. Por eso `WavToM4a.kt`;
+  - `flutter_tts` avisa el fin de un archivo con el mismo «terminó» que el de una oración, y si el
+    lector corta, la espera de `synthesizeToFile` no se completa nunca: por eso un canal propio para
+    generar con las voces del teléfono;
+  - dos carreras al abrir la app: la clave de la nube se carga sola y generar enseguida daba la voz
+    por faltante (ahora se espera `loaded`); y la lista de voces del podcast se armaba antes de saber
+    qué paquetes estaban bajados;
+  - el podcast no suma una segunda fuente a la tarjeta: sería un segundo reproductor de lo mismo,
+    peleando el foco con el lector; el lector, que ya es «el que suena», no pide el foco cuando
+    ExoPlayer ya lo pidió;
+  - trece commits intermedios del paso 1 no compilan y otros dan 20 avisos: son pasos de los
+    rebases, ya subidos; desde `15656602` compila de nuevo, y cada Avance dice cuáles. No se
+    reescribió la historia.
+- **Se descartó:**
+  - Leer en la nube con Gemini u OpenAI.
+  - `audio_service` (la alternativa de J pasó a ser la decisión).
+  - Clonar en el teléfono con un modelo que lee el español como inglés, hasta que haya uno con
+    español y se mida.
+  - Fotos de personas reales como caras, y listas de famosos para frenar la imitación.
+  - Una tabla para el audio de un documento, y una segunda velocidad «por defecto» en Ajustes, que
+    se separaría de la del reproductor.
+  - El título de la pantalla de bloqueo en «Voz y lectura»: parecería que un video o un audio no
+    quedan cubiertos.
+  - Calificar o compartir la app, pedir funciones y las cuentas de Google: no hay tienda, los pedidos
+    son estos planes, y Drive y Gmail son una fase en sí.
+- **Lo que no quedó probado:**
+  - Nada se miró en el emulador ni en el teléfono: cuánto tarda cada voz en generar una oración (sobre
+    todo Kokoro) y si la pausa entre oraciones se nota; cuánto tardan y pesan el audio de un documento
+    largo y un podcast; la tarjeta de bloqueo con sus dos ajustes de Android y en los ajustes rápidos
+    de un Android 11; el widget después de reiniciar.
+  - ElevenLabs con una clave real.
+  - Dos pedidos de foco de la misma app: los tramos de una voz sin conexión suenan con `video_player`,
+    que lo pide, mientras la tarjeta del lector también.
+  - Las reglas de Kotlin no tienen pruebas propias (el proyecto no tiene pruebas de JVM): quedan en
+    funciones puras, comentadas, y los censos comprueban lo que las une con Dart.
+  - En iOS no hay tarjeta ni se escribió código.
+  - Quedan abiertos, dichos en el plan: «Varias voces en un mismo documento» (texto y comillas); el
+    margen abajo de las listas fuera del marco, para que el reproductor no tape lo último; un visor
+    abierto con `Navigator.push` dice la dirección de la pantalla de abajo; el audio del resumen o la
+    síntesis aparte; retomar sola, al abrir la app, una descarga de audio que se cortó.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -8014,6 +8245,19 @@ decisión 93.
   - las notas en cualquier texto —el original, el texto, el resumen, la síntesis y lo creado, sobre
     la página de un PDF y dentro de una página web—, con «Notas (N)» y en las descargas;
   - más plantillas, diseños, estilos, composiciones y gráficos, con «Personalizar».
+- **F47, un solo lector y las voces** (decisión 93, sin cambios de esquema):
+  - un solo marco de lectura para todo texto —el original, el texto, el resumen, la síntesis y lo
+    creado—, con Contenido, la fila de IA, Apariencia y ⋮, y su censo de funciones;
+  - un solo reproductor anclado, con la cola, Repetir, el temporizador y la velocidad de 0,5× a 3×,
+    que sigue en segundo plano con su tarjeta en la notificación y la pantalla de bloqueo;
+  - la biblioteca de voces —las del teléfono y las de Piper y Kokoro sin conexión, a pedido—, con la
+    voz que sigue al idioma del texto;
+  - clonar con permiso (en ElevenLabs) y crear una voz describiéndola (en el teléfono o en la nube);
+  - descargar y exportar el audio de un documento, generado en el teléfono;
+  - el podcast a medida, en Repasar y en el lector, con una o dos voces;
+  - Ajustes › «Voz y lectura» entera, la guía y las novedades dentro de la app y tres widgets de
+    Android;
+  - Repasar sin el lector en voz alta y el pie «Ver N resultados» en los filtros.
 
 ### Por construir
 
