@@ -2671,18 +2671,44 @@ a Procesado, se renombra, se edita, se vuelve a triar o se borra.
 
 Sale solo de la sección **Texto** de cada documento y de sus **Imágenes**:
 nunca del resumen, la síntesis, las palabras clave, las notas ni los
-fragmentos.
+fragmentos. Y no inventa nada: si un documento no tiene títulos, es una sola
+entrada.
 
 **Cómo llegar:** ítem **"Índice"** en la navegación (el ícono de la lista
 numerada). En el celular, en **"Estudiar"**, justo debajo de **Procesado**.
+
+### De dónde salen los capítulos
+
+- **Una página web, un Word, un EPUB, un Markdown o una nota con títulos**:
+  sus títulos, con su nivel (lo que parece un título dentro de un bloque de
+  código o de una cita no cuenta). La página de cada uno es la del texto
+  procesado (*«pág. 3»*).
+- **Un PDF con marcadores** (el índice que trae el propio PDF, el que ves al
+  costado en un lector de PDF): sus marcadores, con sus niveles, y **la página
+  real del PDF** (*«p. 47»*).
+- **Un PDF sin marcadores**: los títulos que la IA dejó solos en su renglón al
+  ordenar el texto cuando lo triaste (ver
+  [El texto, ordenado por la IA](#el-texto-ordenado-por-la-ia)), con su
+  página del PDF. Si el texto no se ordenó o la IA no dejó ninguno, es
+  «Texto completo».
+- **Un texto sin títulos** —una transcripción, una foto con texto, un `.txt`,
+  un artículo plano—: una sola entrada, **«Texto completo»**.
+- **Las imágenes**: una entrada por imagen, con **su título**: el pie de foto
+  o el texto alternativo que traía la fuente, o el título bajo el que estaba
+  en la página; si no traía nada, el nombre de su archivo, limpio (*«Mapa del
+  Imperio romano»*, no `mapa_imperio-romano_02.jpg`). Si ni eso dice algo, el
+  Índice la llama por su lugar: *«Imagen 3»*.
+
+Los niveles se respetan como están, corridos para que el primero sea el 1: un
+documento que empieza con subtítulos no queda colgando.
 
 ### Cómo se ve
 
 Arriba, el buscador **"Buscá un capítulo"**. Debajo, dos botones y los
 niveles:
 
-- **"Por tema"** (lo de entrada): el árbol de tus temas, de la A a la Z, cada
-  uno con sus documentos. Al final, **"Sin tema"**, con los que no están en
+- **"Por tema"** (lo de entrada): **tus temas, de la A a la Z**, cada uno
+  con sus documentos. Al final, **"Sin tema"**, con los que no están en
   ninguno. Un documento que está en dos temas aparece en los dos, y debajo de
   su título dice **"también en Roma"**: el que lo busca por el otro tema lo
   encuentra igual.
@@ -2718,9 +2744,9 @@ niveles y la numeración— para la próxima vez.
 - **Texto completo**: un texto sin títulos —una transcripción, una nota
   larga, un artículo plano— es una sola entrada, que abre el texto desde el
   principio.
-- **Una imagen**: con su título, el que traía la fuente; si no traía
-  ninguno, **"Imagen 3"**, por su lugar en la galería. A la derecha,
-  *«img. 3»*.
+- **Una imagen**: con su título (ver
+  [De dónde salen los capítulos](#de-dónde-salen-los-capítulos)) y, a la
+  derecha, su lugar en la galería: *«img. 3»*.
 
 **Numerar los capítulos:** en **⋮**, **"Numerar los capítulos"** prende y
 apaga la numeración **1**, **1.2**, **1.2.3** delante de cada uno. Un capítulo
@@ -2743,8 +2769,10 @@ capítulo aparece con su documento arriba —fijo mientras recorrés sus
 coincidencias, con sus temas— y con los capítulos que lo contienen, más
 tenues; lo que buscaste, **resaltado**.
 
-Arriba de todo, en **"Documentos"**, los documentos cuyo **título** coincide:
-tocar uno lo abre desde el principio. Si nada coincide, lo dice: *"Ningún
+Tocar un capítulo encontrado hace lo mismo que en el árbol: lo abre justo
+en su título (ver [Tocar una entrada](#tocar-una-entrada)). Arriba de todo,
+en **"Documentos"**, los documentos cuyo **título** coincide: tocar uno lo
+abre desde el principio. Si nada coincide, lo dice: *"Ningún
 capítulo dice «…»"*. Se muestran las 200 mejores coincidencias; si llegás a
 ese tope, abajo lo dice, y conviene escribir otra palabra para afinar.
 
@@ -2778,7 +2806,8 @@ la papelera, el panel se cierra y el documento sale del Índice.
 
 Mantené apretado un capítulo, una imagen o un documento (con el mouse, el
 **clic derecho**) y se abre la hoja de siempre, con su título arriba y lo que
-es —*"Capítulo de nivel 2 · pág. 3 · Historia de Roma"*—:
+es —*"Capítulo de nivel 2 · pág. 3 · Historia de Roma"*—. En **un
+capítulo**:
 
 - **"Abrir en el original"**: la copia del original que guardó el documento.
   Un **PDF** se abre **en la página de ese capítulo**; una **página web**, **en
@@ -2789,13 +2818,20 @@ es —*"Capítulo de nivel 2 · pág. 3 · Historia de Roma"*—:
 - **"Preguntar al chat"**: abre el chat con una conversación nueva y deja
   escrito el capítulo, su documento y **su texto** —desde su título hasta el
   capítulo siguiente de su nivel, con sus secciones adentro; si es muy largo,
-  su comienzo—. Abajo escribís lo que quieras preguntar.
+  su comienzo—. Abajo escribís lo que quieras preguntar. Un marcador de un PDF
+  que no se pudo ubicar en el texto no tiene texto que llevar, y lo avisa.
 - **"Copiar el título"**, con su número si estás numerando.
-- En una **imagen**, **"Renombrar"**: le cambiás el título, y el Índice lo
-  muestra en el acto.
 
-En un **documento**, la hoja ofrece además **"Abrir el texto"** desde el
-comienzo, y "Preguntar al chat" deja escrito *"Sobre «…»: "* para que sigas.
+En **"Texto completo"**: "Abrir en el original" y "Preguntar al chat", que
+deja escrito el documento y el comienzo de su texto.
+
+En una **imagen**: **"Renombrar"** —le cambiás el título, y el Índice lo
+muestra en el acto— y "Copiar el título". No hay "Preguntar al chat": una
+imagen no tiene texto que llevar.
+
+En un **documento**: **"Abrir el texto"** desde el comienzo (si tiene texto),
+"Abrir en el original", "Preguntar al chat" —deja escrito *"Sobre «…»: "*
+para que sigas— y "Copiar el título".
 
 ### Descargar el índice
 
@@ -2835,8 +2871,12 @@ No hace falta tocar nada para que el Índice esté al día:
 - **Lo que ya estaba procesado** antes de que existiera el Índice se va
   sumando solo, de a poco y sin trabar la app. Mientras tanto, debajo del
   buscador, una línea discreta dice cuánto falta —*"Armando el Índice: 27 de
-  40 documentos"*— y se va cuando termina. Un documento que todavía no se leyó
-  dice **"Indexando…"**; si lo abrís, avisa que sus capítulos aparecen solos.
+  40 documentos"*, o *"Titulando 12 imágenes"* mientras les pone título a las
+  imágenes que no tenían— y se va cuando termina. Si cerrás la app en el
+  medio, sigue desde donde iba. Un documento que todavía no se leyó dice
+  **"Indexando…"**; si lo abrís, avisa que sus capítulos aparecen solos.
+- **Lo que editás, volvés a triar o volvés a extraer** se vuelve a leer solo:
+  nunca ves los capítulos de un texto que ya no es ese.
 
 **Vacío:** sin nada procesado todavía, dice *"El Índice todavía está vacío"* y
 ofrece **"Ir a Procesado"**.
