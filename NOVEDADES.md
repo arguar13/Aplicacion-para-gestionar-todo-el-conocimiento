@@ -4,18 +4,34 @@ Lo que trajo cada etapa de Sinapsis, de la más nueva a la más vieja. Cada etap
 aprobado (los de `docs/planes/`); las que dicen «en curso» todavía se están construyendo, y acá
 figura solo lo que ya está hecho. Cómo se usa cada cosa, en la **Guía de uso**.
 
-## F47 · Un solo lector y las voces — en curso (octubre de 2026)
+## F47 · Un solo lector y las voces (octubre y noviembre de 2026)
 
-- **Repasar, sin el lector en voz alta en las tarjetas.** Lo que venía sonando sigue al entrar a
-  Repasar, y revelar una tarjeta no lo corta.
-- **«Ver N resultados» al pie de los filtros**, en la Biblioteca, en Procesado, en «Volver a
-  triar» y en el material de un tema: dice cuántos quedan antes de cerrar el panel, y con cero,
-  «Ningún resultado».
-- **Ayuda, en Ajustes**: esta guía de uso dentro de la app, con su índice y su búsqueda; estas
-  novedades; y «Acerca de», con la versión, la compilación y las licencias.
+- **Un solo lector para todo**: el original —un PDF, un libro, una página web, una foto, un audio
+  o un video—, el texto, el resumen y la síntesis de lo procesado y lo creado se leen en el mismo
+  marco, con **Contenido**, la fila de **IA**, **Aa** (la letra, el tamaño, el color de lo que
+  suena y el modo, para todos los lectores) y **⋮**. Ninguna función se perdió.
+- **Un reproductor anclado abajo**, abierto o achicado, con la cola, Repetir, el temporizador para
+  dormir, la velocidad de 0,5× a 3× y la cara de la voz. **Sigue sonando** con la app minimizada
+  o la pantalla apagada, con su tarjeta en la notificación y en la pantalla de bloqueo, que de
+  entrada no dice qué suena.
+- **La biblioteca de voces**: las del teléfono y voces neuronales **sin conexión y gratis**
+  (Piper y Kokoro), que se bajan solo si las pedís, en cada idioma con su acento. **La voz sigue
+  al idioma del texto**, con una elegida por idioma.
+- **Tus voces**: **clonar** la tuya o la de quien te dé permiso (en ElevenLabs, con tu cuenta y el
+  costo a la vista) y **crear una voz** describiéndola, en el teléfono o en la nube. La nube viene
+  apagada.
+- **Descargar el audio** de un documento para escucharlo sin conexión, generado en el teléfono, y
+  **exportarlo**.
+- **El podcast a medida**, en Repasar y en el lector: breve, clase, relato o conversación, con
+  una o dos voces, la transcripción que se sigue y cada cita que lleva a su pasaje.
+- **Ajustes › «Voz y lectura»**, entera; **Ayuda**, con esta guía de uso dentro de la app, con su
+  índice y su búsqueda, estas novedades y «Acerca de», con la versión y las licencias.
 - **Widgets en la pantalla de inicio de Android**: «Para hoy», con las tarjetas que tocan hoy;
-  «Guardar rápido», que abre Guardar listo para pegar o escribir; y «Seguir escuchando», con lo
-  último que escuchaste.
+  «Guardar rápido», que abre Guardar listo para pegar o escribir; y «Seguir escuchando», que con
+  la bóveda cerrada dice «Protegido».
+- **Repasar, sin el lector en voz alta en las tarjetas**, y **«Ver N resultados» al pie de los
+  filtros**, en la Biblioteca, en Procesado, en «Volver a triar» y en el material de un tema
+  («Ver N voces», en la biblioteca de voces).
 
 ## F46 · El Índice — en curso (noviembre de 2026)
 
@@ -27,33 +43,44 @@ figura solo lo que ya está hecho. Cómo se usa cada cosa, en la **Guía de uso*
 - **El tema y el documento fijos arriba** mientras se recorren, **«Nuevo»** en lo de la última
   semana, lo que llega con un brillo suave y, en una pantalla ancha, el documento al costado.
 
-## F45 · Pulido del 30/10 — en curso (octubre de 2026)
+## F45 · Pulido del 30/10 (octubre y noviembre de 2026)
 
-- **Triar con la hoja «¿Qué va a Procesado?»**: el texto extraído, ordenado por la IA y
-  comprobado palabra por palabra, para que no se pierda ni se cambie nada.
+- **Un solo aviso en toda la app**: el texto a la izquierda, uno o dos botones a la derecha y
+  siempre su ✕; el lector en voz alta se corre para no taparlo.
+- **Triar con la hoja «¿Qué va a Procesado?»**: el original primero, las imágenes plegadas y el
+  texto extraído al final, ordenado por la IA y comprobado palabra por palabra, para que no se
+  pierda ni se cambie nada.
 - **La Biblioteca muestra solo el original.** «Ampliar» en el centro de la vista previa de una
-  foto, la transcripción que sigue al audio en su propia pantalla y «Descargar con lo marcado»
-  en Procesado.
+  foto, la transcripción que sigue al audio en su propia pantalla, y «El texto de la fuente» y
+  «Descargar con lo marcado» en Procesado.
 - **El texto de un video, en su idioma**: un video en español ya no se guarda con un texto en
-  otro idioma, y lo ya guardado se puede volver a extraer.
+  otro idioma, y lo ya guardado se puede volver a extraer, de a uno o todos juntos.
 - **Procesado más claro**: un solo «Volver a extraer», las fichas Resumen · Síntesis · Palabras
   clave en una fila y la página web como se ve en el teléfono.
 - **«Crear», en un solo lugar** (el ✨ de la barra): todo lo que se crea de un documento, con IA
-  o a mano, con cómo va cada cosa. Las marcas, adentro del original, y el original igual en
-  Procesado y en la Biblioteca.
+  o a mano, con cómo va cada cosa y «Cancelar». Las marcas, adentro del original, y el original
+  igual en Procesado y en la Biblioteca.
+- **Notas en cualquier parte del texto**, como en un lector de PDF: en los originales, en el
+  texto, el resumen y la síntesis, en lo creado, sobre la página de un PDF y dentro de una página
+  web, con su globito, «Notas (N)» y en las descargas.
 - **Más diseño** para la Presentación y la Infografía: plantillas, diseños de diapositiva,
-  estilos y «Personalizar».
-- **«N sin tema»** en su lugar, y la tarjeta «Bandeja» de cada fuente.
+  estilos, composiciones, gráficos y «Personalizar».
+- **«N sin tema»** en su lugar, y la tarjeta «Bandeja» de cada fuente, con «Volver a triar» y
+  «Triar ahora» ahí mismo.
 
-## F44 · El Mapa — en curso (octubre de 2026)
+## F44 · El Mapa (octubre de 2026)
 
 - **Dos pestañas, Resumen y Mapa**, en vez de cuatro: un solo lienzo que se recorre con el zoom,
-  de las comunidades a los temas y a los documentos.
-- **El Resumen**: las cifras grandes —documentos, temas, comunidades y vínculos— y nueve
-  tarjetas que llevan al lugar del Mapa.
+  de las comunidades a los temas y a los documentos, con Red · Radial · Árbol, el minimapa y
+  «Ver como lista».
+- **El Resumen**: las cifras grandes —documentos, temas, comunidades y vínculos, con su cambio de
+  30 días— y nueve tarjetas que llevan al lugar del Mapa.
 - **Cada comunidad con nombre**, por sus dos temas más unidos, y los temas que hacen de puente.
-- **La ficha** de un tema o de un documento, con «Centrar aquí», «Preguntar al chat» y
+- **La ficha** de cada comunidad, tema o documento, con «Centrar aquí», «Preguntar al chat» y
   «Estudiar».
+- **Las capas**: Vínculos, Sin tema, Contradicciones, Parecidos —los documentos que hablan de lo
+  mismo, con el modelo del teléfono, que proponen y no vinculan— y Estudio.
+- **Buscar en el mapa**: tocás un tema o un documento y el Mapa vuela hasta él.
 
 ## F43 · Estudiar (octubre de 2026)
 
