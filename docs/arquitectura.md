@@ -7470,6 +7470,256 @@ decisión 93.
     tire `'!child.attached'`. Pasa igual con un `SnackBar` de Material puro; la app no tiene avisos
     fijos.
 
+### 92. F46: el Índice —todo lo procesado con sus capítulos, como el índice automático de Word: una tabla derivada que se escribe con el texto, triggers que la sueltan cuando algo cambia, un relleno que se retoma solo y una pantalla que nunca trae todo—
+
+**Pedido** (2026-10-30): *"agregar en la pestaña de Estudiar, debajo de la sección de Procesado, una
+nueva sección llamada Índice … algo parecido a cuando yo hago en Word … un índice dinámico"*, con
+los ajustes del mismo día: solo los documentos de Procesado; si un documento es solo texto o
+imágenes, el texto completo o el título de las imágenes; **nunca** un resumen, una síntesis ni
+palabras clave; y que respete la jerarquía, los nombres, los títulos y los temas, elegante e
+interactivo, con cientos o miles de documentos. Plan, con sus decisiones A a F y el «Avance» de
+cada paso: `docs/planes/F46-indice.md`. Se construyó después de F44, F45 y F47 (decisión I de
+F47), en dos olas: los títulos, los datos y la pantalla (pasos 1 a 3), e ir al lugar exacto (paso
+4). Esquema **v51**.
+
+- **De dónde sale cada entrada: solo de la sección «Texto» y de las imágenes** (paso 1, decisiones
+  B y E). Las piezas son puras, en `lib/features/processed/domain/services/headings/`, y
+  `readProcessedHeadings` (`processed_headings.dart`) las junta según la clase de texto
+  (`processedTextKindOf`):
+  - un Markdown —una página web, un Word, un EPUB, un `.md`, una nota—, sus títulos
+    (`markdownHeadings`): los `#` y los subrayados, sin el código, las citas, las listas, las
+    tablas ni el HTML, y cada título leído sin sus marcas (`plainHeadingText`);
+  - un PDF, sus marcadores (`PdfiumOutlineReader`, con `loadOutline` de `pdfrx_engine`, aplanados
+    por `flattenPdfOutline`), ubicados en el texto como renglones enteros (`locateBookmarks`,
+    comparados por `headingKey`): en su página si el texto todavía tiene la raya de cada página
+    (`pdfPageSlicesBySeparator`), y si no, entre sus vecinos ya ubicados, de atrás para adelante,
+    para que el índice del libro —que va antes del cuerpo— no se lleve ninguno;
+  - un PDF sin marcadores, los títulos que la IA dejó solos en su renglón al ordenar el texto al
+    triar (`isolatedTitles`; F45, decisión B, ver la decisión 91). La IA no escribe Markdown, para
+    que su texto se compruebe palabra por palabra, así que se reconoce la forma: un renglón corto
+    entre dos en blanco, que no termina como una oración y no es un margen que se repite
+    (`TidyMargins`). Si más de la mitad de los bloques serían títulos, ninguno: es un poema o un
+    PDF con un renglón en blanco entre renglón y renglón;
+  - un texto tal cual o sin títulos —una transcripción, una foto, un `.txt`—, una sola entrada,
+    «Texto completo», sin título guardado: su nombre lo pone la pantalla, en su idioma;
+  - una imagen, su título (`processed_image_title.dart`): el pie de foto, el texto alternativo o el
+    título bajo el que está en la página (`sourceImageTitles`, `headingsAboveImages`, que la
+    encuentra por `SourceImage.originUrl`), y si nada dice nada, el nombre del archivo, limpio de
+    lo que agregan la cámara, el teléfono y la página (`imageTitleFromFileName`).
+
+  Los niveles se corren por el árbol (`runningLevels`): cada título cuelga del último anterior de
+  nivel menor y queda uno más abajo, así que nunca hay un nieto sin padre. Cada entrada
+  (`ProcessedHeading`, `lib/features/processed/domain/entities/processed_heading.dart`) lleva su
+  tramo en el texto propio —las páginas de «Texto» una detrás de la otra (`joinProcessedParts`), lo
+  que lee el lector único—, la página del texto (la de `kProcessedTextPageChars`, la misma «Página
+  3 de 6» del lector) y, en un PDF, la del PDF (decisión C).
+- **Una tabla derivada, `processed_headings`, para todas las entradas** (paso 2, decisión F;
+  `lib/core/database/tables/processed_headings.dart`). Una fila por capítulo, «Texto completo» o
+  imagen, con su origen (`IndexEntryOrigin`, `lib/core/domain/entities/index_entry_origin.dart`:
+  los cuatro de `ProcessedHeadingOrigin`, con el mismo nombre, más `image`), su nivel, su lugar, su
+  título, su tramo, sus páginas y, en una imagen, su `image_id`. Las reglas van en la base: el
+  tramo y su página juntos, páginas desde 1, «Texto completo» sin título y en el nivel 1, una
+  imagen sin nada del texto.
+  - `idx_processed_headings_document` (documento, lugar, origen, nivel) da las entradas de un
+    documento en su orden, sus cuentas, su estado y los padres de lo buscado sin volver a la tabla;
+  - `processed_heading_search` es un FTS5 de contenido externo sobre el título, sin mayúsculas ni
+    acentos (`remove_diacritics 2`), como `processed_part_search`;
+  - `processed_images.title` (decisión E) distingue `null` —«sin titular», lo único que el relleno
+    tiene que hacer— de vacío —«la fuente no dice nada», un resultado que no se recalcula—, y lo
+    encuentra el índice parcial `idx_processed_images_untitled`;
+  - la migración 50→51 solo agrega, con los conteos de todo lo demás como compuerta: la tabla nace
+    vacía y las imágenes, sin titular. Leer títulos es Dart y no tiene por qué demorar la apertura;
+  - el nombre de un documento y sus temas **no se guardan dos veces**: se leen de `item` y de
+    `item_spaces`, así que renombrar o cambiar de tema se ve en el acto sin tocar el Índice.
+- **Los triggers sueltan; el indexador rehace** (`lib/core/database/processed_heading_triggers.dart`).
+  Escribir los títulos es Dart; soltarlos, SQL. Toda escritura que cambie lo que produce los títulos
+  de un documento —una página de «Texto» (su texto, su orden, su lugar, su ancla) o la copia de su
+  original, de donde salen los marcadores— borra sus entradas de texto **en la misma sentencia**
+  (`processedHeadingStaleTriggers`), venga de donde venga: el repositorio, la unión de bóvedas, la
+  papelera del contenido o la reubicación de las anclas. Así «sin indexar» es exactamente «tiene
+  texto y ninguna entrada de texto», y nunca se ven capítulos de un texto que ya no es ese. Cada
+  imagen titulada tiene su entrada, que sigue su título y su lugar y se va con ella
+  (`processedImageHeadingTriggers`). Los crea `_createProcessedHeadingIndex` (`app_database.dart`),
+  en `onCreate` y en la migración a v51.
+- **La escritura con el texto, en la misma transacción** (`ProcessedHeadingsIndexer`,
+  `lib/features/processed/data/services/processed_headings_indexer.dart`). El repositorio de
+  Procesado llama a `refresh` dentro de la transacción que guarda o rehace el texto —triar,
+  deshacer, corregir, quitar o devolver una página— y rehace solo ese documento, y solo si quedó
+  sin indexar:
+  - el PDF se lee **antes** de la transacción (`prepare`), porque es un archivo y PDFium: el de la
+    copia del original —también la que está por entrar al triar o la que vuelve al deshacer— o, si
+    no hay copia, el de la fuente, que solo se lee. Lo leído se recuerda por ruta (un original no
+    se reescribe: otro archivo es otra ruta), así que corregir una página de un libro no lo vuelve
+    a abrir;
+  - un PDF ilegible vale sin marcadores (los títulos de la IA); una falla que no es del archivo, o
+    PDFium que no responde en 20 s, no se recuerda, y el documento queda para el relleno;
+  - si el lector falla, el texto se guarda igual y el documento queda sin indexar; un documento con
+    texto siempre termina con al menos una entrada;
+  - lo que devuelve el lector pasa por `settleHeadings`: los `assert` de `ProcessedHeading` no
+    corren en la app, y la base nunca recibe algo que rompa sus reglas;
+  - el lector va por un puerto (`HeadingsExtractor`; en la app, `ReadingHeadingsExtractor`, que
+    corre en otro hilo con `runProcessedWork`). El indexador vive en Procesado y las consultas en
+    `lib/features/index/`: no hay un ciclo entre las dos.
+- **El relleno se retoma por la base misma** (`ProcessedHeadingsBackfill`,
+  `ProcessedHeadingsBackfillKeeper`). Titula las imágenes sin titular y después indexa lo que no está
+  indexado, los vivos y los más recientes primero, uno por transacción y devolviéndole el turno a la
+  interfaz entre uno y otro. El punto de retome es lo que la base dice que falta, sin un cursor aparte
+  que pueda mentir después de una copia restaurada o de una unión; es idempotente, saltea lo que
+  falla en esa pasada —sin vueltas sin fin— y lo reintenta al abrir la app. `rebuildAll` borra el
+  Índice entero y lo deja para rehacer: las entradas de las imágenes vuelven en el acto, y los
+  documentos, en la pasada siguiente. El guardián se lee al abrirse la bóveda (`App`,
+  `lib/app/app.dart`) y corre cuando algo queda sin indexar sin que nadie lo rehaga: lo que trae la
+  unión, lo que devuelve la papelera del contenido.
+- **Las consultas, todas en vivo y sin lo de la papelera** (`IndexRepository`;
+  `index_repository_impl.dart` e `index_query_sql.dart`, en `lib/features/index/data/repositories/`):
+  - `watchTopics`, los temas con cuántos documentos del Índice tienen y «Sin tema» al final, en una
+    lectura; `watchDocumentsOf` y `watchDocuments`, cada fila con su tipo, su fecha, sus cuentas, si
+    ya está indexada y todos sus temas (`IndexDocument.alsoIn`, decisión D); `watchEntries`, sus
+    capítulos y después sus imágenes;
+  - `watchSearch`, por el FTS5: las 200 mejores coincidencias en el orden del Índice, cada una con
+    su documento, sus temas y los capítulos que la contienen, por una cadena recursiva que va hacia
+    atrás por el índice;
+  - `watchProgress`, cómo va el relleno; `readEntries`, las entradas de muchos documentos de una vez
+    y de a tandas de 500, para la descarga; y `renameImage`;
+  - todas parten de `processed_documents` —miles de filas— o del FTS5 y llegan a lo demás por clave,
+    con el orden de los `CROSS JOIN` fijado a propósito; los títulos van de la A a la Z sin
+    mayúsculas ni acentos, con la ñ después de la n (`indexSortKey`, `index_order.dart`).
+- **La pantalla nunca trae todo** (paso 3, decisión A; `lib/features/index/presentation/`). Un
+  destino propio en Estudiar, debajo de Procesado, con la lista numerada (`ShellBranch.processedIndex`,
+  al final del enum para no correr ninguna rama; `/index`). `IndexScreen` arma el buscador, la línea
+  del relleno (`IndexProgressLine`) y el árbol de slivers (`index_tree_slivers.dart`): cada tema es un
+  `SliverMainAxisGroup` con su encabezado fijo (`PinnedHeaderSliver`), y cada documento desplegado,
+  otro grupo adentro, fijo debajo del tema.
+  - Los documentos de un tema se leen recién cuando el tema llega cerca de la pantalla
+    (`IndexWhenNear`), y los capítulos de un documento, solo al desplegarlo.
+  - Ninguna lectura avisa si trae lo mismo (`distinct` en cada provider de `index_providers.dart`) y
+    cada parte mira solo lo suyo (`select` sobre `IndexView`, `index_view.dart`): un cambio dibuja
+    solo lo suyo.
+  - «Niveles» es la profundidad dentro de un documento abierto, no de todo el árbol (`indexOutline`,
+    `index_outline.dart`, con lo plegado y la numeración): desplegar «todo de una vez» los miles de
+    documentos sería leer las entradas de todos.
+  - La línea de puntos es un solo objeto que pinta el título, los puntos y la página
+    (`IndexLeaderLine`): un `Row` no sabe dónde termina el último renglón de un título partido. Los
+    puntos caen en una grilla contada desde el borde derecho y quedan en columna, como una tabulación.
+  - La fila de un documento tiene una clave global por lista (`IndexRowKeys`): al desplegarse pasa de
+    la lista perezosa a ser el encabezado fijo de su grupo, y el foco del teclado sigue en ella.
+  - Lo que llega se reconoce por lo que es, no por su clave (`IndexArrivals`, `IndexGlow`): volver a
+    indexar un documento rehace sus claves y no «llega» nada.
+  - Desde 840 dp (`kIndexTwoPanesWidth`), dos paneles: el mismo Índice —una `GlobalKey`, así agrandar
+    la ventana no pierde lo escrito ni el lugar— y, al costado (`IndexDocumentPane`), el lector único
+    entero, con un enganche chico (`ProcessedReaderScreen.onClose`, `ReadingFrame.leading`) y no una
+    copia.
+  - Se recuerda entre una vez y otra cómo se arma —por tema o por documento, el orden, los niveles y
+    la numeración, en `SharedPreferences`—; lo desplegado y lo buscado viven mientras vive la app.
+- **Ir al lugar exacto** (paso 4, decisión C). El lector único se abre en un lugar (`ExtractPlace`,
+  `lib/features/creations/extract/domain/extract_place.dart`; `at=documento:inicio-fin` en la
+  dirección de `RoutePaths.extractReading`) por el mismo camino que una nota de «Notas (N)»
+  (`_revealRange`, en `extract_viewer.dart`): espera al documento, va de un salto y lo resalta dos
+  segundos, una sola vez por pedido. Al costado, cada toque es un pedido distinto
+  (`IndexOpening.visit`, `index_opening.dart`): volver a tocar el mismo capítulo vuelve a llevar a su
+  título. «Seguir escuchando» vuelve a la lectura, no al capítulo (`ReadableDocument.location`, sin el
+  lugar). En el original, un PDF va a su página (`PdfViewerView.initialPage`) y una página web a su
+  título: buscado como el Índice compara los títulos, sin lo que la página agrega entre corchetes y
+  por su orden entre los iguales (`indexHeadingOccurrence`, `index_chapter.dart`), marcado en la copia
+  que se muestra y llevado ahí por un programa chico de la app (`archived_page_heading.dart`), con la
+  página sin sus propios programas.
+- **El toque largo, sin atar las filas a Procesado** (`index_actions.dart`). Mantener apretado, el clic
+  derecho, la tecla de menú, Mayús+F10 o «Más opciones» del lector de pantalla abren la hoja común de
+  la app (`showReadingMore`). Lo que hace falta del documento —su título, su copia del original, su
+  texto— va por un puerto chico (`IndexDocumentAccess`; en la app, `ProcessedIndexDocumentAccess`,
+  sobre `ProcessedRepository`) y se lee recién al abrir la hoja, no mientras se recorre. «Preguntar al
+  chat» deja a medio escribir (`askInChat`, sin mandar) el capítulo con sus secciones
+  (`indexChapterSpan`), cortado a 2.000 caracteres (`indexChapterPassage`); una imagen ofrece
+  «Renombrar» (`IndexRepository.renameImage`) y «Copiar el título», y no el chat: no tiene texto que
+  llevar.
+- **«Descargar el índice» dice lo mismo que la pantalla** (`index_download.dart`). Los renglones salen
+  de lo mismo que se dibuja (`indexPrintTree`, sobre `indexOutline`; `indexPrintSearch`, sobre
+  `groupIndexSearch`; en `index_print.dart`). El PDF (`IndexPdfExporter`, armado con `compute`: A4 con
+  Lora e Inter, los puntos guía en una grilla desde el borde derecho, tapados por el fondo del título y
+  de la página, y «Página N de M» al pie) o el Markdown (`indexMarkdown`, con lo que Markdown leería
+  como marca escapado) se guardan con `fileSaverProvider`. Lo que dice cuánto se baja son los niveles,
+  como en Word: lo plegado en la pantalla va igual, y lo abierto o cerrado a mano dentro de un
+  documento cuenta.
+- **Los censos** (paso 2). `VaultCounts.processedHeadingTables`, y un censo nuevo
+  (`test/core/database/vault_counts_census_test.dart`): toda tabla del esquema está en un grupo de
+  `VaultCounts` o dice por qué no. En la unión, `kProcessedImageColumns` con `title` y
+  `processed_headings` en las guardas (`MergeGates._referencing`), y otro censo nuevo
+  (`merge_references_census_test.dart`): toda tabla con claves foráneas está ahí o dice por qué no.
+  Mostró que la unión escribía `item_spaces`, `flashcard_options` y `content_trash` sin que las guardas
+  las miraran (`79ea028d`). `MergeGates._neverShrink` no la tiene, a propósito: es derivada. La unión
+  no copia las entradas —lo que entra queda sin indexar y se rehace acá—; el título de una imagen sí
+  viaja, con ella.
+- **Invariantes que no se tocan:**
+  - el Índice es derivado: se puede borrar y rehacer entero desde Procesado sin perder nada, y de la
+    Biblioteca no se toca nada (decisión F; `rebuildAll`, con su prueba);
+  - nunca muestra capítulos de un texto que ya no es ese: lo que cambia el texto suelta sus entradas en
+    la misma sentencia, y lo que escribe el repositorio se rehace en la misma transacción;
+  - un documento con texto siempre termina con al menos una entrada;
+  - del resumen, la síntesis, las palabras clave, las notas y los fragmentos no sale nada, y nada se le
+    pide a la IA ni a internet para armarlo;
+  - la pantalla no lee las entradas de un documento que no se desplegó, y ninguna consulta recorre
+    `processed_headings`, `processed_parts`, `item`, `item_spaces` ni `processed_images`
+    (`EXPLAIN QUERY PLAN` en `index_scale_test.dart`).
+- **Trampas para lo que venga:**
+  - **una migración futura que rehaga** `processed_parts`, `processed_originals` o `processed_images`
+    tiene que volver a crear sus triggers (`_createProcessedHeadingIndex`), como v50 hizo con los de
+    `text_notes`: SQLite se lleva los triggers de una tabla al borrarla, y sin ellos el Índice quedaría
+    viejo en silencio;
+  - **un lector de títulos nuevo no reindexa solo** lo que ya está indexado: hace falta `rebuildAll` o
+    una migración que suelte las entradas de texto, y el relleno hace el resto;
+  - **el renombre de una imagen en la unión de bóvedas no viaja**: de una imagen que las dos tienen
+    queda el título de acá, como su lugar en la galería, así que un renombre hecho en el otro
+    dispositivo no llega;
+  - una tabla nueva entra en un grupo de `VaultCounts`, y si la unión la escribe con claves foráneas,
+    en `MergeGates._referencing`: los dos censos lo exigen.
+- **Trampas que costaron:**
+  - el PDFium de la app espera un plugin que en una prueba no existe, y colgaba las pruebas de pantalla
+    que tocan un PDF: las pruebas y `LibraryHarness` usan `FakePdfOutlineReader`
+    (`test/support/index_fakes.dart`);
+  - el relleno leía las imágenes sin titular afuera de la transacción que las titulaba, y una renombrada
+    en el medio se pisaba: lo mostró una mutación que sobrevivía, y ahora es una sola transacción;
+  - el repositorio de prueba del Índice (`FakeIndexRepository`) devolvía, al soltar una lectura, el
+    futuro de soltar una suscripción de difusión, que se completa en la zona raíz: con el reloj de
+    mentira, `first` no terminaba nunca (`f6a70d9b`);
+  - un `SliverList` dibuja siempre su primera fila, aunque esté a mil pantallas: con cien temas eran
+    cien lecturas, repetidas con cada documento que el relleno escribía. De ahí `IndexWhenNear`, que
+    ocupa lo que ocuparían sus filas para que nada salte;
+  - al desplegarse, la fila de un documento se mudaba de la lista al encabezado fijo y perdía el foco
+    del teclado: de ahí `IndexRowKeys`;
+  - de las 171 mutaciones de los cuatro pasos, doce sobrevivieron la primera vez y mostraron pruebas
+    flojas —entre ellas, «también en…» comprobado en cualquier fila, las imágenes sin titular leídas
+    afuera de la transacción y los puntos guía del PDF contados en la página entera, donde alcanzaba el
+    borde suavizado de los números de página— o código que no decidía nada (dónde terminaba el tramo de
+    una página del PDF, que salió); todas murieron con su prueba nueva.
+- **Se descartó:**
+  - Una pestaña dentro de Procesado (decisión A): el Índice recorre todo, y quedaría escondido detrás de
+    la lista.
+  - Guardar en `processed_headings` el nombre del documento y sus temas: renombrar obligaría a
+    reescribir sus filas.
+  - Un cursor de retome aparte para el relleno, y escribir los títulos desde un trigger.
+  - Que la IA marque los títulos con `#` y su nivel al ordenar: pediría cambiar la instrucción y la
+    comprobación de F45, y mostrar ese Markdown en un PDF, que hoy se lee tal cual.
+  - «Niveles» sobre todo el árbol, y una copia del lector para el costado.
+  - Abrir la página web del original por la posición del texto: el texto procesado pudo perder pedazos
+    al triarlo o editarse después; el título es lo que los dos comparten.
+- **Lo que no quedó probado:**
+  - Nada se miró en el emulador ni en el teléfono: la medición con una bóveda grande —abrir el Índice,
+    desplegar, buscar y la cola del relleno— y la página web que se desplaza de verdad hasta su título
+    en la `WebView`, que en las pruebas no existe. Las cifras de escala son de la PC
+    (`index_scale_test.dart`, con 2.000 documentos y 300.990 entradas: «Por documento» con todo, 65 ms;
+    lo demás, en milisegundos) y por crecimiento en la pantalla (`index_screen_scale_test.dart`).
+  - Un título que la IA dejó pegado a su párrafo, o uno de un texto que no se ordenó, no se reconoce:
+    la regla prefiere perder un título a inventarlo. Un PDF cuyas rayas de página ya no están ubica sus
+    marcadores entre vecinos, y la página del PDF de un título de la IA queda sin decir.
+  - Un Word o un EPUB se abren en el original desde el comienzo, y un título que la página web escribe
+    distinto no se encuentra: la página se abre desde arriba.
+  - Los temas van en una sola lista de la A a la Z: un tema (`spaces`) no tiene padre, y el Atlas los
+    muestra igual —el árbol del Atlas es el de los valores de una categoría—. Cada tema es un grupo
+    aunque sus documentos se lean al acercarse: con miles de temas convendría hacer perezosos también
+    los grupos.
+  - El PDF de un índice enorme se arma en otro hilo, pero con todas sus entradas en memoria; la búsqueda
+    no numera; un capítulo cuyo título cambió al editar el texto brilla como uno que llegó.
+
 ### 93. F47: un solo lector para todo, el reproductor anclado y en segundo plano, la biblioteca de voces en el teléfono, las voces propias, el audio de un documento y el podcast
 
 **Pedido** (2026-10-30), con las capturas 3 a 17 de una app de lectura en voz alta como guía de
@@ -8245,6 +8495,19 @@ abrir la app). Plan, con sus decisiones A a L y el «Avance» de cada paso:
   - las notas en cualquier texto —el original, el texto, el resumen, la síntesis y lo creado, sobre
     la página de un PDF y dentro de una página web—, con «Notas (N)» y en las descargas;
   - más plantillas, diseños, estilos, composiciones y gráficos, con «Personalizar».
+- **F46, el Índice** (decisión 92, esquema v51):
+  - un destino propio en Estudiar, debajo de Procesado: todo lo procesado con sus capítulos, como el
+    índice automático de Word, por tema o por documento, con «Niveles: 1 · 2 · 3 · Todo», la
+    numeración y la línea de puntos hasta la página —la real en un PDF—;
+  - los capítulos salen de los títulos del texto, de los marcadores de un PDF o de los títulos que
+    marcó la IA al triar, y si no hay, «Texto completo»; las imágenes, con su título;
+  - una tabla derivada (`processed_headings`) que se escribe con el texto en la misma transacción,
+    triggers que la sueltan cuando algo cambia y un relleno de lo que ya estaba que se retoma solo;
+  - «Buscá un capítulo», que conserva la jerarquía; el tema y el documento fijos arriba, «Nuevo», lo
+    que llega con un brillo y, en una pantalla ancha, el documento al costado;
+  - tocar un capítulo abre el texto justo en su título; mantenerlo apretado abre el original en su
+    página o en su título, pregunta al chat con su texto, copia el título o renombra una imagen;
+  - «Descargar el índice» en PDF, listo para imprimir, o en Markdown.
 - **F47, un solo lector y las voces** (decisión 93, sin cambios de esquema):
   - un solo marco de lectura para todo texto —el original, el texto, el resumen, la síntesis y lo
     creado—, con Contenido, la fila de IA, Apariencia y ⋮, y su censo de funciones;
