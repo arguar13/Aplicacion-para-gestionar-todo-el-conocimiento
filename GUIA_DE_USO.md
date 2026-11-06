@@ -2674,6 +2674,14 @@ nunca del resumen, la síntesis, las palabras clave, las notas ni los
 fragmentos. Y no inventa nada: si un documento no tiene títulos, es una sola
 entrada.
 
+**Una página web llega con todos sus capítulos.** Al guardarla, Sinapsis se
+queda con cada uno de sus títulos, en su nivel. Antes, de un artículo de
+Wikipedia se perdían casi todos —el Índice de *Fotosíntesis* salía vacío y el
+de *Imperio romano* tenía 7 capítulos de 57—, y también los que dicen
+«Media» o «social» (en *Edad Media*, 8 de 61). Una página que guardaste antes
+de este cambio conserva su texto como se guardó, sin esos títulos: si volvés
+a guardar el enlace (con **"Guardar aparte"**), la nueva llega con todos.
+
 **Cómo llegar:** ítem **"Índice"** en la navegación (el ícono de la lista
 numerada). En el celular, en **"Estudiar"**, justo debajo de **Procesado**.
 

@@ -58,6 +58,9 @@ figura solo lo que ya está hecho. Cómo se usa cada cosa, en la **Guía de uso*
 - **Con el teclado y el lector de pantalla**: Ctrl+F para buscar, las flechas para desplegar y
   plegar, Enter para abrir, la tecla de menú para las opciones, y cada fila dice qué es, su nivel
   y su página.
+- **Una página web, con todos sus capítulos**: de un artículo de Wikipedia ya no se pierden los
+  títulos —antes se iban casi todos, y los que decían «Media» o «social»—, y al leer un párrafo
+  largo ya no se ve un enlace partido a la mitad, con su dirección a la vista.
 
 ## F45 · Pulido del 30/10 (octubre y noviembre de 2026)
 

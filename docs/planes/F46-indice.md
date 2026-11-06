@@ -1111,3 +1111,136 @@ forma; un PDF sin sus rayas de página; un Word o un EPUB en el original desde e
 que la página web escribe distinto; los grupos de los temas, que con miles convendría hacer
 perezosos; el PDF de un índice enorme en memoria; la búsqueda que no numera; y el renombre de una
 imagen, que no viaja en la unión de bóvedas.
+
+### Paso 5b (hecho): lo que se vio en el emulador
+
+Con la biblioteca de ejemplo (Ajustes › Desarrollo) y once artículos de Wikipedia pasados de la
+Bandeja a Procesado con «Pasar todo», el Índice y el «Contenido» del lector mostraban muchos
+menos capítulos que los de la página, y en «Leer» de Fotosíntesis se veía crudo `[bacterias` en
+un bloque y `purpúreas](https://…)` en el siguiente. Tres causas, cada una arreglada donde nace.
+
+**Las cifras** (entradas del Índice; «la página» son los títulos del artículo —sus
+`div.mw-heading`—; medido en la PC con la cadena entera: `ReaderModeArticleExtractor` →
+`htmlToMarkdown` → `processedTextPages` → `readProcessedHeadings`, sobre el HTML bajado con el
+User-Agent de la app):
+
+| Página               | La página | Emulador | Antes de este paso | Ahora |
+|----------------------|----------:|---------:|-------------------:|------:|
+| Fotosíntesis         |        30 |        0 |                 30 |    30 |
+| Benito de Nursia     |        15 |        0 |                 15 |    15 |
+| Primer Concilio de Nicea |    10 |        1 |                 10 |    10 |
+| Imperio romano       |        57 |        7 |                 57 |    57 |
+| Agujero negro        |        23 |        8 |                 23 |    23 |
+| Agustín de Hipona    |        31 |        8 |                 31 |    31 |
+| Edad Media           |        61 |       28 |                 53 |    61 |
+| Sócrates             |        22 |        — |                 22 |    22 |
+| Tomás de Aquino      |        37 |        — |                 37 |    37 |
+| Platón               |        55 |        — |                 55 |    55 |
+| Revolución francesa  |        38 |        — |                 38 |    38 |
+
+Ahora coinciden todas, título por título (no solo en la cuenta). La página archivada en el
+emulador (la de Fotosíntesis, sacada con `run-as`) da los mismos 30.
+
+1. **Dónde se perdían los títulos: en la extracción, y el emulador tenía texto de antes de
+   `296a1857`.** Se siguió el camino entero sobre la base del emulador (copiada con `run-as`):
+   el texto de la Biblioteca de Fotosíntesis (la forma `markdown` principal, 90.531 caracteres)
+   ya no tenía ni un `#`, y sus 12 páginas de Procesado son ese texto tal cual. «Pasar todo» y
+   las páginas no sacan nada; el Índice lee bien lo que recibe. El texto se guardó a las 11:59,
+   con la APK instalada a las 11:53, antes de `296a1857` (12:34). Corrida en la PC con el código
+   de entonces, la extracción da **exactamente** las cifras del emulador (0, 0, 1, 7, 8, 8, 28).
+   La causa (documentada ahora en `reader_mode_article_extractor.dart`): con el control de
+   edición adentro, el `<div class="mw-heading">` que envuelve cada título tiene dos enlaces
+   —«[editar código · editar]»— y casi tanto texto de enlace como de título; la limpieza
+   condicional de Readability (`_cleanConditionally`, densidad de enlaces > 0,2) lo tiraba con
+   el título adentro. Solo sobrevivían los títulos largos, que diluían el enlace, con su
+   «[editar]» debajo —que es lo que `296a1857` vio—. Sacar el control antes de leer, que hizo
+   `296a1857`, arregla también esto; acá quedan las pruebas que lo atan, sobre un recorte de
+   la página real (`test/fixtures/web/wikipedia_fotosintesis_recorte.html`), que fallan sin él.
+2. **Readability tiraba los títulos cuyo `id` dice «media», «social»…** Readability juzga un
+   elemento por los pedazos de su `class` y de su `id` (`_cleanHeaders`, en los `h1`/`h2`, y
+   `unlikelyCandidates`, en cualquiera); MediaWiki le pone a cada título de `id` su propio
+   texto («Alta_Edad_Media_(siglos_V_al_X)»). En Edad Media se iban los cinco `h2` que dicen
+   «Media» y dos `h4` que dicen «social» (8 de 61). La regla nueva (`unweightTitleAnchors`):
+   el `id` que es el ancla del propio texto del título —en minúscula, sin separadores ni
+   acentos, también en la forma vieja `.C3.B3`, en la de dirección `%C3%B3` y con el número de
+   un título repetido— no dice nada de la estructura y se saca antes de leer; un `id` que no
+   es el texto (`<h2 id="comments">3 comentarios</h2>`) y la `class` siguen pesando. Un título
+   que es justo una de esas palabras («Comments», «Related», «Tags») conserva su `id`: el ancla
+   y el nombre de estructura se escriben igual y no hay cómo distinguirlos.
+3. **Un corte partía un enlace.** No eran las páginas de Procesado (en Fotosíntesis cortan
+   todas en un fin de párrafo) sino los bloques del lector: «Leer» parte el texto en bloques de
+   1.200 caracteres y el lector de libros en páginas de 2.400 (`readerPageRanges`), y un
+   párrafo más largo se cortaba en el último espacio (`_hardSplit`), aunque cayera adentro de
+   `[bacterias purpúreas](…)`. Ahora un solo lugar dice qué es una construcción en línea
+   (`markdownInlinePattern`, en `lib/core/util/markdown_inline.dart`): el mismo patrón con que
+   el lector da formato (`RenderedMarkdown`, que antes tenía el suyo) y con que se corta. Ninguna
+   alternativa cruza un renglón, así que sobre el texto entero encuentra lo mismo que el lector
+   renglón por renglón (probado al azar). `markdownSafeCut`: si el corte cae adentro de una,
+   justo antes de ella; si empieza donde empieza el tramo —un enlace más largo que una
+   página—, justo después, y ese tramo sale más largo. Lo mismo en las páginas de «Texto» de
+   Procesado, que se muestran, se editan y se ordenan de a una (`processedTextPages`, con
+   `splitIntoParts(markdown: true)`: oración o espacio, el último que no cae adentro de nada).
+   Lo de siempre de `splitIntoParts` —los tramos para un modelo de lenguaje, con su ventana
+   fija— no cambia: ahí un tramo no puede pasarse del largo pedido.
+
+**Los datos ya guardados.** Lo que se capturó antes —todo artículo de Wikipedia guardado hasta
+hoy— tiene el texto de la Biblioteca sin esos títulos, y sus páginas de Procesado también. De la
+Biblioteca nada se borra, y su texto solo se reemplaza en su lugar con «Volver a extraer el
+texto» (F22), que reubica los subrayados; pero ese camino hoy no existe para una página web, a
+propósito (`canReextractText`: volver a bajarla no es volver a leer el mismo original), y la
+página archivada no sirve tal cual: sus fotos están incrustadas, y releerla da un texto de
+1,6 MB con las imágenes en `data:` y sin sus direcciones. Queda para decidir (y toca
+`reextraction.dart`, que este paso no podía tocar):
+
+- **(a) Volver a leer la página archivada**, que es el mismo original, sin red: hace falta que
+  el archivador guarde la dirección de cada foto (un atributo propio al lado del `data:`) para
+  las páginas nuevas; para las viejas, devolverles las direcciones del texto anterior, que trae
+  las mismas fotos en el mismo orden.
+- **(b) Volver a bajarla**, con aviso de que la página pudo cambiar, por el mismo camino de F22
+  (reemplazo en su lugar y subrayados reubicados), y después «Actualizar» el texto en Procesado,
+  que conserva las páginas editadas y rearma el Índice en la misma transacción.
+
+Mientras tanto, la guía dice cómo tenerlos: volver a guardar el enlace con «Guardar aparte».
+
+**Pruebas** (todas con HTML o Markdown armados o recortados de las páginas reales, sin red):
+
+- `reader_mode_article_extractor_test.dart`: los seis títulos de Fotosíntesis en su nivel y su
+  lugar y sin «editar»; los nueve de Edad Media, con los de «Media» y «social»; lo que la página
+  nombra como comentarios o para compartir se sigue yendo; y la regla sola (las formas del
+  ancla, lo de adentro del título, el `id` que no es el texto, la palabra de estructura sola,
+  la clase intacta).
+- `markdown_inline_test.dart`: cada construcción, sus bordes, el texto sin Markdown, el texto
+  entero contra renglón por renglón (300 al azar), buscar desde un corte anterior, y el corte
+  antes, después y con un enlace de 5.000 caracteres.
+- `reader_pagination_test.dart`: el párrafo real de Fotosíntesis (fixture) en bloques de 1.200,
+  2.400, 300 y 80; antes del enlace que tapa el límite; un enlace más largo que una página; 200
+  párrafos al azar, con cada tramo leído solo igual que en el texto entero.
+- `text_parts_test.dart` y `processed_text_test.dart`: ni en «Dr. » ni en un espacio adentro de
+  un enlace (y sin la regla, sí); el enlace más largo que el tramo, entero; 200 al azar, donde
+  solo se pasa del tope lo que mide una construcción que no entraba; un texto sin Markdown,
+  idéntico a lo de siempre; y la página de Procesado que se cortaba en «[bacterias ».
+
+**Commits:** `d7820996` (las pruebas que atan la extracción de los títulos), `26776252` (el `id`
+que es el ancla del título), `e1d4c750` (los cortes que no parten una construcción) y el de este
+avance, con la guía y las Novedades.
+
+**Mutaciones (`tool/mutar.py`): 22 de 22 muertas.** Sin sacar el control de edición; sin la
+regla de las anclas; la palabra de estructura sin su excepción, o sin plural; solo el título y no
+lo de adentro; cualquier `id` como ancla; sin la forma vieja, sin la de dirección, sin el número
+de un repetido, sin quitar acentos o con los separadores en la clave; el lector sin el corte
+seguro; el corte siempre después, o partiendo la construcción más larga que el tramo; el borde
+como adentro; la imagen en HTML que cruza renglones; las páginas de Procesado sin `markdown`;
+`splitIntoParts` que lo ignora; la oración o el espacio elegidos adentro de una construcción; la
+búsqueda binaria que no mira dónde empieza (se cuelga); y el tope sin corte seguro.
+
+**Queda:**
+
+- **Los textos ya guardados** (ver arriba): la decisión entre (a) y (b), y su paso.
+- **Los pedazos para la IA** (`tidyPieces`, `splitIntoParts` sin `markdown`) pueden partir un
+  enlace al ordenar una página: el tope ahí es la ventana del modelo, y un tramo no puede pasarse.
+  Con `markdown: true` y el tope duro solo para una construcción más larga que el tramo se
+  arreglaría, si se ve que la IA los estropea.
+- **El «Contenido» del lector** muestra hasta el nivel 3 a propósito (`readerHeadings`, F47); el
+  Índice, todos.
+- No se volvió a mirar en el emulador: hace falta una APK nueva y volver a cargar los artículos
+  (los de la biblioteca de ejemplo ya cargados conservan su texto viejo).
