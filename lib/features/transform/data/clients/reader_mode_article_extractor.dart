@@ -78,6 +78,15 @@ class ReaderModeArticleExtractor implements ArticleExtractor {
     // renglón «[editar]» bajo cada capítulo, en el texto y en lo que se
     // escucha. Se sacan antes de leer, por su marca y no por su texto: un
     // `[editar]` escrito en el artículo mismo se queda.
+    //
+    // Y no es solo un renglón de más: con el control adentro, el `<div>` que
+    // envuelve cada título de MediaWiki (`.mw-heading`) tiene más texto de
+    // enlace que de título —«[editar código · editar]» al lado de
+    // «Etimología»—, y la limpieza condicional de Readability lo descarta
+    // como si fuera navegación, con el título adentro. Así se perdían casi
+    // todos los capítulos de un artículo de Wikipedia (Fotosíntesis: los 30;
+    // Imperio romano: 50 de 57): solo quedaban los títulos largos, que
+    // diluían el enlace, con su «[editar]» debajo.
     for (final control in document.querySelectorAll(_pageControls)) {
       control.remove();
     }

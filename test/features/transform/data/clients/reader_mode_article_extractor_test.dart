@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/transform/data/clients/reader_mode_article_extractor.dart';
+import 'package:sinapsis/features/transform/data/documents/html_to_markdown.dart';
 
 /// Verifica el extractor contra HTML armado como el de un sitio real.
 ///
@@ -134,6 +137,53 @@ void main() {
 
       expect(article.textContent, contains('la abreviatura [editar] como'));
       expect('[editar]'.allMatches(article.textContent), hasLength(1));
+    });
+  });
+
+  group('los capítulos de un artículo de Wikipedia llegan enteros (F46, '
+      'paso 5b)', () {
+    // Visto en el emulador: el Índice de Fotosíntesis salía vacío y el de
+    // Imperio romano con 7 capítulos de 57. Con su control de edición
+    // adentro —«[editar código · editar]», dos enlaces—, el `<div>` que
+    // envuelve cada título tenía más texto de enlace que de título, y la
+    // limpieza condicional de Readability lo tiraba con el título adentro.
+    // El recorte es de la página real, con sus títulos tal cual.
+    final page = File(
+      'test/fixtures/web/wikipedia_fotosintesis_recorte.html',
+    ).readAsStringSync();
+    final wiki = Uri.parse('https://es.wikipedia.org/wiki/Fotos%C3%ADntesis');
+
+    test('cada título queda, en su nivel y en su lugar', () {
+      final markdown = htmlToMarkdown(
+        extractor.extract(page, baseUri: wiki)!.contentHtml,
+      );
+      final headings = [
+        for (final line in markdown.split('\n'))
+          // Wikipedia une «siglo» y «XIX» con un espacio que no se corta.
+          if (line.startsWith('#')) line.replaceAll('\u00a0', ' '),
+      ];
+
+      expect(headings, [
+        '## Historia del estudio de la fotosíntesis',
+        '### Desde la Antigua Grecia hasta el siglo XIX',
+        '### Siglo XX',
+        '## El cloroplasto',
+        '### Desarrollo',
+        '### Función',
+      ]);
+      // El primero va antes del texto que encabeza, no en otro lado.
+      expect(
+        markdown.indexOf('## Historia del estudio'),
+        lessThan(markdown.indexOf('Ya en la [Antigua Grecia]')),
+      );
+    });
+
+    test('sin un «[editar]» de más', () {
+      final markdown = htmlToMarkdown(
+        extractor.extract(page, baseUri: wiki)!.contentHtml,
+      );
+
+      expect(markdown, isNot(contains('editar')));
     });
   });
 
