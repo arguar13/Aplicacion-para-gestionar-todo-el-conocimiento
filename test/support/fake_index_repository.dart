@@ -84,9 +84,13 @@ class FakeIndexRepository implements IndexRepository {
         emit();
         changes = _changes.stream.listen((_) => emit());
       },
+      // Sin devolver el futuro de soltar [changes]: el de una suscripción de
+      // difusión se completa en la zona raíz, que el tiempo falso de las
+      // pruebas no avanza, y `first` —que espera a soltar antes de dar su
+      // valor— no terminaba nunca.
       onCancel: () {
         watching.update(call, (n) => n - 1);
-        return changes?.cancel();
+        unawaited(changes?.cancel());
       },
     );
     return controller.stream;
