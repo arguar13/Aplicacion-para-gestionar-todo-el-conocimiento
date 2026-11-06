@@ -17,6 +17,16 @@ figura solo lo que ya está hecho. Cómo se usa cada cosa, en la **Guía de uso*
   «Guardar rápido», que abre Guardar listo para pegar o escribir; y «Seguir escuchando», con lo
   último que escuchaste.
 
+## F46 · El Índice — en curso (noviembre de 2026)
+
+- **El Índice, en Estudiar, debajo de Procesado**: todo lo procesado con sus capítulos, como el
+  índice automático de Word —los puntos hasta la página, la real en un PDF—, por tema o por
+  documento, con «Niveles: 1 · 2 · 3 · Todo» y la numeración, que se arma y se corrige solo.
+- **«Buscá un capítulo»**: lo encontrado se ve en su lugar, con su documento y los capítulos que
+  lo contienen, y lo buscado resaltado.
+- **El tema y el documento fijos arriba** mientras se recorren, **«Nuevo»** en lo de la última
+  semana, lo que llega con un brillo suave y, en una pantalla ancha, el documento al costado.
+
 ## F45 · Pulido del 30/10 — en curso (octubre de 2026)
 
 - **Triar con la hoja «¿Qué va a Procesado?»**: el texto extraído, ordenado por la IA y

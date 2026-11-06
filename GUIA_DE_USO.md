@@ -25,22 +25,23 @@ saltar directo a la sección que te haga falta con el índice de abajo.
 16. [Línea de tiempo](#línea-de-tiempo)
 17. [Bandeja de entrada y sugerencias](#bandeja-de-entrada-y-sugerencias)
 18. [Procesado](#procesado)
-19. [El Atlas](#el-atlas)
-20. [El Mapa](#el-mapa)
-21. [Grafo local de un elemento](#grafo-local-de-un-elemento)
-22. [Tensión: contradicciones entre notas](#tensión-contradicciones-entre-notas)
-23. [Chat con la IA](#chat-con-la-ia)
-24. [Citas bibliográficas](#citas-bibliográficas)
-25. [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)
-26. [Notas generadas por IA](#notas-generadas-por-ia)
-27. [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios)
-28. [Tu hábito de repaso](#tu-hábito-de-repaso)
-29. [Anki: exportar e importar](#anki-exportar-e-importar)
-30. [Los modelos de IA descargables](#los-modelos-de-ia-descargables)
-31. [Ajustes](#ajustes)
-32. [Mantenimiento de la bóveda](#mantenimiento-de-la-bóveda)
-33. [Que siga con la app cerrada](#que-siga-con-la-app-cerrada)
-34. [Preguntas frecuentes](#preguntas-frecuentes)
+19. [El Índice](#el-índice)
+20. [El Atlas](#el-atlas)
+21. [El Mapa](#el-mapa)
+22. [Grafo local de un elemento](#grafo-local-de-un-elemento)
+23. [Tensión: contradicciones entre notas](#tensión-contradicciones-entre-notas)
+24. [Chat con la IA](#chat-con-la-ia)
+25. [Citas bibliográficas](#citas-bibliográficas)
+26. [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)
+27. [Notas generadas por IA](#notas-generadas-por-ia)
+28. [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios)
+29. [Tu hábito de repaso](#tu-hábito-de-repaso)
+30. [Anki: exportar e importar](#anki-exportar-e-importar)
+31. [Los modelos de IA descargables](#los-modelos-de-ia-descargables)
+32. [Ajustes](#ajustes)
+33. [Mantenimiento de la bóveda](#mantenimiento-de-la-bóveda)
+34. [Que siga con la app cerrada](#que-siga-con-la-app-cerrada)
+35. [Preguntas frecuentes](#preguntas-frecuentes)
 
 ---
 
@@ -93,10 +94,11 @@ trabajo en el orden en que los usás**, de izquierda a derecha:
    tenés elementos sin tema, debajo aparece esa tarea —**"49 elementos sin
    tema"**, con **"Ordenarlos"**—: es donde se ordena (ver
    [Lo que no tiene tema](#lo-que-no-tiene-tema)).
-3. **Estudiar**: una lista con **Procesado**, **Cuadernos**, **Línea de
-   tiempo**, **Mapa** y **Repasar**, en ese orden: todo lo que se estudia
-   sale de lo procesado. En **Procesado** tenés lo que sacaste de cada fuente;
-   en un cuaderno juntás un grupo para estudiarlo aparte (y acotar el chat a
+3. **Estudiar**: una lista con **Procesado**, **Índice**, **Cuadernos**,
+   **Línea de tiempo**, **Mapa** y **Repasar**, en ese orden: todo lo que se
+   estudia sale de lo procesado. En **Procesado** tenés lo que sacaste de cada
+   fuente; en el **Índice**, todo eso con sus capítulos, como el índice de un
+   libro; en un cuaderno juntás un grupo para estudiarlo aparte (y acotar el chat a
    él); en la línea de tiempo lo ves sobre un eje de fechas; en el mapa, cómo
    se conecta; y en **Repasar** están tus tarjetas, y desde ahí creás
    presentaciones, resúmenes, cuestionarios y más con lo procesado. El número
@@ -114,9 +116,9 @@ marcada. Tocá una para ir. Para cerrar la lista sin elegir, deslizala hacia
 abajo o tocá afuera. Mientras estés en cualquiera de sus pantallas, el botón
 del paso queda marcado. Ya no hay botón **«Más»**: todo está en algún paso.
 
-En la computadora se ven las diez pantallas juntas en el costado, en el mismo
-orden y sin listas: Biblioteca; Bandeja y Atlas; Procesado, Cuadernos, Línea de
-tiempo, Mapa y Repasar; Chat; y Ajustes.
+En la computadora se ven las once pantallas juntas en el costado, en el mismo
+orden y sin listas: Biblioteca; Bandeja y Atlas; Procesado, Índice, Cuadernos,
+Línea de tiempo, Mapa y Repasar; Chat; y Ajustes.
 
 Vas a ver estos nombres una y otra vez en esta guía; cada uno tiene su propia
 sección más abajo.
@@ -2650,6 +2652,140 @@ que estás mirando. Lo que suena se resalta en amarillo en su lugar.
 **Abrirlo desde otro lado:** un documento procesado que te aparece en la
 búsqueda, en una cita del chat, en el Mapa o en la Línea de tiempo abre esta
 misma pantalla, no la de una nota.
+
+---
+
+## El Índice
+
+Es **todo lo que procesaste, con sus capítulos**, como el índice automático de
+Word: cada libro, página web o documento con sus títulos en su orden y su
+nivel, y la página de cada uno a la derecha. La diferencia con Word es que
+**no hay que actualizarlo**: se arma y se corrige solo cada vez que algo llega
+a Procesado, se renombra, se edita, se vuelve a triar o se borra.
+
+Sale solo de la sección **Texto** de cada documento y de sus **Imágenes**:
+nunca del resumen, la síntesis, las palabras clave, las notas ni los
+fragmentos.
+
+**Cómo llegar:** ítem **"Índice"** en la navegación (el ícono de la lista
+numerada). En el celular, en **"Estudiar"**, justo debajo de **Procesado**.
+
+### Cómo se ve
+
+Arriba, el buscador **"Buscá un capítulo"**. Debajo, dos botones y los
+niveles:
+
+- **"Por tema"** (lo de entrada): el árbol de tus temas, de la A a la Z, cada
+  uno con sus documentos. Al final, **"Sin tema"**, con los que no están en
+  ninguno. Un documento que está en dos temas aparece en los dos, y debajo de
+  su título dice **"también en Roma"**: el que lo busca por el otro tema lo
+  encuentra igual.
+- **"Por documento"**: todos los documentos juntos, sin los temas, y debajo de
+  cada uno **en qué temas está**. El botón de las rayitas, arriba, los ordena
+  **de la A a la Z** o **los más recientes primero**.
+- **"Niveles: 1 · 2 · 3 · Todo"**, como en Word: hasta qué nivel se
+  despliegan los capítulos de un documento abierto. Con **2** ves los
+  capítulos y sus secciones, y lo de más adentro queda plegado; con
+  **Todo**, todo. Elegir un nivel deshace lo que habías abierto o cerrado a
+  mano adentro de los documentos (como Word, que lo vuelve a armar), pero no
+  toca qué temas y qué documentos están abiertos.
+
+La app recuerda cómo lo dejaste —por tema o por documento, el orden, los
+niveles y la numeración— para la próxima vez.
+
+**Cada fila, con letra de índice de libro:**
+
+- **Un tema**: su nombre en versalitas, con su color —una franja apenas
+  teñida y una rayita a la izquierda— y, a la derecha, cuántos documentos
+  tiene. Tocalo para plegarlo o desplegarlo.
+- **Un documento**: el ícono de su tipo (un PDF, una página web, un
+  audio…), el título en letra de libro y, a la derecha, cuántos capítulos
+  tiene (o cuántas imágenes, si es solo de imágenes). **Tocalo para ver sus
+  capítulos**: recién ahí se leen, así que con miles de documentos la lista
+  sigue liviana.
+- **Un capítulo**: corrido hacia la derecha según su nivel, con una línea fina
+  que une a los capítulos de un mismo padre, y **la línea de puntos hasta su
+  página**, como en Word: *«La República ……… pág. 3»*. En un **PDF** es **la
+  página real** del PDF (*«p. 47»*); en lo demás, la página del texto
+  procesado (*«pág. 3»*), la misma «Página 3 de 6» del lector. El que tiene
+  secciones adentro lleva **⌄** para plegarlo o desplegarlo solo a él.
+- **Texto completo**: un texto sin títulos —una transcripción, una nota
+  larga, un artículo plano— es una sola entrada, que abre el texto desde el
+  principio.
+- **Una imagen**: con su título, el que traía la fuente; si no traía
+  ninguno, **"Imagen 3"**, por su lugar en la galería. A la derecha,
+  *«img. 3»*.
+
+**Numerar los capítulos:** en **⋮**, **"Numerar los capítulos"** prende y
+apaga la numeración **1**, **1.2**, **1.2.3** delante de cada uno. Un capítulo
+plegado también cuenta: el número de uno no cambia por plegar otro.
+
+**"Nuevo":** lo que llegó a Procesado en los últimos siete días lleva un
+puntito y **"Nuevo"** debajo del título.
+
+**Lo que queda fijo arriba:** mientras recorrés los documentos de un tema, su
+nombre queda fijo arriba; y mientras recorrés los capítulos de un documento,
+su título queda fijo debajo del tema. Así nunca perdés de qué libro es lo que
+estás viendo.
+
+### Buscar
+
+Escribí en **"Buscá un capítulo"**: filtra mientras escribís, **sin acentos ni
+mayúsculas**, y alcanza con **el comienzo de cada palabra** («repu roma»
+encuentra «La República romana»). Lo encontrado **no se ve suelto**: cada
+capítulo aparece con su documento arriba —fijo mientras recorrés sus
+coincidencias, con sus temas— y con los capítulos que lo contienen, más
+tenues; lo que buscaste, **resaltado**.
+
+Arriba de todo, en **"Documentos"**, los documentos cuyo **título** coincide:
+tocar uno lo abre desde el principio. Si nada coincide, lo dice: *"Ningún
+capítulo dice «…»"*. Se muestran las 200 mejores coincidencias; si llegás a
+ese tope, abajo lo dice, y conviene escribir otra palabra para afinar.
+
+Para volver al árbol, borrá la búsqueda con la **✕**: lo encontrás como lo
+dejaste, con lo mismo desplegado y en el mismo lugar.
+
+### Tocar una entrada
+
+- **Un capítulo** (o «Texto completo»): abre **el texto del documento en el
+  [marco de lectura](#el-marco-de-lectura-un-solo-lector-para-todo)**, desde
+  el comienzo. **"Atrás"** te devuelve al Índice donde estabas, con esa
+  entrada marcada. (Ir justo a ese título, y lo que se hace manteniendo
+  apretada una entrada, todavía no está.)
+- **Una imagen**: la abre a pantalla completa en su galería, justo en ella.
+
+**En una pantalla ancha** (la computadora, una tableta apaisada) el Índice va
+a la izquierda y **el documento a la derecha**: tocar un capítulo lo abre al
+lado, sin dejar el Índice. Arriba a la izquierda del documento hay una **✕**
+para cerrarlo. Si desde ahí abrís otra parte —el resumen, la síntesis—, se
+abre encima, y "atrás" vuelve a los dos paneles; si lo mandás a la papelera,
+el panel se cierra y el documento sale del Índice.
+
+**Con el teclado:** **Ctrl+F** (⌘F en una Mac) va al buscador, y ahí **Esc**
+borra lo buscado. **Tab** recorre los temas, los documentos y los capítulos;
+**→** despliega y **←** pliega el que tenés marcado, y **Enter** lo abre.
+
+### Lo que cambia en vivo
+
+No hace falta tocar nada para que el Índice esté al día:
+
+- **Lo que llega aparece en su lugar, con un brillo suave**, y se apaga solo
+  (con «sin animaciones», sin brillo).
+- **Lo que borrás se va, y lo que renombrás cambia**, sin perder lo que tenías
+  desplegado ni el lugar de la lista.
+- **Lo que ya estaba procesado** antes de que existiera el Índice se va
+  sumando solo, de a poco y sin trabar la app. Mientras tanto, debajo del
+  buscador, una línea discreta dice cuánto falta —*"Armando el Índice: 27 de
+  40 documentos"*— y se va cuando termina. Un documento que todavía no se leyó
+  dice **"Indexando…"**; si lo abrís, avisa que sus capítulos aparecen solos.
+
+**Vacío:** sin nada procesado todavía, dice *"El Índice todavía está vacío"* y
+ofrece **"Ir a Procesado"**.
+
+**Para todos:** se lee bien en el tema claro y en el oscuro, y con la letra
+del teléfono al doble. El lector de pantalla dice de cada fila qué es, su
+nivel, su página y si está desplegada: *"Capítulo de nivel 2: Las guerras
+púnicas, página 3 del texto"*.
 
 ---
 
