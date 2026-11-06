@@ -33,11 +33,17 @@ figura solo lo que ya está hecho. Cómo se usa cada cosa, en la **Guía de uso*
   filtros**, en la Biblioteca, en Procesado, en «Volver a triar» y en el material de un tema
   («Ver N voces», en la biblioteca de voces).
 
-## F46 · El Índice — en curso (noviembre de 2026)
+## F46 · El Índice (noviembre de 2026)
 
 - **El Índice, en Estudiar, debajo de Procesado**: todo lo procesado con sus capítulos, como el
   índice automático de Word —los puntos hasta la página, la real en un PDF—, por tema o por
-  documento, con «Niveles: 1 · 2 · 3 · Todo» y la numeración, que se arma y se corrige solo.
+  documento, con «Niveles: 1 · 2 · 3 · Todo» y la numeración. **Se arma y se corrige solo**: lo
+  que llega, se edita, se vuelve a triar o se borra cambia en el acto, sin perder lo desplegado.
+- **Los capítulos de verdad, nunca inventados**: los títulos del texto, los marcadores de un PDF
+  o los títulos que marcó la IA al ordenarlo al triar; si no hay, «Texto completo»; y cada imagen
+  con su título, el de la fuente o el nombre de su archivo, limpio.
+- **Lo que ya estaba procesado se suma solo**, de a poco y sin trabar la app, con una línea que
+  dice cuánto falta, y sigue donde iba si se cierra la app.
 - **«Buscá un capítulo»**: lo encontrado se ve en su lugar, con su documento y los capítulos que
   lo contienen, y lo buscado resaltado.
 - **El tema y el documento fijos arriba** mientras se recorren, **«Nuevo»** en lo de la última
@@ -49,6 +55,9 @@ figura solo lo que ya está hecho. Cómo se usa cada cosa, en la **Guía de uso*
   imagen, «Renombrar».
 - **«Descargar el índice»** en ⋮: lo que se está mirando, con sus niveles y su numeración, en un
   PDF listo para imprimir —con los puntos y las páginas— o en Markdown.
+- **Con el teclado y el lector de pantalla**: Ctrl+F para buscar, las flechas para desplegar y
+  plegar, Enter para abrir, la tecla de menú para las opciones, y cada fila dice qué es, su nivel
+  y su página.
 
 ## F45 · Pulido del 30/10 (octubre y noviembre de 2026)
 
