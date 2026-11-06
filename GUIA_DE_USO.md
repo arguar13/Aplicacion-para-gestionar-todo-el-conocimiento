@@ -130,9 +130,10 @@ confirmación corta como «Copiado»: tocala para sacar el aviso en el acto, sin
 usar sus botones (el lector de pantalla la anuncia como **"Cerrar aviso"**).
 
 - Si el texto entra en un renglón, va todo en ese renglón.
-- Si es largo, el aviso se arma como una tarjeta: el texto ocupa el ancho, la
-  ✕ queda arriba a la derecha y los botones bajan juntos a un renglón propio,
-  también a la derecha.
+- Si es largo, el aviso se arma como una tarjeta: el texto ocupa el ancho
+  arriba, y justo debajo, sin hueco, van los botones con la ✕ al final, en un
+  renglón a la derecha (si los botones no entran juntos, se apilan y la ✕
+  queda al lado del último). Sin botones, la ✕ queda arriba a la derecha.
 - Una confirmación corta —«Copiado», «Guardado»— se va sola en unos segundos.
   Un aviso con un botón se queda hasta que lo uses o lo cierres; mientras se
   va, ya no responde a los toques.

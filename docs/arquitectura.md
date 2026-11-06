@@ -7306,7 +7306,10 @@ decisión 93.
   renglones, uno o dos botones a la derecha —`action`, pegado a la ✕, y `secondaryAction` a su
   izquierda— y **la ✕ en todos**, también en «Copiado»: cambia la regla de F43 M1, que la ponía solo
   en los largos. Si no entra en un renglón se arma como una tarjeta, con los botones juntos abajo a
-  la derecha: nunca el hueco del medio del `SnackBar` de Material. Mientras se va, no recibe
+  la derecha: nunca el hueco del medio del `SnackBar` de Material. Desde F46, paso 5d, la ✕ de una
+  tarjeta con botones va al final del renglón de ellos —antes quedaba arriba a la derecha y su caja de
+  48 empujaba los botones, con un hueco debajo de un texto de un renglón—, y el renglón empieza donde
+  termina el texto, porque los botones y la ✕ ya traen su aire adentro. Mientras se va, no recibe
   toques. Al cerrar el paso eran 186 avisos en 105 archivos, todos pasados, y los tres que metían
   «Ver» dentro del texto usan ahora los dos botones. La única puerta es `showAppSnackBar`, que acepta solo un `AppSnackBar`, y el censo
   (`test/core/design/snack_bar_census_test.dart`) exige que fuera del aviso común no haya
