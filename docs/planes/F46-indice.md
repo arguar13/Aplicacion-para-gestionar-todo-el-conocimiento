@@ -589,3 +589,230 @@ nada que se vea: la pantalla es del paso 3.
   se lee; si la fuente se borra de verdad, valen los títulos de la IA.
 - No se midió en el emulador ni en el teléfono: no hay nada que se vea. La cola del relleno
   se mide con la pantalla, en el cierre (paso 5).
+
+### Paso 3 (hecho): la pantalla
+
+Siete commits, de `af1cfbbe` a `e34b02ef`, y el de este avance (decisión A). El Índice se ve: un
+destino propio en Estudiar, sobre los datos del paso 2 (`IndexRepository`), sin ningún falso en
+la app.
+
+- **El destino «Índice»** (decisión A): en Estudiar, justo debajo de Procesado, con la lista
+  numerada (`Icons.format_list_numbered`, que no usa ningún otro destino). Es una rama propia del
+  shell (`ShellBranch.processedIndex`, al final para no correr ninguna; no `index`, que es el
+  lugar de cada valor de un enum), en `/index`. Lo que abre —el lector único, una imagen— ya está
+  en la raíz, como desde Procesado.
+- **Arriba**: el buscador «Buscá un capítulo» (fijo), la línea de avance del relleno (fija, y se
+  va cuando termina) y, ya dentro de la lista —se va al desplazarse, para dejarle el lugar al
+  índice en un teléfono con la letra grande—, «Por tema · Por documento» y «Niveles: 1 · 2 · 3 ·
+  Todo», como fichas que se acomodan solas en dos renglones si no entran. En ⋮, «Numerar los
+  capítulos»; y «Por documento» suma, en la barra, el orden: de la A a la Z o los más recientes.
+- **El árbol, con tipografía de índice de libro**:
+  - un **tema**: su nombre en versalitas (mayúsculas con aire), su color —el de su clave,
+    ajustado al tema de la app para que contraste: el mismo `DocumentColors` de la línea de
+    tiempo— en una rayita y en una franja apenas teñida, y cuántos documentos tiene;
+  - un **documento**: el ícono de su tipo, el título en Lora, y debajo, en chico, «● Nuevo»
+    (siete días), «Indexando…» (si el relleno todavía no llegó) y «también en Roma» (decisión D)
+    o, en «Por documento», «en Roma, Egipto»; a la derecha, cuántos capítulos —o imágenes— tiene,
+    en una cápsula tenue que no se confunde con una página;
+  - un **capítulo**: su sangría por nivel, una línea guía fina por cada nivel que lo contiene
+    —una tras otra arman la línea que une a los hermanos—, ⌄ si tiene algo adentro, la
+    numeración si está prendida y **la línea de puntos hasta la página**, en cifras tabulares:
+    «p. 47» con la del PDF y «pág. 3» con la del texto (decisión C); «Texto completo», sin puntos;
+    una imagen, con su título o «Imagen 3», y «img. 3».
+- **El buscador**: filtra mientras se escribe (con una pausa de 220 ms entre letra y letra), por
+  `watchSearch`, y **conserva la jerarquía**: cada documento con coincidencias es un grupo con su
+  fila fija arriba —con sus temas— y, antes de cada coincidencia, los capítulos que la contienen
+  que todavía no se mostraron, más tenues (`groupIndexSearch`); lo buscado, resaltado en el
+  comienzo de cada palabra (`indexMatchRanges`, con la misma regla que la base: sin mayúsculas
+  ni acentos, la ñ como n y el comienzo alcanza). Arriba, «Documentos»: los títulos que
+  coinciden, filtrados sobre la lista de todos (lo que el paso 2 dejó para la pantalla). Sin
+  nada, «Ningún capítulo dice «…»», con dónde se busca; al llegar a las 200, lo dice.
+- **Lo fijo arriba**: cada tema es un grupo (`SliverMainAxisGroup`) con su encabezado fijo
+  (`PinnedHeaderSliver`), y cada documento desplegado, otro grupo adentro, con su fila fija
+  debajo de la del tema. Cuando el grupo se termina, el que sigue empuja al de arriba, como en
+  una agenda.
+- **Dos paneles** desde 840 dp de ancho (la clase «expandida» de Material): el Índice a la
+  izquierda (42 %, entre 340 y 480 dp) y, a la derecha, el **lector único entero**
+  (`ProcessedReaderScreen`) con el documento elegido, o «Elegí un capítulo» si no hay ninguno.
+  El mismo Índice en uno o en dos paneles (`GlobalKey`): agrandar la ventana no pierde lo
+  escrito ni el lugar.
+- **El lector al costado** (`ProcessedReaderScreen.onClose`, `ReadingFrame.leading`): ✕ en
+  lugar de ←, porque no hay adónde volver; otra parte del documento —el resumen, la síntesis— se
+  abre encima en lugar de reemplazar la lectura, y «atrás» vuelve a los dos paneles; mandarlo a
+  la papelera cierra el panel.
+- **«Nuevo»**: un punto y la palabra, en lo que llegó a Procesado en los últimos siete días
+  (`createdAt` contra el reloj de la app, que las pruebas fijan).
+- **Lo que cambia en vivo**: todo son streams del paso 2. Lo que llega se ilumina un momento
+  (`IndexArrivals` + `IndexGlow`, 1,4 s, nada con «sin animaciones»), lo borrado se va y lo
+  renombrado cambia, sin perder lo desplegado —es del estado de la vista, no de los widgets— ni
+  la posición —las claves estables y `findChildIndexCallback`—. Mientras corre el relleno, la
+  línea «Armando el Índice: 27 de 40 documentos» con su barra, o «Titulando 12 imágenes».
+- **Los estados**: la ruedita mientras se leen los temas; «El Índice todavía está vacío» con «Ir
+  a Procesado»; un documento sin indexar lo dice al desplegarlo («Sus capítulos todavía se están
+  leyendo. Aparecen acá solos.»); uno sin entradas, también; un error, con el mensaje de
+  siempre.
+- **Accesibilidad**: claro y oscuro; 360 dp con la letra al doble, sin desbordes; cada fila es
+  un solo nodo para el lector de pantalla, con lo que es, su nivel, su título —con su número si
+  se numera— y su página («Capítulo de nivel 2: Las guerras púnicas, página 3 del texto»), si
+  está desplegada (`expanded`) y si está elegida (`selected`); los temas y los documentos son
+  encabezados (`headingLevel` 2 y 3), y plegar un capítulo es una acción propia. Con teclado:
+  el foco arranca en el Índice, Ctrl+F (⌘F) va al buscador y Esc lo borra, Tab recorre las
+  filas, → despliega, ← pliega y Enter abre.
+
+**Decisiones, con su porqué:**
+
+- **«Niveles» es la profundidad de los capítulos de un documento abierto, no de todo el árbol.**
+  Es lo que hace Word, y desplegar «todo de una vez» los miles de documentos sería leer las
+  entradas de todos, que es justo lo que el plan prohíbe («los capítulos de un documento solo al
+  desplegarlo»). Los temas empiezan desplegados y los documentos plegados; elegir un nivel
+  rehace lo abierto o cerrado a mano adentro de los documentos, como Word, y no toca los temas ni
+  los documentos.
+- **Tocar un documento lo despliega; tocar un capítulo lo abre.** El documento es una rama del
+  árbol, no una entrada: se abre por sus capítulos, o por «Texto completo». En la búsqueda, un
+  documento cuyo título coincide sí se abre al tocarlo, desde el comienzo: ahí se busca para ir.
+- **Los documentos de un tema se leen recién cuando el tema llega cerca de la pantalla**
+  (`IndexWhenNear`). Un `SliverList` dibuja siempre su primera fila aunque esté a mil pantallas,
+  y la primera fila de un tema es leer sus documentos: con cien temas serían cien lecturas, que
+  la base repite con cada escritura —el relleno escribe un documento por vez—. Hasta llegar,
+  ocupa lo que ocuparían sus filas (a la letra de ahora), así nada salta; ya armado, se queda.
+- **Ninguna lectura avisa si trae lo mismo** (`distinct` en cada provider): drift vuelve a leer
+  cada consulta con cada escritura en sus tablas, y sin esto cada documento indexado volvería a
+  dibujar cada tema y cada documento abierto. Con esto, un cambio dibuja solo lo suyo.
+- **Cada parte mira solo lo suyo** (`select`): desplegar un documento vuelve a armar solo su
+  lista; abrir un capítulo, solo su documento (los capítulos abiertos a mano están en un mapa
+  por documento); la fila marcada, solo esa fila.
+- **La fila de un documento tiene una clave global por lista** (`IndexRowKeys`): al desplegarse
+  pasa de la lista perezosa a ser el encabezado fijo de su grupo, y con la misma clave es la
+  misma fila —el foco del teclado sigue en ella—. Sin eso, → desplegaba y el foco se perdía.
+- **La línea de puntos es un solo objeto que pinta título, puntos y página**
+  (`IndexLeaderLine`): un `Row` no sabe dónde termina el último renglón de un título partido, y
+  en Word los puntos salen de ahí. Siempre guarda lugar para los puntos, la página va a la
+  altura del último renglón, y cada punto cae en una grilla contada desde el borde derecho, así
+  quedan en columna con los de las otras filas, como una tabulación.
+- **Las cuentas son una cifra en una cápsula, y la frase entera va en su ayuda y en lo que lee
+  el lector de pantalla**: «2 documentos» a la derecha de un tema desbordaba con la letra al
+  doble, y una cifra suelta a la derecha se confundía con una página.
+- **Lo que llega se reconoce por lo que es, no por su clave**: volver a indexar un documento
+  rehace todas sus filas con claves nuevas, y no «llegó» nada; un capítulo nuevo sí. La primera
+  lectura de cada lista es lo que había: desplegar un tema no lo ilumina entero.
+- **El lector, al costado, es el de siempre**, con un enganche chico (`onClose`) y no una copia:
+  todo lo que el lector hace —la IA, Aa, el audio, las notas— está también al costado.
+- **Lo que se recuerda entre una vez y otra** es cómo se arma (por tema o por documento, el
+  orden, los niveles y la numeración, en `SharedPreferences`); lo desplegado y lo buscado son de
+  esta vez, y viven mientras vive la app, así que cambiar de destino y volver lo encuentra igual.
+- **Sin avisos**: nada de lo de este paso falla de un modo que haya que contar con un aviso —las
+  lecturas en vivo muestran su error en su lugar—. Los avisos llegan con el paso 4 (renombrar,
+  descargar).
+
+**El enganche para el paso 4:**
+
+- **Ir al lugar exacto** (decisión C): `openIndexEntry` (`index_opening.dart`) recibe un
+  `IndexOpening` con la entrada entera —`textStart`, `textEnd`, `textPage`, `pdfPage`—. Hoy abre
+  el texto en el lector único desde el comienzo: en un teléfono con
+  `RoutePaths.extractReading(fullText, [id])`, y al costado con
+  `indexReaderBuilderProvider` (`index_panels.dart`), que arma `ProcessedReaderScreen`. El paso 4
+  le pasa al lector el tramo —por la dirección y por ese builder— para que lo muestre y lo
+  resalte un momento. El lector al costado lleva la clave del documento, así que abrir otra
+  entrada del mismo documento no lo rearma: el paso 4 lo lleva al lugar nuevo.
+- **El toque largo**: `IndexEntryRow` y `IndexDocumentRow` ya tienen su `Semantics` y su
+  `InkWell`; falta el `onLongPress` con «Abrir en el original», «Preguntar al chat», «Copiar el
+  título» y, en una imagen, «Renombrar», que ya existe en el repositorio
+  (`IndexRepository.renameImage`).
+- **«Descargar el índice»**: va en ⋮ (`_MoreButton`, `index_screen.dart`), junto a la
+  numeración. Lo que se está mirando —la forma, el orden, los niveles, lo plegado y la
+  numeración— está entero en `IndexView` (`indexViewProvider`), y `indexOutline` ya da las
+  filas con su número.
+
+**Archivos:**
+
+- Nuevos, en `features/index/`: `domain/services/index_outline.dart` (las filas de un documento
+  con sus niveles, lo plegado y la numeración, y lo encontrado con sus padres) e
+  `index_match.dart` (lo que coincide y lo que se resalta); `presentation/index_opening.dart`;
+  `providers/index_view.dart` e `index_arrivals.dart`; `screens/index_screen.dart`; y en
+  `widgets/`: `index_leader_line.dart`, `index_rows.dart`, `index_tree_slivers.dart`,
+  `index_search_view.dart` e `index_panels.dart`.
+- Cambian: `index_providers.dart` (las lecturas de la pantalla), `reading_frame.dart`
+  (`leading`), `processed_reader_screen.dart` (`onClose`), `nav_destinations.dart`,
+  `app_router.dart`, `route_paths.dart`, `app_es.arb` y `app_en.arb` (56 textos `f46P3…`),
+  `GUIA_DE_USO.md` («El Índice») y `NOVEDADES.md` (F46).
+- Pruebas: `fake_index_repository.dart` (un repositorio de prueba que arma cada lectura como el
+  de verdad, cuenta quién mira qué y puede retener una lectura); en `test/features/index/`:
+  `domain/index_outline_test.dart`, `index_match_test.dart`,
+  `presentation/providers/index_view_test.dart`, `widgets/index_leader_line_test.dart`,
+  `index_rows_test.dart`, `screens/index_screen_test.dart` (con `index_screen_harness.dart`),
+  `index_screen_scale_test.dart` e `index_screen_vault_test.dart`; y las de la navegación
+  (`nav_destinations_test`, `adaptive_scaffold_test`, `app_router_branches_test`).
+
+**Verificado:**
+
+- `flutter analyze`: 19, la línea base, con todo y commit a commit: cada uno de los siete,
+  sacado solo en el árbol de trabajo, con sus textos generados, da 19.
+- **106 pruebas nuevas** —17 de las filas de un documento y de lo encontrado, 12 de lo que
+  coincide y se resalta, 14 de la vista y de lo que llega, 9 de la línea de puntos, 13 de las
+  filas, 30 de la pantalla, 3 de escala, 5 sobre la base de verdad y 3 de la navegación— y las
+  de la navegación que cambiaron (el destino en «Estudiar», el riel con once, la rama).
+- Por carpetas, con `--concurrency=2`: `test/features/index` (127, con las del paso 2),
+  `test/app` y `test/features/help` (305 en total con las del Índice);
+  `test/features/processed/presentation` y `test/features/reading` (318), por el lector al
+  costado; y `test/core/i18n`, `test/features/viewer` y `test/features/creations` (2.333), por el
+  marco de lectura.
+- **Sobre la base de verdad** (`index_screen_vault_test`, con `LibraryHarness` y el router de
+  la app): lo que se procesa aparece con sus capítulos, leídos al guardarse el texto; tocar uno
+  abre el lector entero encima en un teléfono, con ←, y al costado en una pantalla ancha, con ✕;
+  al costado, el resumen se abre encima y «atrás» vuelve a los dos paneles; y mandarlo a la
+  papelera cierra el panel y lo saca del Índice en vivo.
+- **La escala, por crecimiento** (`index_screen_scale_test`, con `timeGrowth`): abrir el Índice
+  con ocho veces más documentos (8 temas de 50 contra 8 de 400) tarda **×1,27**; desplegar un
+  libro de ocho veces más capítulos (1.000 contra 8.000), **×1,05**; un cambio en vivo en un
+  documento con ocho veces más documentos alrededor, **×1,26** —lo lineal daría ×8—. Y se cuenta
+  quién lee qué: con 60 temas de 10 documentos, al abrir se leen menos de 6; los demás, al bajar
+  hasta ellos. Un capítulo que cambia vuelve a dibujar su documento y ninguna fila del otro
+  desplegado (el mismo widget, `same`). `indexOutline` con 32.000 capítulos contra 4.000 crece
+  mucho menos que lo cuadrático.
+- **Para todos**: a 360 dp con la letra al doble, en claro y en oscuro, el árbol, un documento
+  desplegado y la búsqueda, sin un desborde; lo que oye el lector de pantalla en un tema y en un
+  capítulo, con su estado; el teclado (Ctrl+F, Tab, → ←, Enter al costado). Y capturas con las
+  letras de verdad (Inter y Lora) en claro, en oscuro, en una pantalla ancha, de una búsqueda y a
+  360 dp con la letra al doble, que se miraron y se borraron: de ahí salieron la franja teñida de
+  cada tema y la cápsula de las cuentas.
+- **Murieron las 42 mutaciones**, todas por pruebas que fallan. Cuatro sobrevivieron la primera
+  vez y mostraron pruebas flojas, que ahora las matan: «también en…» se comprobaba con que el
+  texto estuviera en alguna fila —y con la mutación lo decía otro documento—, ahora fila por
+  fila; elegir cómo se arma se guardaba pero la prueba encadenaba otras elecciones que también
+  guardaban, ahora cada una sola; y la línea de puntos se probaba con títulos que no
+  distinguían el último renglón del ancho del título ni el lugar mínimo de los puntos, ahora
+  con un último renglón corto y los 18 puntos enteros. Las demás: los niveles (el último
+  también desplegado, lo plegado que no esconde o que esconde a los hermanos), la numeración
+  (sin volver al padre, prendida siempre, las imágenes numeradas), un hermano como hijo, lo
+  encontrado (padres repetidos, el padre que coincide), lo que coincide (cualquiera de las
+  palabras, en el medio de una palabra, el resaltado más corto, lo que está fuera del plano
+  básico de Unicode), la vista (los niveles que no rehacen, los espacios, el capítulo abierto a
+  mano), lo que llega (la primera lectura, el brillo que no se apaga, la imagen por su título),
+  las lecturas iguales que vuelven a dibujar, los temas lejanos que se leen, el tema que no queda
+  fijo, la fila que pierde el foco al desplegarse, el documento sin indexar, la página del texto
+  antes que la del PDF, «Nuevo» en lo viejo, el brillo sin animaciones, → al revés, el tema sin
+  su estado para el lector de pantalla, dos paneles en un teléfono, Ctrl+F, abrir encima al
+  costado, la imagen en la primera, el lector al costado con ←, otra parte que reemplaza la
+  lectura, la papelera que no cierra el panel, el marco que ignora lo de la izquierda y el
+  Índice fuera de «Estudiar».
+
+**Queda abierto:**
+
+- **Ir al lugar exacto, el toque largo y «Descargar el índice»**: el paso 4, con su enganche
+  arriba. Hoy tocar un capítulo abre el texto desde el comienzo, y la guía lo dice.
+- **El brillo de lo que cambia**: un documento o una imagen renombrados cambian sin brillo (son
+  los mismos); un capítulo cuyo título cambió al editar el texto se reconoce por lo que dice, así
+  que brilla como uno que llegó.
+- **Los temas se arman todos**: cada tema es un grupo, aunque sus documentos se lean recién al
+  acercarse. Con cientos de temas es liviano (un encabezado cada uno); con miles convendría
+  hacer perezosos también los grupos.
+- **«Por documento» con todo** sigue costando lo que midió el paso 2 (65 ms con 300.000 entradas
+  en la PC), una vez por cambio mientras se lo mira: si en el teléfono se nota, pedirlo de a
+  tramos.
+- **La búsqueda no numera**: lo encontrado lleva su nivel y su página, pero no su número, que
+  pediría leer todas las entradas del documento.
+- **Las líneas guía** se dibujan por fila y se cortan en el encabezado fijo de un documento: con
+  el documento fijo arriba, la línea de los capítulos de más arriba no sigue por detrás.
+- No se miró en el emulador ni en el teléfono: las capturas de esta revisión se hicieron en la
+  PC, con las letras de verdad (Inter y Lora), en claro, en oscuro, en una pantalla ancha y a 360
+  dp con la letra al doble. La medición en el emulador con una bóveda grande es del paso 5.
