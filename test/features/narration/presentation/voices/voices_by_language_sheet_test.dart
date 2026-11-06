@@ -8,6 +8,8 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart'
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
+import 'package:sinapsis/features/narration/presentation/voices/voice_library_button.dart';
+import 'package:sinapsis/features/narration/presentation/voices/voice_library_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voices_by_language_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -156,9 +158,21 @@ void main() {
       );
     });
 
-    testWidgets('sin ninguna elegida, lo dice', (tester) async {
+    testWidgets('sin ninguna elegida, lo dice, y su botón abre la biblioteca '
+        '(el mismo de «Voces descargadas», F46, paso 5f)', (tester) async {
       await open(tester, themeMode: ThemeMode.light);
       expect(find.text(es.f47P3ByLanguageEmpty), findsOneWidget);
+
+      final library = find.byKey(const Key('voices-by-language-open-library'));
+      await tester.scrollUntilVisible(
+        library,
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.byType(VoiceLibraryButton), findsOneWidget);
+      await tester.tap(library);
+      await tester.pumpAndSettle();
+      expect(find.byType(VoiceLibrarySheet), findsOneWidget);
     });
   });
 }

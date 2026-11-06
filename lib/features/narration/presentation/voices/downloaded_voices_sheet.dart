@@ -6,6 +6,7 @@ import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/narration/domain/voices/offline_voice_catalog.dart';
 import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
+import 'package:sinapsis/features/narration/presentation/voices/voice_library_button.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_texts.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -70,14 +71,20 @@ class DownloadedVoicesSheet extends ConsumerWidget {
                 ),
               ),
             ),
-            if (installed != null && packages.isEmpty)
+            // Vacía, lleva adonde se bajan (F46, paso 5f): sin el botón, la
+            // hoja mandaba a la biblioteca sin un camino para llegar.
+            if (installed != null && packages.isEmpty) ...[
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
                 child: Text(
                   l10n.f47P3DownloadedEmpty,
                   key: const Key('downloaded-voices-empty'),
                 ),
               ),
+              const VoiceLibraryButton(
+                key: Key('downloaded-voices-open-library'),
+              ),
+            ],
             for (final package in packages) _PackageTile(package: package),
           ],
         ),

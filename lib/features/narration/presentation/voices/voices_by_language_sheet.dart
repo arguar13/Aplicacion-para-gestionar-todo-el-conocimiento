@@ -7,7 +7,7 @@ import 'package:sinapsis/features/narration/presentation/providers/my_voices_pro
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/providers/voice_library_providers.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_face_view.dart';
-import 'package:sinapsis/features/narration/presentation/voices/voice_library_sheet.dart';
+import 'package:sinapsis/features/narration/presentation/voices/voice_library_button.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_texts.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -92,16 +92,8 @@ class VoicesByLanguageSheet extends ConsumerWidget {
                   mine: mine,
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.record_voice_over_outlined),
-                  label: Text(l10n.f47P3LibraryTitle),
-                  onPressed: () => unawaited(showVoiceLibrary(context)),
-                ),
-              ),
+            const VoiceLibraryButton(
+              key: Key('voices-by-language-open-library'),
             ),
           ],
         ),

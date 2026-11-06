@@ -493,6 +493,24 @@ void main() {
       );
     });
 
+    testWidgets('su hoja vacía lleva a la biblioteca, que es donde se bajan '
+        '(F46, paso 5f)', (tester) async {
+      await setUpWith(offline: true);
+      await pumpSettings(tester);
+
+      await tapShown(tester, byKey('settings-downloaded-voices'));
+      expect(byKey('downloaded-voices-empty'), findsOneWidget);
+      final open = byKey('downloaded-voices-open-library');
+      expect(
+        find.descendant(of: open, matching: find.text(es.f47P3LibraryTitle)),
+        findsOneWidget,
+      );
+
+      await tester.tap(open);
+      await tester.pumpAndSettle();
+      expect(find.byType(VoiceLibrarySheet), findsOneWidget);
+    });
+
     testWidgets('donde no hay voces sin conexión, no está', (tester) async {
       await setUpWith();
       await pumpWholeSettings(tester);
