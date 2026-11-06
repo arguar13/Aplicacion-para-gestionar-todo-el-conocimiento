@@ -6,8 +6,7 @@ import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sinapsis/app/navigation/adaptive_scaffold.dart'
-    show kNavRailBreakpoint;
+import 'package:sinapsis/app/navigation/navigation_bar_scope.dart';
 import 'package:sinapsis/core/audio/media_session_hub.dart';
 import 'package:sinapsis/core/design/widgets/snack_bar_footprint.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
@@ -23,9 +22,6 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_q
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_speed_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_voice_face.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
-
-/// El alto de `NavigationBar` cuando el tema no dice otro: el de Material 3.
-const _navigationBarHeight = 80.0;
 
 /// El lector en voz alta de toda la app (F25): el botón redondo abajo a la
 /// derecha y, mientras se lee, el reproductor anclado abajo y a lo ancho
@@ -68,8 +64,9 @@ class ReadAloudOverlay extends ConsumerStatefulWidget {
   });
 
   /// De dónde sale el `Navigator` para abrir los paneles —el lector está por
-  /// encima de él— y si la pantalla de arriba tiene la barra de
-  /// navegación.
+  /// encima de él—. Si la pantalla de arriba tiene la barra de navegación no
+  /// sale de acá: lo dice la barra misma (`navigationBarShownProvider`, F46,
+  /// paso 5g).
   final GoRouter router;
 
   final Widget child;
@@ -80,7 +77,6 @@ class ReadAloudOverlay extends ConsumerStatefulWidget {
 
 class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
   var _popupOnTop = false;
-  var _onShell = false;
   var _checkScheduled = false;
 
   /// Si la persona está desplazando una pantalla, para la Lectura enfocada.
@@ -90,31 +86,19 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
   void initState() {
     super.initState();
     FocusManager.instance.addListener(_scheduleCheck);
-    widget.router.routerDelegate.addListener(_scheduleCheck);
     _scheduleCheck();
-  }
-
-  @override
-  void didUpdateWidget(ReadAloudOverlay oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.router != widget.router) {
-      oldWidget.router.routerDelegate.removeListener(_scheduleCheck);
-      widget.router.routerDelegate.addListener(_scheduleCheck);
-      _scheduleCheck();
-    }
   }
 
   @override
   void dispose() {
     FocusManager.instance.removeListener(_scheduleCheck);
-    widget.router.routerDelegate.removeListener(_scheduleCheck);
     super.dispose();
   }
 
-  /// Vuelve a mirar qué hay arriba al final del cuadro, no en el momento del
-  /// aviso: el router avisa a mitad de su construcción —que está debajo de
-  /// este widget—, y el foco cambia a mitad de una navegación, con la ruta
-  /// que lo tenía ya desmontándose.
+  /// Vuelve a mirar si hay algo abierto encima al final del cuadro, no en el
+  /// momento del aviso: el foco cambia a mitad de una navegación, con la
+  /// ruta que lo tenía ya desmontándose. Si hay un diálogo, un panel o un
+  /// menú encima, el lector no lo tapa (ver `popupRouteHasFocus`).
   void _scheduleCheck() {
     if (_checkScheduled) return;
     _checkScheduled = true;
@@ -122,33 +106,10 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
       ..addPostFrameCallback((_) {
         _checkScheduled = false;
         if (!mounted) return;
-        final onShell = _shellOnTop();
-        final popup = _popupInFocus();
-        if (onShell == _onShell && popup == _popupOnTop) return;
-        setState(() {
-          _onShell = onShell;
-          _popupOnTop = popup;
-        });
+        final popup = popupRouteHasFocus();
+        if (popup != _popupOnTop) setState(() => _popupOnTop = popup);
       })
       ..ensureVisualUpdate();
-  }
-
-  /// Si lo de arriba es una pantalla de las pestañas —con la barra de
-  /// navegación abajo— y no una abierta por encima de ellas, como el modo
-  /// lectura.
-  bool _shellOnTop() {
-    final matches = widget.router.routerDelegate.currentConfiguration.matches;
-    return matches.isNotEmpty && matches.last is ShellRouteMatch;
-  }
-
-  /// Un diálogo, un panel de abajo o un menú se llevan el foco al abrirse
-  /// —y lo devuelven al cerrarse—: si lo que tiene el foco vive en una ruta
-  /// emergente, hay algo encima de la pantalla y el lector no lo tapa.
-  bool _popupInFocus() {
-    final focused = FocusManager.instance.primaryFocus?.context;
-    return focused != null &&
-        focused.mounted &&
-        ModalRoute.of(focused) is PopupRoute;
   }
 
   /// La Lectura enfocada mira si la persona desplaza algo: el comienzo y el
@@ -173,15 +134,13 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
   /// reproductor: lo que ocupa ahora —también achicado por la Lectura
   /// enfocada—, menos lo que el andamio de la pantalla ya esquiva solo —la
   /// barra de navegación, o el borde seguro—, que `current` incluye.
-  double _snackBarLift(MediaQueryData media) {
+  double _snackBarLift(MediaQueryData media, {required bool onShell}) {
     final extent = ref.watch(
       readAloudPlayerExtentProvider.select((extent) => extent.current),
     );
     if (extent == 0) return 0;
-    final wide = media.size.width >= kNavRailBreakpoint;
-    final avoided = _onShell && !wide
-        ? (NavigationBarTheme.of(context).height ?? _navigationBarHeight) +
-              media.padding.bottom
+    final avoided = onShell
+        ? navigationBarHeightOf(context) + media.padding.bottom
         : media.padding.bottom;
     return math.max(0, extent - avoided);
   }
@@ -193,7 +152,11 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
       ..watch(readAloudAudioFocusProvider)
       // La tarjeta de lo que suena, en la notificación (F47, paso 2b).
       ..watch(mediaSessionHubProvider);
-    final lift = _snackBarLift(MediaQuery.of(context));
+    // La barra de navegación se ve abajo: lo dice ella (F46, paso 5g). En una
+    // pantalla ancha no la hay —va el riel al costado—, y tampoco en una
+    // pantalla abierta encima de las pestañas.
+    final onShell = ref.watch(navigationBarShownProvider);
+    final lift = _snackBarLift(MediaQuery.of(context), onShell: onShell);
 
     return ReadAloudMediaSession(
       onOpenLocation: _openLocation,
@@ -214,7 +177,7 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
             child: Overlay.wrap(
               child: _ReadAloudLayer(
                 navigatorKey: widget.router.routerDelegate.navigatorKey,
-                onShell: _onShell,
+                onShell: onShell,
                 popupOnTop: _popupOnTop,
                 scrolling: _scrolling,
               ),
@@ -289,10 +252,8 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
   /// la hay —que ya incluye el borde seguro de abajo—, y de lo que pida
   /// esquivar. Sin nada debajo, desde el borde, con su propio borde seguro.
   double _playerBottom(MediaQueryData media, double? clearance) {
-    final wide = media.size.width >= kNavRailBreakpoint;
-    final bar = widget.onShell && !wide
-        ? (NavigationBarTheme.of(context).height ?? _navigationBarHeight) +
-              media.padding.bottom
+    final bar = widget.onShell
+        ? navigationBarHeightOf(context) + media.padding.bottom
         : 0.0;
     if (clearance == null) return bar;
     return math.max(bar, media.size.height - clearance);
@@ -300,10 +261,7 @@ class _ReadAloudLayerState extends ConsumerState<_ReadAloudLayer> {
 
   /// Desde dónde se para el botón redondo: lo mismo, con su separación.
   double _buttonBottom(MediaQueryData media, double? clearance) {
-    final wide = media.size.width >= kNavRailBreakpoint;
-    final bar = widget.onShell && !wide
-        ? NavigationBarTheme.of(context).height ?? _navigationBarHeight
-        : 0.0;
+    final bar = widget.onShell ? navigationBarHeightOf(context) : 0.0;
     final base = media.padding.bottom + bar + _gap;
     if (clearance == null) return base;
     return math.max(base, media.size.height - clearance + _clearanceGap);

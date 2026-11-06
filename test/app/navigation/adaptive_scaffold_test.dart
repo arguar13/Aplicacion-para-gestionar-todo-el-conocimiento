@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/navigation/adaptive_scaffold.dart';
 import 'package:sinapsis/app/navigation/nav_destinations.dart';
+import 'package:sinapsis/app/navigation/navigation_bar_scope.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
@@ -785,6 +788,66 @@ void main() {
         ),
       );
       handle.dispose();
+    });
+  });
+
+  group('la barra avisa si se ve (F46, paso 5g)', () {
+    /// El `Navigator` de la raíz, donde se abren las pantallas que tapan a
+    /// las pestañas.
+    NavigatorState root(ProviderContainer container) => container
+        .read(goRouterProvider)
+        .routerDelegate
+        .navigatorKey
+        .currentState!;
+
+    testWidgets('en el celular se ve; la tapa una pantalla abierta encima con '
+        'Navigator.push a pantalla completa —como «Clonación de voz»—, y '
+        'vuelve al cerrarla', (tester) async {
+      setLogicalWidth(tester, 400);
+      final container = buildUnlockedContainer();
+      await tester.pumpWidget(buildRoutedApp(container));
+      await tester.pumpAndSettle();
+      expect(container.read(navigationBarShownProvider), isTrue);
+
+      unawaited(
+        root(container).push(
+          MaterialPageRoute<void>(
+            fullscreenDialog: true,
+            builder: (_) => const Scaffold(body: Text('Encima')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(container.read(navigationBarShownProvider), isFalse);
+
+      root(container).pop();
+      await tester.pumpAndSettle();
+      expect(container.read(navigationBarShownProvider), isTrue);
+    });
+
+    testWidgets('la lista de un paso, abierta encima, no la tapa', (
+      tester,
+    ) async {
+      setLogicalWidth(tester, 400);
+      final container = buildUnlockedContainer();
+      await tester.pumpWidget(buildRoutedApp(container));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('nav-step-organize')));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(container.read(navigationBarShownProvider), isTrue);
+    });
+
+    testWidgets('en una pantalla ancha no hay barra abajo: va el riel', (
+      tester,
+    ) async {
+      setLogicalWidth(tester, 1200);
+      final container = buildUnlockedContainer();
+      await tester.pumpWidget(buildRoutedApp(container));
+      await tester.pumpAndSettle();
+
+      expect(container.read(navigationBarShownProvider), isFalse);
     });
   });
 }

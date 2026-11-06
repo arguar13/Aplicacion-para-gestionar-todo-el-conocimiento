@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/app/navigation/navigation_bar_scope.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
@@ -206,13 +207,16 @@ void main() {
       routes: [
         if (withBar)
           ShellRoute(
-            builder: (context, state, child) => Scaffold(
-              body: child,
-              bottomNavigationBar: NavigationBar(
-                destinations: const [
-                  NavigationDestination(icon: Icon(Icons.home), label: 'A'),
-                  NavigationDestination(icon: Icon(Icons.chat), label: 'B'),
-                ],
+            // Como `AdaptiveScaffold`: la barra avisa si se ve.
+            builder: (context, state, child) => NavigationBarScope(
+              child: Scaffold(
+                body: child,
+                bottomNavigationBar: NavigationBar(
+                  destinations: const [
+                    NavigationDestination(icon: Icon(Icons.home), label: 'A'),
+                    NavigationDestination(icon: Icon(Icons.chat), label: 'B'),
+                  ],
+                ),
               ),
             ),
             routes: [GoRoute(path: '/', builder: (_, _) => screen)],
@@ -847,6 +851,117 @@ void main() {
       expect(player, findsOneWidget);
       await gesture.up();
       await tester.pumpAndSettle();
+    });
+  });
+
+  group('si la barra de navegación se ve lo dice ella (F46, paso 5g)', () {
+    /// Una pestaña que abre pantallas como en la app: encima de todo con
+    /// `Navigator.push` —a pantalla completa, como «Clonación de voz»—,
+    /// dentro de la pestaña, y un diálogo.
+    final tab = Scaffold(
+      body: Builder(
+        builder: (context) => Column(
+          children: [
+            TextButton(
+              onPressed: () => Navigator.of(context, rootNavigator: true).push(
+                MaterialPageRoute<void>(
+                  fullscreenDialog: true,
+                  builder: (_) => const Scaffold(body: Text('Encima')),
+                ),
+              ),
+              child: const Text('encima'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const Scaffold(body: Text('Adentro')),
+                ),
+              ),
+              child: const Text('adentro'),
+            ),
+            TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => const AlertDialog(content: Text('Diálogo')),
+              ),
+              child: const Text('diálogo'),
+            ),
+          ],
+        ),
+      ),
+    );
+    const bar = 80.0;
+
+    /// Adónde va el reproductor: el borde de abajo que se le pide, aunque
+    /// todavía no haya llegado.
+    double target(WidgetTester tester) => tester
+        .widget<AnimatedPositioned>(
+          find.ancestor(of: player, matching: find.byType(AnimatedPositioned)),
+        )
+        .bottom!;
+
+    testWidgets('una pantalla abierta encima con Navigator.push, a pantalla '
+        'completa, la tapa: el reproductor baja al pie en el momento, y '
+        'vuelve encima de la barra al cerrarla', (tester) async {
+      await pump(tester, initial: _reading, withBar: true, screen: tab);
+      expect(container.read(navigationBarShownProvider), isTrue);
+      expect(tester.getRect(player).bottom, _phone.height - bar);
+
+      await tester.tap(find.text('encima'));
+      // Sin esperar a que termine de abrirse: ya va para abajo.
+      await tester.pump();
+      await tester.pump();
+      expect(container.read(navigationBarShownProvider), isFalse);
+      expect(target(tester), 0);
+
+      await tester.pumpAndSettle();
+      expect(find.text('Encima'), findsOneWidget);
+      expect(tester.getRect(player).bottom, _phone.height);
+
+      Navigator.of(tester.element(find.text('Encima'))).pop();
+      await tester.pump();
+      await tester.pump();
+      // Apenas se empieza a cerrar, la barra vuelve a verse.
+      expect(container.read(navigationBarShownProvider), isTrue);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(player).bottom, _phone.height - bar);
+    });
+
+    testWidgets('una pantalla abierta dentro de la pestaña no la tapa: el '
+        'reproductor sigue encima de la barra', (tester) async {
+      await pump(tester, initial: _reading, withBar: true, screen: tab);
+
+      await tester.tap(find.text('adentro'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adentro'), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(container.read(navigationBarShownProvider), isTrue);
+      expect(tester.getRect(player).bottom, _phone.height - bar);
+    });
+
+    testWidgets('un diálogo encima no la tapa: el reproductor se hace a un '
+        'lado y, al cerrarlo, vuelve encima de la barra', (tester) async {
+      await pump(tester, initial: _reading, withBar: true, screen: tab);
+
+      await tester.tap(find.text('diálogo'));
+      await tester.pumpAndSettle();
+      expect(find.text('Diálogo'), findsOneWidget);
+      expect(container.read(navigationBarShownProvider), isTrue);
+      expect(player, findsNothing);
+
+      Navigator.of(tester.element(find.text('Diálogo'))).pop();
+      await tester.pumpAndSettle();
+      expect(tester.getRect(player).bottom, _phone.height - bar);
+    });
+
+    testWidgets('sin barra no hay nada que avisar: el reproductor va al pie', (
+      tester,
+    ) async {
+      await pump(tester, initial: _reading, screen: tab);
+
+      expect(container.read(navigationBarShownProvider), isFalse);
+      expect(tester.getRect(player).bottom, _phone.height);
     });
   });
 

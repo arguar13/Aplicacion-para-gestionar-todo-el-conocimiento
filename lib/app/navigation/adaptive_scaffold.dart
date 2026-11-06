@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/navigation/nav_destinations.dart';
+import 'package:sinapsis/app/navigation/navigation_bar_scope.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/study_day_watcher.dart';
@@ -18,9 +19,6 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// "compacta" (celular) y "mediana o más" (tablet, escritorio) — no un
 /// número inventado para esta app.
 const kNavRailBreakpoint = 600.0;
-
-/// El alto de `NavigationBar` cuando el tema no dice otro: el de Material 3.
-const _kNavigationBarHeight = 80.0;
 
 /// El shell de navegación principal: biblioteca, bandeja, atlas, procesado,
 /// cuadernos, línea de tiempo, mapa, repaso, chat y ajustes, cada uno con su
@@ -109,35 +107,39 @@ class AdaptiveScaffold extends ConsumerWidget {
     final current = navigationShell.currentIndex;
     final groupIndex = groups.indexWhere((g) => g.contains(current));
 
-    return Scaffold(
-      body: StudyDayWatcher(child: navigationShell),
-      // Con el teclado abierto, la barra se va (F42): queda debajo de él, no
-      // se puede tocar, y el lector de pantalla no tiene por qué pasar por
-      // ella; la pantalla —el chat, sobre todo— usa toda la altura. Se va
-      // recién cuando el teclado ya la tapa entera, y vuelve apenas asoma:
-      // así lo de arriba no salta mientras el teclado sube o baja.
-      bottomNavigationBar: _keyboardCoversBar(context)
-          ? null
-          : NavigationBar(
-              selectedIndex: groupIndex < 0 ? 0 : groupIndex,
-              onDestinationSelected: (index) {
-                final group = groups[index];
-                if (group.hasList) {
-                  unawaited(_showStep(context, group, current, goToBranch));
-                } else {
-                  goToBranch(group.destinations.single.branchIndex);
-                }
-              },
-              destinations: [
-                for (final g in groups)
-                  NavigationDestination(
-                    key: ValueKey('nav-step-${g.step.name}'),
-                    icon: g.icon,
-                    selectedIcon: g.selectedIcon,
-                    label: g.label,
-                  ),
-              ],
-            ),
+    // La barra misma avisa si se ve (F46, paso 5g): el lector en voz alta se
+    // para encima de ella mientras tanto.
+    return NavigationBarScope(
+      child: Scaffold(
+        body: StudyDayWatcher(child: navigationShell),
+        // Con el teclado abierto, la barra se va (F42): queda debajo de él, no
+        // se puede tocar, y el lector de pantalla no tiene por qué pasar por
+        // ella; la pantalla —el chat, sobre todo— usa toda la altura. Se va
+        // recién cuando el teclado ya la tapa entera, y vuelve apenas asoma:
+        // así lo de arriba no salta mientras el teclado sube o baja.
+        bottomNavigationBar: _keyboardCoversBar(context)
+            ? null
+            : NavigationBar(
+                selectedIndex: groupIndex < 0 ? 0 : groupIndex,
+                onDestinationSelected: (index) {
+                  final group = groups[index];
+                  if (group.hasList) {
+                    unawaited(_showStep(context, group, current, goToBranch));
+                  } else {
+                    goToBranch(group.destinations.single.branchIndex);
+                  }
+                },
+                destinations: [
+                  for (final g in groups)
+                    NavigationDestination(
+                      key: ValueKey('nav-step-${g.step.name}'),
+                      icon: g.icon,
+                      selectedIcon: g.selectedIcon,
+                      label: g.label,
+                    ),
+                ],
+              ),
+      ),
     );
   }
 
@@ -145,8 +147,7 @@ class AdaptiveScaffold extends ConsumerWidget {
   /// borde del sistema que todavía quede a la vista.
   static bool _keyboardCoversBar(BuildContext context) {
     final bar =
-        (NavigationBarTheme.of(context).height ?? _kNavigationBarHeight) +
-        MediaQuery.paddingOf(context).bottom;
+        navigationBarHeightOf(context) + MediaQuery.paddingOf(context).bottom;
     return MediaQuery.viewInsetsOf(context).bottom >= bar;
   }
 
