@@ -414,7 +414,11 @@ class RenderedMarkdown {
     }
   }
 
-  static final _headingPattern = RegExp(r'^(#{1,3})[ \t]+');
+  // Los seis niveles de Markdown, como el chat, el informe y el Índice
+  // (F46): una página web trae `####` en sus subtítulos, y con solo tres el
+  // lector los mostraba con sus numerales a la vista. Siete o más ya no es
+  // un título, también como en Markdown.
+  static final _headingPattern = RegExp(r'^(#{1,6})[ \t]+');
   static final _bulletPattern = RegExp(r'^[-*][ \t]+');
   static final _quotePattern = RegExp(r'^>[ \t]?');
   static final _rulePattern = RegExp(
@@ -762,7 +766,8 @@ class _RunStyle {
     this.script = 0,
   });
 
-  /// 0 quiere decir "no es un título"; 1, 2 o 3 es el nivel de `#`.
+  /// 0 quiere decir "no es un título"; de 1 a 6, el nivel de `#`. Del 3 en
+  /// adelante se ven igual: más chicos se confundirían con el cuerpo.
   final int heading;
   final bool bold;
   final bool italic;

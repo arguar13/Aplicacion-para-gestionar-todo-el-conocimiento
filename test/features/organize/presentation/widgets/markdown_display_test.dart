@@ -88,11 +88,29 @@ void main() {
       expect(rendered.displayText, 'Un título\nY el cuerpo');
     });
 
-    test('##  y ### también, hasta tres niveles', () {
+    test('## y ### también', () {
       expect(RenderedMarkdown.parse('## Subtítulo').displayText, 'Subtítulo');
       expect(
         RenderedMarkdown.parse('### Menor todavía').displayText,
         'Menor todavía',
+      );
+    });
+
+    test('del cuarto al sexto nivel también: los subtítulos de una página '
+        'web no muestran sus numerales', () {
+      for (final marks in ['####', '#####', '######']) {
+        final rendered = RenderedMarkdown.parse(
+          '$marks La cristiandad latina\nEl cuerpo',
+        );
+
+        expect(rendered.displayText, 'La cristiandad latina\nEl cuerpo');
+      }
+    });
+
+    test('siete numerales ya no son un título y quedan tal cual', () {
+      expect(
+        RenderedMarkdown.parse('####### No es título').displayText,
+        '####### No es título',
       );
     });
   });

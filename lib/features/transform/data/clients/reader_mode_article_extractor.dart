@@ -3,6 +3,12 @@ import 'package:reader_mode/reader_mode.dart' as reader;
 import 'package:sinapsis/features/transform/data/clients/page_urls.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 
+/// Lo que una página marca como control suyo y no como parte del artículo:
+/// el `[editar]` de cada título de una wiki (MediaWiki, la de Wikipedia).
+/// Es la misma marca que descarta la vista de la página archivada
+/// (`archived_page_mobile.dart`).
+const _pageControls = '.mw-editsection';
+
 /// [ArticleExtractor] sobre `reader_mode`, un port en Dart del algoritmo
 /// Readability de Mozilla — el mismo que usa el modo lectura de Firefox.
 ///
@@ -35,6 +41,7 @@ import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart'
 /// página entera queda archivada como el archivo original de la fuente. En
 /// un artículo de menos de 500 caracteres, en cambio, el algoritmo vuelve a
 /// intentar sin esa limpieza, así que lo corto sale con sus tablas y listas.
+
 class ReaderModeArticleExtractor implements ArticleExtractor {
   const ReaderModeArticleExtractor();
 
@@ -65,6 +72,15 @@ class ReaderModeArticleExtractor implements ArticleExtractor {
     // adivinar. Se lee una sola vez: es el mismo parser que el paquete
     // usaría por dentro.
     final document = html_parser.parse(html);
+    // **Los controles de la página no son su texto (F46).** El `[editar]`
+    // de cada título de una wiki es un enlace que la página marca como
+    // control (`.mw-editsection`), y Readability lo conservaba: quedaba un
+    // renglón «[editar]» bajo cada capítulo, en el texto y en lo que se
+    // escucha. Se sacan antes de leer, por su marca y no por su texto: un
+    // `[editar]` escrito en el artículo mismo se queda.
+    for (final control in document.querySelectorAll(_pageControls)) {
+      control.remove();
+    }
     absolutizePageUrls(document, documentBaseUri(document, baseUri));
     final article = reader.Readability(
       reader.HtmlDomDocument(document),

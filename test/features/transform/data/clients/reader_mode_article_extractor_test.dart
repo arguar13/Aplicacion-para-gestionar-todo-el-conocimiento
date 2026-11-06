@@ -95,6 +95,48 @@ void main() {
     });
   });
 
+  group('los controles de una wiki no son su texto (F46)', () {
+    // Visto en el emulador con la biblioteca de ejemplo: cada capítulo de
+    // un artículo de Wikipedia llegaba al lector con un renglón «[editar]»
+    // debajo. MediaWiki marca ese enlace como control (`.mw-editsection`).
+    const wikiPage = '''
+<!DOCTYPE html>
+<html lang="es">
+<head><title>Edad Media - Wikipedia</title></head>
+<body>
+  <main>
+    <h1>Edad Media</h1>
+    <p>La Edad Media es el período histórico de la civilización occidental comprendido entre el siglo V y el XV, que la historiografía tradicional cuenta desde la caída del Imperio romano de Occidente.</p>
+    <div class="mw-heading mw-heading4"><h4 id="cristiandad">La cristiandad latina y los bárbaros</h4><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?action=edit&amp;section=5">editar</a><span class="mw-editsection-bracket">]</span></span></div>
+    <p>La expansión del cristianismo entre los bárbaros, el asentamiento de la autoridad episcopal en las ciudades y del monacato en los ámbitos rurales constituyeron una poderosa fuerza fusionadora de culturas.</p>
+    <p>Un glosario de la época anota la abreviatura [editar] como se la escribía en los márgenes de los códices, para que conste que el artículo mismo puede decirlo.</p>
+  </main>
+</body>
+</html>
+''';
+
+    test('el «[editar]» de cada título se va, con el título y su texto '
+        'intactos', () {
+      final article = extractor.extract(wikiPage, baseUri: baseUri)!;
+
+      expect(article.contentHtml, isNot(contains('mw-editsection')));
+      expect(article.contentHtml, isNot(contains('action=edit')));
+      expect(
+        article.textContent,
+        contains('La cristiandad latina y los bárbaros'),
+      );
+      expect(article.textContent, contains('fuerza fusionadora'));
+    });
+
+    test('un «[editar]» escrito en el artículo mismo se queda: se saca por '
+        'su marca, no por su texto', () {
+      final article = extractor.extract(wikiPage, baseUri: baseUri)!;
+
+      expect(article.textContent, contains('la abreviatura [editar] como'));
+      expect('[editar]'.allMatches(article.textContent), hasLength(1));
+    });
+  });
+
   group('HTML real, no el de un ejemplo prolijo', () {
     // Encontrado validando la app contra Wikipedia real, no en ninguna
     // revisión de código: `ParserType.jsdom` (el default de `reader_mode`)
