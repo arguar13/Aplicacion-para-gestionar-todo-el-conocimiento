@@ -1745,3 +1745,140 @@ con «Nuevo cuaderno» entero arriba; la bienvenida del chat, con el campo arrib
 la Bandeja, con la tarjeta centrada en lo que queda; el teclado en el chat con algo sonando; un
 panel (la velocidad, la cola) abierto desde el reproductor en una pantalla sin barra; y la
 Lectura enfocada desplazando una lista larga, que no debería cambiar de alto.
+
+### Paso 5f (hecho): la negrita del PDF, el Mapa vacío, «Escuchar» desde lo que se ve y el nombre de la voz
+
+**Qué se vio** (emulador), cinco cosas:
+
+- **B.** En el PDF de «Descargar el índice», todo salía en negrita a partir del título.
+- **C.** En el Mapa sin etiquetas, debajo de «Todavía no hay etiquetas», la ayuda «Tocá una comunidad
+  para ver su ficha…», sin nada que tocar.
+- **D.** «Escuchar» en el texto completo que abre el Índice empezaba por el principio, aunque la
+  vista estuviera en la mitad del capítulo.
+- **F.** Sin voz elegida, con la que el lector tomó sola (`es-us-x-…-local`), la misma voz tenía tres
+  nombres: «Español (Estados Unidos)» en el reproductor, «Lee ahora: Voz 1» en la biblioteca y la
+  marca en «Voz del sistema».
+- **G.** «Voces descargadas» vacía decía «Las bajás desde la biblioteca de voces» sin un botón para
+  llegar; «Voces por idioma» sí lo tenía.
+
+**Causas**:
+
+- **B.** Las letras de la app son variables y la negrita se dibuja trazando el contorno (modo
+  `2 Tr`). El paquete `pdf` (3.12.0, `graphics.dart`) escribe el modo solo cuando no es el de
+  relleno y nunca lo vuelve a `0 Tr` —eso llega únicamente al comienzo de cada página—. El título
+  del Índice iba directo en la página, con el trazo puesto en su estilo y sin nada que guardara y
+  repusiera el estado del dibujo: el modo 2 quedaba para todo lo que seguía, con el trazo negro de
+  1 punto (el tema, en su color de acento, se trazaba en negro). En el informe ya había un `_Ink`
+  y un `_StrokedWord` que aislaban, pero cada título tenía que acordarse de envolverse, y el número
+  de una nota en un título en negrita salía con trazo: su `renderingMode: fill` no se escribe nunca.
+- **C.** La ayuda salía con `!_links && communities && !_isTree` sin mirar si había temas; lo mismo
+  las demás filas y notas que acompañan al dibujo («0 contradicciones a la vista», «Ver como lista»,
+  cuántos documentos quedaron sin vínculos, la raíz del árbol de la lista).
+- **D.** `ExtractViewer` ofrecía su `ReadableDocument` sin `startAt`; sin `fromSegment`,
+  `ReadAloudController.open` usa `startIndexOf`, que sin lugar empieza por el primer pedazo.
+- **F.** `voiceName` caía en `readAloudVoiceNumber(number!)` y `voiceProfileOf` ponía `number = 1`
+  de antemano: un «Voz 1» que no era de ninguna lista (en la biblioteca, esa voz es la segunda de
+  su acento). La cara usaba el mismo número: el reproductor dibujaba «1» y su tarjeta «2». El audio
+  descargado tenía su propio `speechVoiceDisplayName`, con el mismo «Voz 1».
+- **G.** El vacío de la hoja era un texto solo.
+
+**Qué se hizo**:
+
+- **B** (`576a4523`). La negrita sale a `lib/core/pdf/pdf_bold.dart` y es la única forma de ponerla:
+  `PdfBold` (y `PdfBold.text`) aísla un texto entero —guarda el estado, pone el trazo del color de
+  la letra y de un grosor proporcional a su tamaño (3 %), dibuja y repone— y le da el trazo a lo de
+  adentro por el tema, así **ningún estilo lleva `renderingMode`** (`grep fillAndStroke lib` da solo
+  ese archivo); `pdfBoldWords` dibuja cada palabra en negrita sola dentro de un párrafo que no lo
+  es. El Índice y el informe la usan; en el informe, un texto en negrita con la llamada de una nota
+  va palabra por palabra y la llamada, al lado, solo rellena. Línea nueva en `docs/arquitectura.md`
+  (Exportación).
+- **C** (`ac5ff594`). Una sola condición, `_hasContent` —«hay algo a la vista que tocar»: los
+  temas o, con los vínculos prendidos, lo vinculado que ya llegó—, decide todo lo que acompaña al
+  dibujo: las filas de contexto (la ayuda, el grado, la raíz, el resumen y la fuerza de los
+  vínculos), las notas de abajo (lo que no entró y lo de las capas), «Ver como lista» y sus capas.
+- **D** (`a2264b53`). El visor dice por dónde va su vista, como el libro, el PDF, la página web y
+  el documento procesado: `_placeInView` recorre las filas armadas y, en la primera que llega más
+  abajo del borde de arriba, da el título del documento si se lee (con varios) o la posición del
+  texto propio de la línea que está ahí, aunque esté cortada (`textOffsetAt`, nuevo en
+  `_Revealable`: el párrafo dibujado y `getPositionForOffset`, llevado al texto propio con
+  `_toRaw`). Los avisos se siguen de largo. **La regla «el mismo documento sigue donde iba» se
+  revisó y queda**: `close()` olvida el documento, así que con el reproductor cerrado «Escuchar»
+  siempre arranca desde lo que se ve, aunque la persona se haya ido lejos de lo que sonaba; con el
+  reproductor abierto o en pausa no hay «Escuchar» —el botón aparece solo sin nada leyéndose— y lo
+  que vuelve a ofrecer lo mismo (el menú del audio, la cola) sigue donde iba.
+- **F** (`5eeba7c7`). Una sola forma de nombrar en una frase la voz que suena, la del reproductor
+  (`readAloudVoiceName`), la usan «Lee ahora» de la biblioteca y de Ajustes
+  (`now_reading_text.dart`) y el audio descargado. `voiceProfileOf` ya no tiene número por defecto:
+  el número lo pone solo `deviceVoiceProfiles`, por el lugar entre las de su acento, y `voiceName`
+  sin número nombra por el acento. **La cara es de la voz**: `VoiceProfile.label` ya no usa el
+  número, así es la misma en la tarjeta, el reproductor y la tarjeta de lo que suena, y no cambia
+  si el teléfono suma otra voz del acento (en la lista, las iniciales de una voz con código pasan
+  de «2» a la del acento). «Lee ahora», sin una elegida para lo que se lee —lo mismo que marca «Voz
+  del sistema», ahora una sola condición, `noVoiceChosenProvider`—, lo dice: «Lee ahora: Español
+  (Estados Unidos), porque no elegiste ninguna» (`f46P5fNowReadingUnchosen`, en los dos .arb).
+  «Voces por idioma», que es una lista, nombra cada voz con su tarjeta de la biblioteca
+  (`libraryVoiceProfileOf`): «Voz 2», como donde se la eligió.
+- **G** (`a2d23cb4`). El botón «Biblioteca de voces» sale de «Voces por idioma» a
+  `VoiceLibraryButton` y la hoja vacía lo lleva debajo de lo que dice. Se revisaron las demás: la
+  pestaña Mías está dentro de la biblioteca; Clonar y Crear una voz ya llevan su botón cuando falta
+  algo (abrir la nube, bajar Kokoro); lo de ElevenLabs (cambiar de plan) no tiene adónde llevar en
+  la app.
+
+**Pruebas** (todas con fakes):
+
+- **B.** `test/support/pdf_text_modes.dart` lee el flujo de dibujo sin PDFium: descomprime cada
+  página, sigue `q`/`Q`, `Tr`, `rg`, `RG` y `w`, decodifica cada palabra con su `ToUnicode` y falla
+  si una página deja algo guardado sin reponer. En el Índice, en negrita van exactamente el título,
+  el tema, el documento y los capítulos de primer nivel —también en todas las páginas de uno de
+  120—, cada uno aislado, con el trazo del color de su letra y su grosor; el subtítulo, lo que dice
+  un documento, un capítulo de segundo nivel, el texto completo, una imagen, las páginas y el pie,
+  solo relleno. En el informe, lo mismo con el título, las secciones, el subtítulo, las preguntas,
+  las negritas, las palabras clave y las respuestas, y la llamada de una nota en un título y en un
+  subtítulo, sin negrita. Con PDFium pasan también las de siempre.
+- **C.** Sin temas no están la ayuda, «Ver como lista» ni la nota de una capa, y vuelven al
+  prender los vínculos; sin nada vinculado, el vacío va solo; vaciado mientras se mira como lista,
+  se van sus capas y su raíz; con temas, la ayuda sigue.
+- **D.** Con un texto completo largo: desplazado hasta la mitad, lee desde el párrafo de arriba; en
+  un párrafo larguísimo cortado arriba, desde la oración de la línea de arriba; con dos documentos
+  y pasado el título del segundo, desde su texto y no desde su título; en el resumen, que muestra
+  solo lo marcado, desde la oración marcada de arriba; arriba de todo, desde el comienzo; en pausa y
+  desplazado, ofrecerlo otra vez sigue donde iba, y cerrado, «Escuchar» lee desde lo que se ve.
+- **F.** El reproductor, «Lee ahora» y la marca dicen lo mismo, y la cara del reproductor es la de
+  su tarjeta «Voz 2»; la tarjeta de lo que suena la nombra igual y lleva esa cara; «Lee ahora» nunca
+  dice «Voz 1»; el audio descargado y su falla la nombran como el reproductor; la numeración sale
+  solo de la lista; «Voces por idioma» dice «Voz 2».
+- **G.** En Ajustes, con ninguna bajada, la hoja dice que está vacía, trae el botón y el botón abre
+  la biblioteca; en «Voces por idioma», el mismo botón la abre.
+
+**Mutaciones** (`tool/mutar.py`): B, 19 de 19; C, 7 de 7; D, 7 de 7; F, 13 de 13; G, 4 de 4. Todas
+muertas. Dos de D sobrevivieron la primera vuelta —saltear las filas que quedaron arriba y usar la
+posición de lo dibujado como la del texto propio— porque todas las pruebas eran de un solo
+documento con un solo bloque; se sumaron las de dos documentos y del resumen, y murieron. Una de B
+(«aislado sin reponer») también sobrevivió primero: el trazo quedaba puesto sin que nada lo notara,
+y la lectura del PDF ahora falla si una página no repone lo que guarda.
+
+**Sobre `main`**: rebasado sobre `7c161061` (el final del paso 5g, que ya trae el 5e). Los únicos archivos en común eran la
+GUÍA, `docs/arquitectura.md` y este plan, y quedan los dos lados. La rama se rearmó para que cada
+commit de código dé por sí solo los 19 avisos del analizador: lo que arreglaba los avisos que había
+sumado el paso fue a parar al commit que los había metido, y el ajuste de una prueba de D, a D.
+
+**Analizador**: 19 avisos, la línea base, en cada commit de código. La GUÍA, en `18756d62`.
+
+**Pruebas**, con `--concurrency=2`, antes de rebasar: `test/features/index`, `creations`, `map`,
+`narration`, `reading/presentation/frame` y `settings`, 3.609 pasan (una prueba nueva de D contaba
+«la oración de arriba» distinto que `startIndexOf` cuando la línea de arriba era la vacía entre dos
+párrafos: se la corrigió y las mutaciones de D se volvieron a correr). Con PDFium (`.pdfium` del
+repositorio), las del Índice y el informe pasan. Después de rebasar, `test/features/index`, `map`, `narration`,
+`reading/presentation/frame`, `settings` y `creations/extract`, `report` y `podcast`: 1.923 pasan,
+0 fallas (9 saltadas: las de PDFium).
+
+**Queda para mirar en el emulador**, con una APK nueva:
+
+- el PDF del Índice, con negrita solo en el título, los temas, los documentos y los capítulos de
+  primer nivel, y el tema con el trazo de su color;
+- el Mapa sin etiquetas, con el vacío solo;
+- «Escuchar» en el texto completo abierto desde el Índice, desplazado a la mitad: tiene que empezar
+  por la línea de arriba;
+- sin voz elegida, el reproductor, «Lee ahora» de la biblioteca y de Ajustes y la tarjeta de lo
+  que suena, con el mismo nombre y la misma cara que la tarjeta de la lista;
+- «Voces descargadas» vacía, con su botón.
