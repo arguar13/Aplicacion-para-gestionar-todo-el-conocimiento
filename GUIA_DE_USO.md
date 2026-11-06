@@ -1070,6 +1070,13 @@ también queden guardados los estilos que antes no entraron, guardá el
 enlace de nuevo (en una página ya guardada, «Volver a extraer el texto» no
 vuelve a bajar la página).
 
+**En la ficha, su comienzo.** La vista previa de una página web en la ficha
+de la Biblioteca —y en la tarjeta del original de un documento procesado—
+muestra **el comienzo de la página**: su encabezado y el principio del
+artículo, con sus primeras fotos. La página entera, con todo lo marcado, se
+abre con **«Ver la página»**. Así una página larga y con muchas fotos (un
+artículo de Wikipedia guardado pesa varios megas) abre su ficha sin trabar
+la app.
 ### Estudiar el documento: resumen, síntesis y palabras clave
 
 La tarjeta **«Estudiar el documento»** (con **Resumir**, **Sintetizar**,
@@ -2821,8 +2828,15 @@ capítulo**:
   Un **PDF** se abre **en la página de ese capítulo**; una **página web**, **en
   ese título**, que se resalta un momento (si la página tiene dos iguales
   —dos «Referencias»—, en el que corresponde). Un Word o un EPUB se abren
-  desde el comienzo. Si el documento no guardó una copia de su original, la
-  opción está apagada y lo dice.
+  desde el comienzo. Si el documento **no guardó una copia** de su original
+  —por ejemplo, porque al triarlo usaste **"Pasar todo"**, que pasa solo el
+  texto—, abre **el original de su fuente en la Biblioteca**, en el mismo
+  lugar y con el mismo visor que "Ver la página" o "Leer como libro" desde su
+  ficha; debajo de la opción dice cuál abre (*"En la página 12 del PDF de la
+  Biblioteca"*). Si la fuente es un audio o un video, abre su ficha, que lo
+  muestra. Solo está apagada, diciendo por qué, cuando no hay copia y la
+  fuente ya no está en la Biblioteca, o está en la papelera (restaurala para
+  abrirla).
 - **"Preguntar al chat"**: abre el chat con una conversación nueva y deja
   escrito el capítulo, su documento y **su texto** —desde su título hasta el
   capítulo siguiente de su nivel, con sus secciones adentro; si es muy largo,
@@ -4627,6 +4641,13 @@ sola. Es lo mismo que marcaste en el original con los botones **Resumen**,
   y **"Parar"**. Si le falta a varios, arriba aparece **"Marcar los N con
   IA"**: los hace de a uno.
 - **"Abrir el documento"**: para marcarlo a mano en el original.
+
+Los dos botones van en un renglón si entran; si no —en un teléfono angosto o
+con la letra grande—, uno debajo del otro y del mismo ancho.
+
+En el texto, una foto de la página que no tiene descripción no deja un
+espacio en blanco: los párrafos de antes y de después quedan separados como
+dos párrafos cualesquiera. Las fotos se ven en el original.
 
 Un documento que ya no está dice **"Fuente borrada"**; uno sin texto propio
 (solo notas o imágenes), que no tiene texto para extraer.
