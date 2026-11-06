@@ -136,9 +136,11 @@ usar sus botones (el lector de pantalla la anuncia como **"Cerrar aviso"**).
 - Una confirmación corta —«Copiado», «Guardado»— se va sola en unos segundos.
   Un aviso con un botón se queda hasta que lo uses o lo cierres; mientras se
   va, ya no responde a los toques.
-- Mientras hay un aviso, el **botón redondo del lector en voz alta** y su
-  reproductor se corren para arriba, como un botón flotante, y vuelven a su
-  lugar cuando el aviso se va: nada tapa la ✕.
+- Mientras hay un aviso, el **botón redondo del lector en voz alta** se
+  corre para arriba, como un botón flotante de Android, y vuelve a su lugar
+  cuando el aviso se va. Si está sonando algo, el aviso aparece **encima del
+  reproductor**, abierto o achicado, y lo acompaña si se achica: nada tapa la
+  ✕.
 
 Lo mismo los avisos de la IA (ver
 [Modelo de lenguaje](#modelo-de-lenguaje-el-del-chat-y-la-ia-que-organiza-sola)).
@@ -735,8 +737,8 @@ detalles, volver a crear—, **«Notas (N)»** con las notas en el texto (ver
 después de lo de ahora; si no suena nada, empieza) y, al final y en rojo,
 **lo que se borra**: la copia del original, la creación o el documento
 procesado. **Nunca la fuente de la Biblioteca.** Lo que todavía no está en la
-app no aparece: favoritos y marcar como terminado llegan en próximas
-versiones.
+app no aparece: favoritos, marcar como terminado e imprimir no existen
+todavía (para imprimir lo creado, descargalo en PDF).
 
 **Abajo, el reproductor.** Sin nada sonando, **"Escuchar"** lee lo que ves.
 Sonando, el reproductor anclado de toda la app —el mismo que en cualquier
@@ -2560,16 +2562,19 @@ no entran en una fila, las fichas pasan a dos renglones sin cortar ninguna
 palabra), con el lector de pantalla (dice el nombre, cuántas marcas, el estado
 y qué hace tocarla), y sin animaciones el avance se llena sin girar.
 
-Debajo, **sus secciones**, cada una plegable con su nombre y cuánto tiene (por
-ejemplo *"12 páginas"* o *"8 oraciones"*, y *"2 con cambios tuyos"* si editaste
-algo). Lo elegido —resumen, síntesis, palabras clave, notas, fragmentos— se
-abre desplegado; el
-**texto entero** se abre plegado si hay algo más, para no tapar el resto.
+Debajo, **sus secciones**, cada una con su nombre y cuánto tiene (por ejemplo
+*"12 páginas"* o *"8 oraciones"*, y *"2 con cambios tuyos"* si editaste algo):
 
-- **El texto** se lee **de a una página**, sin cargar el libro entero: arriba
-  tenés primera, anterior, *"Página 3 de 390"* (tocalo para ir a una página por
-  su número), siguiente y última; en la computadora, también con las flechas
-  del teclado.
+- **El texto, el resumen y la síntesis** son un renglón que los abre en **el
+  marco de lectura** (ver arriba), sin traer el libro entero a esta pantalla.
+  Se editan desde **⋮** del lector, con **"Editar el texto"** (o **"Editar las
+  oraciones"**): ahí el texto va **de a una página** —primera, anterior,
+  *"Página 3 de 390"* (tocalo para ir a una página por su número), siguiente y
+  última; en la computadora, también con las flechas del teclado—. Un
+  documento que trajo el resumen o la síntesis sin ningún texto propio los
+  muestra acá mismo, desplegados.
+- **Las palabras clave, las notas, los fragmentos y las imágenes** se
+  despliegan acá, abiertos de entrada.
 - **Cada parte** —una página, una oración, una nota, un fragmento— tiene su
   menú de tres puntos con **"Editar"** y **"Quitar"**, los dos con
   **"Deshacer"** en el aviso de abajo. Lo que editás queda marcado *"Con cambios
@@ -2583,11 +2588,11 @@ abre desplegado; el
   lectura, justo en ese pasaje, como las tarjetas y las citas. Las oraciones y
   las notas que salieron de un pasaje lo tienen en su menú. Si la fuente está en
   la papelera, no aparece.
-- **"Copiar"** copia una sección entera (menos el texto, que se copia
-  seleccionándolo), y **"Escuchar"** lee el resumen o la síntesis. El texto,
-  las palabras clave, las notas y los fragmentos se escuchan con el botón
-  redondo de abajo, que lee todo desde la página del texto que mirás: por eso
-  la sección **Texto** ya no tiene su propio "Escuchar".
+- **"Copiar"**, en las secciones que se despliegan, copia la sección entera;
+  el resumen y la síntesis se copian con **"Copiar todo"**, en **⋮** de su
+  lector, y el texto, seleccionándolo. Para escuchar, el resumen, la síntesis
+  y el texto tienen **"Escuchar"** abajo, en su lector; acá, el botón redondo
+  lee el documento entero (ver abajo).
 - **Las imágenes** se ven en una **galería** de miniaturas (de a 60, con
   "Mostrar más"). Tocá una para verla **a pantalla completa**: pellizcá para
   acercar, deslizá (o usá las flechas, en pantalla o en el teclado) para pasar
@@ -2646,8 +2651,9 @@ el de la fuente):
   sigue guardado y se ve en el original y en sus secciones.
 
 **Escuchar:** el botón redondo del [lector en voz alta](#escuchar-el-lector-en-voz-alta)
-lee el documento entero, sección por sección, y empieza por la página del texto
-que estás mirando. Lo que suena se resalta en amarillo en su lugar.
+lee el documento entero, sección por sección, desde el comienzo del texto. Lo
+que suena se resalta en amarillo en su lugar. Para escuchar solo una parte, o
+desde la página que estás leyendo, abrila en su lector y tocá **"Escuchar"**.
 
 **Abrirlo desde otro lado:** un documento procesado que te aparece en la
 búsqueda, en una cita del chat, en el Mapa o en la Línea de tiempo abre esta
@@ -3577,8 +3583,8 @@ claramente en vez de inventarlo.
 ## Escuchar: el lector en voz alta
 
 En las pantallas que muestran texto aparece, abajo a la derecha, un **botón
-redondo con el ícono de una voz**. Está en el detalle de un elemento, el
-editor de notas y el chat. **En el marco de lectura** —el original, el texto,
+redondo con el ícono de una voz**. Está en el detalle de un elemento, un
+documento de Procesado, el editor de notas y el chat. **En el marco de lectura** —el original, el texto,
 el resumen y la síntesis, lo creado, el modo lectura— no aparece: el marco
 trae su lugar para el reproductor, abajo, con **"Escuchar"** (ver
 [El marco de lectura](#el-marco-de-lectura-un-solo-lector-para-todo)). No
@@ -3590,9 +3596,10 @@ sonando al entrar a Repasar, con su reproductor, hasta que lo pares; como al
 cambiar de pestaña.
 
 Cuando aparece un [aviso abajo](#cómo-te-movés-por-la-app) —«Movido a la
-papelera · Deshacer», por ejemplo—, el botón redondo y el reproductor se corren
-arriba del aviso, sin dejar de leer, y vuelven a su lugar cuando se va. Así
-siempre podés tocar el aviso y su ✕.
+papelera · Deshacer», por ejemplo—, el botón redondo se corre arriba del
+aviso, sin dejar de leer, y vuelve a su lugar cuando se va; el reproductor,
+en cambio, se queda donde está y el aviso aparece **encima de él**, abierto o
+achicado. Así siempre podés tocar el aviso y su ✕.
 
 En un audio o un video que tiene su propio audio (también un reel, un TikTok
 o un YouTube con el audio ya bajado) el texto ya se escucha con la voz
@@ -3600,8 +3607,8 @@ original y se resalta solo (ver
 [El texto sigue al audio](#el-texto-sigue-al-audio)). Por eso este lector
 **empieza por lo estudiado**: el resumen, la síntesis y las palabras clave,
 con la voz del lector. Si querés la transcripción entera con la voz del
-lector, elegí **"Todo"** en la fila **"Leer:"** de la cola (☰), o tocá
-**"Escuchar"** en **"Extraer transcripción"**. Sin nada estudiado todavía, el
+lector, elegí **"Todo"** en la fila **"Leer:"** de la cola (☰) o en
+**Contenido**, en el marco de lectura. Sin nada estudiado todavía, el
 botón no aparece: sería un segundo audio de lo mismo. Si un video de YouTube
 no pudo bajar su audio, el botón lee el texto entero, porque es la única forma
 de escucharlo.
@@ -3651,8 +3658,9 @@ de escucharlo.
 4. **☰ La cola**:
    - **Ahora suena**: lo que se lee, con la fila **"Leer: Todo · Resumen ·
      Síntesis · Palabras clave"** en un texto que se estudia (ver
-     [Estudiar el documento](#estudiar-el-documento-resumen-síntesis-y-palabras-clave)):
-     elegís qué parte se lee. **Resumen** y **Síntesis** leen solo sus
+     [Marcar en el original](#marcar-en-el-original-resumen-síntesis-y-palabras-clave)):
+     elegís qué parte se lee; la misma fila está en **Contenido**, en el marco
+     de lectura. **Resumen** y **Síntesis** leen solo sus
      oraciones, **Palabras clave** las lee una tras otra, y **Todo** el
      texto. Lo que suena se resalta en amarillo en su lugar del texto, y
      siempre en el orden del texto. Las partes que todavía no tienen nada
@@ -3999,9 +4007,10 @@ detalle:
   documento mientras suena, va directo hasta ahí.
 - En un libro muy largo el botón tarda una fracción de segundo en aparecer: el
   libro se prepara aparte, sin trabar la pantalla.
-- Lo mismo pasa en el **texto largo desplegado por páginas** de «Extraer
-  texto», en el detalle: suena el libro entero, en amarillo sobre su página, y
-  ese marco da vuelta la página solo.
+- Lo mismo pasa en lo que se lee **de corrido** en el marco —el texto, el
+  resumen y la síntesis de un documento procesado, y lo creado—: suena entero,
+  la línea que suena se ve con el fondo de **«Resaltado de lectura»** y la
+  vista la acompaña, con **«Volver a la lectura»** si te movés vos.
 
 ### Descargar el audio de un documento
 
@@ -5746,6 +5755,9 @@ creación no queda a medias, y **"Probar de nuevo"** lo vuelve a encender.
 - **Segundo plano** (solo en Android): **"Que siga con la app cerrada"**,
   la ayuda para que el teléfono no frene a Sinapsis cuando la cerrás (ver
   [Que siga con la app cerrada](#que-siga-con-la-app-cerrada)).
+- **Repasar:** el aviso diario, cuántas tarjetas nuevas y cuántos repasos por
+  día, e importar y exportar con Anki (ver
+  [Aviso diario y tarjetas por día](#aviso-diario-y-tarjetas-por-día-ajustes--repasar)).
 - **Privacidad** (solo en Android): **"Mostrar el título en la pantalla de
   bloqueo"**, apagado de entrada. Apagado, con el teléfono bloqueado la
   tarjeta de lo que suena dice **"Reproduciendo"** y el nombre de la app, sin
