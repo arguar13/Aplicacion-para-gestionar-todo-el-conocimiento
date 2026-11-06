@@ -69,7 +69,14 @@ List<String> studyKeywordsExtract(String content, DocumentStudy study) => [
 /// texto, una imagen en su texto alternativo, sin énfasis, sin código, sin
 /// HTML en línea y sin llamadas a notas al pie. Antes tenía su propia regla,
 /// que dejaba la cursiva con sus `*` y una nota de Wikipedia como `[[1]](…)`.
-String studyPlainText(String raw) =>
-    markdownPlainText(raw).replaceAll(_spaces, ' ').trim();
+///
+/// Lo que no tiene ni una letra ni un número —una oración que era solo
+/// marcas, como `**__**`, o solo puntuación— queda vacío: no es una oración
+/// ni una palabra clave, y quien la recibe la deja afuera.
+String studyPlainText(String raw) {
+  final text = markdownPlainText(raw).replaceAll(_spaces, ' ').trim();
+  return _readable.hasMatch(text) ? text : '';
+}
 
 final _spaces = RegExp(r'\s+');
+final _readable = RegExp(r'[\p{L}\p{N}]', unicode: true);

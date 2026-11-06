@@ -203,5 +203,10 @@ void main() {
       ),
       'Una idea con su nota.',
     );
+    // Dos bloques —un título y su párrafo—, en un renglón.
+    expect(studyPlainText('## Siglo XX\nEn 1905.'), 'Siglo XX En 1905.');
+    // Solo marcas o solo puntuación: nada.
+    expect(studyPlainText('**__**'), '');
+    expect(studyPlainText(' … '), '');
   });
 }
