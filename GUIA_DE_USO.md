@@ -2843,6 +2843,11 @@ capítulo**:
   capítulo siguiente de su nivel, con sus secciones adentro; si es muy largo,
   su comienzo—. Abajo escribís lo que quieras preguntar. Un marcador de un PDF
   que no se pudo ubicar en el texto no tiene texto que llevar, y lo avisa.
+  El texto llega **como se lee**: de una página web, sin las direcciones de
+  los enlaces, sin las fotos, sin las marcas de formato ni las llamadas a
+  notas al pie (*"[1]"*); sin repetir el título del capítulo, que ya va
+  nombrado arriba, y con cada subtítulo separado como una oración
+  (*"Siglo XX. En 1905…"*). El largo cuenta solo lo que se lee.
 - **"Copiar el título"**, con su número si estás numerando.
 
 En **"Texto completo"**: "Abrir en el original" y "Preguntar al chat", que
@@ -4394,7 +4399,9 @@ tres contadores (el de la cola de la tarjeta que ves va subrayado).
    lado está **"Explicar"** (el globo con una chispa): abre el chat en una
    conversación nueva con la pregunta y la respuesta de la tarjeta —de opción
    múltiple, también la opción que tocaste y la correcta—, el título de la
-   fuente y el pasaje del que salió, y le pide que te explique por qué. No se
+   fuente y el pasaje del que salió, y le pide que te explique por qué. El
+   pasaje llega como se lee: de una página web, sin las direcciones de los
+   enlaces, sin fotos, sin marcas de formato ni llamadas a notas al pie. No se
    manda nada si no lo tocás.
 
 Atajos de teclado: **espacio** da vuelta la tarjeta, **1 a 4** califican, **Z**
