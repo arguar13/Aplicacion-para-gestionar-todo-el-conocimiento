@@ -12,6 +12,7 @@ import 'package:sinapsis/features/narration/presentation/providers/narration_set
 import 'package:sinapsis/features/narration/presentation/providers/voice_library_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/voices/mine/my_voice_actions.dart';
+import 'package:sinapsis/features/narration/presentation/voices/now_reading_text.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_card.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_filters_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_texts.dart';
@@ -90,7 +91,6 @@ class _VoiceLibrarySheetState extends ConsumerState<VoiceLibrarySheet>
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final filterCount = ref.watch(voiceFilterProvider.select((f) => f.count));
-    final current = ref.watch(currentVoiceProfileProvider);
 
     return FractionallySizedBox(
       heightFactor: 0.92,
@@ -128,9 +128,8 @@ class _VoiceLibrarySheetState extends ConsumerState<VoiceLibrarySheet>
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text(
-              current == null
-                  ? l10n.f47P3NowReadingSystem
-                  : l10n.f47P3NowReading(voiceName(current, l10n)),
+              watchNowReadingText(ref, l10n),
+              key: const Key('voice-library-now-reading'),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -309,9 +308,9 @@ class _VoiceList extends ConsumerWidget {
             ],
             if (tab == VoiceLibraryTab.all && filter.isEmpty)
               _SystemVoiceTile(
-                selected: reading == null
-                    ? chosen.voice == null
-                    : !chosen.voicesByLanguage.containsKey(reading),
+                // Lo mismo que hace decir a «Lee ahora» que no se eligió
+                // ninguna.
+                selected: ref.watch(noVoiceChosenProvider),
                 onTap: () => select(null),
               ),
             if (shown.isEmpty)

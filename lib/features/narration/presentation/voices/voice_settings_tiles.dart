@@ -6,15 +6,14 @@ import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
-import 'package:sinapsis/features/narration/presentation/providers/voice_library_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_speed_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_voice_face.dart';
 import 'package:sinapsis/features/narration/presentation/voices/downloaded_voices_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/voices/mine/clone_voice_screen.dart';
 import 'package:sinapsis/features/narration/presentation/voices/mine/create_voice_screen.dart';
 import 'package:sinapsis/features/narration/presentation/voices/mine/voice_cloud_sheet.dart';
+import 'package:sinapsis/features/narration/presentation/voices/now_reading_text.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_library_sheet.dart';
-import 'package:sinapsis/features/narration/presentation/voices/voice_texts.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voices_by_language_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -137,15 +136,12 @@ class _VoiceLibraryTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final current = ref.watch(currentVoiceProfileProvider);
     return ListTile(
       key: const Key('settings-voice-library'),
       leading: const ExcludeSemantics(child: ReadAloudVoiceFace()),
       title: Text(l10n.f47P3LibraryTitle),
       subtitle: Text(
-        current == null
-            ? l10n.f47P3NowReadingSystem
-            : l10n.f47P3NowReading(voiceName(current, l10n)),
+        watchNowReadingText(ref, l10n),
         key: const Key('settings-voice-library-current'),
       ),
       trailing: const Icon(Icons.chevron_right),

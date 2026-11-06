@@ -15640,5 +15640,7 @@
   "f46P4PrintTitle": "Índice",
   "@f46P4PrintTitle": {"description": "F46, paso 4: el título arriba del índice descargado."},
   "f46P4PrintPage": "Página {page} de {pages}",
-  "@f46P4PrintPage": {"description": "F46, paso 4: al pie de cada página del PDF del índice.", "placeholders": {"page": {"type": "int"}, "pages": {"type": "int"}}}
+  "@f46P4PrintPage": {"description": "F46, paso 4: al pie de cada página del PDF del índice.", "placeholders": {"page": {"type": "int"}, "pages": {"type": "int"}}},
+  "f46P5fNowReadingUnchosen": "Lee ahora: {name}, porque no elegiste ninguna",
+  "@f46P5fNowReadingUnchosen": {"description": "Arriba de la biblioteca de voces y en Ajustes, sin una voz elegida para lo que se lee —la marca está en «Voz del sistema»—: la que el lector tomó sola, nombrada como en el reproductor (F46, paso 5f).", "placeholders": {"name": {"type": "String"}}}
 }

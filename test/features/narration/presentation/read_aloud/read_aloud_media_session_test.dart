@@ -9,10 +9,13 @@ import 'package:sinapsis/core/audio/media_session.dart';
 import 'package:sinapsis/core/audio/media_session_hub.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
+import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_face.dart';
+import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/accent_names.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_media_session.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
@@ -53,10 +56,13 @@ void main() {
       container.read(readAloudControllerProvider.notifier);
   ReadAloudState state() => container.read(readAloudControllerProvider);
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    List<NarrationVoice> voices = const [],
+  }) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    tts = FakeTextToSpeechService();
+    tts = FakeTextToSpeechService(voices: voices);
     platform = FakeMediaSession();
     drawn = [];
     container = ProviderContainer(
@@ -135,6 +141,38 @@ void main() {
     expect(platform.card!.playing, isFalse);
     expect(identical(platform.card!.artwork, cover), isTrue);
     expect(drawn, hasLength(1));
+  });
+
+  testWidgets('sin una elegida, la del teléfono que toma el lector: la '
+      'tarjeta la nombra como el reproductor y lleva la cara de su tarjeta '
+      'de la biblioteca (F46, paso 5f)', (tester) async {
+    // En la lista, la de «esd» es la segunda de su acento: «Voz 2».
+    const first = NarrationVoice(name: 'es-us-x-esc-local', locale: 'es-US');
+    const second = NarrationVoice(name: 'es-us-x-esd-local', locale: 'es-US');
+    await pump(tester, voices: const [second, first]);
+    final spanish = ReadableDocument(
+      id: 'es',
+      title: 'Un texto',
+      segments: buildReadableSegments(
+        'La república romana cayó después de muchos años de guerras civiles. '
+        'César cruzó el Rubicón con sus legiones y empezó una nueva época.',
+        sourceKey: 'es',
+      ),
+    );
+
+    await controller().open(spanish);
+    await tester.pumpAndSettle();
+
+    expect(state().voice, second);
+    expect(
+      platform.card!.subtitle,
+      es.f47P2ReadingWith(accentDisplayName('es-US'), '1,0×'),
+    );
+    // La cara de su tarjeta: la de la voz, sin el número de la lista.
+    final listed = deviceVoiceProfiles(const [second, first]);
+    final card = listed.firstWhere((profile) => profile.voice == second);
+    expect(card.number, 2);
+    expect(drawn.last, VoiceFace.of(card.faceKey, card.label));
   });
 
   testWidgets('en pausa lo dice, y con algo en la cola ofrece «siguiente»', (

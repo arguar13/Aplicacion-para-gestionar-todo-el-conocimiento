@@ -26,10 +26,10 @@ import 'package:sinapsis/features/narration/presentation/providers/offline_voice
 import 'package:sinapsis/features/narration/presentation/providers/speech_audio_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_anchored_player.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_voice_face.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/narration/presentation/voices/speech_audio_approval.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_card.dart';
-import 'package:sinapsis/features/narration/presentation/voices/voice_texts.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_more_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -185,7 +185,8 @@ String estimatedAudioLength(
 }
 
 /// Con qué voces se genera: la de cada idioma, sin repetir, en el orden en
-/// que aparecen; la del teléfono si no hay una elegida.
+/// que aparecen, nombradas como en el reproductor ([readAloudVoiceName]); la
+/// del teléfono si no hay una elegida.
 String documentAudioVoicesLabel(
   AppLocalizations l10n,
   List<NarrationVoice?> voices,
@@ -195,7 +196,7 @@ String documentAudioVoicesLabel(
   for (final voice in voices) {
     final name = voice == null
         ? l10n.f47P5PhoneVoice
-        : speechVoiceDisplayName(l10n, voice, mine);
+        : readAloudVoiceName(voice, l10n, mine: mine);
     if (!names.contains(name)) names.add(name);
   }
   return switch (names.length) {
@@ -204,17 +205,6 @@ String documentAudioVoicesLabel(
     2 => l10n.f47P5VoicesTwo(names[0], names[1]),
     _ => l10n.f47P5VoicesMore(names.first, names.length - 1),
   };
-}
-
-/// El nombre de [voice] como lo dice la biblioteca de voces: el suyo, o
-/// «Voz 2» si solo tiene un código.
-String speechVoiceDisplayName(
-  AppLocalizations l10n,
-  NarrationVoice voice,
-  List<MyVoice> mine,
-) {
-  final profile = voiceProfileOf(voice, mine: mine);
-  return profile == null ? voice.name : voiceName(profile, l10n);
 }
 
 /// Por qué no se pudo descargar el audio, en una línea.
@@ -251,10 +241,10 @@ String? _speechVoiceName(
   }
   final device = SpeechVoiceIds.deviceOf(voiceId);
   if (device == null || device.name.isEmpty) return null;
-  return speechVoiceDisplayName(
-    l10n,
+  return readAloudVoiceName(
     NarrationVoice(name: device.name, locale: device.locale),
-    mine,
+    l10n,
+    mine: mine,
   );
 }
 

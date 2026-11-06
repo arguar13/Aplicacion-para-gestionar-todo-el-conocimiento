@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
+import 'package:sinapsis/features/narration/presentation/providers/voice_library_providers.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_face_view.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_library_sheet.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voice_texts.dart';
@@ -36,8 +37,11 @@ class VoicesByLanguageSheet extends ConsumerWidget {
     final byLanguage = ref.watch(
       narrationSettingsNotifierProvider.select((s) => s.voicesByLanguage),
     );
-    // Las propias (F47, paso 4) se nombran con su ficha.
+    // Las propias (F47, paso 4) se nombran con su ficha; cada una, con su
+    // tarjeta de la biblioteca: «Voz 2» es la segunda de su acento en la
+    // lista, no un número puesto de antemano (F46, paso 5f).
     final mine = ref.watch(myVoicesProvider).valueOrNull ?? const [];
+    final library = ref.watch(voiceLibraryProvider).valueOrNull ?? const [];
     final languages = byLanguage.keys.toList()
       ..sort(
         (a, b) => languageNameIn(a, l10n).compareTo(languageNameIn(b, l10n)),
@@ -82,7 +86,11 @@ class VoicesByLanguageSheet extends ConsumerWidget {
             for (final language in languages)
               _LanguageTile(
                 language: language,
-                profile: voiceProfileOf(byLanguage[language]!, mine: mine),
+                profile: libraryVoiceProfileOf(
+                  byLanguage[language]!,
+                  library,
+                  mine: mine,
+                ),
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),

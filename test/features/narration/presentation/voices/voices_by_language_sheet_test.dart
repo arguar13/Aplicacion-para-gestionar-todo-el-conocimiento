@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
+import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/voices/voices_by_language_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -25,6 +26,7 @@ void main() {
     WidgetTester tester, {
     required ThemeMode themeMode,
     List<NarrationVoice> chosen = const [],
+    List<NarrationVoice> device = const [],
   }) async {
     tester.view
       ..physicalSize = const Size(360, 760)
@@ -33,7 +35,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        narrationVoicesProvider.overrideWith((ref) async => device),
+      ],
     );
     addTearDown(container.dispose);
     for (final voice in chosen) {
@@ -120,6 +125,36 @@ void main() {
         semantics.dispose();
       });
     }
+
+    testWidgets('una del teléfono con código se nombra como su tarjeta de la '
+        'biblioteca: con su número entre las de su acento (F46, paso 5f)', (
+      tester,
+    ) async {
+      // En la lista, la de «sfg» es la segunda de Estados Unidos.
+      const other = NarrationVoice(name: 'en-us-x-iob-local', locale: 'en-US');
+      await open(
+        tester,
+        themeMode: ThemeMode.light,
+        chosen: [_english],
+        device: const [_english, other],
+      );
+
+      final tile = find.byKey(const Key('voices-by-language-en'));
+      expect(
+        find.descendant(
+          of: tile,
+          matching: find.textContaining(es.readAloudVoiceNumber(2)),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: tile,
+          matching: find.textContaining(es.readAloudVoiceNumber(1)),
+        ),
+        findsNothing,
+      );
+    });
 
     testWidgets('sin ninguna elegida, lo dice', (tester) async {
       await open(tester, themeMode: ThemeMode.light);

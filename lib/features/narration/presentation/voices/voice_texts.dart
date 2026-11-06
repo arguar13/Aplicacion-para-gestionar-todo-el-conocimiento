@@ -70,9 +70,16 @@ extension VoiceQualityText on VoiceQuality {
   };
 }
 
-/// El nombre de una voz: el suyo, o «Voz 2» si solo tiene un código.
+/// El nombre de una voz en la lista de la biblioteca: el suyo, o «Voz 2» —su
+/// número entre las de su acento— si solo tiene un código. Fuera de la lista
+/// no tiene número ([VoiceProfile.number]): se la nombra por su acento, como
+/// en una frase (`readAloudVoiceName`).
 String voiceName(VoiceProfile voice, AppLocalizations l10n) =>
-    voice.name ?? l10n.readAloudVoiceNumber(voice.number!);
+    voice.name ??
+    switch (voice.number) {
+      final number? => l10n.readAloudVoiceNumber(number),
+      null => accentDisplayName(voice.locale),
+    };
 
 /// El nombre con la bandera de su acento: «Daniela 🇦🇷».
 String voiceTitle(VoiceProfile voice, AppLocalizations l10n) {

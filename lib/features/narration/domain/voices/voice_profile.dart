@@ -30,7 +30,10 @@ class VoiceProfile {
     this.needsInternet = false,
     this.mine,
     this.noRoom = false,
-  }) : assert(name != null || number != null, 'una voz sin nombre ni número');
+  }) : assert(
+         name != null || origin == VoiceOrigin.device,
+         'solo una voz del teléfono puede no tener nombre',
+       );
 
   /// Qué voz es, para siempre: lo que se guarda al marcarla favorita.
   final String id;
@@ -44,10 +47,15 @@ class VoiceProfile {
   final String locale;
 
   /// El nombre que se muestra; `null` en una voz del teléfono que solo tiene
-  /// un código por nombre (`es-us-x-esd-local`): se muestra «Voz [number]».
+  /// un código por nombre (`es-us-x-esd-local`): en la lista se muestra «Voz
+  /// [number]» y, en una frase, su acento (`readAloudVoiceName`).
   final String? name;
 
-  /// El número de la voz dentro de su acento, cuando no tiene nombre.
+  /// El número de la voz sin nombre dentro de su acento, **en la lista de la
+  /// biblioteca** ([deviceVoiceProfiles]): «Voz 2». `null` fuera de ella
+  /// ([voiceProfileOf]): el número solo dice algo al lado de las otras de su
+  /// acento, y uno puesto de antemano no correspondía a ninguna (F46, paso
+  /// 5f: «Lee ahora: Voz 1» con la segunda de la lista).
   final int? number;
 
   /// La voz del catálogo, si es una sin conexión: su paquete, su tamaño.
@@ -81,8 +89,11 @@ class VoiceProfile {
   /// El idioma, sin el acento: `es`.
   String get language => accentLanguage(locale);
 
-  /// Lo que dice la cara: el nombre o, sin él, el número.
-  String get label => name ?? '$number';
+  /// Lo que dice la cara: el nombre o, sin él, el acento. Nunca el número
+  /// ([number]): la cara es de la voz —la misma en su tarjeta, en el
+  /// reproductor y en la tarjeta de lo que suena—, y el número depende de
+  /// qué otras voces de su acento tenga el teléfono (F46, paso 5f).
+  String get label => name ?? locale;
 
   @override
   bool operator ==(Object other) => other is VoiceProfile && other.id == id;
@@ -144,9 +155,36 @@ List<VoiceProfile> myVoiceProfiles(Iterable<MyVoice> voices) {
 /// estar en la lista de ahora—, o la de una sin conexión del catálogo. `null`
 /// si es una sin conexión que el catálogo ya no tiene, o una propia que no
 /// está en [mine] (F47, paso 4).
+///
+/// Una del teléfono que solo tiene un código por nombre sale sin número: el
+/// número es el de su lugar en la lista ([deviceVoiceProfiles],
+/// [libraryVoiceProfileOf]).
 VoiceProfile? voiceProfileOf(
   NarrationVoice voice, {
-  int number = 1,
+  Iterable<MyVoice> mine = const [],
+}) => _profileOf(voice, mine: mine);
+
+/// [voice] como la muestra la biblioteca [library]: su misma tarjeta —con su
+/// número, si es una del teléfono que solo tiene un código— si está; si no,
+/// la que se arma con lo que la voz dice ([voiceProfileOf]). Es la que se
+/// nombra en una lista de voces elegidas, como «Voces por idioma»: «Voz 2»,
+/// igual que en la biblioteca.
+VoiceProfile? libraryVoiceProfileOf(
+  NarrationVoice voice,
+  Iterable<VoiceProfile> library, {
+  Iterable<MyVoice> mine = const [],
+}) {
+  final own = voiceProfileOf(voice, mine: mine);
+  if (own == null) return null;
+  for (final listed in library) {
+    if (listed.id == own.id) return listed;
+  }
+  return own;
+}
+
+VoiceProfile? _profileOf(
+  NarrationVoice voice, {
+  int? number,
   Iterable<MyVoice> mine = const [],
 }) {
   if (isMyVoice(voice)) {
@@ -190,7 +228,7 @@ List<VoiceProfile> deviceVoiceProfiles(Iterable<NarrationVoice> voices) {
                 return byRuns != 0 ? byRuns : a.name.compareTo(b.name);
               }))
               .indexed)
-        voiceProfileOf(voice, number: index + 1)!,
+        _profileOf(voice, number: index + 1)!,
   ];
 }
 

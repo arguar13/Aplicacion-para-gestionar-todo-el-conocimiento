@@ -19,6 +19,7 @@ import 'package:sinapsis/features/narration/domain/voices/voice_samples.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_traits.dart';
 import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
+import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
 import 'package:sinapsis/features/narration/presentation/providers/offline_voice_providers.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_audio_focus.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
@@ -275,10 +276,12 @@ final voiceSampleProvider =
       VoiceSampleController.new,
     );
 
-/// La voz que lee ahora, como voz de la biblioteca: la cara y el nombre que
-/// muestra el reproductor (F47, paso 2) y el «Lee ahora» de la biblioteca.
-/// `null` con la voz del sistema —la que tenga elegida el teléfono— o una
-/// sin conexión que el catálogo ya no tiene.
+/// La voz que lee ahora, como voz de la biblioteca: la cara que muestran el
+/// reproductor (F47, paso 2) y Ajustes —la misma de su tarjeta: la cara sale
+/// de la voz, no de su lugar en la lista—. Sin número
+/// ([VoiceProfile.number]): el nombre en una frase sale de
+/// `readAloudVoiceName`. `null` con la voz del sistema —la que tenga elegida
+/// el teléfono— o una sin conexión que el catálogo ya no tiene.
 final currentVoiceProfileProvider = Provider.autoDispose<VoiceProfile?>((ref) {
   final voice = ref.watch(readAloudControllerProvider.select((s) => s.voice));
   if (voice == null) return null;
@@ -286,4 +289,17 @@ final currentVoiceProfileProvider = Provider.autoDispose<VoiceProfile?>((ref) {
     voice,
     mine: ref.watch(myVoicesProvider).valueOrNull ?? const [],
   );
+});
+
+/// Si no hay una voz elegida para lo que se lee: ni para el idioma de lo que
+/// se lee ([readingLanguageProvider]) o, sin idioma, ninguna para todo. Es
+/// cuando la biblioteca marca «Voz del sistema» y el lector toma una sola
+/// —la mejor sin conexión bajada de ese idioma, una del teléfono—, y lo que
+/// dice «Lee ahora» (F46, paso 5f).
+final noVoiceChosenProvider = Provider.autoDispose<bool>((ref) {
+  final reading = ref.watch(readingLanguageProvider);
+  final chosen = ref.watch(narrationSettingsNotifierProvider);
+  return reading == null
+      ? chosen.voice == null
+      : !chosen.voicesByLanguage.containsKey(reading);
 });

@@ -17,6 +17,7 @@ import 'package:sinapsis/features/narration/domain/read_aloud/reading_queue.dart
 import 'package:sinapsis/features/narration/domain/voices/voice_face.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/accent_names.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
@@ -1509,6 +1510,68 @@ void main() {
       await tester.tap(argentinaCard);
       await tester.pumpAndSettle();
       expect(reader.calls, ['voice es-ar-x-ara-local']);
+    });
+
+    testWidgets('sin una elegida, la del teléfono que tomó el lector se llama '
+        'igual en el reproductor y en «Lee ahora», que dice que no se eligió '
+        'ninguna, y su cara es la de su tarjeta (F46, paso 5f)', (
+      tester,
+    ) async {
+      // Dos voces de Estados Unidos con nombre de código: en la lista, la
+      // segunda es «Voz 2».
+      const first = NarrationVoice(name: 'es-us-x-esc-local', locale: 'es-US');
+      const second = NarrationVoice(name: 'es-us-x-esd-local', locale: 'es-US');
+      await pump(
+        tester,
+        initial: _reading.copyWith(voice: second),
+        voices: const [first, second],
+      );
+      await tester.pumpAndSettle();
+      final accent = accentDisplayName('es-US');
+
+      expect(find.text(es.f47P2ReadingWith(accent, '1,0×')), findsOneWidget);
+      final face = faceShown(tester);
+
+      await tester.tap(find.byKey(const Key('read-aloud-voice')));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('voice-library-now-reading')))
+            .data,
+        es.f46P5fNowReadingUnchosen(accent),
+      );
+      // La marca, en «Voz del sistema»: lo mismo que dice «Lee ahora».
+      final system = find.byKey(const Key('read-aloud-system-voice'));
+      await tester.scrollUntilVisible(
+        system,
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(tester.widget<ListTile>(system).selected, isTrue);
+      // Su cara es la de su tarjeta —«Voz 2»—: la cara sale de la voz, no de
+      // su lugar en la lista.
+      final card = find.byKey(Key('voice-card-${deviceVoiceId(second)}'));
+      await tester.scrollUntilVisible(
+        card,
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<VoiceFaceView>(
+              find.descendant(of: card, matching: find.byType(VoiceFaceView)),
+            )
+            .face,
+        face,
+      );
+      expect(
+        find.descendant(
+          of: card,
+          matching: find.textContaining(es.readAloudVoiceNumber(2)),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('elegir la voz del sistema vuelve a la del teléfono', (
