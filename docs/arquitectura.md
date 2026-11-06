@@ -7155,6 +7155,142 @@ decisiones A a J y el «Avance» de cada paso: `docs/planes/F43-estudiar.md`.
   - Listar la carpeta de una creación en el navegador (`OpfsFileStore.filesOf`), como el resto de
     ese almacén.
 
+### 90. F44: el Mapa —dos pestañas, Resumen y Mapa; un solo lienzo que se recorre con el zoom, con la ficha, el foco, las capas y la búsqueda, y un motor que sabe más sin tocar la base—
+
+**Pedido** (2026-10-29), con cuatro capturas del Mapa (Grafo, Esquema, Vínculos y Tablero): *"las
+tres pestañas de mapa «Vínculos», «Esquema» y «Grafo» dicen más o menos lo mismo? Se podría ser más
+eficiente y hacer todo eso en una o dos interfaces en vez de tres?"*; y, sobre la propuesta: *"a la
+pestaña de Mapa hazla súper elegantemente, muy interactivamente y profesionalmente, que sea
+inteligente y lo mejor posible"*. Plan, con sus decisiones A a G y el «Avance» de cada paso:
+`docs/planes/F44-mapa.md`. Se construyó en dos olas, en paralelo con F45 y en pantallas distintas.
+
+- **Tres vistas que dibujaban lo mismo pasan a ser un solo lienzo** (decisión A). El Grafo, el
+  Esquema y los Vínculos eran nodos y uniones a tres alturas, en tres pantallas que no se hablaban:
+  había que saber de antemano en cuál buscar. Ahora son **alturas** (comunidades → temas →
+  documentos), **disposiciones** (Red · Radial · Árbol) y **capas** del mismo dibujo. Quedan dos
+  pestañas, **Resumen · Mapa** (`map_tab_provider.dart`): la primera vez abre el Resumen; después,
+  la última que se miró, también entre reinicios. Nada de lo que había se perdió: los tres niveles
+  con sus topes, las migas y el «Grado»; el despliegue nodo a nodo del Esquema con sus notas mapa y
+  sus vínculos rotulados; de Vínculos, los sueltos, el filtro de fuerza, el foco de «Ver en el
+  Mapa» y el elegir hasta 200.
+- **El motor sabe más, sin un dato nuevo en la base** (paso 1, decisión E). Todo llega con cada
+  mapa en `KnowledgeMapSnapshot.insights` (`MapInsights`), calculado en el mismo isolate que las
+  comunidades:
+  - **los puentes** (`BridgeAnalysis`, `bridge_finder.dart`): los temas que unen comunidades
+    distintas, pesados por la parte que llevan de lo que une a cada par —el único camino entre dos
+    comunidades vale todo su peso; uno entre cien parecidos, casi nada—. La «única unión»
+    (`isSole`) se marca **contando uniones, no sumando decimales**. El costo es lineal en las
+    uniones, con un tope de 12 puentes y de 6 comunidades por puente (`kMaxBridges`,
+    `kMaxBridgeJoins`), y la prueba cuenta lo recorrido exacto;
+  - **el nombre de cada comunidad**, por sus dos temas más unidos con los demás de ella
+    (`kCommunityNameTopics`), sin repetir un nombre por acentos o mayúsculas, con su ficha (sus
+    temas en orden, sus documentos y vínculos, con quién se une y lo más reciente). Sin `insights`,
+    queda el tema más unido;
+  - **el índice de búsqueda** de temas y documentos, en memoria, sin acentos ni mayúsculas,
+    ordenado por cuán bien coincide, y cada entrada con el tema por el que se llega a ella;
+  - **la burbuja «Sin tema»**: los documentos sin ningún valor de lo que se mira, los 200 más nuevos,
+    con sus vínculos y las comunidades con las que se vinculan;
+  - **lo nuevo** de 7 y 30 días y **las cuatro cifras de hace un mes**. El grafo de hace un mes sale
+    de la misma pasada que el de hoy y se vuelve a agrupar solo si algo cambió en el mes.
+
+  Se probó con la bóveda grande (2.000 temas, 10.000 documentos, 25.000 vínculos y 500 sin tema),
+  midiendo estructura, y con `EXPLAIN QUERY PLAN`: un solo recorrido de `item` y de `relations`,
+  como antes.
+- **«Para estudiar» no está en el motor, a propósito.** Necesitaría las tarjetas, y repasar una
+  tarjeta recalcularía el mapa entero (decisión 47). Lo lee el Resumen aparte
+  (`board_facts_source_impl.dart`, `board_facts_sql.dart`), con el mismo recorte y el mismo filtro
+  del Mapa, y lo calcula `buildBoardInsights`. La lectura nueva entró al censo de lecturas de
+  `item` con su motivo.
+- **El lienzo, sobre piezas puras y con nombre propio** (pasos 2 y 4). Lo que se mira es un árbol
+  (`canvas_tree_builder.dart`: todo, una comunidad, un tema o lo vinculado, desplegable nodo a
+  nodo); qué parte se ve, ⊕ ⊖ alrededor del centro, el minimapa y el movimiento entre alturas son
+  cuentas (`canvas_viewport.dart`, `canvas_motion.dart`). En el paso 4 el lienzo se partió en un
+  commit aparte, sin tocar ninguna prueba: el dibujo de la red y del árbol
+  (`map_canvas_layers.dart`), lo de alrededor (`canvas_chrome.dart`), dónde va cada nodo
+  (`canvas_placement.dart`), el caché del gesto (`canvas_gesture_cache.dart`), la raíz del árbol
+  (`canvas_tree.dart`) y «Sugerir vínculos con IA», que el lienzo y el Resumen tenían copiado
+  (`suggest_links.dart`). Después llegaron con su pieza la ficha (`map_node_sheet.dart`) y las capas
+  (`canvas_layer_state.dart`, `canvas_layer_feeds.dart`, `canvas_layer_notes.dart`,
+  `map_layer_marks.dart`, `map_layers_sheet.dart`). En `map_canvas_view.dart` queda solo lo que se
+  mira y cómo se pasa de una cosa a otra.
+- **Un solo canal para lo que se pide de afuera** (`mapCanvasRequestProvider`, con `MapShowLinks`,
+  `MapShowAltitude`, `MapShowTopic` y `MapShowDocument`), en lugar de
+  `mapLinksFocusRequestProvider`. Lo usan las filas del Resumen (por la función pura
+  `canvasRequestFor`), «Ver en el Mapa» y la búsqueda, y va por el mismo camino que lo que se toca
+  en la ficha: el lienzo vuela hasta lo pedido, abre su ficha y lo marca con un pulso (`MapPulse`;
+  sin animaciones, solo el anillo).
+- **Tocar es entender: la ficha no recalcula nada** (paso 4). Tocar un nodo abre su ficha; dos
+  toques, «Entrar» o acercarse bajan una altura. La ficha sale de lo que el lienzo ya tiene —el
+  grafo, `insights`, la escena y el árbol— y queda recordada (`MapNodeFactsMemo`): las pruebas
+  cuentan que abrirla no hace ningún layout nuevo ni lee la base. El lienzo se achica para dejarle
+  lugar y se vuelve a encuadrar solo si nadie movió el mapa.
+- **«Centrar aquí» es el Esquema de antes, desde cualquier nodo.** El nodo va al medio y se
+  enciende su vecindario según el «Grado», por las uniones que se dibujan (`focusNeighborhood`); el
+  resto se apaga **en una sola capa**, también en el SVG. En Radial y Árbol el centrado es la raíz.
+  «Preguntar al chat» abre una conversación nueva con `askInChat`, que se manda sola al tocar el
+  botón; «Estudiar» abre Repasar con el selector puesto (`openRepasarWith`): el Mapa y Estudiar
+  quedan conectados en los dos sentidos.
+- **Las capas: prender o apagar una no acomoda nada ni vuelve a leer** (paso 5, decisiones B y F).
+  El lienzo acomoda **una sola vez** lo que cualquier capa puede mostrar —la burbuja, los vínculos
+  entre documentos— y dibuja el recorte (`layeredScene`, `CanvasLayerState`). Lo que se lee aparte
+  —las tarjetas del Resumen (`boardCardsProvider`) para «Estudio», los parecidos— se escucha solo
+  con su capa prendida (`CanvasLayerFeeds`). Las pruebas cuentan los layouts y las lecturas. Arrancan
+  apagadas salvo «Vínculos», y la elección se recuerda (`mapLayersProvider`). «Vínculos» al nivel de
+  los documentos, sin un tema, es exactamente la vista Vínculos de antes («Ver todo lo vinculado»).
+- **«Parecidos» propone y la persona confirma** (decisión C). Usa los vectores que la app ya guarda
+  (F30, `ItemVectorIndex.similarPairs`), fuera del hilo de la interfaz y sin red ni claves, entre los
+  documentos a la vista —a lo sumo 200—, con un mínimo de 0,6, dos por documento y 30 en total
+  (`kMapSimilarMinScore`, `kMapSimilarPerDocument`, `kMapSimilarPairs`). Deja afuera lo ya vinculado
+  en cualquier sentido, también lo que «Más fuertes» no dibuja: la fuente lee los vínculos ella misma
+  (`mapSimilarSource`). Tocar el «≈» ofrece «Vincular», «Elegir el tipo» o «Ahora no»; lo vinculado
+  deja de proponerse en el acto. Sin el modelo de vínculos, la capa lo dice y lleva a bajarlo.
+- **Estudio se lee sin el color**: anillo vacío, la cuenta de hoy o ✓, con su leyenda, en la Red, en
+  Radial y Árbol y en la lista.
+- **⚲ Buscar no consulta la base** (`map_search_delegate.dart`): recorre el índice del motor en
+  memoria, y elegir un resultado deja `MapShowTopic` o `MapShowDocument` tal como estaban. Un
+  documento sin tema vuela a la burbuja y prende su capa.
+- **Los topes no suben** (decisión F): 60 comunidades, 300 temas y 200 documentos; el layout en otro
+  isolate y en caliente, y el caché de rasterizado durante el gesto (F18, decisión 51). La medición
+  (`integration_test/map_benchmark_test.dart`) usa las claves nuevas y baja con «Entrar» desde la
+  ficha.
+- **Se exporta lo que se ve** (decisión G): el PNG es la captura; el SVG lleva lo apagado del foco, la
+  burbuja, el rayo de cada contradicción, los parecidos punteados y el tinte del estudio, y el nombre
+  dice la disposición (`mapa-radial-etiquetas.svg`). De paso, el SVG escribe la opacidad de un texto
+  translúcido, que antes salía opaco.
+- **Para el lector de pantalla**, un dibujo no se recorre: «Ver como lista» es el mismo contenido como
+  lista desplegable, con las mismas acciones de la ficha. La ficha es un contenedor con nombre y su
+  título, un encabezado que se anuncia al abrirse; cada capa es un interruptor que anuncia su cambio.
+- **Invariantes que no se tocan:**
+  - el esquema no cambia por el Mapa: todo lo nuevo es derivado (decisión E);
+  - abrir la ficha, prender una capa o buscar no hacen un layout ni una lectura de la base;
+  - «Parecidos» nunca vincula solo;
+  - nada sale del teléfono: ni los títulos para nombrar comunidades, ni los vectores.
+- **Trampas que costaron:**
+  - el lienzo atendía el pedido con el que se abre en `initState`, donde todavía no puede leer los
+    textos del idioma; ahora lo atiende en el primer `didChangeDependencies` (`df894aea`). Lo mostró
+    el Resumen, el primero que lo abre con un tema pendiente;
+  - el repositorio del Mapa medía «lo nuevo» y los 30 días con la hora del sistema y no con
+    `clockProvider`, el reloj de las tarjetas del Resumen (`11f7eff2`);
+  - «Parecidos compara sin el modelo» sobrevivía a la mutación porque la prueba se quedaba de lejos,
+    sin documentos a la vista: se sumó la de la capa prendida de antes, con documentos;
+  - los commits intermedios del paso 5 dan 20 avisos (un `if` sin llaves y un import que quedó sin
+    uso), corregidos por los commits siguientes; la historia ya estaba subida y no se reescribió.
+- **Se descartó:**
+  - Dejar el Esquema como tercera pestaña: «Centrar aquí» con Radial o Árbol hace lo mismo desde
+    cualquier nodo.
+  - Arrastrar los nodos a mano y guardar posiciones: el layout es del motor (decisión 47).
+  - Nombrar las comunidades con la IA de la nube: mandaría los títulos afuera; dos temas alcanzan.
+  - Subir los topes para el lienzo único.
+  - Calcular «Para estudiar» en el motor.
+- **Lo que no quedó probado:**
+  - La medición en el emulador de los gestos del lienzo con las capas prendidas, contra la de F18
+    —la burbuja suma un nodo de lejos; Parecidos compara en otro isolate—. Va en el cierre conjunto
+    con F46 (paso 5), con la suite entera.
+  - En el teléfono, con la letra al doble: la hoja de las capas, el «≈» y la ficha, que se desplaza
+    sola y puede dejar sus acciones fuera de la vista hasta desplazarla.
+  - La burbuja dibuja los 200 documentos sin tema más nuevos: buscar uno más viejo vuela a ella, pero
+    no lo encuentra dibujado.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -7676,6 +7812,15 @@ decisiones A a J y el «Avance» de cada paso: `docs/planes/F43-estudiar.md`.
     dieciocho estilos, cada uno con su visor y sus descargas;
   - ilustraciones con IA, con el aviso «Con tu IA actual» y su costo antes de generar;
   - el original marcado en Procesado, y Procesado y Cuadernos conectados con Repasar.
+- **F44, el Mapa** (decisión 90, sin cambios de esquema):
+  - dos pestañas, Resumen y Mapa, en lugar de Tablero, Grafo, Esquema y Vínculos;
+  - un solo lienzo con tres alturas, migas, Red · Radial · Árbol, el minimapa, ⊕ ⊖ ⛶ y «Ver como
+    lista»;
+  - la ficha de cada nodo, con «Centrar aquí» y su «Grado», «Preguntar al chat» y «Estudiar»;
+  - las capas Vínculos, Sin tema, Contradicciones, Parecidos (con los vectores del teléfono, que
+    proponen y no vinculan) y Estudio, y ⚲ Buscar, que vuela hasta el nodo;
+  - el Resumen: cuatro cifras con su cambio de 30 días y nueve tarjetas que llevan al Mapa;
+  - cada comunidad nombrada por sus dos temas, y los puentes entre temas.
 
 ### Por construir
 
