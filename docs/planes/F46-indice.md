@@ -816,3 +816,183 @@ la app.
 - No se miró en el emulador ni en el teléfono: las capturas de esta revisión se hicieron en la
   PC, con las letras de verdad (Inter y Lora), en claro, en oscuro, en una pantalla ancha y a 360
   dp con la letra al doble. La medición en el emulador con una bóveda grande es del paso 5.
+
+### Paso 4 (hecho): ir al lugar exacto
+
+Siete commits, de `d88623e5` a `181b49f5`, y el de este avance (decisión C). Cada entrada
+lleva a su lugar: el título en el lector único, la página del PDF o el título de la página web
+en el original; mantenerla apretada ofrece lo que se hace con ella, y ⋮ descarga lo que se está
+mirando.
+
+- **El lector único se abre en un lugar** (`ExtractPlace`: el documento y el tramo del texto
+  propio): por el mismo camino que una nota de «Notas (N)» (`_revealRange`, que antes era
+  `_revealNote`) va justo ahí —de un salto, también con «sin animaciones»— y lo resalta dos
+  segundos con el color de ese resalte. Espera a que el documento termine de leerse y va a
+  cada lugar una sola vez, aunque la lista se vuelva a armar porque se marcó algo o se editó
+  una página.
+- **Tocar un capítulo** (`openIndexEntry`): en el teléfono, la dirección del lector lleva el
+  lugar (`/read/full_text?docs=…&at=doc:inicio-fin`) y «atrás» vuelve al Índice como estaba
+  —lo desplegado es del estado de la vista y la posición, del Índice que sigue debajo—. Al
+  costado, el mismo lector (la clave es la del documento) va al lugar nuevo, y cada toque es un
+  pedido distinto (`IndexOpening.visit`): volver a tocar el mismo capítulo después de leer más
+  abajo vuelve a llevar a su título. «Texto completo», una imagen y un marcador sin lugar en el
+  texto no tienen lugar: abren desde el comienzo o en su galería.
+- **«Seguir escuchando»** vuelve a la lectura, no al capítulo: el lector le da a lo que se
+  escucha su dirección sin el lugar (`ReadableDocument.location`).
+- **Mantener apretada una entrada** —o el clic derecho, la tecla de menú, Mayús+F10, o la acción
+  «Más opciones» del lector de pantalla— abre la hoja común de la app (`showReadingMore`, la de
+  ⋮ del marco), con el título arriba —con su número si se numera— y lo que es: «Capítulo de
+  nivel 2 · pág. 3 · Historia de Roma».
+  - **«Abrir en el original»**: un PDF en la página del capítulo (`PdfViewerView.initialPage`,
+    el `initialPageNumber` de `pdfrx`, que la acota); una página web en su título, que se
+    resalta dos segundos; lo demás, desde el comienzo. Sin copia del original, apagada y
+    diciendo por qué. La dirección lleva el lugar (`/processed/:id/original?page=47` o
+    `?heading=…&nth=1`).
+  - **«Preguntar al chat»**: por el camino de siempre (`askInChat`, el de «Preguntar a la IA» del
+    lector), una conversación nueva con el capítulo, su documento y su texto —desde su título
+    hasta el siguiente de su nivel o de uno más alto, con sus secciones adentro
+    (`indexChapterSpan`), en una línea y con 2.000 caracteres como mucho
+    (`indexChapterPassage`)— a medio escribir, para que se pregunte lo que se quiera.
+  - **«Copiar el título»**, con su número; y en una imagen, **«Renombrar»**
+    (`IndexRepository.renameImage`), que el Índice muestra en vivo.
+  - En un documento: «Abrir el texto», «Abrir en el original», «Preguntar al chat» con el
+    borrador del lector («Sobre «…»: ») y «Copiar el título».
+- **«Descargar el índice»** en ⋮: la hoja común dice qué se baja —«Por tema · hasta el nivel 3
+  · numerado», o «Lo que coincide con «…»»— y ofrece **PDF** y **Markdown**. Se guarda con el
+  selector de siempre (`fileSaverProvider`, como lo creado y la bibliografía), como «Índice
+  2026-11-06.pdf», con los avisos de la app (`AppSnackBar`).
+  - Los renglones salen de lo mismo que dibuja la pantalla (`indexPrintTree`, sobre
+    `indexOutline`; `indexPrintSearch`, sobre `groupIndexSearch`), así lo descargado y lo que
+    se ve dicen lo mismo;
+  - el **PDF** (`IndexPdfExporter`): A4 con Lora e Inter de la app —tildes, ñ, «»—, los temas en
+    versalitas con un filete, los documentos en serif con lo que dicen debajo, cada capítulo con
+    su sangría, su número y la línea de puntos hasta su página, «Página 3 de 12» al pie. Se arma
+    con `compute`;
+  - el **Markdown** (`indexMarkdown`): los temas como `##`, los documentos como `###` (o `##` sin
+    temas), las entradas como una lista con sangría, número y página, y lo que Markdown leería
+    como marca, escapado;
+  - las entradas de todos los documentos se leen de una vez (`IndexRepository.readEntries`, de a
+    tandas de 500), sin quedarse mirando la base.
+
+**Decisiones, con su porqué:**
+
+- **El lugar va por el camino de «Notas (N)»**, no por uno nuevo: es el mismo problema —llevar
+  la vista a un tramo del texto propio y marcarlo un momento— y el lector ya lo resolvía con
+  filas que todavía no se armaron.
+- **Un pedido por toque** (`visit`), y no la entrada a secas: al costado, el lector no se
+  rearma, y tocar el mismo capítulo dos veces tiene que volver a llevar; en la dirección del
+  teléfono el pedido no viaja, porque esa pantalla se abre una vez por toque.
+- **La página web se abre por el título, no por la posición**: el original es la página de la
+  fuente y el texto procesado pudo perder pedazos al triarlo o editarse después; el título es
+  lo que los dos comparten. Se compara como el Índice compara los títulos (`headingKey`),
+  sin lo que la página agrega entre corchetes (el «[editar]» de una enciclopedia), y entre
+  iguales vale su orden en el documento (`indexHeadingOccurrence`). Se marca en la copia que
+  se muestra —en Dart, en el hilo aparte donde ya se arma—, y un programa chico de la app la
+  lleva ahí al terminar de cargarse; la página va sin sus propios programas, como con lo
+  estudiado.
+- **Las acciones no atan las filas a Procesado**: lo que necesitan de un documento —su título,
+  su copia del original, su texto— va por un puerto chico (`IndexDocumentAccess`, en la app
+  sobre `ProcessedRepository`) y se lee recién al mantener apretado, no mientras se recorre.
+- **«Preguntar al chat» deja el texto a medio escribir y no lo manda**: como «Preguntar a la
+  IA» del lector, la pregunta la escribe la persona; el tramo es del capítulo con sus
+  secciones, cortado a 2.000 caracteres para no llenarle la ventana al modelo.
+- **Lo que dice cuánto se descarga son los niveles**, como en Word: plegar un tema o un
+  documento es para recorrer la pantalla, y lo descargado los lleva igual; lo abierto o
+  cerrado a mano adentro de un documento sí cuenta, porque cambia lo que dicen los niveles.
+- **Los puntos guía del PDF son una grilla desde el borde derecho**, debajo del título y de la
+  página, que los tapan con su fondo: quedan en columna de un renglón al otro, como en la
+  pantalla, y la página va en una columna fija.
+
+**Una causa de raíz en las pruebas:** el repositorio de prueba del Índice
+(`FakeIndexRepository`) devolvía, al soltar una lectura, el futuro de soltar una suscripción de
+difusión, que se completa en la zona raíz: con el reloj de mentira de las pruebas, `first` —que
+espera a soltar antes de dar su valor— no terminaba nunca. Ya no lo devuelve.
+
+**Archivos:**
+
+- Nuevos: `creations/extract/domain/extract_place.dart`;
+  `viewer/domain/services/archived_page_heading.dart`; en `features/index/`:
+  `domain/repositories/index_document_access.dart`,
+  `data/repositories/processed_index_document_access.dart`,
+  `domain/services/index_chapter.dart` e `index_print.dart`, `presentation/index_actions.dart`,
+  `index_download.dart` y `export/index_pdf_exporter.dart`.
+- Cambian: `extract_viewer.dart`, `processed_reader_screen.dart`, `route_paths.dart`,
+  `app_router.dart`, `index_opening.dart`, `index_panels.dart`, `index_rows.dart`,
+  `index_screen.dart`, `index_providers.dart`, `index_repository.dart`,
+  `index_repository_impl.dart`, `index_query_sql.dart`, `archived_page_study.dart`,
+  `web_page_viewer_view.dart`, `pdf_viewer_view.dart`, `original_view.dart`,
+  `processed_original_screen.dart`, `app_es.arb` y `app_en.arb` (43 textos `f46P4…`),
+  `GUIA_DE_USO.md` y `NOVEDADES.md`.
+- Pruebas nuevas: `extract_place_test`, `archived_page_heading_test`, `index_chapter_test`,
+  `index_print_test`, `index_actions_test`, `index_download_test` e
+  `index_pdf_exporter_test`; y suman casos `index_screen_vault_test`, `index_screen_test`,
+  `index_scale_test`, `processed_original_screen_test` y `original_view_pdf_test`.
+
+**Verificado:**
+
+- `flutter analyze`: 19, la línea base, con todo y commit a commit: cada uno de los seis de
+  código, sacado solo en el árbol de trabajo con sus textos generados (`verify_commit`), da 19.
+- **72 pruebas nuevas**: 5 del lugar en la dirección, 11 de la página web en su título (qué se
+  marca, la copia sin los programas de la página, «sin animaciones», lo estudiado igual y la
+  dirección del original), 11 del tramo de un capítulo, su orden entre iguales y su pasaje, 7
+  de los renglones y del Markdown, 18 del toque largo, 10 de la descarga, 4 del PDF leído con
+  PDFium, y 6 sumadas a las de siempre: el lector justo en un capítulo lejano en el teléfono y
+  al costado sobre la base de verdad, el original en su página y en su título por la
+  dirección, y las entradas de muchos documentos en la escala. Cambiaron las que esperaban la
+  dirección del lector sin el lugar.
+- Por carpetas, con `--concurrency=2`: `test/features/index`, `test/features/text_notes`,
+  `test/features/creations/extract` y `test/app` (412); `test/features/processed/presentation`,
+  `test/features/reading`, `test/features/viewer` y `test/features/creations` (2.689); y las
+  que se sumaron después (51).
+- **Sobre la base de verdad** (`index_screen_vault_test`): un libro de 40 capítulos; tocar el
+  36 en un teléfono abre el lector con ese título resaltado y su primer renglón en la pantalla,
+  el resalte se apaga solo, «Seguir escuchando» no lleva el lugar y «atrás» vuelve al Índice
+  con lo desplegado y en el mismo lugar de la lista. Al costado, otro capítulo del mismo
+  documento mueve el mismo lector —el mismo `State`—, y el mismo capítulo, tocado otra vez
+  después de bajar hasta el final, vuelve a su título.
+- **El PDF, leído con PDFium**: el texto con las tildes, las comillas, los números y las
+  páginas; los puntos guía, contados en la franja del medio de un renglón —donde no llegan ni
+  el título ni la página— y ninguno sin página; un índice de 400 capítulos en las páginas que
+  hagan falta, cada una con «Página N de M». Y armado de verdad en otro hilo con las letras de
+  la app.
+- **La escala, por crecimiento** (`index_scale_test`, con 2.000 documentos y 300.990
+  entradas): las entradas de 800 documentos contra 100 cuestan ×7,6 (×6,9 y ×11,4 en otras dos
+  corridas) —lo que leen, ocho veces más; lo cuadrático daría ×64—, y su `EXPLAIN QUERY PLAN` va
+  por `idx_processed_headings_document`, sin recorrer `processed_headings`.
+- **Para todos**: la hoja a 360 dp con la letra al doble, en claro y en oscuro, sin
+  desbordes; lo que oye el lector de pantalla («Más opciones» en cada fila, y su acción); el
+  clic derecho, Mayús+F10 y la tecla de menú.
+- **Murieron las 54 mutaciones**, todas por pruebas que fallan. Tres sobrevivieron la primera
+  vez y mostraron pruebas flojas, que ahora las matan: cancelar el selector se probaba con un
+  aviso que nunca existe —ahora con el nombre del archivo—; los puntos guía se contaban en la
+  página entera, donde el borde suavizado de los números de página alcanzaba solo —y la franja
+  medida, además, empezaba debajo del único renglón: ahora es la del medio del renglón, de
+  arriba abajo—; y las entradas repetidas no se leían dos veces porque `IN` ya las junta en una
+  tanda —ahora un documento se repite en dos tandas, que es lo que el `toSet` cuida—. Las
+  demás: el lugar repetido en cada armado o sin esperar al documento, «Seguir escuchando» con
+  el lugar, el pedido sin su número, «Texto completo» con lugar, el teléfono y el costado sin
+  el lugar, un tramo vacío, la dirección sin `at=`; entre iguales siempre el primero, lo de
+  entre corchetes, la página con sus programas, la copia sin JavaScript, «sin animaciones»
+  que se desliza, el PDF en la primera, la vista, la pantalla y el router sin la página o el
+  título, la dirección sin `page` o sin `nth`; copiar sin el número, el original sin página o
+  siempre en el primer título, apretable sin copia, el chat sin texto, renombrar con el mismo
+  título o vacío; el tramo que corta en un subcapítulo o en uno sin lugar, las imágenes entre
+  los iguales, el pasaje justo en el límite; sin toque largo, sin la acción del lector de
+  pantalla, sin clic derecho o sin Mayús+F10 en un capítulo o un documento; y en la descarga,
+  «también en» con todos los temas, lo abierto a mano, los padres como encontrados, los `##`,
+  la sangría, el `#` sin escapar, siempre por tema, sin niveles, la búsqueda como árbol, lo
+  vacío guardado, la hoja sin «numerado», sin pie de página y una sola tanda.
+
+**Queda para después:**
+
+- **Un Word o un EPUB** se abren en el original desde el comienzo: el lector los muestra por su
+  texto, y llevarlo al título pediría ubicar el capítulo en el texto de la fuente.
+- **La página web en su título no se probó en un WebView**: en las pruebas no hay uno. Lo que
+  se marca y el programa que lleva ahí se prueban en Dart, sobre la copia que se muestra; que
+  la página se desplace de verdad se mira en el emulador, en el cierre (paso 5).
+- **Un título que la página web escribe distinto** —otra puntuación que no es la del extraído,
+  un pedazo que la extracción le sacó— no se encuentra, y la página se abre desde arriba.
+- **El PDF de un índice enorme** («Todo» con cientos de miles de capítulos) se arma en otro
+  hilo, pero con todas sus entradas en memoria: si en el teléfono pesa, armarlo de a tandas.
+- **«Preguntar al chat» en una imagen**: no está; una imagen no tiene texto que llevar.
+- No se miró en el emulador ni en el teléfono: es del paso 5.
