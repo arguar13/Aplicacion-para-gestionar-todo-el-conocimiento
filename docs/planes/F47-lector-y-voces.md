@@ -12,6 +12,10 @@
 > - **cada idioma con sus voces nativas**, con su acento y su tono.
 >
 > Cambian las decisiones B, C y F, y se suma la L. **Aprobado** por el dueño el 30/10 («aprobado»).
+>
+> **Construida** el 2026-11-06: los pasos 0 a 7b y el cierre de sus documentos, con la decisión
+> 93. La suite entera, la APK y la prueba con tus voces en el teléfono van en el cierre conjunto con
+> F46 (paso 5), la prueba solo si la pedís.
 
 Pedido del 30/10. La guía de diseño son las capturas 3 a 17 (la app Listen AI). Hay que conservar
 todo lo que la app ya hace.
@@ -1567,8 +1571,54 @@ al final, sin repetidas.
     repetida en «Voz y lectura».
 - **Queda para después:**
   - `NOVEDADES.md` lista de F47 solo los pasos 0 y 7a: falta sumar el marco, el reproductor, las
-    voces, el podcast y «Voz y lectura» en el cierre (paso 8);
+    voces, el podcast y «Voz y lectura» en el cierre (paso 8); *(hecho en el paso 8)*
   - la hoja de las descargadas pide el tamaño de cada paquete en cada armado, y el resumen de la
     fila lo recorre con `listSync`; con muchos archivos (Kokoro trae los de espeak-ng) conviene
     medirlo en el teléfono;
   - no se miró en el emulador ni en el teléfono.
+
+### Paso 8 (hecho): el cierre
+
+El cierre de los documentos, sin código, en los mismos commits que cierran F44 y F45 (de
+`4c133c02` a `ed13a097`) y el de este avance.
+
+- **La decisión 93 en `docs/arquitectura.md`** (`680f93f4`), con F47 en «Construido». La 92 queda
+  libre, entre la 91 y la 93, para F46 (el Índice), que la escribe en su cierre. Dice: el pedido con
+  los cambios del dueño del 30/10 y las precisiones del 5/11; el marco único (`ReadingFrame`) con
+  su censo de 32 funciones, la Apariencia para todos los lectores y el desplazamiento; lo que salió
+  por repetido; el reproductor anclado y su dominio puro; la sesión de medios escrita a mano y por
+  qué sin `audio_service`; los tres caminos por los que la pantalla de bloqueo mostraba el título y
+  cómo se cerró cada uno; la biblioteca de voces con su catálogo relevado y lo que no se puso por no
+  poder confirmarlo; las voces propias con el consentimiento primero, por qué no se clona en el
+  teléfono y cómo se crea con Kokoro; la nube apagada de entrada y su puerta del costo; la pieza
+  común de audio (`SpeechAudioRenderer`, M4A con `WavToM4a.kt`); el podcast como creación; el audio
+  de un documento sin esquema y por qué no una tabla; Ajustes, la Ayuda y los widgets con
+  «Protegido»; los dos arreglos del paso 0; las invariantes, las trampas que costaron (la velocidad
+  de `flutter_tts`, el `voices.bin` de Kokoro, `convertToM4a` y la memoria, el «terminó» de
+  `flutter_tts`, las dos carreras al abrir y los commits intermedios del paso 1), lo descartado y lo
+  que no quedó probado.
+- **La GUÍA, repasada** (`a4facc47`). El lector, el reproductor, las voces, el podcast, el audio de
+  un documento, «Voz y lectura», Privacidad, la Ayuda y los widgets ya estaban escritos por cada
+  paso; el repaso entero corrigió lo que había quedado viejo:
+  - «Extraer transcripción», que ya no existe: «Todo» se elige en Contenido o en la cola;
+  - «el texto largo desplegado por páginas de «Extraer texto», en el detalle», que tampoco: lo de
+    corrido se escucha en el marco, con su fondo de «Resaltado de lectura» y «Volver a la lectura»;
+  - la cola enlazaba «Estudiar el documento», que ya no está: ahora, «Marcar en el original»;
+  - ⋮ decía que favoritos y «Marcar como terminado» «llegan en próximas versiones»: hoy no existen,
+    como tampoco imprimir (lo creado se baja en PDF).
+- **`NOVEDADES.md`** (`85ececdd`): la etapa F47, que listaba solo los pasos 0 y 7a, completa: el
+  lector único, el reproductor anclado y en segundo plano, la biblioteca de voces, tus voces, el
+  audio de un documento, el podcast, «Voz y lectura», la Ayuda y los widgets. Deja de estar «en
+  curso».
+- **`CONTEXTO_DEL_PROYECTO.md`** (`ed13a097`): F47 en la historia y en el estado, con la prueba con
+  tus voces que queda para el teléfono.
+- **Queda para el cierre conjunto con F46 (paso 5):** la suite entera, junto con las de F44, F45 y
+  F46; la APK; y, si la pedís, la prueba con tus voces en el teléfono —cuánto tarda cada voz en
+  generar una oración (sobre todo Kokoro) y si la pausa se nota, el audio de un documento largo y un
+  podcast, ElevenLabs con una clave real, la tarjeta en la pantalla de bloqueo con sus dos ajustes
+  de Android, los auriculares y «Seguir escuchando» después de reiniciar—.
+- **Sigue abierto** (de los Avances de cada paso): «Varias voces en un mismo documento»; el margen
+  abajo de las listas fuera del marco; la dirección de un visor abierto con `Navigator.push`; el
+  audio del resumen o la síntesis aparte; retomar sola una descarga de audio que se cortó; clonar en
+  el teléfono cuando haya un ZipVoice con español; dos pedidos de foco de la misma app con una voz
+  sin conexión; y iOS, sin código.
