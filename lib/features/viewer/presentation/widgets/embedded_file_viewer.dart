@@ -157,12 +157,15 @@ class EmbeddedFileViewer extends ConsumerWidget {
           tall: true,
           onExpand: expand,
           bigButtonLabel: l10n.detailViewWebPage,
+          // Solo el comienzo de la página: la entera se arma y se carga con
+          // «Ver la página» (F46, paso 5c).
           child: MobilePageWidth(
             child: WebPageViewerView(
               path: path,
               url: url,
               text: text,
               mobile: true,
+              preview: true,
             ),
           ),
         ),

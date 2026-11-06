@@ -48,6 +48,59 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
+/// Lo que hace falta para armar la copia de una página archivada que se
+/// muestra (ver `showArchivedPage`): dónde está el archivo y cómo se la
+/// quiere. Todo enviable a otro hilo.
+typedef ArchivedPageJob = ({
+  String path,
+  ArchivedPageStudy? study,
+  bool mobile,
+  ArchivedHeading? heading,
+  int headingFlash,
+  bool still,
+  int? previewLetters,
+});
+
+/// Lee el archivo de [job] y arma su copia (F46, paso 5c): lo que corre el
+/// visor en otro hilo.
+ArchivedPageShown buildArchivedPage(ArchivedPageJob job) => showArchivedPage(
+  File(job.path).readAsStringSync(),
+  study: job.study,
+  mobile: job.mobile,
+  heading: job.heading,
+  headingFlash: job.headingFlash,
+  still: job.still,
+  previewLetters: job.previewLetters,
+);
+
+/// Lo que se le pide al otro hilo para mostrar [view]: su archivo, su texto
+/// con los [colors] de lo estudiado, el título al que va —que se desliza
+/// salvo con [still]— y, en una vista previa, solo el comienzo (F46, paso
+/// 5c).
+@visibleForTesting
+ArchivedPageJob archivedPageJobOf(
+  WebPageViewerView view, {
+  required ArchivedPageColors colors,
+  required bool still,
+}) {
+  final text = view.text;
+  return (
+    path: view.path,
+    study: text == null ? null : (content: text.content, colors: colors),
+    mobile: view.mobile,
+    heading: view.heading,
+    headingFlash: PdfStudyOverlay.flashColor.toARGB32(),
+    still: still,
+    previewLetters: view.preview ? archivedPagePreviewLetters : null,
+  );
+}
+
+/// Lee y arma la copia de [job] en un hilo aparte. Es una función de primer
+/// nivel y no un método del visor: así lo único que viaja al otro hilo es
+/// [job] —texto, números y listas—, nunca el visor con su `WebView`.
+Future<ArchivedPageShown> _inIsolate(ArchivedPageJob job) =>
+    Isolate.run(() => buildArchivedPage(job));
+
 /// Lo que se le pide a la página guardada para mostrar lo que [view] deja ver
 /// (F36): el resumen y la síntesis, cada uno por su lado (F39); las palabras
 /// clave —también eligiéndolas—, y si tocar elige.
@@ -148,10 +201,17 @@ class WebPageViewerView extends ConsumerStatefulWidget {
     this.readAloud = false,
     this.mobile = false,
     this.heading,
+    this.preview = false,
     super.key,
   });
 
   final String path;
+
+  /// Si es la vista previa de una ficha —la de la Biblioteca, la de un
+  /// documento procesado— debajo de «Ver la página» (F46, paso 5c): se
+  /// muestra solo el comienzo de la página (`cutArchivedPagePreview`). La
+  /// entera, a pantalla completa.
+  final bool preview;
 
   /// El título al que va al abrirse, y que resalta un momento: «Abrir en el
   /// original» desde un capítulo del Índice (F46, paso 4). `null`, desde
@@ -322,7 +382,7 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
   Future<bool> _load() async {
     if (_webView == null) return false;
     try {
-      await _show(await File(widget.path).readAsString());
+      await _show();
       return true;
       // El archivo puede haberse borrado del disco después de indexarse, o
       // `WebViewController` puede no tener implementación nativa en esta
@@ -335,32 +395,22 @@ class _WebPageViewerViewState extends ConsumerState<WebPageViewerView> {
     }
   }
 
-  /// Muestra la copia de la página archivada [html], una sola vez: con
-  /// texto, lleva el programa de la app y cómo se corresponde su texto con el
-  /// extraído —lo que permite estudiar y resaltar sobre ella—; sin texto,
-  /// solo sus fotos listas.
-  Future<void> _show(String html) async {
+  /// Muestra la copia de la página archivada, una sola vez: con texto, lleva
+  /// el programa de la app y cómo se corresponde su texto con el extraído
+  /// —lo que permite estudiar y resaltar sobre ella—; sin texto, solo sus
+  /// fotos listas.
+  ///
+  /// Una página archivada pesa megas —la de Fotosíntesis, 2,2 MB, casi todo
+  /// fotos adentro del archivo—: se lee y se arma entera fuera del hilo de la
+  /// pantalla ([buildArchivedPage]), que solo recibe la copia lista. Ni el
+  /// archivo leído ni su texto pasan por él.
+  Future<void> _show() async {
     final text = widget.text;
-    final study = text == null
-        ? null
-        : (content: text.content, colors: _colors());
-    final mobile = widget.mobile;
-    final heading = widget.heading;
-    final flash = PdfStudyOverlay.flashColor.toARGB32();
-    final still = _still;
-    // Una página archivada pesa megas: se arma fuera del hilo de la pantalla.
-    final shown = await Isolate.run(
-      () => showArchivedPage(
-        html,
-        study: study,
-        mobile: mobile,
-        heading: heading,
-        headingFlash: flash,
-        still: still,
-      ),
+    final shown = await _inIsolate(
+      archivedPageJobOf(widget, colors: _colors(), still: _still),
     );
     if (!mounted) return;
-    if (study != null) {
+    if (text != null) {
       await _prepareStudy();
     } else if (shown.scripted) {
       // Solo el programa chico que lleva al título: la página va sin los

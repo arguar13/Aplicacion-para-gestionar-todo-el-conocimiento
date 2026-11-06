@@ -260,6 +260,8 @@ void main() {
     // ancho de un teléfono (F45, paso 4, decisión D).
     expect(viewer.mobile, isTrue);
     expect(find.byKey(const Key('mobile-page-width')), findsOneWidget);
+    // A pantalla completa, la página entera (F46, paso 5c).
+    expect(viewer.preview, isFalse);
     expect(
       tester.getSize(find.byType(WebPageViewerView)).width,
       kMobilePageWidth,
@@ -325,6 +327,9 @@ void main() {
       find.byType(WebPageViewerView),
     );
     expect(viewer.mobile, isTrue);
+    // En la tarjeta, solo su comienzo: la entera, con «Ver la página» (F46,
+    // paso 5c).
+    expect(viewer.preview, isTrue);
     expect(
       tester.getSize(find.byType(WebPageViewerView)).width,
       kMobilePageWidth,

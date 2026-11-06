@@ -141,9 +141,15 @@ class ProcessedOriginalSection extends ConsumerWidget {
         onExpand: expand,
         bigButtonLabel: l10n.detailViewWebPage,
         // Como en el teléfono, también en la computadora (F45, paso 4,
-        // decisión D).
+        // decisión D). Solo su comienzo: la entera, con «Ver la página»
+        // (F46, paso 5c).
         child: MobilePageWidth(
-          child: WebPageViewerView(path: loaded.path, text: text, mobile: true),
+          child: WebPageViewerView(
+            path: loaded.path,
+            text: text,
+            mobile: true,
+            preview: true,
+          ),
         ),
       ),
       _ when text == null => EmbeddedViewerFrame(

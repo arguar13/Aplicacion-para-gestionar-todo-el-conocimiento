@@ -62,6 +62,10 @@ String showableArchivedPage(String html, {ArchivedPageStudy? study}) =>
 /// [still]—: ver `markArchivedHeading`. Para eso lleva su programa chico, y la
 /// página, sin los suyos, como con [study].
 ///
+/// Con [previewLetters] (F46, paso 5c), es la vista previa de la ficha: solo
+/// el comienzo de la página —ver [cutArchivedPagePreview]—, y no se va a
+/// ningún título.
+///
 /// `scripted` ([ArchivedPageShown]) dice si la copia lleva un programa de la
 /// app: el visor solo prende JavaScript entonces.
 ArchivedPageShown showArchivedPage(
@@ -71,6 +75,7 @@ ArchivedPageShown showArchivedPage(
   ArchivedHeading? heading,
   int headingFlash = 0,
   bool still = false,
+  int? previewLetters,
 }) {
   final document = html_parser.parse(html);
   showArchivedImages(document);
@@ -81,10 +86,16 @@ ArchivedPageShown showArchivedPage(
     _neutralize(document);
     final body = document.body;
     if (body != null) alignment = _PageCounter(body, study.content).alignment();
-    _inject(document, study.colors);
   }
+  // Después de contar el texto: lo que queda no cambia de lugar, y lo
+  // estudiado que cae más allá del corte no tiene dónde pintarse.
+  if (previewLetters != null) cutArchivedPagePreview(document, previewLetters);
+  if (study != null) _inject(document, study.colors);
   // Después de contar el texto: lo que se agrega acá no es de la página.
-  final marked = heading != null && markArchivedHeading(document, heading);
+  final marked =
+      previewLetters == null &&
+      heading != null &&
+      markArchivedHeading(document, heading);
   if (marked) {
     if (study == null) _neutralize(document);
     injectArchivedHeadingReveal(
@@ -100,6 +111,97 @@ ArchivedPageShown showArchivedPage(
     scripted: study != null || marked,
   );
 }
+
+/// Cuánto del artículo lleva la vista previa de una página web en la ficha de
+/// la Biblioteca y en la de un documento procesado (F46, paso 5c), en letras:
+/// más de lo que entra en su marco —un tercio de la pantalla, con «Ver la
+/// página» encima—, aun en una tableta, y una pequeña parte de un artículo
+/// largo.
+const archivedPagePreviewLetters = 2000;
+
+/// Cuántas letras vale una foto en la vista previa: lo que ocupa en el marco
+/// —unos diez renglones— y no lo que pesa. Una enciclopedia abre con varias
+/// fotos grandes y poco texto entre ellas.
+const archivedPagePreviewImageLetters = 800;
+
+/// Deja en [document] solo el comienzo de la página (F46, paso 5c): lo que
+/// hay antes de su artículo —el encabezado, los menús— y las primeras
+/// [letters] letras de él, contadas como las cuenta [ArchivedPageAlignment]:
+/// los textos en el orden del documento, sin lo que no se lee; cada foto vale
+/// [archivedPagePreviewImageLetters]. Lo que sigue se saca: el resto del
+/// artículo con sus fotos, que en una página archivada van adentro del
+/// archivo y son lo que más pesa. Los estilos que estaban más abajo se mudan
+/// al `<head>`: lo que queda se ve igual.
+///
+/// Es la vista previa de la ficha: la página de Wikipedia de Fotosíntesis
+/// pesa 2,2 MB —casi todo, sus fotos adentro del archivo— y entera se le
+/// daba al `WebView` de la ficha, que la recibe, la dibuja y la recorre para
+/// la accesibilidad en el hilo principal de Android, solo para mostrar su
+/// comienzo debajo de «Ver la página»: con esa ficha abierta, la app dejó de
+/// responder en el emulador. La página entera se arma y se carga recién a
+/// pantalla completa.
+///
+/// El artículo es el `main`, el `article` o el contenido de una enciclopedia
+/// (`#mw-content-text`), el primero que haya; sin ninguno, el `<body>`. Lo
+/// que queda está en el mismo lugar del texto corrido que en la página
+/// entera: lo que se cuenta sobre ella vale para la vista previa.
+void cutArchivedPagePreview(Document document, int letters) {
+  final body = document.body;
+  if (body == null) return;
+  final article =
+      body.querySelector('#mw-content-text') ??
+      body.querySelector('main') ??
+      body.querySelector('article') ??
+      body.querySelector('[role="main"]') ??
+      body;
+  var counted = 0;
+  Node? last;
+  void walk(Node node) {
+    for (final child in node.nodes) {
+      if (last != null) return;
+      if (child is Text) {
+        counted += child.data.length;
+      } else if (child is Element && child.localName == 'img') {
+        counted += archivedPagePreviewImageLetters;
+      } else if (child is Element && !_opaque.contains(child.localName)) {
+        walk(child);
+        continue;
+      } else {
+        continue;
+      }
+      if (counted >= letters) last = child;
+    }
+  }
+
+  walk(article);
+  final cut = last;
+  if (cut == null) return;
+  final head = document.head;
+  var node = cut;
+  while (node != body) {
+    final parent = node.parentNode;
+    if (parent == null) break;
+    final siblings = parent.nodes;
+    final following = siblings.sublist(siblings.indexOf(node) + 1);
+    for (final gone in following) {
+      if (head != null && gone is Element) {
+        for (final style in [
+          if (_isStyle(gone)) gone,
+          ...gone.querySelectorAll('style, link[rel~="stylesheet"]'),
+        ]) {
+          head.append(style);
+        }
+      }
+      gone.remove();
+    }
+    node = parent;
+  }
+}
+
+bool _isStyle(Element element) =>
+    element.localName == 'style' ||
+    element.localName == 'link' &&
+        (element.attributes['rel'] ?? '').toLowerCase().contains('stylesheet');
 
 /// Lo que arma [showArchivedPage]: la copia que se muestra, cómo se
 /// corresponde su texto con el extraído —con un estudio— y si lleva un

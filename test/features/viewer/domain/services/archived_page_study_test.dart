@@ -404,4 +404,119 @@ void main() {
       {'summary': true, 'synthesis': true, 'keywords': false, 'picking': true},
     );
   });
+
+  group('la vista previa de la ficha: solo el comienzo (F46, paso 5c)', () {
+    // Un menú antes del artículo, el artículo con tres párrafos —cada uno con
+    // su foto adentro del archivo— y un pie con un estilo.
+    final foto = 'data:image/png;base64,${'A' * 2000}';
+    final page = [
+      '<html><head><title>Roma</title></head><body>',
+      // El menú cuenta 42 letras: contadas, la foto pasaría el corte.
+      '<nav>${'Portada Ayuda ' * 3}</nav>',
+      '<main><h1>Roma</h1>',
+      '<p><img src="$foto">${'Uno ' * 10}</p>',
+      '<p><img src="$foto">${'Dos ' * 10}</p>',
+      '<p><img src="$foto">${'Tres ' * 10}<style>.b{color:red}</style></p>',
+      '</main><footer>Pie</footer></body></html>',
+    ].join();
+
+    String textOf(Document document) => document.body!.text;
+
+    test('el artículo hasta las letras pedidas, sin lo que sigue ni sus '
+        'fotos; lo de antes del artículo, intacto', () {
+      final full = showArchivedPage(page);
+      // «Roma», la primera foto y el primer párrafo: 4 + 800 + 40 letras.
+      final preview = showArchivedPage(page, previewLetters: 830);
+      final shown = html_parser.parse(preview.html);
+
+      expect(textOf(shown), contains('Portada Ayuda'));
+      expect(textOf(shown), contains('Uno'));
+      expect(textOf(shown), isNot(contains('Dos')));
+      expect(textOf(shown), isNot(contains('Pie')));
+      expect(shown.querySelectorAll('img'), hasLength(1));
+      expect(preview.html.length, lessThan(full.html.length / 2));
+      // El estilo de más abajo se mudó al <head>: lo que queda se ve igual.
+      expect(shown.head!.querySelector('style')?.text, '.b{color:red}');
+    });
+
+    test('lo que queda es el comienzo del texto de la página entera: lo '
+        'contado sobre ella vale', () {
+      const content = 'Roma\n\nUno uno uno.';
+      final full = showArchivedPage(
+        page,
+        study: (content: content, colors: colors),
+      );
+      final preview = showArchivedPage(
+        page,
+        study: (content: content, colors: colors),
+        previewLetters: 830,
+      );
+      final cut = html_parser.parse(preview.html);
+      final kept = [for (final node in _textNodes(cut.body!)) node.data].join();
+
+      expect(full.alignment!.pageText, startsWith(kept));
+      expect(preview.alignment!.pageText, full.alignment!.pageText);
+      expect(
+        preview.alignment!.pageRangesOf(0, 4),
+        full.alignment!.pageRangesOf(0, 4),
+      );
+      // El programa de la app va igual, al final de lo que quedó.
+      expect(cut.getElementById('sinapsis-study-script'), isNotNull);
+      expect(preview.scripted, isTrue);
+    });
+
+    test('una foto vale lo que ocupa, no lo que pesa: diez renglones', () {
+      expect(archivedPagePreviewImageLetters, 800);
+      final shown = html_parser.parse(
+        showArchivedPage(page, previewLetters: 10).html,
+      );
+      expect(shown.querySelectorAll('img'), hasLength(1));
+      expect(textOf(shown), isNot(contains('Uno')));
+    });
+
+    test('no va a ningún título: eso es de la página entera', () {
+      final preview = showArchivedPage(
+        page,
+        heading: (title: 'Roma', occurrence: 0),
+        previewLetters: 830,
+      );
+      expect(preview.scripted, isFalse);
+    });
+
+    test('una página más corta que lo pedido queda entera', () {
+      final full = showArchivedPage(page);
+      final preview = showArchivedPage(page, previewLetters: 100000);
+      expect(preview.html, full.html);
+    });
+
+    test('sin artículo marcado, se cuenta desde el comienzo', () {
+      final preview = showArchivedPage(
+        '<html><body><p>${'Uno ' * 10}</p><p>Dos</p></body></html>',
+        previewLetters: 5,
+      );
+      expect(preview.html, contains('Uno'));
+      expect(preview.html, isNot(contains('Dos')));
+    });
+  });
 }
+
+/// Los textos que cuenta la página, en orden y sin lo que no se lee.
+List<Text> _textNodes(Node node) => [
+  for (final child in node.nodes)
+    if (child is Text)
+      child
+    else if (child is Element &&
+        !const {
+          'script',
+          'style',
+          'noscript',
+          'template',
+          'textarea',
+          'select',
+          'option',
+          'title',
+          'svg',
+          'math',
+        }.contains(child.localName))
+      ..._textNodes(child),
+];

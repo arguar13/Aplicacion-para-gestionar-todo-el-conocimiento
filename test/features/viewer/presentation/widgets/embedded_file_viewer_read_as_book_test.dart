@@ -14,6 +14,7 @@ import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/image_viewer_screen.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/web_page_viewer_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -167,6 +168,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.text(es.detailReadAsBook), findsNothing);
+    // Solo el comienzo de la página: la entera, con «Ver la página» (F46,
+    // paso 5c).
+    expect(
+      tester.widget<WebPageViewerView>(find.byType(WebPageViewerView)).preview,
+      isTrue,
+    );
   });
 
   group('una foto (F45, paso 3)', () {
