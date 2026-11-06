@@ -71,6 +71,11 @@ class MergeGates {
     ...VaultCounts.studyCreationTables,
     // Las notas en el texto (F45, mejora 19): una fusión solo suma.
     ...VaultCounts.textNoteTables,
+    // Las entradas del Índice (F46) no están, a propósito: son derivadas. La
+    // fusión no las copia —cada base las saca de lo suyo—, y lo que trae a
+    // un documento ya indexado —su texto, si acá no lo tenía; la copia de su
+    // original— suelta sus entradas de texto en la misma sentencia, para que
+    // el relleno las rehaga. Se pueden achicar.
   ];
 
   /// Las tablas donde una referencia rota puede venir de la fusión.
@@ -114,6 +119,14 @@ class MergeGates {
     // Las notas en el texto, de una fuente, un procesado o una creación
     // (F45, mejora 19).
     'text_notes',
+    // Las entradas del Índice: de su documento y de su imagen (F46).
+    'processed_headings',
+    // Lo demás que la fusión escribe (censo de F46): los temas de cada
+    // elemento (F37), las opciones de una tarjeta (F20) y el archivo que deja
+    // de usar, que va a la papelera del contenido de acá (F30, decisión 68).
+    'item_spaces',
+    'flashcard_options',
+    'content_trash',
   ];
 
   /// Lo que se cuenta de una tabla cuando no es toda: el espejo de las
