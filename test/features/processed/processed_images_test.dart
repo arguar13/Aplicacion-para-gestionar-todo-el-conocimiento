@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -27,6 +28,7 @@ import 'package:sinapsis/features/processed/domain/entities/processed_query.dart
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_image_title.dart';
 import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 
 import 'processed_harness.dart';
@@ -422,5 +424,120 @@ void main() {
 
   test('la copia vive en la carpeta de imágenes del procesado', () {
     expect(kProcessedImagesFolder, 'imagenes');
+  });
+
+  group('su título (F46, decisión E)', () {
+    Future<Map<String, String?>> titles() async => {
+      for (final row in await h.db.select(h.db.processedImages).get())
+        row.sourceFilePath: row.title,
+    };
+
+    test('cada una entra con su título, el que sale de lo que dice la fuente: '
+        'vacío si no dice nada, y nunca sin titular', () async {
+      await h.process('post', {
+        ProcessedSection.images: add(const ImageChoice.all()),
+      });
+
+      final offered = (await h.repository.sourceImages(
+        'post',
+      )).getRight().toNullable()!;
+      final expected = sourceImageTitles(
+        offered,
+        sourceTitle: 'Una publicación',
+      );
+      expect(await titles(), {
+        for (final image in offered) image.path: expected[image.path] ?? '',
+      });
+      // Su archivo, con el título de la fuente como pie de foto.
+      expect((await titles())[photos[0]], 'Una publicación');
+      // Cada una tiene su entrada en el Índice.
+      expect(await h.db.select(h.db.processedHeadings).get(), hasLength(3));
+    });
+
+    test('el de la galería es el suyo: renombrada, se ve renombrada; si la '
+        'fuente no decía nada, ninguno', () async {
+      await h.process('post', {
+        ProcessedSection.images: add(const ImageChoice.all()),
+      });
+      final first = (await gallery()).first;
+      await (h.db.update(h.db.processedImages)
+            ..where((i) => i.renditionId.equals(first.renditionId)))
+          .write(const ProcessedImagesCompanion(title: Value('Mi foto')));
+      expect((await gallery()).first.title, 'Mi foto');
+
+      await (h.db.update(h.db.processedImages)
+            ..where((i) => i.renditionId.equals(first.renditionId)))
+          .write(const ProcessedImagesCompanion(title: Value('')));
+      expect((await gallery()).first.title, isNull);
+    });
+
+    test('quitada y recuperada, vuelve con su título —también renombrada—, '
+        'y con su entrada del Índice', () async {
+      await h.process('post', {
+        ProcessedSection.images: add(const ImageChoice.all()),
+      });
+      final first = (await gallery()).first;
+      await (h.db.update(h.db.processedImages)
+            ..where((i) => i.renditionId.equals(first.renditionId)))
+          .write(const ProcessedImagesCompanion(title: Value('Mi foto')));
+
+      final removal = (await h.repository.removeImage(
+        first.renditionId,
+      )).getRight().toNullable()!;
+      expect(
+        await (h.db.select(
+          h.db.processedHeadings,
+        )..where((e) => e.imageId.equals(first.renditionId))).get(),
+        isEmpty,
+      );
+      // Las que siguen corrieron su lugar, y su entrada con ellas.
+      Future<Map<String, int>> entryPlaces() async => {
+        for (final entry in await (h.db.select(
+          h.db.processedHeadings,
+        )..where((e) => e.imageId.isNotNull())).get())
+          entry.imageId!: entry.position,
+      };
+      expect(await entryPlaces(), {
+        for (final image in await gallery()) image.renditionId: image.position,
+      });
+      await h.repository.restoreImage(removal);
+      expect(await entryPlaces(), {
+        for (final image in await gallery()) image.renditionId: image.position,
+      });
+
+      expect((await titles())[first.sourceFilePath], 'Mi foto');
+      final entry = await (h.db.select(
+        h.db.processedHeadings,
+      )..where((e) => e.imageId.equals(first.renditionId))).getSingle();
+      expect(entry.title, 'Mi foto');
+    });
+
+    test(
+      'una soltada antes de v51 vuelve sin titular, para el relleno',
+      () async {
+        await h.process('post', {
+          ProcessedSection.images: add(const ImageChoice.all()),
+        });
+        final first = (await gallery()).first;
+        final removal = (await h.repository.removeImage(
+          first.renditionId,
+        )).getRight().toNullable()!;
+        // Lo que guardaba la papelera antes de v51: sin `imageTitle`.
+        final row = await (h.db.select(
+          h.db.trashedContents,
+        )..where((t) => t.id.equals(removal.trashedId))).getSingle();
+        final stored = jsonDecode(row.processedImage!) as Map<String, dynamic>
+          ..remove('imageTitle');
+        await (h.db.update(
+          h.db.trashedContents,
+        )..where((t) => t.id.equals(removal.trashedId))).write(
+          TrashedContentsCompanion(processedImage: Value(jsonEncode(stored))),
+        );
+
+        await h.repository.restoreImage(removal);
+
+        expect((await titles())[first.sourceFilePath], isNull);
+      },
+    );
   });
 }

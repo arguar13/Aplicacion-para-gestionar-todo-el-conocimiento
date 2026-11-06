@@ -43,6 +43,7 @@ import 'package:sinapsis/features/processed/domain/entities/processed_source_mat
 import 'package:sinapsis/features/processed/domain/entities/processed_study_text.dart';
 import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
+import 'package:sinapsis/features/processed/domain/services/processed_image_title.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_images_planner.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_section_planner.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_study_layout.dart';
@@ -69,9 +70,10 @@ const kProcessedOriginalFolder = 'original';
 /// El Índice (F46) se escribe con el texto: toda escritura que cambia la
 /// sección «Texto» o la copia del original rehace, en su misma transacción,
 /// las entradas de texto de ese documento (`headings`) —el PDF se lee antes
-/// de abrirla—. Sin `headings`, lo hace el relleno del Índice apenas puede
-/// (`ProcessedHeadingsBackfill`): la base ya soltó lo viejo en la misma
-/// sentencia (`processedHeadingStaleTriggers`).
+/// de abrirla—, y cada imagen que entra lleva su título
+/// (`sourceImageTitles`). Sin `headings`, lo hace el relleno del Índice
+/// apenas puede (`ProcessedHeadingsBackfill`): la base ya soltó lo viejo en
+/// la misma sentencia (`processedHeadingStaleTriggers`).
 class ProcessedRepositoryImpl implements ProcessedRepository {
   ProcessedRepositoryImpl({
     required AppDatabase database,
@@ -907,6 +909,38 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
 
   SourceImagesReader get _sourceImages => SourceImagesReader(_db, _files);
 
+  /// Los títulos de [images], las imágenes de [sourceItemId] que entran al
+  /// procesado (F46, decisión E), por su archivo: lo que dice de cada una la
+  /// fuente —su título es el pie de foto de su propio archivo, y en su texto,
+  /// si es Markdown, el título bajo el que está cada una— o el nombre de su
+  /// archivo, limpio. Solo se lee la fuente.
+  Future<Map<String, String?>> _imageTitlesOf(
+    String sourceItemId,
+    List<SourceImage> images,
+  ) async {
+    if (images.isEmpty) return const {};
+    final live = await _liveSource(sourceItemId);
+    final entry = live?.$1;
+    final markdown =
+        live != null && extractedTextIsMarkdown(sourceFor(live.$1, live.$2));
+    final text = markdown
+        ? await (_db.select(_db.renditions)
+                ..where(
+                  (r) =>
+                      r.itemId.equals(sourceItemId) &
+                      r.isPrimary.equals(true) &
+                      r.content.isNotNull(),
+                )
+                ..limit(1))
+              .getSingleOrNull()
+        : null;
+    return sourceImageTitles(
+      images,
+      sourceTitle: entry?.title,
+      sourceMarkdown: text?.content,
+    );
+  }
+
   Future<String> _textOf(String renditionId) async {
     final r = _db.renditions;
     final row =
@@ -1083,6 +1117,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
         staged: images.staged,
         ids: _ids,
         at: at,
+        titles: await _imageTitlesOf(commit.sourceItemId, images.plan.fresh),
       );
     }
     if (changed) {

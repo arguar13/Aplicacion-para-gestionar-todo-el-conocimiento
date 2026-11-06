@@ -50,7 +50,10 @@ Future<List<ProcessedImage>> processedImagesOf(
   ];
 }
 
-/// La imagen que guardan [row] y su forma [rendition].
+/// La imagen que guardan [row] y su forma [rendition]. Su título es el suyo
+/// (F46, decisión E: el del Índice, que se puede renombrar) —ninguno si la
+/// fuente no decía nada de ella— y, mientras no se la tituló, el nombre con
+/// que la fuente la ofrecía.
 ProcessedImage processedImageFromRows(
   ProcessedImageRow row,
   RenditionRow rendition,
@@ -62,7 +65,11 @@ ProcessedImage processedImageFromRows(
   sizeBytes: rendition.sizeBytes ?? row.sourceFileSize,
   sourceFilePath: row.sourceFilePath,
   copiedAt: row.copiedAt,
-  title: rendition.title,
+  title: switch (row.title) {
+    null => rendition.title,
+    '' => null,
+    final title => title,
+  },
   mimeType: rendition.mimeType,
 );
 
@@ -70,6 +77,11 @@ ProcessedImage processedImageFromRows(
 /// papelera del contenido; las que se quedan, en su lugar; las nuevas —ya
 /// copiadas en [staged], por la ruta de su archivo de la fuente— entran.
 /// Devuelve cómo deshacerlo.
+///
+/// Cada imagen que entra recibe su título (F46, decisión E) de [titles], por
+/// el archivo de la fuente (`sourceImageTitles`): vacío si la fuente no dice
+/// nada de ella. Sin [titles] entra sin titular, y se lo pone el relleno del
+/// Índice.
 Future<ProcessedImagesUndo> applyProcessedImagesPlan(
   AppDatabase db, {
   required String documentId,
@@ -77,6 +89,7 @@ Future<ProcessedImagesUndo> applyProcessedImagesPlan(
   required Map<String, StagedImage> staged,
   required IdGenerator ids,
   required DateTime at,
+  Map<String, String?>? titles,
 }) async {
   final previous = await processedImagesOf(db, documentId);
   final trashed = <String>[];
@@ -104,6 +117,7 @@ Future<ProcessedImagesUndo> applyProcessedImagesPlan(
         if (copy == null) {
           throw StateError('La imagen ${source.path} no se copió.');
         }
+        final title = titles == null ? null : titles[source.path] ?? '';
         final image = ProcessedImage(
           renditionId: processedImageRenditionIdFor(documentId, source.path),
           documentId: documentId,
@@ -112,10 +126,16 @@ Future<ProcessedImagesUndo> applyProcessedImagesPlan(
           sizeBytes: copy.sizeBytes,
           sourceFilePath: source.path,
           copiedAt: at,
-          title: source.title,
+          title: title == null ? source.title : _shown(title),
           mimeType: source.mimeType,
         );
-        await _insert(db, image, sourceFileSize: source.sizeBytes);
+        await _insert(
+          db,
+          image,
+          sourceFileSize: source.sizeBytes,
+          offered: source.title,
+          title: title,
+        );
         created.add(image);
     }
   }
@@ -155,8 +175,9 @@ Future<List<String>> undoProcessedImages(
 }
 
 /// Lo que guarda la papelera del contenido de una imagen de un procesado: lo
-/// de su fila de `processed_images` y lo que su forma decía de ella, para que
-/// al recuperarla vuelva a su galería tal como estaba.
+/// de su fila de `processed_images` —también su título (F46, v51), que pudo
+/// haberse renombrado— y lo que su forma decía de ella —el nombre con que se
+/// ofrecía—, para que al recuperarla vuelva a su galería tal como estaba.
 String encodeTrashedProcessedImage(
   ProcessedImageRow row,
   RenditionRow rendition,
@@ -166,6 +187,7 @@ String encodeTrashedProcessedImage(
   'sourceFileSize': row.sourceFileSize,
   'copiedAt': row.copiedAt.millisecondsSinceEpoch,
   if (rendition.title != null) 'title': rendition.title,
+  if (row.title != null) 'imageTitle': row.title,
   if (rendition.mimeType != null) 'mimeType': rendition.mimeType,
 });
 
@@ -235,6 +257,10 @@ Future<ProcessedImage?> restoreTrashedProcessedImage(
     db.renditions,
   )..where((r) => r.id.equals(renditionId))).getSingleOrNull();
   if (document == null || renditionTaken != null) return null;
+  // Una que se soltó antes de v51 no guardó su título: vuelve sin él, y se lo
+  // pone el relleno del Índice.
+  final offered = data['title'] as String?;
+  final title = data['imageTitle'] as String?;
   final image = ProcessedImage(
     renditionId: renditionId,
     documentId: row.itemId,
@@ -243,7 +269,7 @@ Future<ProcessedImage?> restoreTrashedProcessedImage(
     sizeBytes: row.sizeBytes ?? data['sourceFileSize'] as int,
     sourceFilePath: sourceFilePath,
     copiedAt: DateTime.fromMillisecondsSinceEpoch(data['copiedAt'] as int),
-    title: data['title'] as String?,
+    title: title == null ? offered : _shown(title),
     mimeType: data['mimeType'] as String?,
   );
   if (shift) await shiftProcessedImages(db, image, by: 1);
@@ -251,6 +277,8 @@ Future<ProcessedImage?> restoreTrashedProcessedImage(
     db,
     image,
     sourceFileSize: data['sourceFileSize'] as int,
+    offered: offered,
+    title: title,
     createdAt: row.renditionCreatedAt,
   );
   await (db.delete(db.trashedContents)..where((t) => t.id.equals(row.id))).go();
@@ -275,10 +303,18 @@ Future<void> shiftProcessedImages(
   updates: {db.processedImages},
 );
 
+/// El título que se muestra de una imagen titulada [title]: ninguno si es
+/// vacío —la fuente no decía nada—.
+String? _shown(String title) => title.isEmpty ? null : title;
+
+/// Guarda [image]: su forma, con el nombre con que la fuente la ofrecía
+/// ([offered]), y su fila, con su título ([title]).
 Future<void> _insert(
   AppDatabase db,
   ProcessedImage image, {
   required int sourceFileSize,
+  required String? offered,
+  required String? title,
   DateTime? createdAt,
 }) async {
   await db
@@ -291,7 +327,7 @@ Future<void> _insert(
           relativePath: Value(image.relativePath),
           isPrimary: false,
           createdAt: createdAt ?? image.copiedAt,
-          title: Value(image.title),
+          title: Value(offered),
           mimeType: Value(image.mimeType),
           sizeBytes: Value(image.sizeBytes),
         ),
@@ -306,6 +342,7 @@ Future<void> _insert(
           sourceFilePath: image.sourceFilePath,
           sourceFileSize: sourceFileSize,
           copiedAt: image.copiedAt,
+          title: Value(title),
         ),
       );
 }
