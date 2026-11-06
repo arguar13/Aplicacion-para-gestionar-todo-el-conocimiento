@@ -8,6 +8,7 @@ import 'package:fpdart/fpdart.dart' hide State;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
@@ -1512,12 +1513,21 @@ void main() {
     testWidgets('sin temas, el lienzo lo dice y lleva a los vínculos', (
       tester,
     ) async {
+      container.read(mapLayersProvider.notifier).set(MapLayer.links, on: false);
       await pump(tester, snapshot(empty: true));
 
-      expect(find.byKey(const ValueKey('map-no-topics')), findsOneWidget);
+      final empty = find.byKey(const ValueKey('map-no-topics'));
+      expect(empty, findsOneWidget);
+      // Lo vinculado es una capa (F44, paso 5), no una pestaña: el vacío lo
+      // dice así, y su botón la prende.
+      expect(
+        tester.widget<EmptyStateView>(empty).message,
+        contains('la capa «${es.f44S5LayerLinks}»'),
+      );
       await tapAndSettle(tester, find.text(es.mapSeeLinksAction));
 
       expect(node('item:a'), findsOneWidget);
+      expect(container.read(mapLayersProvider), contains(MapLayer.links));
     });
   });
 

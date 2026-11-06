@@ -3839,9 +3839,9 @@
       }
     }
   },
-  "mapEmptyMessage": "{kind, select, spaces{Choose a topic when you save something —or let the AI place it— and here you'll see how they relate. What you linked is already in “Links”.} tags{Once you add tags, here you'll see how they relate. What you linked is already in “Links”.} other{Once this category has values, here you'll see how they relate. What you linked is already in “Links”.}}",
+  "mapEmptyMessage": "{kind, select, spaces{Choose a topic when you save something —or let the AI place it— and here you'll see how they relate. What you linked already shows with the “Links” layer.} tags{Once you add tags, here you'll see how they relate. What you linked already shows with the “Links” layer.} other{Once this category has values, here you'll see how they relate. What you linked already shows with the “Links” layer.}}",
   "@mapEmptyMessage": {
-    "description": "Message of the Map's outline and graph with nothing to draw, depending on what is being viewed (F28).",
+    "description": "Message of the Map's canvas with no topics to draw, depending on what is being viewed (F28); what is linked shows with the “Links” layer (F44, step 5).",
     "placeholders": {
       "kind": {
         "type": "String"
@@ -4235,9 +4235,9 @@
   "@mapExportSaved": {
     "description": "Aviso de que el mapa se guardó."
   },
-  "mapExportUnavailable": "You can export from the outline and from the graph.",
+  "mapExportUnavailable": "You can export from the Map tab.",
   "@mapExportUnavailable": {
-    "description": "Tooltip del botón de exportar cuando la vista del mapa no se puede exportar, como el tablero."
+    "description": "Ayuda del botón de exportar, apagado en la pestaña Resumen: se exporta desde la pestaña Mapa (F44)."
   },
   "timelineBranchFilterTooltip": "Remove the filter",
   "@timelineBranchFilterTooltip": {

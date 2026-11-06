@@ -1131,6 +1131,11 @@ void main() {
 
       expect(button.enabled, isFalse);
       expect(button.tooltip, es.mapExportUnavailable);
+      // Dice desde dónde se exporta: la pestaña que existe (F44), no las
+      // vistas de antes.
+      expect(button.tooltip, contains(es.f44S2TabMap));
+      expect(button.tooltip, isNot(contains('esquema')));
+      expect(button.tooltip, isNot(contains('grafo')));
     });
 
     testWidgets('en radial guarda un SVG con el nombre de la disposición y la '

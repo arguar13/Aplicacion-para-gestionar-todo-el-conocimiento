@@ -3244,9 +3244,9 @@
       }
     }
   },
-  "mapEmptyMessage": "{kind, select, spaces{Elegí un tema al guardar algo —o dejá que la IA lo ubique— y acá vas a ver cómo se relacionan. Lo que vinculaste ya está en «Vínculos».} tags{Cuando pongas etiquetas, acá vas a ver cómo se relacionan. Lo que vinculaste ya está en «Vínculos».} other{Cuando esta categoría tenga valores, acá vas a ver cómo se relacionan. Lo que vinculaste ya está en «Vínculos».}}",
+  "mapEmptyMessage": "{kind, select, spaces{Elegí un tema al guardar algo —o dejá que la IA lo ubique— y acá vas a ver cómo se relacionan. Lo que vinculaste ya se ve con la capa «Vínculos».} tags{Cuando pongas etiquetas, acá vas a ver cómo se relacionan. Lo que vinculaste ya se ve con la capa «Vínculos».} other{Cuando esta categoría tenga valores, acá vas a ver cómo se relacionan. Lo que vinculaste ya se ve con la capa «Vínculos».}}",
   "@mapEmptyMessage": {
-    "description": "Mensaje del esquema y el grafo del Mapa sin nada que dibujar, según lo que se mira (F28).",
+    "description": "Mensaje del lienzo del Mapa sin temas que dibujar, según lo que se mira (F28); lo vinculado se ve con la capa «Vínculos» (F44, paso 5).",
     "placeholders": {
       "kind": {
         "type": "String"
@@ -3640,9 +3640,9 @@
   "@mapExportSaved": {
     "description": "Aviso de que el mapa se guardó."
   },
-  "mapExportUnavailable": "Se puede exportar desde el esquema y desde el grafo.",
+  "mapExportUnavailable": "Se exporta desde la pestaña Mapa.",
   "@mapExportUnavailable": {
-    "description": "Tooltip del botón de exportar cuando la vista del mapa no se puede exportar, como el tablero."
+    "description": "Ayuda del botón de exportar, apagado en la pestaña Resumen: se exporta desde la pestaña Mapa (F44)."
   },
   "timelineBranchFilterTooltip": "Quitar el filtro",
   "@timelineBranchFilterTooltip": {
