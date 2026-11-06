@@ -6,25 +6,45 @@ import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/storage/local_file_store.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/processed/data/repositories/processed_repository_impl.dart';
+import 'package:sinapsis/features/processed/data/services/processed_headings_indexer.dart';
+import 'package:sinapsis/features/processed/domain/services/headings/headings_extractor.dart';
+import 'package:sinapsis/features/processed/domain/services/headings/pdf_outline_reader.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_text.dart';
 import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
 
 import '../../support/fake_id_generator.dart';
+import '../../support/index_fakes.dart';
 import '../../support/test_vault.dart';
 
 class _SilentTelemetry extends Mock implements TelemetryService {}
 
 /// Una bóveda de prueba con su repositorio de procesados y el caso de uso
-/// (F41), sobre SQLite real.
+/// (F41), sobre SQLite real. Con un lector de títulos, el repositorio escribe
+/// también el Índice (F46), y [indexer] es quien lo escribe.
 class ProcessedHarness {
-  ProcessedHarness._(this.vault, this.files, {ProcessedWorker? worker})
-    : repository = ProcessedRepositoryImpl(
-        database: vault.db,
-        telemetry: _SilentTelemetry(),
-        files: files,
-        ids: FakeIdGenerator(prefix: 'parte-${vault.deviceId}'),
-        clock: () => vault.now,
-      ) {
+  ProcessedHarness._(
+    this.vault,
+    this.files, {
+    ProcessedWorker? worker,
+    HeadingsExtractor? headings,
+    PdfOutlineReader? outlines,
+  }) : indexer = headings == null
+           ? null
+           : ProcessedHeadingsIndexer(
+               database: vault.db,
+               extractor: headings,
+               outlines: outlines ?? FakePdfOutlineReader(),
+               files: files,
+               telemetry: _SilentTelemetry(),
+             ) {
+    repository = ProcessedRepositoryImpl(
+      database: vault.db,
+      telemetry: _SilentTelemetry(),
+      files: files,
+      headings: indexer,
+      ids: FakeIdGenerator(prefix: 'parte-${vault.deviceId}'),
+      clock: () => vault.now,
+    );
     process = ProcessSourceUseCase(
       repository,
       worker: worker ?? runProcessedWork,
@@ -32,11 +52,14 @@ class ProcessedHarness {
   }
 
   /// Con [worker], lo pesado pasa por ahí en vez de por [runProcessedWork]; con
-  /// [executor], la base es esa —una en su propio hilo, como en la app—.
+  /// [executor], la base es esa —una en su propio hilo, como en la app—. Con
+  /// [headings] —y [outlines], el lector de los PDF—, el Índice (F46).
   static Future<ProcessedHarness> create({
     String deviceId = 'tel',
     ProcessedWorker? worker,
     QueryExecutor? executor,
+    HeadingsExtractor? headings,
+    PdfOutlineReader? outlines,
   }) async {
     final vault = await TestVault.create(
       deviceId: deviceId,
@@ -48,14 +71,19 @@ class ProcessedHarness {
       // misma que usa su copia y la unión.
       LocalFileStore(rootDirectory: () async => vault.docs),
       worker: worker,
+      headings: headings,
+      outlines: outlines,
     );
   }
 
   final TestVault vault;
 
+  /// Quien escribe el Índice (F46), si se pasó su lector.
+  final ProcessedHeadingsIndexer? indexer;
+
   /// El almacén de los archivos de la bóveda.
   final LocalFileStore files;
-  final ProcessedRepositoryImpl repository;
+  late final ProcessedRepositoryImpl repository;
   late final ProcessSourceUseCase process;
 
   AppDatabase get db => vault.db;

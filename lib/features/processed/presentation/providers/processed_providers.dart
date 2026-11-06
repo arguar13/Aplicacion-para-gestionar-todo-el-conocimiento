@@ -16,13 +16,16 @@ import 'package:sinapsis/features/processed/domain/repositories/processed_reposi
 import 'package:sinapsis/features/processed/domain/usecases/drop_original_copy.dart';
 import 'package:sinapsis/features/processed/domain/usecases/extract_note_to_processed.dart';
 import 'package:sinapsis/features/processed/domain/usecases/process_source_usecase.dart';
+import 'package:sinapsis/features/processed/presentation/providers/processed_headings_providers.dart';
 
-/// Los documentos procesados (F41).
+/// Los documentos procesados (F41), con su Índice (F46): las entradas de
+/// texto se escriben con el texto.
 final processedRepositoryProvider = Provider<ProcessedRepository>(
   (ref) => ProcessedRepositoryImpl(
     database: ref.watch(appDatabaseProvider),
     telemetry: ref.watch(telemetryServiceProvider),
     files: ref.watch(fileStoreProvider),
+    headings: ref.watch(processedHeadingsIndexerProvider),
   ),
 );
 

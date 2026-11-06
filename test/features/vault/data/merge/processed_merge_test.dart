@@ -10,6 +10,7 @@ import 'package:sinapsis/features/processed/domain/entities/processed_part.dart'
 import 'package:sinapsis/features/processed/domain/entities/section_edit.dart';
 import 'package:sinapsis/features/processed/domain/services/processed_identity.dart';
 
+import '../../../../support/index_fakes.dart';
 import '../../../processed/processed_harness.dart';
 
 /// La unión de bóvedas con documentos procesados (F41): uno por fuente también
@@ -287,5 +288,94 @@ void main() {
     };
     expect(links, {'otro-procesado': 'libro', docId: null});
     expect(await partsOf(pc), await partsOf(tel));
+  });
+
+  group('el Índice (F46)', () {
+    late ProcessedHarness telIndexed;
+
+    setUp(() async {
+      telIndexed = await ProcessedHarness.create(
+        deviceId: 'tel-indice',
+        headings: FakeHeadingsExtractor(),
+      );
+      await telIndexed.vault.saveSource('libro', title: 'Roma', text: text);
+      final result = await telIndexed.process('libro', {
+        ProcessedSection.text: SectionEdit.update(),
+      });
+      expect(result.isRight(), isTrue);
+    });
+    tearDown(() => telIndexed.close());
+
+    Future<bool> indexed(ProcessedHarness h) async =>
+        (await h.db
+                .customSelect(
+                  'SELECT EXISTS (SELECT 1 FROM processed_headings '
+                  "WHERE document_id = ? AND origin <> 'image') AS indexed",
+                  variables: [Variable.withString(docId)],
+                )
+                .getSingle())
+            .read<bool>('indexed');
+
+    test('sus entradas no viajan —son derivadas—: el documento que entra '
+        'queda sin indexar, para que acá se lo rehaga', () async {
+      expect(await indexed(telIndexed), isTrue);
+
+      await pc.vault.mergeFrom(telIndexed.vault);
+
+      expect(await partsOf(pc), await partsOf(telIndexed));
+      expect(await indexed(pc), isFalse);
+    });
+
+    test('el texto que llega a uno que acá ya estaba indexado suelta sus '
+        'entradas viejas en la misma sentencia', () async {
+      final pcIndexed = await ProcessedHarness.create(
+        deviceId: 'pc-indice',
+        headings: FakeHeadingsExtractor(),
+      );
+      addTearDown(pcIndexed.close);
+      await pcIndexed.vault.saveSource('libro', title: 'Roma', text: text);
+      await pcIndexed.process('libro', {
+        ProcessedSection.notes: SectionEdit.add(
+          const SectionInput.drafts([ProcessedDraft.written('Una nota.')]),
+        ),
+      });
+      await pcIndexed.indexer!.refresh(docId);
+
+      await pcIndexed.vault.mergeFrom(telIndexed.vault);
+
+      expect(await indexed(pcIndexed), isFalse);
+      expect(await pcIndexed.indexer!.refresh(docId), isNotNull);
+      expect(await indexed(pcIndexed), isTrue);
+    });
+
+    test(
+      'el título de una imagen viaja con ella, y con él su entrada',
+      () async {
+        await telIndexed.db.customStatement(
+          'INSERT INTO renditions (id, item_id, kind, relative_path, '
+          "is_primary, created_at) VALUES ('foto', '$docId', 'image', "
+          "'originales/$docId/imagenes/foto.jpg', 0, 0)",
+        );
+        await telIndexed.vault.writeOriginal(
+          'originales/$docId/imagenes/foto.jpg',
+          'jpg',
+        );
+        await telIndexed.db.customStatement(
+          'INSERT INTO processed_images (rendition_id, document_id, position, '
+          'source_file_path, source_file_size, copied_at, title) VALUES '
+          "('foto', '$docId', 0, 'contenido/foto.jpg', 3, 0, 'El Foro')",
+        );
+
+        final result = await pc.vault.mergeFrom(telIndexed.vault);
+
+        expect(result.processedImagesAdded, 1);
+        final image = await pc.db.select(pc.db.processedImages).getSingle();
+        expect(image.title, 'El Foro');
+        final entry = await (pc.db.select(
+          pc.db.processedHeadings,
+        )..where((e) => e.imageId.equals('foto'))).getSingle();
+        expect(entry.title, 'El Foro');
+      },
+    );
   });
 }

@@ -31,6 +31,7 @@ import 'package:sinapsis/features/processed/data/repositories/processed_original
 import 'package:sinapsis/features/processed/data/repositories/processed_query_sql.dart';
 import 'package:sinapsis/features/processed/data/repositories/processed_rows.dart';
 import 'package:sinapsis/features/processed/data/repositories/source_images_reader.dart';
+import 'package:sinapsis/features/processed/data/services/processed_headings_indexer.dart';
 import 'package:sinapsis/features/processed/domain/entities/extract_note_target.dart';
 import 'package:sinapsis/features/processed/domain/entities/process_outcome.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_document.dart';
@@ -64,22 +65,32 @@ const kProcessedOriginalFolder = 'original';
 /// [KnowledgeEntryWriter], como todo elemento; sus partes y la copia de su
 /// original, este repositorio. La fuente solo se lee: su texto, sus marcas de
 /// estudio, su archivo —para copiarlo—.
+///
+/// El Índice (F46) se escribe con el texto: toda escritura que cambia la
+/// sección «Texto» o la copia del original rehace, en su misma transacción,
+/// las entradas de texto de ese documento (`headings`) —el PDF se lee antes
+/// de abrirla—. Sin `headings`, lo hace el relleno del Índice apenas puede
+/// (`ProcessedHeadingsBackfill`): la base ya soltó lo viejo en la misma
+/// sentencia (`processedHeadingStaleTriggers`).
 class ProcessedRepositoryImpl implements ProcessedRepository {
   ProcessedRepositoryImpl({
     required AppDatabase database,
     required TelemetryService telemetry,
     required FileStore files,
+    ProcessedHeadingsIndexer? headings,
     IdGenerator ids = const UuidV7Generator(),
     Clock clock = DateTime.now,
   }) : _db = database,
        _telemetry = telemetry,
        _files = files,
+       _headings = headings,
        _ids = ids,
        _clock = clock;
 
   final AppDatabase _db;
   final TelemetryService _telemetry;
   final FileStore _files;
+  final ProcessedHeadingsIndexer? _headings;
   final IdGenerator _ids;
   final Clock _clock;
 
@@ -968,6 +979,17 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
     'commit',
     () async {
       final documentId = processedDocumentIdFor(commit.sourceItemId);
+      await _headings?.prepare(
+        documentId,
+        sourceItemId: commit.sourceItemId,
+        incomingCopy: switch (commit.original) {
+          PutOriginal(:final staged) => (
+            path: staged.relativePath,
+            size: staged.sizeBytes,
+          ),
+          _ => null,
+        },
+      );
       try {
         return right(await _db.transaction(() => _commit(documentId, commit)));
       } on _Stale catch (stale) {
@@ -1068,6 +1090,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
       if (textChanges) await _resetStudy(documentId);
       await _writer.markContentChanged(documentId);
     }
+    await _headings?.refresh(documentId);
 
     return ProcessUndo(
       documentId: documentId,
@@ -1398,6 +1421,21 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
               ),
             );
     }
+    // La copia del original que deshacer devuelve, si devuelve una: su PDF se
+    // lee antes de la transacción, como el de siempre.
+    final returning = switch (undo.original?.trashedId) {
+      final trashedId? => await (_db.select(
+        _db.trashedContents,
+      )..where((t) => t.id.equals(trashedId))).getSingleOrNull(),
+      null => null,
+    };
+    await _headings?.prepare(
+      id,
+      incomingCopy: switch (returning?.relativePath) {
+        final path? => (path: path, size: returning!.sizeBytes),
+        null => null,
+      },
+    );
     final filesToDelete = <String>[];
     // Las copias de las imágenes que entraron con el procesado (decisión L):
     // se borran del disco después de la base, si ya nada las usa.
@@ -1453,6 +1491,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
         await _writer.trash([id]);
       }
       await _writer.markContentChanged(id);
+      await _headings?.refresh(id);
     });
     for (final path in filesToDelete) {
       await discardStagedOriginal(
@@ -1568,6 +1607,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
     final before = await _part(partId);
     if (before == null) return left(_missingPart);
     if (before.content == content) return right(before);
+    await _headings?.prepare(before.documentId);
     await _db.transaction(() async {
       await (_db.update(
         _db.processedParts,
@@ -1598,6 +1638,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
         );
       }
       await _writer.markContentChanged(before.documentId);
+      await _headings?.refresh(before.documentId);
     });
     return right(before);
   });
@@ -1670,6 +1711,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
       _guard('removePart', () async {
         final before = await _part(partId);
         if (before == null) return left(_missingPart);
+        await _headings?.prepare(before.documentId);
         await _db.transaction(() async {
           await (_db.delete(
             _db.processedParts,
@@ -1679,6 +1721,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
             await _pageResized(before, null);
           }
           await _writer.markContentChanged(before.documentId);
+          await _headings?.refresh(before.documentId);
         });
         return right(before);
       });
@@ -1693,6 +1736,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
             ),
           );
         }
+        await _headings?.prepare(part.documentId);
         await _db.transaction(() async {
           final current = await _part(part.id);
           if (current != null) {
@@ -1726,6 +1770,7 @@ class ProcessedRepositoryImpl implements ProcessedRepository {
             await _insertParts([part]);
           }
           await _writer.markContentChanged(part.documentId);
+          await _headings?.refresh(part.documentId);
         });
         return right(unit);
       });

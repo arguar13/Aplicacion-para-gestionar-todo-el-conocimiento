@@ -31,6 +31,7 @@ import 'package:sinapsis/features/narration/presentation/providers/narration_pro
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
 import 'package:sinapsis/features/organize/presentation/providers/last_spaces.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/processed/presentation/providers/pdf_outline_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
@@ -58,6 +59,7 @@ import 'fake_summarization_service.dart';
 import 'fake_text_to_speech_service.dart';
 import 'fake_whisper_model_manager.dart';
 import 'in_memory_file_store.dart';
+import 'index_fakes.dart';
 import 'map_overrides.dart';
 import 'vault_test_doubles.dart';
 
@@ -325,6 +327,10 @@ class LibraryHarness {
         // El mapa calcula en un isolate, que no termina bajo el reloj
         // simulado: ver `mapInlineOverrides`.
         ...mapInlineOverrides,
+        // Los marcadores de un PDF (F46): PDFium habla con un plugin que en
+        // un test no existe, y guardar el texto de un PDF los lee antes de la
+        // transacción. Un doble que no abre ningún archivo.
+        pdfOutlineReaderProvider.overrideWithValue(FakePdfOutlineReader()),
         // La bóveda, para las pruebas que montan el router real: su guard
         // decide qué pantalla se ve.
         vaultLocalDataSourceProvider.overrideWithValue(
