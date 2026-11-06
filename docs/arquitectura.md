@@ -7291,6 +7291,185 @@ inteligente y lo mejor posible"*. Plan, con sus decisiones A a G y el «Avance»
   - La burbuja dibuja los 200 documentos sin tema más nuevos: buscar uno más viejo vuela a ella, pero
     no lo encuentra dibujado.
 
+### 91. F45: el pulido del 30/10 —un solo aviso, triar con la IA comprobada palabra por palabra, la Biblioteca solo con el original, el idioma de un video de raíz, un solo original y un solo «Crear», y las notas en cualquier texto—
+
+**Pedido** (2026-10-30), en cuatro tandas del mismo día, con capturas: *"Ahora vamos con una serie
+de mejoras"* —las once primeras—; después las mejoras 12 a 16 (*"También quería agregar una
+mejora…"*) y 17 a 19, con las notas en el texto *"como en Adobe Reader o en Word"*. La cuarta tanda
+(20 y 21) se mudó a F47. Plan, con sus decisiones A a I y el «Avance» de cada paso:
+`docs/planes/F45-pulido-del-30-10.md`. Las mejoras 12 y 13 —el lector único y su desplazamiento— se
+hicieron en F47, paso 1 (decisión A de F47), para no construir dos veces el lector: ver la
+decisión 93.
+
+- **Un solo aviso para toda la app, y una sola puerta** (paso 1, decisiones A y C). `AppSnackBar`
+  (`lib/core/design/widgets/app_snack_bar.dart`) lleva el texto a la izquierda en hasta tres
+  renglones, uno o dos botones a la derecha —`action`, pegado a la ✕, y `secondaryAction` a su
+  izquierda— y **la ✕ en todos**, también en «Copiado»: cambia la regla de F43 M1, que la ponía solo
+  en los largos. Si no entra en un renglón se arma como una tarjeta, con los botones juntos abajo a
+  la derecha: nunca el hueco del medio del `SnackBar` de Material. Mientras se va, no recibe
+  toques. Al cerrar el paso eran 186 avisos en 105 archivos, todos pasados, y los tres que metían
+  «Ver» dentro del texto usan ahora los dos botones. La única puerta es `showAppSnackBar`, que acepta solo un `AppSnackBar`, y el censo
+  (`test/core/design/snack_bar_census_test.dart`) exige que fuera del aviso común no haya
+  `showSnackBar(`, `SnackBar(`, `SnackBar.new` ni otra clase que herede de `SnackBar`, y que el
+  recorrido encuentre más de 150.
+- **Lo que flota y lo que está anclado, en un solo acuerdo con los avisos**
+  (`snack_bar_footprint.dart`). Cada aviso publica lo que ocupa (`SnackBarFootprint`) en
+  `SnackBarFootprintHost`, en el `builder` de la app, por encima del `Navigator`:
+  - **lo que flota se corre** (`LiftAboveSnackBar`, decisión C): el botón redondo del lector se
+    para arriba del aviso, con su misma animación, en lugar de esconderse;
+  - **lo anclado sube a los avisos** (`SnackBarFloor`): el reproductor de F47 los pone siempre
+    encima suyo, con el margen de un `SnackBarTheme` propio y la cifra `current` de lo que ocupa.
+    Cambiar el `Theme` entero a mitad de un arrastre, con la Lectura enfocada, volvía a armar la
+    lista que se arrastraba; un `SnackBarTheme` reconstruye solo los avisos. `ReadAloudOverlay`
+    resta la barra y el borde seguro, que el `Scaffold` ya esquiva, para no sumarlos dos veces;
+  - la sonda del borde (`TopEdgeProbe`) mide también al acomodarse: un aviso llega transparente y
+    ya ocupa su lugar antes de dibujarse.
+- **Triar con la IA de turno, comprobada palabra por palabra** (paso 2, decisión B, elegida por el
+  dueño). Al elegir «Texto extraído», la IA lo **ordena** —une columnas, saca encabezados y pies
+  repetidos, arregla los cortes, marca los títulos— sobre la extracción de siempre:
+  - `checkTidiedText` (`processed/domain/services/tidy_check.dart`), pura, no deja pasar lo que
+    inventa, resume, recorta, traduce o cambia el orden; sí unir renglones, juntar palabras cortadas
+    con guion y sacar lo que `TidyMargins` reconoce como margen (lo que se repite al menos tres
+    veces y tiene hasta doce palabras, mirado en todo el documento, no en el pedazo);
+  - `ProcessedTidyQueue` (`AiTaskKind.tidy`, Gemma o una cuenta en la nube) va de a una página y en
+    pedazos que entran en la ventana del modelo; cada pedazo se comprueba solo, y el que no pasa
+    queda como se extrajo. Se retoma desde la página en que iba (`PrefsProcessedTidyStore`), con el
+    servicio en primer plano (`LongWorkOwner.tidying`);
+  - nunca toca una página que editó la persona, y lo ordenado queda como página editada, así que
+    «Actualizar» no lo pisa. La fuente de la Biblioteca no cambia.
+
+  La hoja «¿Qué va a Procesado?» va en el orden nuevo (el original, las imágenes plegadas sin
+  soltar lo elegido, el texto) y la tarjeta de triar deja la decisión abajo, a lo ancho.
+- **El texto de un video en otro idioma, de raíz** (paso 4). Había tres caminos, y se cerró cada
+  uno donde estaba:
+  - la pista «de siempre» de un video doblado con IA: YouTube marca `audioIsDefault` la del idioma de
+    quien la pide; ahora se busca la original (`xtags=acont=original` en su dirección, como mira
+    yt-dlp, u «original» en su nombre);
+  - el idioma guardado de la pista bajada se pedía después como si lo hubiera elegido la persona y
+    fijaba a Whisper: `expectedVideoLanguage` deja mandar solo a los idiomas que la app ofrece
+    elegir, y uno guardado por la app vale si su escritura coincide con la del título;
+  - la copia de Procesado, que volver a extraer no tocaba.
+
+  Y una red, pase lo que pase (`checkVideoText`, `video_text_language.dart`): si menos del 35 % de
+  las letras está en la escritura del idioma que se habla —o, entre dos idiomas latinos, el
+  reconocido es otro—, los subtítulos no se guardan, se transcribe el audio con el idioma fijado y el
+  aviso lo dice (`VideoTextNoticeListener`). Un texto corto o mezclado no se rechaza. **El texto de
+  un video nunca sale de una IA que lo escriba.**
+- **Un solo «Volver a extraer», que llega a ese documento** (`ProcessedTextRefresh`, que sobrevive
+  a que se cierre la app): lo editado a mano se queda; lo que la IA solo ordenó se renueva y se
+  vuelve a ordenar —al pedir, se anota con su huella qué páginas tienen exactamente las palabras de
+  la fuente—; soltar el texto de un libro no llega: de la Biblioteca a Procesado nada se borra.
+- **La Biblioteca, solo con el original** (pasos 3 y 7b, decisión E). Del detalle de una fuente salen
+  «Leer · Copiar · Más» y «Estudiar el documento»; el texto sigue guardado y lo usan la búsqueda, el
+  chat, los vínculos y las citas. Lo que había en «Más» pasa a «El texto de la fuente», en Procesado;
+  «Ampliar» va en el centro de la foto, con la misma píldora de «Leer como libro» (el mismo
+  componente); «Descargar con lo marcado» va al «Más» del documento procesado, sobre su copia, y solo
+  mientras la copia tenga el texto de la fuente. La transcripción que sigue al audio
+  (`TranscriptFollowScreen`) se quedó en la Biblioteca: necesita el audio de la fuente y los tiempos
+  de cada palabra.
+- **La página web de Procesado, como en el teléfono** (decisión D): el ancho del teléfono —412,
+  centrada, en una pantalla ancha—, sin el menú ni las columnas de escritorio; lo de Wikipedia que
+  no es el artículo se oculta pero sigue en la página, así que lo marcado cae en su lugar. La
+  Biblioteca la sigue mostrando como era.
+- **Un solo original para Procesado y la Biblioteca** (paso 7b, decisión H). `OriginalStudy` es
+  sellado —la copia de un documento procesado o el original de una fuente— y las fichas, sus hojas y
+  su menú trabajan sobre los dos, cada uno por su clave: nada de uno pinta al otro. `OriginalView` es
+  el original entero de los dos lados. Una fuente abre como la dejó la persona
+  (`sourceOriginalHiddenProvider`), y en la Biblioteca no está «Borrar las marcas». Salieron
+  `StudyBar`, `StudyToggles`, `PdfViewerScreen` y `WebPageViewerScreen`. Las marcas van adentro del
+  original (mejora 15) y afuera queda un renglón que las nombra (`OriginalMarksLine`).
+- **«Crear», un solo lugar** (paso 7b, decisión G; `lib/features/create_hub/`). El ✨ del documento
+  procesado y de una nota abre una hoja con **Con IA** y **A mano**. Lo de la pantalla corre en
+  `createRunsProvider`: cuenta las partes, y «Cancelar» corta entre una y otra y descarta lo que
+  llegue después —**nada se guarda a medias**—. Organizar y buscar fechas los hace la cola de fondo,
+  que ahora publica qué organiza (`AiOrganizeWorking.itemId`). Salieron `GenerateDerivedNoteButton` y
+  `GenerateQuizButton`.
+- **«N sin tema» y la tarjeta «Bandeja»** (paso 7c). La cuenta pasa a ser una píldora del panel de
+  estado y una tarea de Organizar (`unsorted_task.dart`), que no se muestra en cero ni mientras
+  cuenta, para no aparecer e irse. La tarjeta de una fuente (`inbox_standing_line.dart`) pone «Volver
+  a triar» y «Volver a la Bandeja» al lado solo si cada nombre entra en su mitad en hasta dos
+  renglones sin partir una palabra, medido con la letra del botón y la escala de la persona. Triar
+  se ofrece una sola vez, ahí, y espera apagado con el motivo de la Bandeja
+  (`PendingText.neededReason`) en el mismo nodo de semántica que el botón.
+- **Las notas en el texto, en una tabla propia** (pasos 8a, 8b y 8c, decisión I; esquemas **v49 y
+  v50**). `text_notes` guarda de qué texto es cada nota (`target`: `source_original`,
+  `processed_original`, `processed_text` o `creation`, cada clase con su dueño y la base lo hace
+  cumplir), su lugar (`start_offset`, `end_offset`; los dos `null` es «Sin lugar»), el pedazo citado,
+  la nota —nunca en blanco— y su color:
+  - la forma de texto va **sin clave foránea**: soltar el texto deja la nota sin lugar, no la borra;
+  - su índice, `text_note_search`, lleva también las notas de los resaltados de F38, que **no se
+    migran**: se leen, se ven y se buscan igual;
+  - viaja en la copia y en la unión (queda lo editado más tarde) y está en los censos de columnas, de
+    lecturas y de la unión;
+  - la v50 deja el pedazo vacío solo sin lugar, para la nota sobre el texto entero. SQLite cambia una
+    restricción solo rehaciendo la tabla: se rehízo con los conteos de todo como compuerta, cada
+    `row_key` igual y el índice de texto rehecho;
+  - al volver a extraer, `TextAnchorRelocator` lleva cada nota a su pedazo; lo que cambia sin volver
+    a extraer lo ubica `placeTextNotes` al mostrarlas.
+
+  Se ven igual en todos lados: el pedazo con un punteado (`NoteMark`), el globito en el margen que la
+  columna de lectura ya tenía (`TextNoteMargin`: el texto no se corre una letra) y «Notas (N)» en ⋮
+  del marco (`ReadingNotesOffer`). En el PDF, el globito es un widget de `pageOverlaysBuilder` de
+  `pdfrx` y no un dibujo: así tiene semántica y un toque propio (`PdfOverlayInteractionRegion`) que
+  no le quita al visor el arrastre, el zoom ni la selección. En la página web, un `span` punteado y
+  un margen de 30 px que se abre con la primera nota (la correspondencia con el texto es por letras,
+  no por lugar: nada se desubica). Un informe tiene su texto canónico (`ReportText`), sin esquema
+  nuevo. Las descargas marcadas llevan las notas como notas del PDF o notas al pie, y las del texto
+  entero al comienzo.
+- **El diseño, más versátil y sin migrar nada** (paso 5). La Presentación pasa a 28 plantillas y 20
+  diseños de diapositiva; la Infografía, a 30 estilos, 16 composiciones y cuatro gráficos más; las
+  dos con «Personalizar» (el fondo y diez pares de letras, armados con las familias que la app ya
+  trae). Siete nombres del plan ya existían desde F43 y no se duplicaron. Lo guardado se abre igual:
+  solo se suman claves optativas (`background`, `min`, `min_label`, `max_label`), y un mazo, un diseño
+  y un gráfico de F43 se leen idénticos, con su prueba. La lectura tolerante pasa lo que llega mal
+  formado a lo de F43 que corresponde.
+- **Invariantes que no se tocan:**
+  - de la Biblioteca nada se borra: sale lo que se **muestra**, no los datos (decisión E); nada de
+    Procesado la pinta, y nada de ella se suelta desde Procesado;
+  - un texto ordenado por la IA pasa la comprobación o queda como se extrajo; el de un video, nunca
+    lo escribe una IA;
+  - no hay avisos fuera de `showAppSnackBar`;
+  - cada nota es de su dueño: nada de la Biblioteca aparece en Procesado, ni al revés.
+- **Trampas que costaron:**
+  - con una sola cifra para lo que ocupa el reproductor, el tema de toda la app cambiaba a mitad de
+    un desplazamiento y Flutter tiraba un error de semántica: de ahí `current` y `resting`, y el
+    `SnackBarTheme` propio;
+  - en las cajas angostas de la infografía, la letra monoespaciada se cortaba con «…» porque cada
+    letra ocupa lo de la más ancha: ahora se achica lo justo, el texto al 86 % y los títulos al 90 %
+    (`d8f93302`);
+  - en una fuente triada sin documento procesado, «Volver a triar» salía dos veces:
+    `SourceStudyLine` ofrecía triar sin documento;
+  - el globito del informe, de ancho cero, seguía «a la derecha» del texto y la prueba pasaba: ahora
+    pide que mida lo de un globito y no pise la tarjeta;
+  - varios commits intermedios de los rebases dan 20 a 23 avisos o no compilan, corregidos por los
+    siguientes (cada Avance dice cuáles); ya estaban subidos y no se reescribió la historia.
+- **Se descartó:**
+  - Que la IA lea el archivo desde cero al triar: cuesta mucho más con un libro, no anda con Gemma en
+    el teléfono y es justo lo que puede inventar o traducir.
+  - Rehacer la tarjeta desplegable del texto con el aspecto del lector: serían dos lectores que
+    mantener iguales a mano (decisión F).
+  - Dejar los botones de crear donde estaban y solo alinearlos: seguirían siendo cuatro lugares.
+  - Guardar las notas como resaltados con un estilo «nota»: los resaltados solo existen sobre los
+    originales, no sobre el resumen ni la síntesis.
+  - Esconder el lector flotante mientras hay un aviso.
+  - Borrar el texto extraído que ya está guardado, y traducir cualquier texto extraído.
+- **Lo que no quedó probado:**
+  - Nada se miró en el emulador ni en el teléfono: el globito sobre el PDF real y la `WebView` real
+    no corren en las pruebas.
+  - El video del árabe, en el teléfono: `source.language`, `word_timings`, la fecha contra el 30/09 y
+    sus pistas con `audioIsDefault` y `xtags`.
+  - Un idioma latino equivocado guardado como elegible («en» en un video en español) se toma como
+    elección; se corrige con el diálogo de volver a extraer.
+  - La barra de la Bandeja desborda en 400 dp con la letra al doble, y no hay deshacer para lo que
+    ordenó la IA.
+  - Organizar y buscar fechas no tienen «Cancelar», y el cuestionario cancelado deja terminar al
+    modelo.
+  - El ciclo y la escala de la Infografía, solo con dobles; las notas sobre la imagen de una foto
+    (el OCR no guarda dónde está cada letra); el PDF girado y la página con columnas de escritorio.
+  - Con un aviso fijo a la vista y la semántica prendida, achicar el reproductor hace que Flutter
+    tire `'!child.attached'`. Pasa igual con un `SnackBar` de Material puro; la app no tiene avisos
+    fijos.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -7821,6 +8000,20 @@ inteligente y lo mejor posible"*. Plan, con sus decisiones A a G y el «Avance»
     proponen y no vinculan) y Estudio, y ⚲ Buscar, que vuela hasta el nodo;
   - el Resumen: cuatro cifras con su cambio de 30 días y nueve tarjetas que llevan al Mapa;
   - cada comunidad nombrada por sus dos temas, y los puentes entre temas.
+- **F45, el pulido del 30/10** (decisión 91, esquemas v49 y v50):
+  - un solo aviso en toda la app, con uno o dos botones y siempre su ✕, y el lector que se corre;
+  - triar con «¿Qué va a Procesado?» en el orden nuevo y el texto extraído ordenado por la IA,
+    comprobado palabra por palabra;
+  - la Biblioteca solo con el original, «Ampliar» en el centro y «El texto de la fuente» en
+    Procesado;
+  - el texto de un video en su idioma, con la red que no guarda otro y «Volver a extraer» lo ya
+    guardado;
+  - la página web de Procesado como en el teléfono y las tres fichas en una fila;
+  - un solo original para Procesado y la Biblioteca, con las marcas adentro, y un solo «Crear»;
+  - «N sin tema» en el panel de estado y la tarjeta «Bandeja» de cada fuente;
+  - las notas en cualquier texto —el original, el texto, el resumen, la síntesis y lo creado, sobre
+    la página de un PDF y dentro de una página web—, con «Notas (N)» y en las descargas;
+  - más plantillas, diseños, estilos, composiciones y gráficos, con «Personalizar».
 
 ### Por construir
 
