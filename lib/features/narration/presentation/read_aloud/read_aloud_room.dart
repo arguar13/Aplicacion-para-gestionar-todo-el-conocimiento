@@ -28,6 +28,10 @@ import 'package:flutter/widgets.dart';
 /// - **Con el teclado abierto** manda el más alto de los dos, no la suma: el
 ///   reproductor se hace a un lado y el teclado lo tapa; al cerrarse, el
 ///   contenido baja hasta donde vuelve el reproductor, sin saltar.
+/// - **Con un diálogo, un panel o un menú abierto** el reproductor se hace a
+///   un lado, y su lugar se va con él en el acto, al pie y encima de la barra
+///   (F46, paso 5i): lo que se abre en el navegador de una pestaña vive
+///   adentro del cuerpo que el lugar achica.
 /// - **Sin reproductor**, nada cambia: `MediaQuery` es el de siempre.
 ///
 /// El alto ([height]) es el de la forma que se eligió —abierto o achicado—:

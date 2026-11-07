@@ -181,26 +181,27 @@ class _ReadAloudOverlayState extends ConsumerState<ReadAloudOverlay> {
           // Las pantallas le dejan su lugar al reproductor (F46, paso 5g),
           // con su mismo andar: cambia de alto con `AnimatedSize`
           // (`ReadAloudAnchoredPlayer`). La de las pestañas lo toma de
-          // `ReadAloudRoom` —encima de su barra—, aunque haya algo abierto
-          // encima: ahí no lo ve nadie más. Las demás, del `MediaQuery` de
-          // arriba del `Navigator`, que también ven los diálogos y los
-          // paneles: con uno abierto el reproductor se hace a un lado, y su
-          // lugar se va con él en el acto —un panel no tiene por qué
-          // empezar más alto—.
+          // `ReadAloudRoom` —encima de su barra—; las demás, del `MediaQuery`
+          // de arriba del `Navigator`.
+          //
+          // **Uno solo, que sigue al reproductor que se ve** (F46, paso 5i):
+          // con un diálogo, un panel o un menú abierto el reproductor se hace
+          // a un lado, y su lugar se va con él en el acto, en los dos niveles.
+          // Antes el de las pestañas se quedaba —«ahí no lo ve nadie más»—,
+          // pero un panel abierto desde una pestaña sí lo veía: se abre en el
+          // navegador de la rama, adentro del cuerpo que el lugar achicaba, y
+          // en el emulador la hoja «Aspecto de lectura» de Ajustes terminaba
+          // a la altura del reproductor que ya no estaba, con una franja sin
+          // sombrear entre ella y la barra.
           _AnimatedRoom(
-            room: _room,
-            still: still,
-            builder: (context, room, child) => _AnimatedRoom(
-              room: _popupOnTop ? 0 : _room,
-              still: still || _popupOnTop,
-              child: child!,
-              builder: (context, ownRoom, child) => ReadAloudRoom(
-                height: room,
-                outer: media,
-                child: MediaQuery(
-                  data: mediaWithRoomAtBottom(media, ownRoom),
-                  child: child!,
-                ),
+            room: _popupOnTop ? 0 : _room,
+            still: still || _popupOnTop,
+            builder: (context, room, child) => ReadAloudRoom(
+              height: room,
+              outer: media,
+              child: MediaQuery(
+                data: mediaWithRoomAtBottom(media, room),
+                child: child!,
               ),
             ),
             child: NotificationListener<UserScrollNotification>(

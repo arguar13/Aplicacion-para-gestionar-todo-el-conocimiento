@@ -57,8 +57,12 @@ bool popupRouteHasFocus() {
 /// hasta el borde de arriba del reproductor, y la barra queda donde está,
 /// debajo de él. El lugar lo toma de `ReadAloudRoom`, no del `MediaQuery` de
 /// arriba —el de una pantalla sin barra, con el reproductor al pie—: así no
-/// cambia mientras hay un diálogo o un panel abierto encima, que no lo ven,
-/// ni mientras se abre o se cierra otra pantalla encima de las pestañas.
+/// cambia mientras se abre o se cierra otra pantalla encima de las pestañas.
+/// Sigue al reproductor que se ve (F46, paso 5i): con un diálogo, un panel o
+/// un menú abierto el reproductor se hace a un lado y el lugar se va con él,
+/// se abra donde se abra —en el navegador de la raíz o en el de una pestaña,
+/// adentro de este cuerpo, que si no terminaba a la altura de un reproductor
+/// que ya no estaba—.
 ///
 /// Se ve mientras su ruta es la de arriba, o mientras lo de arriba es un
 /// diálogo, un panel de abajo o un menú, que la dejan ver. La tapa cualquier
