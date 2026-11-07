@@ -4,11 +4,38 @@ import 'package:reader_mode/reader_mode.dart' as reader;
 import 'package:sinapsis/features/transform/data/clients/page_urls.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 
-/// Lo que una página marca como control suyo y no como parte del artículo:
-/// el `[editar]` de cada título de una wiki (MediaWiki, la de Wikipedia).
-/// Es la misma marca que descarta la vista de la página archivada
-/// (`archived_page_mobile.dart`).
-const _pageControls = '.mw-editsection';
+/// Lo que una wiki (MediaWiki, la de Wikipedia) marca como control suyo y no
+/// como parte del artículo: el `[editar]` de cada título. Es la misma marca
+/// que descarta la vista de la página archivada (`archived_page_mobile.dart`).
+///
+/// Y lo que marca como de la página en pantalla y no del artículo (F46, paso
+/// 5h), con las clases que MediaWiki reserva para eso:
+/// - `.noprint`, la marca estándar de lo que es solo de pantalla y no se
+///   imprime: el lápiz «Ver y modificar los datos en Wikidata» de cada dato de
+///   la ficha y su «[editar datos en Wikidata]» al pie, el cuadro «Escucha
+///   este artículo», los avisos de mantenimiento («necesita más
+///   referencias»), y los «Para otros usos de este término…» y «Artículo
+///   principal: …» que llevan a otra página;
+/// - `.navbox`, las cajas de navegación del pie, como «Control de
+///   autoridades»;
+/// - `.metadata`, `.mbox-small` y `.sistersitebox`, los avisos y las cajas
+///   que llevan a los proyectos hermanos;
+/// - `.mw-jump-link`, el «Ir al contenido»;
+/// - `.printfooter`, el «Obtenido de «…»», que es lo contrario —solo de la
+///   hoja impresa— y tampoco es el artículo;
+/// - `.mw-empty-elt`, lo que la plantilla dejó vacío.
+///
+/// Las llamadas a notas (`.reference`, el «[1]») no están acá: son del
+/// artículo, y el lector las vuelve «[n. 1]».
+const _pageControls =
+    '.mw-editsection, .noprint, .navbox, .metadata, .mbox-small, '
+    '.sistersitebox, .mw-jump-link, .printfooter, .mw-empty-elt';
+
+/// Dónde lo marcado como de la pantalla es del artículo: una cita. La
+/// plantilla de una cita de arXiv marca como `.noprint` el número con que se
+/// encuentra el trabajo («arXiv:1403.2371 [math-ph]», en Agujero negro), y
+/// sin él la cita no lleva a ningún lado.
+const _citations = 'cite, .citation, .references';
 
 /// [ArticleExtractor] sobre `reader_mode`, un port en Dart del algoritmo
 /// Readability de Mozilla — el mismo que usa el modo lectura de Firefox.
@@ -88,8 +115,15 @@ class ReaderModeArticleExtractor implements ArticleExtractor {
     // todos los capítulos de un artículo de Wikipedia (Fotosíntesis: los 30;
     // Imperio romano: 50 de 57): solo quedaban los títulos largos, que
     // diluían el enlace, con su «[editar]» debajo.
+    //
+    // **Ni lo que es solo de la pantalla (F46, paso 5h).** En la ficha de
+    // Platón, cada dato llegaba con su lápiz: «Ἀριστοκλῆς Ver y modificar los
+    // datos en Wikidata». Readability deja lo que está adentro del artículo,
+    // y la ficha lo está; la página lo marca como de la pantalla, y por esa
+    // marca se va. Lo de una cita se queda (`_citations`).
+    final citations = document.querySelectorAll(_citations).toSet();
     for (final control in document.querySelectorAll(_pageControls)) {
-      control.remove();
+      if (!_isInside(control, citations)) control.remove();
     }
     unweightTitleAnchors(document);
     absolutizePageUrls(document, documentBaseUri(document, baseUri));
@@ -113,6 +147,14 @@ class ReaderModeArticleExtractor implements ArticleExtractor {
       siteName: article.siteName?.trim(),
     );
   }
+}
+
+/// Si [element] está adentro de alguno de [containers].
+bool _isInside(dom.Element element, Set<dom.Element> containers) {
+  for (var parent = element.parent; parent != null; parent = parent.parent) {
+    if (containers.contains(parent)) return true;
+  }
+  return false;
 }
 
 /// Saca de cada título de [document] —y de lo que lleva adentro— el `id` que

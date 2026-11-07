@@ -188,6 +188,210 @@ void main() {
     });
   });
 
+  group('lo que la página marca como de la pantalla no es su texto (F46, '
+      'paso 5h)', () {
+    // Visto en el emulador: en la ficha de Platón, cada dato llegaba con el
+    // texto de su lápiz —«Ἀριστοκλῆς Ver y modificar los datos en
+    // Wikidata»—, y al pie de la ficha, al lado del texto, el cuadro
+    // «Escucha este artículo». MediaWiki los marca como de la pantalla
+    // (`.noprint`). El recorte es de la página real: el aviso de arriba, la
+    // ficha entera, el cuadro del audio, la introducción, el capítulo «Obra»
+    // con su «Artículo principal», la caja «Control de autoridades» y el
+    // «Obtenido de» del pie.
+    final page = File(
+      'test/fixtures/web/wikipedia_platon_recorte.html',
+    ).readAsStringSync();
+    final wiki = Uri.parse('https://es.wikipedia.org/wiki/Plat%C3%B3n');
+
+    test('el lápiz de Wikidata se va de cada dato de la ficha, y el dato '
+        'queda solo', () {
+      final article = extractor.extract(page, baseUri: wiki)!;
+      final lines = htmlToMarkdown(article.contentHtml).split('\n');
+
+      expect(article.textContent, isNot(contains('Wikidata')));
+      expect(article.contentHtml, isNot(contains('wikidata.org')));
+      expect(article.contentHtml, isNot(contains('Blue_pencil')));
+      expect(lines, containsAllInOrder(['Ἀριστοκλῆς', 'Πλάτων']));
+      expect(
+        lines,
+        contains('[Lucha griega](https://es.wikipedia.org/wiki/Lucha_griega)'),
+      );
+    });
+
+    test('ni el cuadro del audio, ni los avisos que llevan a otra página, '
+        'ni las cajas del pie', () {
+      final text = extractor.extract(page, baseUri: wiki)!.textContent;
+
+      for (final screenOnly in [
+        'Escucha este artículo',
+        'Esta narración de audio',
+        'Para otros usos de este término',
+        'Artículo principal',
+        'Control de autoridades',
+        'Obtenido de',
+      ]) {
+        expect(text, isNot(contains(screenOnly)), reason: screenOnly);
+      }
+    });
+
+    test('la ficha, el texto y sus llamadas a notas quedan', () {
+      final article = extractor.extract(page, baseUri: wiki)!;
+      final markdown = htmlToMarkdown(article.contentHtml);
+
+      for (final kept in [
+        'Nombre de nacimiento',
+        'Información personal',
+        'Muerte natural',
+        'Platón murió a los 80 años de edad',
+        'Todas las obras de Platón',
+      ]) {
+        expect(article.textContent, contains(kept), reason: kept);
+      }
+      expect(markdown, contains('## Obra'));
+      // La llamada a la nota (`.reference`) es del artículo: el lector la
+      // vuelve «[n. 1]».
+      expect(markdown, contains('**Platón**<sup>[[n. 1]](#cite_note-1)</sup>'));
+    });
+
+    /// Un artículo corto con [markup] después de su único párrafo: por
+    /// debajo de 500 caracteres Readability no limpia nada, así que lo que se
+    /// va, se va por su marca.
+    String shortWith(String markup) =>
+        '''
+<html><body><main><div class="mw-parser-output">
+<p>La alegoría de la caverna está en la República.</p>
+$markup
+</div></main></body></html>''';
+
+    // Lo que MediaWiki reserva para la pantalla, cada cosa por su lado.
+    for (final (name, markup) in [
+      (
+        'la caja de navegación',
+        '''
+<div role="navigation" class="navbox"><table><tbody><tr>
+<th>Control de autoridades</th><td>Proyectos Wikimedia</td>
+</tr></tbody></table></div>''',
+      ),
+      (
+        'el aviso de la plantilla',
+        '''
+<table class="metadata plainlinks"><tbody><tr>
+<td>Este artículo es un esbozo</td>
+</tr></tbody></table>''',
+      ),
+      (
+        'el aviso chico',
+        '''
+<table class="mbox-small"><tbody><tr>
+<td>Wikiquote tiene frases</td>
+</tr></tbody></table>''',
+      ),
+      (
+        'la caja de los proyectos hermanos',
+        '''
+<div class="sistersitebox"><b>Wikimedia Commons</b> alberga contenido multimedia</div>''',
+      ),
+      (
+        'el salto a la navegación',
+        '<a class="mw-jump-link" href="#bodyContent">Ir al contenido</a>',
+      ),
+      (
+        'el pie de la hoja impresa',
+        '''
+<div class="printfooter">Obtenido de «https://es.wikipedia.org/w/index.php?oldid=1»</div>''',
+      ),
+      (
+        'lo de solo pantalla',
+        '<div class="noprint">Escucha este artículo</div>',
+      ),
+    ]) {
+      test('$name se va', () {
+        final article = extractor.extract(shortWith(markup), baseUri: wiki)!;
+
+        expect(
+          article.textContent,
+          'La alegoría de la caverna está en la República.',
+        );
+      });
+    }
+
+    test('lo que la plantilla deja vacío no deja un renglón vacío', () {
+      // En la ficha de Sócrates, dos `<li class="mw-empty-elt">` salían
+      // como dos viñetas sin nada.
+      const list = '''
+<ul><li>Platón</li><li class="mw-empty-elt"></li><li>Jenofonte</li></ul>''';
+      final markdown = htmlToMarkdown(
+        extractor.extract(shortWith(list), baseUri: wiki)!.contentHtml,
+      );
+
+      expect(markdown.split('\n'), isNot(contains(matches(r'^\s*-\s*$'))));
+      expect(markdown, contains('- Platón\n- Jenofonte'));
+    });
+
+    group('en una cita, lo marcado como de la pantalla queda: es el dato '
+        'con que se encuentra la fuente', () {
+      // La plantilla «cite arxiv» marca como `.noprint` el número del
+      // trabajo; sin él, la cita no lleva a ningún lado. Es la nota 23 de
+      // Agujero negro, tal cual, sin los atributos internos de MediaWiki.
+      const arxiv = '''
+<span class="citation cita-Journal" id="CITAREFMol">Mol, Igor (10 de marzo de 2014). «Revisiting the Schwarzschild and the Hilbert-Droste Solutions of Einstein Equation and the Maximal Extension of the Latter». <i></i><span class="noprint"><a href="https://es.wikipedia.org/wiki/ArXiv" title="ArXiv">arXiv</a>:<a href="http://arxiv.org/abs/1403.2371" class="external text">1403.2371</a></span>
+<span class="noprint">&nbsp;[<a href="http://arxiv.org/archive/math-ph" class="external text">math-ph</a>]</span><i></i>.</span>''';
+      String pageWith(String references) =>
+          '''
+<html><body><main><div class="mw-parser-output">
+<p>La métrica de Schwarzschild describe el campo de una masa esférica que no gira.<sup class="reference" id="cite_ref-23"><a href="#cite_note-23">[23]</a></sup></p>
+$references
+</div></main></body></html>''';
+
+      test('en la lista de notas, como en la página', () {
+        final page = pageWith('''
+<div class="listaref"><ol class="mw-references references">
+<li id="cite_note-23"><span class="mw-cite-backlink"><a href="#cite_ref-23">↑</a></span> <span class="mw-reference-text reference-text">$arxiv</span></li>
+</ol></div>''');
+
+        final text = extractor.extract(page, baseUri: wiki)!.textContent;
+
+        expect(text, contains('arXiv:1403.2371'));
+        expect(text, contains('[math-ph]'));
+        expect(text, contains('[23]'));
+      });
+
+      test('en una cita fuera de la lista de notas', () {
+        final page = pageWith('<h2>Bibliografía</h2><ul><li>$arxiv</li></ul>');
+
+        expect(
+          extractor.extract(page, baseUri: wiki)!.textContent,
+          contains('arXiv:1403.2371'),
+        );
+      });
+
+      test('en una cita escrita con <cite>', () {
+        final page = pageWith(
+          '''
+<h2>Bibliografía</h2>
+<ul><li><cite class="journal">Mol, Igor. «Revisiting the Schwarzschild». <span class="noprint">arXiv:1403.2371</span></cite></li></ul>''',
+        );
+
+        expect(
+          extractor.extract(page, baseUri: wiki)!.textContent,
+          contains('arXiv:1403.2371'),
+        );
+      });
+
+      test('en una nota sin cita', () {
+        final page = pageWith(
+          '''
+<ol class="references"><li id="cite_note-23"><span class="reference-text">Ver el preprint <span class="noprint">arXiv:1403.2371</span>.</span></li></ol>''',
+        );
+
+        expect(
+          extractor.extract(page, baseUri: wiki)!.textContent,
+          contains('arXiv:1403.2371'),
+        );
+      });
+    });
+  });
+
   group('el id que es el ancla del título no pesa (F46, paso 5b)', () {
     // Wikipedia le pone a cada título de `id` su mismo texto
     // («Alta_Edad_Media_(siglos_V_al_X)»), y Readability juzga el `id` por
