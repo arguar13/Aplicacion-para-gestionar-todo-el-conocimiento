@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/creations/design/creation_controls.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/report/domain/report.dart';
@@ -12,11 +13,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Abre el índice de [creation]: tocar una sección salta hasta ella —y la
 /// despliega si estaba plegada—; arriba, plegar o desplegar todo.
 Future<void> showReportIndex(BuildContext context, StudyCreation creation) =>
-    showModalBottomSheet<void>(
+    showAppBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      useSafeArea: true,
       builder: (context) => ReportIndexSheet(creation: creation),
     );
 

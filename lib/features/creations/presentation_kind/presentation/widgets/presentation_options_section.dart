@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/creations/design/creation_art.dart';
 import 'package:sinapsis/features/creations/design/creation_controls.dart';
 import 'package:sinapsis/features/creations/presentation/kinds/creation_kind_spec.dart';
@@ -131,12 +132,9 @@ Future<void> showTemplateGallerySheet(
   required ValueChanged<DeckDesign> onChanged,
   SlideIllustrationResolver? illustrations,
   bool selected = true,
-}) => showModalBottomSheet<void>(
+}) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  showDragHandle: false,
-  backgroundColor: Colors.transparent,
+  ownSurface: true,
   builder: (sheetContext) => DraggableScrollableSheet(
     expand: false,
     initialChildSize: 0.9,

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/util/external_url_launcher.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/illustration_account.dart';
@@ -21,11 +22,8 @@ Future<bool> showHuggingFaceTokenSheet(
   BuildContext context, {
   IllustrationAccount? replacing,
 }) async {
-  final saved = await showModalBottomSheet<bool>(
+  final saved = await showAppBottomSheet<bool>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    useSafeArea: true,
     builder: (context) => _HuggingFaceTokenSheet(replacing: replacing),
   );
   return saved ?? false;
@@ -135,12 +133,7 @@ class _HuggingFaceTokenSheetState
     final replacing = widget.replacing;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        0,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

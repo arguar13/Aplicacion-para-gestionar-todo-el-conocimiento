@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/ai_models/domain/services/creation_cost_estimator.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/illustration_providers.dart';
@@ -48,14 +49,9 @@ Future<void> showCreationCustomizeSheet(
   // hojas y taparía «Generar ahora», que va abajo y fijo: abrir otra hoja lo
   // da por leído.
   ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    ),
+    showDragHandle: false,
     builder: (context) => CreationCustomizeSheet(
       kind: kind,
       scope: scope,
@@ -384,78 +380,75 @@ class _CreationCustomizeSheetState
     final fixedBar =
         maxHeight >= MediaQuery.textScalerOf(context).scale(_fixedBarMinHeight);
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: Column(
-          key: const Key('creation-sheet'),
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 4),
-              child: Row(
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: Column(
+        key: const Key('creation-sheet'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 4),
+            child: Row(
+              children: [
+                CreationKindIcon(spec: _spec, size: 36),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _spec.sheetTitle(l10n),
+                    style: theme.textTheme.titleLarge,
+                  ),
+                ),
+                CreationCloseButton(
+                  key: const Key('creation-sheet-close'),
+                  tooltip: l10n.f43StudioClose,
+                ),
+              ],
+            ),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  CreationKindIcon(spec: _spec, size: 36),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _spec.sheetTitle(l10n),
-                      style: theme.textTheme.titleLarge,
+                  if (!_spec.usesAi) _extractIntro(context, chosen),
+                  ..._commonFields(context, all, chosen),
+                  for (final option in _spec.options)
+                    if (option.isVisible(_options) &&
+                        !onlyForOne.contains(option.key))
+                      ..._option(context, option),
+                  if (_spec.optionsBuilder case final builder?)
+                    builder(
+                      context,
+                      CreationOptionsContext(
+                        kind: widget.kind,
+                        scope: widget.scope,
+                        options: Map.unmodifiable(_options),
+                        set: _set,
+                        sources: _sourcesOf(all),
+                        languageCode: _language,
+                      ),
                     ),
-                  ),
-                  CreationCloseButton(
-                    key: const Key('creation-sheet-close'),
-                    tooltip: l10n.f43StudioClose,
-                  ),
+                  if (each != null && eachContext != null)
+                    each.panel(context, eachContext),
+                  if (estimate != null &&
+                      (estimate.wantsIllustrations ||
+                          !estimate.canWriteText)) ...[
+                    const SizedBox(height: 20),
+                    AiCapabilityCard(
+                      estimate: estimate,
+                      onAlternative: _onAlternative,
+                    ),
+                  ],
+                  if (!fixedBar) ...[const SizedBox(height: 16), bar],
                 ],
               ),
             ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!_spec.usesAi) _extractIntro(context, chosen),
-                    ..._commonFields(context, all, chosen),
-                    for (final option in _spec.options)
-                      if (option.isVisible(_options) &&
-                          !onlyForOne.contains(option.key))
-                        ..._option(context, option),
-                    if (_spec.optionsBuilder case final builder?)
-                      builder(
-                        context,
-                        CreationOptionsContext(
-                          kind: widget.kind,
-                          scope: widget.scope,
-                          options: Map.unmodifiable(_options),
-                          set: _set,
-                          sources: _sourcesOf(all),
-                          languageCode: _language,
-                        ),
-                      ),
-                    if (each != null && eachContext != null)
-                      each.panel(context, eachContext),
-                    if (estimate != null &&
-                        (estimate.wantsIllustrations ||
-                            !estimate.canWriteText)) ...[
-                      const SizedBox(height: 20),
-                      AiCapabilityCard(
-                        estimate: estimate,
-                        onAlternative: _onAlternative,
-                      ),
-                    ],
-                    if (!fixedBar) ...[const SizedBox(height: 16), bar],
-                  ],
-                ),
-              ),
-            ),
-            if (fixedBar) bar,
-          ],
-        ),
+          ),
+          if (fixedBar) bar,
+        ],
       ),
     );
   }

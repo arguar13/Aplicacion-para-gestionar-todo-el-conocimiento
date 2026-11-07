@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
@@ -17,10 +18,8 @@ Future<MapRootChoice?> showMapRootPicker(
   required TopicGraph graph,
   required Future<List<SchemaLink>> notes,
   required String topicKind,
-}) => showModalBottomSheet<MapRootChoice>(
+}) => showAppBottomSheet<MapRootChoice>(
   context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
   builder: (context) =>
       _RootPicker(graph: graph, notes: notes, topicKind: topicKind),
 );

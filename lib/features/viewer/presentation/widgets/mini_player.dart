@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:video_player/video_player.dart';
@@ -81,9 +82,8 @@ class MiniPlayer extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         textStyle: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      onPressed: () => showModalBottomSheet<void>(
+                      onPressed: () => showAppBottomSheet<void>(
                         context: context,
-                        showDragHandle: true,
                         builder: (_) => MediaSpeedSheet(controller: controller),
                       ),
                       child: Text(formatSpeed(value.playbackSpeed, locale)),

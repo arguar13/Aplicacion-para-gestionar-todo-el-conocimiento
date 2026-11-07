@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/creations/design/creation_controls.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope_summary.dart';
@@ -169,10 +170,9 @@ class _DeletedChip extends StatelessWidget {
 Future<void> showCreationSources(
   BuildContext context,
   StudyCreation creation,
-) => showModalBottomSheet<void>(
+) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
+  showDragHandle: false,
   builder: (context) => _SourcesSheet(creation: creation),
 );
 

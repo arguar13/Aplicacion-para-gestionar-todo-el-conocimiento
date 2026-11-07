@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -9,10 +10,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Abre el panel de filtros de la línea de tiempo: tipo de elemento y tema.
 Future<void> showTimelineFilters(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (context) => const _TimelineFilterSheet(),
   );
 }

@@ -11,6 +11,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La búsqueda, con el botón de filtros al lado y no en una fila propia, y el
@@ -87,11 +88,8 @@ Future<bool> showListFiltersSheet(
   BuildContext context, {
   required WidgetBuilder builder,
 }) async {
-  final showResults = await showModalBottomSheet<bool>(
+  final showResults = await showAppBottomSheet<bool>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    useSafeArea: true,
     builder: builder,
   );
   return showResults ?? false;

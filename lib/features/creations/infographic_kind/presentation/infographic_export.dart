@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/creations/design/creation_controls.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
@@ -69,9 +70,9 @@ Future<CreationExportFile?> infographicExporter(
 ) async {
   final l10n = AppLocalizations.of(context)!;
   final title = studyCreationTitle(l10n, creation);
-  final format = await showModalBottomSheet<InfographicFileFormat>(
+  final format = await showAppBottomSheet<InfographicFileFormat>(
     context: context,
-    backgroundColor: Colors.transparent,
+    ownSurface: true,
     builder: (context) => const InfographicFormatSheet(),
   );
   if (format == null) return null;

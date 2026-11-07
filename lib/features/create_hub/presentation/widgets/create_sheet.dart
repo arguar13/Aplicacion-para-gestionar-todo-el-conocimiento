@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_label.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_presentation.dart';
@@ -22,13 +23,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// fondo, con «Ver», que lleva a lo que hizo. Lo que no se puede ahora se ve
 /// apagado, con el porqué.
 Future<CreateKind?> showCreateSheet(BuildContext context, CreateTarget target) {
-  final still = MediaQuery.disableAnimationsOf(context);
-  return showModalBottomSheet<CreateKind>(
+  return showAppBottomSheet<CreateKind>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
-    sheetAnimationStyle: still ? AnimationStyle.noAnimation : null,
     builder: (_) => CreateSheet(target: target),
   );
 }

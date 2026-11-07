@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/creations/data_table/domain/study_table.dart';
 import 'package:sinapsis/features/creations/data_table/domain/table_sort.dart';
@@ -17,11 +18,8 @@ Future<void> showTableSortSheet(
   BuildContext context, {
   required String creationId,
   required StudyTable table,
-}) => showModalBottomSheet<void>(
+}) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  showDragHandle: true,
   builder: (_) => TableSortSheet(creationId: creationId, table: table),
 );
 
@@ -133,11 +131,8 @@ Future<void> showTableCellSheet(
   required String value,
   required int rowNumber,
   String? rowLabel,
-}) => showModalBottomSheet<void>(
+}) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  showDragHandle: true,
   builder: (_) => TableCellSheet(
     column: column,
     value: value,

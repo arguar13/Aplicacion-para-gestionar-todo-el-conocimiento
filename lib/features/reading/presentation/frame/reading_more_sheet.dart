@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_contents_sheet.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -56,13 +57,8 @@ Future<void> showReadingMore(
   required ReadingDocumentInfo info,
   required List<ReadingMenuGroup> groups,
 }) {
-  final still = MediaQuery.disableAnimationsOf(context);
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
-    sheetAnimationStyle: still ? AnimationStyle.noAnimation : null,
     builder: (_) => ReadingMoreSheet(
       info: info,
       groups: [

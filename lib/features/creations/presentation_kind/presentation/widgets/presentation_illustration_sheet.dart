@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
 import 'package:sinapsis/features/ai_models/domain/services/creation_cost_estimator.dart';
@@ -507,11 +508,9 @@ Future<void> showPresentationIllustrationSheet(
   required IllustrationSheetMode mode,
   String? accountId,
   SlideIllustrationResolver? illustrations,
-}) => showModalBottomSheet<void>(
+}) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  backgroundColor: Colors.transparent,
+  ownSurface: true,
   builder: (_) => PresentationIllustrationSheet(
     creationId: creationId,
     deck: deck,

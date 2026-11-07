@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/i18n/category_label.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/property_suggestion_action_bar.dart';
@@ -25,11 +26,8 @@ Future<void> showPropertySuggestionGroupSheet(
   required String definitionId,
   required String normalizedValue,
   String? excludeItemId,
-}) => showModalBottomSheet<void>(
+}) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  showDragHandle: true,
   builder: (_) => PropertySuggestionGroupSheet(
     definitionId: definitionId,
     normalizedValue: normalizedValue,

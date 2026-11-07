@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/pending_text_status.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -17,10 +18,8 @@ Future<void> showInboxQueueSheet(
   BuildContext context, {
   required String? showingId,
 }) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
     builder: (context) => InboxQueueSheet(showingId: showingId),
   );
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/creations/design/creation_controls.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope_summary.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
@@ -28,11 +29,8 @@ Future<void> showMindMapNodeSheet(
   // Lo que se hace sale de la pantalla del visor, no de la hoja: la hoja se
   // cierra antes.
   final host = context;
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
     builder: (sheet) => MindMapNodeSheet(
       creation: creation,
       map: map,

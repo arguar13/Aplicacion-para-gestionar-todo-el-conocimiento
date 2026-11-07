@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/notebooks/domain/entities/notebook.dart';
 import 'package:sinapsis/features/notebooks/domain/services/notebook_candidates.dart';
@@ -9,11 +10,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Abre «Crear con IA» (F30). Devuelve el cuaderno creado, o `null`.
 Future<Notebook?> showAiNotebookSheet(BuildContext context) {
-  return showModalBottomSheet<Notebook>(
+  return showAppBottomSheet<Notebook>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    useSafeArea: true,
     builder: (context) => const AiNotebookSheet(),
   );
 }
@@ -60,7 +58,6 @@ class _AiNotebookSheetState extends ConsumerState<AiNotebookSheet> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(aiNotebookControllerProvider);
-    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
 
     final Widget body;
     if (state == null) {
@@ -82,17 +79,14 @@ class _AiNotebookSheetState extends ConsumerState<AiNotebookSheet> {
       );
     }
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: keyboard),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
-        ),
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          alignment: Alignment.topCenter,
-          child: body,
-        ),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+      ),
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 200),
+        alignment: Alignment.topCenter,
+        child: body,
       ),
     );
   }

@@ -9,6 +9,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/app_semantic_colors.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/image_generation.dart';
 import 'package:sinapsis/features/ai_models/presentation/illustration_texts.dart';
 import 'package:sinapsis/features/creations/design/creation_art.dart';
@@ -242,36 +243,32 @@ Future<T?> showStudyExportChoices<T>(
   BuildContext context, {
   required String title,
   required List<StudyExportChoice<T>> choices,
-}) => showModalBottomSheet<T>(
+}) => showAppBottomSheet<T>(
   context: context,
-  showDragHandle: true,
-  isScrollControlled: true,
   builder: (context) {
     final theme = Theme.of(context);
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text(title, style: theme.textTheme.titleLarge),
-            ),
-            for (final choice in choices)
-              ListTile(
-                key: Key('study-export-${choice.value}'),
-                leading: Icon(choice.icon),
-                title: Text(choice.title),
-                subtitle: Text(choice.subtitle),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                onTap: () => Navigator.of(context).pop(choice.value),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(title, style: theme.textTheme.titleLarge),
+          ),
+          for (final choice in choices)
+            ListTile(
+              key: Key('study-export-${choice.value}'),
+              leading: Icon(choice.icon),
+              title: Text(choice.title),
+              subtitle: Text(choice.subtitle),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-          ],
-        ),
+              onTap: () => Navigator.of(context).pop(choice.value),
+            ),
+        ],
       ),
     );
   },

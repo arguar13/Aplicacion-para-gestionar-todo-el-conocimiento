@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -876,56 +877,55 @@ class _BlockRow extends StatelessWidget {
   Future<void> _pickType(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
 
-    final choice = await showModalBottomSheet<ContentBlock Function(String)>(
+    final choice = await showAppBottomSheet<ContentBlock Function(String)>(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.notes),
-              title: Text(l10n.blocksTypeParagraph),
-              onTap: () => Navigator.of(
-                context,
-              ).pop((String text) => ContentBlock.paragraph(text: text)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.title),
-              title: Text(l10n.blocksTypeHeading),
-              onTap: () => Navigator.of(
-                context,
-              ).pop((String text) => ContentBlock.heading(text: text)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.format_list_bulleted),
-              title: Text(l10n.blocksTypeBulletItem),
-              onTap: () => Navigator.of(
-                context,
-              ).pop((String text) => ContentBlock.bulletItem(text: text)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.format_list_numbered),
-              title: Text(l10n.blocksTypeNumberedItem),
-              onTap: () => Navigator.of(
-                context,
-              ).pop((String text) => ContentBlock.numberedItem(text: text)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.check_box_outlined),
-              title: Text(l10n.blocksTypeChecklistItem),
-              onTap: () => Navigator.of(
-                context,
-              ).pop((String text) => ContentBlock.checklistItem(text: text)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.format_quote),
-              title: Text(l10n.blocksTypeQuote),
-              onTap: () => Navigator.of(
-                context,
-              ).pop((String text) => ContentBlock.quote(text: text)),
-            ),
-          ],
-        ),
+      showDragHandle: false,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.notes),
+            title: Text(l10n.blocksTypeParagraph),
+            onTap: () => Navigator.of(
+              context,
+            ).pop((String text) => ContentBlock.paragraph(text: text)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.title),
+            title: Text(l10n.blocksTypeHeading),
+            onTap: () => Navigator.of(
+              context,
+            ).pop((String text) => ContentBlock.heading(text: text)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.format_list_bulleted),
+            title: Text(l10n.blocksTypeBulletItem),
+            onTap: () => Navigator.of(
+              context,
+            ).pop((String text) => ContentBlock.bulletItem(text: text)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.format_list_numbered),
+            title: Text(l10n.blocksTypeNumberedItem),
+            onTap: () => Navigator.of(
+              context,
+            ).pop((String text) => ContentBlock.numberedItem(text: text)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.check_box_outlined),
+            title: Text(l10n.blocksTypeChecklistItem),
+            onTap: () => Navigator.of(
+              context,
+            ).pop((String text) => ContentBlock.checklistItem(text: text)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.format_quote),
+            title: Text(l10n.blocksTypeQuote),
+            onTap: () => Navigator.of(
+              context,
+            ).pop((String text) => ContentBlock.quote(text: text)),
+          ),
+        ],
       ),
     );
     if (choice == null) return;

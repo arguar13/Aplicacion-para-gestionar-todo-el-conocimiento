@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
@@ -15,10 +16,8 @@ Future<StudyScope?> showMyCardsScopeSheet(
   BuildContext context, {
   required StudyScope current,
 }) {
-  return showModalBottomSheet<StudyScope>(
+  return showAppBottomSheet<StudyScope>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (context) => DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.7,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_selection.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
@@ -26,17 +27,11 @@ String watchChatScopeSummary(WidgetRef ref, AppLocalizations l10n) {
 /// Se abre tocando la línea debajo del modelo. Elegir la conversación libre
 /// o un cuaderno la cierra; elegir la bóveda la deja abierta para acotarla.
 Future<void> showChatScopeSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    useSafeArea: true,
-    builder: (sheetContext) => ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.85,
-      ),
-      child: ChatScopeOptions(onDone: () => Navigator.of(sheetContext).pop()),
-    ),
+    maxHeightFactor: 0.85,
+    builder: (sheetContext) =>
+        ChatScopeOptions(onDone: () => Navigator.of(sheetContext).pop()),
   );
 }
 

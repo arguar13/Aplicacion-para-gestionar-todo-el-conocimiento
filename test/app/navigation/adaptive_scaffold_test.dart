@@ -1005,6 +1005,112 @@ void main() {
       });
     }
   });
+
+  // Decisión 1b del dueño: el panel de abajo tapa la barra de pestañas y su
+  // sombreado cubre la pantalla entera, como en Material 3. Antes, abierto
+  // desde una pestaña, quedaba en el navegador de la rama: la barra seguía
+  // sin sombrear y se podía tocar.
+  group('los paneles de abajo tapan la barra (F46, paso 5j)', () {
+    /// Cuadernos, con el panel de «Nuevo cuaderno» abierto: un panel de una
+    /// pestaña, abierto desde su pantalla de entrada.
+    Future<ProviderContainer> openNewNotebook(
+      WidgetTester tester, {
+      required double width,
+    }) async {
+      setLogicalWidth(tester, width);
+      final container = buildUnlockedContainer();
+      await tester.pumpWidget(buildRoutedApp(container));
+      await tester.pumpAndSettle();
+      container.read(goRouterProvider).go(RoutePaths.notebooks);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('notebook-new')));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      return container;
+    }
+
+    /// El sombreado del panel: el de arriba de todo que se cierra al tocarlo.
+    Rect barrierRect(WidgetTester tester) => tester.getRect(
+      find.byWidgetPredicate((w) => w is ModalBarrier && w.dismissible).last,
+    );
+
+    testWidgets('en el celular, el panel es de la raíz y su sombreado tapa '
+        'también la barra', (tester) async {
+      final container = await openNewNotebook(tester, width: 400);
+
+      expect(
+        Navigator.of(tester.element(find.byType(BottomSheet))),
+        container
+            .read(goRouterProvider)
+            .routerDelegate
+            .navigatorKey
+            .currentState,
+      );
+      final bar = tester.getRect(find.byType(NavigationBar));
+      expect(barrierRect(tester), const Rect.fromLTWH(0, 0, 400, 800));
+      expect(barrierRect(tester).contains(bar.center), isTrue);
+    });
+
+    testWidgets('la barra no recibe toques: tocar «Ajustes» cierra el panel '
+        'y no cambia de pestaña', (tester) async {
+      await openNewNotebook(tester, width: 400);
+
+      await tester.tap(
+        find.byKey(const ValueKey('nav-step-settings')),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(SettingsScreen), findsNothing);
+      expect(find.byType(NotebooksScreen), findsOneWidget);
+    });
+
+    testWidgets('«atrás» cierra el panel y deja la pestaña; el siguiente '
+        'lleva a la Biblioteca', (tester) async {
+      await openNewNotebook(tester, width: 400);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(NotebooksScreen), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(LibraryScreen), findsOneWidget);
+    });
+
+    testWidgets('en una pantalla ancha, el sombreado tapa el riel, y el riel '
+        'no recibe toques', (tester) async {
+      await openNewNotebook(tester, width: 1200);
+
+      final rail = tester.getRect(find.byType(NavigationRail));
+      expect(barrierRect(tester).contains(rail.center), isTrue);
+      expect(barrierRect(tester).left, 0);
+
+      await tester.tapAt(rail.topCenter + const Offset(0, 40));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(NotebooksScreen), findsOneWidget);
+      expect(find.byType(LibraryScreen), findsNothing);
+    });
+
+    testWidgets('con el teclado, el campo de un panel queda arriba de él: «Con '
+        'IA», de Nuevo cuaderno', (tester) async {
+      addTearDown(tester.view.resetViewInsets);
+      await openNewNotebook(tester, width: 400);
+      await tester.tap(find.byKey(const Key('notebook-new-ai')));
+      await tester.pumpAndSettle();
+      final topic = find.byKey(const Key('ai-notebook-topic'));
+      expect(topic, findsOneWidget);
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(topic).bottom, lessThanOrEqualTo(800 - 300));
+      expect(tester.getRect(find.byType(BottomSheet)).bottom, 800);
+    });
+  });
 }
 
 /// Leyendo algo, con el reproductor abierto: lo que importa acá es dónde

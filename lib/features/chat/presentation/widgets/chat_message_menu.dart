@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -30,43 +31,40 @@ Future<void> showChatMessageMenu(
   VoidCallback? onEdit,
 }) {
   final l10n = AppLocalizations.of(context)!;
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    builder: (sheetContext) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListTile(
+          key: const Key('chat-menu-copy'),
+          leading: const Icon(Icons.content_copy_rounded),
+          title: Text(l10n.chatAnswerCopy),
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            unawaited(copyChatText(context, text));
+          },
+        ),
+        if (onEdit != null)
           ListTile(
-            key: const Key('chat-menu-copy'),
-            leading: const Icon(Icons.content_copy_rounded),
-            title: Text(l10n.chatAnswerCopy),
+            key: const Key('chat-menu-edit'),
+            leading: const Icon(Icons.edit_outlined),
+            title: Text(l10n.chatMessageMenuEdit),
             onTap: () {
               Navigator.of(sheetContext).pop();
-              unawaited(copyChatText(context, text));
+              onEdit();
             },
           ),
-          if (onEdit != null)
-            ListTile(
-              key: const Key('chat-menu-edit'),
-              leading: const Icon(Icons.edit_outlined),
-              title: Text(l10n.chatMessageMenuEdit),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                onEdit();
-              },
-            ),
-          ListTile(
-            key: const Key('chat-menu-select'),
-            leading: const Icon(Icons.text_fields_rounded),
-            title: Text(l10n.chatMessageMenuSelect),
-            onTap: () {
-              Navigator.of(sheetContext).pop();
-              unawaited(_showSelectable(context, readable));
-            },
-          ),
-        ],
-      ),
+        ListTile(
+          key: const Key('chat-menu-select'),
+          leading: const Icon(Icons.text_fields_rounded),
+          title: Text(l10n.chatMessageMenuSelect),
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            unawaited(_showSelectable(context, readable));
+          },
+        ),
+      ],
     ),
   );
 }
@@ -75,41 +73,33 @@ Future<void> showChatMessageMenu(
 /// copiar de siempre.
 Future<void> _showSelectable(BuildContext context, String text) {
   final l10n = AppLocalizations.of(context)!;
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
+    maxHeightFactor: 0.8,
     builder: (sheetContext) {
       final theme = Theme.of(sheetContext);
-      return SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.8,
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+            child: Text(
+              l10n.chatSelectTitle,
+              style: theme.textTheme.titleMedium,
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-                child: Text(
-                  l10n.chatSelectTitle,
-                  style: theme.textTheme.titleMedium,
-                ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: SelectableText(
+                text,
+                key: const Key('chat-selectable-text'),
+                style: theme.textTheme.bodyLarge?.copyWith(height: 1.55),
               ),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                  child: SelectableText(
-                    text,
-                    key: const Key('chat-selectable-text'),
-                    style: theme.textTheme.bodyLarge?.copyWith(height: 1.55),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       );
     },
   );

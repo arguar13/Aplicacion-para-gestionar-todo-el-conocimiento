@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' show DateFormat, NumberFormat;
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/creations/presentation/explain_in_chat_question.dart';
 import 'package:sinapsis/features/creations/presentation/widgets/explain_in_chat_button.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/stats_charts.dart';
@@ -714,75 +715,71 @@ String _tally(AppLocalizations l10n, DifficultCard card) => [
 /// La hoja de una tarjeta difícil: la pregunta, la respuesta, sus números, el
 /// camino a su fuente y «Explicar» (F43, M15), que lleva la tarjeta al chat.
 Future<void> showDifficultCardSheet(BuildContext context, DifficultCard card) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (sheetContext) {
       final l10n = AppLocalizations.of(sheetContext)!;
       final theme = Theme.of(sheetContext);
-      return SafeArea(
-        child: SingleChildScrollView(
-          key: const Key('difficult-card-sheet'),
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(card.front, style: theme.textTheme.titleMedium),
-              const SizedBox(height: 12),
-              const Divider(),
-              const SizedBox(height: 12),
-              Text(card.back, style: theme.textTheme.bodyLarge),
-              const SizedBox(height: 16),
-              Text(
-                _tally(l10n, card),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+      return SingleChildScrollView(
+        key: const Key('difficult-card-sheet'),
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(card.front, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 12),
+            Text(card.back, style: theme.textTheme.bodyLarge),
+            const SizedBox(height: 16),
+            Text(
+              _tally(l10n, card),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('difficult-card-source'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                  ),
+                  icon: const Icon(Icons.menu_book_outlined),
+                  label: Text(l10n.flashcardsViewSource),
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(
+                      context.push(
+                        card.hasSourceRange
+                            ? RoutePaths.reading(
+                                card.itemId,
+                                start: card.sourceStart,
+                                end: card.sourceEnd,
+                              )
+                            : RoutePaths.itemDetail(card.itemId),
+                      ),
+                    );
+                  },
                 ),
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    key: const Key('difficult-card-source'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 48),
-                    ),
-                    icon: const Icon(Icons.menu_book_outlined),
-                    label: Text(l10n.flashcardsViewSource),
-                    onPressed: () {
-                      Navigator.of(sheetContext).pop();
-                      unawaited(
-                        context.push(
-                          card.hasSourceRange
-                              ? RoutePaths.reading(
-                                  card.itemId,
-                                  start: card.sourceStart,
-                                  end: card.sourceEnd,
-                                )
-                              : RoutePaths.itemDetail(card.itemId),
-                        ),
-                      );
-                    },
+                ExplainInChatButton(
+                  key: const Key('difficult-card-explain'),
+                  host: context,
+                  subject: () => ExplainSubject(
+                    question: card.front,
+                    answer: card.back,
+                    answered: true,
                   ),
-                  ExplainInChatButton(
-                    key: const Key('difficult-card-explain'),
-                    host: context,
-                    subject: () => ExplainSubject(
-                      question: card.front,
-                      answer: card.back,
-                      answered: true,
-                    ),
-                    sourceItemId: card.itemId,
-                    passageStart: card.hasSourceRange ? card.sourceStart : null,
-                    passageEnd: card.hasSourceRange ? card.sourceEnd : null,
-                  ),
-                ],
-              ),
-            ],
-          ),
+                  sourceItemId: card.itemId,
+                  passageStart: card.hasSourceRange ? card.sourceStart : null,
+                  passageEnd: card.hasSourceRange ? card.sourceEnd : null,
+                ),
+              ],
+            ),
+          ],
         ),
       );
     },

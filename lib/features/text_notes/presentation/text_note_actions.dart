@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sinapsis/core/design/highlight_palette.dart';
 import 'package:sinapsis/core/design/highlight_toolbar.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -98,10 +99,8 @@ Future<_Written?> _write(
   // irse —soltarlos acá, al volver, los dejaba en una hoja que todavía se
   // estaba yendo—.
   final draft = _Draft(ref.read(lastHighlightColorProvider));
-  final kept = await showModalBottomSheet<bool>(
+  final kept = await showAppBottomSheet<bool>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (context) => _NoteEditor(draft: draft, excerpt: excerpt),
   );
   // «Cancelar» dice que no; «Listo» o cerrarla de otro modo, que sí.
@@ -126,10 +125,8 @@ Future<void> openTextNote(BuildContext context, WidgetRef ref, TextNote note) {
   // está, y el aviso de «Deshacer» va en la pantalla de abajo.
   final repository = ref.read(textNoteRepositoryProvider);
   final messenger = ScaffoldMessenger.maybeOf(context);
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (context) => _NoteCard(
       key: Key('text-note-card-${note.id}'),
       note: note,
@@ -149,32 +146,28 @@ Future<void> openTextNotes(
   if (notes.isEmpty) return;
   if (notes.length == 1) return openTextNote(context, ref, notes.single);
   final l10n = AppLocalizations.of(context)!;
-  final chosen = await showModalBottomSheet<TextNote>(
+  final chosen = await showAppBottomSheet<TextNote>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (context) => SafeArea(
-      child: SingleChildScrollView(
-        key: const Key('text-notes-line-sheet'),
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-              child: Text(
-                l10n.f45S8bSeveralTitle,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+    builder: (context) => SingleChildScrollView(
+      key: const Key('text-notes-line-sheet'),
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text(
+              l10n.f45S8bSeveralTitle,
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            for (final note in notes)
-              TextNoteTile(
-                note: note,
-                onTap: () => Navigator.of(context).pop(note),
-              ),
-          ],
-        ),
+          ),
+          for (final note in notes)
+            TextNoteTile(
+              note: note,
+              onTap: () => Navigator.of(context).pop(note),
+            ),
+        ],
       ),
     ),
   );
@@ -324,12 +317,7 @@ class _NoteEditorState extends State<_NoteEditor> {
     final excerpt = widget.excerpt;
     return SingleChildScrollView(
       key: const Key('text-note-editor'),
-      padding: EdgeInsets.fromLTRB(
-        24,
-        0,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -544,12 +532,7 @@ class _NoteCardState extends State<_NoteCard> {
     ).add_Hm().format((edited ? note.updatedAt : note.createdAt).toLocal());
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        0,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/narration/domain/voices/offline_voice_catalog.dart';
@@ -13,13 +14,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Abre «Voces descargadas» (F47, paso 3): las voces sin conexión que están
 /// en el teléfono, con lo que ocupan, para borrarlas.
 Future<void> showDownloadedVoices(BuildContext context) {
-  final still = MediaQuery.disableAnimationsOf(context);
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    useSafeArea: true,
-    sheetAnimationStyle: still ? AnimationStyle.noAnimation : null,
     builder: (_) => const DownloadedVoicesSheet(),
   );
 }

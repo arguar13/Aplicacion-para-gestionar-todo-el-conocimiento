@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -73,9 +74,8 @@ class _KeepWorkingOfferListenerState
     _lifecycle = null;
     await offer.markOffered();
     if (!navigator.mounted) return;
-    final wantsHelp = await showModalBottomSheet<bool>(
+    final wantsHelp = await showAppBottomSheet<bool>(
       context: navigator,
-      showDragHandle: true,
       builder: (_) => const _KeepWorkingOfferSheet(),
     );
     if (wantsHelp ?? false) widget.onOpenHelp();

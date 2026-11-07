@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
 import 'package:sinapsis/features/citations/domain/services/bibliography_builder.dart';
@@ -76,25 +77,19 @@ Future<ExportFormat?> _chooseFormat(
   BuildContext context,
   AppLocalizations l10n,
 ) {
-  return showModalBottomSheet<ExportFormat>(
+  return showAppBottomSheet<ExportFormat>(
     context: context,
-    showDragHandle: true,
-    builder: (context) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    builder: (context) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListTile(title: Text(l10n.bibliographyExportChooseFormat), dense: true),
+        for (final format in bibliographyFormats)
           ListTile(
-            title: Text(l10n.bibliographyExportChooseFormat),
-            dense: true,
+            key: Key('bibliography-export-format-${format.name}'),
+            title: Text(format.label(l10n)),
+            onTap: () => Navigator.of(context).pop(format),
           ),
-          for (final format in bibliographyFormats)
-            ListTile(
-              key: Key('bibliography-export-format-${format.name}'),
-              title: Text(format.label(l10n)),
-              onTap: () => Navigator.of(context).pop(format),
-            ),
-        ],
-      ),
+      ],
     ),
   );
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/creations/design/creation_controls.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
@@ -27,10 +28,8 @@ enum ReportFileFormat { pdf, markdown }
 /// rosa— o Markdown —para Obsidian u otro editor, con la negrita—. `null` si
 /// se cerró sin elegir.
 Future<ReportFileFormat?> askReportFileFormat(BuildContext context) =>
-    showModalBottomSheet<ReportFileFormat>(
+    showAppBottomSheet<ReportFileFormat>(
       context: context,
-      showDragHandle: true,
-      useSafeArea: true,
       builder: (context) {
         final l10n = AppLocalizations.of(context)!;
         return SingleChildScrollView(

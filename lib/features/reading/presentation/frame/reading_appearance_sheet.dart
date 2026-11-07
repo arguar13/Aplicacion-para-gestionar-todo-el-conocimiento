@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
 import 'package:sinapsis/features/reading/presentation/frame/reading_frame.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
@@ -32,15 +33,7 @@ Future<void> showReadingAppearanceSettings(BuildContext context) => _showSheet(
 );
 
 Future<void> _showSheet(BuildContext context, Widget sheet) {
-  final still = MediaQuery.disableAnimationsOf(context);
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
-    sheetAnimationStyle: still ? AnimationStyle.noAnimation : null,
-    builder: (_) => sheet,
-  );
+  return showAppBottomSheet<void>(context: context, builder: (_) => sheet);
 }
 
 /// Lo de adentro de «Apariencia»: lo que se puede cambiar en el cuerpo que

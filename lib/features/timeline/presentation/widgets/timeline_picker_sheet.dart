@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -26,20 +27,16 @@ class _PickerEntry {
 /// temas de la bóveda, con un buscador. Devuelve el recorte elegido, o `null`
 /// si se cerró sin elegir.
 Future<TimelineScope?> showTimelineTopicPicker(BuildContext context) {
-  return showModalBottomSheet<TimelineScope>(
+  return showAppBottomSheet<TimelineScope>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (_) => const _PickerSheet(kind: TimelineScopeKind.topic),
   );
 }
 
 /// Lo mismo para un documento: los elementos que tienen alguna fecha.
 Future<TimelineScope?> showTimelineDocumentPicker(BuildContext context) {
-  return showModalBottomSheet<TimelineScope>(
+  return showAppBottomSheet<TimelineScope>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (_) => const _PickerSheet(kind: TimelineScopeKind.document),
   );
 }
@@ -48,10 +45,8 @@ Future<TimelineScope?> showTimelineDocumentPicker(BuildContext context) {
 /// fechas: es la hoja de «Organizar con IA», que busca fechas justamente en lo
 /// que todavía no las tiene.
 Future<TimelineScope?> showTimelineAnyDocumentPicker(BuildContext context) {
-  return showModalBottomSheet<TimelineScope>(
+  return showAppBottomSheet<TimelineScope>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (_) =>
         const _PickerSheet(kind: TimelineScopeKind.document, onlyDated: false),
   );
@@ -161,46 +156,42 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
               if (normalizeVocabularyLabel(entry.title).contains(needle)) entry,
           ];
 
-    return Padding(
-      // Con el teclado arriba, la lista que se filtra queda a la vista.
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * 0.75,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text(
-                  _topics
-                      ? l10n.timelineTopicSheetTitle
-                      : l10n.timelineDocumentSheetTitle,
-                  style: theme.textTheme.titleMedium,
-                ),
-                dense: true,
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(
+                _topics
+                    ? l10n.timelineTopicSheetTitle
+                    : l10n.timelineDocumentSheetTitle,
+                style: theme.textTheme.titleMedium,
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: TextField(
-                  controller: _searchController,
-                  textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    hintText: _topics
-                        ? l10n.timelineTopicSearchHint
-                        : l10n.timelineDocumentSearchHint,
-                    prefixIcon: const Icon(Icons.search),
-                    isDense: true,
-                    border: const OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(28)),
-                    ),
+              dense: true,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                controller: _searchController,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: _topics
+                      ? l10n.timelineTopicSearchHint
+                      : l10n.timelineDocumentSearchHint,
+                  prefixIcon: const Icon(Icons.search),
+                  isDense: true,
+                  border: const OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(28)),
                   ),
                 ),
               ),
-              Flexible(child: _body(l10n, theme, entries, visible)),
-            ],
-          ),
+            ),
+            Flexible(child: _body(l10n, theme, entries, visible)),
+          ],
         ),
       ),
     );

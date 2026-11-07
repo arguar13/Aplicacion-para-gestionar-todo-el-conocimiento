@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/library/presentation/widgets/list_controls.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_filter.dart';
@@ -22,13 +23,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// completa. Es la entrada única: la abren el reproductor —«la cara de la
 /// voz»—, el reproductor de los visores de Repasar y Ajustes.
 Future<void> showVoiceLibrary(BuildContext context) {
-  final still = MediaQuery.disableAnimationsOf(context);
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    useSafeArea: true,
-    sheetAnimationStyle: still ? AnimationStyle.noAnimation : null,
     builder: (_) => const VoiceLibrarySheet(),
   );
 }

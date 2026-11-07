@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/creations/design/creation_controls.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/presentation/creation_presentation.dart';
@@ -18,14 +19,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 Future<void> showCreationDetails(
   BuildContext context,
   StudyCreation creation,
-) => showModalBottomSheet<void>(
+) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-  shape: const RoundedRectangleBorder(
-    borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-  ),
+  showDragHandle: false,
   builder: (context) => CreationDetailsSheet(creation: creation),
 );
 

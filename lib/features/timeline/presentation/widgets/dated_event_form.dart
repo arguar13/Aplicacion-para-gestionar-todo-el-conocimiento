@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -30,11 +31,8 @@ Future<bool> showDatedEventForm(
   DatedEventSeed? seed,
   TimelineEvent? editing,
 }) async {
-  final saved = await showModalBottomSheet<bool>(
+  final saved = await showAppBottomSheet<bool>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    useSafeArea: true,
     builder: (_) => DatedEventForm(seed: seed, editing: editing),
   );
   return saved ?? false;
@@ -278,117 +276,111 @@ class _DatedEventFormState extends ConsumerState<DatedEventForm> {
     final errors = _errors(l10n);
     final editing = _editing != null;
 
-    return Padding(
-      // Con el teclado arriba, lo que se escribe queda a la vista.
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      editing
-                          ? l10n.timelineFormEditTitle
-                          : l10n.timelineFormAddTitle,
-                      key: const ValueKey('dated-event-form-heading'),
-                      style: theme.textTheme.titleLarge,
-                    ),
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    editing
+                        ? l10n.timelineFormEditTitle
+                        : l10n.timelineFormAddTitle,
+                    key: const ValueKey('dated-event-form-heading'),
+                    style: theme.textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 16),
+                  if (_quote case final quote?) ...[
+                    _QuotePreview(excerpt: quote),
                     const SizedBox(height: 16),
-                    if (_quote case final quote?) ...[
-                      _QuotePreview(excerpt: quote),
-                      const SizedBox(height: 16),
-                    ],
-                    _documentSection(l10n, theme, errors.document),
-                    const SizedBox(height: 16),
-                    TextField(
-                      key: const ValueKey('dated-event-form-title'),
-                      controller: _title,
-                      autofocus: !editing && _title.text.isEmpty,
-                      textCapitalization: TextCapitalization.sentences,
-                      textInputAction: TextInputAction.next,
-                      decoration: InputDecoration(
-                        labelText: l10n.timelineFormTitleLabel,
-                        hintText: l10n.timelineFormTitleHint,
-                        errorText: errors.title,
-                      ),
+                  ],
+                  _documentSection(l10n, theme, errors.document),
+                  const SizedBox(height: 16),
+                  TextField(
+                    key: const ValueKey('dated-event-form-title'),
+                    controller: _title,
+                    autofocus: !editing && _title.text.isEmpty,
+                    textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                      labelText: l10n.timelineFormTitleLabel,
+                      hintText: l10n.timelineFormTitleHint,
+                      errorText: errors.title,
                     ),
-                    const SizedBox(height: 20),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    l10n.timelineFormWhen,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  HistoricalDateForm(controller: _start),
+                  if (errors.date != null)
+                    _FieldError(
+                      key: const ValueKey('dated-event-form-date-error'),
+                      message: errors.date!,
+                    ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    key: const ValueKey('dated-event-form-range'),
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n.timelineFormRangeSwitch),
+                    value: _hasEnd,
+                    onChanged: (value) => setState(() => _hasEnd = value),
+                  ),
+                  if (_hasEnd) ...[
                     Text(
-                      l10n.timelineFormWhen,
+                      l10n.timelineFormUntil,
                       style: theme.textTheme.titleSmall,
                     ),
                     const SizedBox(height: 4),
-                    HistoricalDateForm(controller: _start),
-                    if (errors.date != null)
+                    HistoricalDateForm(controller: _end, showCirca: false),
+                    if (errors.end != null)
                       _FieldError(
-                        key: const ValueKey('dated-event-form-date-error'),
-                        message: errors.date!,
-                      ),
-                    const SizedBox(height: 8),
-                    SwitchListTile(
-                      key: const ValueKey('dated-event-form-range'),
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(l10n.timelineFormRangeSwitch),
-                      value: _hasEnd,
-                      onChanged: (value) => setState(() => _hasEnd = value),
-                    ),
-                    if (_hasEnd) ...[
-                      Text(
-                        l10n.timelineFormUntil,
-                        style: theme.textTheme.titleSmall,
-                      ),
-                      const SizedBox(height: 4),
-                      HistoricalDateForm(controller: _end, showCirca: false),
-                      if (errors.end != null)
-                        _FieldError(
-                          key: const ValueKey('dated-event-form-end-error'),
-                          message: errors.end!,
-                        ),
-                    ],
-                    if (errors.general != null || _saveError != null)
-                      _FieldError(
-                        key: const ValueKey('dated-event-form-error'),
-                        message: _saveError ?? errors.general!,
+                        key: const ValueKey('dated-event-form-end-error'),
+                        message: errors.end!,
                       ),
                   ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    key: const ValueKey('dated-event-form-cancel'),
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size(48, 48),
+                  if (errors.general != null || _saveError != null)
+                    _FieldError(
+                      key: const ValueKey('dated-event-form-error'),
+                      message: _saveError ?? errors.general!,
                     ),
-                    onPressed: _saving
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    child: Text(l10n.commonCancel),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    key: const ValueKey('dated-event-form-save'),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(48, 48),
-                    ),
-                    onPressed: _saving ? null : () => unawaited(_save()),
-                    child: Text(l10n.timelineFormSave),
-                  ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  key: const ValueKey('dated-event-form-cancel'),
+                  style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                  onPressed: _saving
+                      ? null
+                      : () => Navigator.of(context).pop(false),
+                  child: Text(l10n.commonCancel),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  key: const ValueKey('dated-event-form-save'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                  ),
+                  onPressed: _saving ? null : () => unawaited(_save()),
+                  child: Text(l10n.timelineFormSave),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

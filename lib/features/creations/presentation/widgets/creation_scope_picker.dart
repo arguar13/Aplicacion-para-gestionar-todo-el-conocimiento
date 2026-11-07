@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_node.dart';
@@ -136,14 +137,9 @@ class CreationScopePill extends ConsumerWidget {
 Future<CreationScope?> showCreationScopePicker(
   BuildContext context, {
   required CreationScope current,
-}) => showModalBottomSheet<CreationScope>(
+}) => showAppBottomSheet<CreationScope>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-  shape: const RoundedRectangleBorder(
-    borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-  ),
+  showDragHandle: false,
   builder: (context) => CreationScopePicker(current: current),
 );
 
@@ -229,81 +225,78 @@ class _CreationScopePickerState extends ConsumerState<CreationScopePicker>
     final theme = Theme.of(context);
     final media = MediaQuery.of(context);
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: media.size.height * 0.9),
-        child: Column(
-          key: const Key('creation-scope-picker'),
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      l10n.f43StudioPickerTitle,
-                      style: theme.textTheme.titleLarge,
-                    ),
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: media.size.height * 0.9),
+      child: Column(
+        key: const Key('creation-scope-picker'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.f43StudioPickerTitle,
+                    style: theme.textTheme.titleLarge,
                   ),
-                  CreationCloseButton(
-                    key: const Key('creation-scope-close'),
-                    tooltip: l10n.f43StudioClose,
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-              child: TextField(
-                key: const Key('creation-scope-search'),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search),
-                  hintText: l10n.f43S18Search,
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(28),
-                    borderSide: BorderSide.none,
-                  ),
-                  isDense: true,
                 ),
-                onChanged: (text) {
-                  setState(() => _search = text.trim());
-                  _toTop();
-                },
-              ),
-            ),
-            TabBar(
-              key: const Key('creation-scope-tabs'),
-              controller: _tabs,
-              // Las cuatro entran en 360 dp con la letra normal; con la letra
-              // grande, se desplazan en vez de cortarse.
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-              tabs: [
-                for (final tab in CreationScopeTab.values)
-                  Tab(
-                    key: Key('creation-scope-tab-${tab.name}'),
-                    text: _tabLabel(l10n, tab),
-                  ),
+                CreationCloseButton(
+                  key: const Key('creation-scope-close'),
+                  tooltip: l10n.f43StudioClose,
+                ),
               ],
             ),
-            Flexible(
-              child: CustomScrollView(
-                key: const Key('creation-scope-list'),
-                controller: _list,
-                slivers: [
-                  ..._listSlivers(context),
-                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+            child: TextField(
+              key: const Key('creation-scope-search'),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: l10n.f43S18Search,
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(28),
+                  borderSide: BorderSide.none,
+                ),
+                isDense: true,
               ),
+              onChanged: (text) {
+                setState(() => _search = text.trim());
+                _toTop();
+              },
             ),
-          ],
-        ),
+          ),
+          TabBar(
+            key: const Key('creation-scope-tabs'),
+            controller: _tabs,
+            // Las cuatro entran en 360 dp con la letra normal; con la letra
+            // grande, se desplazan en vez de cortarse.
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+            tabs: [
+              for (final tab in CreationScopeTab.values)
+                Tab(
+                  key: Key('creation-scope-tab-${tab.name}'),
+                  text: _tabLabel(l10n, tab),
+                ),
+            ],
+          ),
+          Flexible(
+            child: CustomScrollView(
+              key: const Key('creation-scope-list'),
+              controller: _list,
+              slivers: [
+                ..._listSlivers(context),
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

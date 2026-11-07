@@ -19,7 +19,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// Tiene el aire de las hojas de NotebookLM: el ícono y el título arriba con
 /// la ✕ redonda, botones segmentados con ✓ y esquinas muy redondeadas. Va
-/// adentro de un `showModalBottomSheet` con `isScrollControlled`.
+/// adentro de un panel de `showAppBottomSheet`.
 class InfographicDesignSheet extends StatefulWidget {
   const InfographicDesignSheet({
     required this.sheet,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_badge.dart';
@@ -22,11 +23,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// de existir cuando se cierra, y el formulario de «Editar» o el aviso de
 /// «Deshacer» tienen que abrirse después, en un lugar que siga ahí.
 Future<void> showDatedEventSheet(BuildContext context, TimelineEvent event) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    useSafeArea: true,
     builder: (_) => DatedEventSheet(event: event, screenContext: context),
   );
 }

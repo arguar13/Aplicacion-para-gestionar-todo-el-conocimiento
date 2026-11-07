@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/chat_attachment.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
@@ -344,23 +345,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// la vista el chat, que la cierra con un toque.
   Future<void> _openAddSheet() async {
     FocusScope.of(context).unfocus();
-    await showModalBottomSheet<void>(
+    await showAppBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      useSafeArea: true,
-      isScrollControlled: true,
-      builder: (sheetContext) => ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.85,
-        ),
-        child: AddToChatSheet(
-          thinkMore: _thinkMore,
-          hasImage: _pendingAttachments.any((a) => a.isImage),
-          onCamera: () => unawaited(_attachFrom(_AttachSource.camera)),
-          onPhotos: () => unawaited(_attachFrom(_AttachSource.photos)),
-          onFiles: () => unawaited(_attachFrom(_AttachSource.files)),
-          onThinkMoreChanged: (on) => setState(() => _thinkMore = on),
-        ),
+      maxHeightFactor: 0.85,
+      builder: (sheetContext) => AddToChatSheet(
+        thinkMore: _thinkMore,
+        hasImage: _pendingAttachments.any((a) => a.isImage),
+        onCamera: () => unawaited(_attachFrom(_AttachSource.camera)),
+        onPhotos: () => unawaited(_attachFrom(_AttachSource.photos)),
+        onFiles: () => unawaited(_attachFrom(_AttachSource.files)),
+        onThinkMoreChanged: (on) => setState(() => _thinkMore = on),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/ai_models/presentation/illustration_texts.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/presentation/creation_actions.dart';
@@ -345,11 +346,9 @@ Future<void> showPresentationDesignSheet(
   BuildContext context,
   StudyCreation creation,
   PresentationContent content,
-) => showModalBottomSheet<void>(
+) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  backgroundColor: Colors.transparent,
+  ownSurface: true,
   builder: (sheetContext) => Consumer(
     builder: (context, ref, _) {
       final id = creation.id;

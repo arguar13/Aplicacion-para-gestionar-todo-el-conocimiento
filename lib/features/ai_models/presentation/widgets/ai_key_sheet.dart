@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/util/external_url_launcher.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_account.dart';
@@ -37,11 +38,8 @@ Future<bool> showAiKeySheet(
   required AiProvider provider,
   AiAccount? replacing,
 }) async {
-  final saved = await showModalBottomSheet<bool>(
+  final saved = await showAppBottomSheet<bool>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    useSafeArea: true,
     builder: (context) => _AiKeySheet(provider: provider, replacing: replacing),
   );
   return saved ?? false;
@@ -139,12 +137,7 @@ class _AiKeySheetState extends ConsumerState<_AiKeySheet> {
     final providerName = provider.label(l10n);
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        0,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

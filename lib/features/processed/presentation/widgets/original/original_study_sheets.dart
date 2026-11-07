@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_label.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/illustration_providers.dart';
@@ -21,16 +22,8 @@ enum OriginalStudyAction { redoWithAi, retouch, hide, show, clear }
 /// Una hoja de los botones de estudio, sin deslizarse si la persona apagó
 /// las animaciones.
 Future<T?> _showSheet<T>(BuildContext context, WidgetBuilder builder) {
-  final still = MediaQuery.disableAnimationsOf(context);
-  return showModalBottomSheet<T>(
+  return showAppBottomSheet<T>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
-    sheetAnimationStyle: still ? AnimationStyle.noAnimation : null,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    ),
     builder: (sheetContext) => SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: builder(sheetContext),

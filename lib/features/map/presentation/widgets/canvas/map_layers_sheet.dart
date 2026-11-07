@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -116,11 +117,8 @@ typedef MapLayersSheetInput = ({
 Future<void> showMapLayersSheet(
   BuildContext context, {
   required MapLayersSheetInput input,
-}) => showModalBottomSheet<void>(
+}) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  showDragHandle: true,
   builder: (context) => _MapLayersSheet(input: input),
 );
 
@@ -282,75 +280,69 @@ Future<bool> showMapSimilarProposal(
 }) async {
   final l10n = AppLocalizations.of(context)!;
   final messenger = ScaffoldMessenger.of(context);
-  final chosen =
-      await showModalBottomSheet<({RelationKind kind, String? note})>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        showDragHandle: true,
-        builder: (context) {
-          final theme = Theme.of(context);
-          return SingleChildScrollView(
-            key: const ValueKey('map-similar-sheet'),
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+  final chosen = await showAppBottomSheet<({RelationKind kind, String? note})>(
+    context: context,
+    builder: (context) {
+      final theme = Theme.of(context);
+      return SingleChildScrollView(
+        key: const ValueKey('map-similar-sheet'),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              header: true,
+              liveRegion: true,
+              child: Text(
+                l10n.f44S5SimilarTitle,
+                style: theme.textTheme.titleLarge,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.f44S5SimilarBody(titleA, titleB, similarPercent(pair)),
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Semantics(
-                  header: true,
-                  liveRegion: true,
-                  child: Text(
-                    l10n.f44S5SimilarTitle,
-                    style: theme.textTheme.titleLarge,
-                  ),
+                TextButton(
+                  key: const ValueKey('map-similar-dismiss'),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(l10n.f44S5SimilarNotNow),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.f44S5SimilarBody(titleA, titleB, similarPercent(pair)),
-                  style: theme.textTheme.bodyMedium,
+                OutlinedButton(
+                  key: const ValueKey('map-similar-kind'),
+                  onPressed: () async {
+                    final picked =
+                        await showDialog<({RelationKind kind, String? note})>(
+                          context: context,
+                          builder: (context) => const PickRelationDialog(),
+                        );
+                    if (picked != null && context.mounted) {
+                      Navigator.of(context).pop(picked);
+                    }
+                  },
+                  child: Text(l10n.f44S5SimilarOtherKind),
                 ),
-                const SizedBox(height: 16),
-                Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    TextButton(
-                      key: const ValueKey('map-similar-dismiss'),
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(l10n.f44S5SimilarNotNow),
-                    ),
-                    OutlinedButton(
-                      key: const ValueKey('map-similar-kind'),
-                      onPressed: () async {
-                        final picked =
-                            await showDialog<
-                              ({RelationKind kind, String? note})
-                            >(
-                              context: context,
-                              builder: (context) => const PickRelationDialog(),
-                            );
-                        if (picked != null && context.mounted) {
-                          Navigator.of(context).pop(picked);
-                        }
-                      },
-                      child: Text(l10n.f44S5SimilarOtherKind),
-                    ),
-                    FilledButton.icon(
-                      key: const ValueKey('map-similar-link'),
-                      onPressed: () => Navigator.of(
-                        context,
-                      ).pop((kind: RelationKind.relatedTo, note: null)),
-                      icon: const Icon(Icons.add_link),
-                      label: Text(l10n.f44S5SimilarLink),
-                    ),
-                  ],
+                FilledButton.icon(
+                  key: const ValueKey('map-similar-link'),
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pop((kind: RelationKind.relatedTo, note: null)),
+                  icon: const Icon(Icons.add_link),
+                  label: Text(l10n.f44S5SimilarLink),
                 ),
               ],
             ),
-          );
-        },
+          ],
+        ),
       );
+    },
+  );
   if (chosen == null) return false;
 
   final result = await ref

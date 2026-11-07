@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
@@ -467,28 +468,25 @@ Future<void> _createDerivedNote(
 /// Los cuatro tipos de nota derivada, en una hoja.
 Future<DerivedNoteType?> _pickDerivedNoteType(BuildContext context) {
   final l10n = AppLocalizations.of(context)!;
-  return showModalBottomSheet<DerivedNoteType>(
+  return showAppBottomSheet<DerivedNoteType>(
     context: context,
-    showDragHandle: true,
-    builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final type in DerivedNoteType.values)
-            ListTile(
-              key: Key('derived-note-type-${type.name}'),
-              leading: const Icon(Icons.auto_awesome_outlined),
-              title: Text(switch (type) {
-                DerivedNoteType.studyGuide => l10n.derivedNoteTypeStudyGuide,
-                DerivedNoteType.openQuestions =>
-                  l10n.derivedNoteTypeOpenQuestions,
-                DerivedNoteType.outline => l10n.derivedNoteTypeOutline,
-                DerivedNoteType.timeline => l10n.derivedNoteTypeTimeline,
-              }),
-              onTap: () => Navigator.of(sheetContext).pop(type),
-            ),
-        ],
-      ),
+    builder: (sheetContext) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final type in DerivedNoteType.values)
+          ListTile(
+            key: Key('derived-note-type-${type.name}'),
+            leading: const Icon(Icons.auto_awesome_outlined),
+            title: Text(switch (type) {
+              DerivedNoteType.studyGuide => l10n.derivedNoteTypeStudyGuide,
+              DerivedNoteType.openQuestions =>
+                l10n.derivedNoteTypeOpenQuestions,
+              DerivedNoteType.outline => l10n.derivedNoteTypeOutline,
+              DerivedNoteType.timeline => l10n.derivedNoteTypeTimeline,
+            }),
+            onTap: () => Navigator.of(sheetContext).pop(type),
+          ),
+      ],
     ),
   );
 }

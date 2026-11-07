@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_capability.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_label.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
@@ -83,11 +84,8 @@ class _AiReviewSwitchOfferListenerState
     try {
       await offers.markOffered(reviewer);
       if (!navigator.mounted) return;
-      final wantsReview = await showModalBottomSheet<bool>(
+      final wantsReview = await showAppBottomSheet<bool>(
         context: navigator,
-        showDragHandle: true,
-        // Con letra grande o en un teléfono chico, el texto entero.
-        isScrollControlled: true,
         builder: (_) =>
             _AiReviewSwitchOfferSheet(reviewer: reviewer, earlier: earlier),
       );

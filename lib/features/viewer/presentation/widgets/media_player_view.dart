@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:video_player/video_player.dart';
@@ -373,9 +374,8 @@ class _ControlsState extends State<_Controls> {
                         tooltip: l10n.mediaPlayerSpeed,
                         foreground: palette.speedForeground,
                         background: palette.speedBackground,
-                        onPressed: () => showModalBottomSheet<void>(
+                        onPressed: () => showAppBottomSheet<void>(
                           context: context,
-                          showDragHandle: true,
                           builder: (_) =>
                               MediaSpeedSheet(controller: _controller),
                         ),

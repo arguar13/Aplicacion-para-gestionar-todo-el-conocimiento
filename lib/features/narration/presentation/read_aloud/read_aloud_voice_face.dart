@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 import 'package:sinapsis/features/narration/domain/voices/mine/my_voice.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_face.dart';
@@ -15,15 +16,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Abre una hoja del lector —la velocidad, la cola— sobre la pantalla de
 /// [context], sin deslizarse si se apagaron las animaciones.
 Future<void> showReadAloudSheet(BuildContext context, Widget sheet) {
-  final still = MediaQuery.disableAnimationsOf(context);
-  return showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    useSafeArea: true,
-    sheetAnimationStyle: still ? AnimationStyle.noAnimation : null,
-    builder: (_) => sheet,
-  );
+  return showAppBottomSheet<void>(context: context, builder: (_) => sheet);
 }
 
 /// **La única entrada para elegir la voz** (F47, paso 2): la cara de la voz

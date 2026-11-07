@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/navigation/navigation_bar_scope.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/design/widgets/snack_bar_footprint.dart';
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
@@ -898,6 +899,14 @@ void main() {
               ),
               child: const Text('diálogo'),
             ),
+            TextButton(
+              onPressed: () => showAppBottomSheet<void>(
+                context: context,
+                builder: (_) =>
+                    const SizedBox(height: 200, child: Text('Hoja')),
+              ),
+              child: const Text('hoja'),
+            ),
           ],
         ),
       ),
@@ -964,6 +973,30 @@ void main() {
 
       Navigator.of(tester.element(find.text('Diálogo'))).pop();
       await tester.pumpAndSettle();
+      expect(tester.getRect(player).bottom, _phone.height - bar);
+    });
+
+    // Los paneles de abajo se abren en la raíz, encima de la barra (F46, paso
+    // 5j): como un diálogo, no la tapan para el reproductor, que se hace a un
+    // lado mientras están abiertos.
+    testWidgets('un panel de abajo, abierto desde la pestaña en la raíz, no '
+        'la tapa: el reproductor se hace a un lado y, al cerrarlo, vuelve '
+        'encima de la barra', (tester) async {
+      await pump(tester, initial: _reading, withBar: true, screen: tab);
+
+      await tester.tap(find.text('hoja'));
+      await tester.pump();
+      await tester.pump();
+      expect(container.read(navigationBarShownProvider), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('Hoja'), findsOneWidget);
+      expect(player, findsNothing);
+      // Encima de la barra, no arriba de ella.
+      expect(tester.getRect(find.byType(BottomSheet)).bottom, _phone.height);
+
+      Navigator.of(tester.element(find.text('Hoja'))).pop();
+      await tester.pumpAndSettle();
+      expect(container.read(navigationBarShownProvider), isTrue);
       expect(tester.getRect(player).bottom, _phone.height - bar);
     });
 

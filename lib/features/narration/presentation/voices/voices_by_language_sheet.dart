@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/narration/domain/voices/voice_profile.dart';
 import 'package:sinapsis/features/narration/presentation/providers/my_voices_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_settings_notifier.dart';
@@ -13,13 +14,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Abre «Voces por idioma» (F47, paso 3, decisión L).
 Future<void> showVoicesByLanguage(BuildContext context) {
-  final still = MediaQuery.disableAnimationsOf(context);
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    useSafeArea: true,
-    sheetAnimationStyle: still ? AnimationStyle.noAnimation : null,
     builder: (_) => const VoicesByLanguageSheet(),
   );
 }

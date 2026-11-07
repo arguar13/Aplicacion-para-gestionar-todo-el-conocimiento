@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/design/highlight_toolbar.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/highlight_color.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
@@ -32,10 +33,8 @@ Future<void> showHighlightCard(
   onLook,
   required FutureOr<void> Function(String? note) onNote,
   required FutureOr<void> Function() onDelete,
-}) => showModalBottomSheet<void>(
+}) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
   builder: (context) => _HighlightCard(
     highlight: highlight,
     onLook: onLook,
@@ -101,12 +100,7 @@ class _HighlightCardState extends State<_HighlightCard> {
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        0,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
@@ -159,34 +160,31 @@ class _LibraryCalendarViewState extends ConsumerState<LibraryCalendarView> {
   }) {
     final locale = Localizations.localeOf(context).toString();
     final date = DateTime(_month.year, _month.month, day);
-    showModalBottomSheet<void>(
+    showAppBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(DateFormat.yMMMMd(locale).format(date)),
-              dense: true,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: Text(DateFormat.yMMMMd(locale).format(date)),
+            dense: true,
+          ),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final item in items)
+                  ListTile(
+                    title: Text(item.title),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.push('${RoutePaths.library}/${item.id}');
+                    },
+                  ),
+              ],
             ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final item in items)
-                    ListTile(
-                      title: Text(item.title),
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        context.push('${RoutePaths.library}/${item.id}');
-                      },
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

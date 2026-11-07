@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -22,10 +23,8 @@ Future<void> showSavedViewsSheet(
   required LibraryViewMode currentViewMode,
   required void Function(LibraryViewMode) onApplyViewMode,
 }) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
     builder: (context) => _SavedViewsSheet(
       currentQuery: currentQuery,
       currentViewMode: currentViewMode,

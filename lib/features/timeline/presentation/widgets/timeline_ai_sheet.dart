@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_filter.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_picker_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -29,10 +30,8 @@ Future<TimelineAiChoice?> showTimelineAiSheet(
   BuildContext context, {
   TimelineScope? initial,
 }) {
-  return showModalBottomSheet<TimelineAiChoice>(
+  return showAppBottomSheet<TimelineAiChoice>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (_) => _AiSheet(initial: initial),
   );
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
@@ -65,22 +66,19 @@ Future<ReferenceFileFormat?> _chooseFormat(
   BuildContext context,
   AppLocalizations l10n,
 ) {
-  return showModalBottomSheet<ReferenceFileFormat>(
+  return showAppBottomSheet<ReferenceFileFormat>(
     context: context,
-    showDragHandle: true,
-    builder: (context) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(title: Text(l10n.exportReferencesChooseFormat), dense: true),
-          for (final format in ReferenceFileFormat.values)
-            ListTile(
-              key: Key('reference-export-format-${format.name}'),
-              title: Text(format.label(l10n)),
-              onTap: () => Navigator.of(context).pop(format),
-            ),
-        ],
-      ),
+    builder: (context) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListTile(title: Text(l10n.exportReferencesChooseFormat), dense: true),
+        for (final format in ReferenceFileFormat.values)
+          ListTile(
+            key: Key('reference-export-format-${format.name}'),
+            title: Text(format.label(l10n)),
+            onTap: () => Navigator.of(context).pop(format),
+          ),
+      ],
     ),
   );
 }

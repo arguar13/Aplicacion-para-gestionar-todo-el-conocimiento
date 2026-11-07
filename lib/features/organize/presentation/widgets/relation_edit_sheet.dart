@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -20,11 +21,8 @@ Future<void> showRelationEditSheet(
   BuildContext context, {
   required ItemRelation relation,
 }) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    useSafeArea: true,
     builder: (_) => RelationEditSheet(relation: relation),
   );
 }
@@ -157,12 +155,7 @@ class _RelationEditSheetState extends ConsumerState<RelationEditSheet> {
     final fixedKind = _relation.kind.isStructural;
 
     return Padding(
-      // El teclado no tapa la frase que se está escribiendo.
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        bottom: 16 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: const EdgeInsets.only(left: 24, right: 24, bottom: 16),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/infographic/domain/infographic_design.dart';
@@ -61,11 +62,9 @@ Future<void> openInfographicDesign(
   final before = notifier.state!;
   final illustrations = InfographicIllustrations.of(content.sheet);
 
-  await showModalBottomSheet<void>(
+  await showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
+    ownSurface: true,
     builder: (sheetContext) => Consumer(
       builder: (context, ref, _) {
         final design = ref.watch(live) ?? saved;
@@ -118,11 +117,9 @@ Future<void> _openGallery(
   WidgetRef ref, {
   required String creationId,
   required InfographicContent content,
-}) => showModalBottomSheet<void>(
+}) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  backgroundColor: Colors.transparent,
+  ownSurface: true,
   builder: (_) => Consumer(
     builder: (context, ref, _) {
       final l10n = AppLocalizations.of(context)!;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -22,12 +23,8 @@ Future<List<Space>?> showSpacesPickerSheet(
   required Set<String> selected,
   bool requireOne = false,
 }) {
-  return showModalBottomSheet<List<Space>>(
+  return showAppBottomSheet<List<Space>>(
     context: context,
-    showDragHandle: true,
-    // Con el buscador, el teclado sube: sin esto la hoja queda topeada a la
-    // mitad de la pantalla y el teclado tapa justo la lista que se filtra.
-    isScrollControlled: true,
     builder: (context) =>
         _SpacesPickerSheet(selected: selected, requireOne: requireOne),
   );
@@ -107,105 +104,102 @@ class _SpacesPickerSheetState extends ConsumerState<_SpacesPickerSheet> {
     final nameToCreate = typed.isNotEmpty && !hasExactMatch ? typed : null;
     final missing = widget.requireOne && _selected.isEmpty;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * 0.75,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text(l10n.spacesPickerTitle),
-                subtitle: Text(l10n.spacesPickerHint),
-                dense: true,
-              ),
-              if (spaces.length >= _searchFromCount)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: TextField(
-                    controller: _searchController,
-                    textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      hintText: l10n.spacesSearchHint,
-                      prefixIcon: const Icon(Icons.search),
-                      isDense: true,
-                    ),
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(l10n.spacesPickerTitle),
+              subtitle: Text(l10n.spacesPickerHint),
+              dense: true,
+            ),
+            if (spaces.length >= _searchFromCount)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: TextField(
+                  controller: _searchController,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: l10n.spacesSearchHint,
+                    prefixIcon: const Icon(Icons.search),
+                    isDense: true,
                   ),
                 ),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    ListTile(
-                      leading: _creating
-                          ? const SizedBox.square(
-                              dimension: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.create_new_folder_outlined),
-                      title: Text(
-                        nameToCreate == null
-                            ? l10n.spacesNewAction
-                            : l10n.spacesCreateNamed(nameToCreate),
-                      ),
-                      subtitle: _createError == null
-                          ? null
-                          : Text(
-                              _createError!,
-                              style: TextStyle(color: theme.colorScheme.error),
+              ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  ListTile(
+                    leading: _creating
+                        ? const SizedBox.square(
+                            dimension: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.create_new_folder_outlined),
+                    title: Text(
+                      nameToCreate == null
+                          ? l10n.spacesNewAction
+                          : l10n.spacesCreateNamed(nameToCreate),
+                    ),
+                    subtitle: _createError == null
+                        ? null
+                        : Text(
+                            _createError!,
+                            style: TextStyle(color: theme.colorScheme.error),
+                          ),
+                    iconColor: theme.colorScheme.primary,
+                    textColor: theme.colorScheme.primary,
+                    enabled: !_creating,
+                    onTap: () => _create(spaces, nameToCreate),
+                  ),
+                  for (final space in visible)
+                    CheckboxListTile(
+                      secondary: const Icon(Icons.folder_outlined),
+                      title: Text(space.name),
+                      value: _selected.contains(space.id),
+                      onChanged: (marked) => setState(() {
+                        if (marked ?? false) {
+                          _selected.add(space.id);
+                        } else {
+                          _selected.remove(space.id);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: missing
+                        ? Text(
+                            l10n.spacesPickerNeedOne,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.error,
                             ),
-                      iconColor: theme.colorScheme.primary,
-                      textColor: theme.colorScheme.primary,
-                      enabled: !_creating,
-                      onTap: () => _create(spaces, nameToCreate),
-                    ),
-                    for (final space in visible)
-                      CheckboxListTile(
-                        secondary: const Icon(Icons.folder_outlined),
-                        title: Text(space.name),
-                        value: _selected.contains(space.id),
-                        onChanged: (marked) => setState(() {
-                          if (marked ?? false) {
-                            _selected.add(space.id);
-                          } else {
-                            _selected.remove(space.id);
-                          }
-                        }),
-                      ),
-                  ],
-                ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  FilledButton(
+                    onPressed: missing
+                        ? null
+                        : () => Navigator.of(context).pop([
+                            for (final space in spaces)
+                              if (_selected.contains(space.id)) space,
+                          ]),
+                    child: Text(l10n.spacesPickerDone),
+                  ),
+                ],
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: missing
-                          ? Text(
-                              l10n.spacesPickerNeedOne,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.error,
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    FilledButton(
-                      onPressed: missing
-                          ? null
-                          : () => Navigator.of(context).pop([
-                              for (final space in spaces)
-                                if (_selected.contains(space.id)) space,
-                            ]),
-                      child: Text(l10n.spacesPickerDone),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -262,14 +256,13 @@ class _SpacesPickerSheetState extends ConsumerState<_SpacesPickerSheet> {
 
     setState(() {
       _creating = false;
-      result.match(
-        (failure) => _createError = failure.localizedMessage(l10n),
-        (space) {
-          _created[space.id] = space;
-          _selected.add(space.id);
-          _searchController.clear();
-        },
-      );
+      result.match((failure) => _createError = failure.localizedMessage(l10n), (
+        space,
+      ) {
+        _created[space.id] = space;
+        _selected.add(space.id);
+        _searchController.clear();
+      });
     });
   }
 }

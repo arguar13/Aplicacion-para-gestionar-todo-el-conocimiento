@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -78,13 +79,8 @@ Future<bool> showProcessedTriageSheet(
   OriginalEdit? initialOriginal,
   bool startCutting = false,
 }) async {
-  final still = MediaQuery.disableAnimationsOf(context);
-  final done = await showModalBottomSheet<bool>(
+  final done = await showAppBottomSheet<bool>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
-    sheetAnimationStyle: still ? AnimationStyle.noAnimation : null,
     constraints: const BoxConstraints(maxWidth: 720),
     builder: (_) => DraggableScrollableSheet(
       expand: false,

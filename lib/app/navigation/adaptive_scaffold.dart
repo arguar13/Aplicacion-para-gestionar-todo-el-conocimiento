@@ -8,6 +8,7 @@ import 'package:sinapsis/app/navigation/nav_destinations.dart';
 import 'package:sinapsis/app/navigation/navigation_bar_scope.dart';
 import 'package:sinapsis/app/router/back_navigation.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/study_day_watcher.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
@@ -189,52 +190,47 @@ class AdaptiveScaffold extends ConsumerWidget {
     int currentBranch,
     void Function(int branchIndex) goToBranch,
   ) {
-    return showModalBottomSheet<void>(
+    return showAppBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      // Con letra grande o en un teléfono chico, la lista entera.
-      isScrollControlled: true,
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
-        return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                  child: Text(group.label, style: theme.textTheme.titleLarge),
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Text(group.label, style: theme.textTheme.titleLarge),
+              ),
+              for (final d in group.destinations)
+                ListTile(
+                  key: ValueKey('nav-step-item-${d.branchIndex}'),
+                  leading: d.branchIndex == currentBranch
+                      ? d.selectedIcon
+                      : d.icon,
+                  title: Text(d.label),
+                  subtitle: Text(d.hint),
+                  trailing: const Icon(Icons.chevron_right),
+                  selected: d.branchIndex == currentBranch,
+                  selectedTileColor: theme.colorScheme.secondaryContainer,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    goToBranch(d.branchIndex);
+                  },
                 ),
-                for (final d in group.destinations)
-                  ListTile(
-                    key: ValueKey('nav-step-item-${d.branchIndex}'),
-                    leading: d.branchIndex == currentBranch
-                        ? d.selectedIcon
-                        : d.icon,
-                    title: Text(d.label),
-                    subtitle: Text(d.hint),
-                    trailing: const Icon(Icons.chevron_right),
-                    selected: d.branchIndex == currentBranch,
-                    selectedTileColor: theme.colorScheme.secondaryContainer,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      goToBranch(d.branchIndex);
-                    },
-                  ),
-                if (group.step == NavStep.organize)
-                  _UnsortedStepTask(
-                    onOpen: () {
-                      Navigator.of(sheetContext).pop();
-                      unawaited(context.push(RoutePaths.unsorted));
-                    },
-                  ),
-              ],
-            ),
+              if (group.step == NavStep.organize)
+                _UnsortedStepTask(
+                  onOpen: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(context.push(RoutePaths.unsorted));
+                  },
+                ),
+            ],
           ),
         );
       },

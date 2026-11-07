@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -21,13 +22,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// la Biblioteca, con su buscador y sus filtros, y lo ya procesado marcado con
 /// un chip. Devuelve la fuente elegida, o `null` si se cerró sin elegir.
 Future<String?> showRetriagePicker(BuildContext context) {
-  final still = MediaQuery.disableAnimationsOf(context);
-  return showModalBottomSheet<String>(
+  return showAppBottomSheet<String>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
-    sheetAnimationStyle: still ? AnimationStyle.noAnimation : null,
     constraints: const BoxConstraints(maxWidth: 720),
     builder: (_) => DraggableScrollableSheet(
       expand: false,

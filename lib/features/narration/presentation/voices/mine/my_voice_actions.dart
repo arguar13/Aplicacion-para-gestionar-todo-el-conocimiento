@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/features/narration/domain/voices/mine/my_voice.dart';
 import 'package:sinapsis/features/narration/domain/voices/mine/voice_cloud.dart';
@@ -101,11 +102,8 @@ class _EntryCard extends StatelessWidget {
 /// La hoja de una voz propia: de dónde es, su consentimiento, cambiarle el
 /// nombre o la cara, y borrarla.
 Future<void> showMyVoiceActions(BuildContext context, MyVoice voice) =>
-    showModalBottomSheet<void>(
+    showAppBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => MyVoiceActionsSheet(voice: voice),
     );
 

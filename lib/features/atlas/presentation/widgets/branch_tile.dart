@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_node.dart';
 import 'package:sinapsis/features/atlas/presentation/widgets/atlas_labels.dart';
@@ -210,45 +211,37 @@ class BranchTile extends StatelessWidget {
   }
 
   Future<void> _showAllMapNotes(BuildContext context, AppLocalizations l10n) {
-    return showModalBottomSheet<void>(
+    return showAppBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.6,
+      maxHeightFactor: 0.6,
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: Text(
+              l10n.atlasMapNotesTitle,
+              style: Theme.of(sheetContext).textTheme.titleMedium,
+            ),
+            subtitle: Text(node.label),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text(
-                  l10n.atlasMapNotesTitle,
-                  style: Theme.of(sheetContext).textTheme.titleMedium,
-                ),
-                subtitle: Text(node.label),
-              ),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    for (final note in node.mapNotes)
-                      ListTile(
-                        key: ValueKey('atlas-map-sheet-${note.id}'),
-                        leading: const Icon(Icons.map_outlined),
-                        title: Text(note.title),
-                        onTap: () {
-                          Navigator.of(sheetContext).pop();
-                          onOpenNote(note.id);
-                        },
-                      ),
-                  ],
-                ),
-              ),
-            ],
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final note in node.mapNotes)
+                  ListTile(
+                    key: ValueKey('atlas-map-sheet-${note.id}'),
+                    leading: const Icon(Icons.map_outlined),
+                    title: Text(note.title),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      onOpenNote(note.id);
+                    },
+                  ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

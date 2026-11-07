@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
@@ -26,11 +27,8 @@ class FillNotebookButton extends StatelessWidget {
       key: const Key('fill-notebook'),
       icon: const Icon(Icons.auto_awesome_outlined),
       tooltip: l10n.fillNotebookTooltip,
-      onPressed: () => showModalBottomSheet<void>(
+      onPressed: () => showAppBottomSheet<void>(
         context: context,
-        showDragHandle: true,
-        isScrollControlled: true,
-        useSafeArea: true,
         builder: (context) => FillNotebookSheet(notebook: notebook),
       ),
     );

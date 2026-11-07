@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/attachment_download_status.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -363,62 +364,59 @@ Future<void> showAttachmentActions(
   Attachment attachment,
 ) async {
   final l10n = AppLocalizations.of(context)!;
-  await showModalBottomSheet<void>(
+  await showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: Text(
-              attachment.displayName,
-              style: Theme.of(sheetContext).textTheme.titleMedium,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
+    builder: (sheetContext) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+          child: Text(
+            attachment.displayName,
+            style: Theme.of(sheetContext).textTheme.titleMedium,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Text(
-              _details(attachment, l10n),
-              style: Theme.of(sheetContext).textTheme.bodySmall,
-            ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            _details(attachment, l10n),
+            style: Theme.of(sheetContext).textTheme.bodySmall,
           ),
-          const SizedBox(height: 8),
-          if (attachment.kind == RenditionKind.image &&
-              !attachment.fileName.toLowerCase().endsWith('.svg'))
-            ListTile(
-              leading: const Icon(Icons.zoom_in),
-              title: Text(attachment.displayName, maxLines: 1),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _viewImage(context, ref, attachment);
-              },
-            ),
+        ),
+        const SizedBox(height: 8),
+        if (attachment.kind == RenditionKind.image &&
+            !attachment.fileName.toLowerCase().endsWith('.svg'))
           ListTile(
-            key: const Key('content-open'),
-            leading: const Icon(Icons.open_in_new),
-            title: Text(l10n.contentOpen),
+            leading: const Icon(Icons.zoom_in),
+            title: Text(attachment.displayName, maxLines: 1),
             onTap: () {
               Navigator.of(sheetContext).pop();
-              _open(context, ref, attachment);
+              _viewImage(context, ref, attachment);
             },
           ),
-          if (attachment.hasText)
-            ListTile(
-              key: const Key('content-read-text'),
-              leading: const Icon(Icons.article_outlined),
-              title: Text(l10n.contentReadText),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _readText(context, ref, attachment);
-              },
-            ),
-        ],
-      ),
+        ListTile(
+          key: const Key('content-open'),
+          leading: const Icon(Icons.open_in_new),
+          title: Text(l10n.contentOpen),
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            _open(context, ref, attachment);
+          },
+        ),
+        if (attachment.hasText)
+          ListTile(
+            key: const Key('content-read-text'),
+            leading: const Icon(Icons.article_outlined),
+            title: Text(l10n.contentReadText),
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _readText(context, ref, attachment);
+            },
+          ),
+      ],
     ),
   );
 }

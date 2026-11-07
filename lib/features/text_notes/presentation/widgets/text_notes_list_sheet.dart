@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/text_notes/domain/entities/text_note_target.dart';
 import 'package:sinapsis/features/text_notes/domain/services/text_note_placement.dart';
 import 'package:sinapsis/features/text_notes/presentation/providers/text_note_providers.dart';
@@ -57,10 +58,8 @@ Future<void> showTextNotesList(
   BuildContext context,
   WidgetRef ref, {
   required List<TextNoteSource> sources,
-}) => showModalBottomSheet<void>(
+}) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
   builder: (sheetContext) => DraggableScrollableSheet(
     expand: false,
     initialChildSize: 0.6,

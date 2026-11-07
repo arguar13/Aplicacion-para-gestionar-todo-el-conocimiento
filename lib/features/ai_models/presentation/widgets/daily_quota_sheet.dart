@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/daily_quota.dart';
 import 'package:sinapsis/features/ai_models/domain/services/ai_price_table.dart';
@@ -19,11 +20,8 @@ Future<void> showDailyQuotaSheet(
   required String accountId,
   required String label,
   AiProvider? textProvider,
-}) => showModalBottomSheet<void>(
+}) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
-  useSafeArea: true,
   builder: (context) => _DailyQuotaSheet(
     accountId: accountId,
     label: label,
@@ -170,12 +168,7 @@ class _DailyQuotaSheetState extends ConsumerState<_DailyQuotaSheet> {
     );
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        0,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: SingleChildScrollView(
         child: Column(
           key: const Key('daily-quota-sheet'),

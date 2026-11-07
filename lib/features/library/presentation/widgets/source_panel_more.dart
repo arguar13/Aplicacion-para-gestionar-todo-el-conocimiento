@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -148,9 +149,8 @@ Future<SourceMoreAction?> _openSheet(
   List<SourceMoreAction> actions, {
   String? title,
   String? note,
-}) => showModalBottomSheet<SourceMoreAction>(
+}) => showAppBottomSheet<SourceMoreAction>(
   context: context,
-  showDragHandle: true,
   builder: (context) =>
       _SourceMoreSheet(actions: actions, title: title, note: note),
 );

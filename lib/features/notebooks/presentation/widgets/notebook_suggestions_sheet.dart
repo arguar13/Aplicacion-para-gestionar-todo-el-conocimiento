@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/notebooks/domain/entities/notebook.dart';
 import 'package:sinapsis/features/notebooks/domain/services/notebook_suggestions.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
@@ -11,11 +12,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 Future<List<Notebook>> showNotebookSuggestionsSheet(
   BuildContext context,
 ) async {
-  final created = await showModalBottomSheet<List<Notebook>>(
+  final created = await showAppBottomSheet<List<Notebook>>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    useSafeArea: true,
     builder: (context) => const NotebookSuggestionsSheet(),
   );
   return created ?? const [];

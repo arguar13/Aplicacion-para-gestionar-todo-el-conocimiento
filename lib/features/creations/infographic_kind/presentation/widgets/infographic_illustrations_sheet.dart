@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/app_bottom_sheet.dart';
 import 'package:sinapsis/features/ai_models/domain/services/creation_cost_estimator.dart';
 import 'package:sinapsis/features/ai_models/presentation/illustration_texts.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/illustration_providers.dart';
@@ -23,11 +24,9 @@ Future<void> showInfographicIllustrations(
   BuildContext context, {
   required StudyCreation creation,
   required InfographicDesign design,
-}) => showModalBottomSheet<void>(
+}) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  backgroundColor: Colors.transparent,
+  ownSurface: true,
   builder: (_) =>
       InfographicIllustrationsSheet(creationId: creation.id, design: design),
 );
