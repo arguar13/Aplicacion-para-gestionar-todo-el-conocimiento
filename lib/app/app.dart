@@ -13,6 +13,7 @@ import 'package:sinapsis/app/study_reminder_binding.dart';
 import 'package:sinapsis/core/audio/lock_screen_title.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
+import 'package:sinapsis/core/database/chunk_search_text_backfill.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/design/widgets/snack_bar_footprint.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
@@ -79,6 +80,10 @@ class _AppState extends ConsumerState<App> {
       // estaba procesado al actualizar, lo que trajo una unión— y las imágenes
       // sin título, en segundo plano. Desde acá mira la base solo.
       ref.read(processedHeadingsBackfillKeeperProvider);
+      // Lo que se busca de los chunks de antes de v52 (F46, paso 5i): su
+      // texto como se lee, sin las direcciones, por tandas. Mientras tanto
+      // se buscan tal cual, como antes.
+      unawaited(ref.read(chunkSearchTextBackfillProvider).run());
     }, fireImmediately: true);
   }
 

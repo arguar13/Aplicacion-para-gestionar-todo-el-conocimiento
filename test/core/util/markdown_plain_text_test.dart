@@ -179,6 +179,21 @@ void main() {
       );
     });
 
+    test('con keepLineBreaks, cada renglón del párrafo queda en el suyo: lo '
+        'que pide el índice para unir los guiones de corte (F46, paso 5i)', () {
+      const text = 'Las ex-\nplicaciones [aquí](https://x.org).\n\nOtro.';
+      expect(markdownPlainBlocks(text, keepLineBreaks: true).toList(), [
+        'Las ex-\nplicaciones aquí.',
+        'Otro.',
+      ]);
+      expect(
+        markdownPlainText(text, keepLineBreaks: true),
+        'Las ex-\nplicaciones aquí.\nOtro.',
+      );
+      // Sin pedirlo, como siempre: unidos por un espacio.
+      expect(markdownPlainText(text), 'Las ex- plicaciones aquí.\nOtro.');
+    });
+
     test('las viñetas y los números de lista; el número queda', () {
       expect(
         markdownPlainBlocks(

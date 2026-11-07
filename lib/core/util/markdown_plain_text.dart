@@ -54,10 +54,17 @@ final markdownFootnoteCall = RegExp(
 /// alternativo— no está. Se lee de a un renglón y recién cuando se pide el
 /// bloque siguiente: quien solo quiere el comienzo de un capítulo largo no
 /// recorre el libro entero.
+///
+/// Con [keepLineBreaks], los renglones de un párrafo quedan en renglones
+/// aparte en vez de unirse con un espacio: lo que se lee es lo mismo, pero se
+/// sigue viendo dónde terminaba cada renglón. Lo pide el índice de búsqueda
+/// (F46, paso 5i), que une las palabras cortadas con guion al final de un
+/// renglón (F22): `ex-⏎plicaciones` unido con un espacio ya no se reconoce.
 Iterable<String> markdownPlainBlocks(
   String text, {
   int start = 0,
   int? end,
+  bool keepLineBreaks = false,
 }) sync* {
   final stop = (end ?? text.length).clamp(0, text.length);
   final paragraph = <String>[];
@@ -65,7 +72,9 @@ Iterable<String> markdownPlainBlocks(
   String? fence;
 
   String? flushParagraph() {
-    final block = paragraph.where((line) => line.isNotEmpty).join(' ');
+    final block = paragraph
+        .where((line) => line.isNotEmpty)
+        .join(keepLineBreaks ? '\n' : ' ');
     paragraph.clear();
     return block.isEmpty ? null : block;
   }
@@ -151,9 +160,10 @@ Iterable<String> markdownPlainBlocks(
   if (flushParagraph() case final block?) yield block;
 }
 
-/// [markdown] como se lee ([markdownPlainBlocks]): un bloque por renglón.
-String markdownPlainText(String markdown) =>
-    markdownPlainBlocks(markdown).join('\n');
+/// [markdown] como se lee ([markdownPlainBlocks]): un bloque por renglón —y,
+/// con [keepLineBreaks], cada renglón de un párrafo en el suyo—.
+String markdownPlainText(String markdown, {bool keepLineBreaks = false}) =>
+    markdownPlainBlocks(markdown, keepLineBreaks: keepLineBreaks).join('\n');
 
 /// [text] entre [start] y [end] como se lee, en un solo renglón y con
 /// [maxChars] letras **legibles** como mucho —las de lo que se lee, no las de

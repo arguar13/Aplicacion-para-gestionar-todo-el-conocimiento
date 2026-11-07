@@ -197,7 +197,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 51;
+  static const currentSchemaVersion = 52;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -248,8 +248,17 @@ class AppDatabase extends _$AppDatabase {
         // se hizo, y si algún conteo no coincide, la migración entera revierte.
         if (from < 16) {
           final chunksBefore = await _count('chunks');
+          // `search_text` y `search_text_rule` (v52) también son nuevas para
+          // una tabla de v15: `alterTable` la crea con su definición de hoy.
           await migrator.alterTable(
-            TableMigration(chunks, newColumns: [chunks.rowKey]),
+            TableMigration(
+              chunks,
+              newColumns: [
+                chunks.rowKey,
+                chunks.searchText,
+                chunks.searchTextRule,
+              ],
+            ),
           );
           final chunksAfter = await _count('chunks');
           if (chunksBefore != chunksAfter) {
@@ -1497,6 +1506,56 @@ class AppDatabase extends _$AppDatabase {
           await _createProcessedHeadingIndex();
           await _requireSameCounts(before, step: 'v51', tables: tables);
         }
+
+        // Lo que se busca de un chunk (F46, paso 5i): `chunks.search_text`, el
+        // texto de un chunk en Markdown como se lee —sin sus marcas ni sus
+        // direcciones—, y `search_text_rule`, con qué versión de la regla se
+        // calculó. El índice de los chunks pasa a indexar lo que se lee
+        // (`chunkSearchColumn`): sus triggers y su vista se rehacen con la
+        // definición nueva. El índice en sí no: con las dos columnas vacías,
+        // lo que se lee de cada chunk es su texto tal cual, lo mismo que tenía
+        // indexado. Las llena después, en segundo plano y por tandas,
+        // `ChunkSearchTextBackfill` —leer Markdown es cosa de Dart y no tiene
+        // por qué demorar la apertura, como el relleno del Índice de v51—, y
+        // cada chunk que cambia cambia en el índice por su trigger. Derivado:
+        // el texto de la Biblioteca no se toca, y los conteos de todo son
+        // compuerta. Las columnas pueden existir ya: el paso v16 crea `chunks`
+        // con su definición de hoy, y el de v32 las agrega para rehacer el
+        // índice.
+        if (from < 52) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+            ...VaultCounts.studyTables,
+            ...VaultCounts.itemSpaceTables,
+            ...VaultCounts.datedEventTables,
+            ...VaultCounts.processedTables,
+            ...VaultCounts.processedImageTables,
+            ...VaultCounts.studyCreationTables,
+            ...VaultCounts.textNoteTables,
+            ...VaultCounts.processedHeadingTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await _addChunkSearchTextColumns();
+          for (final trigger in chunkSearchTriggerNames) {
+            await customStatement('DROP TRIGGER IF EXISTS $trigger');
+          }
+          final indexed = await _tableExists('chunk_search');
+          await customStatement('DROP VIEW IF EXISTS chunk_search_text');
+          await _createChunkSearchIndex();
+          // Una base sin el índice —que no debería haber— lo recibe entero.
+          if (!indexed) await customStatement(rebuildChunkSearch);
+          await _requireSameCounts(before, step: 'v52', tables: tables);
+        }
       });
     },
     beforeOpen: (details) async {
@@ -1707,10 +1766,16 @@ class AppDatabase extends _$AppDatabase {
   /// vista— y lo vuelve a crear y a llenar con la definición de hoy. El
   /// índice es derivado: rehacerlo no toca ningún dato. Exige al final una
   /// entrada por chunk.
+  ///
+  /// La definición de hoy lee `chunks.search_text` (v52): un paso anterior que
+  /// rehace el índice —el de v32— agrega antes sus columnas, vacías, si la
+  /// tabla todavía no las tiene. Vacía es «el texto tal cual», lo que
+  /// indexaba ese paso; las llena después `ChunkSearchTextBackfill`.
   Future<void> _rebuildChunkSearchIndex() async {
     for (final trigger in chunkSearchTriggerNames) {
       await customStatement('DROP TRIGGER IF EXISTS $trigger');
     }
+    await _addChunkSearchTextColumns();
     await customStatement('DROP TABLE IF EXISTS chunk_vocab');
     await customStatement('DROP TABLE IF EXISTS chunk_search');
     await customStatement('DROP VIEW IF EXISTS chunk_search_text');
@@ -1723,6 +1788,16 @@ class AppDatabase extends _$AppDatabase {
         'El índice de texto de los chunks quedó con $indexed entradas y '
         'hay $chunksNow chunks.',
       );
+    }
+  }
+
+  /// Agrega `chunks.search_text` y `chunks.search_text_rule` (v52), vacías, si
+  /// la tabla todavía no las tiene.
+  Future<void> _addChunkSearchTextColumns() async {
+    for (final column in [chunks.searchText, chunks.searchTextRule]) {
+      if (!await _columnExists('chunks', column.name)) {
+        await createMigrator().addColumn(chunks, column);
+      }
     }
   }
 
@@ -1745,6 +1820,16 @@ class AppDatabase extends _$AppDatabase {
     throw StateError(
       'La migración a $step cambió la cantidad de filas de $detail.',
     );
+  }
+
+  /// Si la base tiene una tabla —también virtual— llamada [table].
+  Future<bool> _tableExists(String table) async {
+    final rows = await customSelect(
+      'SELECT 1 AS present FROM sqlite_master '
+      "WHERE type = 'table' AND name = ?",
+      variables: [Variable.withString(table)],
+    ).get();
+    return rows.isNotEmpty;
   }
 
   /// Si la tabla [table] ya tiene una columna llamada [column].

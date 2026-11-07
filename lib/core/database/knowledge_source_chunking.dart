@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/domain/services/chunking_service.dart';
+import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
 /// Qué pasó al intentar dejar al día los chunks de una fuente.
@@ -74,6 +76,10 @@ Future<RenditionRow?> sourceTextRendition(AppDatabase db, String itemId) async {
 /// página, y numerarlo con su posición correría todos los números que siguen a
 /// una página vacía. Las migraciones no lo piden; esos PDF quedan sin número de
 /// página, que es honesto, en vez de con uno que puede estar equivocado.
+///
+/// Cada chunk de un texto en Markdown guarda además lo que se busca de él
+/// —su texto como se lee, sin direcciones— (`searchText`, F46, paso 5i): ver
+/// `chunkSearchSource`.
 Future<SourceChunkingOutcome> chunkAndPersistSource(
   AppDatabase db, {
   required String itemId,
@@ -81,14 +87,18 @@ Future<SourceChunkingOutcome> chunkAndPersistSource(
   String reportedBy = 'f5_relation_engine',
   bool assignPages = false,
 }) async {
-  // Solo las dos columnas que hacen falta, y no la fila entera: esta función
+  // Solo las columnas que hacen falta, y no la fila entera: esta función
   // corre también en el paso v16 de la migración, sobre una `source` que
   // todavía no tiene las columnas que se le sumaron después —`only_file`, de
   // v38, no admite nulo—, y leer la fila tipada con ellas faltando la rompe.
   final sources = db.knowledgeSources;
   final source =
       await (db.selectOnly(sources)
-            ..addColumns([sources.contentHash, sources.originalBlobPath])
+            ..addColumns([
+              sources.contentHash,
+              sources.originalBlobPath,
+              sources.sourceType,
+            ])
             ..where(sources.itemId.equals(itemId)))
           .getSingleOrNull();
   // Una nota no tiene fila de fuente, y no se fragmenta: ver
@@ -96,6 +106,10 @@ Future<SourceChunkingOutcome> chunkAndPersistSource(
   if (source == null) return SourceChunkingOutcome.alreadyDone;
   final storedHash = source.read(sources.contentHash);
   final originalPath = source.read(sources.originalBlobPath);
+  final markdown = extractedTextIsMarkdownFor(
+    source.readWithConverter(sources.sourceType)!,
+    originalPath,
+  );
 
   final chosen = await sourceTextRendition(db, itemId);
   if (chosen == null) return SourceChunkingOutcome.noTextYet;
@@ -173,6 +187,8 @@ Future<SourceChunkingOutcome> chunkAndPersistSource(
           endMs: Value(chunk.endMs),
           pageNumber: Value(chunk.pageNumber),
           headingPath: Value(chunk.headingPath),
+          searchText: Value(chunkSearchSource(chunk.text, markdown: markdown)),
+          searchTextRule: const Value(kChunkSearchTextRule),
         ),
     ]);
   });

@@ -44,6 +44,21 @@ void main() {
       );
       expect(extractedTextIsMarkdown(source(SourceKind.document)), isFalse);
     });
+
+    test('extractedTextIsMarkdownFor dice lo mismo con el tipo y el archivo '
+        'solos (F46, paso 5i)', () {
+      for (final kind in SourceKind.values) {
+        for (final file in [null, 'x/a.docx', 'b.EPUB', 'c.md', 'd.pdf']) {
+          expect(
+            extractedTextIsMarkdownFor(kind, file),
+            extractedTextIsMarkdown(source(kind, file)),
+            reason: '$kind $file',
+          );
+        }
+      }
+      expect(extractedTextIsMarkdownFor(SourceKind.document, 'c.md'), isTrue);
+      expect(extractedTextIsMarkdownFor(SourceKind.audio, null), isFalse);
+    });
   });
 
   group('isTranscriptSource', () {

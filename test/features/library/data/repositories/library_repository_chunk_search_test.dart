@@ -301,6 +301,75 @@ void main() {
       expect(citation.parts.map((p) => p.text).join(), contains('Kuhn'));
     });
 
+    group('de una página web, lo que se lee (F46, paso 5i)', () {
+      // Como la Fotosíntesis de Wikipedia que se vio en el emulador: la foto
+      // con la palabra en su dirección y un enlace con negrita.
+      const page =
+          'Las plantas.\n'
+          '\n'
+          '![](https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/'
+          'Fotosintesis_ox_ano.png)\n'
+          '\n'
+          'El oxígeno de la Tierra se acumuló debido a la '
+          '[**fotosíntesis**](https://es.wikipedia.org/wiki/F) de las algas.';
+
+      void expectReadable(SearchCitation citation) {
+        final text = citation.parts.map((p) => p.text).join();
+        for (final raw in ['](', '![', 'http', '**']) {
+          expect(text, isNot(contains(raw)), reason: raw);
+        }
+        expect(citation.parts.where((p) => p.highlighted).map((p) => p.text), [
+          'fotosíntesis',
+        ]);
+        expect(text, contains('debido a la fotosíntesis de las algas.'));
+      }
+
+      test('el fragmento, sin Markdown ni direcciones, con la palabra '
+          'marcada', () async {
+        final item = await save('Fotosíntesis', text: page);
+
+        expectReadable(citationsOf(await hitsFor('Fotosintesis'))[item.id]!);
+      });
+
+      test('también cuando la cita se busca aparte, con otro orden', () async {
+        final item = await save('Fotosíntesis', text: page);
+
+        final hits = (await repository.search(
+          const LibraryQuery(
+            searchText: 'Fotosintesis',
+            // El orden de siempre, por captura: la cita se busca aparte.
+            limit: 50,
+          ),
+        )).getRight().toNullable()!;
+
+        expectReadable(citationsOf(hits)[item.id]!);
+      });
+
+      test('una palabra que solo está en una dirección no encuentra el '
+          'documento', () async {
+        await save('Fotosíntesis', text: page);
+        await save(
+          'Hojas',
+          text: 'Hojas verdes.\n\n![](https://x.org/Clorofila_hojas.png)',
+        );
+
+        expect(await titlesOf('wikimedia'), isEmpty);
+        expect(await titlesOf('clorofila'), isEmpty);
+        expect(await titlesOf('fotosintesis'), ['Fotosíntesis']);
+      });
+
+      test('las palabras cortadas con guion al final del renglón se siguen '
+          'encontrando', () async {
+        final item = await save(
+          'Libro',
+          text: 'He eludido las ex-\nplicaciones [aquí](https://x.org).',
+        );
+
+        expect(await titlesOf('explicaciones'), ['Libro']);
+        expect(citationsOf(await hitsFor('explicaciones'))[item.id], isNotNull);
+      });
+    });
+
     test('una fuente con página la cita', () async {
       final item = await save(
         'Un documento',

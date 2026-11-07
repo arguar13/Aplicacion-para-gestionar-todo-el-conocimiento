@@ -35,6 +35,30 @@ class Chunks extends Table {
   IntColumn get pageNumber => integer().nullable()();
   TextColumn get headingPath => text().nullable()();
 
+  /// Lo que se BUSCA de [content], cuando no es [content] mismo (F46, paso
+  /// 5i): el texto de un chunk en Markdown como se lee, sin sus marcas ni sus
+  /// direcciones —un enlace es su texto, una imagen su texto alternativo—;
+  /// `null` si es el texto tal cual —un PDF, una transcripción, o un Markdown
+  /// sin nada que no se lea—. Ver `chunkSearchSource`.
+  ///
+  /// Lo indexa `chunk_search` en lugar de [content], y de acá sale el
+  /// fragmento de un resultado: buscar «fotosíntesis» no encuentra la palabra
+  /// adentro de la dirección de una foto, y el fragmento no muestra
+  /// `[](https://…)`. Se calcula en Dart al guardar el chunk —SQLite no sabe
+  /// leer Markdown— y se guarda, en vez de calcularse en cada búsqueda: el
+  /// índice de contenido externo necesita, para dar de baja una fila, el
+  /// mismo texto que indexó, y guardado no depende de que la regla de lectura
+  /// siga igual. Quien cambie [content] tiene que recalcularlo; el único que
+  /// escribe chunks, `chunkAndPersistSource`, los reemplaza enteros.
+  TextColumn get searchText => text().nullable()();
+
+  /// Con qué versión de la regla de lectura se calculó [searchText]
+  /// (`kChunkSearchTextRule`), o `null` si nunca se calculó: un chunk de antes
+  /// de v52. Lo que tiene una versión vieja o ninguna lo pone al día
+  /// `ChunkSearchTextBackfill`, en segundo plano; si la regla cambia, se sube
+  /// el número y el relleno rehace lo viejo, sin otra migración.
+  IntColumn get searchTextRule => integer().nullable()();
+
   @override
   List<String> get customConstraints => ['UNIQUE (item_id, seq)'];
 }

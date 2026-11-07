@@ -22,6 +22,7 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/vocabulary_hierarchy.dart';
 import 'package:sinapsis/core/domain/services/chunking_service.dart';
+import 'package:sinapsis/core/util/extracted_text_format.dart';
 
 /// Cambia cuando cambia lo que el generador escribe: invalida la bóveda que el
 /// benchmark dejó guardada en disco y obliga a armarla de nuevo.
@@ -851,6 +852,9 @@ class _VaultBuilder {
         content,
         kind: renditionKind,
       );
+      // Lo que se busca de cada chunk, como lo guarda `chunkAndPersistSource`
+      // (F46, paso 5i).
+      final markdown = extractedTextIsMarkdownFor(kind, null);
       _knowledgeSources.add(
         KnowledgeSourcesCompanion.insert(
           itemId: id,
@@ -878,6 +882,10 @@ class _VaultBuilder {
             endMs: Value(chunk.endMs),
             pageNumber: Value(chunk.pageNumber),
             headingPath: Value(chunk.headingPath),
+            searchText: Value(
+              chunkSearchSource(chunk.text, markdown: markdown),
+            ),
+            searchTextRule: const Value(kChunkSearchTextRule),
           ),
         );
       }

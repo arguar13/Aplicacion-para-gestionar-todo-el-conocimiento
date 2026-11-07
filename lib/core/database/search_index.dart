@@ -19,6 +19,8 @@
 /// hecha a mano.
 library;
 
+import 'package:sinapsis/core/util/markdown_plain_text.dart';
+
 /// La tabla virtual.
 ///
 /// `item_id` va sin indexar (`UNINDEXED`) porque nadie busca *por* el
@@ -220,19 +222,71 @@ String _joinedHyphenations(String column) =>
 /// Es solo lo que se indexa: nadie lee este texto. La app no usa
 /// `snippet()` ni `highlight()` de FTS5 —que sí dependen de que índice y
 /// texto coincidan palabra por palabra—, solo `MATCH` y `rank`.
+///
+/// De un chunk se indexa lo que se lee ([chunkSearchColumn]), no su texto
+/// guardado: ver [chunkSearchSource].
 String chunkSearchText(String column) {
   final joined = _joinedHyphenations(column);
   return 'CASE WHEN $joined <> $column '
       'THEN $column || char(10) || $joined ELSE $column END';
 }
 
+/// Lo que se busca de un chunk, como expresión SQL sobre la fila [row]
+/// —`NEW`, `OLD` o el nombre de la tabla— (F46, paso 5i): su texto como se
+/// lee (`search_text`) si lo tiene, y si no su texto tal cual.
+String chunkSearchColumn(String row) =>
+    'COALESCE($row.search_text, $row.content)';
+
+/// El texto buscable de un chunk —lo que se guarda en `chunks.search_text`—:
+/// [content] como se lee si es Markdown ([markdown], `extractedTextIsMarkdown`
+/// de su fuente), o `null` si es el texto tal cual (F46, paso 5i).
+///
+/// Existe porque el índice tomaba el Markdown crudo de una página web: buscar
+/// «fotosintesis» encontraba la palabra adentro de la dirección de una foto
+/// —`![](https://upload.wikimedia.org/…/Fotosintesis_ox_ano.png)`— y cada
+/// palabra de una dirección contaba para el orden por relevancia. Lo que se
+/// lee es lo que dice `markdownPlainText`, la misma regla que el pasaje que
+/// viaja al chat (F46, paso 5e) y que el lector: un enlace es su texto, una
+/// imagen su texto alternativo, las llamadas a notas al pie no están.
+///
+/// Con los renglones de cada párrafo en el suyo (`keepLineBreaks`), para que
+/// [chunkSearchText] siga uniendo las palabras cortadas con guion al final
+/// del renglón (F22). `null` también si leerlo no le quita nada más que
+/// espacios —los renglones en blanco con que termina cada párrafo, por
+/// ejemplo—: un Markdown sin enlaces, sin fotos y sin marcas no se guarda dos
+/// veces.
+///
+/// Cada chunk guarda con qué versión de esta regla se calculó
+/// ([kChunkSearchTextRule], en `chunks.search_text_rule`).
+String? chunkSearchSource(String content, {required bool markdown}) {
+  if (!markdown) return null;
+  final readable = markdownPlainText(content, keepLineBreaks: true);
+  return _sameWords(readable, content) ? null : readable;
+}
+
+/// La versión de la regla de [chunkSearchSource]: la que guarda cada chunk en
+/// `search_text_rule`. Si lo que se lee de un Markdown cambia de una manera que
+/// cambia lo que se busca, se sube, y `ChunkSearchTextBackfill` rehace en
+/// segundo plano los chunks calculados con la de antes.
+const kChunkSearchTextRule = 1;
+
+/// Si [a] y [b] dicen lo mismo salvo por los espacios: para el índice y para
+/// el fragmento de un resultado son el mismo texto.
+bool _sameWords(String a, String b) =>
+    a.replaceAll(_blanks, ' ').trim() == b.replaceAll(_blanks, ' ').trim();
+
+final _blanks = RegExp(r'\s+');
+
 /// De dónde lee `chunk_search` el texto que indexa al reconstruirse: los
-/// chunks, con [chunkSearchText] (F22). Una vista y no `chunks` directo,
+/// chunks, con [chunkSearchText] (F22) sobre lo que se lee de cada uno
+/// ([chunkSearchColumn], F46, paso 5i). Una vista y no `chunks` directo,
 /// para que reconstruir el índice —`rebuild`— indexe exactamente lo mismo
 /// que los triggers, fila por fila.
-final createChunkSearchTextView = '''
+final createChunkSearchTextView =
+    '''
 CREATE VIEW IF NOT EXISTS chunk_search_text AS
-SELECT row_key, ${chunkSearchText('content')} AS content FROM chunks''';
+SELECT row_key, ${chunkSearchText(chunkSearchColumn('chunks'))} AS content
+  FROM chunks''';
 
 /// Cuántos chunks contienen cada palabra, según el propio índice.
 ///
@@ -250,29 +304,32 @@ CREATE VIRTUAL TABLE IF NOT EXISTS chunk_vocab USING fts5vocab(chunk_search, row
 ///
 /// En una tabla de contenido externo, borrar o cambiar una fila obliga a
 /// decirle al índice QUÉ texto tenía: por eso los triggers de baja y de cambio
-/// pasan `OLD.content`.
+/// pasan lo de `OLD`.
 ///
 /// Lo que se indexa —y lo que se le dice al índice que se borra— es
-/// [chunkSearchText] del texto, no el texto a secas (F22).
+/// [chunkSearchText] de lo que se lee del chunk ([chunkSearchColumn]), no el
+/// texto a secas (F22; F46, paso 5i). Por eso el de cambio mira también
+/// `search_text`: cambiar solo lo que se lee cambia lo indexado.
 final chunkSearchTriggers = <String>[
   '''
 CREATE TRIGGER IF NOT EXISTS chunks_search_ai AFTER INSERT ON chunks BEGIN
   INSERT INTO chunk_search (rowid, content)
-  VALUES (NEW.row_key, ${chunkSearchText('NEW.content')});
+  VALUES (NEW.row_key, ${chunkSearchText(chunkSearchColumn('NEW'))});
 END''',
 
   '''
 CREATE TRIGGER IF NOT EXISTS chunks_search_ad AFTER DELETE ON chunks BEGIN
   INSERT INTO chunk_search (chunk_search, rowid, content)
-  VALUES ('delete', OLD.row_key, ${chunkSearchText('OLD.content')});
+  VALUES ('delete', OLD.row_key, ${chunkSearchText(chunkSearchColumn('OLD'))});
 END''',
 
   '''
-CREATE TRIGGER IF NOT EXISTS chunks_search_au AFTER UPDATE OF content ON chunks BEGIN
+CREATE TRIGGER IF NOT EXISTS chunks_search_au
+AFTER UPDATE OF content, search_text ON chunks BEGIN
   INSERT INTO chunk_search (chunk_search, rowid, content)
-  VALUES ('delete', OLD.row_key, ${chunkSearchText('OLD.content')});
+  VALUES ('delete', OLD.row_key, ${chunkSearchText(chunkSearchColumn('OLD'))});
   INSERT INTO chunk_search (rowid, content)
-  VALUES (NEW.row_key, ${chunkSearchText('NEW.content')});
+  VALUES (NEW.row_key, ${chunkSearchText(chunkSearchColumn('NEW'))});
 END''',
 ];
 

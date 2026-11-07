@@ -501,6 +501,11 @@ class LibraryRepositoryImpl implements LibraryRepository {
 
   /// Las citas de los chunks [keys] —el `row_key` del mejor chunk de cada
   /// elemento—: su posición y un fragmento con lo buscado resaltado.
+  ///
+  /// El fragmento sale de lo que se busca del chunk, no de su texto guardado
+  /// (`chunkSearchColumn`, F46, paso 5i): de una página web, su texto como se
+  /// lee, sin `[](https://…)` ni `**`, y con la palabra marcada donde la
+  /// encontró el índice.
   Future<Map<String, SearchCitation>> _citationsFor(
     String searchText,
     Map<String, int> keys,
@@ -510,7 +515,8 @@ class LibraryRepositoryImpl implements LibraryRepository {
     final rows = await _db
         .customSelect(
           'SELECT item_id, id AS chunk_id, row_key, char_start, char_end, '
-          'start_ms, end_ms, page_number, content FROM chunks '
+          'start_ms, end_ms, page_number, '
+          '${chunkSearchColumn('chunks')} AS content FROM chunks '
           'WHERE row_key IN (${List.filled(keys.length, '?').join(', ')})',
           variables: [for (final key in keys.values) Variable.withInt(key)],
         )
@@ -550,11 +556,11 @@ class LibraryRepositoryImpl implements LibraryRepository {
 
     final match = buildSearchQuery(searchText);
 
-    const columns =
+    final columns =
         'c.item_id AS item_id, c.id AS chunk_id, '
         'c.char_start AS char_start, c.char_end AS char_end, '
         'c.start_ms AS start_ms, c.end_ms AS end_ms, '
-        'c.page_number AS page_number, c.content AS content';
+        'c.page_number AS page_number, ${chunkSearchColumn('c')} AS content';
 
     // UNA pasada por los MEJORES chunks, quedándose con el primero de cada
     // elemento pedido. La versión anterior le preguntaba al índice por cada

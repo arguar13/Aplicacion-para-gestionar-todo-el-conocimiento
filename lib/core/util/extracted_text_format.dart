@@ -13,16 +13,24 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 /// pantalla —un "var_uno_dos" reconocido en una foto salía en cursiva y sin
 /// guiones bajos, un "# 3" de una lista se volvía un título— aunque lo
 /// guardado estuviera bien.
-bool extractedTextIsMarkdown(Source source) => switch (source.kind) {
-  SourceKind.manualNote || SourceKind.webPage => true,
-  SourceKind.document => const {
-    '.docx',
-    '.epub',
-    '.md',
-    '.markdown',
-  }.contains(p.extension(source.originalFilePath ?? '').toLowerCase()),
-  _ => false,
-};
+bool extractedTextIsMarkdown(Source source) =>
+    extractedTextIsMarkdownFor(source.kind, source.originalFilePath);
+
+/// [extractedTextIsMarkdown] con lo único que mira de la fuente: su tipo y el
+/// nombre de su archivo original. Para quien no tiene la entidad entera a
+/// mano, como el que guarda los chunks y su texto buscable (F46, paso 5i), que
+/// lee esas dos columnas de `source`.
+bool extractedTextIsMarkdownFor(SourceKind kind, String? originalFilePath) =>
+    switch (kind) {
+      SourceKind.manualNote || SourceKind.webPage => true,
+      SourceKind.document => const {
+        '.docx',
+        '.epub',
+        '.md',
+        '.markdown',
+      }.contains(p.extension(originalFilePath ?? '').toLowerCase()),
+      _ => false,
+    };
 
 /// Si el texto de [source] es una transcripción, con una marca de tiempo por
 /// línea: lo único a lo que tiene sentido ofrecerle "Quitar marcas de
