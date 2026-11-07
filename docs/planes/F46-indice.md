@@ -2058,3 +2058,168 @@ todo el Índice y la Línea de tiempo—, del Chat y de Ajustes, que va a la Bib
 Biblioteca, que sale con el gesto predictivo; «atrás» con una hoja de abajo o un diálogo abiertos
 en una pestaña; «Lo creado» centrado con la letra normal y al doble; el «o» de Capturar › Video; y
 Repasar vacío con «Todo lo procesado» y con un cuaderno, que dice los documentos de cada uno.
+
+### Paso 5i (hecho): la búsqueda que lee, el botón que se lee, el teclado que no vuelve y el panel sin franja
+
+**Qué se vio** (emulador, con la APK de `1c663822`), cuatro cosas:
+
+- **O.** Buscando «Fotosintesis» en la Biblioteca, Fotosíntesis (Wikipedia) mostraba
+  «…[](https://thumb.wikimedia.org/…/**Fotosintesis**_ox_ano…» y Evolución biológica «…debido a la
+  [**fotosíntesis**](https:/…».
+- **P.** El botón grande del visor embebido («Ver la página», «Leer como libro», «Ampliar») se leía
+  mal encima de la página blanca y de la foto amarilla.
+- **Q.** Buscando en la Biblioteca, cerrado el teclado con «atrás», tocado un resultado y vuelto, el
+  teclado aparecía solo y tapaba la mitad de los resultados.
+- **R.** En Ajustes, con el reproductor achicado sonando, la hoja «Aspecto de lectura» escondía el
+  reproductor pero terminaba unos 190 px reales arriba de la barra, con una franja del color de la
+  página y sin el sombreado del panel (una regresión del 5g).
+
+**Causas** (confirmadas):
+
+- **O.** Dos: `buildSnippet` armaba el fragmento sobre el texto crudo del chunk, y `chunk_search`
+  indexaba `chunks.content` tal cual (`chunkSearchText` y la vista `chunk_search_text`): las palabras
+  de las direcciones de fotos y enlaces eran aciertos y pesaban en `rank`. En la bóveda sintética
+  con sus páginas como las de Wikipedia, «wikipedia» estaba en 48.348 de 49.488 chunks.
+- **P.** `_CenterButton` usaba `Colors.black.withValues(alpha: 0.4)` con letra blanca: sobre blanco el
+  fondo queda en ≈#999 y el contraste en 2,9 a 1; `_ExpandButton`, lo mismo con 0,45.
+- **Q.** Cerrar el teclado no le saca el foco al campo, y la ruta de abajo, cuando vuelve a ser la de
+  arriba, le devuelve el foco a lo último que lo tuvo (`_ModalScopeState._routeSetState` →
+  `setFirstFocus`), y el campo abre el teclado al recibirlo. Ningún buscador soltaba el foco al
+  tocar fuera: en Android, el `onTapOutside` de fábrica de un campo no hace nada.
+- **R.** `ReadAloudOverlay` tenía dos lugares: el del pie (`mediaWithRoomAtBottom`), que se soltaba en
+  el acto al abrirse un diálogo o un panel, y el de las pestañas (`ReadAloudRoom.height`, que
+  `NavigationBarScope` le da al `Scaffold`), que a propósito se quedaba —«ahí no lo ve nadie más»—.
+  Pero los paneles de una pestaña se abren en el navegador de la rama, adentro del cuerpo que ese
+  lugar achica: la hoja terminaba a la altura del reproductor que ya no estaba (64 de los de Flutter
+  en la prueba: el reproductor achicado) y la barrera, que cubre solo la ruta, no llegaba hasta la
+  barra. Se reprodujo con una prueba en el shell de verdad antes de arreglarlo.
+
+**Qué se hizo**:
+
+- **O** (`105fa9c3`). Cada chunk en Markdown guarda **lo que se lee** en `chunks.search_text` (esquema
+  **v52**), el índice indexa eso y el fragmento sale de ahí.
+  - Qué se lee: `chunkSearchSource` (`search_index.dart`), con `markdownPlainText` —la regla del 5e,
+    la del lector—, sin otra nueva; `markdownPlainBlocks` suma `keepLineBreaks`, que deja los
+    renglones de cada párrafo en el suyo para que `chunkSearchText` siga uniendo los guiones de corte
+    (F22). Qué es Markdown: `extractedTextIsMarkdownFor`, la regla de `extractedTextIsMarkdown`
+    sobre el tipo y el archivo, que es lo que el que fragmenta lee de `source`. `null` en un PDF o
+    una transcripción, que se leen tal cual —su dirección escrita se sigue encontrando—, y en lo que
+    leído cambia solo espacios.
+  - Qué se indexa: `COALESCE(search_text, content)` (`chunkSearchColumn`), en los triggers y en la
+    vista de `rebuild`, así los dos indexan lo mismo; el trigger de cambio mira también
+    `search_text`. El fragmento de un resultado (`_citationsFor` y `_citationsByRanking`) lee la
+    misma columna: la palabra queda marcada en el texto legible, donde la encontró el índice.
+  - **La decisión: una columna calculada en Dart al escribir el chunk.** Se descartó una función
+    SQL registrada: el FTS5 de contenido externo da de baja una fila con el texto que indexó, y con
+    una función ese texto se recalcula en cada baja —el día que cambie la regla de lectura, que es de
+    la interfaz, cada baja le diría al índice otra cosa y lo corrompería sin aviso—; además habría
+    que registrarla en cada conexión (el worker de la web es el de drift, la unión abre otra) y sin
+    ella toda escritura de un chunk fallaría. Y SQL puro no lee Markdown. Guardado, lo que se borra
+    es siempre lo que se indexó. El costo es lugar, solo donde leer cambia algo: 16,7 MB de `search_text` sobre 81,1 MB de texto de los chunks (el 21 %); el índice, que recién rehecho sobre el texto crudo ocupaba 24,5 MB, queda en 27,5 MB después del relleno, que lo reindexa fila por fila y deja que FTS5 junte sus segmentos de a poco.
+  - **La migración no lee Markdown.** La primera versión llenaba la columna en la migración: medido
+    en la PC, 13,6 s con 3.000 elementos —unos 45 s con 10.000, varias veces más en un teléfono—
+    con la bóveda cerrada. Ahora la migración 51→52 agrega `search_text` y `search_text_rule`
+    vacías —el índice no cambia: `COALESCE` da el texto de siempre— y rehace solo los triggers y la
+    vista; si una base no tuviera el índice, lo recibe entero. Las llena `ChunkSearchTextBackfill`,
+    desde `App` al abrir la bóveda, por tandas de 200 y en segundo plano, con el retome en la base
+    misma: falta lo que no tiene la versión de hoy (`kChunkSearchTextRule`). Lo que no es Markdown
+    solo recibe la versión, sin tocar el índice. Si la regla cambia, se sube el número y el relleno
+    rehace lo viejo, sin otra migración. El paso v32, que rehace el índice con la definición de hoy,
+    agrega antes las dos columnas, y el v16 las crea con la tabla. La Biblioteca no se toca.
+  - `chunkAndPersistSource`, el único que escribe chunks, los guarda ya con lo que se lee y la
+    versión; la bóveda sintética, igual.
+- **P** (`233a8d41`). `OverlayControlColors` (`core/design`): `inverseSurface` y `onInverseSurface` del
+  tema —el par de Material para lo que va encima del contenido— con la menor opacidad, de a un 1 % y
+  desde la mitad, que deja al menos 4,5 a 1 sobre blanco y sobre negro. Lo que se ve de un fondo con
+  transparencia queda entre cómo se ve sobre negro y sobre blanco, así que con las dos puntas alcanza
+  para cualquier cosa de abajo. Si el par de un tema no contrastara ni opaco, la letra pasa a blanco
+  o negro. Los dos botones lo usan; siguen dejando ver el original.
+- **Q** (`fc29d203`). `SearchField` (`core/design/widgets`): un solo buscador de lista que suelta el foco al
+  buscar, al tocar fuera y cuando algo se abre encima. Para lo último no alcanza con `unfocus` —ya
+  no tiene el foco y le sacaría el suyo a lo que se abrió—: si el foco se va a otra ruta y la suya
+  todavía lo recuerda, el campo deja de poder tomarlo (`canRequestFocus`) hasta que su ruta vuelve a
+  tenerlo; la ruta que vuelve descarta a quien no puede tomarlo y se queda con el foco ella. Vale
+  también sin un toque (el lector de pantalla, una hoja, código) y con el resultado en la raíz,
+  encima de las pestañas. Lo usan la Biblioteca, el Índice, el Atlas, el Mapa, la línea de tiempo,
+  Mis tarjetas, la Ayuda, las conversaciones del chat y las dos listas para elegir. Un censo exige
+  que todo campo con la tecla de buscar sea uno, salvo dos que no son buscadores de una lista: la
+  barra de «Buscar en la guía», donde la tecla va a la coincidencia siguiente y el foco tiene que
+  quedar, y el tema de un cuaderno con IA, un formulario.
+- **R** (`bc297cba`). Un solo lugar, que sigue al reproductor que se ve: con un diálogo, un panel o un
+  menú abierto se va en el acto en los dos niveles —al pie y encima de la barra— y vuelve con el
+  reproductor, con su mismo andar, al cerrarlo. Las 84 hojas siguen en el navegador de su rama: no se
+  tocaron.
+  - **Con lo que decidió el dueño** —que las hojas pasen a la raíz, tapando la barra, en el paso 5j—
+    esto no cambia: el lugar sigue a la visibilidad del reproductor, no a dónde se abre lo de
+    encima. Una hoja en la raíz tapa también la barra y su sombreado la pantalla entera; debajo, la
+    pestaña deja de guardarle lugar a un reproductor escondido, sin que se vea. Lo que quede en el
+    navegador de una rama —menús, diálogos, lo que se siga abriendo ahí— ya llega hasta la barra.
+    La prueba del shell ya mira las dos: el 5j puede pasar las hojas sin tocar el lugar.
+
+**Pruebas** (todas con fakes, contra SQLite real en memoria donde hay base):
+
+- **O.** Una palabra que solo está en la dirección de una foto no encuentra el chunk ni el
+  documento; el fragmento de una página web no tiene `](`, `![`, `http` ni `**`, marca
+  «fotosíntesis» y dice «debido a la fotosíntesis de las algas.», por los dos caminos de las citas;
+  los guiones de corte se siguen encontrando en un Markdown; un PDF con una dirección la encuentra; un
+  Word es Markdown; un Markdown sin marcas no se guarda dos veces; rehacer los chunks, cambiar lo que
+  se lee y `rebuild` dejan el índice exacto (`integrity-check`). La migración 51→52: solo agrega,
+  la búsqueda anda como antes, los conteos son los mismos y el texto de la Biblioteca no cambia; el
+  relleno pone al día lo de Markdown, le da la versión al PDF, rehace lo de una regla vieja, corta
+  entre tandas y sigue después, y no rehace lo hecho. `keepLineBreaks` y
+  `extractedTextIsMarkdownFor`, con las suyas.
+- **P.** El texto y el ícono de los dos botones, con al menos 4,5 a 1 sobre una página blanca y una
+  foto negra, en el tema claro, el oscuro, Sepia y Noche; los colores, en todos los temas, también
+  sobre 52 grises y cuatro colores saturados; la opacidad es la menor que alcanza; un tema sin
+  contraste cae en blanco o negro.
+- **Q.** Tocar un resultado le saca el foco y al volver no hay teclado, en una pantalla y desde una
+  pestaña con el resultado en la raíz; abierto sin tocar, al volver tampoco, y tocarlo lo enfoca;
+  una hoja encima, igual; la tecla de buscar y tocar fuera lo sueltan; la ✕ de adentro no; con un
+  foco de afuera, y si ese foco cambia, la regla lo sigue. El censo.
+- **R.** En el shell de verdad (`AdaptiveScaffold` con `StatefulShellRoute` y el lector encima, como
+  en `App`): con el reproductor sonando la pestaña le deja su lugar; una hoja abierta en la pestaña
+  llega hasta la barra y su sombreado cubre todo el cuerpo; al cerrarla el reproductor y su lugar
+  vuelven; una hoja en la raíz tapa la barra con su sombreado y al cerrarla vuelve el lugar; un
+  diálogo y un menú de la pestaña también lo sueltan y lo devuelven.
+
+**Rendimiento** (PC, bóveda sintética de 3.000 elementos, 95.051 chunks, con sus 49.488 chunks de
+páginas web convertidos en páginas como las de Wikipedia: una foto con su dirección, tres enlaces y
+una llamada a nota por párrafo):
+
+- **Leer un chunk** (`chunkSearchSource`): 0,23 ms con la PC libre, 0,46 ms con la PC ocupada por otra tarea pesada, como en la última medición. Guardar una página de 42 chunks suma 10 ms (20).
+- **La migración**: llenar la columna adentro de ella costaba 13,6 s más 2,0 s de `rebuild` con la bóveda cerrada; ahora agrega dos columnas y rehace tres triggers y una vista: nada que dependa del tamaño.
+- **El relleno** (PC ocupada): 45 s para los 95.051 chunks, en tandas de 200 de unos 95 ms cada una —una sola, medida aparte, 66 ms—, con la lectura del Markdown en otro isolate: el hilo de la interfaz solo manda y escribe.
+- **Buscar** (mediana de nueve, la página de 50 con sus citas, como la pantalla; antes del relleno contra después): una palabra rara, 43 → 34 ms; una mediana, 49 → 42; una que está en casi todo, 62 → 59; dos palabras, 48 → 40; «wikipedia», que estaba en 48.348 chunks, 43 → 11 ms y en ninguno. Nada se hace más lento: el índice tiene menos palabras por chunk, y el fragmento sale de un texto más corto.
+- Una corrida de la medición, con un artefacto de la bóveda de prueba —un enlace partido por el renglón en blanco del final del párrafo—, dejó 1.020 chunks con una dirección colgando: se corrigió la conversión de prueba, no la regla, y en la de arriba no queda ninguno.
+
+**Mutaciones** (`tool/mutar.py`): O, 25 de 25 —una sobrevivió la primera vuelta, «el que fragmenta no pone la versión»: nada miraba la versión de lo recién guardado; se sumó la prueba de que todo chunk guardado la lleva y el relleno no tiene nada que rehacer, y murió—; P, 12 de 13; Q, 6 de 6; R, 2 de 2. **Equivalentes, justificadas**: P7, el piso de opacidad en 0 en vez de 0,5: con cualquier par de colores, para tener 4,5 a 1 sobre blanco y sobre negro a la vez hace falta más de la mitad de opaco, así que el piso nunca decide; queda como lo que dice —menos que eso ya no se ve como un botón—. Y no se corrió la de quitar el punto de retome dentro de una pasada (`after`): lo hecho ya no cumple la condición de lo que falta, así que solo se vuelve a recorrer lo terminado; es de rendimiento. Una de P salió mal armada la primera vez (el formateador había juntado un renglón) y se corrió de nuevo: murió.
+
+**Sobre `main`**: rebasado sobre `f0136493` (el final del paso 5h), sin conflictos: en común solo la
+GUÍA, `docs/arquitectura.md` y este plan, y quedan los dos lados. Después de rebasar se volvieron a
+generar los textos (el 5h cambió los `.arb`) y se volvieron a correr el analizador y las pruebas de
+`test/app` —el 5h tocó `AdaptiveScaffold`, que usa la prueba del lugar del reproductor—,
+`test/core/design`, las pantallas de Repasar y Mis tarjetas, la Biblioteca y las del índice: 975 pasan, 6 saltadas, y el analizador sigue en 19.
+La GUÍA, en `d6c2715c`.
+
+**Analizador**: 19 avisos, la línea base, en cada commit de código, comprobado commit por commit en
+una exportación de cada uno.
+
+**Pruebas**, con `--concurrency=2`: `test/core/database`, `test/core/util`, `test/features/library`, `test/benchmark/synthetic_vault_test.dart` y las de `test/features/vault` que abren una bóveda vieja: 1.497 pasan y la única falla era una prueba nueva que había que correr con el relleno, corregida y pasada (antes, en la primera vuelta, el paso v32 rompía 141 pruebas de migración y de unión: rehacía el índice con la definición nueva sobre una tabla sin la columna; ahora le agrega las columnas antes). `incoming_vault_file_test` falló una vez al correr en paralelo —un archivo de la carpeta temporal que otro proceso tenía tomado— y pasa solo: no toca nada de este paso. `test/core/design`, `test/features/viewer`, `test/app`, `test/features/narration`, `atlas`, `chat`, `flashcards`, `index`, `help`, `timeline`, `map` y `test/features/library/presentation`: 4.846 pasan, 19 saltadas (PDFium) y una falla, una prueba de Mis tarjetas que leía el buscador como `TextField`, corregida y pasada.
+
+**Queda para mirar en el emulador**, con una APK nueva:
+
+- buscar «Fotosintesis» en la Biblioteca con Fotosíntesis y Evolución biológica guardadas: los
+  fragmentos sin `[](…)` ni `**`, con la palabra marcada, y sin el documento que solo la tenía en
+  una dirección —después de que el relleno pase: con una bóveda grande, unos segundos después de
+  abrirla—;
+- «Ver la página» sobre la página blanca y la foto amarilla de Fotosíntesis, en el tema claro, el
+  oscuro y Sepia;
+- buscar, cerrar el teclado con «atrás», tocar un resultado y volver: sin teclado; lo mismo en el
+  Índice;
+- en Ajustes, con el reproductor achicado sonando, «Aspecto de lectura»: la hoja hasta la barra, con
+  el sombreado entero, y al cerrarla el reproductor en su lugar.
+- Lo que queda abierto: la búsqueda de Procesado (`processed_part_search`) indexa todavía el texto
+  crudo de cada parte, con el mismo problema en una página web copiada; no tiene fragmento, pero sí
+  coincidencias en las direcciones. Se escriben desde muchos lugares (editar, ordenar, cortar): es
+  un paso propio. Y los pasajes que el chat toma de los chunks (`chunk_passage_retriever`) se
+  encuentran ahora por lo que se lee, pero viajan todavía con su texto guardado.
