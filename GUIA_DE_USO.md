@@ -370,6 +370,25 @@ títulos. Si el resultado viene de un lugar específico (el minuto de un
 video, la página de un PDF, un fragmento de texto), lo vas a ver debajo del
 resultado; tocarlo te lleva directo a ese lugar exacto.
 
+**Busca lo que se lee.** En una página web, un Word, un EPUB o un `.md`, el
+fragmento de un resultado es el texto como lo ves en la pantalla —un enlace
+es su texto, sin su dirección; una foto, su descripción; sin asteriscos ni
+corchetes—, con la palabra marcada donde está. Y las direcciones no cuentan:
+buscar «fotosintesis» ya no encuentra la palabra adentro de la dirección de
+una foto de Wikipedia, ni un documento que solo la tiene ahí. En un PDF o en
+una transcripción se busca el texto tal cual, con sus direcciones si las
+escribe: ahí se leen. Las palabras partidas con guion al final del renglón
+se siguen encontrando enteras. Lo que ya tenías guardado al actualizar la app
+se pone al día solo, de a poco y sin que tengas que esperar: mientras tanto
+se busca como antes.
+
+**El teclado no vuelve solo.** Al buscar con la tecla del teclado, al tocar
+un resultado o cualquier otra parte de la pantalla, el buscador suelta el
+teclado; y si abriste algo y volvés, el teclado no se abre solo tapando la
+lista: aparece cuando tocás el buscador. Lo mismo en los buscadores del
+Índice, el Atlas, el Mapa, la línea de tiempo, Mis tarjetas, la Ayuda, las
+conversaciones del chat y las listas para elegir un tema o un documento.
+
 También busca en **lo que escribiste sobre el texto de cada original**: las
 notas de tus resaltados y las [notas en el texto](#notas-en-el-texto). Son texto
 tuyo, como el título: lo que coincide ahí aparece antes que lo que solo lo
@@ -614,7 +633,8 @@ si no tiene nada que mostrar —una fuente lista, sin audio—, no aparece:
    [El texto de la fuente](#el-texto-de-la-fuente)): volver a extraer el
    texto, quitarle las marcas de tiempo o borrarlo y quedarte con el libro.
    Verla a pantalla completa es el botón del centro de la vista
-   previa: **«Leer como libro»**, **«Ver la página»** o **«Ampliar»**. Del
+   previa: **«Leer como libro»**, **«Ver la página»** o **«Ampliar»**, que se
+   lee sobre una página blanca y sobre una foto oscura, en cualquier tema. Del
    archivo de una fuente no se borra nada desde acá: la Biblioteca es tu base
    de consulta.
 5. En una nota propia, **lo que hizo la IA con ella**, si hizo algo: la línea
@@ -1035,6 +1055,11 @@ Para verlo a pantalla completa:
   es semitransparente, la foto se ve debajo.
 - **En un video**, el botón es chico y está en la esquina, para no tapar el
   botón de reproducir.
+
+Los dos botones se leen siempre: su fondo es el del tema —oscuro en el tema
+claro, claro en el oscuro, y su par en Sepia y en los demás— y deja ver lo de
+abajo solo hasta donde la letra sigue leyéndose bien sobre una página blanca,
+una foto negra o cualquier cosa entre las dos.
 
 **Qué tiene marcado.** Debajo de la vista previa de un documento o una página
 web con su texto, un renglón chico lo dice: *"Marcado: ● Resumen · ● Palabras
@@ -3779,8 +3804,11 @@ de escucharlo.
    en lo que queda a la vista. Achicado, deja más lugar; al cerrarlo, la
    pantalla vuelve a ocupar todo. Mientras escribís el reproductor se hace
    a un lado y manda el teclado; con un diálogo o un panel abierto, también
-   se hace a un lado y el panel empieza desde abajo de todo. **Abierto**
-   tiene:
+   se hace a un lado y el panel empieza desde abajo de todo —o, si lo abriste
+   desde una pestaña, como **Aspecto de lectura** en Ajustes, desde la barra
+   de navegación, con su sombreado sobre toda la pantalla: no queda un hueco
+   donde estaba el reproductor—, y al cerrarlo el reproductor vuelve, con su
+   lugar. **Abierto** tiene:
    - **El título**, que se desliza si no entra (dos veces, y después queda
      quieto; con las animaciones apagadas en el teléfono no se mueve), y
      debajo con qué voz y a qué velocidad lee: «Leyendo con la voz del

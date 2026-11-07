@@ -7496,7 +7496,7 @@ palabras clave; y que respete la jerarquía, los nombres, los títulos y los tem
 interactivo, con cientos o miles de documentos. Plan, con sus decisiones A a F y el «Avance» de
 cada paso: `docs/planes/F46-indice.md`. Se construyó después de F44, F45 y F47 (decisión I de
 F47), en dos olas: los títulos, los datos y la pantalla (pasos 1 a 3), e ir al lugar exacto (paso
-4). Esquema **v51**.
+4). Esquema **v51**; **v52** desde el paso 5i (lo que se busca de un chunk).
 
 - **De dónde sale cada entrada: solo de la sección «Texto» y de las imágenes** (paso 1, decisiones
   B y E). Las piezas son puras, en `lib/features/processed/domain/services/headings/`, y
@@ -7727,6 +7727,54 @@ F47), en dos olas: los títulos, los datos y la pantalla (pasos 1 a 3), e ir al 
     afuera de la transacción y los puntos guía del PDF contados en la página entera, donde alcanzaba el
     borde suavizado de los números de página— o código que no decidía nada (dónde terminaba el tramo de
     una página del PDF, que salió); todas murieron con su prueba nueva.
+- **Lo que se busca de un chunk es lo que se lee** (paso 5i, esquema v52). La búsqueda de la
+  Biblioteca indexaba el Markdown crudo de cada chunk: buscar «fotosintesis» encontraba la palabra
+  adentro de la dirección de una foto de Wikipedia, cada palabra de una dirección pesaba en el orden
+  por relevancia, y el fragmento del resultado mostraba `[](https://…)` y `**`. Ahora:
+  - `chunks.search_text` guarda el texto de un chunk en Markdown **como se lee**
+    (`chunkSearchSource`, en `search_index.dart`): `markdownPlainText` —la misma regla del lector
+    y del pasaje que viaja al chat, sin otra nueva—, con los renglones de cada párrafo en el suyo
+    (`keepLineBreaks`) para que `chunkSearchText` siga uniendo las palabras cortadas con guion
+    (F22). `null` en lo que no es Markdown (`extractedTextIsMarkdownFor`: un PDF, una
+    transcripción, que se leen tal cual) y en lo que leído dice lo mismo salvo espacios: un
+    Markdown sin marcas no se guarda dos veces.
+  - `chunk_search` indexa `COALESCE(search_text, content)` (`chunkSearchColumn`) en sus triggers
+    y en la vista de la que sale `rebuild`, así los dos siguen indexando lo mismo; el de cambio mira
+    también `search_text`. Y el fragmento de un resultado sale de ahí: marca la palabra en el texto
+    legible, donde la encontró el índice.
+  - **Por qué una columna calculada en Dart y no una función SQL registrada**: un FTS5 de contenido
+    externo necesita, para dar de baja una fila, el mismo texto que indexó; con una función, el día
+    que cambiara la regla de lectura —que es de la interfaz, `markdownInlinePattern`— cada baja le
+    diría al índice otra cosa que lo indexado y lo corrompería en silencio. Además la función tendría
+    que estar registrada en cada conexión —el worker de la web es el de drift, sin código nuestro;
+    la unión de bóvedas abre otra—, y sin ella cada escritura de un chunk fallaría. Guardado, lo que
+    se borra es siempre lo que se indexó. Cuesta lugar solo donde leer cambia algo: en la bóveda
+    sintética con sus páginas como las de Wikipedia, 16,7 MB de `search_text` sobre 81,1 MB de texto de los chunks (el 21 %), y el índice pasa de 24,5 MB recién rehecho a 27,5 MB después del relleno, que reindexa fila por fila y deja que FTS5 junte sus segmentos de a poco. Tampoco SQL puro: no sabe leer
+    Markdown.
+  - `chunks.search_text_rule` dice con qué versión de la regla se calculó (`kChunkSearchTextRule`).
+    **La migración no lee Markdown**: agrega las dos columnas vacías —el índice queda igual, porque
+    `COALESCE` da el texto de siempre— y rehace solo sus triggers y su vista. Las llena después,
+    por tandas de 200 y en segundo plano, `ChunkSearchTextBackfill` (desde `App`, al abrir la
+    bóveda), con su punto de retome en la base misma —falta lo que no tiene la versión de hoy—; cada
+    chunk que cambia cambia en el índice por su trigger. Medido en la PC sobre la bóveda sintética
+    de 3.000 elementos con sus páginas como las de Wikipedia: leer un chunk cuesta 0,23 ms (0,46 con la PC ocupada por otra tarea), y el
+    relleno entero 45 s para sus 95.051 chunks, en tandas de 200 de unos 95 ms, con la lectura en otro isolate (`compute`) para que ninguna trabe un cuadro —en la migración, eran 13,6 s con la bóveda cerrada; con 10.000 elementos,
+    unos 45—. Si la regla cambia, se sube el número y el relleno rehace lo viejo, sin migración.
+    Guardar una página de 42 chunks suma unos 10 ms (20 con la PC ocupada). Buscar no se hace más lento: la mediana de nueve búsquedas pasa de 43 a 34 ms con una palabra rara, de 49 a 42 con una mediana, de 62 a 59 con una que está en casi todo y de 48 a 40 con dos; «wikipedia», que estaba en 48.348 chunks, ya no está en ninguno.
+  - El único que escribe chunks, `chunkAndPersistSource`, los guarda ya con lo que se lee; la unión
+    de bóvedas los rehace por ahí.
+- **Un solo buscador de lista** (paso 5i, `core/design/widgets/search_field.dart`). `SearchField`
+  suelta el foco al buscar, al tocar fuera (`onTapOutside`) y cuando algo se abre encima: si el foco
+  se va a otra ruta sin que el campo lo suelte —su ruta todavía lo recuerda—, el campo deja de poder
+  tomarlo (`canRequestFocus`) hasta que su ruta vuelve a tener el foco, y la ruta que vuelve, que no
+  le devuelve el foco a quien no puede tomarlo, ya no abre el teclado sola. Lo usan la Biblioteca, el
+  Índice, el Atlas, el Mapa, la línea de tiempo, Mis tarjetas, la Ayuda, el chat y las listas para
+  elegir; un censo exige que todo campo con la tecla de buscar sea uno, salvo la barra de «Buscar en
+  la guía» y el tema de un cuaderno con IA, que no son buscadores de una lista.
+- **Los controles que flotan sobre un original** (paso 5i, `core/design/overlay_control_colors.dart`).
+  El botón grande del visor embebido y el de la esquina toman `inverseSurface` y
+  `onInverseSurface` del tema, con la menor opacidad que deja al menos 4,5 a 1 sobre blanco y sobre
+  negro —y así sobre cualquier cosa—: eran blanco sobre negro al 40 %, 2,9 a 1 sobre una página.
 - **Se descartó:**
   - Una pestaña dentro de Procesado (decisión A): el Índice recorre todo, y quedaría escondido detrás de
     la lista.
@@ -7805,8 +7853,12 @@ abrir la app). Plan, con sus decisiones A a L y el «Avance» de cada paso:
   reproductor —con el borde seguro, al pie— como `MediaQueryData.viewInsets`, y `NavigationBarScope`
   se lo da al `Scaffold` de las pestañas encima de la barra; cada `Scaffold` achica su cuerpo, así que
   listas, botones flotantes y avisos lo esquivan sin que ninguna pantalla haga nada. Sigue a la
-  forma elegida, no al achicarse de la Lectura enfocada; con el teclado manda el más alto; los
-  diálogos y paneles no lo ven, y sin reproductor `MediaQuery` queda igual. Si la barra de
+  forma elegida, no al achicarse de la Lectura enfocada; con el teclado manda el más alto; con un
+  diálogo, un panel o un menú abierto el reproductor se hace a un lado y **su lugar se va con él en
+  el acto, en los dos niveles** (paso 5i): un panel abierto desde una pestaña vive en el navegador
+  de la rama, adentro del cuerpo que el lugar achica, y terminaba a la altura del reproductor que
+  ya no estaba, con una franja sin sombrear. Así anda igual con las hojas en la rama que en la
+  raíz. Sin reproductor `MediaQuery` queda igual. Si la barra de
   navegación se ve lo dice ella (`navigationBarShownProvider`), no la configuración de `go_router`,
   que no ve un `Navigator.push`. Antes lo publicaba `readAloudPlayerExtentProvider` y solo el marco y
   el podcast le reservaban lugar a mano.
