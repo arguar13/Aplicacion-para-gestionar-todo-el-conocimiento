@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
@@ -14,9 +15,11 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/processed/presentation/screens/processed_document_screen.dart';
+import 'package:sinapsis/features/reading/presentation/frame/reading_appearance.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -578,6 +581,95 @@ void main() {
 
       expect(find.byType(ReadingScreen), findsOneWidget);
       expect(scrollOffset(tester), greaterThan(500));
+    });
+  });
+
+  // Decisión 2a del dueño: «Leer» funciona en las notas propias de bloques.
+  group('una nota de bloques (F46, paso 5j)', () {
+    Future<String> seedNote(List<ContentBlock> blocks) async {
+      final n = counter++;
+      final id = 'blocks-item-$n';
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .save(
+            KnowledgeItem(
+              id: id,
+              title: 'Mis apuntes',
+              source: Source(
+                id: 'blocks-src-$n',
+                kind: SourceKind.manualNote,
+                capturedAt: now,
+              ),
+              processingState: ProcessingState.ready,
+              createdAt: now,
+              updatedAt: now,
+              renditions: [
+                Rendition.text(
+                  id: 'blocks-rend-$n',
+                  itemId: id,
+                  kind: RenditionKind.blocks,
+                  content: encodeContentBlocks(blocks),
+                  isPrimary: true,
+                  createdAt: now,
+                ),
+              ],
+            ),
+          );
+      return id;
+    }
+
+    testWidgets('se lee con sus títulos y sus listas, en el lector', (
+      tester,
+    ) async {
+      final id = await seedNote(const [
+        ContentBlock.heading(text: 'Roma'),
+        ContentBlock.paragraph(text: 'Fundada en el 753 a. C.'),
+        ContentBlock.bulletItem(text: 'Rómulo y Remo'),
+      ]);
+      await pumpReading(tester, id);
+
+      expect(find.byKey(const Key('reading-screen')), findsOneWidget);
+      expect(find.byKey(const Key('reading-note')), findsOneWidget);
+      expect(find.text('Mis apuntes'), findsOneWidget);
+      expect(find.text('Roma'), findsOneWidget);
+      expect(find.text('Fundada en el 753 a. C.'), findsOneWidget);
+      expect(find.text('Rómulo y Remo'), findsOneWidget);
+      expect(find.text('•'), findsOneWidget);
+      expect(find.text(es.readingNoText), findsNothing);
+    });
+
+    testWidgets('de solo lectura: sin la barra de extraer ni la cuenta de '
+        'notas extraídas', (tester) async {
+      final id = await seedNote(const [
+        ContentBlock.paragraph(text: 'Algo para leer.'),
+      ]);
+      await pumpReading(tester, id);
+
+      expect(find.text(es.readingSelectHint), findsNothing);
+      expect(find.text(es.readingExtractedCount(0)), findsNothing);
+      expect(find.byType(EditableText), findsNothing);
+    });
+
+    testWidgets('con la letra de «Apariencia»', (tester) async {
+      final id = await seedNote(const [
+        ContentBlock.paragraph(text: 'Algo para leer.'),
+      ]);
+      await pumpReading(tester, id);
+
+      final context = tester.element(find.byKey(const Key('reading-note')));
+      final expected = harness.container
+          .read(readingAppearanceProvider)
+          .bodyStyle(Theme.of(context));
+      final view = tester.widget<BlockView>(find.byType(BlockView));
+      expect(view.baseStyle, expected);
+    });
+
+    testWidgets('una nota vacía no tiene nada que leer', (tester) async {
+      final id = await seedNote(const [ContentBlock.paragraph(text: '  ')]);
+      await pumpReading(tester, id);
+
+      expect(find.text(es.readingNoText), findsOneWidget);
+      expect(find.byKey(const Key('reading-note')), findsNothing);
     });
   });
 

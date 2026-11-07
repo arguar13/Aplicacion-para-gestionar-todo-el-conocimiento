@@ -369,8 +369,9 @@ class _ActionTiles extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final text = item.isBeingProcessed ? null : _workingText(item);
     final blocks = _blocksRendition(item);
-    final readable =
-        !item.isBeingProcessed && extractableRendition(item) != null;
+    // El texto de una fuente o, desde F46 (paso 5j, decisión 2a), una nota de
+    // bloques con algo escrito: ver `hasReadingText`.
+    final readable = !item.isBeingProcessed && hasReadingText(item);
     final more = sourceMoreActionsFor(item);
 
     return Padding(
@@ -383,13 +384,12 @@ class _ActionTiles extends ConsumerWidget {
               key: const Key('source-panel-read'),
               icon: Icons.menu_book_outlined,
               label: l10n.sourcePanelRead,
-              tooltip: readable
-                  ? l10n.readingOpenAction
-                  : text != null
-                  // Una nota de bloques: la lectura para destilar trabaja
-                  // sobre el texto de una fuente —ver `extractableRendition`—.
-                  ? l10n.sourcePanelReadNeedsSource
-                  : l10n.sourcePanelNeedsText,
+              tooltip: !readable
+                  ? l10n.sourcePanelNeedsText
+                  // Una nota de bloques se lee, pero no se destila.
+                  : extractableRendition(item) == null
+                  ? l10n.f46P5jReadNote
+                  : l10n.readingOpenAction,
               onTap: readable
                   ? () => context.push(RoutePaths.reading(item.id))
                   : null,

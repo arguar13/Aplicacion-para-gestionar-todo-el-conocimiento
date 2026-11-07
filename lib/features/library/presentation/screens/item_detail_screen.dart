@@ -23,6 +23,7 @@ import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organized_line.dart';
 import 'package:sinapsis/features/attachments/presentation/widgets/item_content_section.dart';
 import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
+import 'package:sinapsis/features/blocks/presentation/widgets/note_links.dart';
 import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
 import 'package:sinapsis/features/citations/presentation/widgets/citation_section.dart';
 import 'package:sinapsis/features/content_trash/presentation/widgets/content_trash_section.dart';
@@ -37,7 +38,6 @@ import 'package:sinapsis/features/export/presentation/widgets/export_format_pres
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/inbox_standing_line.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/floating_mini_player.dart';
@@ -519,15 +519,10 @@ ReadableDocument _readableOf(KnowledgeItem item) {
     if (_showsText(item))
       for (final rendition in item.renditions.whereType<TextRendition>())
         if (rendition.kind == RenditionKind.blocks)
-          for (final (index, block) in decodeContentBlocks(
-            rendition.content,
-          ).indexed)
-            (
-              sourceKey: BlockView.readAloudKey(rendition.id, index),
-              text: block.text,
-              markdown: true,
-              transcript: false,
-            )
+          ...BlockView.readAloudParts(
+            rendition.id,
+            decodeContentBlocks(rendition.content),
+          )
         else
           (
             sourceKey: rendition.id,
@@ -711,54 +706,8 @@ class _BlocksRendition extends ConsumerWidget {
     return BlockView(
       blocks: decodeContentBlocks(rendition.content),
       renditionId: rendition.id,
-      onLinkTap: (title) => unawaited(_openLink(context, ref, title)),
+      onLinkTap: (title) => unawaited(openNoteLink(context, ref, title)),
     );
-  }
-
-  /// Busca un elemento por título exacto —sin distinguir mayúsculas— y
-  /// navega a su detalle. Un `[[Título]]` que ya no coincide con nada
-  /// —porque el elemento se borró, o porque le cambiaron el nombre después
-  /// de escrito el enlace— avisa en vez de fallar en silencio: el vínculo
-  /// de verdad (`Relations`, el que alimenta el Grafo) ya quedó creado al
-  /// escribirlo, así que solo el texto quedó desactualizado.
-  ///
-  /// `list()`, no `libraryItemsProvider`: ese es un `StreamProvider`
-  /// pensado para que un widget lo mire con `ref.watch` desde su propio
-  /// `build`, no para leerlo una sola vez desde un manejador de toque como
-  /// este — hacerlo así deja una suscripción activa que `autoDispose`
-  /// nunca llega a soltar, y la próxima operación contra la base que
-  /// dependa de esa misma conexión se queda esperando para siempre.
-  Future<void> _openLink(
-    BuildContext context,
-    WidgetRef ref,
-    String title,
-  ) async {
-    final l10n = AppLocalizations.of(context)!;
-    final normalized = title.trim().toLowerCase();
-    // Sin el texto: solo se busca un título, y traer los libros enteros de
-    // toda la biblioteca para eso era memoria de más.
-    final allItems =
-        (await ref
-                .read(libraryRepositoryProvider)
-                .list(const LibraryQuery(), withText: false))
-            .getRight()
-            .toNullable() ??
-        const <KnowledgeItem>[];
-    final target = allItems
-        .where((i) => i.title.trim().toLowerCase() == normalized)
-        .firstOrNull;
-    if (!context.mounted) return;
-
-    if (target == null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showAppSnackBar(
-          AppSnackBar(content: Text(l10n.detailLinkNotFound(title))),
-        );
-      return;
-    }
-
-    unawaited(context.push(RoutePaths.itemDetail(target.id)));
   }
 }
 

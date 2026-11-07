@@ -5714,10 +5714,6 @@
   "@sourcePanelNeedsText": {
     "description": "Ayuda de un mosaico apagado del panel de la fuente (F26) mientras el elemento todavía no tiene texto, o se está volviendo a extraer."
   },
-  "sourcePanelReadNeedsSource": "Read to distill works on a source's text",
-  "@sourcePanelReadNeedsSource": {
-    "description": "Ayuda del mosaico \"Leer\" apagado en una nota de bloques (F26): la vista de lectura trabaja sobre el texto de una fuente."
-  },
   "sourcePanelEditTooltip": "Open the note in the editor",
   "@sourcePanelEditTooltip": {
     "description": "Ayuda del mosaico \"Editar\" del panel de la fuente en una nota de bloques (F26)."
@@ -16623,5 +16619,7 @@
   "f46P5hWithoutCards": "{count, plural, =1{1 document has no flashcards yet} other{{count} documents have no flashcards yet}}",
   "@f46P5hWithoutCards": {"description": "Repasar vacío: cuántos documentos del recorte elegido pueden tener tarjetas y no tienen ninguna —los mismos a los que «Crear tarjetas con IA» se las pediría— (F46, paso 5h; antes contaba toda la Biblioteca).", "placeholders": {"count": {"type": "int"}}},
   "f46P5hWithoutCardsHint": "You can make them by hand from each document, or ask the AI for them.",
-  "@f46P5hWithoutCardsHint": {"description": "Repasar vacío, debajo de cuántos documentos no tienen tarjetas: cómo hacerlas (F46, paso 5h)."}
+  "@f46P5hWithoutCardsHint": {"description": "Repasar vacío, debajo de cuántos documentos no tienen tarjetas: cómo hacerlas (F46, paso 5h)."},
+  "f46P5jReadNote": "Read the note",
+  "@f46P5jReadNote": {"description": "Ayuda del mosaico «Leer» del panel de la fuente en una nota propia de bloques: la abre en el lector, de solo lectura (F46, paso 5j, decisión 2a)."}
 }

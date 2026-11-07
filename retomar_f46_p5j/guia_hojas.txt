@@ -1,0 +1,9 @@
+**Las hojas de abajo tapan la barra.** Todo lo que se abre desde abajo —la
+lista de un paso, «Nuevo cuaderno», los filtros, la velocidad, el «⋮» del
+lector…— queda **encima** de la barra de navegación, y lo de atrás se
+oscurece entero, la barra también: mientras la hoja está abierta, la barra no
+se puede tocar. Tocá lo oscuro, deslizá la hoja hacia abajo o usá «atrás» para
+cerrarla; recién después vuelve a responder la barra. En la computadora pasa lo
+mismo con los destinos del costado. Si escribís adentro de una hoja, sube con
+el teclado y lo que escribís queda a la vista, y su contenido nunca queda
+debajo de la barra de gestos del teléfono.

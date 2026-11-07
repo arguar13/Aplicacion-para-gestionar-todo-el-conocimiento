@@ -9,6 +9,8 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processed_section.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
+import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
+import 'package:sinapsis/features/blocks/presentation/widgets/note_links.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
@@ -86,6 +88,9 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
     }
 
     final rendition = extractableRendition(item);
+    // Una nota propia de bloques se lee de solo lectura (F46, paso 5j): ver
+    // `readableBlocksOf`.
+    final note = rendition == null ? readableBlocksOf(item) : null;
     final extracted = [
       for (final relation
           in ref.watch(itemRelationsProvider(item.id)).valueOrNull ??
@@ -121,7 +126,10 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
       info: ReadingDocumentInfo(
         title: item.title,
         kindLabel: item.source.kind.label(l10n),
-        subtitle: l10n.readingExtractedCount(extractedCount),
+        // De una nota no se extrae: no hay notas que contar.
+        subtitle: note == null
+            ? l10n.readingExtractedCount(extractedCount)
+            : null,
         kindIcon: item.source.kind.icon,
       ),
       contents: [
@@ -147,7 +155,10 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
         ),
       ],
       body: rendition == null
-          ? _NoText(item: item)
+          ? switch (note) {
+              final note? => _NoteText(item: item, note: note),
+              null => _NoText(item: item),
+            }
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -208,13 +219,23 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
 }
 
 /// Lo que se lee en voz alta en la vista de lectura de un elemento (F25): su
-/// texto para extraer. Se arma de nuevo solo cuando el elemento cambia.
+/// texto para extraer o, de una nota de bloques, sus bloques como los lee su
+/// detalle (`BlockView.readAloudParts`). Se arma de nuevo solo cuando el
+/// elemento cambia.
 final _readableProvider = Provider.autoDispose
     .family<ReadableDocument?, String>((ref, itemId) {
       final item = ref.watch(libraryItemProvider(itemId)).valueOrNull;
       if (item == null) return null;
       final rendition = extractableRendition(item);
-      if (rendition == null) return null;
+      if (rendition == null) {
+        final note = readableBlocksOf(item);
+        if (note == null) return null;
+        return documentFrom(
+          'reading:$itemId',
+          item.title,
+          BlockView.readAloudParts(note.rendition.id, note.blocks),
+        );
+      }
       return documentFrom('reading:$itemId', item.title, [
         (
           sourceKey: rendition.id,
@@ -224,6 +245,44 @@ final _readableProvider = Provider.autoDispose
         ),
       ]);
     });
+
+/// Una nota propia de bloques en el lector (F46, paso 5j, decisión 2a): sus
+/// bloques como en su detalle —los títulos, las listas, los casilleros—, en la
+/// columna de lectura y con la letra de «Apariencia». «Escuchar» la lee
+/// bloque por bloque, con lo que suena del color de «Resaltado de lectura».
+///
+/// De solo lectura, sin la barra de extraer: ver `readableBlocksOf`.
+class _NoteText extends ConsumerWidget {
+  const _NoteText({required this.item, required this.note});
+
+  final KnowledgeItem item;
+  final ReadableBlocks note;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appearance = ref.watch(readingAppearanceProvider);
+    return ReadableRegion(
+      document: ref.watch(_readableProvider(item.id)),
+      child: SingleChildScrollView(
+        key: const Key('reading-note'),
+        padding: readingColumnPadding(context).copyWith(top: 8, bottom: 24),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: readingColumnWidth),
+            child: BlockView(
+              blocks: note.blocks,
+              renditionId: note.rendition.id,
+              baseStyle: appearance.bodyStyle(Theme.of(context)),
+              playingColor: appearance.highlight.color,
+              onLinkTap: (title) =>
+                  unawaited(openNoteLink(context, ref, title)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// La barra fija de abajo: con un fragmento seleccionado, las acciones; sin
 /// selección, cómo empezar.

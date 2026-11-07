@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -97,5 +98,59 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(offered()!.segments.map((s) => s.spoken), ['hola', 'chau']);
+  });
+
+  // «Leer» en una nota propia de bloques (F46, paso 5j): «Escuchar» la lee
+  // bloque por bloque, como su detalle.
+  testWidgets('una nota de bloques se ofrece bloque por bloque, sin sus '
+      'marcas, y lo que suena se ve', (tester) async {
+    const id = 'f46-nota';
+    await harness.container
+        .read(libraryRepositoryProvider)
+        .save(
+          KnowledgeItem(
+            id: id,
+            title: 'Mis apuntes',
+            source: Source(
+              id: id,
+              kind: SourceKind.manualNote,
+              capturedAt: now,
+            ),
+            processingState: ProcessingState.ready,
+            createdAt: now,
+            updatedAt: now,
+            renditions: [
+              Rendition.text(
+                id: '$id-bloques',
+                itemId: id,
+                kind: RenditionKind.blocks,
+                content: encodeContentBlocks(const [
+                  ContentBlock.heading(text: 'Roma'),
+                  ContentBlock.paragraph(text: 'Fue **fundada** en el 753.'),
+                ]),
+                isPrimary: true,
+                createdAt: now,
+              ),
+            ],
+          ),
+        );
+    await tester.pumpWidget(harness.wrap(const ReadingScreen(itemId: id)));
+    await tester.pumpAndSettle();
+
+    final document = offered()!;
+    expect(document.id, 'reading:$id');
+    expect(
+      [for (final s in document.segments) (s.sourceKey, s.spoken)],
+      [
+        ('blocks:$id-bloques:0', 'Roma'),
+        ('blocks:$id-bloques:1', 'Fue fundada en el 753.'),
+      ],
+    );
+
+    (harness.container.read(readAloudControllerProvider.notifier)
+            as FakeReadAloudController)
+        .readAt(document, 1);
+    await tester.pump();
+    expect(readAloudHighlights(tester), ['Fue fundada en el 753.']);
   });
 }

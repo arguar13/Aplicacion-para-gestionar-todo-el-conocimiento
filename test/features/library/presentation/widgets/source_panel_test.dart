@@ -309,9 +309,9 @@ void main() {
 
       expect(find.byKey(const Key('source-panel-more')), findsNothing);
       expect(find.text(es.blocksEditAction), findsOneWidget);
-      // La lectura para destilar trabaja sobre el texto de una fuente.
-      expect(enabled(tester, 'source-panel-read'), isFalse);
-      expect(find.byTooltip(es.sourcePanelReadNeedsSource), findsOneWidget);
+      // Se lee en el lector (F46, paso 5j, decisión 2a).
+      expect(enabled(tester, 'source-panel-read'), isTrue);
+      expect(find.byTooltip(es.f46P5jReadNote), findsOneWidget);
       expect(enabled(tester, 'source-panel-copy'), isTrue);
 
       await tester.tap(find.byKey(const Key('source-panel-edit')));
@@ -607,6 +607,73 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ReadingScreen), findsOneWidget);
+    });
+
+    // Decisión 2a del dueño: «Leer» funciona en las notas propias de bloques.
+    testWidgets('"Leer" de una nota de bloques abre el lector con su texto '
+        '(F46, paso 5j)', (tester) async {
+      harness = await LibraryHarness.create();
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .save(
+            _source(
+              SourceKind.manualNote,
+              textKind: RenditionKind.blocks,
+              texts: [
+                encodeContentBlocks(const [
+                  ContentBlock.heading(text: 'Un título'),
+                  ContentBlock.paragraph(text: 'Un párrafo para leer.'),
+                ]),
+              ],
+            ),
+          );
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.pushTo(RoutePaths.itemDetail(_id));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('source-panel-read')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReadingScreen), findsOneWidget);
+      expect(find.byKey(const Key('reading-note')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('reading-note')),
+          matching: find.text('Un párrafo para leer.'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('una nota de bloques vacía: "Leer" apagado, porque no hay '
+        'texto', (tester) async {
+      await pumpPanel(
+        tester,
+        _source(
+          SourceKind.manualNote,
+          textKind: RenditionKind.blocks,
+          texts: [
+            encodeContentBlocks(const [
+              ContentBlock.paragraph(text: ''),
+              ContentBlock.heading(text: '  '),
+            ]),
+          ],
+        ),
+      );
+
+      expect(enabled(tester, 'source-panel-read'), isFalse);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('source-panel-read')),
+          matching: find.byTooltip(es.sourcePanelNeedsText),
+        ),
+        findsOneWidget,
+      );
     });
   });
 

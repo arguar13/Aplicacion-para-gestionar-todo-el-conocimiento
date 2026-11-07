@@ -128,6 +128,16 @@ Biblioteca sale de la app. Si hay algo abierto encima —una pantalla de ese
 destino, una hoja de abajo, un diálogo—, «atrás» primero lo cierra, como
 siempre. Vale igual en una tablet, con los destinos al costado.
 
+**Las hojas de abajo tapan la barra.** Todo lo que se abre desde abajo —la
+lista de un paso, «Nuevo cuaderno», los filtros, la velocidad, el «⋮» del
+lector…— queda **encima** de la barra de navegación, y lo de atrás se
+oscurece entero, la barra también: mientras la hoja está abierta, la barra
+no se puede tocar. Tocá lo oscuro, deslizá la hoja hacia abajo o usá «atrás»
+para cerrarla; recién después la barra vuelve a responder. En la computadora
+pasa lo mismo con los destinos del costado. Si escribís adentro de una hoja,
+sube con el teclado y lo que escribís queda a la vista, y lo de adentro nunca
+queda debajo de la barra de gestos del teléfono.
+
 Vas a ver estos nombres una y otra vez en esta guía; cada uno tiene su propia
 sección más abajo.
 
@@ -597,7 +607,11 @@ si no tiene nada que mostrar —una fuente lista, sin audio—, no aparece:
    **"Ver la transcripción"**, que la abre en su pantalla (ver
    [El texto sigue al audio](#el-texto-sigue-al-audio)).
 4. **Los botones grandes**, solo en una nota propia:
-   - **Leer**: abre el [modo lectura](#modo-lectura-leer-para-destilar).
+   - **Leer**: abre el [modo lectura](#modo-lectura-leer-para-destilar). En
+     una nota de bloques —las que escribís con el editor— la abre en el
+     mismo lector, de solo lectura (ver
+     [Leer una nota de bloques](#leer-una-nota-de-bloques)). Si la nota
+     está vacía, **Leer** se ve apagado.
    - **Resumir**: la IA arma un resumen y te lo muestra para leerlo o
      copiarlo.
    - **Copiar**: copia todo el texto.
@@ -793,6 +807,22 @@ procesado.
    Están las que guardaste en Procesado (tocarlas abre el documento
    procesado) y las notas sueltas que sacaste antes, que siguen donde estaban
    (tocarlas abre la nota).
+
+### Leer una nota de bloques
+
+**"Leer"** en una nota que escribiste con el editor de bloques la abre en el
+mismo [marco de lectura](#el-marco-de-lectura-un-solo-lector-para-todo):
+sus títulos, sus párrafos, sus listas, sus casilleros y sus citas, como en
+el detalle, pero en la columna de lectura y con la letra que elegiste en
+**Aa**. **"Escuchar"** la lee bloque por bloque, con lo que suena del color
+de «Resaltado de lectura». Un `[[Título]]` se toca y abre esa nota.
+
+Es **de solo lectura**: no tiene la barra de extraer, ni se resalta, ni se
+hacen tarjetas desde la selección, y arriba no cuenta notas extraídas. Lo
+que se marca en un texto guarda su lugar, y el de una nota se corre cada vez
+que la editás. Para cambiarla, **"Editar"** en su detalle. Si la nota no
+tiene nada escrito, **"Leer"** se ve apagado (*"Disponible cuando el texto
+esté listo"*).
 
 ### Extraer como nota va a Procesado
 
@@ -1992,6 +2022,14 @@ pantalla ancha; *"N pendientes"* es una ficha que abre la cola entera. En la
 tarjeta, **"Ver completo"** es un enlace al pie del texto, y si se encontraron
 datos de la referencia aparece un aviso compacto, *"Se encontraron datos de la
 referencia"*, con **"Usar"** y la **✕** para descartarlos.
+
+**El comienzo del texto, desde el primer párrafo.** La tarjeta muestra cómo
+empieza el texto, para que sepas de qué se trata. En una página de Wikipedia
+empieza por el **primer párrafo**, no por la ficha de la derecha
+(*"Nacimiento"*, *"427 a. C."*, *"Escudo"*…): la ficha sigue en el texto
+completo, en **"Ver completo"** y en todo lo demás; solo no se muestra en la
+tarjeta. Un texto que no abre con una ficha se ve desde el principio, como
+siempre.
 
 #### El texto de un video, en su idioma
 
