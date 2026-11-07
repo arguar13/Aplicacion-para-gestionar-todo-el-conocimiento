@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/core/util/markdown_inline.dart';
+import 'package:sinapsis/core/util/markdown_lead.dart';
 
 /// Convierte el Markdown crudo de una rendition en algo que se ve con
 /// formato de verdad —títulos, **negrita**, *cursiva*, viñetas— sin perder
@@ -76,6 +77,12 @@ class RenderedMarkdown {
   /// Solo se lee el principio: un libro entero no hace falta para mostrar
   /// sus primeras líneas. El corte cae en un fin de línea —una marca de
   /// Markdown no cruza líneas—, así que no queda ninguna partida a la mitad.
+  ///
+  /// Con [markdown], el principio es el del primer párrafo
+  /// (`markdownLeadStart`, F46, paso 5j): una página de Wikipedia abre con su
+  /// ficha —«Nacimiento», «427 a. C.», «Escudo»…—, y la vista previa tiene
+  /// que decir de qué se trata. La ficha sigue en el texto; solo no se
+  /// muestra acá.
   static String excerpt(
     String raw, {
     required bool markdown,
@@ -83,10 +90,11 @@ class RenderedMarkdown {
   }) {
     var text = raw;
     if (markdown) {
-      final lineEnd = raw.length > maxChars * 4
-          ? raw.indexOf('\n', maxChars * 4)
+      final from = markdownLeadStart(raw);
+      final lineEnd = raw.length - from > maxChars * 4
+          ? raw.indexOf('\n', from + maxChars * 4)
           : -1;
-      final head = lineEnd == -1 ? raw : raw.substring(0, lineEnd);
+      final head = raw.substring(from, lineEnd == -1 ? raw.length : lineEnd);
       text = RenderedMarkdown.parse(head).displayText;
     }
     text = text

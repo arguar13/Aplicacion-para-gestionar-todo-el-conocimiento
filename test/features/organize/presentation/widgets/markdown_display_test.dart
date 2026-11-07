@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/highlight_style.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+
+import '../../../../support/wikipedia_fixtures.dart';
 
 void main() {
   group('tal cual, sin interpretar (F22)', () {
@@ -542,6 +546,41 @@ void main() {
     test('sin Markdown, tal cual', () {
       expect(RenderedMarkdown.excerpt('a **b**', markdown: false), 'a **b**');
     });
+
+    // La tarjeta de la Bandeja empezaba por las filas de la ficha (F46, paso
+    // 5j, decisión 5b): ahora, por el primer párrafo.
+    test('una página de Wikipedia empieza por el primer párrafo, no por su '
+        'ficha', () {
+      final platon = RenderedMarkdown.excerpt(
+        wikipediaMarkdown('platon', 'Plat%C3%B3n'),
+        markdown: true,
+      );
+      // Como lo muestra el lector: con sus llamadas a notas, «[n. 1]».
+      expect(platon, startsWith('Platón[n. 1] (en griego'));
+      expect(platon, contains('fue un filósofo griego'));
+      expect(platon, isNot(contains('Nacimiento')));
+
+      final imperio = RenderedMarkdown.excerpt(
+        File(
+          'test/fixtures/web/wikipedia_imperio_romano_inicio.md',
+        ).readAsStringSync(),
+        markdown: true,
+      );
+      expect(imperio, startsWith('El Imperio romano'));
+    });
+
+    test(
+      'y lejos del principio, el corte sigue cayendo en un fin de línea',
+      () {
+        final raw =
+            '${'Fila\n\n' * 3}${'Una oración larga de un párrafo que dice algo '
+                    'con sentido completo. ' * 3}\n\n${'Otra línea.\n' * 400}';
+        final excerpt = RenderedMarkdown.excerpt(raw, markdown: true);
+
+        expect(excerpt, startsWith('Una oración larga'));
+        expect(excerpt, endsWith('…'));
+      },
+    );
 
     test('un libro entero no se lee entero', () {
       final raw = '${'Una línea de un libro largo.\n' * 200000}fin';
