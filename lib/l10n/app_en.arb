@@ -16619,5 +16619,9 @@
   "f46P4PrintPage": "Page {page} of {pages}",
   "@f46P4PrintPage": {"description": "F46, step 4: at the foot of each page of the index PDF.", "placeholders": {"page": {"type": "int"}, "pages": {"type": "int"}}},
   "f46P5fNowReadingUnchosen": "Reading now: {name}, since you didn't choose one",
-  "@f46P5fNowReadingUnchosen": {"description": "Arriba de la biblioteca de voces y en Ajustes, sin una voz elegida para lo que se lee —la marca está en «Voz del sistema»—: la que el lector tomó sola, nombrada como en el reproductor (F46, paso 5f).", "placeholders": {"name": {"type": "String"}}}
+  "@f46P5fNowReadingUnchosen": {"description": "Arriba de la biblioteca de voces y en Ajustes, sin una voz elegida para lo que se lee —la marca está en «Voz del sistema»—: la que el lector tomó sola, nombrada como en el reproductor (F46, paso 5f).", "placeholders": {"name": {"type": "String"}}},
+  "f46P5hWithoutCards": "{count, plural, =1{1 document has no flashcards yet} other{{count} documents have no flashcards yet}}",
+  "@f46P5hWithoutCards": {"description": "Repasar vacío: cuántos documentos del recorte elegido pueden tener tarjetas y no tienen ninguna —los mismos a los que «Crear tarjetas con IA» se las pediría— (F46, paso 5h; antes contaba toda la Biblioteca).", "placeholders": {"count": {"type": "int"}}},
+  "f46P5hWithoutCardsHint": "You can make them by hand from each document, or ask the AI for them.",
+  "@f46P5hWithoutCardsHint": {"description": "Repasar vacío, debajo de cuántos documentos no tienen tarjetas: cómo hacerlas (F46, paso 5h)."}
 }

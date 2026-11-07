@@ -7,6 +7,7 @@ import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/creations/data/repositories/creation_scope_resolver_impl.dart';
 import 'package:sinapsis/features/creations/data/repositories/study_creation_repository_impl.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_material_builder.dart';
+import 'package:sinapsis/features/flashcards/data/repositories/flashcard_coverage_reader_impl.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/study_repository_impl.dart';
 import 'package:sinapsis/features/flashcards/domain/services/study_scope_resolver.dart';
 import 'package:sinapsis/features/notebooks/data/repositories/notebook_repository_impl.dart';
@@ -43,6 +44,10 @@ class CreationsHarness {
       database: processed.db,
       processed: processed.repository,
       notebooks: notebooks,
+      coverage: FlashcardCoverageReaderImpl(
+        database: processed.db,
+        telemetry: telemetry,
+      ),
       telemetry: telemetry,
     );
     creations = StudyCreationRepositoryImpl(

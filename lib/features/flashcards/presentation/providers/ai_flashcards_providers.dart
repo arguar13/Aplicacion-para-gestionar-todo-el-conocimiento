@@ -15,12 +15,6 @@ final flashcardCoverageReaderProvider = Provider<FlashcardCoverageReader>(
   ),
 );
 
-/// Cuántos elementos podrían tener tarjetas y no tienen ninguna (F30), para
-/// el Repasar vacío.
-final itemsWithoutCardsCountProvider = StreamProvider.autoDispose<int>(
-  (ref) => ref.watch(flashcardCoverageReaderProvider).watchWithoutCardsCount(),
-);
-
 /// Si hay alguna tarjeta, le toque o no (F30): para «Practicar igual».
 final hasFlashcardsProvider = StreamProvider.autoDispose<bool>(
   (ref) => ref.watch(flashcardCoverageReaderProvider).watchHasCards(),

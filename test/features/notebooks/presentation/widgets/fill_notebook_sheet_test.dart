@@ -36,7 +36,9 @@ class _AllEligible implements FlashcardCoverageReader {
       right(FlashcardCoverage(eligible: [...?itemIds], withCards: const {}));
 
   @override
-  Stream<int> watchWithoutCardsCount() => Stream.value(0);
+  Future<Either<Failure, int>> withoutCardsCountOf(
+    List<String> itemIds,
+  ) async => right(itemIds.toSet().length);
 
   @override
   Stream<bool> watchHasCards() => Stream.value(false);

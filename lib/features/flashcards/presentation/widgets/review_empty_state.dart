@@ -10,23 +10,34 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settin
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_queue_status.dart';
+import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/domain/entities/study_creation_kind.dart';
-import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
+import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
 import 'package:sinapsis/features/creations/presentation/widgets/creation_customize_sheet.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/ai_flashcards_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Repasar sin nada que repasar, diciendo **por qué** (F30).
 ///
 /// Toda tarjeta nace lista para hoy: si no hay ninguna, es que no hay
-/// tarjetas, no un problema de fechas. Cuando hay elementos con texto que
-/// todavía no tienen ninguna, lo dice con el número, y el porqué de que la IA
-/// no las haya hecho sola —falta un modelo, está en pausa, la biblioteca que
-/// ya existía espera el cargador—, cada uno con lo que lo resuelve, y al lado
-/// «Crear tarjetas con IA», que abre la hoja de «Tarjetas didácticas» sobre lo
-/// elegido en Repasar (F43, M18). Si la IA ya las está haciendo, que están en
-/// camino.
+/// tarjetas, no un problema de fechas. Cuando hay documentos del recorte que
+/// estudia —[scope]— que pueden tener tarjetas y todavía no tienen ninguna, lo
+/// dice con el número, y el porqué de que la IA no las haya hecho sola —falta
+/// un modelo, está en pausa, la biblioteca que ya existía espera el
+/// cargador—, cada uno con lo que lo resuelve, y al lado «Crear tarjetas con
+/// IA», que abre la hoja de «Tarjetas didácticas» sobre ese recorte (F43,
+/// M18). Si la IA ya las está haciendo, que están en camino.
 /// Si no hay nada que hacer, el mensaje de siempre.
+///
+/// **El número es el del recorte (F46, paso 5h)**, y el de la hoja que abre
+/// el botón: los documentos de [scope] que «Para cada documento» tomaría
+/// (`CreationScopeResolver.watchWithoutCards`). Antes contaba toda la
+/// Biblioteca —también las notas y las fuentes, de las que las tarjetas ya no
+/// salen (F41)—: con «Todo lo procesado · 14 documentos · 0 tarjetas», decía
+/// «58 elementos todavía no tienen tarjetas». Un recorte de estudio de antes,
+/// que llega solo por una dirección vieja, no es uno de lo creado: no cuenta
+/// nada ni ofrece crear.
 ///
 /// Con tarjetas que todavía no tocan, ofrece «Practicar igual»
 /// ([onPractice]): repasarlas sin esperar, sin tocar su calendario.
@@ -36,15 +47,25 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// pocas líneas y sin ocupar la pantalla, dentro de una lista que se
 /// desplaza.
 class ReviewEmptyState extends ConsumerWidget {
-  const ReviewEmptyState({this.onPractice, this.compact = false, super.key});
+  const ReviewEmptyState({
+    required this.scope,
+    this.onPractice,
+    this.compact = false,
+    super.key,
+  });
 
+  /// Lo que se estudia: lo de «Para hoy» en Repasar, o lo de la sesión.
+  final StudyScope scope;
   final VoidCallback? onPractice;
   final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final waiting = ref.watch(itemsWithoutCardsCountProvider).valueOrNull ?? 0;
+    final created = CreationScope.ofStudyScope(scope);
+    final waiting = created == null
+        ? 0
+        : ref.watch(scopeWithoutCardsProvider(created)).valueOrNull ?? 0;
     final batch = ref.watch(aiFlashcardsBatchProvider);
     final anyCard = ref.watch(hasFlashcardsProvider).valueOrNull ?? false;
     final practice = anyCard ? onPractice : null;
@@ -65,7 +86,8 @@ class ReviewEmptyState extends ConsumerWidget {
         message: l10n.reviewEmptyBatchMessage,
       );
     }
-    if (waiting == 0) {
+    // Sin un recorte de lo creado no hay nada que contar ni sobre qué crear.
+    if (waiting == 0 || created == null) {
       if (compact) {
         return _CompactLine(
           key: const Key('review-empty-done'),
@@ -89,6 +111,7 @@ class ReviewEmptyState extends ConsumerWidget {
       );
     }
     return _WithoutCards(
+      scope: created,
       count: waiting,
       onPractice: practice,
       compact: compact,
@@ -150,15 +173,17 @@ class _CompactLine extends StatelessWidget {
   }
 }
 
-/// Hay [count] elementos sin tarjetas: por qué la IA no las hizo, y «Crear
-/// tarjetas con IA».
+/// Hay [count] documentos de [scope] sin tarjetas: por qué la IA no las hizo,
+/// y «Crear tarjetas con IA» sobre [scope].
 class _WithoutCards extends ConsumerWidget {
   const _WithoutCards({
+    required this.scope,
     required this.count,
     required this.onPractice,
     this.compact = false,
   });
 
+  final CreationScope scope;
   final int count;
   final VoidCallback? onPractice;
   final bool compact;
@@ -169,7 +194,7 @@ class _WithoutCards extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final reasons = _reasons(context, ref, l10n);
-    // La hoja de «Tarjetas didácticas» sobre lo elegido en Repasar (F43,
+    // La hoja de «Tarjetas didácticas» sobre el recorte que se cuenta (F43,
     // M18): ahí se elige un mazo o «Para cada documento».
     final create = FilledButton.icon(
       key: const Key('review-empty-create'),
@@ -177,7 +202,7 @@ class _WithoutCards extends ConsumerWidget {
         showCreationCustomizeSheet(
           context,
           kind: StudyCreationKind.flashcards,
-          scope: ref.read(repasarScopeProvider),
+          scope: scope,
         ),
       ),
       icon: const Icon(Icons.auto_awesome),
@@ -199,8 +224,8 @@ class _WithoutCards extends ConsumerWidget {
         children: [
           _CompactLine(
             icon: Icons.style_outlined,
-            title: l10n.reviewEmptyWithoutCards(count),
-            message: l10n.reviewEmptyWithoutCardsHint,
+            title: l10n.f46P5hWithoutCards(count),
+            message: l10n.f46P5hWithoutCardsHint,
           ),
           if (reasons.isNotEmpty) ...[const SizedBox(height: 10), ...reasons],
           const SizedBox(height: 8),
@@ -244,13 +269,13 @@ class _WithoutCards extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                l10n.reviewEmptyWithoutCards(count),
+                l10n.f46P5hWithoutCards(count),
                 style: theme.textTheme.headlineSmall,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               Text(
-                l10n.reviewEmptyWithoutCardsHint,
+                l10n.f46P5hWithoutCardsHint,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),

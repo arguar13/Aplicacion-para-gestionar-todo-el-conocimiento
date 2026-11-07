@@ -400,4 +400,74 @@ void main() {
       expect(await origins.next, const CreationOrigin(deleted: true));
     });
   });
+
+  // Visto en el emulador: con «Todo lo procesado · 14 documentos · 0
+  // tarjetas», Repasar vacío decía «58 elementos todavía no tienen
+  // tarjetas», la cuenta de toda la Biblioteca.
+  group('lo que todavía no tiene tarjetas (F46, paso 5h)', () {
+    test('cuenta los documentos del recorte, no la Biblioteca', () async {
+      // Diez en la Biblioteca, ninguno con tarjetas: las tres fuentes de lo
+      // procesado, sus tres documentos, «Suelta» y tres más.
+      for (final id in ['otra-1', 'otra-2', 'otra-3']) {
+        await h.processed.vault.saveSource(id, title: id);
+      }
+      await h.processed.vault.addNotebook('cuaderno', name: 'Pentateuco');
+      await h.notebooks.addItems(
+        notebookId: 'cuaderno',
+        itemIds: [exodo, levitico],
+      );
+
+      expect(
+        await h.scopes
+            .watchWithoutCards(const CreationScope.notebook('cuaderno'))
+            .first,
+        2,
+      );
+      expect(
+        await h.scopes
+            .watchWithoutCards(const CreationScope.allProcessed())
+            .first,
+        3,
+      );
+      expect(
+        await h.scopes.watchWithoutCards(CreationScope.document(genesis)).first,
+        1,
+      );
+    });
+
+    test(
+      'al día: un documento que recibe una tarjeta deja de contarse; una '
+      'tarjeta de su fuente no lo saca, como en «Para cada documento»',
+      () async {
+        // De la fuente de Éxodo: las tarjetas salen de lo procesado (F41).
+        await h.processed.vault.addFlashcard('de-la-fuente', 'exodo');
+        final waiting = StreamQueue(
+          h.scopes.watchWithoutCards(const CreationScope.allProcessed()),
+        );
+        addTearDown(waiting.cancel);
+        expect(await waiting.next, 3);
+
+        await h.processed.vault.addFlashcard('propia', exodo);
+        await expectLater(waiting, emitsThrough(2));
+      },
+    );
+
+    test(
+      'un recorte que ya no existe, o sin documentos, no tiene ninguno',
+      () async {
+        expect(
+          await h.scopes
+              .watchWithoutCards(const CreationScope.notebook('borrado'))
+              .first,
+          0,
+        );
+        expect(
+          await h.scopes
+              .watchWithoutCards(const CreationScope.document('suelta'))
+              .first,
+          0,
+        );
+      },
+    );
+  });
 }

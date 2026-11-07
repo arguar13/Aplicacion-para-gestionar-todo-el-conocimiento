@@ -88,13 +88,56 @@ void main() {
     expect(some.withCards, {'con-tarjetas'});
   });
 
-  test('cuántos podrían tener tarjetas y no tienen, al día', () async {
-    final counts = reader.watchWithoutCardsCount();
-    expect(await counts.first, 2);
+  group('cuántos de unos pueden tener tarjetas y no tienen ninguna (F46, '
+      'paso 5h)', () {
+    Future<int> count(List<String> ids) async =>
+        (await reader.withoutCardsCountOf(ids)).getOrElse((f) => fail('$f'));
 
-    await vault.flashcards.create(itemId: 'nota', front: '¿Otra?', back: 'Sí');
+    test('los mismos que «withoutCards», solo de esos', () async {
+      final ids = [
+        'listo',
+        'nota',
+        'con-tarjetas',
+        'procesando',
+        'vacio',
+        'borrado',
+        'no-existe',
+      ];
 
-    expect(await reader.watchWithoutCardsCount().first, 1);
+      expect(await count(ids), 2);
+      expect(
+        await count(ids),
+        coverage(await reader.coverageOf(ids)).withoutCards.length,
+      );
+      expect(await count(['nota']), 1);
+      expect(await count(['con-tarjetas']), 0);
+    });
+
+    test('uno repetido cuenta una vez; sin ninguno, cero', () async {
+      expect(await count(['listo', 'listo', 'nota']), 2);
+      expect(await count(const []), 0);
+    });
+
+    test('muchos, en una sola consulta', () async {
+      expect(
+        await count([
+          'listo',
+          for (var i = 0; i < 10000; i++) 'no-existe-$i',
+          'nota',
+        ]),
+        2,
+      );
+    });
+
+    test('una tarjeta nueva lo saca de la cuenta', () async {
+      await vault.flashcards.create(
+        itemId: 'nota',
+        front: '¿Otra?',
+        back: 'Sí',
+      );
+
+      expect(await count(['nota', 'listo']), 1);
+    });
   });
 
   group('un documento procesado (F41, decisión I)', () {
@@ -135,17 +178,15 @@ void main() {
       expect(some.withoutCards, ['claves', 'procesado', 'listo']);
     });
 
-    test('lo cuenta al día, cuando llega su texto', () async {
+    test('lo cuenta cuando llega su texto', () async {
       await insertProcessedRows(
         vault.db,
         id: 'procesado',
         title: 'Procesado',
         parts: const {},
       );
-      final counts = <int>[];
-      final subscription = reader.watchWithoutCardsCount().listen(counts.add);
-      await pumpEventQueue();
-      expect(counts, [2]);
+      final before = await reader.withoutCardsCountOf(['procesado']);
+      expect(before.getOrElse((f) => fail('$f')), 0);
 
       await vault.db
           .into(vault.db.processedParts)
@@ -161,11 +202,9 @@ void main() {
               updatedAt: vault.now,
             ),
           );
-      await pumpEventQueue();
-      await subscription.cancel();
 
-      // El mismo stream, sin volver a pedirlo: escucha las partes.
-      expect(counts.last, 3);
+      final after = await reader.withoutCardsCountOf(['procesado']);
+      expect(after.getOrElse((f) => fail('$f')), 1);
     });
   });
 }

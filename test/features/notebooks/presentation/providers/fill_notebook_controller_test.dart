@@ -54,7 +54,9 @@ class _FakeCoverage implements FlashcardCoverageReader {
   }
 
   @override
-  Stream<int> watchWithoutCardsCount() => const Stream.empty();
+  Future<Either<Failure, int>> withoutCardsCountOf(
+    List<String> itemIds,
+  ) async => right(0);
 
   @override
   Stream<bool> watchHasCards() => const Stream.empty();

@@ -129,6 +129,8 @@ void main() {
 
     testWidgets('sin nada para estudiar, el vacío de siempre en la franja, '
         'sin «Empezar»', (tester) async {
+      await harness.processed('p-roma', 'Roma procesada');
+      await harness.processed('p-grecia', 'Grecia procesada');
       await openEntry(tester);
 
       expect(find.byKey(const Key('review-entry-start')), findsNothing);
@@ -139,7 +141,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text(es.reviewEmptyWithoutCards(2)), findsOneWidget);
+      expect(find.text(es.f46P5hWithoutCards(2)), findsOneWidget);
     });
 
     testWidgets('se actualiza solo cuando aparece una tarjeta', (tester) async {
@@ -281,6 +283,139 @@ void main() {
         );
       });
     }
+  });
+
+  // Visto en el emulador: con «Todo lo procesado · 14 documentos · 0
+  // tarjetas», la franja decía «58 elementos todavía no tienen tarjetas»: la
+  // cuenta de toda la Biblioteca. El botón de al lado ya abría la hoja sobre
+  // el recorte.
+  group('el vacío cuenta lo del recorte (F46, paso 5h)', () {
+    /// Diez en la Biblioteca sin tarjetas —Roma y Grecia, cinco notas más y
+    /// tres documentos procesados—, y un cuaderno con dos de esos documentos.
+    Future<String> tenAndANotebookOfTwo() async {
+      for (final title in ['Uno', 'Dos', 'Tres', 'Cuatro', 'Cinco']) {
+        await harness.library.capture(
+          '$title\n\nTexto de $title.',
+          title: title,
+        );
+      }
+      await harness.processed('p-roma', 'Roma procesada');
+      await harness.processed('p-grecia', 'Grecia procesada');
+      await harness.processed('p-cartago', 'Cartago procesada');
+      final notebooks = harness.container.read(notebookRepositoryProvider);
+      final notebook = await notebooks.create(
+        name: 'Para el examen',
+        mode: NotebookMode.manual,
+      );
+      await notebooks.addItems(
+        notebookId: notebook.id,
+        itemIds: ['p-roma', 'p-grecia'],
+      );
+      return notebook.id;
+    }
+
+    testWidgets('con un recorte de dos sin tarjetas y una Biblioteca de diez, '
+        'dice dos', (tester) async {
+      final notebook = await tenAndANotebookOfTwo();
+      await openEntry(tester);
+
+      await chooseScope(tester, 'notebook', CreationScope.notebook(notebook));
+
+      expect(find.text(es.f46P5hWithoutCards(2)), findsOneWidget);
+      expect(find.text(es.f46P5hWithoutCardsHint), findsOneWidget);
+    });
+
+    testWidgets('«Todo lo procesado» cuenta sus documentos, no las notas ni '
+        'las fuentes', (tester) async {
+      await tenAndANotebookOfTwo();
+      await openEntry(tester);
+
+      expect(find.text(es.f46P5hWithoutCards(3)), findsOneWidget);
+    });
+
+    testWidgets('«Crear tarjetas con IA» abre la hoja sobre el mismo recorte '
+        'que cuenta', (tester) async {
+      final notebook = await tenAndANotebookOfTwo();
+      await openEntry(tester);
+      await chooseScope(tester, 'notebook', CreationScope.notebook(notebook));
+
+      await tester.tap(find.byKey(const Key('review-empty-create')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('creation-sheet')), findsOneWidget);
+      // «Fuentes»: los dos del cuaderno, nada más.
+      final sheet = find.byKey(const Key('creation-sheet'));
+      await tester.ensureVisible(
+        find.descendant(
+          of: sheet,
+          matching: find.byKey(const Key('creation-sources-count')),
+        ),
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: sheet,
+                matching: find.byKey(const Key('creation-sources-count')),
+              ),
+            )
+            .data,
+        es.f43StudioSources(2),
+      );
+    });
+
+    testWidgets('al día: una tarjeta fuera del recorte no cambia la cuenta, y '
+        'una adentro deja la franja con «Empezar»', (tester) async {
+      final notebook = await tenAndANotebookOfTwo();
+      await openEntry(tester);
+      await chooseScope(tester, 'notebook', CreationScope.notebook(notebook));
+      expect(find.text(es.f46P5hWithoutCards(2)), findsOneWidget);
+
+      // Una tarjeta de lo que no está en el cuaderno no cambia nada.
+      await addCards('p-cartago', ['¿Cartago?']);
+      await tester.pumpAndSettle();
+      expect(find.text(es.f46P5hWithoutCards(2)), findsOneWidget);
+
+      await addCards('p-roma', ['¿Roma?']);
+      await tester.pumpAndSettle();
+      expect(find.text(es.f46P5hWithoutCards(2)), findsNothing);
+      expect(find.byKey(const Key('review-entry-start')), findsOneWidget);
+    });
+
+    testWidgets('la sesión vacía de un recorte cuenta ese recorte', (
+      tester,
+    ) async {
+      final notebook = await tenAndANotebookOfTwo();
+      await openEntry(tester);
+      harness.library.goTo(
+        RoutePaths.reviewSessionFor(
+          kind: StudyScopeKind.processed.name,
+          id: CreationScope.notebook(notebook).storageKey,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReviewScreen), findsOneWidget);
+      expect(find.text(es.f46P5hWithoutCards(2)), findsOneWidget);
+      expect(find.text(es.f46P5hWithoutCardsHint), findsOneWidget);
+    });
+
+    testWidgets('la sesión vacía de un recorte de antes —un cuaderno por la '
+        'dirección vieja— no cuenta nada que no sea de él', (tester) async {
+      final notebook = await tenAndANotebookOfTwo();
+      await openEntry(tester);
+      harness.library.goTo(
+        RoutePaths.reviewSessionFor(
+          kind: StudyScopeKind.notebook.name,
+          id: notebook,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReviewScreen), findsOneWidget);
+      expect(find.byKey(const Key('review-empty-done')), findsOneWidget);
+      expect(find.byKey(const Key('review-empty-create')), findsNothing);
+    });
   });
 
   group('el selector: todo sale de Procesado', () {

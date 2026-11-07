@@ -46,9 +46,14 @@ abstract interface class FlashcardCoverageReader {
     Iterable<String>? itemIds,
   );
 
-  /// Cuántos elementos de la biblioteca podrían tener tarjetas y no tienen
-  /// ninguna, actualizándose solo: lo que dice Repasar cuando está vacío.
-  Stream<int> watchWithoutCardsCount();
+  /// Cuántos de [itemIds] pueden tener tarjetas y no tienen ninguna: lo que
+  /// [coverageOf] daría en `withoutCards`, contado en UNA consulta aunque sean
+  /// diez mil (F46, paso 5h). Lo que dice Repasar vacío de su recorte.
+  ///
+  /// Antes se contaba toda la biblioteca —también las notas y las fuentes—,
+  /// y Repasar decía «58 elementos todavía no tienen tarjetas» con un recorte
+  /// de 14 documentos.
+  Future<Either<Failure, int>> withoutCardsCountOf(List<String> itemIds);
 
   /// Si hay alguna tarjeta, de un elemento vivo, le toque o no:
   /// actualizándose solo. Con alguna, Repasar vacío ofrece practicar igual.

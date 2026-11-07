@@ -11,11 +11,10 @@ import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/processed_rows.dart';
 
 /// La cola de la IA de mentira: anota lo que la pantalla le pide. Cómo hace
 /// las tarjetas lo prueba `ai_organize_queue_test.dart`.
@@ -65,17 +64,15 @@ void main() {
     );
   }
 
-  /// Tres elementos con texto; el de [withCards], con una tarjeta.
+  /// Tres documentos procesados —de los que salen las tarjetas (F41)—; el de
+  /// [withCards], con una tarjeta.
   Future<Map<String, String>> seed({String? withCards}) async {
+    final ids = <String, String>{};
     for (final title in ['Roma', 'Cartago', 'Grecia']) {
-      await harness.capture('$title\n\nTexto sobre $title.', title: title);
+      final id = 'p-${title.toLowerCase()}';
+      await insertProcessedRows(harness.database, id: id, title: title);
+      ids[title] = id;
     }
-    final items =
-        (await harness.container
-                .read(libraryRepositoryProvider)
-                .list(const LibraryQuery()))
-            .getOrElse((f) => fail('$f'));
-    final ids = {for (final item in items) item.title: item.id};
     if (withCards != null) {
       await harness.container
           .read(flashcardRepositoryProvider)
@@ -210,7 +207,7 @@ void main() {
       await seed();
       await pumpReview(tester);
 
-      expect(find.text(es.reviewEmptyWithoutCards(3)), findsOneWidget);
+      expect(find.text(es.f46P5hWithoutCards(3)), findsOneWidget);
       await tester.tap(find.byKey(const Key('review-empty-create')));
       await tester.pumpAndSettle();
       // La de «Tarjetas didácticas», sobre lo elegido en Repasar (F43, M18).
@@ -329,7 +326,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
 
       expect(find.text(es.reviewEmptyBatchTitle), findsOneWidget);
-      expect(find.text(es.reviewEmptyWithoutCards(3)), findsNothing);
+      expect(find.text(es.f46P5hWithoutCards(3)), findsNothing);
     });
   });
 
@@ -397,7 +394,7 @@ void main() {
       // Terminó: cierra la sesión y vuelve a la entrada de Repasar, vacía.
       expect(find.byKey(const Key('practice-next')), findsNothing);
       expect(find.byKey(const Key('review-entry')), findsOneWidget);
-      expect(find.text(es.reviewEmptyWithoutCards(1)), findsOneWidget);
+      expect(find.text(es.f46P5hWithoutCards(1)), findsOneWidget);
       final after = {
         for (final row in await db.select(db.flashcards).get())
           row.id: row.dueAt,

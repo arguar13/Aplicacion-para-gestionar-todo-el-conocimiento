@@ -68,7 +68,11 @@ class ReviewTodayStrip extends ConsumerWidget {
     } else if (counts.valueOrNull case final value?) {
       alone = value.isEmpty;
       content = value.isEmpty
-          ? ReviewEmptyState(onPractice: onPractice, compact: true)
+          ? ReviewEmptyState(
+              scope: scope,
+              onPractice: onPractice,
+              compact: true,
+            )
           : _Counts(value: value, onStart: onStart, onMyCards: onMyCards);
     } else {
       // Lo que tarda en contar es un instante: el lugar, quieto.

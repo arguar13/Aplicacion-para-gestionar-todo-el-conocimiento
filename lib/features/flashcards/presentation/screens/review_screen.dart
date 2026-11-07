@@ -315,7 +315,10 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           );
         }
         // F30: si está vacío, dice por qué.
-        return ReviewEmptyState(onPractice: () => unawaited(_startPractice()));
+        return ReviewEmptyState(
+          scope: widget.scope,
+          onPractice: () => unawaited(_startPractice()),
+        );
     }
   }
 

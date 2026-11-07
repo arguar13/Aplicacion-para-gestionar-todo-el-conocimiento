@@ -14,6 +14,7 @@ import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart'
 import 'package:sinapsis/features/creations/domain/entities/creation_scope_catalog.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope_summary.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_scope_resolver.dart';
+import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_coverage_reader.dart';
 import 'package:sinapsis/features/notebooks/domain/repositories/notebook_repository.dart';
 import 'package:sinapsis/features/processed/domain/entities/processed_query.dart';
 import 'package:sinapsis/features/processed/domain/repositories/processed_repository.dart';
@@ -76,15 +77,21 @@ class CreationScopeResolverImpl implements CreationScopeResolver {
     required AppDatabase database,
     required ProcessedRepository processed,
     required NotebookRepository notebooks,
+    required FlashcardCoverageReader coverage,
     required TelemetryService telemetry,
   }) : _db = database,
        _processed = processed,
        _notebooks = notebooks,
+       _coverage = coverage,
        _telemetry = telemetry;
 
   final AppDatabase _db;
   final ProcessedRepository _processed;
   final NotebookRepository _notebooks;
+
+  /// Qué puede tener tarjetas y cuáles ya tienen: la regla de la hoja de
+  /// «Crear tarjetas con IA», para que Repasar cuente lo mismo.
+  final FlashcardCoverageReader _coverage;
   final TelemetryService _telemetry;
 
   @override
@@ -188,6 +195,23 @@ class CreationScopeResolverImpl implements CreationScopeResolver {
     read: () => _summaryOf(scope),
     telemetry: _telemetry,
     hint: 'CreationScopeResolverImpl.watchSummary',
+  );
+
+  @override
+  Stream<int> watchWithoutCards(CreationScope scope) => watchQuery(
+    db: _db,
+    // Lo que cambia qué documentos tiene, y si uno puede tener tarjetas —sus
+    // partes: un procesado no tiene formas— o ya las tiene.
+    tables: _tables,
+    read: () async {
+      final documents =
+          (await documentIds(scope)).getRight().toNullable() ?? const [];
+      final waiting = await _coverage.withoutCardsCountOf(documents);
+      // Un fallo viaja por el stream, como en el resto de las lecturas.
+      return waiting.getOrElse((failure) => throw StateError('$failure'));
+    },
+    telemetry: _telemetry,
+    hint: 'CreationScopeResolverImpl.watchWithoutCards',
   );
 
   Future<CreationScopeSummary> _summaryOf(CreationScope scope) async {

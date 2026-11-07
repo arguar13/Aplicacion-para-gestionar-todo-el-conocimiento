@@ -61,6 +61,20 @@ sealed class CreationScope {
   StudyScope get studyScope =>
       isAll ? const StudyScope.all() : StudyScope.processed(storageKey);
 
+  /// El recorte de lo creado que estudia [scope], al revés de [studyScope]:
+  /// «Todo» es «Todo lo procesado», y uno de lo procesado es el suyo. Los
+  /// recortes de estudio de antes —un espacio, un valor, un cuaderno o un
+  /// elemento, que solo llegan por una dirección vieja— no son uno de lo
+  /// creado, y dan `null`.
+  static CreationScope? ofStudyScope(StudyScope scope) => switch (scope.kind) {
+    StudyScopeKind.all => const AllProcessed(),
+    StudyScopeKind.processed => parse(scope.id ?? ''),
+    StudyScopeKind.space ||
+    StudyScopeKind.value ||
+    StudyScopeKind.notebook ||
+    StudyScopeKind.item => null,
+  };
+
   /// El recorte de [key], o `null` si no se entiende.
   static CreationScope? parse(String key) {
     if (key == AllProcessed.key) return const AllProcessed();

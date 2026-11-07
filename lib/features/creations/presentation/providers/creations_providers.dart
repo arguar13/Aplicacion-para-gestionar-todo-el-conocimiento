@@ -10,6 +10,7 @@ import 'package:sinapsis/features/creations/domain/entities/creation_scope_summa
 import 'package:sinapsis/features/creations/domain/entities/study_creation.dart';
 import 'package:sinapsis/features/creations/domain/repositories/study_creation_repository.dart';
 import 'package:sinapsis/features/creations/domain/services/creation_scope_resolver.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/ai_flashcards_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
 
@@ -31,9 +32,19 @@ final creationScopeResolverProvider = Provider<CreationScopeResolver>(
     database: ref.watch(appDatabaseProvider),
     processed: ref.watch(processedRepositoryProvider),
     notebooks: ref.watch(notebookRepositoryProvider),
+    coverage: ref.watch(flashcardCoverageReaderProvider),
     telemetry: ref.watch(telemetryServiceProvider),
   ),
 );
+
+/// Cuántos documentos de un recorte pueden tener tarjetas y no tienen
+/// ninguna, al día (F46, paso 5h): lo que dice Repasar vacío, con la cuenta
+/// de «Crear tarjetas con IA» sobre ese recorte.
+final scopeWithoutCardsProvider = StreamProvider.autoDispose
+    .family<int, CreationScope>(
+      (ref, scope) =>
+          ref.watch(creationScopeResolverProvider).watchWithoutCards(scope),
+    );
 
 /// Lo creado de un recorte, con lo más nuevo arriba, al día.
 final studyCreationsProvider = StreamProvider.autoDispose

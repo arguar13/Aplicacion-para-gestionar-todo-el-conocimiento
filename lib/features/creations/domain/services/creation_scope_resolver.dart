@@ -30,6 +30,13 @@ abstract interface class CreationScopeResolver implements ProcessedStudyItems {
   /// cambio.
   Stream<CreationScopeSummary> watchSummary(CreationScope scope);
 
+  /// Cuántos de los documentos de [scope] pueden tener tarjetas y no tienen
+  /// ninguna, y cada cambio (F46, paso 5h): los mismos a los que «Crear
+  /// tarjetas con IA» —la hoja de «Tarjetas didácticas» sobre [scope], «Para
+  /// cada documento»— se las pediría. Lo que dice Repasar vacío. Un recorte
+  /// que ya no existe no tiene ninguno.
+  Stream<int> watchWithoutCards(CreationScope scope);
+
   /// Lo que ofrece el selector (M11), entero, con la línea de cada uno, y cada
   /// cambio: «Todo lo procesado», cada documento procesado vivo, cada cuaderno
   /// y, de [topics], los temas y los espacios que existen.

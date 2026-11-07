@@ -18,6 +18,7 @@ import 'package:sinapsis/features/creations/domain/services/creation_scope_resol
 import 'package:sinapsis/features/creations/presentation/providers/creation_kinds.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
 import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/ai_flashcards_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/features/processed/presentation/providers/processed_providers.dart';
@@ -59,6 +60,10 @@ class _CountingScopes implements CreationScopeResolver {
   }
 
   @override
+  Stream<int> watchWithoutCards(CreationScope scope) =>
+      _inner.watchWithoutCards(scope);
+
+  @override
   Stream<CreationScopeCatalog> watchCatalog(Set<CreationScope> topics) {
     catalogs.add(topics);
     return _inner.watchCatalog(topics);
@@ -90,6 +95,7 @@ void main() {
               database: ref.watch(appDatabaseProvider),
               processed: ref.watch(processedRepositoryProvider),
               notebooks: ref.watch(notebookRepositoryProvider),
+              coverage: ref.watch(flashcardCoverageReaderProvider),
               telemetry: ref.watch(telemetryServiceProvider),
             ),
           ),

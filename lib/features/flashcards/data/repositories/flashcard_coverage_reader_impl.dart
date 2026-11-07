@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
@@ -119,21 +121,32 @@ class FlashcardCoverageReaderImpl implements FlashcardCoverageReader {
       .get();
 
   @override
-  Stream<int> watchWithoutCardsCount() => watchQuery(
-    db: _db,
-    tables: _tables,
-    read: () async {
-      final row = await _db.customSelect(
-        '''
+  Future<Either<Failure, int>> withoutCardsCountOf(List<String> itemIds) async {
+    if (itemIds.isEmpty) return right(0);
+    try {
+      // Los ids viajan como UN JSON (`json_each`), no como una variable cada
+      // uno: «Todo lo procesado» con diez mil documentos es una sola.
+      final row = await _db
+          .customSelect(
+            '''
             SELECT COUNT(*) AS waiting FROM item i
-             WHERE $_eligibleSql AND NOT $_hasCardsSql''',
-        readsFrom: _tables.toSet(),
-      ).getSingle();
-      return row.read<int>('waiting');
-    },
-    telemetry: _telemetry,
-    hint: 'FlashcardCoverageReaderImpl.watchWithoutCardsCount',
-  );
+             WHERE i.id IN (SELECT value FROM json_each(?))
+               AND $_eligibleSql AND NOT $_hasCardsSql''',
+            variables: [Variable.withString(jsonEncode(itemIds))],
+            readsFrom: _tables.toSet(),
+          )
+          .getSingle();
+      return right(row.read<int>('waiting'));
+      // `Object` y no `Exception`: un TypeError de una fila rara es Error.
+    } on Object catch (e, stackTrace) {
+      _telemetry.recordError(
+        e,
+        stackTrace,
+        hint: 'FlashcardCoverageReaderImpl.withoutCardsCountOf',
+      );
+      return left(Failure.unexpected(message: e.toString()));
+    }
+  }
 
   @override
   Stream<bool> watchHasCards() => watchQuery(
