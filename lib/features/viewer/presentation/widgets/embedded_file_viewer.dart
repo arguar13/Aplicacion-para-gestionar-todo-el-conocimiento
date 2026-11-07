@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/overlay_control_colors.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/processed/presentation/widgets/original/original_marks_line.dart';
@@ -275,9 +276,15 @@ class EmbeddedViewerFrame extends StatelessWidget {
 }
 
 /// El botón grande del centro (F35): las flechas de expandir y su nombre
-/// —«Leer como libro», «Ver la página», «Ampliar»—, sobre un fondo oscuro
+/// —«Leer como libro», «Ver la página», «Ampliar»—, sobre un fondo
 /// semitransparente que deja ver el original debajo. Uno solo para todo lo
 /// que lo lleva, así se ve y se toca igual en un libro que en una foto.
+///
+/// Sus colores son los de un control que flota encima de cualquier cosa
+/// ([OverlayControlColors], F46, paso 5i): se lee con al menos 4,5 a 1 sobre
+/// una página blanca y sobre una foto negra, en cualquier tema. Antes era
+/// blanco sobre negro al 40 %, que encima de una página blanca quedaba en 2,9
+/// a 1.
 ///
 /// La llave conserva el nombre con que nació, «Leer como libro»: la buscan
 /// las pruebas del detalle y de Procesado.
@@ -294,7 +301,9 @@ class _CenterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = Theme.of(context).textTheme.titleMedium;
+    final theme = Theme.of(context);
+    final colors = OverlayControlColors.of(theme.colorScheme);
+    final textStyle = theme.textTheme.titleMedium;
     // El lector de pantalla lo anuncia como lo que es: un botón con su
     // nombre, no un texto suelto que se puede tocar.
     return Tooltip(
@@ -303,7 +312,7 @@ class _CenterButton extends StatelessWidget {
         button: true,
         child: Material(
           key: const Key('embedded-viewer-read-as-book'),
-          color: Colors.black.withValues(alpha: 0.4),
+          color: colors.background,
           shape: const StadiumBorder(),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -313,14 +322,14 @@ class _CenterButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.open_in_full, size: 32, color: Colors.white),
+                  Icon(Icons.open_in_full, size: 32, color: colors.foreground),
                   const SizedBox(width: 12),
                   // Con la letra al doble en un teléfono angosto, el nombre se
                   // parte en dos renglones en vez de salirse del botón.
                   Flexible(
                     child: Text(
                       label,
-                      style: textStyle?.copyWith(color: Colors.white),
+                      style: textStyle?.copyWith(color: colors.foreground),
                     ),
                   ),
                 ],
@@ -333,6 +342,8 @@ class _CenterButton extends StatelessWidget {
   }
 }
 
+/// El botón de expandir de la esquina, con los colores de un control que
+/// flota encima de cualquier cosa, como el grande ([OverlayControlColors]).
 class _ExpandButton extends StatelessWidget {
   const _ExpandButton({required this.tooltip, required this.onPressed});
 
@@ -341,14 +352,16 @@ class _ExpandButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = OverlayControlColors.of(Theme.of(context).colorScheme);
     return DecoratedBox(
+      key: const Key('embedded-viewer-expand'),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
+        color: colors.background,
         shape: BoxShape.circle,
       ),
       child: IconButton(
         icon: const Icon(Icons.open_in_full, size: 18),
-        color: Colors.white,
+        color: colors.foreground,
         tooltip: tooltip,
         onPressed: onPressed,
       ),

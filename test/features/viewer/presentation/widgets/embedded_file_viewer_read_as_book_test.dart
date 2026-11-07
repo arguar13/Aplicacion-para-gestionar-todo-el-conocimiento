@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
+import 'package:sinapsis/core/design/overlay_control_colors.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -129,9 +130,11 @@ void main() {
   ) async {
     await pump(tester, viewer: document);
 
+    // Semitransparente, pero no tanto que deje de leerse sobre una página
+    // blanca (F46, paso 5i): ver `embedded_viewer_frame_contrast_test.dart`.
     final alpha = tester.widget<Material>(bookButton).color!.a;
-    expect(alpha, greaterThan(0));
-    expect(alpha, lessThan(0.6));
+    expect(alpha, greaterThanOrEqualTo(0.5));
+    expect(alpha, lessThan(1));
   });
 
   testWidgets('tocarlo abre el documento a pantalla completa, como libro', (
@@ -245,9 +248,11 @@ void main() {
         final pill = tester.getRect(bookButton);
         expect(frame.contains(pill.topLeft), isTrue);
         expect(frame.contains(pill.bottomRight), isTrue);
-        // El texto blanco sobre el fondo oscuro, también en el tema oscuro.
+        // La letra de un control que flota encima del original, del tema
+        // (F46, paso 5i).
         final text = tester.widget<Text>(find.text(es.f45S3Enlarge));
-        expect(text.style?.color, Colors.white);
+        final scheme = Theme.of(tester.element(bookButton)).colorScheme;
+        expect(text.style?.color, OverlayControlColors.of(scheme).foreground);
       });
     }
   });
