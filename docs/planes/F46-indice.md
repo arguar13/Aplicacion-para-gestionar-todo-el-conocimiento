@@ -1882,3 +1882,179 @@ repositorio), las del Índice y el informe pasan. Después de rebasar, `test/fea
 - sin voz elegida, el reproductor, «Lee ahora» de la biblioteca y de Ajustes y la tarjeta de lo
   que suena, con el mismo nombre y la misma cara que la tarjeta de la lista;
 - «Voces descargadas» vacía, con su botón.
+
+### Paso 5h (hecho): lo de la pantalla que se colaba, «atrás», el separador y la cuenta del vacío
+
+**Qué se vio** (emulador):
+
+- **J.** En *Platón*, el recuadro de la ficha decía «Ἀριστοκλῆς Ver y modificar los datos en
+  Wikidata», y así cada dato de la ficha; debajo, el cuadro «Escucha este artículo».
+- **L.** Desde Estudiar › Línea de tiempo, y desde Estudiar › Índice, cada una la entrada de su
+  rama, «atrás» minimizaba la app.
+- **M.** El separador «Lo creado» de Repasar estaba corrido: la línea de la izquierda iba de x=34 a
+  x=200 y la de la derecha de 393 a 558, cuando tenía que llegar al borde.
+- **N.** Con el recorte «Todo lo procesado · 14 documentos · 0 tarjetas», la franja decía «58
+  elementos todavía no tienen tarjetas».
+
+**Las causas, confirmadas:**
+
+- **J**: el extractor (`reader_mode_article_extractor.dart`) solo sacaba el `[editar]`
+  (`.mw-editsection`). Readability deja lo que está dentro del artículo, y la ficha lo está. El lápiz
+  es una imagen con ese texto alternativo dentro de un `.noprint`, la clase de MediaWiki para lo que
+  no se imprime. Medido sobre las once páginas guardadas (Platón, Sócrates, Tomás de Aquino, Agustín
+  de Hipona, Benito de Nursia, Agujero negro, Fotosíntesis, Edad Media, Imperio romano, Revolución
+  francesa, Primer Concilio de Nicea): también se colaban el «[editar datos en Wikidata]» al pie de
+  la ficha (en diez), el cuadro «Escucha este artículo» (Platón, Sócrates, Revolución francesa), el
+  aviso «necesita más referencias» (Sócrates), un «Para otros usos…» (Fotosíntesis) y viñetas
+  vacías de `.mw-empty-elt` (Sócrates). Los «Artículo principal: …», «Control de autoridades» y
+  «Obtenido de» ya los sacaba Readability, pero solo porque el artículo es largo: por debajo de 500
+  caracteres no limpia nada.
+- **L**: en la entrada de una rama, ni la rama ni el navegador principal tenían nada que cerrar, y
+  go_router le pasaba el gesto al sistema (`popRoute` da `false`, y Flutter llama a
+  `SystemNavigator.pop`). Lo que se le avisaba a Android (`setFrameworkHandlesBack(false)`) era
+  coherente con eso, así que el gesto ni llegaba a la app.
+- **M**: `_CreatedHeader` armaba `Row[Expanded(línea), Flexible(flex: 3, suelto)(texto),
+  Expanded(línea)]`. El `Flexible` suelto se queda con lo que mide el texto, pero lo que le sobra de
+  sus tres quintos no vuelve a las líneas: queda vacío al final de la fila.
+- **N**: `ReviewEmptyState` contaba con `itemsWithoutCardsCountProvider`, toda la Biblioteca —notas
+  y fuentes incluidas—, y su botón «Crear tarjetas con IA» abría la hoja sobre `repasarScopeProvider`.
+  Además, la sesión vacía (`ReviewScreen`) contaba la Biblioteca y abría la hoja sobre lo elegido en
+  Repasar, aunque la sesión fuera de otro recorte.
+
+**Los arreglos:**
+
+- **J (`511cf5d0`): lo que la página marca como de la pantalla no entra al texto.** Antes de leer se
+  sacan, por su marca y no por su texto, las clases que MediaWiki reserva para lo que no es el
+  artículo: `.noprint`, `.navbox`, `.metadata`, `.mbox-small`, `.sistersitebox`, `.mw-jump-link`,
+  `.printfooter` y `.mw-empty-elt`, además de `.mw-editsection`. Lo de una cita se queda (`cite`,
+  `.citation`, `.references`): la plantilla «cite arxiv» marca como `.noprint` el número del trabajo
+  («arXiv:1403.2371 [math-ph]», nota 23 de Agujero negro), y sin él la cita no lleva a ningún lado.
+  Las llamadas a notas (`.reference`) no se tocan: el lector las vuelve «[n. 1]». Antes y después
+  sobre las once páginas, renglón por renglón: solo se va lo de la pantalla, Edad Media queda igual
+  y ningún renglón del artículo se pierde. El recorte de la prueba
+  (`test/fixtures/web/wikipedia_platon_recorte.html`) sale de la página real con el parser de la
+  app: el aviso de arriba, la ficha entera, el cuadro del audio, la introducción, el capítulo
+  «Obra», la caja «Control de autoridades» y el «Obtenido de», sin los atributos internos de
+  MediaWiki.
+- **L (`51fe82e3`): «atrás» en la entrada de una pestaña que no es la Biblioteca lleva a la
+  Biblioteca.** `BackToLibrary` (`lib/app/router/back_navigation.dart`) envuelve el shell
+  (`AdaptiveScaffold`, en el celular y en el riel) en un `PopScope` de la ruta del shell: fuera de
+  la rama `ShellBranch.library` la ruta no deja que la saquen y, cuando lo intentan, va a la
+  Biblioteca con lo que tenía abierto (`goBranch`, sin volver a su entrada). **La regla es por rama,
+  no por botón de la barra**: cada destino de un paso con varios —la Bandeja y el Atlas;
+  Procesado, el Índice, Cuadernos, la Línea de tiempo, el Mapa y Repasar— es la entrada de su rama.
+  Lo de arriba se cierra antes, como siempre: go_router le da «atrás» primero a la pila de la rama
+  —una pantalla, una hoja de abajo abierta en la pestaña— y el navegador principal saca lo que
+  tiene encima del shell —un diálogo, una pantalla sin barra— antes de preguntarle a su ruta. Lo
+  que se le avisa a Android sale del mismo `PopScope`: con la ruta que no deja sacarla, el
+  navegador principal avisa «lo maneja la app» aunque la rama acabe de avisar que no
+  (`_getNavigatorCanHandlePop` de Flutter mira `RoutePopDisposition.doNotPop`), y `reportBackHandling`
+  —el aviso con todos los navegadores de HyperOS / Android 16— lo deja pasar sin cambios. En la
+  Biblioteca sin nada abierto el aviso es «no», así el sistema hace su gesto atrás predictivo de
+  salir.
+- **M (`a36ad9a1`): un separador común con el nombre en el medio.** `LabeledDivider`
+  (`lib/core/design/widgets/labeled_divider.dart`): dos líneas `Expanded` iguales y el nombre entre
+  ellas con lo que mide, a 12 de cada una; como mucho el 60 % del ancho (`LayoutBuilder`), en
+  renglones centrados. Lo usan «Lo creado» de Repasar y el «o» de Capturar, los dos únicos
+  separadores con texto de la app (buscado con `grep` por `Divider` dentro de una fila).
+- **N (`984829cb`): el vacío cuenta los documentos del recorte que se estudia.** Los mismos a los que
+  «Crear tarjetas con IA» —la hoja de «Tarjetas didácticas» sobre ese recorte, «Para cada
+  documento»— se las pediría, con la misma regla (`FlashcardCoverageReader`):
+  `CreationScopeResolver.watchWithoutCards` resuelve el recorte y lo cuenta al día con
+  `withoutCardsCountOf`, una sola consulta aunque sean diez mil (los ids viajan como un JSON). Una
+  tarjeta de la fuente no saca al documento de la cuenta —las tarjetas salen de lo procesado, F41—,
+  y un recorte que ya no existe no tiene ninguno. `ReviewEmptyState` recibe el recorte que se
+  estudia: la franja «Para hoy» le da el de Repasar, la sesión vacía el suyo, y el botón abre la
+  hoja sobre ese mismo. Un recorte de estudio de antes —un espacio, un valor, un cuaderno o un
+  elemento, que solo llega por una dirección vieja— no es uno de lo creado
+  (`CreationScope.ofStudyScope` da `null`): no cuenta nada ni ofrece crear. El texto dice
+  «documentos» y la ayuda «desde cada documento» (`f46P5hWithoutCards`, `f46P5hWithoutCardsHint`,
+  agregados al final de los `.arb`). Se borran `itemsWithoutCardsCountProvider` y
+  `watchWithoutCardsCount`, que no usaba nadie más. Revisado: la forma `compact` y la grande
+  cuentan lo mismo; de `_reasons`, la espera del cargador sigue diciendo cuántos esperan en la cola
+  de la IA, que es de toda la bóveda y no de un recorte, y el resto no cuenta nada.
+
+**Decisiones:**
+
+- **J**: se sacan las clases de la familia que no aparecen en ninguna de las once páginas
+  (`.metadata`, `.mbox-small`, `.sistersitebox`) porque son las que MediaWiki usa para los avisos y
+  las cajas de proyectos hermanos, y también las que Readability ya sacaba en un artículo largo
+  (`.navbox`, `.printfooter`), para que no dependa de su limpieza: en uno corto no limpia nada.
+  `.reference` no entra: es del artículo.
+- **L**: la regla vive en `back_navigation.dart`, al lado del aviso a Android, y la aplica el shell;
+  no hizo falta tocar `reportBackHandling` ni `app_router.dart`.
+- **N**: la cuenta es del recorte y no de la sesión de estudio, porque es la que tiene un botón que
+  la resuelve. Los textos viejos (`reviewEmptyWithoutCards` y su ayuda) quedan sin usar en los
+  `.arb`: solo se agregan textos al final.
+
+**Pruebas** (todas con fakes; `--concurrency=2`, solo las carpetas tocadas):
+
+- **J**, 15 nuevas en `reader_mode_article_extractor_test.dart`: con el recorte de Platón, el lápiz
+  se va de cada dato y el dato queda solo; no quedan el audio, los avisos que llevan a otra
+  página ni las cajas del pie; la ficha, el texto, «## Obra» y la llamada «[n. 1]» quedan. En un
+  artículo corto, cada clase se va por su marca (siete), lo vacío no deja una viñeta vacía, y lo
+  marcado como de la pantalla dentro de una cita queda: en la lista de notas, en una cita fuera de
+  ella, en un `<cite>` y en una nota sin cita. La tanda de `test/features/transform` y de quien usa
+  los recortes de Wikipedia (el índice, el texto llano, «Explicar»): 867 pruebas, todas pasan.
+- **L**, 9 nuevas. En `back_navigation_test.dart`, con un shell envuelto como en la app: desde la
+  entrada de la Bandeja y de la Línea de tiempo, «atrás» va a la Biblioteca sin salir, y Android
+  sabe que es de la app; desde la Biblioteca sin nada encima, sale; dentro de la pila de una
+  pestaña vuelve a la pantalla de antes —con el aviso en «sí» aunque la pila avisó que no— y
+  después a la Biblioteca; con un diálogo o una hoja de abajo abiertos, primero los cierra; la
+  Biblioteca vuelve con lo que tenía abierto y desde ahí lo cierra antes de salir. En
+  `adaptive_scaffold_test.dart`, con el router de verdad, en el celular y en el riel: desde la
+  entrada de cada una de las diez ramas que no son la Biblioteca —también el Índice y la Línea de
+  tiempo—, «atrás» lleva a la Biblioteca. La tanda de `test/app/router` y `test/app/navigation`:
+  97 pruebas.
+- **M**, 11 nuevas: en `labeled_divider_test.dart`, las dos líneas miden lo mismo y llegan a los
+  bordes con un nombre corto, uno largo, la letra al doble y las dos cosas; el largo ocupa como
+  mucho el 60 % y va en renglones centrados; el corto queda a 12 de cada línea; la letra y el color
+  de siempre, o los elegidos. En Repasar, «Lo creado» centrado, con la letra normal y al doble; en
+  Capturar, el «o» del video centrado.
+- **N**, 13 nuevas y 5 que cambian. En `flashcard_coverage_reader_impl_test.dart`, la cuenta de
+  unos documentos es la de `withoutCards`, solo de esos, sin repetir, con cero si no hay, con diez
+  mil en una consulta, y una tarjeta nueva lo saca; la del procesado sin texto pasa a contarse
+  cuando llega su parte. En `creation_scope_resolver_impl_test.dart`, con diez en la Biblioteca y un
+  cuaderno de dos, el cuaderno dice 2, «Todo» 3 y un documento 1; al día con una tarjeta propia, no
+  con una de la fuente; un recorte que no existe o sin documentos, 0. En
+  `review_entry_screen_test.dart`, **con un recorte de dos sin tarjetas y una Biblioteca de diez,
+  dice dos**; «Todo lo procesado» cuenta sus documentos; el botón abre la hoja con esas dos fuentes;
+  una tarjeta fuera del recorte no cambia nada; la sesión vacía de un recorte cuenta ese recorte, y
+  la de uno de antes no cuenta ni ofrece crear. Cambian las de `review_ai_flashcards_test.dart`
+  (siembran documentos procesados en vez de notas) y la del vacío de la franja; los dobles de la
+  cobertura de los cuadernos y el armado del resolvedor suman lo nuevo. La tanda de
+  `test/features/flashcards`, `test/features/creations/data`, el selector de recortes y
+  `test/features/notebooks/presentation`: 988 pruebas.
+
+**Mutaciones** (`tool/mutar.py`): 46 de 46 muertas. **J** (15): sin cada una de las nueve clases; la
+excepción de las citas sin `cite`, sin `.citation`, sin `.references` o sin ella; y `_isInside`
+siempre sí o siempre no. **L** (7): la ruta del shell se puede sacar siempre o nunca; no va a la
+Biblioteca; va con el gesto al revés; va a la entrada de la rama en la que está; va a la entrada de
+la Biblioteca, perdiendo lo abierto; y el shell sin la regla. **M** (8): el texto en el `Flexible`
+suelto de antes; sin tope de ancho; sin centrar los renglones; sin el aire; otra letra, otro color
+de letra, sin la letra elegida y otro color de línea. **N** (16): la cuenta de los que ya tienen,
+de toda la Biblioteca, de lo elegible con o sin tarjetas o sin mirar si puede tenerlas; uno sin
+ninguno; el recorte sin sus documentos; «Todo» que no es «Todo lo procesado», el de lo procesado que
+no se reconoce y el de antes que cuenta todo; crear sobre todo; la sesión o la franja que cuentan
+todo; y los textos viejos, en la franja y en la sesión. Equivalentes, no se mutaron: la salida
+temprana de `withoutCardsCountOf` sin ids (con `[]`, `json_each` no da filas y la consulta da 0: es
+para no consultar), y la lista explícita de clases de `StudyScopeKind` que dan `null` (con `_`
+daría lo mismo; va escrita para que una clase nueva obligue a decidir).
+
+**Sobre `main`**: el trabajo salió de `7c161061` (el 5g) y se rebasó sobre `1c663822` (el 5f) antes
+del segundo commit; sin choques.
+
+**Analizador**: 19 avisos en cada commit, la línea base.
+
+**Para el dueño (consulta, con la de los textos de antes de `296a1857`):** los textos de Wikipedia
+ya guardados no cambian —siguen con el lápiz de Wikidata y el resto— porque volver a extraerlos
+pasa por `reextraction.dart`, que no se toca. Queda para la misma decisión (a) o (b) que esos
+textos.
+
+**Queda para mirar en el emulador** (con una APK nueva): guardar de nuevo *Platón* (con «Guardar
+aparte») y ver la ficha sin «Ver y modificar los datos en Wikidata», sin «Escucha este artículo»,
+con las llamadas a notas; «atrás» desde la entrada de cada destino de Organizar y Estudiar —sobre
+todo el Índice y la Línea de tiempo—, del Chat y de Ajustes, que va a la Biblioteca, y desde la
+Biblioteca, que sale con el gesto predictivo; «atrás» con una hoja de abajo o un diálogo abiertos
+en una pestaña; «Lo creado» centrado con la letra normal y al doble; el «o» de Capturar › Video; y
+Repasar vacío con «Todo lo procesado» y con un cuaderno, que dice los documentos de cada uno.
