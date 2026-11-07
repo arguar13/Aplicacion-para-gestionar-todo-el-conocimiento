@@ -7331,6 +7331,15 @@ decisión 93.
     borró;
   - la sonda del borde (`TopEdgeProbe`) mide también al acomodarse: un aviso llega transparente y
     ya ocupa su lugar antes de dibujarse.
+- **Un separador con su nombre en el medio** (F46, paso 5h, `labeled_divider.dart`):
+  `LabeledDivider`, dos líneas `Expanded` iguales y el nombre entre ellas, como mucho el 60 % del
+  ancho y en renglones centrados. Lo usan «Lo creado» de Repasar y el «o» de Capturar; antes cada
+  uno armaba su fila, y la de Repasar, con el texto en un `Flexible` suelto, quedaba corrida.
+- **«Atrás» en la entrada de una pestaña va a la Biblioteca** (F46, paso 5h, `BackToLibrary` en
+  `back_navigation.dart`): un `PopScope` en la ruta del shell, que fuera de la rama
+  `ShellBranch.library` no deja sacarla y va a la Biblioteca. La regla es por rama, no por botón de
+  la barra. Lo de encima se cierra antes, y el aviso a Android sale del mismo `PopScope`, junto con
+  `reportBackHandling`.
 - **Triar con la IA de turno, comprobada palabra por palabra** (paso 2, decisión B, elegida por el
   dueño). Al elegir «Texto extraído», la IA lo **ordena** —une columnas, saca encabezados y pies
   repetidos, arregla los cortes, marca los títulos— sobre la extracción de siempre:

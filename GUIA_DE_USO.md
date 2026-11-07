@@ -120,6 +120,14 @@ En la computadora se ven las once pantallas juntas en el costado, en el mismo
 orden y sin listas: Biblioteca; Bandeja y Atlas; Procesado, Índice, Cuadernos,
 Línea de tiempo, Mapa y Repasar; Chat; y Ajustes.
 
+**«Atrás» te lleva a la Biblioteca antes de salir.** En la pantalla de
+entrada de cualquier destino que no sea la Biblioteca —la Bandeja, el Atlas,
+el Índice, la Línea de tiempo, Repasar, el Chat, Ajustes…—, el botón o el
+gesto «atrás» te lleva a la **Biblioteca**, como la dejaste; recién desde la
+Biblioteca sale de la app. Si hay algo abierto encima —una pantalla de ese
+destino, una hoja de abajo, un diálogo—, «atrás» primero lo cierra, como
+siempre. Vale igual en una tablet, con los destinos al costado.
+
 Vas a ver estos nombres una y otra vez en esta guía; cada uno tiene su propia
 sección más abajo.
 
@@ -2689,6 +2697,18 @@ de *Imperio romano* tenía 7 capítulos de 57—, y también los que dicen
 «Media» o «social» (en *Edad Media*, 8 de 61). Una página que guardaste antes
 de este cambio conserva su texto como se guardó, sin esos títulos: si volvés
 a guardar el enlace (con **"Guardar aparte"**), la nueva llega con todos.
+
+**Sin lo que es solo de la pantalla.** De una página de Wikipedia no entra al
+texto lo que la página marca como de la pantalla: el lápiz **"Ver y modificar
+los datos en Wikidata"** que acompañaba cada dato del cuadro de datos (en
+*Platón* se leía «Ἀριστοκλῆς Ver y modificar los datos en Wikidata») y su
+**"[editar datos en Wikidata]"** al pie, el cuadro **"Escucha este
+artículo"**, los avisos de mantenimiento («necesita más referencias»), los
+**"Para otros usos de este término…"** y **"Artículo principal: …"**, las
+cajas del pie como **"Control de autoridades"** y el **"Obtenido de"**. Lo de
+una referencia se queda entero —el número de arXiv de una cita, por
+ejemplo—, igual que las llamadas a notas. Una página que guardaste antes
+conserva su texto como se guardó.
 
 **Cómo llegar:** ítem **"Índice"** en la navegación (el ícono de la lista
 numerada). En el celular, en **"Estudiar"**, justo debajo de **Procesado**.
@@ -5317,9 +5337,14 @@ Si mientras tanto estás usando el chat, la IA te deja pasar primero.
 ### Cuando Repasar está vacío
 
 Toda tarjeta nueva está lista para repasar ese mismo día: si Repasar está
-vacío es porque no hay tarjetas pendientes. Si hay elementos con texto que
-todavía no tienen tarjetas, Repasar te dice **cuántos** y **por qué** la IA
-no las hizo sola —falta bajar el modelo de lenguaje o el de vínculos (con
+vacío es porque no hay tarjetas pendientes. Si hay documentos de **lo que
+tenés elegido arriba** —«Todo lo procesado», un documento, un cuaderno o un
+tema— que podrían tener tarjetas y todavía no tienen ninguna, Repasar te dice
+**cuántos** (*"2 documentos todavía no tienen tarjetas"*: los mismos a los
+que «Crear tarjetas con IA» se las pediría; las notas y las fuentes de la
+Biblioteca no cuentan, porque las tarjetas salen de lo procesado) y **por
+qué** la IA no las hizo sola —falta bajar el modelo de lenguaje o el de
+vínculos (con
 **"Bajarlo"**), falta la clave de Gemini (con **"Cargar una clave"**), la IA
 espera que vuelva la cuota o la conexión (con **"Cuentas y cuota"** cuando
 hay algo que ver), la IA está en pausa (con **"Reanudar la IA"**), o la
