@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/navigation/nav_destinations.dart';
 import 'package:sinapsis/app/navigation/navigation_bar_scope.dart';
+import 'package:sinapsis/app/router/back_navigation.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/study_day_watcher.dart';
@@ -74,36 +75,58 @@ class AdaptiveScaffold extends ConsumerWidget {
 
     final wide = MediaQuery.sizeOf(context).width >= kNavRailBreakpoint;
 
-    if (wide) {
-      return Scaffold(
-        body: Row(
-          children: [
-            NavigationRail(
-              selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
-              onDestinationSelected: onSelect,
-              labelType: NavigationRailLabelType.all,
-              // Diez destinos con su nombre (F41) no entran en una ventana
-              // baja, ni con la letra al doble: el riel se desplaza en vez de
-              // desbordar.
-              scrollable: true,
-              destinations: [
-                for (final d in destinations)
-                  NavigationRailDestination(
-                    icon: d.icon,
-                    selectedIcon: d.selectedIcon,
-                    label: Text(d.label),
-                  ),
-              ],
-            ),
-            const VerticalDivider(width: 1),
-            Expanded(child: StudyDayWatcher(child: navigationShell)),
-          ],
-        ),
-      );
-    }
+    // «Atrás» en la entrada de una pestaña que no es la Biblioteca lleva a la
+    // Biblioteca, en el celular y en el riel (F46, paso 5h).
+    return BackToLibrary(
+      navigationShell: navigationShell,
+      child: wide
+          ? _rail(selectedIndex, destinations, onSelect)
+          : _bar(context, l10n, destinations, goToBranch),
+    );
+  }
 
-    // En el celular: un botón por paso, en orden de uso (F34). Un paso con
-    // varios destinos abre su lista; con uno solo, lo abre directo.
+  /// El riel al costado, en una ventana ancha.
+  Widget _rail(
+    int selectedIndex,
+    List<NavDestinationSpec> destinations,
+    void Function(int visibleIndex) onSelect,
+  ) {
+    return Scaffold(
+      body: Row(
+        children: [
+          NavigationRail(
+            selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+            onDestinationSelected: onSelect,
+            labelType: NavigationRailLabelType.all,
+            // Diez destinos con su nombre (F41) no entran en una ventana
+            // baja, ni con la letra al doble: el riel se desplaza en vez de
+            // desbordar.
+            scrollable: true,
+            destinations: [
+              for (final d in destinations)
+                NavigationRailDestination(
+                  icon: d.icon,
+                  selectedIcon: d.selectedIcon,
+                  label: Text(d.label),
+                ),
+            ],
+          ),
+          const VerticalDivider(width: 1),
+          Expanded(child: StudyDayWatcher(child: navigationShell)),
+        ],
+      ),
+    );
+  }
+
+  /// La barra de abajo, en el celular: un botón por paso, en orden de uso
+  /// (F34). Un paso con varios destinos abre su lista; con uno solo, lo abre
+  /// directo.
+  Widget _bar(
+    BuildContext context,
+    AppLocalizations l10n,
+    List<NavDestinationSpec> destinations,
+    void Function(int branchIndex) goToBranch,
+  ) {
     final groups = buildNavStepGroups(l10n: l10n, destinations: destinations);
     final current = navigationShell.currentIndex;
     final groupIndex = groups.indexWhere((g) => g.contains(current));

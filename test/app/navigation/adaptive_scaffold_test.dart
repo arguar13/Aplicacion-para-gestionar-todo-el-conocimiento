@@ -9,6 +9,7 @@ import 'package:sinapsis/app/navigation/adaptive_scaffold.dart';
 import 'package:sinapsis/app/navigation/nav_destinations.dart';
 import 'package:sinapsis/app/navigation/navigation_bar_scope.dart';
 import 'package:sinapsis/app/router/app_router.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/database/app_database.dart';
@@ -956,6 +957,53 @@ void main() {
         lessThanOrEqualTo(tester.getRect(player).top),
       );
     });
+  });
+
+  group('«atrás» en la entrada de una pestaña lleva a la Biblioteca (F46, '
+      'paso 5h)', () {
+    // Cada destino que no es la Biblioteca, por su dirección: la entrada de
+    // su rama. La regla sola la prueba `back_navigation_test.dart`.
+    const entries = [
+      RoutePaths.inbox,
+      RoutePaths.atlas,
+      RoutePaths.processed,
+      RoutePaths.index,
+      RoutePaths.notebooks,
+      RoutePaths.timeline,
+      RoutePaths.graph,
+      RoutePaths.review,
+      RoutePaths.chat,
+      RoutePaths.settings,
+    ];
+
+    for (final (layout, width) in [
+      ('el celular', 400.0),
+      ('el riel', 1200.0),
+    ]) {
+      testWidgets('con $layout, desde cada una', (tester) async {
+        setLogicalWidth(tester, width);
+        final container = buildUnlockedContainer();
+        await tester.pumpWidget(buildRoutedApp(container));
+        await tester.pumpAndSettle();
+        final router = container.read(goRouterProvider);
+
+        for (final entry in entries) {
+          router.go(entry);
+          await tester.pumpAndSettle();
+          expect(find.byType(LibraryScreen), findsNothing, reason: entry);
+
+          await tester.binding.handlePopRoute();
+          await tester.pumpAndSettle();
+
+          expect(find.byType(LibraryScreen), findsOneWidget, reason: entry);
+          expect(
+            router.routerDelegate.currentConfiguration.uri.path,
+            RoutePaths.library,
+            reason: entry,
+          );
+        }
+      });
+    }
   });
 }
 
