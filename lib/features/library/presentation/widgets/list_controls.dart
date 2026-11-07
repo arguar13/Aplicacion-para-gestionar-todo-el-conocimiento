@@ -11,6 +11,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/search_field.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La búsqueda, con el botón de filtros al lado y no en una fila propia, y el
@@ -44,9 +45,8 @@ class ListSearchRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: TextField(
+            child: SearchField(
               onChanged: onChanged,
-              textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: hintText,
                 prefixIcon: const Icon(Icons.search),

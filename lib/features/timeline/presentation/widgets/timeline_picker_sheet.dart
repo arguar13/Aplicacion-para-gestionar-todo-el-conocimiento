@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/search_field.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -183,9 +184,8 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: TextField(
+                child: SearchField(
                   controller: _searchController,
-                  textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
                     hintText: _topics
                         ? l10n.timelineTopicSearchHint

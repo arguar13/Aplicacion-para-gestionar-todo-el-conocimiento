@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/search_field.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
@@ -79,11 +80,10 @@ class _MapFilterSheetState extends ConsumerState<_MapFilterSheet> {
               ],
             ),
             const SizedBox(height: 12),
-            TextField(
+            SearchField(
               key: const ValueKey('map-filter-search'),
               controller: _search,
               onChanged: notifier.search,
-              textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: l10n.mapFilterSearchHint,
                 prefixIcon: const Icon(Icons.search),

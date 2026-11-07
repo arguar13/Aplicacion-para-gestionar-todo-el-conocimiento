@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/search_field.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -125,9 +126,8 @@ class _SpacesPickerSheetState extends ConsumerState<_SpacesPickerSheet> {
               if (spaces.length >= _searchFromCount)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: TextField(
+                  child: SearchField(
                     controller: _searchController,
-                    textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
                       hintText: l10n.spacesSearchHint,
                       prefixIcon: const Icon(Icons.search),
@@ -262,14 +262,13 @@ class _SpacesPickerSheetState extends ConsumerState<_SpacesPickerSheet> {
 
     setState(() {
       _creating = false;
-      result.match(
-        (failure) => _createError = failure.localizedMessage(l10n),
-        (space) {
-          _created[space.id] = space;
-          _selected.add(space.id);
-          _searchController.clear();
-        },
-      );
+      result.match((failure) => _createError = failure.localizedMessage(l10n), (
+        space,
+      ) {
+        _created[space.id] = space;
+        _selected.add(space.id);
+        _searchController.clear();
+      });
     });
   }
 }

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
+import 'package:sinapsis/core/design/widgets/search_field.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/index/domain/entities/index_tree.dart';
@@ -157,13 +158,12 @@ class _IndexBrowserState extends ConsumerState<_IndexBrowser> {
                   bindings: {
                     const SingleActivator(LogicalKeyboardKey.escape): _clear,
                   },
-                  child: TextField(
+                  child: SearchField(
                     key: const Key('index-search'),
                     controller: _search,
                     focusNode: _searchFocus,
                     onChanged: _typed,
                     onSubmitted: _searchNow,
-                    textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
                       hintText: l10n.f46P3SearchHint,
                       prefixIcon: const Icon(Icons.search),

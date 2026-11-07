@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/design/widgets/search_field.dart';
 import 'package:sinapsis/core/domain/entities/card_phase.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
@@ -159,7 +160,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('4 tarjetas'), findsOneWidget);
-      final field = tester.widget<TextField>(
+      final field = tester.widget<SearchField>(
         find.byKey(const Key('my-cards-search')),
       );
       expect(field.controller!.text, isEmpty);

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/search_field.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
@@ -437,11 +438,10 @@ class _SearchField extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: controller,
-      builder: (context, value, _) => TextField(
+      builder: (context, value, _) => SearchField(
         key: const Key('chat-panel-search'),
         controller: controller,
         onChanged: onChanged,
-        textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: l10n.chatPanelSearchHint,
           prefixIcon: const Icon(Icons.search_rounded),

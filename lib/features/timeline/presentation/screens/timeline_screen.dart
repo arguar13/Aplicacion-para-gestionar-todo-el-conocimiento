@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
+import 'package:sinapsis/core/design/widgets/search_field.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/organize/presentation/open_organized_item.dart';
 import 'package:sinapsis/features/timeline/domain/entities/dated_event_seed.dart';
@@ -222,10 +223,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: TextField(
+            child: SearchField(
               controller: _searchController,
               onChanged: _onSearchChanged,
-              textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: l10n.timelineSearchHint,
                 prefixIcon: const Icon(Icons.search),

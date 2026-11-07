@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
+import 'package:sinapsis/core/design/widgets/search_field.dart';
 import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
@@ -206,11 +207,10 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: TextField(
+            child: SearchField(
               key: const ValueKey('atlas-search'),
               controller: _searchController,
               onChanged: (_) => setState(() {}),
-              textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: l10n.atlasSearchHint(topicSelectKind(selected)),
                 prefixIcon: const Icon(Icons.search),

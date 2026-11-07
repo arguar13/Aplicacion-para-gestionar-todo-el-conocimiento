@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/search_field.dart';
 import 'package:sinapsis/features/help/presentation/help_document.dart';
 import 'package:sinapsis/features/help/presentation/providers/help_providers.dart';
 import 'package:sinapsis/features/help/presentation/widgets/help_block_view.dart';
@@ -216,11 +217,10 @@ class _GuideViewState extends State<_GuideView> {
     final entries = <Widget>[
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        child: TextField(
+        child: SearchField(
           key: const Key('guide-search-field'),
           controller: _query,
           onChanged: _search,
-          textInputAction: TextInputAction.search,
           decoration: InputDecoration(
             hintText: l10n.f47P7GuideSearchHint,
             prefixIcon: const Icon(Icons.search),
