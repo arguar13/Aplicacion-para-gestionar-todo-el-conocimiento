@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/labeled_divider.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/presentation/providers/repasar_providers.dart';
@@ -245,6 +246,41 @@ void main() {
         expect(rect.right, lessThanOrEqualTo(strip.right));
       }
     });
+  });
+
+  // Visto en el emulador: la línea izquierda de «Lo creado» iba de x=34 a
+  // x=200 y la derecha de 393 a 558, cuando tenía que llegar al borde.
+  group('«Lo creado», en el medio (F46, paso 5h)', () {
+    for (final (name, scale) in [('', 1.0), (', con la letra al doble', 2.0)]) {
+      testWidgets('las dos líneas miden lo mismo y llegan a los bordes$name', (
+        tester,
+      ) async {
+        await harness.openRepasar(
+          tester,
+          size: const Size(420, 2400),
+          textScale: scale,
+        );
+
+        final header = find.byKey(const Key('review-entry-created-header'));
+        await tester.ensureVisible(header);
+        await tester.pumpAndSettle();
+        expect(tester.widget(header), isA<LabeledDivider>());
+        final lines = find.descendant(
+          of: header,
+          matching: find.byType(Divider),
+        );
+        final left = tester.getRect(lines.at(0));
+        final right = tester.getRect(lines.at(1));
+        final row = tester.getRect(header);
+        expect(left.width, moreOrLessEquals(right.width));
+        expect(left.left, row.left);
+        expect(right.right, row.right);
+        expect(
+          tester.getRect(find.text(es.f43StudioCreatedTitle)).center.dx,
+          moreOrLessEquals(row.center.dx),
+        );
+      });
+    }
   });
 
   group('el selector: todo sale de Procesado', () {

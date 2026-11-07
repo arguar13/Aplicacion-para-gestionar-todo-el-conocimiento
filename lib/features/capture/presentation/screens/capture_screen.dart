@@ -11,6 +11,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/thumbnail_decode.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
 import 'package:sinapsis/core/design/widgets/custom_text_field.dart';
+import 'package:sinapsis/core/design/widgets/labeled_divider.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
@@ -809,20 +810,9 @@ class _CaptureForm extends StatelessWidget {
           // idea ("un video"), solo cambia de dónde sale.
           if (kind == _CaptureKind.video) ...[
             const SizedBox(height: 16),
-            Row(
-              children: [
-                const Expanded(child: Divider()),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    l10n.captureOrDivider,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                const Expanded(child: Divider()),
-              ],
+            LabeledDivider(
+              key: const Key('capture-or-divider'),
+              label: l10n.captureOrDivider,
             ),
             const SizedBox(height: 16),
             if (file == null)

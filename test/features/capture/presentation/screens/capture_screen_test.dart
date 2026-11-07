@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/design/widgets/labeled_divider.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -157,6 +158,26 @@ void main() {
         expect(find.text(es.captureChooseVideoFileAction), findsOneWidget);
       },
     );
+
+    testWidgets('el «o» entre el enlace y el video del dispositivo va en el '
+        'medio, con las dos líneas iguales (F46, paso 5h)', (tester) async {
+      await pumpCapture(tester);
+      await selectType(tester, es.captureTypeVideo);
+
+      final divider = find.byKey(const Key('capture-or-divider'));
+      expect(tester.widget(divider), isA<LabeledDivider>());
+      final lines = find.descendant(
+        of: divider,
+        matching: find.byType(Divider),
+      );
+      final left = tester.getRect(lines.at(0));
+      final right = tester.getRect(lines.at(1));
+      expect(left.width, moreOrLessEquals(right.width));
+      expect(
+        tester.getRect(find.text(es.captureOrDivider)).center.dx,
+        moreOrLessEquals(tester.getRect(divider).center.dx),
+      );
+    });
 
     testWidgets(
       'elegir un video del dispositivo en el paso "Video" lo deja elegido, '

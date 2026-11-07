@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/app_snack_bar.dart';
+import 'package:sinapsis/core/design/widgets/labeled_divider.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/creations/domain/entities/creation_scope.dart';
 import 'package:sinapsis/features/creations/presentation/providers/creations_providers.dart';
@@ -242,7 +243,8 @@ class _ReviewEntryScreenState extends ConsumerState<ReviewEntryScreen> {
   }
 }
 
-/// «─── Lo creado ───», como en la captura.
+/// «─── Lo creado ───», como en la captura: centrado, con las dos líneas
+/// iguales (`LabeledDivider`, F46, paso 5h).
 class _CreatedHeader extends StatelessWidget {
   const _CreatedHeader({required this.title});
 
@@ -251,30 +253,15 @@ class _CreatedHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final line = Expanded(
-      child: Divider(color: theme.colorScheme.outlineVariant),
-    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          line,
-          Flexible(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                title,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          line,
-        ],
+      child: LabeledDivider(
+        key: const Key('review-entry-created-header'),
+        label: title,
+        style: theme.textTheme.titleSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
